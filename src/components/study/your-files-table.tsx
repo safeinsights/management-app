@@ -7,7 +7,7 @@ import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -118,7 +118,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" fw={fontWeight.semibold} tt="none" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey.9" style={{ cursor: 'default' }}>
                     Template
                 </Badge>
             </HoverCard.Target>

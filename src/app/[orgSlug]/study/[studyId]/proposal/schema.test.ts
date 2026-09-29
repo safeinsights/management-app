@@ -372,9 +372,11 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
     })
 
     describe('empty-field messages', () => {
-        it('names the dataset field', () => {
+        // Neither page renders the datasets, so an empty list must not block submit (OTTER-803).
+        it('does not require datasets, which Step 1 owns', () => {
             const result = draftProposalFormSchema.safeParse({ ...validProposalData, datasets: [] })
-            expect(messagesFor(result, 'datasets')).toContain(DRAFT_REQUIRED_ERRORS.datasets)
+            expect(messagesFor(result, 'datasets')).toEqual([])
+            expect(result.success).toBe(true)
         })
 
         it('names each empty rich-text field', () => {
@@ -506,8 +508,8 @@ describe('proposalFormSchema counts characters (OTTER-737)', () => {
     })
 
     it('keeps its generic required message rather than the Step 2 wording', () => {
-        const result = proposalFormSchema.safeParse({ ...validProposalData, datasets: [] })
+        const result = proposalFormSchema.safeParse({ ...validProposalData, piName: '' })
         const messages = result.success ? [] : result.error.issues.map((i) => i.message)
-        expect(messages).not.toContain(DRAFT_REQUIRED_ERRORS.datasets)
+        expect(messages).not.toContain(DRAFT_REQUIRED_ERRORS.piName)
     })
 })

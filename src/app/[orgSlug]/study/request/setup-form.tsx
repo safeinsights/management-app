@@ -8,6 +8,7 @@ import { StudyProposalFormValues } from './form-schemas'
 import { StudyTitleField } from './fields/study-title-field'
 import { DataPartnerField } from './fields/data-partner-field'
 import { ProgrammingLanguageField } from './fields/programming-language-field'
+import { DatasetsOfInterestField } from './fields/datasets-of-interest-field'
 import type { SetupFormLocks } from './use-setup-form'
 
 const INTRO = 'Name your study and select a Data Partner so your proposal goes to the right organization for review.'
@@ -20,6 +21,7 @@ interface SetupFormProps extends SetupFormLocks {
     onTitleBlur: () => void
     lockedOrgName?: string
     lockedLanguageLabel?: string
+    lockedDatasetNames?: string[]
     isIntroVisible: boolean
 }
 
@@ -38,8 +40,10 @@ export const SetupForm: FC<SetupFormProps> = ({
     isTitleLocked,
     isOrgLocked,
     isLanguageLocked,
+    isDatasetsLocked,
     lockedOrgName,
     lockedLanguageLabel,
+    lockedDatasetNames,
     isIntroVisible,
 }) => (
     <ProposalStepHeader stepLabel="STEP 1" heading="Set up study">
@@ -58,6 +62,12 @@ export const SetupForm: FC<SetupFormProps> = ({
                     form={form}
                     isLocked={isLanguageLocked}
                     lockedLanguageLabel={lockedLanguageLabel}
+                />
+                <DatasetsOfInterestField
+                    form={form}
+                    isLocked={isDatasetsLocked}
+                    lockedOrgName={lockedOrgName}
+                    lockedDatasetNames={lockedDatasetNames}
                 />
             </Stack>
         </Stack>

@@ -119,7 +119,7 @@ function CriterionLink({ href, testId, children }: { href: string; testId: strin
 function AgreementNote({ note }: { note: string | undefined }) {
     if (!note) return null
     return (
-        <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+        <InfoTooltip label={note}>
             <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
         </InfoTooltip>
     )

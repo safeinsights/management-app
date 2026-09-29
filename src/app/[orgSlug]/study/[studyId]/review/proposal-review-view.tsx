@@ -60,7 +60,12 @@ function useProposalReview({
     const decision = useReviewDecision()
     const [modalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
 
-    const { submitReview, isPending } = useProposalReviewMutation({ studyId, orgSlug, tabSessionId, reviewVersion })
+    const { submitReview, isSubmitting } = useProposalReviewMutation({
+        studyId,
+        orgSlug,
+        tabSessionId,
+        reviewVersion,
+    })
 
     const handleSubmit = async () => {
         const feedbackError = await feedback.onBlur()
@@ -96,23 +101,23 @@ function useProposalReview({
         modalOpen,
         closeModal,
         handleConfirmSubmit,
-        isPending,
+        isSubmitting,
     }
 }
 
 type ReviewActionsBarProps = {
     study: StudyForReview
-    isPending: boolean
+    isSubmitting: boolean
     onSubmit: () => void
 }
 
-const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isPending, onSubmit }) => {
+const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isSubmitting, onSubmit }) => {
     if (isSubmittedProposalReviewStatus(study.status)) {
         return null
     }
     return (
         <Group justify="flex-end" id={ACTIONS_BAR_ID}>
-            <Button onClick={onSubmit} disabled={isPending}>
+            <Button onClick={onSubmit} disabled={isSubmitting}>
                 Submit decision
             </Button>
         </Group>
@@ -126,7 +131,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
     // kick-out flow.
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
-    const { feedback, decision, handleSubmit, modalOpen, closeModal, handleConfirmSubmit, isPending } =
+    const { feedback, decision, handleSubmit, modalOpen, closeModal, handleConfirmSubmit, isSubmitting } =
         useProposalReview({
             orgSlug,
             studyId: study.id,
@@ -165,7 +170,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                 />
             }
             decision={<ReviewDecisionSection decision={decision} study={study} labName={study.submittingLabName} />}
-            actions={<ReviewActionsBar study={study} isPending={isPending} onSubmit={handleSubmit} />}
+            actions={<ReviewActionsBar study={study} isSubmitting={isSubmitting} onSubmit={handleSubmit} />}
             modals={
                 <DecisionConfirmationModal
                     decision={decision.selected}
@@ -173,7 +178,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
                     isOpen={modalOpen}
                     onClose={closeModal}
                     onConfirm={handleConfirmSubmit}
-                    isPending={isPending}
+                    isPending={isSubmitting}
                 />
             }
         />

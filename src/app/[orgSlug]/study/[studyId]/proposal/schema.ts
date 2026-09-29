@@ -74,20 +74,19 @@ export const proposalFormSchema = proposalFieldsSchema.superRefine(validateLinke
 
 // Each names its field because Submit raises them all at once (OTTER-691).
 export const DRAFT_REQUIRED_ERRORS = {
-    datasets: 'Select a dataset of interest before continuing.',
     researchQuestions: 'Enter your research questions before continuing.',
     projectSummary: 'Enter your project summary before continuing.',
     impact: 'Enter your proposal impact before continuing.',
     piName: 'Select a Principal Investigator before continuing.',
 } as const
 
-// Neither the Step 2 page (OTTER-690) nor the Edit proposal page (OTTER-762) renders the title,
-// Step 1 owns it; requiring an unrendered field would block submit with nothing to clear
-// (OTTER-647).
+// Neither the Step 2 page (OTTER-690) nor the Edit proposal page (OTTER-762) renders the title or
+// the datasets (OTTER-803), Step 1 owns them; requiring an unrendered field would block submit with
+// nothing to clear (OTTER-647). Datasets stay in the values only to feed the reviewer preview.
 export const draftProposalFormSchema = proposalFieldsSchema
     .omit({ title: true })
     .extend({
-        datasets: z.array(z.string()).min(1, { message: DRAFT_REQUIRED_ERRORS.datasets }),
+        datasets: z.array(z.string()),
         researchQuestions: lexicalField(
             FIELD_TITLES.researchQuestions,
             DRAFT_REQUIRED_ERRORS.researchQuestions,
@@ -114,10 +113,10 @@ export const COLLAB_FIELD_KEYS = ['title', 'datasets', 'piUserId', 'piName'] as 
 
 export type CollabFieldKey = (typeof COLLAB_FIELD_KEYS)[number]
 
-// The keys the proposal pages co-edit. `title` is excluded because neither page renders it, so a
-// stale value pulled in from the shared Yjs map could reach the study row unseen (OTTER-690,
-// OTTER-762).
-export const PROPOSAL_PAGE_COLLAB_KEYS: readonly CollabFieldKey[] = ['datasets', 'piUserId', 'piName']
+// The keys the proposal pages co-edit. `title` and `datasets` are excluded because neither page
+// renders them, so a stale value pulled in from the shared Yjs map could reach the study row unseen
+// (OTTER-690, OTTER-762, OTTER-803).
+export const PROPOSAL_PAGE_COLLAB_KEYS: readonly CollabFieldKey[] = ['piUserId', 'piName']
 
 export const initialProposalValues: ProposalFormValues = {
     title: '',

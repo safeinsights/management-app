@@ -183,6 +183,7 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
         expect(decrypted).toHaveLength(1)
         expect(decrypted[0].path).toBe('results.csv')
         expect(new TextDecoder().decode(new Uint8Array(decrypted[0].contents))).toBe('a,b\n1,2\n')
+        expect(reader.manifest.jobId).toBe(job.id)
     })
 
     it('stores an attached log as an encrypted code-run log', async () => {

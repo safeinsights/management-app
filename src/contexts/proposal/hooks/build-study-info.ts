@@ -14,7 +14,6 @@ export function buildStudyInfo(values: ProposalFormValues, titleMode: TitleMode)
         ...titleField,
         piName: values.piName || undefined,
         piUserId: values.piUserId || undefined,
-        datasets: values.datasets,
         researchQuestions: values.researchQuestions || undefined,
         projectSummary: values.projectSummary || undefined,
         impact: values.impact || undefined,

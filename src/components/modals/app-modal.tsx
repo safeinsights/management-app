@@ -18,6 +18,7 @@ export function AppModal({
     closeOnClickOutside = true,
     trapFocus = true,
     styles,
+    closeButtonProps,
     ...rest
 }: AppModalProps) {
     const theme = useMantineTheme()
@@ -57,6 +58,8 @@ export function AppModal({
                     ...styles?.title,
                 },
             }}
+            // Mantine's CloseButton ships with no accessible name.
+            closeButtonProps={{ 'aria-label': 'Close', ...closeButtonProps }}
             {...rest}
         >
             {children}

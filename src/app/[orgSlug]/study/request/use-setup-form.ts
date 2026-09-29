@@ -6,12 +6,19 @@ import { useDisclosure } from '@mantine/hooks'
 import { UseFormReturnType } from '@mantine/form'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { isTitleOverLimit, STUDY_TITLE_OVER_LIMIT_ERROR, type StudyProposalFormValues } from './form-schemas'
-import { FIELD_ID_TO_FORM_PATH, LANGUAGE_FIELD_ID, ORG_SELECT_ID, TITLE_INPUT_ID } from './fields/field-ids'
+import {
+    DATASETS_FIELD_ID,
+    FIELD_ID_TO_FORM_PATH,
+    LANGUAGE_FIELD_ID,
+    ORG_SELECT_ID,
+    TITLE_INPUT_ID,
+} from './fields/field-ids'
 
 export interface SetupFormLocks {
     isTitleLocked: boolean
     isOrgLocked: boolean
     isLanguageLocked: boolean
+    isDatasetsLocked: boolean
 }
 
 interface UseSetupFormArgs extends SetupFormLocks {
@@ -22,8 +29,8 @@ interface UseSetupFormArgs extends SetupFormLocks {
      */
     initialTitle?: string
     /**
-     * True only on the first visit. The modal's warning is that the Data Partner and the language
-     * cannot be changed after this step, so by the time the researcher navigates back to a persisted
+     * True only on the first visit. The modal's warning is that the Data Partner, the language and
+     * the datasets cannot be changed after this step, so by the time the researcher navigates back to a persisted
      * draft there is nothing left to warn about and a valid click proceeds straight away (OTTER-764).
      */
     requiresConfirmation: boolean
@@ -37,6 +44,7 @@ export function useSetupForm({
     isTitleLocked,
     isOrgLocked,
     isLanguageLocked,
+    isDatasetsLocked,
     requiresConfirmation,
     onProceed,
 }: UseSetupFormArgs) {
@@ -55,15 +63,17 @@ export function useSetupForm({
 
     const onTitleBlur = useCallback(() => form.validateField('title'), [form])
 
-    // Rebuilt per click: the language field is absent until a partner is chosen and a locked
-    // field has nothing focusable, so a stale id would leave the click looking dead.
+    // Rebuilt per click: the language and datasets fields are absent until a partner is chosen and
+    // a locked field has nothing focusable, so a stale id would leave the click looking dead.
     const visibleFieldIds = useCallback(() => {
         const ids: string[] = []
+        const hasPartner = !!form.getValues().orgSlug
         if (!isTitleLocked) ids.push(TITLE_INPUT_ID)
         if (!isOrgLocked) ids.push(ORG_SELECT_ID)
-        if (!isLanguageLocked && form.getValues().orgSlug) ids.push(LANGUAGE_FIELD_ID)
+        if (!isLanguageLocked && hasPartner) ids.push(LANGUAGE_FIELD_ID)
+        if (!isDatasetsLocked && hasPartner) ids.push(DATASETS_FIELD_ID)
         return ids
-    }, [form, isTitleLocked, isOrgLocked, isLanguageLocked])
+    }, [form, isTitleLocked, isOrgLocked, isLanguageLocked, isDatasetsLocked])
 
     // Gated on "did a field the user can act on fail", not schema-wide hasErrors: a locked field
     // has no error slot, so gating on it is the OTTER-647 dead button.

@@ -60,7 +60,7 @@ describe('useCodeReviewMutation', () => {
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve broadcasts code-review-submitted and redirects to bare /review', async () => {
+    it('approve broadcasts code-review-submitted and redirects to the code step', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const { result } = renderHook(
@@ -76,14 +76,17 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        // Status lands only once the action has resolved. isSubmitting is also true while the
+        // request is in flight, so the lock has to still be on after that write.
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
@@ -92,8 +95,9 @@ describe('useCodeReviewMutation', () => {
         expect(payload.submittedByTabId).toBe(tabSessionId)
         expect(typeof payload.submittedByName).toBe('string')
 
+        // Bare /review resolves an approved study forward to the outputs step.
         await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+            expect(memoryRouter.asPath).toBe(Routes.studyReviewCode({ orgSlug: org.slug, studyId: study.id })),
         )
     })
 
@@ -112,14 +116,15 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'reject', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         const jobRejected = await db
             .selectFrom('jobStatusChange')
