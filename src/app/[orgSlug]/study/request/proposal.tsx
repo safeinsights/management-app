@@ -24,7 +24,7 @@ interface StudyProposalProps {
 }
 
 const MODAL_BODY =
-    'Make sure your Data Partner and programming language are correct. They cannot be changed after this step. You can still edit your study title.'
+    'Make sure your Data Partner and Programming language selections are correct. They cannot be changed after this step. You can still edit your study title.'
 
 // The three states Step 1 is reached in (OTTER-764): `create` has no study row and every field
 // open, `revisit` is a persisted draft with only the title editable, and `submitted` is a

@@ -791,7 +791,7 @@ describe('Next step confirmation modal', () => {
         expect(within(dialog).getByText('Continue to the next step?')).toBeInTheDocument()
         expect(
             within(dialog).getByText(
-                'Make sure your Data Partner and programming language are correct. They cannot be changed after this step. You can still edit your study title.',
+                'Make sure your Data Partner and Programming language selections are correct. They cannot be changed after this step. You can still edit your study title.',
             ),
         ).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
