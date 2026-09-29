@@ -34,6 +34,7 @@ import {
 import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
+import classes from './setup-account-form.module.css'
 
 const baseSchema = z.object({
     firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
@@ -217,13 +218,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         value={email}
                         disabled
                         c={semanticColor('text.primary')}
-                        styles={{
-                            input: {
-                                backgroundColor: theme.colors.charcoal[1],
-                                borderColor: theme.colors.charcoal[1],
-                                color: theme.colors.charcoal[9],
-                            },
-                        }}
+                        classNames={{ input: classes.input }}
                     />
 
                     <Flex direction="row" gap="xl">
@@ -234,6 +229,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             {...form.getInputProps('firstName')}
                             label="First name"
                             placeholder="Enter your first name"
+                            classNames={{ input: classes.input }}
                             error={form.errors.firstName && <InputError error={form.errors.firstName} />}
                         />
 
@@ -244,6 +240,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             {...form.getInputProps('lastName')}
                             label="Last name"
                             placeholder="Enter your last name"
+                            classNames={{ input: classes.input }}
                             error={form.errors.lastName && <InputError error={form.errors.lastName} />}
                         />
                     </Flex>
@@ -252,6 +249,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         label="Enter password"
                         key={form.key('password')}
                         placeholder="********"
+                        classNames={{ input: classes.input }}
                         {...form.getInputProps('password')}
                         onBlur={(event) => {
                             form.getInputProps('password').onBlur?.(event)
@@ -272,6 +270,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                         label="Confirm password"
                         key={form.key('confirmPassword')}
                         placeholder="********"
+                        classNames={{ input: classes.input }}
                         {...form.getInputProps('confirmPassword')}
                         error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
                         // PasswordInput's inner <input> has withAria disabled, so `error` alone
