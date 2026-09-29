@@ -3,10 +3,7 @@ import { type Kysely, sql } from 'kysely'
 import { db, describe, expect, it } from '@/tests/unit.helpers'
 import { EXPOSED_FINGERPRINT, down, up } from './migrations/1780700000000_remove_exposed_test_public_keys'
 
-// The public half of the keypair the migration removes, exactly as committed at
-// tests/support/public_key.pem before the rotation. Embedding it here is safe — it is already
-// public in git history, which is the whole reason the migration exists — and it lets the test
-// insert real rows the hardcoded fingerprint must match.
+// Safe to embed: this key is already public in git history, which is why the migration exists.
 const EXPOSED_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAhwpt565psROI0lzRT1i6
 AzuENGyqK9MPnEJ4SZ+nZZeXYYm/PzxV/sovltwyOxgD4A/fAvi5hftcscuWpsYR
@@ -26,12 +23,8 @@ const PREFIXED_FINGERPRINT = `SHA2-256(stdin)= ${EXPOSED_FINGERPRINT}`
 
 const pemToDer = (pem: string) => Buffer.from(pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''), 'base64')
 
-// The migration's unqualified DELETEs are exercised on temporary tables of the same names inside
-// one transaction, following study_job_file_artifact_slot.test.ts: pg_temp comes first in the
-// search path, so the destructive statements only ever see rows this test created. Running
-// against the real tables instead would delete (inside the rolled-back transaction) every seeded
-// exposed-key row in the shared dev DB, holding row locks that block parallel test workers.
-// ON COMMIT DROP keeps the pooled connection clean.
+// pg_temp comes first in the search path, so the migration's unqualified DELETEs only see rows this
+// test created. Hitting the real tables would hold row locks that block parallel test workers.
 async function withShadowTables(run: (trx: Kysely<unknown>) => Promise<void>) {
     await db.transaction().execute(async (trx) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,8 +54,6 @@ async function withShadowTables(run: (trx: Kysely<unknown>) => Promise<void>) {
 }
 
 describe('remove_exposed_test_public_keys migration', () => {
-    // Ties the embedded PEM to the migration's constant: if either drifts, the deletion
-    // assertions below would be exercising the wrong key.
     it('embedded exposed key hashes to the hardcoded fingerprint', () => {
         const fingerprint = createHash('sha256').update(pemToDer(EXPOSED_PUBLIC_KEY_PEM)).digest('hex')
         expect(fingerprint).toEqual(EXPOSED_FINGERPRINT)

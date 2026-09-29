@@ -15,8 +15,8 @@ describe('keyGenerationUrl', () => {
         expect(keyGenerationUrl('')).toBe(Routes.accountKeys)
     })
 
-    // safeRedirectUrl returns the dashboard for a rejected redirect_url, so forwarding it would pin
-    // the key page to "My dashboard" instead of letting it resolve the account's landing.
+    // safeRedirectUrl returns the dashboard for a rejected redirect_url, so forwarding it would
+    // pin the key page to "My dashboard".
     it('treats the dashboard as no destination so the key page still resolves its own landing', () => {
         expect(keyGenerationUrl(Routes.dashboard)).toBe(Routes.accountKeys)
     })

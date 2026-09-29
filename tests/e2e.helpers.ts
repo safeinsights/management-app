@@ -1,6 +1,15 @@
+import { E2E_ROLE_COOKIE } from '@/lib/clerk-fake/cookie'
 import { ROLE_FIXTURES } from '@/lib/clerk-fake/fixtures'
+import { AUTH_CHANGED_EVENT } from '@/lib/clerk-fake/store'
 import { faker } from '@faker-js/faker'
-import { type Browser, type BrowserContext, type BrowserType, type Page, test as baseTest } from '@playwright/test'
+import {
+    type Browser,
+    type BrowserContext,
+    type BrowserType,
+    type Locator,
+    type Page,
+    test as baseTest,
+} from '@playwright/test'
 import fs from 'fs'
 import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
@@ -22,6 +31,13 @@ export type CollectV8CodeCoverageOptions = {
 
 export async function goto(page: Page, url: string) {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
+    // Set by HydrationMarker once the root Suspense boundary's content has hydrated. Segments with
+    // their own loading.tsx hydrate in a nested boundary later, so this does not cover them.
+    await page.waitForFunction(() => window.isReactHydrated)
+}
+
+export async function reload(page: Page) {
+    await page.reload()
     await page.waitForFunction(() => window.isReactHydrated)
 }
 
@@ -72,11 +88,21 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
 }
 
+// OTTER-690 caps the study title at 60 characters and Step 1 enforces it, so a generated title
+// has to fit or the flow cannot get past the first page. The generated words are only there to
+// make a failure readable; the suffix and timestamp are what make the title unique, so the words
+// are what gets trimmed.
+const STUDY_TITLE_MAX_CHARACTERS = 60
+
 class StudyFeatures {
     public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()}`
 
     uniqueTitle(suffix: string) {
-        return `${this.studyTitle} - ${suffix} ${Date.now()}`
+        const unique = `${suffix} ${Date.now()}`
+        const roomForWords = STUDY_TITLE_MAX_CHARACTERS - unique.length - ' - '.length
+        const words = this.studyTitle.slice(0, Math.max(roomForWords, 0)).trim()
+        // A long suffix can leave no room at all, and a bare separator would then lead the title.
+        return words ? `${words} - ${unique}` : unique
     }
 
     static perWorkerFeatures: Record<number, StudyFeatures> = {}
@@ -119,19 +145,22 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
     ],
 })
 
-// --- Clerk testing helpers ---
-//
-// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server. Sessions are just
-// the __e2e_role cookie: seeded per role in global.setup.ts and restored via storageState;
-// the sign-in form drives a faked useSignIn that writes the cookie on completion.
-
-// Ensures a signed-out state by clearing the __e2e_role cookie (the fake's session is
-// just that cookie). Used by the auth-UI specs before driving the sign-in form.
-export const e2eSignOut = async (page: Page) => {
+// Auth is faked in-app (src/lib/clerk-fake) — there is no Clerk server, and a session is just
+// the __e2e_role cookie. Clearing it only changes what the server sees, so notifyClient
+// dispatches the store's sync event; leave it off to simulate a stale client session.
+export const e2eSignOut = async (page: Page, { notifyClient = false } = {}) => {
     await page
         .context()
-        .clearCookies({ name: '__e2e_role' })
+        .clearCookies({ name: E2E_ROLE_COOKIE })
         .catch(() => {})
+    if (notifyClient) {
+        await page.evaluate((event) => window.dispatchEvent(new Event(event)), AUTH_CHANGED_EVENT)
+    }
+}
+
+// The fake's session is only the role cookie, so restoring it is what signing in again does.
+export const e2eRestoreSession = async (page: Page, role: TestingRole) => {
+    await page.context().addCookies([{ name: E2E_ROLE_COOKIE, value: role, url: page.url() }])
 }
 
 type ClerkSignInParams = {
@@ -172,10 +201,15 @@ export const visitAsRole = async (page: Page, url: string) => {
     await goto(page, url)
 }
 
-export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
-    const field = page.locator(`[aria-label="${ariaLabel}"]`)
+// pressSequentially, not page.keyboard.type: the latter goes wherever focus happens to be, so if the
+// editor loses focus the keystrokes land on the page — and a space activates whatever button has it.
+export async function typeIntoLexical(field: Locator, text: string) {
     await field.click()
-    await page.keyboard.type(text)
+    await field.pressSequentially(text)
+}
+
+export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
+    await typeIntoLexical(page.locator(`[aria-label="${ariaLabel}"]`), text)
 }
 
 // Types `text` into a rich-text field and hyperlinks all of it through the editor
@@ -183,8 +217,7 @@ export async function fillLexicalField(page: Page, ariaLabel: string, text: stri
 // one Lexical instance (and one toolbar) per rich-text field.
 export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
     const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
-    await editor.locator(`[aria-label="${ariaLabel}"]`).click()
-    await page.keyboard.type(text)
+    await typeIntoLexical(editor.locator(`[aria-label="${ariaLabel}"]`), text)
     await page.keyboard.press('ControlOrMeta+a')
 
     await editor.getByLabel('Link').click()

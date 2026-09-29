@@ -3,12 +3,6 @@ import { useDisclosure } from '@mantine/hooks'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { RegenerateKeyView } from './regenerate-key-view'
 
-// The user-key page-view. RegenerateKeyView is presentational; the container supplies the
-// preformatted generated-on date and wires navigation. These stories drive the confirm modal
-// with a local useDisclosure (no router/session needed).
-//
-// Note: this screen only renders the "key already exists" state. The "no key yet" case never
-// reaches this component — the route layout redirects to /account/keys when no key exists.
 const meta = { title: 'Pages / Security key', argTypes: pageBackgroundArgTypes }
 export default meta
 

@@ -17,7 +17,6 @@ export const FileChip: FC<FileChipProps> = ({ href, filename, ...badgeProps }) =
         <Badge
             color="#D4D1F3"
             c="black"
-            tt="none"
             component="a"
             href={href}
             target="_blank"

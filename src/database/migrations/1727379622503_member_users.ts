@@ -1,7 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // see note in users file regarding expressing roles with boolean flags
     await db.schema
         .createTable('member_user')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())

@@ -12,11 +12,13 @@ import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sou
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { ErrorPanel } from '@/components/panel'
-import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType } from '@/lib/types'
+import { QueryStateBody } from './query-state-body'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
+
+// Module-level, so a render that has no data yet does not mint a new array identity each time.
+const NO_DATA_SOURCES: DataSource[] = []
 
 const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -97,13 +99,7 @@ export const DataSources: React.FC = () => {
     const queryClient = useQueryClient()
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
-    const {
-        data: dataSources,
-        isLoading,
-        isError,
-        error,
-        refetch,
-    } = useQuery({
+    const dataSources = useQuery({
         queryKey: ['orgDataSources', orgSlug],
         queryFn: async () => await fetchOrgDataSourcesAction({ orgSlug }),
     })
@@ -116,18 +112,9 @@ export const DataSources: React.FC = () => {
     return (
         <>
             <DataSourcesView onAdd={openAddModal}>
-                {isLoading && <LoadingMessage message="Loading data sources" />}
-
-                {isError && (
-                    <ErrorPanel
-                        title={`Failed to load data sources: ${error?.message || 'Unknown error'}`}
-                        onContinue={refetch}
-                    >
-                        Retry
-                    </ErrorPanel>
-                )}
-
-                {!isLoading && !isError && <DataSourcesTable dataSources={dataSources || []} />}
+                <QueryStateBody query={dataSources} loadingMessage="Loading data sources" errorLabel="data sources">
+                    <DataSourcesTable dataSources={dataSources.data ?? NO_DATA_SOURCES} />
+                </QueryStateBody>
             </DataSourcesView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Data Source">

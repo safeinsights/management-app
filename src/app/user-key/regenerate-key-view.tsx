@@ -3,19 +3,19 @@
 import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
+import { PageHeader } from '@/components/page-header'
+import { fontWeight, semanticColor } from '@/theme/tokens'
+import { KEY_RESET_CONFIRM_COLOR, KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
 
-// Presentational security-key screen; kept navigation-free so it renders in isolation (e.g. Ladle).
 export type RegenerateKeyViewProps = {
-    /** Date the current key was generated, preformatted (MMM DD, YYYY). */
     generatedOn: string
     isModalOpen: boolean
     onOpenModal: () => void
     onCloseModal: () => void
-    /** Confirms the destructive regenerate flow (navigates in the container). */
     onConfirmGenerate: () => void
 }
 
-const DIVIDER_COLOR = 'charcoal.1'
+const DIVIDER_COLOR = semanticColor('border.default')
 
 export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
     generatedOn,
@@ -25,10 +25,10 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
     onConfirmGenerate,
 }) => {
     return (
-        <Stack p="xl" mx="sm" gap={40}>
-            <Title fz={34}>Security key</Title>
+        <Stack p="xl" mx="sm" gap="xxl">
+            <PageHeader title="Security key" />
 
-            <Stack gap={16}>
+            <Stack gap="md">
                 <Title order={2} fz={20}>
                     Existing security key
                 </Title>
@@ -39,7 +39,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 </Text>
             </Stack>
 
-            <Stack gap={16}>
+            <Stack gap="md">
                 <Title order={2} fz={20}>
                     Lost access to your key?
                 </Title>
@@ -48,9 +48,8 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                     Outputs can be accessed only with a security key. If you have lost yours, ask another member of your
                     organization to access them with their key. To restore your own access going forward, you can
                     generate a new key below.{' '}
-                    <Text component="b" fw={700} inherit>
-                        A new key cannot decrypt your current outputs. It works only for outputs encrypted after you
-                        generate it.
+                    <Text component="b" fw={fontWeight.bold} inherit>
+                        {KEY_RESET_WARNING}
                     </Text>
                 </Text>
                 <Group>
@@ -69,17 +68,16 @@ const ConfirmKeyResetModal: FC<{
     onConfirmAndClose: () => void
 }> = ({ onClose, isOpen, onConfirmAndClose }) => {
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
+        <AppModal isOpen={isOpen} onClose={onClose} title={KEY_RESET_MODAL_TITLE}>
             <Stack>
                 <Text fz={16} mb="md">
-                    A new key cannot decrypt your current outputs. If you no longer have your key and no one in your
-                    organization can access them, those outputs will be lost. This action cannot be undone.
+                    {KEY_RESET_MODAL_BODY}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button color="red.9" onClick={onConfirmAndClose}>
+                    <Button color={KEY_RESET_CONFIRM_COLOR} onClick={onConfirmAndClose}>
                         Generate new key
                     </Button>
                 </Group>

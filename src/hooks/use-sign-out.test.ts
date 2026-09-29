@@ -15,8 +15,7 @@ const renderSignOut = (options?: { redirectAfterSignOut: string }) =>
     renderHook(() => useSignOut(options), { wrapper: createTestQueryWrapper() })
 
 describe('useSignOut', () => {
-    // OTTER-671: signing out must never capture the current page — the next
-    // sign-in always lands on the dashboard, not where the session ended.
+    // OTTER-671: the next sign-in lands on the dashboard, not where the session ended.
     it('redirects to signin without a redirect_url', async () => {
         memoryRouter.setCurrentUrl('/openstax/study/123/review')
         const signOut = vi.fn().mockResolvedValue(undefined)

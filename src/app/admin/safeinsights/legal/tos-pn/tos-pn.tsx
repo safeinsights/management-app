@@ -4,11 +4,7 @@ import { useMutation, useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type EnforcedLegalDocumentType,
-} from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
 import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
@@ -20,7 +16,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { formatInstant } from '../dates'
+import { formatInstant } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
@@ -34,7 +30,7 @@ function UploadModalContents({
     draft,
     onClose,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draft: Draft | null
     onClose: () => void
 }) {
@@ -53,7 +49,6 @@ function UploadModalContents({
         onError: reportMutationError('Could not publish'),
     })
 
-    // Review + Confirm require a draft. If there is no draft, but page state is different, still show the upload page.
     if (page === 'upload' || !draft) {
         return <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={handleDraftSaved} />
     }
@@ -62,7 +57,6 @@ function UploadModalContents({
             <ReviewPrePublishForm
                 doctype={doctype}
                 draftId={draft.id}
-                draftUrl={draft.downloadUrl}
                 onBack={() => setPage('upload')}
                 onConfirm={() => setPage('confirm')}
             />
@@ -80,15 +74,7 @@ function UploadModalContents({
     }
 }
 
-// What is live right now, without a click. Prior versions live in the shared VersionHistoryModal,
-// the same one the participation and study-level tables open.
-function CurrentVersion({
-    version,
-    doctype,
-}: {
-    version: PublishedVersion | null
-    doctype: EnforcedLegalDocumentType
-}) {
+function CurrentVersion({ version, doctype }: { version: PublishedVersion | null; doctype: GlobalLegalDocumentType }) {
     const [viewModalOpened, { open: openViewModal, close: closeViewModal }] = useDisclosure(false)
 
     if (!version) return <Text>No published version yet</Text>
@@ -101,14 +87,14 @@ function CurrentVersion({
                 Version {version.versionNumber}
             </Anchor>
             <AppModal title="Review version" isOpen={viewModalOpened} onClose={closeViewModal}>
-                <PreviewDocument versionId={version.id} url={version.downloadUrl} label={label} />
+                <PreviewDocument versionId={version.id} label={label} />
             </AppModal>
             <Text>Published on {formatInstant(version.publishedAt)}</Text>
         </Group>
     )
 }
 
-export function TosPnPanel({ doctype }: { doctype: EnforcedLegalDocumentType }) {
+export function TosPnPanel({ doctype }: { doctype: GlobalLegalDocumentType }) {
     const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false)
     const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
 
@@ -117,8 +103,8 @@ export function TosPnPanel({ doctype }: { doctype: EnforcedLegalDocumentType }) 
         queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
     })
 
-    // isError first: data stays undefined after a failed query, so the !data check would
-    // otherwise leave the panel on the loading message forever.
+    // isError first: data stays undefined after a failed query, so !data alone would leave the
+    // panel loading forever.
     if (isError) return <ErrorAlert error={error} />
     if (isLoading || !data) return <LoadingMessage message="Loading..." />
 

@@ -5,15 +5,13 @@ import { storeStudyLogFile } from '@/server/storage'
 import { db } from '@/database'
 import { jobScanResultForJob, parseTrivyStatus, parseSonarqubeStatus } from './queries'
 
-// Real scanner output (see iac codebuild/scripts/common.ts injectScanResults):
-// the Trivy section comes first, then an optional SonarQube section.
+// Real scanner output: see iac codebuild/scripts/common.ts injectScanResults.
 const TRIVY_CLEAN = 'Trivy Filesystem Scan: no vulnerabilities found'
 const TRIVY_FINDINGS = [
     'Trivy Filesystem Scan: vulnerabilities found',
     'Target: package-lock.json',
     '  HIGH CVE-2024-1234 lodash 4.17.0 (fix: 4.17.21) - Prototype pollution',
 ].join('\n')
-// Logs stored before the scanner emitted a status phrase headed their findings this way.
 const TRIVY_LEGACY_FINDINGS = [
     'Trivy Filesystem Scan Results',
     'Target: package-lock.json',
@@ -22,9 +20,7 @@ const TRIVY_LEGACY_FINDINGS = [
 const SONAR_OK = 'SonarQube Quality Gate: OK'
 const SONAR_ERROR = ['SonarQube Quality Gate: ERROR', '  new_coverage: ERROR'].join('\n')
 
-// Verbatim from QA (job 019fd838-f3da-73c8-afe2-1c72c9142161, 2026-08-06): the scanner aborted before
-// Trivy ran, and its failure handler still posted this as a completed scan. The old parser read it as
-// a vulnerability finding, which is the defect this card was reopened for.
+// Verbatim from QA: the scanner aborted before Trivy ran and still posted a completed scan.
 const QA_ABORTED_SCAN_LOG = [
     'Trivy Filesystem Scan: no results',
     '',
@@ -32,9 +28,7 @@ const QA_ABORTED_SCAN_LOG = [
     '  new_violations: OK',
 ].join('\n')
 
-// Verbatim from the last successful QA scan (job 019eadb3-6cc5-7b1c-8da1-5f925b4a50e6, 2026-06-09).
-// Trivy ran but had nothing to analyze: the submission was a single .R file and Trivy has no R
-// analyzer, so its SBOM held zero components and its summary reported the target as "not scanned".
+// Verbatim from a successful QA scan where Trivy had nothing to analyze (an R-only submission).
 const QA_SUCCESSFUL_SCAN_LOG = [
     'Trivy Filesystem Scan: no vulnerabilities found',
     '',
@@ -71,8 +65,6 @@ describe('parseTrivyStatus', () => {
         expect(parseTrivyStatus('something else entirely')).toBe('INDETERMINATE')
     })
 
-    // The status line decides the verdict. Detail lines carry scanned file paths and upstream CVE
-    // titles, so text appearing there must never be able to promote a result to a finding.
     it('ignores the legacy findings header when a status line is present', () => {
         const log = [
             'Trivy Filesystem Scan: nothing scanned',
@@ -117,7 +109,6 @@ describe('parseSonarqubeStatus', () => {
         expect(parseSonarqubeStatus(`${TRIVY_CLEAN}\n\nSonarQube Quality Gate: not available`)).toBe('FAILED')
     })
 
-    // The scanner (iac fetchSonarQualityGate) can emit these non-OK statuses; all mean "needs review".
     it.each(['ERROR', 'WARN', 'NONE', 'TIMEOUT', 'UNKNOWN'])('needs review for non-OK gate status %s', (status) => {
         expect(
             parseSonarqubeStatus(
@@ -146,7 +137,6 @@ describe('jobScanResultForJob', () => {
         const { job } = await insertTestStudyJobData({ org, researcherId: user.id })
         const createdAt = new Date('2026-01-01T00:00:00Z')
 
-        // Neither object is stored, so fetchFileContents throws after the newest row is selected.
         await db
             .insertInto('studyJobFile')
             .values([

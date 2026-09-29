@@ -1,13 +1,14 @@
 import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
+import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
+import { Routes } from '@/lib/routes'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_EMAIL } from './mailgun'
-
-// For local testing, send to a fixed 'to' email address that is authorized to
-// receive emails from Mailgun, and remove the 'vb -' prefix from the template name.
 
 async function getOrgMembers(orgId: string) {
     return db
@@ -19,14 +20,31 @@ async function getOrgMembers(orgId: string) {
         .execute()
 }
 
+// SI admin is org_user.is_admin on the safe-insights org, the same row Clerk's metadata is built from.
+async function getSiAdmins() {
+    return db
+        .selectFrom('user')
+        .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .distinctOn('user.id')
+        .select(['user.email'])
+        .where('org.slug', '=', CLERK_ADMIN_ORG_SLUG)
+        .where('orgUser.isAdmin', '=', true)
+        .execute()
+}
+
 type StudyInfo = Awaited<ReturnType<typeof getStudyAndOrgDisplayInfo>>
 
 function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
+        // Pre-header var on the agreement emails. Same value, because the templates disagree on the name.
+        studyName: study.title,
         submittedBy: study.researcherFullName,
-        submittedOn: dayjs().format('MM/DD/YYYY'),
+        submittedOn: dayjs(study.submittedAt ?? study.createdAt).format('MM/DD/YYYY'),
         submittedTo: study.orgName,
+        researchLab: study.labName,
+        dataPartner: study.orgName,
     }
 }
 
@@ -41,7 +59,6 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
     })
 }
 
-// Audience: reviewer, Trigger: Status == PENDING-REVIEW (initial)
 export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
@@ -52,8 +69,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
         return
     }
 
-    // All recipients go in Bcc so no one sees another's address (OTTER-651).
-    // Mailgun requires at least one "To", so we use the no-reply sender.
+    // Bcc so no one sees another's address; Mailgun requires at least one "To" (OTTER-651).
     await deliver({
         to: SI_EMAIL,
         bcc: emails.join(', '),
@@ -66,10 +82,57 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// TODO(SHRMP-277, Iris): sendSlaPreparationEmail — SI admin needs the study id and proposal URL to
-// draw the SLA up by hand in Zoho Sign.
+// onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
+// this submission is already there: a second one means the lab has submitted before.
+const isResubmission = async (studyId: string) => {
+    const { submissions } = await db
+        .selectFrom('audit')
+        .select((eb) => eb.fn.countAll().as('submissions'))
+        .where('recordType', '=', 'STUDY')
+        .where('recordId', '=', studyId)
+        .where('eventType', '=', 'CREATED')
+        .executeTakeFirstOrThrow()
 
-// Audience: reviewer, Trigger: Status == Code Needs Review
+    return Number(submissions) > 1
+}
+
+// Audience: SafeInsights admins, Trigger: a proposal is submitted to a Data Partner. Only they can
+// draw the agreement up, and the study sits behind the gate until one of them publishes it.
+export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    // A test study is exempt from the agreement, so there is nothing to prepare.
+    if (study.isTestStudy) return
+
+    // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
+    // reaches here too, and its gate only passes once one is acknowledged.
+    if (await findLegalDocument(db, { type: 'SLA', studyId })) return
+
+    // The same proposal coming back is already on the admins' list.
+    if (await isResubmission(studyId)) return
+
+    const admins = await getSiAdmins()
+    const emails = admins.map((admin) => admin.email).filter((email) => email)
+
+    if (emails.length === 0) {
+        logger.warn(`No SafeInsights admins to prepare a study agreement, studyId: ${studyId}`)
+        return
+    }
+
+    // See OTTER-651: never put multiple recipient addresses in "To".
+    await deliver({
+        to: SI_EMAIL,
+        bcc: emails.join(', '),
+        subject: `New ${legalDocumentTypeLabels.SLA} required`,
+        template: 'vb - sla notice',
+        vars: {
+            ...baseStudyVars(study),
+            studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+            legalURL: `${APP_BASE_URL}${Routes.adminSafeinsightsLegal}`,
+        },
+    })
+}
+
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
@@ -80,7 +143,6 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
         return
     }
 
-    // See OTTER-651: never put multiple recipient addresses in "To".
     await deliver({
         to: SI_EMAIL,
         bcc: emails.join(', '),
@@ -94,7 +156,6 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Proposal Approved
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
@@ -112,7 +173,6 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Proposal Rejected
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
@@ -129,7 +189,6 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: reviewer, Trigger: Status == Results Needs Review
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
@@ -149,7 +208,6 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Code Approved
 export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
@@ -166,7 +224,6 @@ export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Code Rejected
 export const sendStudyCodeRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
@@ -183,7 +240,6 @@ export const sendStudyCodeRejectedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Results Approved
 export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
@@ -200,7 +256,6 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     })
 }
 
-// Audience: researcher, Trigger: Status == Results Rejected
 export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
@@ -215,4 +270,58 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
             dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
+}
+
+// The lab side of the agreement. researcherId is the original submitter, and a later version can be
+// submitted by any lab member, who is recorded only as the author of its resubmission note. A PI
+// holding no account has no address and drops out.
+async function getStudyAgreementAudience(studyId: string, study: StudyInfo) {
+    const resubmitters = await db
+        .selectFrom('studyProposalComment')
+        .select('authorId')
+        .distinct()
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'RESUBMISSION-NOTE')
+        .execute()
+
+    const userIds = [...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId)])].filter(
+        (id): id is string => Boolean(id),
+    )
+
+    return db
+        .selectFrom('user')
+        .select(['email', 'fullName'])
+        .where('id', 'in', userIds)
+        .where('email', 'is not', null)
+        .$narrowType<{ email: string }>()
+        .execute()
+}
+
+// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement. One send each rather
+// than a Bcc, because the template greets its reader by name.
+export const sendStudyAgreementReadyEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+    const recipients = await getStudyAgreementAudience(studyId, study)
+
+    if (recipients.length === 0) {
+        logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)
+        return
+    }
+
+    const studyURL = `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`
+
+    await Promise.all(
+        recipients.map((recipient) =>
+            deliver({
+                to: recipient.email,
+                subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
+                template: 'vb - sla ready for acknowledgment',
+                vars: {
+                    ...baseStudyVars(study),
+                    fullName: recipient.fullName,
+                    studyURL,
+                },
+            }),
+        ),
+    )
 }

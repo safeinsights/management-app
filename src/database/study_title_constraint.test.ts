@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { db, insertTestOrg, insertTestUser } from '@/tests/unit.helpers'
 
-// Verifies the CHECK constraint added in 1779000000000_allow_null_title_on_draft_study.ts.
-// The constraint shape is:
-//   status = 'DRAFT' OR (title IS NOT NULL AND length(btrim(title)) > 0)
 describe('study_title_required_when_not_draft constraint', () => {
     async function setupOrgAndResearcher() {
         const org = await insertTestOrg()

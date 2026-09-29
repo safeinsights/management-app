@@ -61,7 +61,6 @@ describe('Query Wrappers', () => {
 
             await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-            // Should pass through complex objects that aren't error responses
             expect(result.current.data).toEqual(mockData)
         })
     })

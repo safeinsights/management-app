@@ -4,16 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 import type { SaveStatusValue } from '@/components/save-status'
 
-// Collapses a Hocuspocus provider's local sync lifecycle into the coarse
-// idle/saving/saved status the autosave UI shows. Status stays idle until the
-// user's first local edit so initial loads and remote-only changes from other
-// collaborators don't surface an indicator to passive readers.
+// Stays idle until the user's first local edit, so initial loads and remote-only changes never
+// surface an indicator to passive readers.
 export function useProviderSaveStatus(provider: HocuspocusProvider | null): SaveStatusValue {
-    // Status is keyed to the provider it was derived from. The effect re-subscribes
-    // whenever the provider identity changes (e.g. a websocket reconnect swaps in a
-    // fresh HocuspocusProvider); keying the status to the provider lets the indicator
-    // fall back to idle on reconnect instead of showing a stale "All changes saved"
-    // until the user edits again.
+    // Keyed to the provider it was derived from, so a reconnect falls back to idle instead of
+    // showing a stale "All changes saved".
     const [tracked, setTracked] = useState<{ provider: HocuspocusProvider | null; status: SaveStatusValue }>({
         provider: null,
         status: 'idle',
@@ -34,8 +29,7 @@ export function useProviderSaveStatus(provider: HocuspocusProvider | null): Save
 
         const startTracking = () => provider.on('unsyncedChanges', onUnsyncedChanges)
 
-        // The initial document load also settles unsyncedChanges; wait for the first
-        // sync so that settle isn't mistaken for a save.
+        // The initial document load also settles unsyncedChanges, which must not read as a save.
         const onSynced = () => {
             provider.off('synced', onSynced)
             startTracking()
@@ -50,8 +44,7 @@ export function useProviderSaveStatus(provider: HocuspocusProvider | null): Save
         return () => {
             provider.off('synced', onSynced)
             provider.off('unsyncedChanges', onUnsyncedChanges)
-            // Re-arm the latch for the next provider so a reconnect's first settle to
-            // unsyncedChanges === 0 isn't mistaken for a local save.
+            // Re-armed so a reconnect's first settle to 0 isn't mistaken for a local save.
             hasLocalEditRef.current = false
         }
     }, [provider])

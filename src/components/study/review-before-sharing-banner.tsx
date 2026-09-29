@@ -1,11 +1,8 @@
 import { FC } from 'react'
 import { StatusAlert, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
 
-// Once the key decrypts, the outputs step's banner stops asking for a key and starts warning about
-// what the reviewer is about to share. Shared by the errored (OTTER-675) and outputs-available
-// (OTTER-676) screens so the two flows cannot drift apart. The footnote is a real element
-// referenced by aria-describedby, so the asterisk's meaning reaches AT instead of being implied
-// by position.
+// A real element referenced by aria-describedby, so the asterisk's meaning reaches AT rather
+// than being implied by position.
 const FOOTNOTE_ID = 'outputs-sensitive-data-footnote'
 
 export const ReviewBeforeSharingBanner: FC<{ labName: string }> = ({ labName }) => (

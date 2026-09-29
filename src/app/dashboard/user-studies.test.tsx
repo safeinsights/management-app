@@ -4,6 +4,7 @@ import {
     mockDualRoleSessionWithTestData,
     mockPathname,
     mockSessionWithTestData,
+    pageHeaderEyebrow,
     renderWithProviders,
     screen,
     userEvent,
@@ -49,8 +50,6 @@ beforeEach(() => {
 describe('UserStudiesDashboard', () => {
     it('keeps the toggle visible when the default researcher tab is empty and reviewer has rows', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        // A study authored by someone else but approved by our user as the reviewer: it
-        // surfaces under Reviewer but not Researcher, so the default researcher tab is empty.
         const { user: otherResearcher } = await insertTestUser({ org: { ...labOrg, type: 'lab' } })
         const study = await insertStudy({
             orgId: enclaveOrg.id,
@@ -83,10 +82,19 @@ describe('UserStudiesDashboard', () => {
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })
 
+    // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
+    it('heads the page with no eyebrow above it', async () => {
+        await mockDualRoleSessionWithTestData()
+
+        renderWithProviders(<UserStudiesDashboard />)
+
+        expect(await screen.findByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(pageHeaderEyebrow()).toBe('')
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    })
+
     it('keeps the toggle visible after switching from a populated researcher tab to an empty reviewer tab', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        // Our user authored the study (Researcher tab) but is not assigned as a reviewer, so
-        // the Reviewer tab is empty.
         await insertStudy({
             orgId: enclaveOrg.id,
             submittedByOrgId: labOrg.id,

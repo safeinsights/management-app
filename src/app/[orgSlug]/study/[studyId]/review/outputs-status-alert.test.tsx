@@ -50,14 +50,23 @@ describe('OutputsStatusAlert', () => {
 
     afterEach(() => vi.useRealTimers())
 
-    it('shows the job-packaging copy with a Slack link that opens in a new tab', () => {
+    // Approval routes the reviewer here before the containerizer reports a stage (OTTER-673).
+    it('shows the code-approved copy while no pipeline stage has been reported', () => {
+        renderAt('CODE-APPROVED')
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
+        expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
+        expect(screen.getByRole('link', { name: /Slack/ })).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
+    })
+
+    it('shows the job-packaging copy directing the reviewer to SafeInsights without a Slack link', () => {
         renderAt('JOB-PACKAGING')
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, code packaging started 5 minutes ago')
-        expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
-        const slack = screen.getByRole('link', { name: /Slack/ })
-        expect(slack).toHaveAttribute('target', '_blank')
-        expect(slack).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
+        expect(alert).toHaveTextContent('Outputs not ready, code preparation started 5 minutes ago')
+        expect(alert).toHaveTextContent(
+            'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
+        )
+        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
     })
 
     it('shows the job-ready copy (queued, org-admin contact)', () => {
@@ -75,25 +84,25 @@ describe('OutputsStatusAlert', () => {
         expect(alert).toHaveTextContent('Preparing the secure enclave to run the code')
     })
 
-    it('shows the job-running copy (processing started)', () => {
+    it('shows the job-running copy (code started running)', () => {
         renderAt('JOB-RUNNING')
         expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            'Outputs not ready, code processing started 5 minutes ago',
+            'Outputs not ready, code started running 5 minutes ago',
         )
     })
 
     it('updates the elapsed time as time passes (not frozen)', () => {
         renderAt('JOB-RUNNING', 5)
-        expect(screen.getByTestId('status-alert')).toHaveTextContent('started 5 minutes ago')
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('running 5 minutes ago')
         act(() => {
-            vi.advanceTimersByTime(60 * 60_000) // +1h
+            vi.advanceTimersByTime(60 * 60_000)
         })
-        expect(screen.getByTestId('status-alert')).toHaveTextContent('started 1 hour and 5 minutes ago')
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('running 1 hour and 5 minutes ago')
     })
 
     it('switches to the absolute timestamp past 24 hours and tears down the timer', () => {
         renderAt('JOB-RUNNING', 23 * 60 + 59)
-        expect(screen.getByTestId('status-alert')).toHaveTextContent('started 23 hours and 59 minutes ago')
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('running 23 hours and 59 minutes ago')
 
         act(() => {
             vi.advanceTimersByTime(60_000)
@@ -104,10 +113,10 @@ describe('OutputsStatusAlert', () => {
         expect(vi.getTimerCount()).toBe(0)
     })
 
-    it('renders nothing for a status outside the four execution stages', () => {
+    it('renders nothing for a status outside the execution stages', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date(STARTED))
-        renderWithProviders(<OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />)
+        renderWithProviders(<OutputsStatusAlert stageStatus="CODE-SUBMITTED" startedAt={STARTED} />)
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
     })
 })

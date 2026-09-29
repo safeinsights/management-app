@@ -98,7 +98,6 @@ describe('context actions', () => {
         })
         it("returns empty string when requested context doesn't exist", async () => {
             await mockSessionWithTestData({ isSiAdmin: true })
-            // clear any existing content
             await db.deleteFrom('agentContext').where('name', '=', 'PYTHON').where('orgId', 'is', null).execute()
 
             const result = await getAgentContextAction({ name: 'PYTHON', orgId: null })

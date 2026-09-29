@@ -41,8 +41,6 @@ describe('latestCodeChangeIsSubmission', () => {
         ).toBe(false)
     })
 
-    // Counting is order-independent, so a decision and the submission it decides tying on
-    // createdAt (the legacy single-job same-millisecond case) must not flip the result.
     it('is order-independent for a decided submission (same-millisecond tie)', () => {
         expect(latestCodeChangeIsSubmission(changes('CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'))).toBe(false)
         expect(latestCodeChangeIsSubmission(changes('CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'))).toBe(false)
@@ -63,10 +61,8 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
         },
     )
 
-    // The bug: jobStatusChange rows written in the same transaction tie on createdAt and v7 ids
-    // are not reliably monotonic within a millisecond, so "latest status" ordering can put
-    // CODE-SUBMITTED ahead of the decision. The count is order-independent, so the array order
-    // here (decision *before* the submission it decides) must not change the result.
+    // Rows written in one transaction tie on createdAt and v7 ids are not monotonic within a
+    // millisecond, so "latest status" ordering can put CODE-SUBMITTED ahead of the decision.
     it.each(['CODE-APPROVED', 'CODE-CHANGES-REQUESTED', 'CODE-REJECTED'] as const)(
         'is true for a %s decision regardless of array order (same-millisecond tie)',
         (decision) => {
@@ -75,7 +71,6 @@ describe('latestSubmittedJobHasLiveCodeDecision', () => {
     )
 
     it('is false again once a resubmission adds an un-decided CODE-SUBMITTED', () => {
-        // Round 1 decided (changes requested), round 2 resubmitted and awaiting review.
         expect(
             latestSubmittedJobHasLiveCodeDecision(
                 changes('CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'),
@@ -114,7 +109,7 @@ describe('currentExecutionStage', () => {
         ).toEqual({ status: 'JOB-PACKAGING', startedAt })
     })
 
-    it('returns the most recently started stage when several are present', () => {
+    it('returns the furthest stage when several are present', () => {
         const running = new Date('2026-07-20T12:00:00Z')
         expect(
             currentExecutionStage([
@@ -135,6 +130,17 @@ describe('currentExecutionStage', () => {
                 { status: 'JOB-READY', createdAt: sameMs },
             ]),
         ).toEqual({ status: 'JOB-RUNNING', startedAt: sameMs })
+    })
+
+    // Same answer as projectStudyState's executionStage, so the pill and the pending screen agree.
+    it('picks the furthest stage even when an earlier stage carries a later timestamp', () => {
+        const running = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-RUNNING', createdAt: running },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
     })
 
     it('accepts ISO string timestamps', () => {
@@ -166,8 +172,6 @@ describe('latestStatusAt', () => {
         ).toBe(completedAt)
     })
 
-    // Selection is by timestamp, not array position, so a caller's query ordering (newest-first,
-    // oldest-first, or tied-and-arbitrary) cannot change which occurrence dates the display.
     it('picks the most recent occurrence regardless of array order', () => {
         const rerunAt = new Date('2026-07-21T09:00:00Z')
         const firstRunAt = new Date('2026-07-20T12:00:00Z')
@@ -189,6 +193,17 @@ describe('latestStatusAt', () => {
                 'RUN-COMPLETE',
             ),
         ).toBe(rerunAt)
+    })
+
+    // Same answer as projectStudyState's executionStage, so the pill and the pending screen agree.
+    it('picks the furthest stage even when an earlier stage carries a later timestamp', () => {
+        const running = new Date('2026-07-20T10:00:00Z')
+        expect(
+            currentExecutionStage([
+                { status: 'JOB-RUNNING', createdAt: running },
+                { status: 'JOB-READY', createdAt: new Date('2026-07-20T11:00:00Z') },
+            ]),
+        ).toEqual({ status: 'JOB-RUNNING', startedAt: running })
     })
 
     it('accepts ISO string timestamps', () => {

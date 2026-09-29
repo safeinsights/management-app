@@ -9,7 +9,6 @@ import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 export { type UserSessionWithAbility } from './session'
 
-// Re-export test user utilities for convenience
 export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
 
 type ClerkOrganizationProps = {
@@ -70,9 +69,8 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
 
-    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges it. orgs is a
-    // slug-keyed map, so merging left a removed org's key in place forever — the JWT claim kept
-    // granting access long after the membership was revoked.
+    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which left a
+    // revoked org's slug key granting access through the JWT claim forever.
     await client.users.updateUser(clerkId, {
         publicMetadata: metadata as unknown as UserPublicMetadata,
     })
@@ -105,10 +103,8 @@ export const syncCurrentClerkUser = async () => {
     return await syncUserToDatabaseWithConflictResolution(userAttrs)
 }
 
-// cache() dedupes the marshal (and its user query) across the org layout, admin layout, and pages
-// within one RSC render; outside a render it degrades to a plain call. The middleware is unaffected —
-// it calls marshalSession directly. forceUpdate callers pass a fresh options object, whose identity
-// never hits the zero-arg cache entry, so a forced re-sync always executes.
+// cache() dedupes the marshal across one RSC render. A forceUpdate caller passes a fresh options
+// object, whose identity never hits the zero-arg cache entry, so a forced re-sync always executes.
 export const sessionFromClerk = cache(async (options?: MarshalSessionOptions) => {
     const { userId, sessionClaims } = await auth()
     return await marshalSession(userId, sessionClaims, options)

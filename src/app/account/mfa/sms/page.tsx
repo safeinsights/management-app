@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { AddSMSMFA } from './add-sms-mfa'
 
-// Reference code: https://clerk.com/docs/custom-flows/add-phone
+export const metadata: Metadata = { title: 'SMS verification' }
+
+// https://clerk.com/docs/custom-flows/add-phone
 export default function ManageSMSMFA() {
     return <AddSMSMFA />
 }

@@ -25,10 +25,8 @@ describe('researcher-profile.actions', () => {
 
             const result = await updatePersonalInfoAction({ firstName: 'Jane', lastName: 'Smith' })
 
-            // Clerk was called
             expect(updateClerkUserName).toHaveBeenCalledWith(user.id, 'Jane', 'Smith')
 
-            // DB should still have original values (Clerk failed first)
             const dbUser = await db
                 .selectFrom('user')
                 .select(['firstName', 'lastName'])
@@ -47,10 +45,8 @@ describe('researcher-profile.actions', () => {
 
             const result = await updatePersonalInfoAction({ firstName: 'Jane', lastName: 'Smith' })
 
-            // Clerk function was called
             expect(updateClerkUserName).toHaveBeenCalledWith(user.id, 'Jane', 'Smith')
 
-            // DB was updated
             const dbUser = await db
                 .selectFrom('user')
                 .select(['firstName', 'lastName'])
@@ -111,9 +107,8 @@ describe('researcher-profile.actions', () => {
             })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-            // The denial must take the returned-value branch (logged at info), never the throwing
-            // branch (which logged at error and reached Sentry.captureException in action.ts's
-            // catch) — otherwise an attacker iterating user ids creates one Sentry issue per guess.
+            // Must not take the throwing branch, or an attacker iterating user ids creates one
+            // Sentry issue per guess.
             expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('is not associated with study'))
             expect(errorSpy).not.toHaveBeenCalled()
         })
@@ -215,9 +210,8 @@ describe('researcher-profile.actions', () => {
             })
 
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-            // A correct guess (the study's researcher) and a wrong guess must produce the same
-            // generic view-Study denial — a distinguishable "not associated" answer would let a
-            // caller with no study access confirm who a study's researcher or PI is.
+            // Both guesses must give the same generic denial, or a caller could confirm who a
+            // study's researcher or PI is.
             const correctGuess = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
             const wrongGuess = await getResearcherProfileByUserIdAction({
                 userId: faker.string.uuid(),
@@ -230,8 +224,7 @@ describe('researcher-profile.actions', () => {
                 })
                 expect(JSON.stringify(result)).not.toContain('not associated')
             }
-            // The denial message echoes the ability args, so it must never carry the study's
-            // real researcher/PI ids (the correct guess contains user.id only as caller input).
+            // The denial echoes the ability args, so it must not carry the study's real ids.
             expect(JSON.stringify(wrongGuess)).not.toContain(user.id)
         })
     })

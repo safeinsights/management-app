@@ -8,7 +8,6 @@ export async function getCoderOrganizationId(): Promise<string> {
         errorMessage: 'Failed to fetch organization data from Coder API',
     })
 
-    // Coder API returns inconsistent response structures
     let organizations = responseJson
 
     if (typeof responseJson === 'object' && responseJson !== null && 'data' in responseJson) {

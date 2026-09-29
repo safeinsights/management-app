@@ -4,8 +4,8 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { FileViewer } from './index'
 
 describe('FileViewer', () => {
-    // Run logs ship as .json. Dispatching on the extension alone handed them to the code viewer,
-    // which highlights but never reformats, so a minified log rendered as one overflowing line.
+    // Run logs ship as .json, so dispatching on the extension alone sends them to the code
+    // viewer, which never reformats.
     it('renders a structured run log as a table rather than raw json', () => {
         const log = JSON.stringify([
             { timestamp: 1785869658968, message: 'Error: unexpected symbol' },
@@ -27,7 +27,6 @@ describe('FileViewer', () => {
         const code = container.querySelector('code')
         expect(code?.textContent).toContain('\n')
         expect(code?.textContent).toContain('  "alpha": 1')
-        // Long values must soft-wrap instead of scrolling off the edge of the modal.
         expect(container.querySelector('pre')).toHaveStyle({ whiteSpace: 'pre-wrap' })
     })
 

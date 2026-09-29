@@ -13,14 +13,12 @@ import { fetchParticipationAgreementsAction } from '@/server/actions/legal-docum
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
-import { formatDayString } from '../dates'
+import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
-// Built here rather than inline in the JSX, and DataTable rather than a bare Table so that fetching
-// and noRecordsText come from the component the rest of this admin section already uses.
 const agreementColumns = ({
     orgLabel,
     onNewVersion,
@@ -38,9 +36,6 @@ const agreementColumns = ({
     newVersionColumn(onNewVersion),
 ]
 
-// Takes the row itself rather than fields picked out of a possibly-null one, so the form's fixed
-// signatory needs no placeholder defaults. Keyed by org so a second row opens a fresh form rather
-// than the last one's file.
 const NewVersionForm: FC<{
     agreement: Agreement | null
     type: ParticipationAgreementType

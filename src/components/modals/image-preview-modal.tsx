@@ -2,6 +2,7 @@ import { Group } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { DownloadBlobLink } from '@/components/download-blob-link'
 import { ImageViewer } from '@/components/file-viewers'
+import { fontWeight } from '@/theme/tokens'
 
 type ImagePreviewModalProps = {
     isVisible: boolean
@@ -9,7 +10,6 @@ type ImagePreviewModalProps = {
     contents: ArrayBuffer
     mime: string | null
     onClose: () => void
-    /** Notified when this modal's own download link is used, so callers can log the download. */
     onDownload?: () => void
 }
 
@@ -19,7 +19,13 @@ export function ImagePreviewModal({ isVisible, name, contents, mime, onClose, on
     const title = (
         <Group gap="md" align="baseline">
             <span>{name}</span>
-            <DownloadBlobLink filename={name} fileContent={contents} size="sm" fw={400} onClick={onDownload} />
+            <DownloadBlobLink
+                filename={name}
+                fileContent={contents}
+                size="sm"
+                fw={fontWeight.regular}
+                onClick={onDownload}
+            />
         </Group>
     )
 

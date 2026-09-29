@@ -1,12 +1,41 @@
-// OTTER-497: the edit-and-resubmit page must be reachable by any member of the
-// submitting lab (not only the original researcher), and must stay closed to
-// users outside that lab.
+// OTTER-497: reachable by any member of the submitting lab, closed to everyone outside it.
+import { type ReactElement } from 'react'
 import { describe, it, expect } from 'vitest'
 import { insertTestStudyJobData, insertTestUser, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
 import StudyEditAndResubmitRoute from './page'
+import { EditResubmitForm } from './form'
+
+// The route is a server component, so its output is inspected as a tree rather than rendered:
+// Stack > EditResubmitProvider > EditResubmitForm.
+const formProps = (page: ReactElement) => {
+    const provider = (page.props as { children: ReactElement }).children
+    const form = (provider.props as { children: ReactElement }).children
+    expect(form.type).toBe(EditResubmitForm)
+    return form.props as Parameters<typeof EditResubmitForm>[0]
+}
 
 describe('StudyEditAndResubmitRoute', () => {
-    it('renders for a same-lab member who is not the original researcher', async () => {
+    // The Researcher row's guidance and Update profile link act on the viewer's own profile, so
+    // only the study's creator may see them (OTTER-762).
+    it('marks the original researcher as the draft creator and hands the form the stored title', async () => {
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: researcher.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Stored on Step 1',
+        })
+
+        const page = await StudyEditAndResubmitRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        const props = formProps(page as ReactElement)
+        expect(props.isDraftCreator).toBe(true)
+        expect(props.studyTitle).toBe('Stored on Step 1')
+    })
+
+    it('does not mark a same-lab teammate as the draft creator', async () => {
         const { org, user: ownerA } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -14,7 +43,6 @@ describe('StudyEditAndResubmitRoute', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // a different member of the same lab opens the page
         const { user: teammate } = await insertTestUser({ org })
         mockClerkSession({
             userId: teammate.id,
@@ -29,8 +57,31 @@ describe('StudyEditAndResubmitRoute', () => {
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
         })
 
-        // Access is gated on lab membership, not authorship: a same-lab teammate
-        // reaches the rendered page instead of being bounced to notFound().
+        expect(formProps(page as ReactElement).isDraftCreator).toBe(false)
+    })
+
+    it('renders for a same-lab member who is not the original researcher', async () => {
+        const { org, user: ownerA } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: ownerA.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        const { user: teammate } = await insertTestUser({ org })
+        mockClerkSession({
+            userId: teammate.id,
+            clerkUserId: teammate.clerkId,
+            email: teammate.email ?? undefined,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: 'lab',
+        })
+
+        const page = await StudyEditAndResubmitRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
         expect(page).toBeDefined()
     })
 
@@ -42,11 +93,8 @@ describe('StudyEditAndResubmitRoute', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // a user from a different lab tries to open the page
         await mockSessionWithTestData({ orgType: 'lab' })
 
-        // notFound() is a no-op mock in the test env (tests/vitest.setup.ts), so
-        // a gated page resolves to undefined instead of rendering the form.
         const page = await StudyEditAndResubmitRoute({
             params: Promise.resolve({ orgSlug: labA.slug, studyId: study.id }),
         })

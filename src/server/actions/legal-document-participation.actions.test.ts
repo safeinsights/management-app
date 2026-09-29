@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { signedUrlForFile } from '@/server/aws'
-import { actionResult, faker, insertTestOrg, mockSessionWithTestData, resetLegalDocuments } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestOrg,
+    mockSessionWithTestData,
+    resetLegalDocuments,
+    testUploadFile,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
@@ -14,10 +21,9 @@ vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
-        // Implementations are passed to vi.fn rather than set with mockResolvedValue: the suite runs
-        // with mockReset, which restores the implementation given here but wipes a value set after.
+        // Implementations go in vi.fn, not mockResolvedValue: mockReset wipes the latter.
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
@@ -32,7 +38,9 @@ const uploadAndPublish = async (
     signedAt: string,
     fileName = 'agreement.pdf',
 ) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type, orgId, fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type, orgId, file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
@@ -51,13 +59,13 @@ describe('fetchParticipationAgreementsAction', () => {
 
         expect(row?.orgName).toBe(org.name)
         expect(row?.versionNumber).toBe(1)
-        // Read back as text, so the day entered survives whatever zone the reader is in.
         expect(row?.signedAt).toBe('2026-07-27')
-        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath)
+        expect(vi.mocked(signedUrlForFile)).toHaveBeenCalledWith(row!.filePath, {
+            ResponseContentType: 'application/pdf',
+            ResponseContentDisposition: `inline; filename="${row!.fileName}"`,
+        })
     })
 
-    // The table is a list of the agreements we hold; orgs that owe us one are reached through the
-    // upload modal instead.
     it('leaves an org that has not signed out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')
@@ -82,9 +90,10 @@ describe('fetchParticipationAgreementsAction', () => {
     it('leaves an org whose only version is a draft out of the table', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')
-        actionResult(await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, fileName: 'dopa.pdf' }))
+        actionResult(
+            await createLegalDocumentDraftAction({ type: 'DOPA', orgId: org.id, file: testUploadFile('dopa.pdf') }),
+        )
 
-        // The document row exists, but nothing has been published against it yet.
         expect(await rowFor('DOPA', org.id)).toBeUndefined()
     })
 
@@ -120,8 +129,6 @@ describe('fetchParticipationSignatoriesAction', () => {
         expect(forRopa.some((org) => org.orgId === dataPartner.id)).toBe(false)
     })
 
-    // Renewing is a new version of the same document, so signing once does not take an org off the
-    // list the way it does for a study's SLA.
     it('keeps offering an org that has already signed', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await insertSignatory('DOPA')
@@ -132,7 +139,6 @@ describe('fetchParticipationSignatoriesAction', () => {
         expect(signatories.some((signatory) => signatory.orgId === org.id)).toBe(true)
     })
 
-    // SafeInsights is the counterparty to every one of these, and publishing cannot be undone.
     it('never offers SafeInsights itself as a signatory', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const safeInsights = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })

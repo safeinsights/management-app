@@ -1,7 +1,7 @@
 import type { UseFormReturnType } from '@mantine/form'
 import type { DocumentFileState } from '@/contexts/shared/file-types'
 import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
-import type { Language } from '@/database/types'
+import type { Language, StudyStatus } from '@/database/types'
 
 export type { StudyProposalFormValues }
 
@@ -9,8 +9,16 @@ export interface DraftStudyData {
     id: string
     orgSlug: string
     language: Language | null
+    /** Must come from the study row, not anything client-side (OTTER-690). */
+    status?: StudyStatus
+    orgName?: string
+    /** The submitting lab, shown as the page header eyebrow. Distinct from orgName, the Data Partner. */
+    submittingLabName?: string
     title?: string
     piName?: string
+    datasets?: string[] | null
+    /** Display names of `datasets`, resolved on the server for the locked field. */
+    datasetNames?: string[]
     descriptionDocPath?: string | null
     irbDocPath?: string | null
     agreementDocPath?: string | null
@@ -35,7 +43,6 @@ export interface StudyRequestContextValue {
     submittingOrgSlug: string
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
-    isStep1Valid: boolean
     documentFiles: DocumentFileState
     setStudyId: (id: string) => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
@@ -45,7 +52,6 @@ export interface StudyRequestContextValue {
         agreement?: string | null
     }) => void
     initFromDraft: (draft: DraftStudyData, submittingOrgSlug: string) => void
-    reset: (studyId?: string) => void
     saveDraft: (options?: MutationOptions) => void
     isSaving: boolean
 }
@@ -55,6 +61,7 @@ export const initialFormValues: StudyProposalFormValues = {
     piName: '',
     orgSlug: '',
     language: null,
+    datasets: [],
     mainCodeFile: null,
     additionalCodeFiles: [],
     stepIndex: 0,

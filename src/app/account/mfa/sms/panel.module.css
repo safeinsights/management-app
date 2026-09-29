@@ -7,7 +7,7 @@
     height: var(--mantine-input-height, 36px);
     font-size: var(--mantine-font-size-sm);
     transition: none;
-    background-color: white;
+    background-color: var(--si-color-surface-raised);
 }
 
 .phoneInput input:focus-within,

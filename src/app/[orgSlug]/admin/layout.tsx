@@ -3,10 +3,8 @@ import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { type ReactNode } from 'react'
 
-// These pages previously relied on a client component that redirected in an effect — by which point
-// the server had already rendered and streamed the admin payload to a non-admin member. Authorization
-// has to resolve before rendering, so it lives here.
-// The parent [orgSlug] layout has already established membership; this narrows it to admins.
+// Authorization must resolve before rendering: a client-side effect redirect would already have
+// streamed the admin payload to a non-admin member.
 export default async function OrgAdminLayout({
     children,
     params,

@@ -16,14 +16,8 @@ interface EncryptAndStoreLogParams {
     job: { jobId: string; studyId: string; orgId: string; orgSlug: string }
 }
 
-/**
- * Returns whether the encrypted log was written, or null when no write was attempted (the org has no
- * key holders, or encryption failed). Callers that also store a plaintext twin of the same log need
- * this: `storeStudyEncryptedLogFile` refuses to replace an artifact whose keys are already shared, and
- * replacing the plaintext half anyway would leave the reviewer's parsed scan status describing
- * different findings than the log the researcher can open. Null means there is no encrypted
- * counterpart to disagree with, so the plaintext write should go ahead.
- */
+// Null means no write was attempted, so there is no encrypted counterpart a plaintext twin could
+// disagree with.
 export async function encryptAndStoreLog({
     route,
     plaintextLog,
@@ -34,7 +28,7 @@ export async function encryptAndStoreLog({
         const recipients = await getOrgPublicKeys(job.orgId)
         if (recipients.length === 0) return null
 
-        const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType))
+        const zipBlob = await createEncryptedLogBlob(plaintextLog, recipients, logFilename(fileType), job.jobId)
         const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', { type: 'application/zip' })
         return await storeStudyEncryptedLogFile(
             { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },

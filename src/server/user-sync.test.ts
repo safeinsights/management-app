@@ -13,7 +13,6 @@ vi.mock('./config', async (importOriginal) => {
     }
 })
 
-// Import after mock is set up
 import { syncUserToDatabase, syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 describe('syncUserToDatabase', () => {
@@ -97,23 +96,21 @@ describe('syncUserToDatabase', () => {
         const newClerkId = faker.string.alpha(10)
 
         const attrs = {
-            clerkId: newClerkId, // Different clerkId
+            clerkId: newClerkId,
             firstName: 'New',
             lastName: 'User',
-            email: originalEmail, // Same email
+            email: originalEmail,
         }
 
         const result = await db.transaction().execute(async (trx) => {
             return syncUserToDatabase(attrs, trx)
         })
 
-        // Should return the existing user's ID (not create a new one)
         expect(result.id).toBe(existingUser.id)
         expect(result.emailConflictResolved).toBeDefined()
         expect(result.emailConflictResolved?.previousUserId).toBe(existingUser.id)
         expect(result.emailConflictResolved?.email).toBe(originalEmail)
 
-        // Old user should have updated clerkId and name
         const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -123,9 +120,8 @@ describe('syncUserToDatabase', () => {
         expect(updatedUser.clerkId).toBe(newClerkId)
         expect(updatedUser.firstName).toBe('New')
         expect(updatedUser.lastName).toBe('User')
-        expect(updatedUser.email).toBe(originalEmail) // Email preserved
+        expect(updatedUser.email).toBe(originalEmail)
 
-        // No new user should be created
         const userCount = await db
             .selectFrom('user')
             .select((eb) => eb.fn.count('id').as('count'))
@@ -140,14 +136,13 @@ describe('syncUserToDatabase', () => {
         const { user: existingUser } = await insertTestUser({ org })
         const newClerkId = faker.string.alpha(10)
 
-        // Update existing user's email to mixed case
         await db.updateTable('user').set({ email: 'Test@Example.COM' }).where('id', '=', existingUser.id).execute()
 
         const attrs = {
             clerkId: newClerkId,
             firstName: 'New',
             lastName: 'User',
-            email: 'test@example.com', // Different case
+            email: 'test@example.com',
         }
 
         const result = await db.transaction().execute(async (trx) => {
@@ -158,7 +153,6 @@ describe('syncUserToDatabase', () => {
         expect(result.emailConflictResolved).toBeDefined()
         expect(result.emailConflictResolved?.previousUserId).toBe(existingUser.id)
 
-        // Old user should have updated clerkId
         const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
@@ -166,7 +160,7 @@ describe('syncUserToDatabase', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.clerkId).toBe(newClerkId)
-        expect(updatedUser.email).toBe('Test@Example.COM') // Original email preserved
+        expect(updatedUser.email).toBe('Test@Example.COM')
     })
 })
 
@@ -217,17 +211,14 @@ describe('syncUserToDatabaseWithConflictResolution', () => {
             email: existingUser.email!,
         }
 
-        // Should not throw even if callback fails
         await expect(syncUserToDatabaseWithConflictResolution(attrs, onConflictResolved)).resolves.toBeDefined()
 
-        // But callback should have been called
         expect(onConflictResolved).toHaveBeenCalledWith(existingUser.id)
     })
 })
 
 describe('syncUserToDatabase in production', () => {
     it('should throw an exception on email conflict in production', async () => {
-        // Reset modules and re-mock with PROD_ENV = true
         vi.resetModules()
         vi.doMock('./config', async (importOriginal) => {
             const original = await importOriginal<typeof import('./config')>()
@@ -237,17 +228,16 @@ describe('syncUserToDatabase in production', () => {
             }
         })
 
-        // Dynamically import after mock is set up
         const { syncUserToDatabase: syncUserToDatabaseProd } = await import('./user-sync')
 
         const org = await insertTestOrg()
         const { user: existingUser } = await insertTestUser({ org })
 
         const attrs = {
-            clerkId: faker.string.alpha(10), // Different clerkId
+            clerkId: faker.string.alpha(10),
             firstName: 'New',
             lastName: 'User',
-            email: existingUser.email!, // Same email - conflict
+            email: existingUser.email!,
         }
 
         await expect(

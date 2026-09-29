@@ -1,9 +1,14 @@
 import type { StudyState } from './state.types'
 import type { ScreenId } from './screens'
 
-// Shared types for the role-specific screen-rule tables (RESEARCHER_SCREEN_RULES,
-// REVIEWER_SCREEN_RULES). Each table is an ordered list of [screen, { when }] entries; order is
-// display precedence and first match wins. A rule sees only StudyState, never routing context: the
-// leaf view owns its own back/forward buttons, so no table entry ever needs to build an href.
-export type ScreenRule = { when: (s: StudyState) => boolean }
-export type ScreenRuleEntry = readonly [ScreenId, ScreenRule]
+// Every rule table in this directory is an ordered list of [id, { when }] entries; order is display
+// precedence and first match wins. A rule sees only StudyState, never routing context.
+export type Rule = { when: (s: StudyState) => boolean }
+export type RuleEntry<Id> = readonly [Id, Rule]
+
+// Every table ends in an unconditional rule, so a match always exists.
+export const firstMatch = <Id>(rules: ReadonlyArray<RuleEntry<Id>>, state: StudyState): Id =>
+    rules.find(([, rule]) => rule.when(state))![0]
+
+export type ScreenRule = Rule
+export type ScreenRuleEntry = RuleEntry<ScreenId>

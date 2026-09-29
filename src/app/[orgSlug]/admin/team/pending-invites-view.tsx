@@ -3,11 +3,10 @@
 import type { ReactNode } from 'react'
 import { Divider, Flex, Text } from '@mantine/core'
 import { LoadingMessage } from '@/components/loading'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
-// Presentational "Pending invitations" list. It owns the section chrome (divider, title,
-// loading / empty / populated states) and each row's email; the Re-invite / revoke
-// controls are injected by the container (./pending-invites), which owns those mutations.
-// No data fetching here, so it renders in isolation (e.g. Ladle).
+// Presentational only: ./pending-invites injects the re-invite and revoke controls, so this
+// renders in isolation (e.g. Ladle).
 export type PendingInviteView = {
     id: string
     email: string
@@ -16,16 +15,15 @@ export type PendingInviteView = {
 export type PendingInvitesViewProps = {
     pendingUsers: PendingInviteView[]
     isLoading?: boolean
-    /** Re-invite / revoke controls — injected per row by the container. */
     renderActions: (pending: PendingInviteView) => ReactNode
 }
 
 export function PendingInvitesView({ pendingUsers, isLoading = false, renderActions }: PendingInvitesViewProps) {
     return (
         <>
-            <Divider c="charcoal.1" my="xl" />
+            <Divider c={semanticColor('border.default')} my="xl" />
             <div data-testid="pending-invites">
-                <Text fw={600} mb="md">
+                <Text fw={fontWeight.semibold} mb="md">
                     Pending invitations
                 </Text>
                 {isLoading && <LoadingMessage message="Loading pending invitations…" />}

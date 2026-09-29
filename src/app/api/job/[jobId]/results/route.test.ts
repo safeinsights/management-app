@@ -20,8 +20,7 @@ vi.mock('@/server/aws', () => ({
     signedUrlForFile: vi.fn(),
 }))
 
-// These exercise the real S3 round-trip (storeStudyEncrypted*/fetchFileContents),
-// so they skip when SeaweedFS isn't running locally; on CI s3.helpers throws instead.
+// Real S3 round-trip, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('uploading results', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const studyJobId = jobInfo.studyJobId
@@ -55,9 +54,8 @@ test.skipIf(!s3Available)('uploading results', async () => {
     expect(contents).toBeInstanceOf(Blob)
 })
 
-// Guards the stale-shared-key case: once a job is RUN-COMPLETE its encrypted results (and the
-// AES keys the manifest/researcher rows are wrapped against) are frozen. A re-post must be
-// rejected rather than overwrite the blob under already-shared keys. Re-runs use a NEW job.
+// Once a job is RUN-COMPLETE its encrypted results are frozen under already-shared keys, so a
+// re-post must be rejected rather than overwrite them. Re-runs use a NEW job.
 test.skipIf(!s3Available)('rejects a second results upload once the job is already complete', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -75,7 +73,6 @@ test.skipIf(!s3Available)('rejects a second results upload once the job is alrea
     const second = await post()
     expect(second.status).toBe(422)
 
-    // The rejected re-post must not have created a duplicate ENCRYPTED-RESULT row.
     const rows = await db
         .selectFrom('studyJobFile')
         .select('id')
@@ -85,11 +82,8 @@ test.skipIf(!s3Available)('rejects a second results upload once the job is alrea
     expect(rows).toHaveLength(1)
 })
 
-// An errored run is recorded as JOB-ERRORED and never reaches RUN-COMPLETE, so before OTTER-642 a
-// retried error delivery sailed past the completion guard: it stored a second log row, appended
-// another JOB-ERRORED, and re-sent the reviewer email. The artifacts it carried were already on file,
-// so the repeat is absorbed: stored in place, announced once, and still answered with a success the
-// sender has nothing to retry against.
+// OTTER-642: an errored run never reaches RUN-COMPLETE, so a retried error delivery used to sail
+// past the completion guard and re-send the reviewer email.
 test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery without announcing it twice', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -126,9 +120,8 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
     expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
 })
 
-// The scan and packaging steps also record JOB-ERRORED, with their own log types. A repeat is decided
-// by what this delivery carried, not by the job's status history, so one of those must not block a
-// real delivery.
+// The scan and packaging steps also record JOB-ERRORED, and one of those must not block a real
+// delivery.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -151,10 +144,8 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
     expect(runComplete).toHaveLength(1)
 })
 
-// The run log is this route's first write, so a delivery can leave one behind and still fail before
-// the status insert and the reviewer email (a transient S3 error on the results upload, or the
-// process dying in between). The TOA retries that, and the retry has to be able to finish the
-// delivery: the results it carries are new to the job, so it is not a repeat and completes normally.
+// A delivery can store its run log and still fail before the status insert and the reviewer email.
+// The TOA's retry carries results new to the job, so it is not a repeat and completes normally.
 test.skipIf(!s3Available)('completes a retried delivery whose log was already stored', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -191,11 +182,8 @@ test.skipIf(!s3Available)('completes a retried delivery whose log was already st
     expect(runComplete).toHaveLength(1)
 })
 
-// The artifact is this route's first write, so a log-only delivery can store its log and still fail
-// before the status insert (or the process can die in between). The retry carries nothing new, so
-// artifact presence alone would read it as a repeat and the job would sit in a running state forever
-// with its error log already on disk. The outcome status has to be recorded for a delivery to count as
-// already handled.
+// Artifact presence alone would read the retry as a repeat and leave the job running forever, so a
+// delivery only counts as handled once the outcome status is recorded.
 test.skipIf(!s3Available)('records a missing outcome when the retry carries nothing new', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -231,14 +219,13 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
 })
 
 // JOB-ERRORED is shared with the scanner and the containerizer, so a bare status lookup would read
-// one of theirs as proof this callback already finished. The run's own failure would then be dropped
-// on the retry that was meant to complete it, leaving the job running with its log already stored.
+// one of theirs as proof this callback already finished.
 test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORED would have masked", async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
 
-    // Dated explicitly: the scan fails before the run produces a log, and a test runs inside one
-    // transaction, where now() is frozen and fixture rows would otherwise share a timestamp.
+    // Dated explicitly: a test runs inside one transaction, where now() is frozen and fixture rows
+    // would otherwise tie.
     await db
         .insertInto('jobStatusChange')
         .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 hour'` })
@@ -271,15 +258,12 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
     expect(errored).toHaveLength(2)
 })
 
-// The row lock that makes outcome finalization safe against two simultaneous callbacks is deliberately
-// not unit-tested: pg-transactional-tests runs every test on a single connection inside one
-// transaction, so two requests cannot actually contend and the assertion would come down to whichever
-// order their queries happened to interleave in. Sequential repeats are covered above.
+// The row lock is deliberately not unit-tested: pg-transactional-tests runs every test on one
+// connection inside one transaction, so two requests cannot contend.
 
-// A late delivery can carry an artifact the job never had (an errored run stored only its log, the
-// reviewer decided on it, then a delayed callback arrives with the results too). The artifact is kept,
-// since nothing was released for that slot, but the outcome is stale: appending RUN-COMPLETE after
-// FILES-APPROVED would break the round-closing invariant and email the reviewer about a decided study.
+// A late delivery can carry an artifact the job never had. It is kept, since nothing was released
+// for that slot, but appending RUN-COMPLETE after FILES-APPROVED would break the round-closing
+// invariant and email the reviewer about a decided study.
 test.skipIf(!s3Available)('does not record an outcome once the round has been decided', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -297,8 +281,6 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
     })
     expect(resp.status).toBe(200)
 
-    // The never-seen results artifact is still stored: dropping it would lose data with nothing
-    // released for that slot to protect.
     const files = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
     expect(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT')).toHaveLength(1)
 

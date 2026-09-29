@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, within } from '@testing-library/react'
-import { actionResult, mockSessionWithTestData, renderWithProviders, resetLegalDocuments } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    mockSessionWithTestData,
+    renderWithProviders,
+    resetLegalDocuments,
+    testUploadFile,
+} from '@/tests/unit.helpers'
 import {
     createLegalDocumentDraftAction,
     fetchLegalDocumentVersionsAction,
@@ -8,35 +14,33 @@ import {
 } from '@/server/actions/legal-document.actions'
 import { TosPnPanel } from './tos-pn'
 
-// The two S3 presign helpers are stubbed the same way the other legal suites do it: the browser
-// does the real upload, so there is nothing to hit. Implementations go to vi.fn (not
-// mockResolvedValue) so mockReset keeps them between tests.
+// Implementations go to vi.fn (not mockResolvedValue) so mockReset keeps them between tests.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
-// One stub serves both fetches the UI makes: the browser upload POST (uploadFiles checks
-// response.ok) and PreviewDocument's GET of the signed URL (reads response.text()).
-beforeEach(async () => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn(async () => ({ ok: true, status: 200, text: async () => '# Terms of Service' }) as unknown as Response),
-    )
-    await resetLegalDocuments()
-})
+// Mocking `@/server/aws` does not reach storage's own import of it.
+vi.mock('@/server/storage', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/storage')>()),
+    fetchFileContents: vi.fn(async () => new Blob(['# Terms of Service'])),
+}))
+
+beforeEach(resetLegalDocuments)
 
 const seedPublishedTos = async (fileName: string) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type: 'TOS', fileName }))
+    const { version } = actionResult(
+        await createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }),
+    )
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
 }
 
 const seedDraftTos = (fileName: string) =>
-    createLegalDocumentDraftAction({ type: 'TOS', fileName }).then((r) => actionResult(r).version)
+    createLegalDocumentDraftAction({ type: 'TOS', file: testUploadFile(fileName) }).then((r) => actionResult(r).version)
 
 describe('TosPnPanel', () => {
     it('shows no published version and an empty history before anything is uploaded', async () => {
@@ -68,7 +72,6 @@ describe('TosPnPanel', () => {
 
         renderWithProviders(<TosPnPanel doctype="TOS" />)
 
-        // The newest version is the current one shown up top; both live in the history.
         await screen.findByRole('button', { name: 'Version 2' })
 
         fireEvent.click(screen.getByRole('button', { name: 'Version History' }))
@@ -77,8 +80,6 @@ describe('TosPnPanel', () => {
         expect(within(history).getAllByRole('button', { name: 'View' })).toHaveLength(2)
     })
 
-    // tos/pn are markdown: a link to the signed URL would hand the admin raw source, so the history
-    // modal renders the document itself.
     it('renders a version from the history rather than linking to the raw file', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         await seedPublishedTos('terms.md')
@@ -109,22 +110,18 @@ describe('TosPnPanel', () => {
 
         renderWithProviders(<TosPnPanel doctype="TOS" />)
 
-        // A pending draft means the modal opens straight to the review page.
         fireEvent.click(await screen.findByRole('button', { name: /upload/i }))
         await screen.findByText('Review your saved draft:')
 
         fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
 
-        // The confirmation step spells out that publishing is irreversible.
         await screen.findByText('Publish this file?')
         expect(screen.getByText(/cannot be undone/i)).toBeDefined()
 
         fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
-        // Publishing closes the modal and the draft becomes the current version.
         expect(await screen.findByRole('button', { name: 'Version 1' })).toBeDefined()
 
-        // And it is recorded as published — version 1, no draft left behind.
         const { current, draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'TOS' }))
         expect(current?.versionNumber).toBe(1)
         expect(draft).toBeNull()

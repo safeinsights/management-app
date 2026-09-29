@@ -16,8 +16,6 @@ describe('focusFirstInvalid', () => {
         expect(document.activeElement?.id).not.toBe('a')
     })
 
-    // The array order is the contract: the user was promised the first flagged field reading
-    // top to bottom, so a later-but-listed-first field must not win.
     it('focuses the first invalid field in the given order, not the first invalid found in the DOM', () => {
         const first = addField('first')
         addField('second')
@@ -35,16 +33,11 @@ describe('focusFirstInvalid', () => {
         expect(document.activeElement).toBe(invalid)
     })
 
-    // Returns the field name so callers can still report it, but focuses nothing. A component whose
-    // id never reaches the DOM lands here and loses the focus jump entirely, which is why
-    // OutputsDecisionSection anchors its radio group on an element it owns.
     it('reports the field even when it is not in the DOM', () => {
         expect(focusFirstInvalid(['missing'], () => true)).toBe('missing')
     })
 
-    // A Mantine Radio.Group puts the field id on a plain <div>. Calling focus() on that is a
-    // silent no-op, which would leave the user on the submit button with nothing indicating which
-    // field failed, so the helper descends to the first focusable control inside.
+    // A Mantine Radio.Group puts the field id on a plain <div>, where focus() is a silent no-op.
     it('focuses the first focusable control when the id sits on a non-focusable wrapper', () => {
         const wrapper = document.createElement('div')
         wrapper.id = 'radio-group'

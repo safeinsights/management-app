@@ -5,8 +5,9 @@ import { type UseFormReturnType } from '@mantine/form'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { useForm, zodResolver } from '@/common'
 import {
-    proposalFormSchema,
+    draftProposalFormSchema,
     initialProposalValues,
+    PROPOSAL_PAGE_COLLAB_KEYS,
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from '@/hooks/use-yjs-form-map'
@@ -20,7 +21,6 @@ interface ProposalContextValue {
     isSubmitting: boolean
     websocketProvider: HocuspocusProviderWebsocket | null
     yjsForm: ReturnType<typeof useYjsFormMap>
-    /** Stable per-mount tab id used to de-dupe the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
@@ -42,14 +42,29 @@ interface ProposalProviderProps {
     draftData?: DraftStudyData
 }
 
+// An explicit `undefined` wins in a spread and would blank out the `initialProposalValues` entry,
+// leaving an untouched draft with a zod type message instead of the field's own required copy.
+export function definedDraftFields(draftData?: DraftStudyData): DraftStudyData {
+    if (!draftData) return {}
+    const entries = Object.entries(draftData).filter(([, value]) => value !== undefined && value !== null)
+    return Object.fromEntries(entries) as DraftStudyData
+}
+
 export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
     const form = useForm<ProposalFormValues>({
-        validate: zodResolver(proposalFormSchema),
-        initialValues: { ...initialProposalValues, ...draftData },
-        validateInputOnChange: true,
+        validate: zodResolver(draftProposalFormSchema),
+        initialValues: { ...initialProposalValues, ...definedDraftFields(draftData) },
+        // No validateInputOnChange: an error must clear while editing and stay gone until the next
+        // blur or Submit, but re-validating per keystroke would put it straight back (OTTER-691).
     })
 
-    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({ studyId, form })
+    // Unconditional because this provider only ever serves a DRAFT; the route redirects
+    // CHANGE-REQUESTED away.
+    const { websocketProvider, yjsForm, tabSessionId } = useProposalCollaboration({
+        studyId,
+        form,
+        collabKeys: PROPOSAL_PAGE_COLLAB_KEYS,
+    })
 
     const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
 

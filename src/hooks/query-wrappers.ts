@@ -8,24 +8,35 @@ import {
     type UseMutationResult,
     useQueryClient,
     skipToken,
+    keepPreviousData,
 } from '@tanstack/react-query'
 
 import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
 
-export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken }
+/**
+ * Read by the shared QueryCache handler in `providers.tsx`. A query opts in to having its failure
+ * told to the reader by naming the title to show; without it the failure is reported nowhere, which
+ * is what left a failed poll silent until the next submit (OTTER-726).
+ */
+type QueryMeta = { errorMessage?: string }
 
-// Helper function to process response - handles ActionResponse format and raw responses
+declare module '@tanstack/react-query' {
+    interface Register {
+        queryMeta: QueryMeta
+    }
+}
+
+export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }
+export type { UseQueryResult }
+
 function processResponse<T>(response: ActionResponse<T>): T {
-    // If it's an error response, report it and throw
     if (isActionError(response)) {
         throw new ActionFailure(response.error)
     }
 
-    // Otherwise, return as-is (raw response)
     return response
 }
 
-// Wrapped useQuery that automatically handles error responses
 export function useQuery<TApiData>(
     options: {
         queryKey: readonly unknown[]
@@ -41,7 +52,6 @@ export function useQuery<TApiData>(
     })
 }
 
-// Wrapped useMutation that automatically handles error responses
 export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
@@ -56,5 +66,4 @@ export function useMutation<TApiData, TVariables = void>(
     })
 }
 
-// Re-export the unified isActionError function for backwards compatibility
 export { isActionError as actionResponseIsError }

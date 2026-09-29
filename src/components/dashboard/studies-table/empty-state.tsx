@@ -1,8 +1,8 @@
 import { Stack, Text } from '@mantine/core'
 import { Audience, Scope } from './types'
 
-// 'My dashboard' (user scope) uses participation-focused copy so dual-role users get a
-// role-specific empty state (OTTER-517). The org dashboards keep their existing copy.
+// User scope uses participation-focused copy so dual-role users get a role-specific empty
+// state (OTTER-517).
 const MESSAGES: Record<Scope, Record<Audience, string>> = {
     user: {
         reviewer: "You haven't yet participated in reviewing a study",

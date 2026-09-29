@@ -16,10 +16,18 @@ type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
+// Queues work that must not run until the handler's writes are visible to anyone else. A mutating
+// handler runs inside a transaction, so anything it hands to another process from inside the
+// handler can read the round before it exists (OTTER-799).
+export type AfterCommitFn = (fn: () => Promise<unknown>) => void
+
+// Optional here, required on a handler's own context: this type is also the async-local store,
+// which is populated outside an action in tests and in Action.db.
 export type ActionContext<Args = unknown> = {
     session?: UserSessionWithAbility
     db: DBExecutor
     params?: Args
+    afterCommit?: AfterCommitFn
 }
 
 export type ActionOptions = {
@@ -46,9 +54,9 @@ export class Action<
         session?: UserSessionWithAbility
         db: DBExecutor
         params?: Args
+        afterCommit: AfterCommitFn
     },
 > {
-    // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
     private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
     private options: ActionOptions
@@ -68,44 +76,31 @@ export class Action<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params<S extends ZodType<any, any, any>>(schema: S) {
         this.schema = schema as ZodType<Args>
-        // now this builder “becomes” one typed with new Args and empty ctx
-        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
+        return this as unknown as Action<
+            z.infer<S>,
+            { session?: UserSessionWithAbility; db: DBExecutor; afterCommit: AfterCommitFn }
+        >
     }
 
-    /**
-     * Add one async middleware piece.
-     * Each middleware can read the validated `args` and the current `ctx`,
-     * and must return a partial context object that gets merged in.
-     */
     middleware<NewCtx>(fn: MiddlewareFn<Ctx & { params: Args }, NewCtx>) {
         this.middlewareFns.push(fn as MiddlewareFn<unknown, unknown>)
-        // the new context type is the old Ctx & NewCtx
         return this as unknown as Action<Args, Ctx & NewCtx>
     }
 
-    /**
-     * Add a protection function that runs before the handler.
-     * Automatically adds internal middleware to check permissions.
-     */
     requireAbilityTo<A extends keyof PermissionsActionSubjectMap, S extends PermissionsActionSubjectMap[A]>(
         action: A,
         subject: S & (Args & Omit<Ctx, 'session'> extends PermissionsSubjectToObjectMap[S] ? S : never),
     ) {
         type PermCheckArgs = Ctx & { params: Args }
-        // Add internal middleware that performs the permission check
         const permCheck: MiddlewareFn<PermCheckArgs, PermCheckArgs> = async (ctx: PermCheckArgs) => {
             const session = ctx.session
             if (!session) {
                 throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
             }
 
-            // Every middleware return value lands in the CASL subject here, and the subject is
-            // stringified into the permission_denied message below — which is returned to the
-            // caller we just refused. Middleware must therefore return only identifiers that are
-            // safe to hand someone who has no right to the record: ids and slugs, never a whole
-            // row and never secrets (OTTER-724 / MA-6). Read the sensitive columns in the HANDLER,
-            // which only runs after the check passes.
-            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db']) }
+            // Lands in the permission_denied message returned to a refused caller, so middleware
+            // must return ids and slugs only — never a whole row, never secrets (OTTER-724 / MA-6).
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,33 +113,20 @@ export class Action<
                 throw new ActionFailure({ permission_denied: msg })
             }
 
-            // Return empty object since this middleware only performs validation
             return ctx
         }
         this.middlewareFns.push(permCheck as MiddlewareFn<unknown, unknown>)
         return this as unknown as Action<Args, Ctx & { session: UserSession }>
     }
 
-    /**
-     * Finalize with a handler. Returns a callable action:
-     *   (args) => Promise<ReturnType>
-     *
-     * It will:
-     *  1. parse & validate `args` against your Zod schema
-     *  2. start with session and db context
-     *  3. run all middleware in order (including permission checks), merging their returned objects into `ctx`
-     *  4. call your handler(ctx)
-     */
     handler<Res>(handlerFn: HandlerFn<Ctx & { params: Args }, Res>) {
         const schema = this.schema
         const middlewareFns = [...this.middlewareFns]
 
-        // build the final action function
         const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
             let actionCtx: ActionContext | undefined
 
             try {
-                // 1) validate
                 let args: Args
                 if (schema) {
                     try {
@@ -165,16 +147,18 @@ export class Action<
                 } else {
                     args = raw as Args
                 }
-                // 2) run middleware chain and set up database connection
                 const session = await sessionFromClerk()
 
-                // Function to execute with either transaction or regular db
+                const afterCommitFns: (() => Promise<unknown>)[] = []
+                const afterCommit: AfterCommitFn = (fn) => {
+                    afterCommitFns.push(fn)
+                }
+
                 const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                    let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
+                    let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
                     actionCtx = ctx
 
                     return localStorageContext.run(ctx, async () => {
-                        // Run all middleware in order, including any permission checking middleware
                         for (const mw of middlewareFns) {
                             const more = await mw(ctx)
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,7 +173,6 @@ export class Action<
                     })
                 }
 
-                // Choose between transaction and regular db
                 let result: Res
 
                 if (this.options.performsMutations) {
@@ -200,13 +183,28 @@ export class Action<
 
                 if (actionCtx) actionCtx.db = db
 
+                // Only reached once the writes are committed. A handler that threw never gets here,
+                // so work queued by a rolled-back handler is dropped with it. One hook failing must
+                // not fail the action: the mutation the caller asked for already happened.
+                const runAfterCommitFns = async () => {
+                    for (const fn of afterCommitFns) {
+                        try {
+                            await fn()
+                        } catch (error: unknown) {
+                            logger.error(error)
+                        }
+                    }
+                }
+                // Inside the store, with db already swapped off the committed transaction, so a hook
+                // reads the same context its handler did rather than an empty one.
+                await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())
+
                 return result
             } catch (error) {
                 if (actionCtx) actionCtx.db = db
 
                 Sentry.captureException(error)
 
-                // Handle specific error types
                 if (error instanceof ActionFailure) {
                     return { error: error.error }
                 }
@@ -214,7 +212,6 @@ export class Action<
                     return { error: `Access denied: ${error.message}` }
                 }
 
-                // Generic error handling
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
                 return { error: errorMessage }
             }

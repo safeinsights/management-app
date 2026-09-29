@@ -2,6 +2,7 @@ import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actio
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
+    createTestQueryClient,
     db,
     fireEvent,
     insertTestDataSource,
@@ -16,16 +17,20 @@ import {
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-    getStudyReviewForJob,
-    type JobScanResult,
-    jobScanResultForJob,
-    latestJobForStudy,
-    type LatestJobForStudy,
-} from '@/server/db/queries'
-import { SubmittedCodeSection, latestCodeSubmittedAt } from './submitted-code-section'
-import { AiSummaryCollapsible, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { SubmittedCodeSection } from './submitted-code-section'
+import { latestCodeSubmittedAt } from '@/lib/study-job-status'
+import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
+import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
+
+// Only the poll is faked; the file actions stay real so their tests still exercise the database.
+vi.mock('@/server/actions/study-job.actions', async () => {
+    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
+        '@/server/actions/study-job.actions',
+    )
+    return { ...actual, getJobAnalysisAction: vi.fn(actual.getJobAnalysisAction) }
+})
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -37,10 +42,18 @@ vi.mock('@/server/storage', async () => {
 
 const ORG_SLUG = 'test-org-submitted'
 
+const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
+    trivy,
+    sonarqube,
+    logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
+})
+
+const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
+
 async function insertStudyJobFile(
     studyJobId: string,
     name: string,
-    fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' | 'ENCRYPTED-SECURITY-SCAN-LOG',
+    fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' | 'ENCRYPTED-SECURITY-SCAN-LOG' | 'SECURITY-SCAN-LOG',
 ) {
     return db
         .insertInto('studyJobFile')
@@ -65,8 +78,14 @@ async function insertStudyReview(studyJobId: string, codeExplanation: string) {
         .executeTakeFirstOrThrow()
 }
 
-// A failed generation persists a row with no report and summaryFailedAt set —
-// the signal the reviewer-side panel turns into the error + retry state.
+async function insertPendingStudyReview(studyJobId: string, summaryStartedAt: Date) {
+    return db
+        .insertInto('studyReview')
+        .values({ studyJobId, report: null, summaryFailedAt: null, summaryStartedAt })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
 async function insertFailedStudyReview(studyJobId: string) {
     return db
         .insertInto('studyReview')
@@ -97,19 +116,19 @@ async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: s
     return { orgId: org.id, study, job }
 }
 
-// Tests that mutate the job (insert files) call this to refresh the cached job
-// so SubmittedCodeSection sees the latest files in its props.
 async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
     return { ...fixture, job: await latestJobForStudy(fixture.study.id) }
 }
 
 async function renderSection(fixture: Fixture, scanOverride?: JobScanResult) {
-    const [review, scan] = await Promise.all([
-        getStudyReviewForJob(fixture.job.id),
-        scanOverride ? Promise.resolve(scanOverride) : jobScanResultForJob(fixture.job.id),
-    ])
+    const analysis = await jobAnalysisForJob(fixture.job)
     return renderWithProviders(
-        <SubmittedCodeSection orgSlug={ORG_SLUG} study={fixture.study} job={fixture.job} review={review} scan={scan} />,
+        <SubmittedCodeSection
+            orgSlug={ORG_SLUG}
+            study={fixture.study}
+            job={fixture.job}
+            analysis={scanOverride ? { ...analysis, scan: scanOverride } : analysis}
+        />,
     )
 }
 
@@ -120,26 +139,24 @@ describe('SubmittedCodeSection — Section header', () => {
         fixture = await setupBaseFixture()
     })
 
-    it('renders section title "Submitted code"', async () => {
+    it('renders section title "Submission details"', async () => {
         await renderSection(fixture)
-        expect(screen.getByRole('heading', { name: 'Submitted code', level: 3 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Submission details', level: 3 })).toBeInTheDocument()
     })
 
-    it('renders "View approved initial request" link that opens the approved-proposal feedback page in a new tab', async () => {
+    it('renders "View approved proposal" as an outlined button that opens the approved-proposal page in a new tab', async () => {
         await renderSection(fixture)
         const link = screen.getByTestId('view-approved-initial-request')
-        expect(link).toHaveTextContent('View approved initial request')
+        expect(link).toHaveTextContent('View approved proposal')
+        expect(link).toHaveAttribute('data-variant', 'outline')
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
-        // OTTER-540: must point at the approved *initial request* (proposal feedback),
-        // served by the dedicated /review/proposal route.
+        // OTTER-540: must point at the approved initial request, not the code review.
         expect(link).toHaveAttribute('href', `/${ORG_SLUG}/study/${fixture.study.id}/review/proposal`)
     })
 
     it('renders the section content beneath the header', async () => {
         await renderSection(fixture)
-        // The section root contains the header followed by everything else; this
-        // proves the divider/content sequence rendered without throwing.
         const section = screen.getByTestId('submitted-code-section')
         expect(section).toContainElement(screen.getByTestId('submitted-code-header'))
         expect(section).toContainElement(screen.getByTestId('submitted-code-datasets'))
@@ -175,7 +192,6 @@ describe('SubmittedCodeSection — Dataset pills', () => {
         expect(pills[0]).toHaveTextContent('Classroom Engagement Metrics')
         expect(pills[1]).toHaveTextContent('Study Behavior Analytics Dataset')
 
-        // Non-interactive: no role=button or anchor inside the pill.
         for (const pill of pills) {
             expect(pill.querySelector('button')).toBeNull()
             expect(pill.querySelector('a')).toBeNull()
@@ -198,10 +214,11 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertStudyReview(fixture.job.id, SUMMARY_TEXT)
     })
 
-    it('renders section title "AI Summary: Analysis of all files" and the "Overview" subtitle', async () => {
+    it('renders section title "AI Summary of submitted code files" and the "Overview" subtitle', async () => {
         await renderSection(fixture)
-        expect(screen.getByText('AI Summary: Analysis of all files')).toBeInTheDocument()
+        expect(screen.getByText('AI Summary of submitted code files')).toBeInTheDocument()
         expect(screen.getByText('Overview')).toBeInTheDocument()
+        expect(screen.getByText(/AI-generated summary, which may contain errors/)).toBeInTheDocument()
     })
 
     it('renders the toggle with "View full AI summary" by default and shows a clamped snippet', async () => {
@@ -209,7 +226,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.getByTestId('ai-summary-toggle')).toHaveTextContent('View full AI summary')
         const body = screen.getByTestId('ai-summary-body')
         expect(body).toHaveTextContent(SUMMARY_TEXT)
-        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('3')
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
     })
 
     it('expands the body to full text and flips the toggle label when clicked', async () => {
@@ -230,21 +247,17 @@ describe('SubmittedCodeSection — AI summary', () => {
         await user.click(toggle)
         await user.click(toggle)
 
-        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('3')
+        expect(screen.getByTestId('ai-summary-body').style.getPropertyValue('--text-line-clamp')).toBe('2')
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
     it('shows the in-progress spinner while no review row exists yet (still generating)', async () => {
         const noReviewFixture = await setupBaseFixture()
         await renderSection(noReviewFixture)
-        // The review is generated by a deferred background task; until the row
-        // lands the panel polls and shows the pending state rather than an empty
-        // or summary state.
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
-        // "Overview" only accompanies a rendered summary, never the spinner.
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
@@ -272,15 +285,10 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
-    // latestCodeSubmittedAt's own unit tests only exercise a hand-built statusChanges
-    // array. This drives the same shape through the real query (latestJobForStudy's
-    // jsonArrayFrom + orderBy) with two full resubmission rounds on one reused job, so
-    // a regression that dropped the latest CODE-SUBMITTED (e.g. picking the original
-    // createdAt instead) would surface here through the real serialized payload.
     it('keeps loading across two resubmission rounds on the same reused job', async () => {
         const resubmissionFixture = await setupBaseFixture()
         const day = 24 * 60 * 60 * 1000
@@ -307,20 +315,20 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('AI Summary is loading')
+        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
 
     it('surfaces the error + retry state immediately when a failed review row exists', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
-        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
-        // Anchor submittedAt to now so the backstop has *not* elapsed: the error
-        // can then only come from the persisted failure row, not from `timedOut`.
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
+        // submittedAt anchored to now so the backstop has not elapsed: the error can only come
+        // from the persisted failure row.
         renderWithProviders(
-            <AiSummaryCollapsible
+            <JobAnalysisPanels
                 studyJobId={failedFixture.job.id}
-                initialReview={initialReview}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
             />,
         )
@@ -328,20 +336,18 @@ describe('SubmittedCodeSection — AI summary', () => {
         const error = await screen.findByTestId('ai-summary-error')
         expect(error).toHaveTextContent('The AI summary failed to generate.')
         expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
-        // A persisted failure is terminal — no spinner, even though it landed fast.
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
-        // "Overview" belongs to the summary body, not the error alert.
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
     it('retrying a failed summary clears the failure row and drops back to pending', async () => {
         const failedFixture = await setupBaseFixture()
         await insertFailedStudyReview(failedFixture.job.id)
-        const initialReview = await getStudyReviewForJob(failedFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
         renderWithProviders(
-            <AiSummaryCollapsible
+            <JobAnalysisPanels
                 studyJobId={failedFixture.job.id}
-                initialReview={initialReview}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date(Date.now() - 10 * 60_000)}
             />,
         )
@@ -349,30 +355,102 @@ describe('SubmittedCodeSection — AI summary', () => {
         const user = userEvent.setup()
         await user.click(await screen.findByTestId('ai-summary-retry'))
 
-        // A retry is a new generation request, so it resets an already-elapsed
-        // backstop and returns to pending while the new result is polled.
         await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
-        const remaining = await getStudyReviewForJob(failedFixture.job.id)
+        const remaining = (await jobAnalysisForJob(failedFixture.job)).review
         expect(remaining?.summaryFailedAt ?? null).toBeNull()
+    })
+
+    // The reported defect: the panel called a generation failed at three minutes while the server
+    // was still working on it, and Retry restarted the same wait (OTTER-799).
+    it('keeps the spinner while the server says a run is still going, past the submission backstop', async () => {
+        const liveFixture = await setupBaseFixture()
+        await insertPendingStudyReview(liveFixture.job.id, new Date())
+        const initialReview = (await jobAnalysisForJob(liveFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={liveFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+                summaryTimeoutMs={50}
+            />,
+        )
+
+        await new Promise((resolve) => setTimeout(resolve, 80))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    it('offers the retry once a claimed run is old enough to have died', async () => {
+        const deadFixture = await setupBaseFixture()
+        await insertPendingStudyReview(deadFixture.job.id, new Date(Date.now() - 15 * 60_000))
+        const initialReview = (await jobAnalysisForJob(deadFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={deadFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            />,
+        )
+
+        expect(await screen.findByTestId('ai-summary-error')).toHaveTextContent('The AI summary failed to generate.')
+        expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
+    })
+
+    it('retrying a run that died clears the row and drops back to pending', async () => {
+        const deadFixture = await setupBaseFixture()
+        await insertPendingStudyReview(deadFixture.job.id, new Date(Date.now() - 15 * 60_000))
+        const initialReview = (await jobAnalysisForJob(deadFixture.job)).review
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={deadFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            />,
+        )
+
+        const user = userEvent.setup()
+        await user.click(await screen.findByTestId('ai-summary-retry'))
+
+        await waitFor(() => expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument())
+    })
+
+    // The scan settles first on a large submission, so the summary is the only thing left to wait
+    // for and it is the row, not the clock, that has to keep the poll alive.
+    it('keeps polling while the row reports a run in progress and the scan has settled', async () => {
+        const pollFixture = await setupBaseFixture()
+        await insertPendingStudyReview(pollFixture.job.id, new Date())
+        const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(
+            actionResult({ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }),
+        )
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={pollFixture.job.id}
+                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 
     it('flips the spinner to an error once the backstop elapses past submission with no row', async () => {
         const noReviewFixture = await setupBaseFixture()
-        const initialReview = await getStudyReviewForJob(noReviewFixture.job.id)
-        // No row ever lands (a hung generation). A short backstop measured from
-        // submission exercises the escalation without faking timers (which break
-        // the shared DB pool mid-file). Anchor submittedAt to *now* rather than the
-        // fixture's createdAt: createdAt is already some ms in the past by the time
-        // we render, and under a slow/parallel run that gap can exceed timeoutMs, so
-        // the backstop would fire before the first assertion and the spinner would
-        // never show (a flake seen in CI). Using `now` guarantees a fresh 50ms window
-        // in which the spinner is visible before it flips to error.
+        const initialReview = (await jobAnalysisForJob(noReviewFixture.job)).review
+        // A short backstop exercises the escalation without fake timers, which break the shared
+        // DB pool mid-file.
         renderWithProviders(
-            <AiSummaryCollapsible
+            <JobAnalysisPanels
                 studyJobId={noReviewFixture.job.id}
-                initialReview={initialReview}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-                timeoutMs={50}
+                summaryTimeoutMs={50}
             />,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
@@ -382,17 +460,71 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
     })
 
+    // 8.4% of measured generations land past the backstop. Stopping the poll there stranded a
+    // report that was already in the database until a reload (OTTER-775 review).
+    it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
+        const fixture = await setupBaseFixture()
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                summaryTimeoutMs={30}
+                pollIntervalMs={20}
+            />,
+        )
+
+        await screen.findByTestId('ai-summary-error')
+
+        await insertStudyReview(fixture.job.id, 'Late but real summary')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+
+        expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
+    // A seeded summary stops the poll, so the refetch that can still fail under it is the stale
+    // one the app's client runs on mount; a failure there must not discard what the reviewer is
+    // already reading (OTTER-775 review).
+    it('keeps a rendered summary when the refetch under it fails', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
+
+        // The test client opts out of refetchOnMount; the app's does not (OTTER-694).
+        const queryClient = createTestQueryClient()
+        queryClient.setDefaultOptions({ queries: { retry: false, refetchOnMount: true } })
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+            { queryClient },
+        )
+
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
+        expect(screen.getByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
+        expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
+    })
+
     it('errors immediately when the page is opened long after a submission that never produced a row', async () => {
         const staleFixture = await setupBaseFixture()
-        const initialReview = await getStudyReviewForJob(staleFixture.job.id)
-        // Submitted well beyond the backstop: the spinner must not even flash.
+        const initialReview = (await jobAnalysisForJob(staleFixture.job)).review
+        // Beyond the backstop: the spinner must not even flash.
         const longAgo = new Date(Date.now() - 10 * 60_000)
         renderWithProviders(
-            <AiSummaryCollapsible
+            <JobAnalysisPanels
                 studyJobId={staleFixture.job.id}
-                initialReview={initialReview}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={longAgo}
-                timeoutMs={180_000}
+                summaryTimeoutMs={180_000}
             />,
         )
         expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
@@ -402,22 +534,20 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('keeps the blank-summary empty-state and never errors once a row exists, even past the backstop', async () => {
         const blankFixture = await setupBaseFixture()
         await insertStudyReview(blankFixture.job.id, '')
-        const initialReview = await getStudyReviewForJob(blankFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(blankFixture.job)).review
         renderWithProviders(
-            <AiSummaryCollapsible
+            <JobAnalysisPanels
                 studyJobId={blankFixture.job.id}
-                initialReview={initialReview}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={blankFixture.job.createdAt}
-                timeoutMs={50}
+                summaryTimeoutMs={50}
             />,
         )
 
-        // Wait past the backstop window; a landed (blank) row must stay terminal.
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
         await new Promise((resolve) => setTimeout(resolve, 60))
         expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
-        // "Overview" only accompanies a rendered summary, never the empty-state.
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
     })
 
@@ -432,128 +562,99 @@ describe('SubmittedCodeSection — AI summary', () => {
 })
 
 describe('SubmittedCodeSection — Security scan log', () => {
-    // These tests render the component with a known `scan` value passed directly,
-    // rather than going through `jobScanResultForJob`. The query's own parsing is
-    // covered by queries.test.ts; here we only care that the component renders the
-    // right per-tool status text, warning icon, and download affordance.
-    const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
-        trivy,
-        sonarqube,
-        logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
-    })
-
-    const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
-
-    it('renders section title "Security scan log" with no status icon in the title', async () => {
+    it('does not render the security scan log section', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.getByTestId('security-scan-log')).toHaveTextContent('Security scan log')
+        expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+        expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
+    })
+})
+
+describe('SubmittedCodeSection — Analysis polling', () => {
+    it('stops polling once the summary has arrived', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
+
+        // Sampled after several poll intervals of real time: comparing the count to itself inside
+        // waitFor is satisfied on the first attempt, so it passes even against a poll that never
+        // stops — the regression this test is named for. The scan never settles here, which used
+        // to hold the interval open on its own (OTTER-694).
+        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await new Promise((resolve) => setTimeout(resolve, 200))
+
+        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 
-    it('renders both static tool labels in order', async () => {
+    // Nothing renders a scan verdict, so asking for one would buy an S3 read on every tick.
+    it('never asks the server for the scan', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.getByTestId('security-scan-trivy')).toHaveTextContent('Trivy Filesystem Scan:')
-        expect(screen.getByTestId('security-scan-sonarqube')).toHaveTextContent('SonarQube Quality Gate:')
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
+        // Exact, not toMatchObject: the point is that no scan flag is sent at all.
+        for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
+            expect(args).toEqual({ studyJobId: fixture.job.id })
+        }
     })
 
-    it('shows Trivy "No vulnerabilities found" with no warning icon when it passed', async () => {
+    it('keeps polling until the summary arrives', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('No vulnerabilities found')
-        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
-    })
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
 
-    it('shows Trivy "Vulnerabilities found" with a red warning icon when it failed', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('FAILED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('Vulnerabilities found')
-        const icon = row.querySelector('[data-icon="warning"]')
-        expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).toContain('red')
-    })
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
-    it('shows SonarQube "Passed" with no warning icon when it passed', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const row = screen.getByTestId('security-scan-sonarqube')
-        expect(row).toHaveTextContent('Passed')
-        expect(row.querySelector('[data-icon="warning"]')).toBeNull()
-    })
-
-    it('shows SonarQube "Needs review" with a warning icon when it failed', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'FAILED'))
-        const row = screen.getByTestId('security-scan-sonarqube')
-        expect(row).toHaveTextContent('Needs review')
-        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
-    })
-
-    // The third outcome: the scan reported, but not a verdict. It must not read as either a clean
-    // bill of health or a vulnerability finding (OTTER-649).
-    it('shows Trivy "Needs review" with a warning icon, and no finding, when the result is indeterminate', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        const row = screen.getByTestId('security-scan-trivy')
-        expect(row).toHaveTextContent('Needs review')
-        expect(row).not.toHaveTextContent('Vulnerabilities found')
-        expect(row).not.toHaveTextContent('No vulnerabilities found')
-        expect(row.querySelector('[data-icon="warning"]')).not.toBeNull()
-    })
-
-    it('still offers the log download when a tool result is indeterminate', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        expect(screen.getByTestId('security-scan-log-download')).toHaveTextContent('Download')
-    })
-
-    // An indeterminate result must not look like a reported problem, so it deliberately does not get
-    // the red icon a real finding gets.
-    it('does not give the indeterminate row the red icon used for a finding', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('INDETERMINATE', 'PASSED'))
-        const icon = screen.getByTestId('security-scan-trivy').querySelector('[data-icon="warning"]')
-        expect(icon).not.toBeNull()
-        expect(icon?.outerHTML).not.toContain('red')
-    })
-
-    it('shows a download link to the plaintext scan log when a log file is present', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        const link = screen.getByTestId('security-scan-log-download')
-        expect(link).toHaveTextContent('Download')
-        expect(link).toHaveAttribute('href', `/dl/scan-log/${fixture.job.id}`)
-    })
-
-    it('keeps both labeled rows in a pending state, with no icon or download, when no scan log exists yet', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanInProgress)
-        const trivy = screen.getByTestId('security-scan-trivy')
-        const sonar = screen.getByTestId('security-scan-sonarqube')
-        expect(trivy).toHaveTextContent('Trivy Filesystem Scan:')
-        expect(trivy).toHaveTextContent('Scan in progress')
-        expect(sonar).toHaveTextContent('SonarQube Quality Gate:')
-        expect(sonar).toHaveTextContent('Scan in progress')
-        // No fabricated pass/fail while the status is unknown.
-        expect(trivy.querySelector('[data-icon="warning"]')).toBeNull()
-        expect(sonar.querySelector('[data-icon="warning"]')).toBeNull()
-        expect(screen.queryByTestId('security-scan-log-download')).not.toBeInTheDocument()
+        const afterFirst = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterFirst))
+        expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 })
 
 describe("SubmittedCodeSection — Displaying RL's code", () => {
     async function setupFilesFixture(fileNames: string[]) {
         const fixture = await setupBaseFixture()
-        // First name becomes MAIN-CODE; the rest become SUPPLEMENTAL-CODE.
         await insertStudyJobFile(fixture.job.id, fileNames[0], 'MAIN-CODE')
         for (const name of fileNames.slice(1)) {
             await insertStudyJobFile(fixture.job.id, name, 'SUPPLEMENTAL-CODE')
         }
-        // Refresh so fixture.job.files reflects what was just inserted.
         return refreshFixtureJob(fixture)
     }
+
+    it('renders a "Code files" heading above the table tabs', async () => {
+        const fixture = await setupFilesFixture(['main.R'])
+        await renderSection(fixture)
+        const heading = screen.getByText('Code files')
+        const tabs = screen.getByTestId('study-code-file-tabs')
+        expect(heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
 
     it('renders files in a single horizontal row with no wrapping', async () => {
         const fixture = await setupFilesFixture(['main.R', 'extra.R'])
@@ -607,7 +708,6 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         await renderSection(fixture)
         const user = userEvent.setup()
 
-        // Hidden files are not in the document until the overflow menu is opened.
         expect(screen.queryAllByTestId('study-code-files-overflow-item')).toHaveLength(0)
 
         await user.click(screen.getByTestId('study-code-files-overflow'))
@@ -624,7 +724,6 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         await user.click(screen.getByTestId('study-code-files-overflow'))
         await user.click(await screen.findByTitle('hidden-target.R'))
 
-        // Reopen the menu; the chosen file is now marked as the selected entry.
         await user.click(screen.getByTestId('study-code-files-overflow'))
         const selected = await screen.findByTitle('hidden-target.R')
         expect(selected.getAttribute('data-selected')).toBe('true')
@@ -635,7 +734,6 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         const fixture = await setupFilesFixture(['main.R', longName])
         await renderSection(fixture)
         const tabs = screen.getAllByTestId('study-code-file-tab')
-        // The truncated tab keeps the original title attribute but the visible text is shorter.
         expect(tabs[1]).toHaveAttribute('title', longName)
         const visibleText = tabs[1].textContent ?? ''
         expect(visibleText.length).toBeLessThanOrEqual(22)
@@ -649,16 +747,16 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
         const user = userEvent.setup()
         const toggle = screen.getByTestId('study-code-toggle')
-        expect(toggle).toHaveTextContent('Hide full study code')
+        expect(toggle).toHaveTextContent('Hide full submission details')
         await user.click(toggle)
 
         expect(screen.queryByTestId('study-code-body')).not.toBeInTheDocument()
         expect(screen.queryByTestId('study-code-body-loading')).not.toBeInTheDocument()
-        expect(toggle).toHaveTextContent('View full study code')
+        expect(toggle).toHaveTextContent('View full submission details')
 
         await user.click(toggle)
         await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
-        expect(toggle).toHaveTextContent('Hide full study code')
+        expect(toggle).toHaveTextContent('Hide full submission details')
     })
 
     it('hides the show/hide toggle when there are no code files', async () => {
@@ -667,56 +765,44 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
     })
 
-    // OTTER-613: in whole-section collapse mode the parent owns expand/collapse. The code body is
-    // always shown and the toggle becomes the section's "Hide full study code" closer.
     it('shows the code body up front and calls onCollapse from the closer toggle in onCollapse mode', async () => {
         const fixture = await setupFilesFixture(['main.R'])
-        const [review, scan] = await Promise.all([
-            getStudyReviewForJob(fixture.job.id),
-            jobScanResultForJob(fixture.job.id),
-        ])
+        const analysis = await jobAnalysisForJob(fixture.job)
         const onCollapse = vi.fn()
         renderWithProviders(
             <SubmittedCodeSection
                 orgSlug={ORG_SLUG}
                 study={fixture.study}
                 job={fixture.job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 onCollapse={onCollapse}
             />,
         )
         await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
 
         const closer = screen.getByTestId('study-code-toggle-collapse')
-        expect(closer).toHaveTextContent('Hide full study code')
+        expect(closer).toHaveTextContent('Hide full submission details')
         expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
 
         await userEvent.setup().click(closer)
         expect(onCollapse).toHaveBeenCalledTimes(1)
     })
 
-    // The closer is the only collapse control in onCollapse mode, so it must remain reachable even
-    // when there are no displayable code files — otherwise the section would be stuck expanded.
     it('keeps the closer toggle visible in onCollapse mode when there are no code files', async () => {
         const fixture = await setupBaseFixture()
-        const [review, scan] = await Promise.all([
-            getStudyReviewForJob(fixture.job.id),
-            jobScanResultForJob(fixture.job.id),
-        ])
+        const analysis = await jobAnalysisForJob(fixture.job)
         const onCollapse = vi.fn()
         renderWithProviders(
             <SubmittedCodeSection
                 orgSlug={ORG_SLUG}
                 study={fixture.study}
                 job={fixture.job}
-                review={review}
-                scan={scan}
+                analysis={analysis}
                 onCollapse={onCollapse}
             />,
         )
         const closer = await screen.findByTestId('study-code-toggle-collapse')
-        expect(closer).toHaveTextContent('Hide full study code')
+        expect(closer).toHaveTextContent('Hide full submission details')
 
         await userEvent.setup().click(closer)
         expect(onCollapse).toHaveBeenCalledTimes(1)
@@ -731,8 +817,8 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         expect(body).toHaveTextContent('main.R')
     })
 
-    // OTTER-516 follow-up: a png submitted alongside code (e.g. an IDE-generated plot) can be an
-    // active tab here, so the body must render it as an image rather than decoding its bytes to text.
+    // OTTER-516: a png submitted alongside code can be the active tab, so the body must render it
+    // as an image rather than decoding its bytes to text.
     it('renders a png tab as an image instead of decoded text', async () => {
         vi.mocked(fetchFileContents).mockImplementation(async (path: string) =>
             path.endsWith('.png')
@@ -772,8 +858,8 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 
         await user.click(screen.getByTestId('study-code-files-overflow'))
 
-        // The dropdown is portalled and renders display:none in the test DOM, so the link
-        // isn't in the accessibility tree — query it by test id rather than by link role.
+        // The portalled dropdown renders display:none in the test DOM, so the link is not in the
+        // accessibility tree.
         const items = await screen.findAllByTestId('study-code-files-overflow-item')
         const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
         const hiddenDownload = within(hiddenItem).getByTestId('study-code-download')
@@ -792,9 +878,8 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
         fireEvent.click(within(hiddenItem).getByTestId('study-code-download'))
 
-        // The same Menu.Item onClick drives both the file-select and Mantine's
-        // closeOnItemClick, and the icon's stopPropagation gates both — so the file
-        // staying unselected also proves the dropdown was not closed.
+        // One Menu.Item onClick drives both file-select and Mantine's closeOnItemClick, so the
+        // file staying unselected also proves the dropdown stayed open.
         const after = screen
             .getAllByTestId('study-code-files-overflow-item')
             .find((item) => item.getAttribute('title') === 'hidden-target.R')

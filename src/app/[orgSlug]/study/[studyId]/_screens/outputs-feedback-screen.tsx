@@ -1,107 +1,45 @@
-import type { Route } from 'next'
-import type { StudyJobStatus } from '@/database/types'
-import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
-import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
+import { semanticColor } from '@/theme/tokens'
+import { Box, Stack } from '@mantine/core'
+import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { StatusAlert, STATUS_ALERT_SEPARATOR, STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
-import { latestStatusAt } from '@/lib/study-job-status'
-import { isFeedbackOnlyOutcome, latestJob, projectStudyState, type RawJob } from '@/lib/study-screen'
-import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsFeedbackThreadEntry } from '@/server/actions/study.actions'
-import { getOrgNameFromId } from '@/server/db/queries'
-import { loadOutputsFeedbackThread } from '../view/load-outputs-feedback-thread'
+import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
+import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
+import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
 
-// Raw status rows carry createdAt optionally (fixtures omit it); only dated rows can date the banner.
-const datedStatusChanges = (job: RawJob) =>
-    job.statusChanges.filter((c): c is { status: StudyJobStatus; createdAt: Date | string } => !!c.createdAt)
+export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
+    const result = await guardOutputsFeedbackScreen({
+        study,
+        raw,
+        matches: isFeedbackOnlyOutcome,
+        notFound: {
+            title: 'Feedback not found',
+            message: 'This study does not have outputs feedback to display yet.',
+        },
+        decisionStatus: 'FILES-REJECTED',
+    })
+    if (!('job' in result)) return result
 
-const FeedbackOnlyBanner = ({ decidedAt, dataPartner }: { decidedAt: Date | string | null; dataPartner: string }) => {
-    // Display-only date: degrade to an undated banner rather than block a page routing already chose.
-    const decidedOn = decidedAt ? ` ${STATUS_ALERT_SEPARATOR} ${dayjs(decidedAt).format('MMM DD, YYYY')}` : ''
-    return (
-        <StatusAlert variant={STATUS_ALERT_VARIANT.action} title={`Feedback on outputs available${decidedOn}`}>
-            {dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When
-            you are ready, edit your code and resubmit.
-        </StatusAlert>
-    )
-}
-
-// Mirrors the code surface: a failed fetch swaps in the shared notice instead of hiding the section.
-const FeedbackSection = ({
-    feedbackLoadError,
-    entries,
-}: {
-    feedbackLoadError: boolean
-    entries: OutputsFeedbackThreadEntry[]
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
-    }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
-}
-
-// OTTER-695: clean run whose outputs the reviewer withheld with "Share feedback only"
-// (FILES-REJECTED without JOB-ERRORED); the researcher reads the feedback and resubmits.
-export async function OutputsFeedbackScreen({
-    study,
-    raw,
-    orgSlug,
-    returnTo,
-}: Pick<ScreenComponentProps, 'study' | 'raw' | 'orgSlug' | 'returnTo'>) {
-    // The routing predicate first (raw is in hand, so the check is free and render cannot disagree
-    // with the rule table), then the narrowing lookups that cost I/O.
-    if (!isFeedbackOnlyOutcome(projectStudyState(raw))) {
-        return (
-            <AlertNotFound
-                title="Feedback not found"
-                message="This study does not have outputs feedback to display yet."
-            />
-        )
-    }
-    if (!isSubmittedStudy(study)) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
-    }
-
-    // The banner date comes from the SAME raw job the routing guard decided on — no second
-    // latest-job query whose definition could drift from the projection's (review on this card).
-    const job = latestJob(raw.jobs)
-    if (!job) {
-        return <AlertNotFound title="No submission found" message="This study has no submitted code yet." />
-    }
-
-    const { entries, feedbackLoadError } = await loadOutputsFeedbackThread(study.id)
-    const dataPartner = displayOrgName(await getOrgNameFromId(study.orgId))
-    const decidedAt = latestStatusAt(datedStatusChanges(job), 'FILES-REJECTED')
-    const previousHref = Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo }) as Route
-    const editCodeHref = Routes.studyResubmit({ orgSlug, studyId: study.id }) as Route
+    const { entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const state = projectStudyState(raw)
+    const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
 
     return (
-        <Box bg="grey.10">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <StudyPageHeader study={study} />
+                <MarkOutputsDecisionViewed studyId={study.id} />
                 <ProposalStepHeader
                     stepLabel="STEP 4"
                     heading="Verify outputs"
-                    studyTitle={study.title}
-                    banner={<FeedbackOnlyBanner decidedAt={decidedAt} dataPartner={dataPartner} />}
+                    banner={<DatedStatusBanner copy={banner} at={decidedAt} />}
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={entries} />
-                <Group justify="space-between">
-                    <ButtonLink href={previousHref} variant="subtle" leftSection={<CaretLeftIcon />}>
-                        Previous step
-                    </ButtonLink>
-                    <ButtonLink href={editCodeHref} variant="outline" size="md">
-                        Edit code
-                    </ButtonLink>
-                </Group>
+                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

@@ -2,7 +2,7 @@ import { vi } from 'vitest'
 import { act, describe, expect, it, renderHook } from '@/tests/unit.helpers'
 import { timedProgress, useTimedProgress, type TimedStep } from './use-timed-progress'
 
-// `data` is the count of steps that have started; total estimate is 60s.
+// `data` is the count of steps that have started; the total estimate is 60s.
 const steps: TimedStep<number>[] = [
     { estimateSeconds: 10, hasStarted: (n) => n >= 1 },
     { estimateSeconds: 20, hasStarted: (n) => n >= 2 },

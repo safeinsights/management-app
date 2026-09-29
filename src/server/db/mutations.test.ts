@@ -128,16 +128,12 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
         expect(await jobsForStudy(study.id)).toHaveLength(2)
     })
 
-    // Regression: the reuse-vs-new-round decision must not depend on jobStatusChange ordering.
-    // jobStatusChange.createdAt defaults to now() (constant within a transaction), so two statuses
-    // written together tie on createdAt and v7 ids aren't reliably monotonic within a millisecond.
-    // A "latest status" lookup over them is non-deterministic; this asserts the decision is stable
-    // when a non-round-closing and a round-closing status share an exact createdAt.
+    // createdAt is constant within a transaction and v7 ids are not monotonic inside a millisecond,
+    // so a "latest status" lookup over tied rows is non-deterministic.
     it('deterministically opens a new round when round-closing and non-round-closing statuses share a createdAt', async () => {
         const org = await insertTestOrg()
 
-        // Fresh study per iteration so each decision runs against the same unchanged two-status state;
-        // an order-dependent implementation would flip the verdict across iterations.
+        // Fresh study per iteration: an order-dependent implementation would flip the verdict.
         for (let i = 0; i < 8; i++) {
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -145,8 +141,7 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
                 jobStatus: 'CODE-SUBMITTED',
             })
             await addFile(job.id)
-            // Same exact timestamp for both rows — forces the createdAt tie the bug depended on, with
-            // a non-round-closing (RUN-COMPLETE) and a round-closing (FILES-REJECTED) status.
+            // Forces the createdAt tie the bug depended on.
             const tied = new Date()
             await db
                 .insertInto('jobStatusChange')
@@ -250,7 +245,6 @@ describe('ensureRoundJobForLaunch (OTTER-601)', () => {
         const after = await jobsForStudy(study.id)
         expect(after).toHaveLength(1)
         expect(after[0].id).toBe(job.id)
-        // A manual upload before launch must keep counting toward submit-enable.
         expect(after[0].createdAt.getTime()).toBe(backdated.getTime())
         expect(result.createdAt.getTime()).toBe(backdated.getTime())
     })

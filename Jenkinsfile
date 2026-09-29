@@ -65,14 +65,27 @@ pipeline {
                         echo "Not a merge commit"
                     }
                 }
-                sh """
-                    printenv
-                    [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
-                    aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
-                    cd cicd
-                    unzip -o *.zip
-                    ./deploy
-                """
+                // The deploy reports the PR preview and component catalog URLs back to GitHub, which
+                // needs a token in the environment. 'github-app-safeinsights' is the GitHub App the
+                // Branch Source plugin already uses to post build statuses; the plugin exchanges the
+                // app key for a short-lived installation token, exposed here as the password.
+                // Posting needs pull_requests:write and statuses:write on the installation.
+                //
+                // `printenv` was dropped from this step: it predates the credential and would now
+                // echo the token into the build log.
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-app-safeinsights',
+                    usernameVariable: 'GITHUB_APP_USER',
+                    passwordVariable: 'GITHUB_TOKEN'
+                )]) {
+                    sh """
+                        [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
+                        aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
+                        cd cicd
+                        unzip -o *.zip
+                        ./deploy
+                    """
+                }
             }
         }
     }

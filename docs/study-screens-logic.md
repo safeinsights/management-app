@@ -20,7 +20,7 @@ Before this, four places each re-derived overlapping state from incomplete input
 - `use-study-href.ts` — dashboard guessed _which URL_ to open.
 - `view/page.tsx` — a nested if-cascade keyed on `?from=` query params + status ordering.
 - `review/page.tsx` — a parallel reviewer cascade with its own `?from=` cases.
-- `use-study-status.ts` + `study-row.tsx` — pill + row highlight, with their own recency logic.
+- `study-row.tsx` (via `use-study-status.ts`) — pill + row highlight, with their own recency logic.
 
 They drifted, and most past bugs traced to code reading **"the newest status"** when status rows
 can arrive **out of order**. The fix: derive everything **once**, from the whole status set.
@@ -113,8 +113,6 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `isExecuting` = latest job has a running status (`JOB-PROVISIONING/PACKAGING/READY/RUNNING`).
 - `hasResults` / `resultsApproved` / `resultsRejected` / `resultsErrored` — results statuses are
   terminal-and-permanent for their job (pure existence; no counting).
-- `displayStatus` — highest-priority **present** status (see `DISPLAY_STATUS_PRIORITY`), with
-  stale code decisions dropped on a fresh resubmission; falls back to the study status.
 - `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
 - `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
@@ -135,47 +133,126 @@ raw jobs.
 
 **Researcher table (`researcher-screen-rules.ts`):**
 
-| #   | When                                                                             | Screen              |
-| --- | -------------------------------------------------------------------------------- | ------------------- |
-| 1   | `isFeedbackOnlyOutcome` (`resultsRejected && !resultsErrored`)                   | `outputs-feedback`  |
-| 2   | `hasResults && !awaitingFilesDecisionOnError`                                    | `study-results`     |
-| 3   | `codeDecision === 'CODE-APPROVED' && isExecuting`                                | `outputs-pending`   |
-| 4   | `codeDecision === 'CODE-APPROVED'`                                               | `code-approved`     |
-| 5   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                 | `code-feedback`     |
-| 6   | `codeAwaitingDecision`                                                           | `code-under-review` |
-| 7   | `status === 'APPROVED' && !hasSubmittedCode`                                     | `proposal-feedback` |
-| 8   | `status === 'PENDING-REVIEW'`                                                    | `study-overview`    |
-| 9   | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code) | `proposal-feedback` |
-| 10  | `isDraft`                                                                        | `study-overview`    |
-| 11  | fallback                                                                         | `study-overview`    |
+| #   | When                                                                                | Screen                    |
+| --- | ----------------------------------------------------------------------------------- | ------------------------- |
+| 1   | `isErroredOutputsSharedOutcome` (`resultsErrored && resultsApproved`)               | `outputs-errored-shared`  |
+| 2   | `isFeedbackOnlyOutcome` (`resultsRejected`)                                         | `outputs-feedback`        |
+| 3   | `isOutputsSharedOutcome` (`resultsApproved && !resultsRejected && !resultsErrored`) | `outputs-shared`          |
+| 4   | `isAwaitingOutputsReviewOutcome` (clean `RUN-COMPLETE`, no `FILES-*` decision)      | `outputs-awaiting-review` |
+| 5   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `outputs-pending`         |
+| 6   | `codeDecision === 'CODE-APPROVED'` (only via `/view/code`, walking back)            | `code-approved`           |
+| 7   | `codeDecision === 'CODE-CHANGES-REQUESTED'` or `'CODE-REJECTED'`                    | `code-feedback`           |
+| 8   | `codeAwaitingDecision`                                                              | `code-under-review`       |
+| 9   | `status === 'APPROVED' && !hasSubmittedCode`                                        | `proposal-feedback`       |
+| 10  | `status === 'PENDING-REVIEW'`                                                       | `study-overview`          |
+| 11  | `status` ∈ `CHANGE-REQUESTED`/`REJECTED`/`APPROVED` (decided; APPROVED has code)    | `proposal-feedback`       |
+| 12  | `isDraft`                                                                           | `study-overview`          |
+| 13  | fallback                                                                            | `study-overview`          |
 
-Researcher precedence note (OTTER-695): rule #1 claims a clean run decided with **Share feedback
-only** before `study-results` can; an errored run's `FILES-REJECTED` and `resultsApproved` both
-still fall through to `study-results` (#2).
+Researcher precedence note (OTTER-695, OTTER-696, OTTER-697, OTTER-688): the three outputs-decision
+rules are grouped above `outputs-awaiting-review` for readability, not for precedence.
+`isAwaitingOutputsReviewOutcome` excludes every decided run in its own predicate (OTTER-785), so #4 is
+disjoint from the three and its position below them decides no screen. They
+split the decision across run outcome × decision: #1 is an errored run whose outputs were **shared**
+(the researcher decrypts to diagnose), #2 is an errored or clean run whose outputs were **withheld**,
+#3 is a clean run whose outputs were **shared**. #1 and #3 render **one component**,
+`SharedOutputsScreen`, keyed on the resolved `ScreenId` (the same shape `CodeDecisionScreen` uses for
+`code-approved`/`code-feedback`); they differ in the routing predicate and in both banner phases — a
+clean share concludes (success), an errored share still needs a resubmit (action, OTTER-781). All
+three screens' banner copy lives in `src/lib/study-banners.ts` with every other status banner
+(OTTER-699): `researcherSharedOutputsBanner` for #1/#3, `researcherOutputsFeedbackBanner` for #2.
+`outputs-awaiting-review` (#4) serves exactly one researcher state: an undecided `RUN-COMPLETE`,
+waiting on the reviewer. It renders the STEP 4 "Verify outputs" card with
+`researcherOutputsAwaitingReviewBanner`, which names the data partner and dates the banner from the
+`RUN-COMPLETE` row (OTTER-785).
+
+The three predicates are **mutually disjoint** (see `isOutputsSharedOutcome`), so their order relative
+to each other carries no meaning either. Disjointness still matters for a
+job carrying BOTH `FILES-*` rows, which `submitOutputsDecisionAction` refuses but the QA status route
+and the legacy approve/reject actions can write: `isOutputsSharedOutcome` excludes `resultsRejected`
+so #2 keeps it, and the conservative feedback-only page is what the researcher sees. The one overlap
+left is an errored job with both rows, where #1 and #2 both match and order does decide;
+`state.test.ts` pins it.
 
 **Reviewer table (`reviewer-screen-rules.ts`)** — transcribes the legacy `review/page.tsx`
 cascade with the `?from=` cases removed (those became routing, not screen-selection):
 
-| #   | When                                                                     | Screen                       |
-| --- | ------------------------------------------------------------------------ | ---------------------------- |
-| 1   | `awaitingFilesDecisionOnError`                                           | `reviewer-outputs-errored`   |
-| 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                | `reviewer-outputs-available` |
-| 3   | `hasResults`                                                             | `reviewer-outputs-decided`   |
-| 4   | `isExecuting`                                                            | `reviewer-outputs-pending`   |
-| 5   | `codeDecision !== null`                                                  | `reviewer-code-feedback`     |
-| 6   | `codeAwaitingDecision && !reviewerAgreementsAcked`                       | `reviewer-agreements`        |
-| 7   | `codeAwaitingDecision`                                                   | `reviewer-code-review`       |
-| 8   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED` | `reviewer-proposal-feedback` |
-| 9   | `status === 'PENDING-REVIEW'`                                            | `reviewer-proposal-review`   |
-| 10  | fallback                                                                 | `study-overview`             |
+| #   | When                                                                                | Screen                       |
+| --- | ----------------------------------------------------------------------------------- | ---------------------------- |
+| 1   | `awaitingFilesDecisionOnError`                                                      | `reviewer-outputs-errored`   |
+| 2   | `resultsDisplayStatus === 'RUN-COMPLETE'`                                           | `reviewer-outputs-available` |
+| 3   | `hasResults`                                                                        | `reviewer-outputs-decided`   |
+| 4   | `codeDecision === 'CODE-APPROVED'` (from approval onward, stage or not — OTTER-673) | `reviewer-outputs-pending`   |
+| 5   | `codeDecision !== null` (only via `/review/code` for CODE-APPROVED, walking back)   | `reviewer-code-feedback`     |
+| 6   | `codeAwaitingDecision`                                                              | `reviewer-code-review`       |
+| 7   | `!hasSubmittedCode && status` ∈ `APPROVED`/`REJECTED`/`CHANGE-REQUESTED`            | `reviewer-proposal-feedback` |
+| 8   | `status === 'PENDING-REVIEW'`                                                       | `reviewer-proposal-review`   |
+| 9   | fallback                                                                            | `study-overview`             |
+
+`reviewer-outputs-errored` (#1) has two shapes, decided by whether the job carries an encrypted
+artifact describing the run's own outcome: an `ENCRYPTED-RESULT`, or an encrypted error log
+(OTTER-524). With one, the reviewer enters their security key as usual. With none, a run that failed
+before producing anything, there is nothing a key could open, so the screen skips the key step and
+offers the decision directly with `Share outputs and feedback` disabled: only `Share feedback only`
+can be honored. Without that escape the round could never be closed, and the researcher would sit on
+`outputs-pending` ("code is running") indefinitely. The bypass is opt-in per screen and deliberately
+NOT set on `reviewer-outputs-available`: for a completed run, missing artifacts mean delivery went
+wrong rather than that there is nothing to review. It is also keyed on the job's own files, never on
+the artifact fetch returning empty, since that also happens when the reviewer has no registered key.
+
+The security scan log does not count towards that gate. It is written by the code scanner at
+submission and is already surfaced on the code review step, so it says nothing about a run: an
+errored job carrying only a scan log has nothing to review here, and offering to share it as the
+run's outputs would repeat the conflation this card fixed.
+
+The same screen's banner no longer promises error logs unconditionally. When the job holds an error
+log a reviewer's key can open, the banner is a single sentence, `Enter your security key below to
+access the outputs and see what went wrong.` (OTTER-769): entering the key is the whole of what the
+reviewer does next, and the log itself carries the detail. In every other case it names the stage that
+failed, derived from the status history (`JOB-PACKAGING` without `JOB-READY` means packaging failed;
+`JOB-RUNNING` means the code ran; a job that errored before packaging even started is told neither,
+since `/api/services/job-scan-results` and `/api/job/[jobId]` can both record `JOB-ERRORED` first).
+It then says what can honestly be said about a log: how to open it, that there is none, that there is
+none but the results still need a key, or that one exists in a form this screen cannot display (a
+pre-#764 legacy row, or the plaintext twin of a log whose encrypted half never stored). The
+decryptable question is asked first, so an ordinary packaging failure, which stores both halves of
+one log, is reported as readable rather than as one this screen cannot display. Each of those
+sentences carries a key step or not according to whether a job also holds a decryptable artifact,
+since it can hold both. They are derived from the same file list and the same predicate as the key
+gate, so the banner cannot instruct the reviewer to use a form that is not rendered, nor drop the
+instruction while the form renders.
+
+The stage sentence is replaced by a more specific one when a build service reported a failure class
+it recognizes, such as an unavailable base image. Only classified codes are rendered: the value is
+read through a reviewer-scoped query (never the shared job queries, which the submitting researcher
+can reach), that query selects only known codes so a later code-less or free-text `JOB-ERRORED` row
+cannot mask one, and anything unrecognized still falls back to the stage sentence. Service-supplied
+text is never echoed, which keeps AWS and deployment detail off a screen another organization reads.
+A job holding both a readable log and a recognized reason shows the single OTTER-769 sentence
+instead, since the reason it would otherwise name is in the log the key opens.
+
+`reviewer-outputs-decided` (#3) hides its post-decision `View outputs again` key form when the job
+holds no encrypted artifact describing the run's outcome, for the same reason: an errored run can now
+be closed out having produced nothing, and returning here would ask for a key no key holder could
+satisfy. It is the same gate as the errored screen, on the same predicate. A decided job whose sole
+encrypted artifact is a scan log therefore loses the re-decrypt too, because that form promises the
+run's outputs and a submission-time scan log is not one.
 
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
 (which, by exclusion, is always a decided result — OTTER-677); `isExecuting` (#4) out-ranks a
-present code decision (#5 — `CODE-APPROVED` is always present once execution starts); the agreements
-gate sits **above** active review (#6 > #7 — a reviewer must ack before the review page renders);
-and the proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once
-code exists.
+present code decision (#5 — `CODE-APPROVED` is always present once execution starts); and the
+proposal-feedback rule is gated on `!hasSubmittedCode` so the code rules own the screen once code
+exists.
+
+**OTTER-727 — the hidden agreements gate.** A `reviewer-agreements` rule used to sit between #5 and
+#6, claiming `codeAwaitingDecision && !reviewerAgreementsAcked` so a Data Partner had to ack before
+the review page rendered. It was removed when the Agreements page was hidden: #6 now owns the whole
+`codeAwaitingDecision` state (its predicate is the same one minus the ack clause). The `ScreenId`,
+its `SCREEN_COMPONENTS` entry and `_screens/reviewer-agreements-screen.tsx` are deliberately
+**retained but unreachable** — restoring the gate means re-adding that one rule entry (plus the
+back-edges that were re-pointed). The gate was always intended to give way to `legal_document` SLA
+acknowledgements (SHRMP-273); OTTER-727 hides the placeholder ahead of that ack frontend shipping.
 
 Each rule decides only **which** screen renders; the leaf view owns its own back/forward
 buttons. No query param feeds into screen selection — `resolveScreen` is a pure `state → screen`
@@ -207,9 +284,67 @@ each fetches its own feedback/job data, exactly as the researcher screens do. Tw
 a component on each side: `code-approved`/`code-feedback` → `CodeDecisionScreen` (researcher), and
 `reviewer-code-feedback` branches internally on the decision for the reviewer. `outputs-pending` →
 `OutputsPendingScreen` (researcher) and `reviewer-outputs-pending` → `ReviewerOutputsPendingScreen`
-share a `guardExecutionStage` helper for their common precondition checks.
+share a `guardSubmittedJob` helper for the submitted-job precondition; each reads the execution stage or approval date it displays off the job itself.
 
 ---
+
+## Stage 2b — Step navigation (`nav.ts` + `components/study/step-navigation.tsx`)
+
+The in-content "Previous step / Next step / Back to my studies" row (OTTER-673) is a second rule
+table keyed on the **same** `StudyState`, one per role: `RESEARCHER_STEP_NAV` and
+`REVIEWER_STEP_NAV`, both `Record<ScreenId, NavRule>` so a screen without an entry is a compile
+error. The dispatcher (`_screens/render-screen.tsx`) resolves it **once** per request through
+`resolveScreenNav(role, screen, state, ctx)` and passes `nav` (plus `phasedNav`, the same nav with
+only `Previous step` while a security key is still required) in `ScreenComponentProps`. Screens
+never derive nav themselves: they hand what they are given to `StepNavigation`, which only lays it
+out. Routes that pin a screen rather than resolve one (`/submitted`, `/review/proposal`) go through
+the same dispatcher via `renderScreenById`, so they share the prop set.
+
+The spec's governing rule: every state carries **exactly one solid button**, so no screen is a dead
+end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form
+(passed to `StepNavigation` as `formAction`); such screens legitimately return only `Previous step`.
+"Previous step" is anchored **per phase**, not to the page the user arrived from, which keeps the
+table a pure function of state.
+
+**Researcher table:**
+
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                   |
+| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                            |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code`; CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                           |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                    |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                            |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
+
+**Reviewer table:**
+
+| Screen                                   | back → (`Previous step`, subtle) | forward (solid)                                                            |
+| ---------------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+| `reviewer-proposal-review`               | —                                | — (`Submit decision` is the form's)                                        |
+| `reviewer-proposal-feedback`             | —                                | code submitted: `Next step` → `/review/code`; else `Back to my studies`    |
+| `reviewer-agreements`                    | —                                | — (unreachable since OTTER-727)                                            |
+| `reviewer-code-review`                   | `/review/proposal`               | — (`Submit decision` is the form's)                                        |
+| `reviewer-code-feedback`                 | `/review/proposal`               | CODE-APPROVED: `Next step` → `/review` (always); else `Back to my studies` |
+| `reviewer-outputs-pending`, `-decided`   | `/review/code`                   | `Back to my studies`                                                       |
+| `reviewer-outputs-errored`, `-available` | `/review/code`                   | — (`View` / `Submit decision` are the panel's)                             |
+
+`/submitted` is the anchor every code-phase "Previous step" walks back to, so it pins
+`proposal-feedback` (`renderScreenById`) rather than going through `resolveScreen`, which would
+forward-jump to a code screen for the same state.
+
+`/code` is a form route, not a dispatcher screen, so it has no `ScreenId` and resolves its own nav
+through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous step` is the only
+navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
+before that. It takes `NavCtxBase` — the context without `dashboardHref`, which this rule never
+reads.
+
+`Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
+for reviewers, and for researchers the org dashboard only when the study was entered with
+`?returnTo=org`.
 
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 
@@ -235,24 +370,110 @@ redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ## Stage 4 — Pill + row highlight (`pill.ts`)
 
-`resolvePillStatus(role, state)` walks `DISPLAY_STATUS_PRIORITY` over the **latest job's status
-set**, returning the label for the first status **the role can label**. This is why a researcher
-(who has no execution sub-status labels) falls through `JOB-PACKAGING/READY/RUNNING` to
-`CODE-APPROVED`, while a reviewer shows the granular execution label. Role-specific rules:
+`resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
+uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
+`PILL_PRESENTATION` in `lib/status-labels.ts`, which owns the label, the tooltip and the color.
 
-- a **researcher hides `JOB-ERRORED`** until a reviewer records a `FILES-*` decision;
-- on a resubmission (`codeAwaitingDecision`), **stale code-decision statuses are dropped** so the
-  fresh `CODE-SUBMITTED` drives the pill, not the prior round's decision.
+The pill cannot be keyed on a status value alone, which is why it has a table rather than a map
+(OTTER-698). Four cases need facts a single status does not carry:
 
-Fallbacks: status candidate label → study-status label → a guaranteed-present terminal
-`FALLBACK_LABEL` (no non-null assertion that could lie).
+- one researcher label, **Code processing**, spans `JOB-PACKAGING`, `JOB-READY` and `JOB-RUNNING`;
+- `JOB-ERRORED` reads **Awaiting outputs** to a researcher until a reviewer records a `FILES-*`
+  decision, then **Code errored** (OTTER-598);
+- a `FILES-*` decision reads **Outputs need review** to a researcher until they open it, then
+  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records;
+- a reviewer sees **Outputs reviewed** as soon as they submit the decision, because they made it.
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved`; reviewer
-highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
+`RESULTS-VIEWED` is the one status a user's reading writes, appended to the latest job by
+`markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
+`MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
+prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
+exists, and once per job for any visit that sees an earlier one. Two visits close enough to read
+before either writes both insert. That race is accepted rather than fixed: every reader asks the
+status set whether the row is there, so a duplicate moves no badge. The partial unique index that
+would settle it cannot be created, because its predicate has to name `RESULTS-VIEWED`, which the
+migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
+of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
+migrations together, so a later migration cannot escape it either. A job status rather than a study
+column because a resubmission opens a new job, so the fact resets per round without any clearing
+logic.
 
-> **Deliberate divergence from legacy:** when one job carries both `CODE-CHANGES-REQUESTED` and a
-> terminal `CODE-REJECTED`, the pill now reads **Rejected** (the truthful terminal state), and it
-> agrees with the rejected-screen routing. Legacy's reversed-label-order ranked them the other way.
+The projection also exposes `executionStage`, read from `furthestStage` in `study-job-status.ts`,
+which keeps pipeline order in the one file that already owns it. The reviewer's per-stage badges
+therefore never read the status log's order. `currentExecutionStage`, which the reviewer's outputs
+pending screen reads, picks its stage with the same helper, so the badge and the screen agree.
+
+Stale code decisions are dropped by the projection, not the table, so a resubmission reads as
+submitted rather than as the prior round's decision (OTTER-641).
+
+Both tables end in an unconditional rule, so the pill can never be undefined. `ARCHIVED` reaches
+that neutral fallback in both, because the design has no badge for it.
+
+The spec names backend states conceptually; none of them is a new stored value except
+`RESULTS-VIEWED`:
+
+| Spec BE status                                | Stored as                                                  |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `proposal-initiated`                          | `study.status = DRAFT`                                     |
+| `proposal-pending-review`                     | `PENDING-REVIEW`                                           |
+| `proposal-needs-revision`                     | `CHANGE-REQUESTED`                                         |
+| `proposal-approved` / `proposal-declined`     | `APPROVED` / `REJECTED`                                    |
+| `code-initiated`                              | an `INITIATED` job row with no `CODE-SUBMITTED`            |
+| `code-pending-review`                         | `CODE-SUBMITTED` awaiting a decision                       |
+| `code-needs-revision` / `code-approved`       | `CODE-CHANGES-REQUESTED` / `CODE-APPROVED`                 |
+| `job-packaging` / `job-ready` / `job-running` | the `JOB-*` rows (`JOB-PROVISIONING` reads as queued)      |
+| `job-errored` / `job-error-shared`            | `JOB-ERRORED` without / with a `FILES-*` row               |
+| `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
+| `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
+
+### Researcher pill table (`researcher-pill-rules.ts`)
+
+| #   | Condition                                                          | Pill                      |
+| --- | ------------------------------------------------------------------ | ------------------------- |
+| 1   | `resultsErrored` and a `FILES-*` decision exists                   | `code-errored`            |
+| 2   | a `FILES-*` decision exists and `resultsViewed`                    | `outputs-reviewed`        |
+| 3   | a `FILES-*` decision exists                                        | `outputs-need-review`     |
+| 4   | `isAwaitingOutputsReviewOutcome` or `awaitingFilesDecisionOnError` | `outputs-awaiting`        |
+| 5   | `isExecuting`                                                      | `code-processing`         |
+| 6   | `codeDecision === 'CODE-APPROVED'`                                 | `code-approved`           |
+| 7   | `codeDecision === 'CODE-REJECTED'`                                 | `code-declined`           |
+| 8   | `codeDecision === 'CODE-CHANGES-REQUESTED'`                        | `code-needs-revision`     |
+| 9   | `codeAwaitingDecision`                                             | `code-submitted`          |
+| 10  | `APPROVED` with a job but no submitted code                        | `code-draft`              |
+| 11  | `status === 'APPROVED'`                                            | `proposal-approved`       |
+| 12  | `status === 'REJECTED'`                                            | `proposal-declined`       |
+| 13  | `status === 'CHANGE-REQUESTED'`                                    | `proposal-needs-revision` |
+| 14  | `status === 'PENDING-REVIEW'`                                      | `proposal-submitted`      |
+| 15  | fallback                                                           | `proposal-draft`          |
+
+### Reviewer pill table (`reviewer-pill-rules.ts`)
+
+| #   | Condition                                             | Pill                          |
+| --- | ----------------------------------------------------- | ----------------------------- |
+| 1   | `awaitingFilesDecisionOnError`                        | `code-errored`                |
+| 2   | `isAwaitingOutputsReviewOutcome`                      | `outputs-need-review`         |
+| 3   | `resultsApproved` or `resultsRejected`                | `outputs-reviewed`            |
+| 4   | `executionStage === 'JOB-RUNNING'`                    | `code-running`                |
+| 5   | `executionStage` is `JOB-READY` or `JOB-PROVISIONING` | `code-queued`                 |
+| 6   | `executionStage === 'JOB-PACKAGING'`                  | `code-preparing`              |
+| 7   | `codeDecision === 'CODE-APPROVED'`                    | `code-approved`               |
+| 8   | `codeDecision === 'CODE-REJECTED'`                    | `code-declined`               |
+| 9   | `codeDecision === 'CODE-CHANGES-REQUESTED'`           | `code-revision-requested`     |
+| 10  | `codeAwaitingDecision`                                | `code-needs-review`           |
+| 11  | `APPROVED` with a job but no submitted code           | `code-awaiting`               |
+| 12  | `status === 'APPROVED'`                               | `proposal-approved`           |
+| 13  | `status === 'REJECTED'`                               | `proposal-declined`           |
+| 14  | `status === 'CHANGE-REQUESTED'`                       | `proposal-revision-requested` |
+| 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
+| 16  | fallback                                              | `proposal-draft`              |
+
+`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
+opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
+`codeAwaitingDecision`. Both mean an action is owed.
+
+> `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
+> (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
+> rather than letting those rows fall to the draft fallback.
 
 ---
 
@@ -270,9 +491,9 @@ highlights on `PENDING-REVIEW` or `codeAwaitingDecision`.
 
 Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
 picks the matching rule table, and the pill/highlight resolvers already branch on role. The
-**projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts
-(notably `reviewerAgreementsAcked`, previously unused) and inherits all the order-independence
-guarantees for free. Adding the reviewer flow was adding a rule table + adapters, not
+**projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts and
+inherits all the order-independence guarantees for free (`reviewerAgreementsAcked` is the exception:
+it is still projected but, since OTTER-727, read by no rule). Adding the reviewer flow was adding a rule table + adapters, not
 re-architecting — exactly as the design intended.
 
 ### Reviewer routing (`/review`)
@@ -284,11 +505,17 @@ re-architecting — exactly as the design intended.
 - **Shared guard** (`review/reviewer-page-guard.tsx`): both reviewer entry points run the same
   access preamble (session/org → study → lab-org redirect to `/view` → `isSubmittedStudy` →
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
-- **Agreements gate as a screen**: the old redirect-to-`/agreements` is now the `reviewer-agreements`
-  screen (rule #3). The reviewer branch of `agreements/page.tsx` became a plain revisitable step
-  (no `?from=`), like the researcher branch. This gate reads
-  `study.reviewerAgreementsAckedAt`; once study-level-agreement acknowledgement ships on
-  `legal_document`, rule #6 goes with it — two agreement gates on one study would disagree.
+- **Agreements gate — hidden (OTTER-727)**: the old redirect-to-`/agreements` became the
+  `reviewer-agreements` screen, and is now hidden entirely. Its rule is gone from the reviewer table
+  (see the OTTER-727 note above), and both `/agreements/reviewer` and `/agreements/researcher`
+  redirect onward (to `/review` and the code step respectively) so stale bookmarks and history entries
+  can't reach the placeholder or write an ack. Nothing links to either route. The screen component,
+  the shared `agreements-page.tsx`, both `Routes.*Agreements` definitions, `ackAgreementsAction` and
+  the two `*_agreements_acked_at` columns are all retained for a future revival; the ack facts are
+  still projected onto `StudyState` but no screen rule reads them. This gate read
+  `study.reviewerAgreementsAckedAt`, and was already slated to go when study-level-agreement
+  acknowledgement ships on `legal_document` (SHRMP-273) — two agreement gates on one study would
+  disagree. Hiding it now means that landing does not have to remove a live gate.
 - **Dedicated proposal route** (`/review/proposal`, `studyReviewProposal`): backs the "View approved
   initial request" link. It always shows the **decided** initial request regardless of code stage,
   and **falls through** to the canonical `/review` screen (e.g. editable proposal review) when the
@@ -298,24 +525,30 @@ re-architecting — exactly as the design intended.
 
 ## File map
 
-| File                             | Responsibility                                                                |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `state.types.ts`                 | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                  |
-| `state.ts`                       | `projectStudyState` + priority constants                                      |
-| `screens.ts`                     | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction` |
-| `screen-rules.ts`                | `ScreenRule`, `ScreenRuleEntry`, `ScreenRuleCtx` (shared rule types)          |
-| `researcher-screen-rules.ts`     | `RESEARCHER_SCREEN_RULES` (researcher table)                                  |
-| `reviewer-screen-rules.ts`       | `REVIEWER_SCREEN_RULES` (reviewer table)                                      |
-| `dashboard-rules.ts`             | `DASHBOARD_RULES` table                                                       |
-| `resolve.ts`                     | `resolveScreen` (role-keyed), `resolveDashboardAction`                        |
-| `pill.ts`                        | `resolvePillStatus`, `resolveRowHighlight`                                    |
-| `index.ts`                       | public barrel                                                                 |
-| `server/db/study-state-query.ts` | `rawStudyStateForStudy` — the single fetch                                    |
-| `_screens/registry.ts`           | `SCREEN_COMPONENTS` id → component map (both roles)                           |
-| `_screens/render-screen.tsx`     | `renderStudyScreen` — shared `/view` + `/review` dispatch                     |
-| `_screens/reviewer-*-screen.tsx` | six reviewer adapters over existing reviewer views                            |
-| `review/reviewer-page-guard.tsx` | shared reviewer access preamble                                               |
-| `lib/review-decision.ts`         | status/`CODE-*` → `ReviewDecision` fallback maps                              |
+| File                                   | Responsibility                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                                                |
+| `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants                          |
+| `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`                               |
+| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>`, `firstMatch` (shared by every table), plus `Screen*` aliases                       |
+| `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                                                |
+| `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                                                    |
+| `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                                             |
+| `reviewer-pill-rules.ts`               | `REVIEWER_PILL_RULES` (reviewer pill table)                                                                 |
+| `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                                     |
+| `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                                      |
+| `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                                |
+| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
+| `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
+| `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
+| `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
+| `index.ts`                             | public barrel                                                                                               |
+| `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |
+| `_screens/registry.ts`                 | `SCREEN_COMPONENTS` id → component map (both roles)                                                         |
+| `_screens/render-screen.tsx`           | `renderStudyScreen` — shared `/view` + `/review` dispatch                                                   |
+| `_screens/reviewer-*-screen.tsx`       | six reviewer adapters over existing reviewer views                                                          |
+| `review/reviewer-page-guard.tsx`       | shared reviewer access preamble                                                                             |
+| `lib/review-decision.ts`               | status/`CODE-*` → `ReviewDecision` fallback maps                                                            |
 
 Tests sit next to each module; `state.shuffle.test.ts` and `consistency.test.ts` enforce the
 order-independence and cross-resolver-agreement invariants (the latter covers both roles).

@@ -4,8 +4,9 @@ import { useState, type FC } from '@/common'
 import { Group, Paper, Stack, Text } from '@mantine/core'
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone'
 import { FileArrowUpIcon, FilePdfIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
+import { MAX_LEGAL_DOCUMENT_BYTES, MAX_LEGAL_DOCUMENT_SIZE_TEXT } from '@/schema/legal-document'
 
-const REJECTION_MESSAGE = 'That file was not accepted. Upload a single PDF.'
+const REJECTION_MESSAGE = `That file was not accepted. Upload a single PDF smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}.`
 
 const ChosenFile: FC<{ file: File | null }> = ({ file }) => {
     if (!file) return null
@@ -18,8 +19,6 @@ const ChosenFile: FC<{ file: File | null }> = ({ file }) => {
     )
 }
 
-// Mantine routes anything failing `accept` or `maxFiles` to onReject, not onDrop. Left unhandled, a
-// dropped .docx or a two-file drop does nothing at all and the form reads as broken.
 const RejectionNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -30,7 +29,6 @@ const RejectionNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-// One file only: a version is one document, and the upload URL is signed for a single key.
 export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file: File) => void }> = ({
     label,
     file,
@@ -44,7 +42,7 @@ export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file
     }
 
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Text size="sm" fw={500}>
                 {label}
             </Text>
@@ -54,6 +52,7 @@ export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file
                     onReject={() => setWasRejected(true)}
                     accept={PDF_MIME_TYPE}
                     maxFiles={1}
+                    maxSize={MAX_LEGAL_DOCUMENT_BYTES}
                     p="md"
                 >
                     <Group gap="xs" justify="center">

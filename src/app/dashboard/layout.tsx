@@ -8,7 +8,6 @@ import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import { connection } from 'next/server'
 
-// this page must be dynamically rendered
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {

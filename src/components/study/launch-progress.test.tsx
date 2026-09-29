@@ -34,7 +34,6 @@ describe('LaunchProgress', () => {
         expect(updatedEl).toHaveAttribute('title', at.toISOString())
         expect(updatedEl).toHaveAttribute('datetime', at.toISOString())
 
-        // the estimated ready time is a second <time> (a future instant, so phrased "in …")
         const times = [...container.querySelectorAll('time')]
         expect(times).toHaveLength(2)
         const readyEl = times.find((t) => t !== updatedEl)!
@@ -42,7 +41,7 @@ describe('LaunchProgress', () => {
     })
 
     it('drops the estimate and shows only the last update once the estimate has lapsed', () => {
-        // last update long enough ago that lastUpdatedAt + secondsRemaining is already in the past
+        // Far enough back that lastUpdatedAt + secondsRemaining is already in the past.
         const staleUpdate = new Date(Date.now() - 60 * 60 * 1000)
         const { container } = renderWithProviders(
             <LaunchProgress isVisible={true} buildLog="" agentLog="" lastUpdatedAt={staleUpdate} />,
@@ -53,7 +52,6 @@ describe('LaunchProgress', () => {
     })
 
     it('hides the logs textarea outside spy mode', () => {
-        // renderWithProviders defaults spy mode off, so the collapsible logs detail is not rendered.
         const { container } = renderWithProviders(
             <LaunchProgress isVisible={true} buildLog="pulling base image" agentLog="" lastUpdatedAt={new Date()} />,
         )

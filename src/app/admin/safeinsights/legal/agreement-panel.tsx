@@ -5,10 +5,6 @@ import { Anchor, Button } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { DataTableColumn } from 'mantine-datatable'
 
-// Only the parts the participation and study-level tables genuinely share. Not a whole panel: the
-// two differ in query, columns, upload form, history scope and copy, so a common component would be
-// a template of holes.
-
 type Downloadable = { downloadUrl: string }
 
 export const documentColumn = <Row extends Downloadable>(): DataTableColumn<Row> => ({
@@ -41,8 +37,6 @@ export const newVersionColumn = <Row,>(onNewVersion: (row: Row) => void): DataTa
     ),
 })
 
-// The row-scoped modals carry the row itself, so the form and the history modal need no
-// placeholder defaults.
 export const useAgreementPanelModals = <Row,>() => {
     const [uploadOpened, { open: openUpload, close: closeUpload }] = useDisclosure(false)
     const [newVersionFor, setNewVersionFor] = useState<Row | null>(null)

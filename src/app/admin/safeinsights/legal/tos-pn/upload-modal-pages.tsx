@@ -2,32 +2,34 @@
 
 import { useMutation, useState, type FC } from '@/common'
 import { reportError } from '@/components/errors'
-import { uploadFiles } from '@/hooks/upload'
-import { isActionError } from '@/lib/errors'
-import { legalDocumentTypeLabels, type EnforcedLegalDocumentType } from '@/schema/legal-document'
+import { actionResult } from '@/lib/utils'
+import {
+    legalDocumentTypeLabels,
+    MAX_LEGAL_DOCUMENT_BYTES,
+    MAX_LEGAL_DOCUMENT_SIZE_TEXT,
+    type GlobalLegalDocumentType,
+} from '@/schema/legal-document'
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
-import { ReadOnlyField } from '../read-only-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 
-// Only shown once a draft has been saved before; a first upload has nothing to name.
 const SavedDraftField: FC<{ draftName: string | null }> = ({ draftName }) => {
     if (!draftName) return null
 
     return <ReadOnlyField label="Current saved draft:" value={draftName} />
 }
 
-// Only shown after the dropzone has taken a file, which is also the only time there is one to remove.
 const ChosenFileRow: FC<{ file: File | null; onRemove: () => void }> = ({ file, onRemove }) => {
     if (!file) return null
 
     return (
         <Group justify="space-between" align="center">
             <ReadOnlyField label="Uploaded:" value={file.name} />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -39,7 +41,7 @@ export function DraftForm({
     draftName,
     onDraftSaved,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draftName: string | null
     onDraftSaved: () => void
 }) {
@@ -50,26 +52,16 @@ export function DraftForm({
         if (draftFile) setFile(draftFile)
     }
 
-    // The dropzone's accept restricts to Markdown; fires when a non-.md or multiple files are dropped.
     const handleReject = () => {
         notifications.show({
             color: 'red',
             title: 'Unsupported file',
-            message: 'Please upload a single Markdown (.md) file.',
+            message: `Please upload a single Markdown (.md) file smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}.`,
         })
     }
-    // Create the draft row, then upload the bytes. Keeping both inside the mutation means a failure
-    // of either — an action error or a rejected S3 upload — lands in onError instead of an unhandled
-    // rejection, and isPending drives the button's loading/disabled state.
-    // No format: the action derives it from the type, so a document cannot be stored in a format its
-    // viewer cannot render.
     const saveDraft = useMutation({
-        mutationFn: async (draftFile: File) => {
-            const result = await createLegalDocumentDraftAction({ type: doctype, fileName: draftFile.name })
-            if (isActionError(result)) return result // wrapped useMutation throws this for onError to catch
-            await uploadFiles([[draftFile, result.upload]])
-            return result
-        },
+        mutationFn: async (draftFile: File) =>
+            actionResult(await createLegalDocumentDraftAction({ type: doctype, file: draftFile })),
         onSuccess: () => onDraftSaved(),
         onError: (error: unknown) => reportError(error, 'Could not save draft'),
     })
@@ -89,6 +81,7 @@ export function DraftForm({
                     onReject={handleReject}
                     accept={{ 'text/markdown': ['.md', '.markdown'] }}
                     maxFiles={1}
+                    maxSize={MAX_LEGAL_DOCUMENT_BYTES}
                     p="md"
                 >
                     <Group gap="xs" justify="center">
@@ -126,13 +119,11 @@ export function DraftForm({
 export function ReviewPrePublishForm({
     doctype,
     draftId,
-    draftUrl,
     onBack,
     onConfirm,
 }: {
-    doctype: EnforcedLegalDocumentType
+    doctype: GlobalLegalDocumentType
     draftId: string
-    draftUrl: string
     onBack: () => void
     onConfirm: () => void
 }) {
@@ -141,7 +132,7 @@ export function ReviewPrePublishForm({
             <Title order={4} pb="sm">
                 Review your saved draft:
             </Title>
-            <PreviewDocument versionId={draftId} url={draftUrl} label={legalDocumentTypeLabels[doctype]} />
+            <PreviewDocument versionId={draftId} label={legalDocumentTypeLabels[doctype]} />
             <Group pt="md">
                 <Button variant="outline" onClick={onBack}>
                     Back
@@ -152,8 +143,8 @@ export function ReviewPrePublishForm({
     )
 }
 
-// Stays mounted until the parent closes it, so `isSettled` keeps Confirm disabled once the publish
-// has gone through: a second click on an already-published draft would otherwise publish twice.
+// `isSettled` keeps Confirm disabled after a successful publish: the form stays mounted, and a
+// second click would publish twice.
 export function ConfirmPublishForm({
     draftName,
     onPublish,
@@ -173,7 +164,6 @@ export function ConfirmPublishForm({
                 Publish this file?
             </Title>
             <ReadOnlyField label="File" value={draftName} />
-            {/* The gate lives in AppShell, so signing in and /account/* stay reachable; everything else does not. */}
             <Text>
                 Publishing asks every user to acknowledge the new version before they can keep using the app. This
                 cannot be undone.

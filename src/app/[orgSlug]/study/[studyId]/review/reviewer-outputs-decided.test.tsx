@@ -17,6 +17,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import type { RawStudyState } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { setupStudyAction } from '@/tests/db-action.helpers'
+import { seedJobFileRow } from '@/tests/artifact.helpers'
+import { projectStudyState, resolveScreenNav } from '@/lib/study-screen'
 import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 
 const setupDecided = async ({
@@ -41,14 +43,24 @@ const setupDecided = async ({
 }
 
 const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: string) =>
-    renderWithProviders(await ReviewerOutputsDecided({ study, raw, orgSlug }))
+    renderWithProviders(
+        await ReviewerOutputsDecided({
+            study,
+            raw,
+            nav: resolveScreenNav('reviewer', 'reviewer-outputs-decided', projectStudyState(raw), {
+                orgSlug,
+                studyId: study.id,
+                dashboardHref: Routes.dashboard,
+            }),
+        }),
+    )
 
 describe('ReviewerOutputsDecided', () => {
     it('renders the shared page and section headers', async () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'Secondary analysis study' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
@@ -163,6 +175,35 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
     })
 
+    // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
+    it('omits the code resubmission note and keeps the first outputs decision at v1.0', async () => {
+        const { org, user, study, job, raw } = await setupDecided()
+        await db
+            .updateTable('studyJob')
+            .set({ resubmissionNote: JSON.parse(lexicalJson('fixed the aggregation')), resubmissionRound: 2 })
+            .where('id', '=', job.id)
+            .execute()
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.parse(lexicalJson('outputs look good')),
+                round: 1,
+            })
+            .execute()
+
+        await renderView(study, raw, org.slug)
+
+        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.queryByText(/fixed the aggregation/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/resubmission note/i)).not.toBeInTheDocument()
+    })
+
     it('displays the author name and date for a feedback entry', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await db
@@ -184,6 +225,7 @@ describe('ReviewerOutputsDecided', () => {
         const entry = screen.getByTestId('feedback-entries')
         expect(entry).toHaveTextContent(user.fullName)
         expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Outputs and feedback shared by ${user.fullName}`)
     })
 
     it('renders a divider between multiple feedback entries', async () => {
@@ -219,6 +261,15 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
     })
 
+    it('leaves the banner unattributed when there is no decision comment', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent('Outputs and feedback shared')
+        expect(alert).not.toHaveTextContent(/shared by /)
+    })
+
     it('hides the Feedback and notes section when there are no entries', async () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
@@ -227,13 +278,34 @@ describe('ReviewerOutputsDecided', () => {
     })
 
     it('renders the View outputs again security-key section', async () => {
-        const { org, study, raw } = await setupDecided()
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
         expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+    })
+
+    // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
+    it('omits the security-key section when the only encrypted artifact is a scan log', async () => {
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+    })
+
+    // OTTER-524: an errored run can be closed out with nothing to decrypt, so asking for a key
+    // would pose a demand no key can satisfy.
+    it('omits the security-key section when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     it('renders Previous step as a subtle-variant link', async () => {

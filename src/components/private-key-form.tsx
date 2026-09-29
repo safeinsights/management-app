@@ -3,6 +3,7 @@
 import type { FC, FormEventHandler } from 'react'
 import { Button, Group, Stack, Text, Textarea } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 
 export type PrivateKeyFormValues = { privateKey: string }
 
@@ -15,10 +16,7 @@ type PrivateKeyFormProps = {
     submitLabel: string
 }
 
-// Private-key entry form shared by the reviewer decrypt panel (encrypted-files-panel.tsx) and the
-// researcher results view (job-results.tsx). The key never leaves the browser — it only feeds
-// useDecryptFiles. "Results Key" is the role-neutral term: the same kind of key decrypts for
-// reviewers and researchers alike.
+// The key never leaves the browser; it only feeds useDecryptFiles.
 export const PrivateKeyForm: FC<PrivateKeyFormProps> = ({
     isVisible = true,
     form,
@@ -34,7 +32,7 @@ export const PrivateKeyForm: FC<PrivateKeyFormProps> = ({
             <Stack>
                 <Textarea
                     label={<Text mb="sm">Enter your Results Key</Text>}
-                    resize="vertical"
+                    {...resizableTextareaProps()}
                     placeholder="Enter your Results Key to access encrypted content."
                     {...form.getInputProps('privateKey')}
                     key={form.key('privateKey')}

@@ -1,19 +1,15 @@
 import { type Kysely, sql } from 'kysely'
 
-// Researcher Profile - stored separately so only opted-in users have these fields
-
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('researcher_profile')
         .addColumn('user_id', 'uuid', (col) => col.primaryKey().references('user.id').onDelete('cascade'))
 
-        // Highest level of education
         .addColumn('education_institution', 'text')
         .addColumn('education_degree', 'text')
         .addColumn('education_field_of_study', 'text')
         .addColumn('education_is_currently_pursuing', 'boolean', (col) => col.notNull().defaultTo(false))
 
-        // Research details
         .addColumn('research_interests', sql`text[]`, (col) => col.notNull().defaultTo(sql`'{}'::text[]`))
         .addColumn('detailed_publications_url', 'text')
         .addColumn('featured_publications_urls', sql`text[]`, (col) => col.notNull().defaultTo(sql`'{}'::text[]`))
@@ -24,7 +20,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     await db.schema.createIndex('researcher_profile_user_id_idx').on('researcher_profile').column('user_id').execute()
 
-    // Normalized researcher_position table
     await db.schema
         .createTable('researcher_position')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))

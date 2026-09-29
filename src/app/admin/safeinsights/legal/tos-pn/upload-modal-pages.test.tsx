@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import { actionResult, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
@@ -10,19 +10,10 @@ vi.mock('@/server/aws', async (importOriginal) => {
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        createSignedUploadUrlForKey: vi.fn(async () => ({ url: 'https://mock-s3.example.com', fields: { key: 'k' } })),
+        storeS3File: vi.fn(),
     }
 })
 
-// Default: every fetch (the upload POST and the preview GET) succeeds. Individual tests override.
-beforeEach(() => {
-    vi.stubGlobal(
-        'fetch',
-        vi.fn(async () => ({ ok: true, status: 200, text: async () => '# Terms of Service' }) as unknown as Response),
-    )
-})
-
-// The dropzone keeps a real file input behind it, so the file goes in directly.
 const chooseFile = (name: string) => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     fireEvent.change(input, { target: { files: [new File(['# terms'], name, { type: 'text/markdown' })] } })
@@ -78,7 +69,6 @@ describe('DraftForm', () => {
 
         await waitFor(() => expect(onDraftSaved).toHaveBeenCalled())
 
-        // The upload is recorded as the pending (unpublished) version in the database.
         const { draft } = actionResult(await fetchLegalDocumentVersionsAction({ type: 'TOS' }))
         expect(draft?.fileName).toBe('terms.md')
     })
@@ -91,10 +81,8 @@ describe('DraftForm', () => {
         const input = document.querySelector('input[type="file"]') as HTMLInputElement
         fireEvent.change(input, { target: { files: [new File(['nope'], 'terms.txt', { type: 'text/plain' })] } })
 
-        // The dropzone's `accept` rejects the non-.md file; onReject fires the notification.
         await waitFor(() => expect(notify).toHaveBeenCalled())
 
-        // The rejected file never becomes the selected draft, so Save stays disabled.
         expect(screen.queryByText('terms.txt')).toBeNull()
         expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled()
     })

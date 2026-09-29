@@ -33,7 +33,12 @@ export default defineConfig({
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',
         setupFiles: ['tests/vitest.setup.ts'],
-        include: ['src/**/*.(test).{js,jsx,ts,tsx}', 'services/**/*.(test).{js,jsx,ts,tsx}'],
+        include: [
+            'src/**/*.(test).{js,jsx,ts,tsx}',
+            'services/**/*.(test).{js,jsx,ts,tsx}',
+            // custom ESLint rules live in tests/ as plain .mjs
+            'tests/**/*.(test).mjs',
+        ],
         allowOnly: !IS_CI,
         coverage: {
             enabled: Boolean(IS_CI || process.env.COVERAGE),

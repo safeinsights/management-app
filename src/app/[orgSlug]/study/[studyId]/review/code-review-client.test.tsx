@@ -1,5 +1,5 @@
+import { useState } from 'react'
 import { vi } from 'vitest'
-import { memoryRouter } from 'next-router-mock'
 import {
     actionResult,
     beforeEach,
@@ -12,13 +12,16 @@ import {
     screen,
     userEvent,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
+import type { StepNav } from '@/lib/study-screen'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
+import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 
 vi.mock('@/hooks/use-code-review-mutation', () => ({
     useCodeReviewMutation: vi.fn(),
@@ -47,8 +50,11 @@ async function setupValidReviewableJob(
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(study.id)
     const studyWithLab: SelectedStudy = { ...study, submittingLabName: labName }
-    const previousHref = Routes.studyReviewerAgreements({ orgSlug: org.slug, studyId: study.id })
-    return { study: studyWithLab, job, orgSlug: org.slug, previousHref }
+    const previousHref = Routes.studyReviewProposal({ orgSlug: org.slug, studyId: study.id })
+    const nav: StepNav = {
+        back: { label: 'Previous step', href: previousHref, variant: 'subtle', testId: 'cta-previous-step' },
+    }
+    return { study: studyWithLab, job, orgSlug: org.slug, previousHref, nav }
 }
 
 async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
@@ -59,14 +65,22 @@ async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
     }
 }
 
+const firstRadioIn = (testId: string) => within(screen.getByTestId(testId)).getAllByRole('radio')[0]
+
+// Blur a radio group without selecting: focus it, then click outside. A click on another control
+// in the group would answer it.
+async function visitAndLeave(user: ReturnType<typeof userEvent.setup>, testId: string) {
+    firstRadioIn(testId).focus()
+    await user.click(screen.getByTestId('code-evaluation-attention'))
+}
+
 describe('CodeReviewClient decision selector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         submitReview.mockReset()
         mockUseCodeReviewMutation.mockReturnValue({
             submitReview,
-            isPending: false,
-            isSuccess: false,
+            isSubmitting: false,
             pendingReview: undefined,
         })
         mockUseReviewFeedback.mockReturnValue({
@@ -74,28 +88,20 @@ describe('CodeReviewClient decision selector', () => {
             onChange: vi.fn(),
             onBlur: vi.fn(),
             error: null,
-            wordCount: 100,
-            minWords: 50,
-            maxWords: 500,
+            characterCount: 100,
+            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
             isValid: true,
         })
     })
 
     it('renders both decision options with their titles and descriptions', async () => {
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         expect(screen.getByTestId('code-review-decision-approve')).toBeInTheDocument()
         expect(screen.getByTestId('code-review-decision-needs-clarification')).toBeInTheDocument()
-        // OTTER-650: the "Reject and end study" option was removed as an interim step.
         expect(screen.queryByTestId('code-review-decision-reject')).not.toBeInTheDocument()
 
         expect(screen.getByText('Approve and run code')).toBeInTheDocument()
@@ -104,29 +110,20 @@ describe('CodeReviewClient decision selector', () => {
 
         expect(
             screen.getByText(
-                /The code will proceed to run in your secure enclave\. Rice University will be notified via email/,
+                'The code will run in your secure enclave and your feedback will be shared with Rice University.',
             ),
         ).toBeInTheDocument()
         expect(
-            screen.getByText(
-                /Return this code submission to Rice University for necessary updates, additional information, or specific changes\./,
-            ),
+            screen.getByText('Send the code back to Rice University for changes or additional information.'),
         ).toBeInTheDocument()
     })
 
     it('renders the editable review form (not "Code review is closed") for an APPROVED study with a reviewable job', async () => {
-        // OTTER-552: a resubmission after a code change-request leaves the study APPROVED
-        // (proposal-stage status) while the latest job is CODE-SUBMITTED. Editability is
-        // job-driven, so the DO must see the editor, not the closed-review alert.
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        // OTTER-552: a resubmission leaves the study APPROVED while the latest job is
+        // CODE-SUBMITTED, and editability is job-driven.
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University', 'APPROVED')
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         expect(screen.queryByTestId('code-review-closed-alert')).not.toBeInTheDocument()
@@ -134,14 +131,14 @@ describe('CodeReviewClient decision selector', () => {
     })
 
     it('renders "Code review is closed" once the job has a decision (CODE-CHANGES-REQUESTED)', async () => {
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob('Rice University', 'APPROVED')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University', 'APPROVED')
         renderWithProviders(
             <CodeReviewClient
                 orgSlug={orgSlug}
                 study={study}
                 job={job}
                 latestJobStatus="CODE-CHANGES-REQUESTED"
-                previousHref={previousHref}
+                nav={nav}
             />,
         )
 
@@ -149,57 +146,132 @@ describe('CodeReviewClient decision selector', () => {
         expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
     })
 
-    it('disables Submit when no decision is selected even with valid feedback and criteria', async () => {
+    it('keeps Submit decision enabled regardless of field state', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        expect(screen.getByTestId('code-review-submit')).toBeEnabled()
+
+        await fillAllCriteria(user)
+        expect(screen.getByTestId('code-review-submit')).toBeEnabled()
+    })
+
+    it('shows decision error on submit click when no decision is selected', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-submit'))
 
-        expect(screen.getByTestId('code-review-submit')).toBeDisabled()
+        const feedbackSection = screen.getByTestId('code-review-section')
+        await waitFor(() => {
+            expect(within(feedbackSection).getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+        const approve = screen.getByTestId('code-review-decision-approve')
+        expect(approve).toHaveAttribute('aria-invalid', 'true')
+        expect(approve.getAttribute('aria-describedby')).toContain('code-review-decision-group-error')
+        const errorBox = document.getElementById('code-review-decision-group-error')
+        expect(errorBox).toHaveAttribute('aria-live', 'polite')
+        expect(errorBox!.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it.each([['code-review-decision-approve'], ['code-review-decision-needs-clarification']])(
-        'enables Submit when %s is selected with valid feedback and criteria',
-        async (decisionTestId) => {
-            const user = userEvent.setup()
-            const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
-            renderWithProviders(
-                <CodeReviewClient
-                    orgSlug={orgSlug}
-                    study={study}
-                    job={job}
-                    latestJobStatus="CODE-SUBMITTED"
-                    previousHref={previousHref}
-                />,
-            )
+    it('shows criteria errors on submit click when no criteria are selected', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
 
-            await fillAllCriteria(user)
-            await user.click(screen.getByTestId(decisionTestId))
+        await user.click(screen.getByTestId('code-review-submit'))
 
-            expect(screen.getByTestId('code-review-submit')).toBeEnabled()
-        },
-    )
+        const evaluationSection = screen.getByTestId('code-evaluation-section')
+        await waitFor(() => {
+            expect(within(evaluationSection).getByText('Select an answer for each criterion.')).toBeInTheDocument()
+        })
+        const firstCriterionRadio = firstRadioIn('criteria-row-proposalAlignment')
+        expect(firstCriterionRadio).toHaveAttribute('aria-invalid', 'true')
+        expect(firstCriterionRadio.getAttribute('aria-describedby')).toContain('code-evaluation-criteria-error')
+        const errorBox = document.getElementById('code-evaluation-criteria-error')
+        expect(errorBox).toHaveAttribute('aria-live', 'polite')
+        expect(errorBox!.compareDocumentPosition(firstCriterionRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('flags the empty feedback field with the lab name on submit click', async () => {
+        const user = userEvent.setup()
+        const { useReviewFeedback: realUseReviewFeedback } =
+            await vi.importActual<typeof import('@/hooks/use-review-feedback')>('@/hooks/use-review-feedback')
+        mockUseReviewFeedback.mockImplementation(realUseReviewFeedback)
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+        await screen.findByRole('textbox', { name: 'Code review feedback' }, { timeout: 5000 })
+
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => {
+            expect(screen.getByText('Enter your feedback for Rice University.')).toBeInTheDocument()
+        })
+    })
+
+    it('does not flag a field on blur before the first submit click', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await visitAndLeave(user, 'criteria-row-proposalAlignment')
+        await visitAndLeave(user, 'code-review-section')
+
+        expect(screen.queryByText('Select an answer for each criterion.')).not.toBeInTheDocument()
+        expect(screen.queryByText('Select an option before submitting.')).not.toBeInTheDocument()
+
+        await user.click(screen.getByTestId('code-review-submit'))
+        await waitFor(() => {
+            expect(screen.getByText('Select an answer for each criterion.')).toBeInTheDocument()
+            expect(screen.getByText('Select an option before submitting.')).toBeInTheDocument()
+        })
+    })
+
+    it('scrolls to and focuses the first flagged field, reading top to bottom', async () => {
+        const user = userEvent.setup()
+        const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => expect(document.activeElement).toBe(firstRadioIn('criteria-row-proposalAlignment')))
+        expect(scrollIntoView).toHaveBeenCalled()
+    })
+
+    it('skips answered fields and focuses the decision group when only it is flagged', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('code-review-decision-approve')))
+    })
 
     it('opens the non-destructive confirmation modal when submitting with needs-clarification', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
@@ -207,65 +279,115 @@ describe('CodeReviewClient decision selector', () => {
         await user.click(screen.getByTestId('code-review-submit'))
 
         const dialog = await screen.findByRole('dialog')
-        expect(dialog).toHaveTextContent('Confirm review submission?')
+        expect(dialog).toHaveTextContent('Request revision?')
         expect(dialog).toHaveTextContent(
-            'Please confirm you are ready to submit this code review. Further edits are not permitted once submitted.',
+            'Your feedback will be sent to Rice University so they can update their code and resubmit.',
         )
-        expect(screen.getByRole('button', { name: 'Yes, submit review' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Request revision' })).toBeInTheDocument()
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'outline')
+    })
+
+    it('opens the approve confirmation modal when submitting with approve', async () => {
+        const user = userEvent.setup()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-decision-approve'))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        const dialog = await screen.findByRole('dialog')
+        expect(dialog).toHaveTextContent('Approve code?')
+        expect(dialog).toHaveTextContent('Your approval and feedback will be sent to Rice University')
+        expect(within(dialog).getByRole('button', { name: 'Approve code' })).toHaveAttribute('data-variant', 'filled')
+        // Mantine names no close button on its own, leaving the dismiss control unreachable by name.
+        expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
     })
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-needs-clarification'))
         await user.click(screen.getByTestId('code-review-submit'))
 
-        const confirmButton = await screen.findByRole('button', { name: 'Yes, submit review' })
+        const confirmButton = await screen.findByRole('button', { name: 'Request revision' })
         await user.click(confirmButton)
 
         await waitFor(() => {
-            expect(submitReview).toHaveBeenCalledWith({
+            expect(submitReview.mock.calls[0][0]).toEqual({
                 decision: 'needs-clarification',
                 feedback: 'sample feedback body',
                 criteria: {
                     proposalAlignment: 'yes',
                     agreementCompliance: 'yes',
-                    securityChecks: 'yes',
                     privacyProtection: 'yes',
                 },
             })
         })
     })
 
-    it('Back button navigates to the agreements page (previousHref), not the dashboard', async () => {
+    it('keeps the modal locked after the action resolves, while the navigation to the decided page is in flight', async () => {
         const user = userEvent.setup()
-        const { study, job, orgSlug, previousHref } = await setupValidReviewableJob()
-        memoryRouter.setCurrentUrl(`/${orgSlug}/study/${study.id}/review`)
+        // The hook keeps isSubmitting true after isPending clears, for the whole navigation.
+        mockUseCodeReviewMutation.mockImplementation(() => {
+            const [isSubmitting, setIsSubmitting] = useState(false)
+            return {
+                submitReview: (...args: Parameters<typeof submitReview>) => {
+                    submitReview(...args)
+                    setIsSubmitting(true)
+                },
+                isSubmitting,
+                pendingReview: undefined,
+            }
+        })
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
-            <CodeReviewClient
-                orgSlug={orgSlug}
-                study={study}
-                job={job}
-                latestJobStatus="CODE-SUBMITTED"
-                previousHref={previousHref}
-            />,
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
-        await user.click(screen.getByRole('button', { name: /back/i }))
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-decision-approve'))
+        await user.click(screen.getByTestId('code-review-submit'))
 
-        await waitFor(() => {
-            expect(memoryRouter.asPath).toBe(previousHref)
-        })
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Approve code' }))
+
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+        const confirm = within(dialog).getByRole('button', { name: 'Approve code' })
+        expect(confirm).toBeDisabled()
+        expect(confirm).toHaveAttribute('data-loading', 'true')
+        expect(within(dialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-review-submit')).toBeDisabled()
+    })
+
+    it('renders "Previous step" as a subtle link to the decided proposal and "Submit decision" as the action', async () => {
+        const { study, job, orgSlug, previousHref, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        const previous = screen.getByRole('link', { name: /previous step/i })
+        expect(previous).toHaveAttribute('href', previousHref)
+        expect(previous).toHaveAttribute('data-variant', 'subtle')
+        expect(screen.getByTestId('code-review-submit')).toHaveTextContent('Submit decision')
+        expect(screen.queryByRole('button', { name: /^back$/i })).not.toBeInTheDocument()
+    })
+
+    it('keeps "Previous step" when the review is closed', async () => {
+        const { study, job, orgSlug, previousHref, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-APPROVED" nav={nav} />,
+        )
+
+        expect(screen.getByTestId('code-review-closed-alert')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute('href', previousHref)
+        expect(screen.queryByTestId('code-review-submit')).not.toBeInTheDocument()
     })
 })

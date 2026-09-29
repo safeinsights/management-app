@@ -1,8 +1,5 @@
-// E2E Clerk fake — role cookie (server-only helper).
-//
-// Reads the __e2e_role cookie via next/headers. Kept separate from cookie.ts so
-// next/headers (which throws if bundled into client code) never leaks into the
-// client shim. Used by server.ts auth()/currentUser().
+// Separate from cookie.ts so next/headers, which throws if bundled into client code, never
+// leaks into the client shim.
 
 import { cookies } from 'next/headers'
 import { E2E_ROLE_COOKIE } from './cookie'

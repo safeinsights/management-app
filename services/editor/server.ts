@@ -10,6 +10,7 @@ import {
     InfraUnavailableError,
     assertStatelessEventConsistent,
     authenticate,
+    hasFilesDecision,
     parseDocumentName,
     parseStatelessEvent,
     shouldPersistDocument,
@@ -231,10 +232,14 @@ const server = new Server({
         if (!connectionUserClerkId || !documentStudyId) return
 
         // Code-review docs do not gate on DB status here; the action layer is
-        // the single enforcer. Proposal/review-feedback events still need the
-        // study-status sanity check.
+        // the single enforcer. Outputs-review docs gate on their own job status
+        // instead, because the study stays APPROVED for the whole outputs round.
+        // Proposal/review-feedback events still need the study-status sanity check.
         let studyStatus: StudyStatus | null = null
-        if (parsedDoc.kind !== 'code-review-feedback') {
+        let jobDecided: boolean | null = null
+        if (parsedDoc.kind === 'outputs-review-feedback') {
+            jobDecided = await hasFilesDecision(parsedDoc.jobId, pool)
+        } else if (parsedDoc.kind !== 'code-review-feedback') {
             const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
                 documentStudyId,
             ])
@@ -249,6 +254,7 @@ const server = new Server({
                 documentStudyId,
                 connectionUserClerkId,
                 studyStatus,
+                jobDecided,
             })
         ) {
             return

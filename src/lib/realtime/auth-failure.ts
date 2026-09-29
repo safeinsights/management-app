@@ -1,14 +1,5 @@
-/**
- * Wire format for auth failures from `services/editor/auth.ts`: `CODE: message`.
- * Codes mirror the server-side `AuthFailureCode` union; an unknown prefix is
- * treated as a generic auth failure so the client never crashes on a future
- * code the server adds.
- *
- * This union is a superset of the server's: the server splits terminal
- * rejections (AuthFailureError) from the recoverable INFRA_UNAVAILABLE
- * (InfraUnavailableError), but both reach the client over the same wire, so the
- * client lists both. Keep the two in sync by hand (OTTER-626).
- */
+// Wire format from `services/editor/auth.ts`: `CODE: message`. A superset of the server's union;
+// sync by hand (OTTER-626).
 export type AuthFailureCode =
     | 'MISSING_TOKEN'
     | 'INVALID_TOKEN'
@@ -17,9 +8,8 @@ export type AuthFailureCode =
     | 'STUDY_NOT_FOUND'
     | 'NO_MEMBERSHIP'
     | 'STUDY_NOT_EDITABLE'
-    // Not an auth rejection: the server hit an infra failure (DB unreachable or
-    // rejected its credentials) while authenticating. Recoverable, not terminal
-    // — the client retries instead of showing "editor unavailable" (OTTER-626).
+    // Not an auth rejection but an infra failure while authenticating, so the client retries
+    // instead of showing "editor unavailable" (OTTER-626).
     | 'INFRA_UNAVAILABLE'
     | 'UNKNOWN'
 

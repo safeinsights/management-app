@@ -8,7 +8,6 @@ import {
 } from './openstax-feature-flag'
 import { FC } from 'react'
 
-// Mock the dependencies
 vi.mock('./spy-mode-context', async (importOriginal) => ({
     ...(await importOriginal<typeof import('./spy-mode-context')>()),
     useSpyMode: vi.fn(),

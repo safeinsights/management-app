@@ -35,10 +35,8 @@ export function parseLogMessages(text: string): LogEntry[] | null {
         for (const item of parsed) {
             if (typeof item !== 'object' || item === null) return null
             if (typeof item.timestamp !== 'number' || typeof item.message !== 'string') return null
-            // Exactly these two keys. Since this viewer is chosen by sniffing content rather than by
-            // file identity, a result file that happens to be log-shaped would otherwise render as a
-            // timestamp/message table with its other fields silently dropped, in a view whose whole
-            // purpose is deciding what is safe to disclose.
+            // This viewer is chosen by sniffing content, so a log-shaped result file would
+            // otherwise render with its other fields silently dropped.
             if (Object.keys(item).length !== 2) return null
             entries.push({ timestamp: item.timestamp, message: item.message })
         }
@@ -48,9 +46,6 @@ export function parseLogMessages(text: string): LogEntry[] | null {
     }
 }
 
-// Results are frequently written as minified JSON, which renders as one enormous line. Re-indent it
-// for display. Returns null when the text isn't valid JSON, so callers fall back to the raw text
-// rather than showing nothing.
 export function formatJson(text: string): string | null {
     const trimmed = text.trim()
     if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null

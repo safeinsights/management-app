@@ -1,13 +1,5 @@
-// E2E Clerk fake — sign-in state machine.
-//
-// Mirrors the @clerk/types SignInResource surface the custom sign-in form drives:
-//   create({identifier,password}) -> needs_second_factor (with phone_code factor)
-//   prepareSecondFactor({strategy})
-//   attemptSecondFactor({strategy, code:'424242'}) -> complete (+ createdSessionId)
-//   reload(); attemptFirstFactor() for the reset-password flow.
-// "Honors the real steps": password must be non-empty and the email must match a
-// fixture; the MFA code must be 424242. Wrong inputs throw Clerk-shaped errors so the
-// form's catch/error paths run.
+// Mirrors the @clerk/types SignInResource surface the custom sign-in form drives. Wrong inputs
+// throw Clerk-shaped errors so the form's catch paths run.
 
 import { fixtureForEmail, type FakeRole } from './fixtures'
 
@@ -28,7 +20,6 @@ export type FakeSignIn = {
     createdSessionId: string | null
     supportedSecondFactors: Array<{ strategy: string; safeIdentifier?: string }> | null
     firstFactorVerification: { status: string | null }
-    /** Resolved role for the matched fixture — used by setActive to set the cookie. */
     role: FakeRole | null
     create(params: { identifier: string; password?: string; strategy?: string }): Promise<FakeSignIn>
     prepareSecondFactor(params: { strategy: string }): Promise<FakeSignIn>
@@ -52,7 +43,6 @@ export function createFakeSignIn(): FakeSignIn {
             const fixture = fixtureForEmail(identifier)
             signIn.role = fixture?.role ?? null
 
-            // Password reset flow uses strategy='reset_password_email_code' without a password.
             if (strategy === 'reset_password_email_code') {
                 if (!fixture) throw new FakeClerkError('form_identifier_not_found', "Couldn't find your account.")
                 signIn.status = 'needs_first_factor'
@@ -64,10 +54,8 @@ export function createFakeSignIn(): FakeSignIn {
                 throw new FakeClerkError('form_password_incorrect', 'Password is incorrect. Try again.')
             }
 
-            // Known fixture or a freshly-created invite account: both land on the MFA
-            // challenge. A non-fixture email has no role, so attemptSecondFactor can't
-            // complete it — mirroring a new Clerk account with no enrolled factors (the
-            // signup flow surfaces an actionable error for that, see signup/page.tsx).
+            // A non-fixture email has no role, so attemptSecondFactor can't complete it,
+            // mirroring a new Clerk account with no enrolled factors.
             signIn.status = 'needs_second_factor'
             signIn.supportedSecondFactors = [{ strategy: 'phone_code', safeIdentifier: '+•• ••• ••42' }]
             return signIn

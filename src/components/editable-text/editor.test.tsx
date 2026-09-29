@@ -17,13 +17,10 @@ describe('Editor', () => {
             </MantineProvider>,
         )
 
-        // The single-user editor renders the editable surface synchronously; the
-        // collaborative path would show a skeleton because websocketProvider is null.
         expect(await screen.findByLabelText('Feedback')).toBeDefined()
     })
 
     it('holds a skeleton in collaborative mode until the websocket exists', () => {
-        // renderWithProviders wraps in YjsWebsocketProvider with single-user off.
         const { container } = renderWithProviders(
             <Editor id="doc-2" studyId="study-1" ariaLabel="Feedback" websocketProvider={null} />,
         )

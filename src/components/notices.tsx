@@ -5,7 +5,7 @@ export const reportSuccess = (message: string, title = 'Success') => {
     showNotification({
         title,
         message,
-        color: 'teal',
+        color: 'green',
         icon: <CheckCircleIcon size={18} />,
     })
 }

@@ -3,8 +3,6 @@ import { Group, Stack } from '@mantine/core'
 import { ButtonLink, Link } from './links'
 import type { Route } from 'next'
 
-// Sanity story exercising a REAL app component through the next/link shim + the
-// real theme — confirms the Ladle pipeline matches the app.
 const meta = { title: 'Components / Links' }
 export default meta
 

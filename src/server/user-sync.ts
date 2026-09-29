@@ -18,18 +18,8 @@ export type SyncResult = {
     }
 }
 
-/**
- * Synchronizes user attributes from Clerk to the database.
- * Handles email conflicts differently based on environment:
- * - Production: throws an exception
- * - Non-production: reassigns the old account to the new clerkId
- *
- * @param attrs - User attributes from Clerk
- * @param executor - Database executor (transaction or connection)
- * @returns The user ID and any conflict resolution info
- */
+// An email conflict throws in production; elsewhere the old account moves to the new clerkId.
 export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecutor): Promise<SyncResult> {
-    // First check if user exists by clerkId (stable identifier)
     const existingByClerkId = await executor
         .selectFrom('user')
         .select('id')
@@ -37,7 +27,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         .executeTakeFirst()
 
     if (existingByClerkId) {
-        // User exists - update their info
         await executor
             .updateTable('user')
             .set({
@@ -50,7 +39,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         return { id: existingByClerkId.id }
     }
 
-    // Non-production: check if publicMetadata contains a userId that matches a DB user
     if (!PROD_ENV && attrs.metadataUserId) {
         const existingByMetadataId = await executor
             .selectFrom('user')
@@ -79,7 +67,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         }
     }
 
-    // Check for email conflict (case-insensitive)
     const existingByEmail = await executor
         .selectFrom('user')
         .select(['id', 'clerkId'])
@@ -87,7 +74,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         .executeTakeFirst()
 
     if (existingByEmail) {
-        // Email conflict - another user has this email
         if (PROD_ENV) {
             throw new Error(
                 `Email conflict during user sync: email ${attrs.email} belongs to user ${existingByEmail.id} ` +
@@ -95,7 +81,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
             )
         }
 
-        // Non-production: reassign the old account to the new clerkId
         logger.warn(
             `Email conflict during user sync: email ${attrs.email} belongs to user ${existingByEmail.id} ` +
                 `(clerkId: ${existingByEmail.clerkId}), but new clerkId ${attrs.clerkId} is claiming it. ` +
@@ -121,7 +106,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         }
     }
 
-    // Create the new user
     const user = await executor
         .insertInto('user')
         .values({
@@ -138,13 +122,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
     }
 }
 
-/**
- * Wrapper that handles the transaction and post-sync callbacks.
- *
- * @param attrs - User attributes from Clerk
- * @param onConflictResolved - Optional callback when email conflict is resolved
- * @returns The user ID and any conflict resolution info
- */
 export async function syncUserToDatabaseWithConflictResolution(
     attrs: UserSyncAttrs,
     onConflictResolved?: (previousUserId: string) => Promise<void>,
@@ -153,12 +130,11 @@ export async function syncUserToDatabaseWithConflictResolution(
         return syncUserToDatabase(attrs, trx)
     })
 
-    // If we resolved an email conflict, call the callback
     if (result.emailConflictResolved && onConflictResolved) {
         try {
             await onConflictResolved(result.emailConflictResolved.previousUserId)
         } catch (error) {
-            // Log but don't fail - the user might not exist in Clerk anymore
+            // The user might not exist in Clerk any more, so this must not fail the sync.
             logger.warn(
                 `Failed to handle conflict resolution callback for user ${result.emailConflictResolved.previousUserId}: ${error}`,
             )

@@ -5,10 +5,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import type { Route } from 'next'
 
-/**
- * Handles invitation-related URL params (skip, decline) and shows notifications.
- * Cleans up the URL params after showing notifications.
- */
 export function useInvitationNotices() {
     const router = useRouter()
     const searchParams = useSearchParams()

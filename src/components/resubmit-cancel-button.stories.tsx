@@ -2,8 +2,6 @@ import type { Story } from '@ladle/react'
 import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from './resubmit-cancel-button'
 
-// Like CancelButton but navigates to a caller-supplied href instead of home.
-// The confirmation modal appears only when isDirty is true.
 const meta = { title: 'Buttons / Resubmit cancel button' }
 export default meta
 

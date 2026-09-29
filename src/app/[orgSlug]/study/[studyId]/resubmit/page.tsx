@@ -1,8 +1,8 @@
+import type { Metadata } from 'next'
+import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
-import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
@@ -12,17 +12,18 @@ import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/st
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
 
+export const metadata: Metadata = { title: 'Edit study code' }
+
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId, orgSlug } = await props.params
+    const { studyId } = await props.params
     const study = await getStudyAction({ studyId })
 
     if ('error' in study || !study.submittedByOrgSlug || study.title === null) {
         return notFound()
     }
 
-    // Resubmit eligibility is a projected-state fact (order-independent: statuses as a Set, latest job by
-    // max(id); and liveness-aware) and is the SAME predicate the autosave + resubmit server actions gate
-    // on, so the page never renders a state those actions would reject. See canResearcherResubmitCode.
+    // The same predicate the autosave and resubmit actions gate on, so the page never renders a
+    // state those actions would reject.
     const raw = await rawStudyStateForStudy(studyId)
     if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) return notFound()
 
@@ -36,21 +37,12 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     const studyHasCodeEnv = (await fetchLatestCodeEnvForStudyIdOrNull(studyId)) != null
 
     return (
-        <Box bg="grey.10">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <PageBreadcrumbs
-                    crumbs={[
-                        ['Dashboard', Routes.dashboard],
-                        ['Study proposal', Routes.studySubmitted({ orgSlug, studyId })],
-                        ['Study code', Routes.studyView({ orgSlug, studyId })],
-                        ['Edit study code'],
-                    ]}
-                />
-                <StudyPageHeader>Study proposal</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
                     <EditStudyCodeView
                         studyId={studyId}
-                        studyTitle={study.title}
                         orgName={orgName}
                         feedbackEntries={feedbackEntries}
                         studyHasCodeEnv={studyHasCodeEnv}

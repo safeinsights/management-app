@@ -1,6 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 import path from 'node:path'
+import { OBJECT_SRC_DIRECTIVE } from './src/lib/csp'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
@@ -9,14 +10,16 @@ const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 // (flag unset) are untouched. See src/lib/clerk-fake/README intent in server.ts.
 const fakeClerk = Boolean(process.env.E2E_FAKE_CLERK)
 
-// Turbopack's persistent filesystem cache for `next build` is experimental (opt-in) in
-// Next 16, so it's gated behind TURBOPACK_FS_CACHE and only turned on for the CI e2e build
-// (see .github/workflows/checks.yml), never for the production deploy build. It writes to
-// .next/cache, which CI persists across runs to make incremental rebuilds much faster.
-// A corrupt cache fails loudly at build time (a red build, never a false-green test run). The
-// rarer, quieter risk is a stale build if invalidation ever missed a change; content-hash change
-// detection plus a cache key that hashes every source file make this unlikely, but if a build is
-// ever suspected stale, bust the cache by bumping the tpc token in the workflow cache key.
+// Turbopack's build filesystem cache only pays off where .next/cache survives between builds.
+// Next 16.3 turns it on by default, so the flag is always passed: omitting it would mean "on".
+//
+// On for the CI e2e build (see .github/workflows/checks.yml), where actions/cache restores
+// .next/cache between runs. Off for the deploy build, which wipes its build directory and
+// re-extracts the release tarball per release, so the cache would be written and never read.
+//
+// A corrupt cache fails the build loudly, never a false-green test run. A stale build is the
+// quieter risk, but content hashing plus a cache key over every source file make it unlikely.
+// If a CI build looks stale, bump the tpc token in the workflow cache key to bust the cache.
 const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 
 // Server Action IDs, and the encrypted arguments bound into them, are derived from Next's Server
@@ -32,7 +35,12 @@ const turbopackFsCache = Boolean(process.env.TURBOPACK_FS_CACHE)
 // builds get it from Secrets Manager; local dev and CI let Next generate a throwaway one, since
 // nothing there outlives a rebuild. A deployed build silently falling back to a generated key is
 // the bug being fixed here, so fail loudly rather than ship one.
-if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev) {
+//
+// `next typegen` is exempt. It loads this config in the production-build phase but emits no build,
+// and since Next 16.3 the throw is fatal there, so it would fail `pnpm run checks` for every
+// developer without the secret over a key typegen never uses.
+const isTypegen = process.argv.includes('typegen')
+if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev && !isTypegen) {
     throw new Error(
         'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY must be set for a production build. ' +
             'It comes from the MgmntAppBuildVars secret; see cicd/management-app in the iac repo.',
@@ -46,13 +54,21 @@ const securityHeaders = [
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
     // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
-    // must be listed explicitly (SIINFOSEC-769, ZAP-10055). Only request-independent
+    // must be listed explicitly (SIINFOSEC-769/1460/1461, ZAP-10055). Only request-independent
     // directives belong here. script-src is nonce-based and therefore per-request, so
     // it is emitted from src/proxy.ts — under the report-only header name while that
     // policy's rollout is measured (see src/lib/csp.ts for why the names differ).
     {
         key: 'Content-Security-Policy',
-        value: ["frame-ancestors 'none'", "form-action 'self'", "base-uri 'self'"].join('; '),
+        value: [
+            "frame-ancestors 'none'",
+            "form-action 'self'",
+            "base-uri 'self'",
+            // Enforced here because the nonce policy that also lists it is still report-only
+            // (SIINFOSEC-1460/1461). We embed no plugins, so nothing changes for users. ZAP 10055-4
+            // and 10038-3 stay open until that policy is enforced.
+            OBJECT_SRC_DIRECTIVE,
+        ].join('; '),
     },
     // Prevent MIME-sniffing-based content-type confusion.
     { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -67,6 +83,16 @@ const nextConfig: NextConfig = {
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',
+    // The server chunks load @swc/helpers ESM at runtime, but file tracing resolves the package
+    // through its CJS condition and copies cjs/ only, so the standalone server fails to boot with
+    // "Cannot find module .../@swc/helpers/esm/...". Trace the ESM files explicitly. Two globs
+    // because pnpm stores the real package under .pnpm/ and only symlinks it to dependents.
+    outputFileTracingIncludes: {
+        '**': [
+            './node_modules/.pnpm/@swc+helpers@*/node_modules/@swc/helpers/esm/**',
+            './node_modules/**/@swc/helpers/esm/**',
+        ],
+    },
     typedRoutes: true,
     transpilePackages: ['si-encryption'],
     env: {
@@ -100,7 +126,7 @@ const nextConfig: NextConfig = {
         return config
     },
     experimental: {
-        ...(turbopackFsCache ? { turbopackFileSystemCacheForBuild: true } : {}),
+        turbopackFileSystemCacheForBuild: turbopackFsCache,
         // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
         optimizePackageImports: ['@phosphor-icons/react'],
         serverActions: {
@@ -128,10 +154,9 @@ const configWithSentry = withSentryConfig(nextConfig, {
     // Upload a larger set of source maps for prettier stack traces (increases build time)
     widenClientFileUpload: true,
 
-    // Automatically annotate React components to show their full name in breadcrumbs and session replay
-    reactComponentAnnotation: {
-        enabled: true,
-    },
+    // No `webpack` block: our builds run Turbopack (bin/build-app calls `next build` with no bundler
+    // flag, and Next 16 defaults to it), and Sentry ignores every webpack.* option there. Component
+    // annotation has a Turbopack equivalent behind _experimental; logger tree-shaking has none.
     sourcemaps: {
         // Sentry keeps its own uploaded copy, so stripping .map files from the client
         // bundle preserves symbolication while keeping sourcesContent off the CDN.
@@ -142,7 +167,7 @@ const configWithSentry = withSentryConfig(nextConfig, {
     // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of
     // client-side errors will fail.
     // tunnelRoute: "/monitoring",
-
+    
     // Automatically tree-shake Sentry logger statements to reduce bundle size
     disableLogger: true,
 })

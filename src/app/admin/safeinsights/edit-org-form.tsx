@@ -6,11 +6,11 @@ import { updateOrgAction, insertOrgAction, fetchAdminOrgsWithStatsAction } from 
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
+import { resizableTextareaProps } from '@/components/textarea-resize'
 
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 type NewOrg = Omit<Org, 'id'>
 
-// Transform org data to match form expectations
 const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
     if (!orgData) {
         return {
@@ -23,7 +23,6 @@ const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
         } as ValidatedOrg
     }
 
-    // Handle both old and new formats
     if (orgData.type === 'enclave') {
         const settings = orgData.settings as { publicKey?: string } | null
         return {
@@ -111,7 +110,6 @@ export const EditOrgForm: FC<{
                 {...form.getInputProps('type')}
                 onChange={(value) => {
                     form.setFieldValue('type', value as 'enclave' | 'lab')
-                    // Reset settings when type changes
                     if (value === 'enclave') {
                         form.setFieldValue('settings', { publicKey: '' })
                     } else {
@@ -124,7 +122,7 @@ export const EditOrgForm: FC<{
             {isEnclave && (
                 <Textarea
                     label="Public Key"
-                    resize="vertical"
+                    {...resizableTextareaProps()}
                     description="Validates server authentication JWT"
                     placeholder="Enter your public key"
                     name="settings.publicKey"

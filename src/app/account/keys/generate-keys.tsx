@@ -13,6 +13,13 @@ import { FC, useEffect, useRef, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
+import { fontWeight, semanticColor } from '@/theme/tokens'
+import {
+    KEY_RESET_CONFIRM_COLOR,
+    KEY_RESET_MODAL_BODY,
+    KEY_RESET_MODAL_TITLE,
+    KEY_RESET_WARNING,
+} from '@/app/user-key/copy'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -20,15 +27,9 @@ interface Keys {
     fingerprint: string
 }
 
-// AC: a reset returns to "My dashboard"; the first key ever generated returns to the landing the
-// page resolved for this account. An explicit redirect_url (invite flows, deep links) overrides it.
-// Keyed off account state rather than off the presence of that parameter: the RequireUserKey guard
-// is the entry point most first keys arrive through, and it passes none (OTTER-655).
-//
-// firstKeyRedirect is the fallback argument on purpose, so a redirect_url that fails validation
-// falls back to the resolved landing rather than to Routes.dashboard. Passing Routes.dashboard here
-// instead would look equivalent and would quietly demote a first key to "My dashboard" whenever the
-// parameter is malformed, which is the bug this function exists to fix.
+// Keyed off account state, not the parameter's presence, because RequireUserKey passes none.
+// firstKeyRedirect is the fallback so a malformed redirect_url cannot demote a first key
+// to Routes.dashboard (OTTER-655).
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
     if (isRegenerating) return Routes.dashboard
 
@@ -37,7 +38,6 @@ export function postKeyRedirect(isRegenerating: boolean, redirectParam: string |
 
 type GenerateKeysProps = {
     isRegenerating?: boolean
-    /** Where a first key lands when no redirect_url is supplied; ignored for a reset. */
     firstKeyRedirect?: Route
 }
 
@@ -53,11 +53,8 @@ const COPY_FAILED: CopyIndication = {
     text: 'Copy did not work. Select the key above and copy it manually.',
 }
 
-// The AC allows exactly one indicator at a time, which rules out Mantine's useClipboard: it folds
-// every attempt into one pair of flags, so a slow rejection (a permission prompt left open) can
-// land after a later success and light the green check and the red failure together. Each attempt
-// aborts the one before it and an aborted attempt writes no state, because a copy the user has
-// already superseded says nothing about what is on their clipboard now (OTTER-655).
+// Not Mantine's useClipboard: it folds every attempt into one pair of flags, so a slow rejection
+// can land after a later success and light both (OTTER-655).
 function useCopyIndication() {
     const [indication, setIndication] = useState<CopyIndication | null>(null)
     const pending = useRef<AbortController>(undefined)
@@ -81,8 +78,6 @@ function useCopyIndication() {
             }, COPIED_VISIBLE_MS)
         } catch {
             if (attempt.signal.aborted) return
-            // The message tells the user to select the key manually, so the reason does not matter
-            // and there is nothing actionable to report.
             setIndication(COPY_FAILED)
         }
     }
@@ -122,23 +117,16 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     }
 
     return (
-        <Paper bg="white" p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
-            <Stack gap={24}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
+            <Stack gap="lg">
                 <Title order={3} fz={22}>
-                    Security key
+                    {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
-                <Text fz={16}>
-                    This is your security key. You will need it to access your study outputs across every organization
-                    you belong to.{' '}
-                    <Text component="b" fw={700} inherit>
-                        It is shown only once. Copy and store it somewhere safe, like a password manager, before you
-                        continue.
-                    </Text>
-                </Text>
+                <KeyIntro isRegenerating={isRegenerating} />
 
-                <Stack gap={16}>
-                    <Text fz={14} fw={600}>
+                <Stack gap="md">
+                    <Text fz={14} fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
                     <Code
@@ -173,6 +161,20 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
         </Paper>
     )
 }
+
+// A direct visit by a key holder used to read as a first-time setup (OTTER-741).
+const KeyIntro: FC<{ isRegenerating: boolean }> = ({ isRegenerating }) => (
+    <Text fz={16}>
+        {isRegenerating
+            ? 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'
+            : 'This is your security key. You will need it to access your study outputs across every organization you belong to.'}{' '}
+        <Text component="b" fw={fontWeight.bold} inherit>
+            {isRegenerating
+                ? KEY_RESET_WARNING
+                : 'It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'}
+        </Text>
+    </Text>
+)
 
 const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible, onClick }) => {
     if (!isVisible) return null
@@ -222,18 +224,27 @@ const ConfirmationModal: FC<{
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your security key?">
+        <AppModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isRegenerating ? KEY_RESET_MODAL_TITLE : 'Have you stored your security key?'}
+        >
             <Stack>
                 <Text fz={16} mb="md">
-                    SafeInsights does not store your key. If you lose it, you will not be able to access your study
-                    outputs.
+                    {isRegenerating
+                        ? KEY_RESET_MODAL_BODY
+                        : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Back
                     </Button>
-                    <Button onClick={() => saveUserKey()} loading={isSavingKey}>
-                        Yes, I have stored my key
+                    <Button
+                        color={isRegenerating ? KEY_RESET_CONFIRM_COLOR : undefined}
+                        onClick={() => saveUserKey()}
+                        loading={isSavingKey}
+                    >
+                        {isRegenerating ? 'Yes, replace my key' : 'Yes, I have stored my key'}
                     </Button>
                 </Group>
             </Stack>

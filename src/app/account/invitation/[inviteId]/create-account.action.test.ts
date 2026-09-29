@@ -13,6 +13,7 @@ import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
+import { onUserLogIn } from '@/server/events'
 import {
     getOrgInfoForInviteAction,
     onCreateAccountAction,
@@ -57,8 +58,6 @@ describe('Create Account Actions', () => {
                     ],
                 })),
             },
-            // Only the signup path touches these, to verify the address on a Clerk account it
-            // just created for the invitee.
             emailAddresses: {
                 createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
                 updateEmailAddress: vi.fn(async () => ({})),
@@ -92,8 +91,7 @@ describe('Create Account Actions', () => {
             .where('email', '=', invite.email)
             .executeTakeFirstOrThrow()
 
-        // The membership grant and the claim commit together, so the claimed-invite guard is
-        // self-enforcing rather than depending on a later client-side call.
+        // Grant and claim commit together, so the guard is self-enforcing.
         const claimed = await db
             .selectFrom('pendingUser')
             .select(['claimedByUserId'])
@@ -110,8 +108,6 @@ describe('Create Account Actions', () => {
         expect(membership.isAdmin).toBe(false)
     })
 
-    // The signup checkbox has never been persisted, so a user affirmatively agreed with no evidence
-    // recorded. These two cover the fix and the state the app is in before anything is published.
     describe('signup acknowledgements', () => {
         const form = { firstName: 'Test', lastName: 'User', password: 'password', confirmPassword: 'password' }
 
@@ -127,13 +123,11 @@ describe('Create Account Actions', () => {
                 .returningAll()
                 .executeTakeFirstOrThrow()
 
-        // Terms of Service are globally scoped, so at most one row can ever exist and a database the
-        // e2e seed has touched already holds it. Find-or-create rather than insert, the same way
-        // createLegalDocumentDraftAction does — a plain insert returns nothing on conflict and throws.
+        // Globally scoped, so at most one row can exist and a seeded database already holds it;
+        // a plain insert returns nothing on conflict and throws.
         const publishTos = async () => {
             const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
-            // Numbered past whatever the document already carries, or the version-number unique
-            // constraint fires on a seeded database.
+            // Numbered past whatever exists, or the version-number unique constraint fires.
             const { maxVersion } = await db
                 .selectFrom('legalDocumentVersion')
                 .select((eb) => eb.fn.max('versionNumber').as('maxVersion'))
@@ -172,16 +166,15 @@ describe('Create Account Actions', () => {
             expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: version.id }])
         })
 
-        // A draft was never shown to anyone, so agreeing to one would be evidence of nothing. The
-        // account is still created — the app-wide gate collects a real acknowledgement later.
+        // A draft was never shown to anyone, so agreeing to one is evidence of nothing.
         it('ignores a version that was never published', async () => {
             const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
-            // Only one draft may be outstanding per document; clear any the seed left behind.
             await db
                 .deleteFrom('legalDocumentVersion')
                 .where('legalDocumentId', '=', legalDocumentId)
                 .where('publishedAt', 'is', null)
                 .execute()
+            // Create draft
             const draft = await db
                 .insertInto('legalDocumentVersion')
                 .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
@@ -203,6 +196,45 @@ describe('Create Account Actions', () => {
             expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
             expect(await acknowledgementsFor(invite.email)).toEqual([])
         })
+
+        // Publish an org-scoped participation agreement for the given org.
+        const publishParticipationAgreement = async (orgId: string, type: 'ROPA' | 'DOPA') => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type, orgId })).id
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: `legal/${type}/agreement`,
+                    fileName: 'agreement.pdf',
+                    format: 'pdf',
+                    versionNumber: 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        it("records agreement to the invite org's participation agreement", async () => {
+            const dopa = await publishParticipationAgreement(org.id, 'DOPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [dopa.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: dopa.id }])
+        })
+
+        // Check that by-org gating works (no acknowledging another org's ropa/dopa can be recorded here)
+        it('ignores an org-scoped agreement the signup form never displays', async () => {
+            const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            const ropa = await publishParticipationAgreement(otherOrg.id, 'ROPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [ropa.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
     })
 
     it('onCreateAccountAction throws an error if invite not found', async () => {
@@ -220,7 +252,6 @@ describe('Create Account Actions', () => {
         const client = clerkClient as unknown as Mock
         client.mockResolvedValue({
             users: {
-                // no existing Clerk user, so the handler attempts to create one
                 getUserList: vi.fn(async () => ({ totalCount: 0, data: [] })),
                 createUser: vi.fn(async () => {
                     throw {
@@ -286,10 +317,8 @@ describe('Create Account Actions', () => {
         expect(result).toEqual({ error: expect.objectContaining({ user: 'already has account' }) })
     })
 
-    // Signs in the given DB user. Invites are bearer credentials, so acceptance authorizes on
-    // the session alone — no Clerk email mocking is involved.
+    // Invites are bearer credentials, so acceptance authorizes on the session alone.
     const signInAs = (user: { id: string; clerkId: string; email: string | null }, orgSlug: string) =>
-        // Non-null: mockClerkSession only returns undefined for a null (signed-out) argument.
         mockClerkSession({
             userId: user.id,
             clerkUserId: user.clerkId,
@@ -336,8 +365,7 @@ describe('Create Account Actions', () => {
     })
 
     it('onJoinTeamAccountAction attaches an invite addressed to another email to the accepting account', async () => {
-        // Invites are bearer credentials: whoever holds the link may accept, and the membership
-        // attaches to the accepting session's account — never to the invited address's account.
+        // The membership attaches to the accepting session's account, never to the invited address.
         const { user } = await insertTestUser({ org })
         const targetOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
 
@@ -353,8 +381,8 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const mocks = signInAs(user, org.slug)
-        // Accepting must never write the invited address onto the accepting Clerk account: a
-        // verified address is a sign-in / password-reset identifier (the old takeover primitive).
+        // A verified address is a sign-in / password-reset identifier, so accepting must never
+        // write the invited address onto the accepting Clerk account.
         const emailWrites = { createEmailAddress: vi.fn(), updateEmailAddress: vi.fn() }
         Object.assign(mocks.client, { emailAddresses: emailWrites })
 
@@ -380,8 +408,7 @@ describe('Create Account Actions', () => {
     })
 
     it('onJoinTeamAccountAction grants exactly the role the invite row specifies', async () => {
-        // The no-escalation invariant: a non-admin invite can never yield an admin membership,
-        // and there is no caller-supplied input that can influence the granted role.
+        // No-escalation invariant: no caller-supplied input can influence the granted role.
         const { user } = await insertTestUser({ org })
         const contributorOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
         const adminOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
@@ -410,7 +437,6 @@ describe('Create Account Actions', () => {
 
         signInAs(user, org.slug)
 
-        // An injected isAdmin param is stripped by the schema, never honoured.
         actionResult(
             await onJoinTeamAccountAction({ inviteId: contributorInvite.id, isAdmin: true } as {
                 inviteId: string
@@ -432,8 +458,7 @@ describe('Create Account Actions', () => {
     })
 
     it('onJoinTeamAccountAction promotes an existing member when the invite grants admin', async () => {
-        // Re-inviting an existing contributor as admin is the ordinary promote-by-invite path;
-        // consuming the invite without honouring its role would silently drop the promotion.
+        // Consuming the invite without honouring its role would silently drop the promotion.
         const { user } = await insertTestUser({ org })
 
         const invite = await db
@@ -587,8 +612,8 @@ describe('Create Account Actions', () => {
     })
 
     it('onJoinTeamAccountAction returns needsUserKey true for lab org without existing key', async () => {
-        // insertTestUser only auto-creates a key for enclave-org users, so seed this user in a
-        // lab org to keep them key-less and exercise the lab researcher gate.
+        // insertTestUser only auto-creates a key for enclave-org users, so a lab org keeps this
+        // user key-less.
         const existingLabOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org: existingLabOrg })
 
@@ -638,8 +663,7 @@ describe('Create Account Actions', () => {
     })
 
     it('onRevokeInviteAction lets any authenticated holder of the link decline an unclaimed invite', async () => {
-        // Bearer design: possession of the invite id is the same credential that authorizes
-        // accepting the invite, so it also authorizes declining it — no email match involved.
+        // Possession of the id authorizes accepting, so it also authorizes declining.
         await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
 
         const invite = await insertInvite()
@@ -671,8 +695,7 @@ describe('Create Account Actions', () => {
     })
 
     it('onRevokeInviteAction refuses a non-admin deleting a claimed invite', async () => {
-        // A claimed invite is a spent bearer token: possession of the id no longer authorizes
-        // anything, so only an org admin may remove the row.
+        // A claimed invite is a spent bearer token, so only an org admin may remove the row.
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
 
@@ -688,7 +711,6 @@ describe('Create Account Actions', () => {
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await mockSessionWithTestData({ isAdmin: true })
 
-        // Invite belongs to `org`, which the caller does not administer.
         const invite = await insertInvite({ claimedByUserId: invitingUser.user.id })
 
         const result = await onRevokeInviteAction({ inviteId: invite.id })
@@ -722,9 +744,24 @@ describe('Create Account Actions', () => {
         expect(updatedInvite?.claimedByUserId).toBe(user.id)
     })
 
+    // Signup skips the shared sequence, so without this a new account's first sign-in is never audited.
+    it('onPendingUserLoginAction records the login', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: testEmail(), isAdmin: false })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        expect(onUserLogIn).toHaveBeenCalledWith({ userId: user.id })
+    })
+
     it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {
-        // The signup page calls this after sign-in, by which point onCreateAccountAction has
-        // already claimed the invite for the same user in-transaction.
+        // By the time the signup page calls this, onCreateAccountAction has already claimed the
+        // invite for the same user.
         const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
 
         const invite = await db

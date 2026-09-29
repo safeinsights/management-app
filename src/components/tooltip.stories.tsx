@@ -3,8 +3,6 @@ import { Group, Stack, Text } from '@mantine/core'
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { InfoTooltip } from './tooltip'
 
-// InfoTooltip wraps Mantine Tooltip and guarantees its children sit inside a single
-// span. Hover the targets below to reveal each tooltip.
 const meta = { title: 'Components / Info tooltip' }
 export default meta
 

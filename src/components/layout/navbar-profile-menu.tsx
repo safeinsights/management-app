@@ -1,5 +1,6 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
@@ -11,6 +12,7 @@ import { useClerk } from '@clerk/nextjs'
 import { NavLink } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
 import {
+    FileTextIcon,
     GearIcon,
     GlobeIcon,
     LockIcon,
@@ -61,7 +63,6 @@ export function NavbarProfileMenu() {
         toggle()
 
         if (!wasOpened) {
-            // focus the first menu item
             setTimeout(() => {
                 const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
                 firstItem?.focus()
@@ -72,8 +73,8 @@ export function NavbarProfileMenu() {
     const isAdminPage = pathname.startsWith(Routes.adminSafeinsights)
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
-    // Opens on arrival at an admin page, not just on first mount: the menu persists across client
-    // navigation, so a mount-time initial value would leave the submenu shut while it reads active.
+    // The menu persists across client navigation, so a mount-time initial value would leave the
+    // submenu shut while it reads active.
     useEffect(() => {
         if (isAdminPage) setIsAdminMenuOpen(true)
     }, [isAdminPage])
@@ -84,7 +85,7 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Profile"
                     leftSection={<UserIcon aria-hidden="true" />}
-                    c="white"
+                    c={semanticColor('text.white')}
                     active={pathname === Routes.researcherProfile}
                     color="blue.7"
                     variant="filled"
@@ -99,7 +100,7 @@ export function NavbarProfileMenu() {
             <NavLink
                 label="Settings"
                 leftSection={<GearIcon aria-hidden="true" />}
-                c="white"
+                c={semanticColor('text.white')}
                 className={styles.navLinkProfileHover}
                 onClick={handleSettingsClick}
                 aria-label="Settings"
@@ -111,7 +112,7 @@ export function NavbarProfileMenu() {
                 label="Security key"
                 leftSection={<LockIcon aria-hidden="true" />}
                 onClick={navigateTo(Routes.userKey)}
-                c="white"
+                c={semanticColor('text.white')}
                 active={pathname === Routes.userKey}
                 color="blue.7"
                 variant="filled"
@@ -121,12 +122,26 @@ export function NavbarProfileMenu() {
                 component="button"
             />
 
+            <NavLink
+                label="Legal"
+                leftSection={<FileTextIcon aria-hidden="true" />}
+                onClick={navigateTo(Routes.legal)}
+                c={semanticColor('text.white')}
+                active={pathname === Routes.legal}
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkProfileHover}
+                aria-label="Legal"
+                role="menuitem"
+                component="button"
+            />
+
             {isSiAdmin && (
                 <NavLink
                     label="SI Admin"
                     leftSection={<GlobeIcon aria-hidden="true" />}
                     onClick={() => setIsAdminMenuOpen((prev) => !prev)}
-                    c="white"
+                    c={semanticColor('text.white')}
                     opened={isAdminMenuOpen}
                     active={isAdminPage}
                     color="blue.7"
@@ -159,7 +174,7 @@ export function NavbarProfileMenu() {
                 label="Sign Out"
                 leftSection={<SignOutIcon aria-hidden="true" />}
                 onClick={closeAndCall(signOut)}
-                c="white"
+                c={semanticColor('text.white')}
                 className={styles.navLinkProfileHover}
                 aria-label="Sign Out"
                 role="menuitem"

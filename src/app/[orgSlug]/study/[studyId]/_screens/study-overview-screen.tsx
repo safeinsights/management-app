@@ -1,24 +1,15 @@
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { semanticColor } from '@/theme/tokens'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
 
-// study-overview: the generic Study Details layout — a draft-no-job study, or any unmapped state.
-export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenComponentProps) {
+export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
         <Stack p="xl" gap="xxl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    studyId: study.id,
-                    orgSlug,
-                    current: 'Study Details',
-                    dashboardHref,
-                }}
-            />
-            <StudyPageHeader>Study Details</StudyPageHeader>
-            <Paper bg="white" p="xxl">
+            <StudyPageHeader study={study} />
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
                         <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
@@ -30,7 +21,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={2} size="xl">
@@ -42,7 +33,7 @@ export function StudyOverviewScreen({ study, orgSlug, dashboardHref }: ScreenCom
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xxl">
+            <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={2} size="xl">

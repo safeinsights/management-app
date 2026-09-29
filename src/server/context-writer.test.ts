@@ -31,7 +31,6 @@ describe('writeAgentContext', () => {
 
     const write = (dir: string) => writeAgentContext({ targetDir: dir, language: 'PYTHON', orgId, pastDate })
     const readContext = (dir: string) => fs.readFile(path.join(dir, 'CLAUDE.md'), 'utf-8')
-    // No data sources are seeded for the test org, so the data-sources section is the empty marker.
     const expectedContent = 'system context\npython context\nNo data sources provided'
 
     test('writes CLAUDE.md and a hash sentinel when none exists, backdating the mtime', async () => {

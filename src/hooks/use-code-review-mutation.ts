@@ -1,19 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useAuth, useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
+import { usePathname, useRouter } from 'next/navigation'
 
+import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
+import { DECISION_NOTICES } from '@/lib/review-decision'
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
+import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
-import { actionResult } from '@/lib/utils'
-import { WS_URL } from '@/lib/config'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
@@ -24,43 +23,19 @@ export type SubmitCodeReviewArgs = {
 
 interface UseCodeReviewMutationOptions {
     studyId: string
-    /** Latest study_job id; used to key the broadcast doc name. */
+    /** Keys the broadcast doc name. */
     jobId: string
     orgSlug: string
-    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
 }
 
 export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }: UseCodeReviewMutationOptions) {
     const router = useRouter()
+    const pathname = usePathname()
     const queryClient = useQueryClient()
-    const { getToken } = useAuth()
     const { user } = useUser()
 
-    // Standalone broadcast provider on its own websocket. Standalone so the broadcast
-    // survives the mutation tearing down the editor's shared connection.
-    const [broadcastProvider, setBroadcastProvider] = useState<HocuspocusProvider | null>(null)
-    useEffect(() => {
-        const doc = new Y.Doc()
-        const docName = codeReviewFeedbackDocName(jobId)
-        const provider = new HocuspocusProvider({
-            url: WS_URL,
-            name: docName,
-            document: doc,
-            token: async () => (await getToken()) ?? '',
-            onAuthenticationFailed: () => {
-                console.warn(`broadcast HocuspocusProvider auth failed for ${docName}`)
-            },
-        } as ConstructorParameters<typeof HocuspocusProvider>[0])
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setBroadcastProvider(provider)
-        return () => {
-            provider.destroy()
-            doc.destroy()
-
-            setBroadcastProvider(null)
-        }
-    }, [jobId, getToken])
+    const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
 
     const {
         mutate: submitReview,
@@ -68,11 +43,14 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         isSuccess,
         variables: pendingReview,
     } = useMutation({
-        mutationFn: async (args: SubmitCodeReviewArgs) =>
-            actionResult(await submitCodeReviewDecisionAction({ orgSlug, studyId, ...args })),
-        onError: reportMutationError('Failed to submit code review'),
+        mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
+        onError: (err) => {
+            captureException(err)
+            notifications.show(DECISION_NOTICES.failed)
+        },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            notifications.show(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {
@@ -86,11 +64,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            // A decision was just recorded; bare /review re-resolves via the reviewer state machine
-            // (outputs-pending once the approved code is executing, else code post-feedback) — no ?from= needed.
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            // Not bare /review, which REVIEWER_SCREEN_RULES resolves past this screen.
+            pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
 
-    return { submitReview, isPending, isSuccess, pendingReview }
+    // isPending clears when the action resolves, before the decided page replaces this one.
+    return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
 }

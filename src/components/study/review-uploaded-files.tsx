@@ -60,7 +60,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
                 </Text>
             </Table.Td>
             <Table.Td>
-                <ActionIcon variant="subtle" color="gray" onClick={() => handleDelete(file)}>
+                <ActionIcon variant="subtle" color="grey" onClick={() => handleDelete(file)}>
                     <TrashIcon weight="fill" />
                 </ActionIcon>
             </Table.Td>

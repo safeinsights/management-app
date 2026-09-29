@@ -14,8 +14,7 @@ beforeEach(() => {
     })
 })
 
-// The page's return type is the ReactNode union (guard branches hand back JSX), so narrow to an
-// element to read `.type`.
+// The page returns a ReactNode union, so narrow to an element to read `.type`.
 const callPage = async (orgSlug: string, studyId: string) =>
     (await ReviewProposalPage({
         params: Promise.resolve({ orgSlug, studyId }),
@@ -32,10 +31,8 @@ describe('ReviewProposalPage', () => {
         expect(page?.type).toBe(PostFeedbackView)
     })
 
-    // Legacy straggler: code submission used to flip study.status back to PENDING-REVIEW while
-    // approvedAt still recorded the decision. Rows written by old pods during a rolling deploy can
-    // still look like this — the page must keep rendering the decided proposal, not the code-review
-    // screen.
+    // Code submission used to flip study.status back to PENDING-REVIEW while approvedAt still
+    // recorded the decision, and old rows can still look like this.
     it('renders the decided proposal feedback for a PENDING-REVIEW study whose approvedAt is set', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -53,8 +50,8 @@ describe('ReviewProposalPage', () => {
     })
 
     it('falls through to the editable proposal review when the proposal is not yet decided', async () => {
-        // The dedicated route always wants the DECIDED initial request; a PENDING-REVIEW study has
-        // none, so it must fall through to the canonical /review screen instead of rendering blank.
+        // This route always wants the decided initial request, so a study with none must fall
+        // through to /review rather than render blank.
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
         await setTestStudyStatus(study.id, 'PENDING-REVIEW')

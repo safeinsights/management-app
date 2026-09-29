@@ -1,11 +1,13 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
-import type { Decision } from '@/lib/review-decision'
+import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
+import { pushDecided } from '@/lib/navigation'
+import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
@@ -17,9 +19,7 @@ export type SubmitReviewArgs = { decision: Decision; feedback: string }
 interface UseProposalReviewMutationOptions {
     studyId: string
     orgSlug: string
-    /** Per-tab id used to skip the broadcaster's own kick-out broadcast. */
     tabSessionId: string
-    /** Current editable review round. The submit action recomputes and validates this. */
     reviewVersion: number
 }
 
@@ -30,15 +30,11 @@ export function useProposalReviewMutation({
     reviewVersion,
 }: UseProposalReviewMutationOptions) {
     const router = useRouter()
+    const pathname = usePathname()
     const queryClient = useQueryClient()
     const { user } = useUser()
-    // Consume the editor's HocuspocusProvider rather than constructing a
-    // separate one. The editor's provider has been authenticated since page
-    // mount, so the server-side onStateless gate
-    // (services/editor/auth.ts -> if (!connectionUserClerkId) return) reliably
-    // passes. A private broadcast provider, by contrast, could still be in
-    // its onAuthenticate handshake when sendStateless flushes during the
-    // WS-open queue drain. Server drops the message silently in that case.
+    // The editor's provider is authenticated since page mount, so the server's onStateless gate
+    // passes; a private provider could still be mid-handshake and get dropped silently.
     const editorProvider = useReviewFeedbackProvider()
 
     const {
@@ -49,9 +45,13 @@ export function useProposalReviewMutation({
     } = useMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
-        onError: reportMutationError('Failed to submit review'),
+        onError: (err) => {
+            captureException(err)
+            notifications.show(DECISION_NOTICES.failed)
+        },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            notifications.show(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (editorProvider && submittedByClerkId) {
@@ -65,9 +65,10 @@ export function useProposalReviewMutation({
                 editorProvider.sendStateless(JSON.stringify(event))
             }
 
-            router.push(Routes.studyReview({ orgSlug, studyId }))
+            pushDecided(router, pathname, Routes.studyReview({ orgSlug, studyId }))
         },
     })
 
-    return { submitReview, isPending, isSuccess, pendingReview }
+    // isPending clears when the action resolves, before the decided page replaces this one.
+    return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
 }

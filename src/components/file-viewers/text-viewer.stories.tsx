@@ -2,8 +2,6 @@ import type { Story } from '@ladle/react'
 import { Box } from '@mantine/core'
 import { textViewer } from './text-viewer'
 
-// textViewer is the fallback viewer: it renders any text verbatim in a scrollable
-// monospace Code block, preserving whitespace and wrapping long lines.
 const meta = { title: 'File viewers / Text viewer' }
 export default meta
 

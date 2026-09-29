@@ -11,7 +11,6 @@ import { rawStudyStateForStudy } from './study-state-query'
 describe('rawStudyStateForStudy', () => {
     it('returns the study with its jobs, statuses, and files', async () => {
         const { study, job } = await insertTestStudyJobData({ studyStatus: 'APPROVED', jobStatus: 'CODE-SUBMITTED' })
-        // add a second status row on the same job so we assert the full set comes back
         await db.insertInto('jobStatusChange').values({ status: 'CODE-APPROVED', studyJobId: job.id }).execute()
 
         const raw = await rawStudyStateForStudy(study.id)
@@ -27,8 +26,7 @@ describe('rawStudyStateForStudy', () => {
         expect(await rawStudyStateForStudy('01900000-0000-7000-8000-0000000000ff')).toBeNull()
     })
 
-    // OTTER-572: the collaborative documents are the only trace of Step 2 edits that were never flushed
-    // to the study columns, so the query has to report them.
+    // The collaborative documents are the only trace of unflushed Step 2 edits (OTTER-572).
     describe('hasStep2CollabDoc', () => {
         const insertDraft = async () => {
             const { study } = await insertTestStudyOnly()
@@ -73,9 +71,8 @@ describe('rawStudyStateForStudy', () => {
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
-        // The name and the study_id both have to point here. No writer can produce this row (the editor
-        // service derives study_id from the same parsed name), so it stands in for the naming convention
-        // drifting out from under the SQL: the fragment fails closed instead of matching across studies.
+        // No writer can produce this row; it stands in for the naming convention drifting out from
+        // under the SQL, which must fail closed rather than match across studies.
         it('ignores a document whose name matches but whose study_id belongs to another study', async () => {
             const study = await insertDraft()
             const other = await insertDraft()
@@ -93,8 +90,7 @@ describe('rawStudyStateForStudy', () => {
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
-        // The resubmission note shares the `proposal-<studyId>-` prefix but is written on the
-        // change-requested resubmit screen, not on Step 2, so a prefix match would misreport it.
+        // The resubmission note shares the proposal-<studyId>- prefix but is not Step 2.
         it('ignores a resubmission-note document despite its proposal prefix', async () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, proposalResubmissionNoteDocNameForVersion(study.id, 1))

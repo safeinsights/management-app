@@ -19,8 +19,6 @@ describe('csp', () => {
         expect(cspHeaderValue('abc123')).toContain("script-src 'nonce-abc123'")
     })
 
-    // Sentry Session Replay compresses in a blob-URL worker, which some browsers resolve through
-    // script-src; without this it would be blocked by 'strict-dynamic'.
     it('allows blob workers so Sentry session replay keeps working', () => {
         expect(cspHeaderValue('abc123')).toContain("worker-src 'self' blob:")
     })
@@ -52,9 +50,8 @@ describe('csp', () => {
         expect(reportingEndpointsValue('https://r.example/csp')).toBe('csp-report="https://r.example/csp"')
     })
 
-    // The rollout ships report-only so a policy that is wrong about real Clerk cannot break signin.
-    // e2e runs under this policy but with Clerk faked, so real Clerk remains unverified until a
-    // deployed environment reports clean. This guards the flip to enforcing being deliberate.
+    // e2e runs with Clerk faked, so real Clerk stays unverified until a deployed environment
+    // reports clean. Guards the flip to enforcing being deliberate.
     it('is report-only until the policy is verified against real Clerk', () => {
         expect(CSP_HEADER).toBe('Content-Security-Policy-Report-Only')
     })

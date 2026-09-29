@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildRouteMatcher, patternToRegExp } from './route-matcher'
 
-// These expectations mirror @clerk/shared's path-to-regexp behavior exactly (verified
-// against @clerk/shared@3.47.6). Critically, `[orgSlug]` is LITERAL, not a wildcard —
-// matching that prevents the /dashboard org-route redirect loop.
+// Mirrors @clerk/shared@3.47.6 path-to-regexp behavior: `[orgSlug]` is LITERAL, not a
+// wildcard — matching that prevents the /dashboard org-route redirect loop.
 describe('clerk-fake route matcher', () => {
     it('compiles every proxy.ts pattern without throwing', () => {
         const patterns = [
@@ -18,8 +17,8 @@ describe('clerk-fake route matcher', () => {
 
     it('treats [orgSlug] as literal text (does NOT match real paths)', () => {
         const m = buildRouteMatcher(['/[orgSlug]'])
-        expect(m('/[orgSlug]')).toBe(true) // only the literal string
-        expect(m('/dashboard')).toBe(false) // <- the loop-prevention case
+        expect(m('/[orgSlug]')).toBe(true)
+        expect(m('/dashboard')).toBe(false)
         expect(m('/openstax')).toBe(false)
     })
 

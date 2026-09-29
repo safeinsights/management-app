@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { strToAscii, slugify, getInitials, shellQuote, substituteEntryPointFile, orgInitialsTitle } from './string'
+import {
+    strToAscii,
+    slugify,
+    getInitials,
+    shellQuote,
+    substituteEntryPointFile,
+    orgInitialsTitle,
+    displayLabName,
+    plural,
+} from './string'
 
 describe('orgInitialsTitle', () => {
     it('uses a space separator for the Data Partner suffix', () => {
@@ -113,13 +122,10 @@ describe('substituteEntryPointFile', () => {
     })
 
     it('absorbs double quotes an admin wrapped around %f instead of double-quoting (OTTER-477 follow-up)', () => {
-        // Without absorbing, "%f" -> "'main_revised (1).R'", which /bin/sh hands to R as the
-        // literal 'main_revised (1).R' (Greg Fitch: cannot open file ''main_revised (1).R'').
         expect(substituteEntryPointFile('Rscript "%f"', 'main_revised (1).R')).toBe("Rscript 'main_revised (1).R'")
     })
 
     it('absorbs single quotes an admin wrapped around %f instead of re-exposing parens', () => {
-        // Without absorbing, '%f' -> ''main(1).r'', whose parens are unquoted -> `(` syntax error.
         expect(substituteEntryPointFile("Rscript '%f'", 'main(1).r')).toBe("Rscript 'main(1).r'")
     })
 
@@ -130,7 +136,6 @@ describe('substituteEntryPointFile', () => {
     })
 
     it('does not absorb a non-matching quote pair around %f', () => {
-        // Mismatched quotes are a malformed template; only the inner bare %f is quoted.
         expect(substituteEntryPointFile(`"%f'`, 'main.R')).toBe(`"'main.R''`)
     })
 
@@ -140,5 +145,35 @@ describe('substituteEntryPointFile', () => {
 
     it('returns the template unchanged when there is no %f token', () => {
         expect(substituteEntryPointFile('Rscript main.R', 'ignored.r')).toBe('Rscript main.R')
+    })
+})
+
+describe('displayLabName', () => {
+    it('shows a real name in its display form', () => {
+        expect(displayLabName('Genius Lab', 'genius-lab')).toBe('Genius')
+    })
+
+    it('falls back to the slug when there is no name, leaving the slug whole', () => {
+        expect(displayLabName(null, 'genius-lab')).toBe('genius-lab')
+        expect(displayLabName(undefined, 'genius-lab')).toBe('genius-lab')
+    })
+
+    it('falls back to the slug when the name strips to nothing', () => {
+        expect(displayLabName('Lab', 'genius-lab')).toBe('genius-lab')
+    })
+})
+
+describe('plural', () => {
+    it('keeps the singular at exactly one', () => {
+        expect(plural(1, 'minute')).toBe('1 minute')
+    })
+
+    it('adds an s for every other count, zero included', () => {
+        expect(plural(0, 'minute')).toBe('0 minutes')
+        expect(plural(2, 'minute')).toBe('2 minutes')
+    })
+
+    it('takes an explicit plural for nouns the bare s gets wrong', () => {
+        expect(plural(2, 'Terms of Service', 'Terms of Service')).toBe('2 Terms of Service')
     })
 })

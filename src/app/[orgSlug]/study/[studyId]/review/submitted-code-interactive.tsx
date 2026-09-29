@@ -1,10 +1,12 @@
 'use client'
 
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
     Anchor,
     Button,
+    Collapse,
     Group,
     Loader,
     Menu,
@@ -16,20 +18,22 @@ import {
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { ToggleChevron } from '@/components/icons'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
+import { isActionError } from '@/lib/errors'
+import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-review'
 import { CodeViewer, ImageViewer } from '@/components/file-viewers'
 import { decodeFileContents, imageMimeType } from '@/lib/file-content-helpers'
 import { highlightLanguageForFile } from '@/lib/languages'
 import { studyCodeURL } from '@/lib/paths'
 import {
     fetchStudyJobCodeFileAction,
-    getStudyReviewAction,
+    getJobAnalysisAction,
     regenerateStudyReviewAction,
 } from '@/server/actions/study-job.actions'
-import type { StudyReviewWithMeta } from '@/server/db/queries'
+import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
@@ -39,7 +43,6 @@ import {
 
 export type { CodeFile } from './study-code-files'
 
-// 20–24 char ceiling per AC; midpoint chosen so neither extreme is the boundary.
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4
 
@@ -52,8 +55,6 @@ export function splitVisibleFiles(files: CodeFile[]) {
     if (files.length <= MAX_VISIBLE_TABS_BEFORE_OVERFLOW) {
         return { visible: files, hidden: [] as CodeFile[], hiddenCount: 0 }
     }
-    // When overflowing, the last visible slot becomes the "+N more files" indicator,
-    // so we keep three real tabs and roll the remainder into the overflow menu.
     const visibleSlots = MAX_VISIBLE_TABS_BEFORE_OVERFLOW - 1
     const hidden = files.slice(visibleSlots)
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
@@ -64,10 +65,9 @@ function useAiSummaryToggle() {
     return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
 }
 
-// Collapsed, the body shows a 3-line preview of the summary; expanded shows it in full.
-const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 3
+const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 2
 
-// Panda's preflight zeroes list-style globally, so restore markers explicitly (values match .editable-text-ul/-ol in globals.css).
+// Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
     ul: ({ node: _node, ...props }) => (
         <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
@@ -94,24 +94,14 @@ function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: 
     )
 }
 
-const REVIEW_POLL_INTERVAL_MS = 5_000
+const ANALYSIS_POLL_INTERVAL_MS = 5_000
 
-// A genuine failure now persists a row (summaryFailedAt) and is surfaced
-// immediately. This backstop only catches the rarer case where generation
-// hangs without ever throwing — measured from submission, not page open, so a
-// reviewer opening the page late doesn't reset the clock. 3 minutes is well
-// above a normal generation; past it with no row we assume it's stuck.
-const AI_SUMMARY_TIMEOUT_MS = 180_000
+// Only for a round with no row yet: queued, or a run that died before it could claim anything.
+// Measured from submission, not page open, so opening late does not reset the clock.
+const AI_SUMMARY_TIMEOUT_MS = STUDY_REVIEW_STALE_AFTER_MS
 
-// Returns `{ elapsed, reset }`: `elapsed` becomes true once `ms` have passed
-// since the start time, and `reset()` re-arms the timer from now. Used as a
-// backstop so a generation that hangs without writing a (success or failure)
-// row eventually surfaces as an error instead of spinning forever, while a
-// retry can restart the clock. `since` is read once on mount to seed the start
-// time; later prop changes are ignored, so a new submission must arrive via a
-// fresh server render (or an explicit reset()), not a changed `since`. `since`
-// may be a string — timestamps serialize to ISO strings across the
-// server/client boundary.
+// `since` is read once on mount and later prop changes are ignored, so a new submission must
+// arrive via a fresh server render or an explicit reset().
 function useElapsedSince(since: Date | string, ms: number) {
     const initialSinceMs = new Date(since).getTime()
     const [startedAt, setStartedAt] = useState(initialSinceMs)
@@ -130,20 +120,43 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-// The review row is written by a deferred background task triggered at code
-// submission (onStudyReviewRequested). Seed with the server-fetched value and
-// poll until a row lands so a reviewer who opens the page mid-generation sees
-// the summary appear without a manual refresh. A row — even one with a blank
-// codeExplanation — is terminal and stops the poll.
-function useStudyReviewPoll(studyJobId: string, initialReview: StudyReviewWithMeta | null) {
+// A resubmit reuses the job id, so keying on it alone lets the cache serve the previous round as
+// current — the same defect the server-side round rule closes, reintroduced on the client by a 60s
+// staleTime over a singleton query client (OTTER-775 review).
+const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
+    ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
+
+type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
+
+// The server drops a review belonging to a previous round, so a null review here means
+// "generating", never "last round's" (OTTER-775).
+//
+// The backstops deliberately do not appear here: they decide what a panel renders, not whether the
+// poll runs. 8.4% of measured generations finish past the summary backstop, and stopping there
+// stranded a report that was already in the database until a reload (OTTER-775 review).
+function useJobAnalysisPoll(
+    studyJobId: string,
+    submittedAt: Date | string,
+    initialReview: StudyReviewWithMeta | null,
+    intervalMs: number,
+) {
     return useQuery({
-        queryKey: ['study-review', studyJobId],
-        queryFn: () => getStudyReviewAction({ studyJobId }),
-        initialData: initialReview,
+        queryKey: jobAnalysisKey(studyJobId, submittedAt),
+        // No `withScan`: this page stopped rendering a scan verdict in OTTER-694, and asking for
+        // one would buy an S3 read on every tick.
+        queryFn: async (): Promise<JobAnalysisUpdate> => {
+            const response = await getJobAnalysisAction({ studyJobId })
+            if (isActionError(response)) return { review: null }
+            return { review: response.review }
+        },
+        initialData: { review: initialReview },
+        // The server render is already stale by the time it reaches the browser; without this the
+        // seeded value counts as fresh and the first interval tick is skipped.
+        initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
-            if (query.state.data != null) return false
-            return REVIEW_POLL_INTERVAL_MS
+            const review = query.state.data?.review
+            return review == null || studyReviewState(review) === 'pending' ? intervalMs : false
         },
     })
 }
@@ -156,7 +169,7 @@ function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onTogg
             type="button"
             onClick={onToggle}
             size="sm"
-            fw={700}
+            fw={fontWeight.bold}
             display="inline-flex"
             w="fit-content"
             style={{ alignItems: 'center', gap: 4 }}
@@ -174,7 +187,7 @@ function AiSummaryPending() {
         <Group gap="xs" data-testid="ai-summary-pending">
             <Loader size="sm" />
             <Text c="dimmed" size="sm">
-                AI Summary is loading
+                Generating summary
             </Text>
         </Group>
     )
@@ -214,7 +227,7 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     return (
         <>
             <Stack gap="xs">
-                <Text fw={600} size="sm">
+                <Text fw={fontWeight.semibold} size="sm">
                     Overview
                 </Text>
                 <AiSummaryBody isExpanded={isExpanded} summary={summary} />
@@ -224,14 +237,23 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     )
 }
 
-// Clears the failed row server-side, re-fires generation, then resets the
-// cached review to null so the poll resumes and the UI drops back to pending.
-function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
+function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
-        onSuccess: () => {
-            queryClient.setQueryData(['study-review', studyJobId], null)
+        onSuccess: (result) => {
+            // The server refuses to restart a run that is still alive, and there is nothing to
+            // restart for a report that has already landed. Either way the row on screen is the
+            // one to re-read, and the clock it is judged against must not move.
+            if (isActionError(result) || result.status !== 'restarted') {
+                queryClient.invalidateQueries({ queryKey: [...analysisKey] })
+                return
+            }
+            // Must be the poll's own key, round included, or this clears an entry nothing reads and
+            // the panel keeps rendering the failure it just retried.
+            queryClient.setQueryData(analysisKey, (prev: JobAnalysisUpdate | undefined) =>
+                prev ? { ...prev, review: null } : prev,
+            )
             onRetryStarted()
         },
     })
@@ -239,54 +261,116 @@ function useRetryStudyReview(studyJobId: string, onRetryStarted: () => void) {
 
 type AiSummaryProps = {
     studyJobId: string
-    initialReview: StudyReviewWithMeta | null
-    // When generation was requested — anchors the stuck-generation backstop so
-    // opening the page late doesn't restart the clock. May arrive as an ISO
-    // string once serialized across the server/client boundary.
-    submittedAt: Date | string
-    // Overridable so tests can exercise the backstop without faking timers.
-    timeoutMs?: number
+    analysisKey: readonly unknown[]
+    review: StudyReviewWithMeta | null
+    hasError: boolean
+    timedOut: boolean
+    onRetryStarted: () => void
 }
 
-export function AiSummaryCollapsible({
-    studyJobId,
-    initialReview,
-    submittedAt,
-    timeoutMs = AI_SUMMARY_TIMEOUT_MS,
-}: AiSummaryProps) {
+function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timedOut, onRetryStarted }: AiSummaryProps) {
     const { isExpanded, toggle } = useAiSummaryToggle()
-    const { data: review, error } = useStudyReviewPoll(studyJobId, initialReview)
-    // A successful retry is a new generation request, so it needs its own
-    // timeout window instead of inheriting the original submission's age.
-    const timeout = useElapsedSince(submittedAt, timeoutMs)
-    const retry = useRetryStudyReview(studyJobId, timeout.reset)
-    const timedOut = timeout.elapsed
+    const retry = useRetryStudyReview(studyJobId, analysisKey, onRetryStarted)
     const summary = review?.report?.codeExplanation ?? null
 
     const onRetry = () => retry.mutate()
     const errorState = <AiSummaryError onRetry={onRetry} isRetrying={retry.isPending} />
 
-    // Failure is terminal and explicit: a poll rejection, or a persisted
-    // failure row (summaryFailedAt) — surfaced with a Retry. A landed success
-    // row shows the summary, or the empty state for the no-API-key /
-    // disabled-review placeholder path. Otherwise we're genuinely still
-    // generating (spinner), with the backstop catching a silent hang.
+    // A summary already on screen outranks a failed tick: a failure stops the poll, so replacing
+    // good content the reviewer is reading would never come back (OTTER-775 review).
     const renderBody = () => {
-        if (error != null) return errorState
         if (review != null) {
-            if (review.summaryFailedAt != null) return errorState
+            const state = studyReviewState(review)
+            if (state === 'failed') return errorState
+            // An error stops the poll, so a run still pending when one lands has nothing left to
+            // report its own outcome to this page. Offering the retry beats a spinner that can no
+            // longer resolve, and unlike a landed report there is nothing here worth protecting.
+            if (state === 'pending') return timedOut || hasError ? errorState : <AiSummaryPending />
             if (!summary) return <AiSummaryEmpty />
             return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
         }
-        if (timedOut) return errorState
+        if (hasError || timedOut) return errorState
         return <AiSummaryPending />
     }
 
     return (
         <Stack gap="lg" data-testid="ai-summary">
-            <Text fw={700}>AI Summary: Analysis of all files</Text>
+            <Stack gap={4}>
+                <Text fw={fontWeight.bold}>AI Summary of submitted code files</Text>
+                <Text size="xs" c="dimmed">
+                    AI-generated summary, which may contain errors. Review the submitted code before making your
+                    decision.
+                </Text>
+            </Stack>
             {renderBody()}
         </Stack>
+    )
+}
+
+export type JobAnalysisPanelsProps = {
+    studyJobId: string
+    initialAnalysis: JobAnalysis
+    // Anchors the summary backstop so opening the page late does not restart the clock.
+    submittedAt: Date | string
+    // Overridable so tests can exercise the backstop and polling without faking timers.
+    summaryTimeoutMs?: number
+    pollIntervalMs?: number
+    detailsExpanded?: boolean
+    // Sibling of the details Collapse so a closed panel does not leave flex-gap above the toggle.
+    expandToggle?: ReactNode
+    children?: ReactNode
+}
+
+function JobAnalysisExtendedDetails({
+    isVisible,
+    expandToggle,
+    children,
+}: {
+    isVisible: boolean
+    expandToggle?: ReactNode
+    children: ReactNode
+}) {
+    return (
+        <Stack gap={0}>
+            {expandToggle}
+            <Collapse in={isVisible} keepMounted>
+                {children}
+            </Collapse>
+        </Stack>
+    )
+}
+
+// Owns the analysis poll the AI summary reads from.
+export function JobAnalysisPanels({
+    studyJobId,
+    initialAnalysis,
+    submittedAt,
+    summaryTimeoutMs = AI_SUMMARY_TIMEOUT_MS,
+    pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
+    detailsExpanded = true,
+    expandToggle,
+    children,
+}: JobAnalysisPanelsProps) {
+    const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis.review, pollIntervalMs)
+    const review = data?.review ?? null
+    // The server judges a row it has; the submission clock only covers a run that never wrote one.
+    const summaryGaveUp = review ? review.isStale : summaryTimeout.elapsed
+
+    return (
+        <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
+            <Stack gap="xl">
+                <AiSummaryCollapsible
+                    studyJobId={studyJobId}
+                    analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
+                    review={review}
+                    hasError={error != null}
+                    timedOut={summaryGaveUp}
+                    onRetryStarted={summaryTimeout.reset}
+                />
+                {children}
+            </Stack>
+        </JobAnalysisExtendedDetails>
     )
 }
 
@@ -336,7 +420,7 @@ function FileTab({
                 py="xs"
                 style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={400}>
+                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={fontWeight.regular}>
                     {display}
                 </Text>
             </UnstyledButton>
@@ -380,8 +464,8 @@ function OverflowFilesMenu({
                     py="xs"
                     style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
                 >
-                    <Group gap={4} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
-                        <Text size="sm" c="charcoal.7" component="span">
+                    <Group gap="xxs" wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />
@@ -390,6 +474,15 @@ function OverflowFilesMenu({
             </Menu.Target>
             <Menu.Dropdown data-testid="study-code-files-overflow-menu">{items}</Menu.Dropdown>
         </Menu>
+    )
+}
+
+function CodeFilesHeading({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+    return (
+        <Text fw={700} fz={16}>
+            Code files
+        </Text>
     )
 }
 
@@ -441,8 +534,7 @@ function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
     })
 }
 
-// stopPropagation: in the overflow menu this icon sits inside a selectable row,
-// so a download click shouldn't also switch the active file.
+// stopPropagation: in the overflow menu this icon sits inside a selectable row.
 function CodeFileDownloadButton({
     studyJobId,
     fileName,
@@ -519,11 +611,8 @@ type StudyCodeViewerProps = {
     files: CodeFile[]
     initialExpanded?: boolean
     toggleLabels?: StudyCodeToggleLabels
-    /**
-     * Whole-section collapse mode (post-decision reviewer page): when set, the parent owns the
-     * expand/collapse state. The code + tabs are always shown here and the toggle becomes the
-     * section's single "Hide full study code" closer that collapses the entire card.
-     */
+    // When set, the parent owns expand/collapse and the toggle becomes the closer for the
+    // AI summary and code files.
     onCollapse?: () => void
 }
 
@@ -541,13 +630,12 @@ export function StudyCodeViewer({
     const expanded = onCollapse ? true : isExpanded
     const handleToggle = onCollapse ?? toggleExpanded
     const toggleTestId = onCollapse ? 'study-code-toggle-collapse' : 'study-code-toggle'
-    // In onCollapse mode the toggle is the section's only collapse control, so it must stay
-    // reachable even with no displayable code files; the plain viewer still hides it when empty.
     const toggleVisible = onCollapse ? true : hasFiles
 
     return (
         <Stack gap="lg" data-testid="study-code-viewer">
             <Stack gap="sm">
+                <CodeFilesHeading isVisible={expanded} />
                 <FileTabsRow
                     isVisible={expanded}
                     visible={visible}

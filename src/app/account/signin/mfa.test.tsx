@@ -1,7 +1,7 @@
 import {
     db,
     faker,
-    insertTestOrg,
+    insertKeylessInvitedUser,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -18,8 +18,7 @@ import { RequestMFA } from './mfa'
 const mockSecondFactor = () => {
     ;(useSignIn as Mock).mockReturnValue({ isLoaded: true, setActive: vi.fn() })
     ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
-    // RequestMFA renders nothing once Clerk reports a live session, which is the state the shared
-    // session mock sets up; this challenge happens before the session exists.
+    // RequestMFA renders nothing once Clerk reports a live session; this challenge happens first.
     ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false })
 
     return {
@@ -41,30 +40,13 @@ const submitTotpCode = async (mfa: ReturnType<typeof mockSecondFactor>) => {
     await userEvent.click(screen.getByRole('button', { name: /verify code/i }))
 }
 
-// A keyless account is exactly what this flow onboards, so the key detour must not swallow the
-// invite or the destination the user was headed for (OTTER-655).
-const keylessInvitedUser = async () => {
-    const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-
-    const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-    const invite = await db
-        .insertInto('pendingUser')
-        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    return { user, org, invitingOrg, invite }
-}
-
 describe('RequestMFA', () => {
     it('accepts a pending invite before sending a keyless user to key generation', async () => {
-        const { user, invitingOrg, invite } = await keylessInvitedUser()
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
 
         await submitTotpCode(mockSecondFactor())
 
-        // The membership is the point: the old early return skipped the join entirely.
         await waitFor(async () => {
             const membership = await db
                 .selectFrom('orgUser')
@@ -81,13 +63,12 @@ describe('RequestMFA', () => {
             ),
         )
 
-        // The banner is deferred until the user is keyed (OTTER-639), so the flag has to survive
-        // the key detour this branch routes them through.
+        // The banner is deferred until the user is keyed (OTTER-639), so the flag must survive the
+        // key detour.
         expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBe(invitingOrg.name)
     })
 
-    // The invite branch reports failure by throwing out of actionResult; if that wrapper is ever
-    // dropped, a spent invite would look like a successful join.
+    // Without the actionResult wrapper a spent invite would look like a successful join.
     it('sends a keyless user to the join-team page when the invite no longer resolves', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
@@ -103,10 +84,10 @@ describe('RequestMFA', () => {
         )
     })
 
-    // Both parameters arrive together whenever an invite link is opened after the proxy captured a
-    // deep link. Pinning the order here so a later refactor cannot flip it silently.
+    // Both parameters arrive together when an invite link is opened after a captured deep link;
+    // pinned so a refactor cannot flip the order silently.
     it('prefers the invite landing over an explicit redirect_url when both are present', async () => {
-        const { invitingOrg, invite } = await keylessInvitedUser()
+        const { invitingOrg, invite } = await insertKeylessInvitedUser()
         router.setCurrentUrl(`/account/signin?invite_id=${invite.id}&redirect_url=%2Fopenstax-lab%2Fdashboard`)
 
         await submitTotpCode(mockSecondFactor())
@@ -142,7 +123,7 @@ describe('RequestMFA', () => {
 
     it('sends a user who already holds a key straight to their destination', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
-        // Stated explicitly: insertTestUser only seeds a key for enclave orgs.
+        // insertTestUser only seeds a key for enclave orgs.
         await db
             .insertInto('userPublicKey')
             .values({ userId: user.id, publicKey: Buffer.from('test-public-key'), fingerprint: 'test-fingerprint' })

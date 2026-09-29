@@ -1,18 +1,15 @@
 import PG from 'pg'
 import { databaseURL, DEPLOYED_ENV } from '../server/config'
 
-// Postgres SQLSTATE for "password authentication failed". A connection that
-// fails with this code is the signal that the cached DB password may be stale.
+// Postgres SQLSTATE for "password authentication failed".
 const INVALID_PASSWORD_CODE = '28P01'
 
 function isInvalidPasswordError(err: unknown): boolean {
     return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === INVALID_PASSWORD_CODE
 }
 
-// The subset of pg.Pool that Kysely's PostgresDriver actually uses: connect()
-// per query and end() on teardown (PostgresPool in kysely). Implementing the
-// interface rather than extending pg.Pool keeps this unit-testable without
-// mocking pg.
+// The subset of pg.Pool that Kysely's PostgresDriver uses; implementing it rather than extending
+// pg.Pool keeps this testable without mocking pg.
 export interface PoolLike {
     connect(): Promise<PG.PoolClient>
     end(): Promise<void>
@@ -21,8 +18,6 @@ export interface PoolLike {
 
 export type PoolFactory = (connectionString: string) => PoolLike
 
-// Resolver for the (possibly rotated) connection string. Defaults to the real
-// secret/env lookup; injectable so tests stay hermetic.
 export type ConnectionStringResolver = () => Promise<string>
 
 const defaultPoolFactory: PoolFactory = (connectionString) =>
@@ -31,16 +26,8 @@ const defaultPoolFactory: PoolFactory = (connectionString) =>
         ...(DEPLOYED_ENV && { ssl: { rejectUnauthorized: false } }),
     })
 
-// A DB pool that re-reads DATABASE_URL (or the DB_SECRET_ARN secret) and
-// rebuilds itself when a connection is rejected with 28P01. A deploy can rotate
-// the DB password while a warm Lambda/server process keeps a pool wired to the
-// old connection string; without this, every new connection fails until the
-// process is recycled (OTTER-626). On a password change new connections
-// immediately use the fresh credentials; an unchanged password means a genuine
-// auth problem and the original error propagates.
-//
-// Kysely obtains a client via connect() per query, so 28P01 surfaces there;
-// recovering in connect() lets every Kysely query benefit.
+// A deploy can rotate the DB password while a warm process keeps a pool wired to the old
+// connection string, so every new connection fails until the process is recycled (OTTER-626).
 export class ResilientPool implements PoolLike {
     private connectionString: string
     private delegate: PoolLike
@@ -55,15 +42,13 @@ export class ResilientPool implements PoolLike {
         this.delegate = this.makePool(connectionString)
     }
 
-    // Re-fetch the connection string; if the password changed, swap in a fresh
-    // delegate pool and return true (retry worthwhile). Unchanged → false.
+    // Returns whether the connection string changed, i.e. whether a retry is worthwhile.
     private async refresh(): Promise<boolean> {
         const next = await this.resolveConnectionString()
         if (next === this.connectionString) return false
         this.connectionString = next
         const old = this.delegate
         this.delegate = this.makePool(next)
-        // Carry registered error listeners onto the replacement pool.
         for (const listener of this.errorListeners) this.delegate.on('error', listener)
         old.end().catch(() => {})
         return true
@@ -83,9 +68,7 @@ export class ResilientPool implements PoolLike {
     }
 
     on(event: 'error', listener: (err: Error, client: PG.PoolClient) => void): this {
-        // Track and forward to the live delegate so idle-client errors still
-        // reach callers, and survive a refresh() rebuild. (Kysely doesn't
-        // subscribe, but the pg.Pool contract emits these.)
+        // Tracked as well as forwarded so the listeners survive a refresh() rebuild.
         this.errorListeners.push(listener)
         this.delegate.on(event, listener)
         return this

@@ -17,7 +17,6 @@ import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDat
 import { fetchFileContents } from './storage'
 import { getAgentContextAction } from './actions/agent-context.actions'
 
-// Mock external dependencies
 vi.mock('./config', () => ({
     getConfigValue: vi.fn(),
 }))
@@ -54,7 +53,6 @@ vi.mock('@/server/actions/agent-context.actions', () => ({
     getAgentContextAction: vi.fn(),
 }))
 
-// Mock fetch globally
 global.fetch = vi.fn()
 
 const getConfigValueMock = getConfigValue as unknown as Mock
@@ -105,10 +103,6 @@ describe('getOrCreateCoderUser', () => {
 
     it('should create user when user does not exist (400 status)', async () => {
         const mockFetch = global.fetch as unknown as Mock
-        // Mock the fetch calls in the right order:
-        // 1. First fetch - check if user exists (returns 400)
-        // 2. Second fetch - get organizations (for createCoderUser)
-        // 3. Third fetch - create user (returns success)
         mockFetch
             .mockResolvedValueOnce({
                 ok: true,
@@ -124,13 +118,13 @@ describe('getOrCreateCoderUser', () => {
                 json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
             })
 
-        // Mock all the config values needed in order of calls
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for getCoderUser)
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for getCoderUser)
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for getCoderOrganization)
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for getCoderOrganization)
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for createCoderUser)
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for createCoderUser)
+        // Endpoint + token, once per call: getCoderUser, getCoderOrganization, createCoderUser.
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+        getConfigValueMock.mockResolvedValueOnce('token')
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+        getConfigValueMock.mockResolvedValueOnce('token')
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+        getConfigValueMock.mockResolvedValueOnce('token')
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
@@ -143,7 +137,6 @@ describe('getOrCreateCoderUser', () => {
 
         const result = await getOrCreateCoderUser('study123')
         expect(result).toEqual(mockUsersEmailQueryResponse)
-        // Verify the POST call to create a user was made
         expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
             method: 'POST',
             headers: {
@@ -221,7 +214,7 @@ describe('createUserAndWorkspace', () => {
                     json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
                 })
             }
-            // Check /members/ before /organizations since workspace create URL contains both
+            // /members/ first: the workspace create URL contains both.
             if (url.includes('/members/')) {
                 return Promise.resolve({
                     ok: true,
@@ -241,7 +234,6 @@ describe('createUserAndWorkspace', () => {
             })
         })
 
-        // Mock config values - use mockImplementation to return based on key
         getConfigValueMock.mockImplementation((key: string) => {
             if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
             if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
@@ -270,7 +262,6 @@ describe('createUserAndWorkspace', () => {
             workspace: mockWorkspaceResponse,
         })
 
-        // Verify the workspace creation call has correct rich_parameter_values
         const createWorkspaceCall = mockFetch.mock.calls.find(
             (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
         )
@@ -582,10 +573,10 @@ describe('getCoderTemplateId', () => {
             json: vi.fn().mockResolvedValue(mockTemplateResponse),
         })
 
-        // Mock config calls in order: CODER_TEMPLATE first, then CODER_API_ENDPOINT and CODER_TOKEN from coderFetch
-        getConfigValueMock.mockResolvedValueOnce('aws-fargate') // CODER_TEMPLATE
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN
+        // In order: CODER_TEMPLATE, then CODER_API_ENDPOINT and CODER_TOKEN from coderFetch.
+        getConfigValueMock.mockResolvedValueOnce('aws-fargate')
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
+        getConfigValueMock.mockResolvedValueOnce('token')
 
         const result = await getCoderTemplateId()
         expect(result).toBe('template2')
@@ -738,7 +729,6 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         },
     }
 
-    // Routes a coder fetch to a canned response based on the url; falls back to 404.
     const routeFetch = (overrides: { build?: object; buildLogs?: unknown; agentLogs?: unknown }) => (url: string) => {
         const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
         if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
@@ -851,13 +841,11 @@ describe('generateCoderUsername', () => {
     it('should truncate long emails to fit within 31 character limit', () => {
         const result = generateCoderUsername('test2201512345678901234567@gmail.com')
         expect(result.length).toBe(31)
-        // Sanitized email should be truncated to 22 chars + hyphen + 8 char hash
         expect(result).toMatch(/^[a-zA-Z0-9-]{22}-[a-f0-9]{8}$/)
     })
 
     it('should not truncate short emails', () => {
         const result = generateCoderUsername('test2201567@gmail.com')
-        // test22015678-gmail-com = 21 chars, plus hyphen and 8 char hash = 30 chars
         expect(result).toMatch(/^test2201567-gmail-com-[a-f0-9]{8}$/)
         expect(result.length).toBe(30)
     })
@@ -888,13 +876,11 @@ describe('generateCoderUsername', () => {
 
     it('should produce alphanumeric usernames with underscores and one hyphen', () => {
         const result = generateCoderUsername('ANY.email@test.org')
-        // Should only contain alphanumeric, underscores, and exactly one hyphen before hash
         expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
     })
 
     it('should avoid including -- when input email otherwise generates it', () => {
         const result = generateCoderUsername('ab45---123456790@test.org')
-        // should not contain multiple '-' characters
         expect(result).not.toMatch(/-{2,}/)
         expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
     })

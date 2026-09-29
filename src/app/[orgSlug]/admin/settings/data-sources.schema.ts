@@ -22,9 +22,8 @@ export const createOrgDataSourceSchema = dataSourceFieldsSchema
 
 export const editOrgDataSourceSchema = dataSourceFieldsSchema
 
-// The draft URL pair is optional, but a half-filled one is not: `addUrl` and submit both
-// fold it into `urls`, where the stricter row schema applies. Validating it here surfaces
-// the problem on the field the user typed in rather than only in the server action.
+// A half-filled draft pair is folded into `urls` by both addUrl and submit, so validating it here
+// surfaces the problem on the field the user typed in.
 export const dataSourceFormSchema = z
     .object({
         ...dataSourceFieldsSchema.shape,

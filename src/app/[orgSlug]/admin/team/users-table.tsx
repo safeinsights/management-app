@@ -29,8 +29,7 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; isSelf: boolea
         onError: reportMutationError('Failed to update user permission'),
     })
 
-    // Changing your own role is refused server-side (OTTER-720); disable rather than let the
-    // user submit a request that can only fail.
+    // Changing your own role is refused server-side (OTTER-720), so do not offer it.
     const label = isPending ? variables.label : permissionLabelForUser(user)
 
     return (

@@ -161,13 +161,7 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     if (parsed.kind === 'code-review-feedback') return true
 
     if (parsed.kind === 'outputs-review-feedback') {
-        const decided = await db.query<{ exists: boolean }>(
-            `SELECT 1 FROM job_status_change
-              WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
-              LIMIT 1`,
-            [parsed.jobId],
-        )
-        return decided.rowCount === 0
+        return !(await hasFilesDecision(parsed.jobId, db))
     }
 
     const row = await db.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [parsed.studyId])
@@ -177,7 +171,23 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     return isDocumentEditable(parsed, { status })
 }
 
-export type EventType = 'proposal-submitted' | 'proposal-review-submitted' | 'code-review-submitted'
+// True once the job carries a terminal files decision. Shared by the persist gate above and the
+// outputs event gate below, which must not close a peer's review before a decision has landed.
+export async function hasFilesDecision(jobId: string, db: Pick<DbQuery, 'query'>): Promise<boolean> {
+    const decided = await db.query<{ exists: boolean }>(
+        `SELECT 1 FROM job_status_change
+          WHERE study_job_id = $1 AND status::text IN ('FILES-APPROVED', 'FILES-REJECTED')
+          LIMIT 1`,
+        [jobId],
+    )
+    return decided.rowCount !== 0
+}
+
+export type EventType =
+    | 'proposal-submitted'
+    | 'proposal-review-submitted'
+    | 'code-review-submitted'
+    | 'outputs-review-submitted'
 
 export type StatelessSubmissionEvent = {
     type: EventType
@@ -209,7 +219,12 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
     const obj = parsed as Record<string, unknown>
     const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId } = obj
 
-    if (type !== 'proposal-submitted' && type !== 'proposal-review-submitted' && type !== 'code-review-submitted') {
+    if (
+        type !== 'proposal-submitted' &&
+        type !== 'proposal-review-submitted' &&
+        type !== 'code-review-submitted' &&
+        type !== 'outputs-review-submitted'
+    ) {
         return null
     }
     if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
@@ -224,14 +239,17 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
 // `proposal-submitted` is broadcast on the proposal-fields doc by the lab
 // submitter; `proposal-review-submitted` is broadcast on the review-feedback
 // doc by the DO submitter; `code-review-submitted` is broadcast on the
-// code-review-feedback doc by the DO submitter. Anything else is dropped.
-// studyId reconciliation lives in assertStatelessEventConsistent (which has
-// access to the authenticated documentStudyId, the only place a code-review
-// doc's studyId can be resolved from).
+// code-review-feedback doc by the DO submitter; `outputs-review-submitted` is
+// broadcast on the outputs-review-feedback doc by the DO submitter. Anything
+// else is dropped. studyId reconciliation lives in
+// assertStatelessEventConsistent (which has access to the authenticated
+// documentStudyId, the only place a code-review doc's studyId can be resolved
+// from).
 export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent, parsed: ParsedDocumentName): boolean {
     if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
     if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
+    if (event.type === 'outputs-review-submitted') return parsed.kind === 'outputs-review-feedback'
     return false
 }
 
@@ -244,20 +262,27 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
 // Without (2)-(3) any authorized collaborator could spoof a kick-out event and
 // redirect the room without an actual submit. Code-review docs do not gate on
 // DB status here; the management-app action layer is the single enforcer of
-// code-review versioning.
+// code-review versioning. Outputs-review docs gate on the job's own files
+// decision rather than the study status, which stays APPROVED for the whole
+// outputs round.
 export function assertStatelessEventConsistent(args: {
     event: StatelessSubmissionEvent
     parsed: ParsedDocumentName
     documentStudyId: string
     connectionUserClerkId: string
     studyStatus: StudyStatus | null
+    /** Only read for outputs events, where an undecided job means the event cannot be genuine. */
+    jobDecided?: boolean | null
 }): boolean {
-    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus } = args
+    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus, jobDecided = null } = args
     if (!isStatelessEventValidForDocument(event, parsed)) return false
     if (event.studyId !== documentStudyId) return false
     if (event.submittedByClerkId !== connectionUserClerkId) return false
 
     if (event.type === 'code-review-submitted') return true
+    // The decision is written before the winner broadcasts, so an event that arrives while the job
+    // is still open would close a peer's review with no decision behind it.
+    if (event.type === 'outputs-review-submitted') return jobDecided === true
     if (studyStatus === null) return false
     if (event.type === 'proposal-submitted') return studyStatus === 'PENDING-REVIEW'
     if (event.type === 'proposal-review-submitted') return SUBMITTED_REVIEW_STATUSES.includes(studyStatus)

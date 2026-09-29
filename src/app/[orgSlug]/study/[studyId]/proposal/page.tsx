@@ -1,12 +1,17 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
+import { sessionFromClerk } from '@/server/clerk'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
-import { StudyRequestPageHeader } from '../../request/page-header'
+import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
+import { isTitleOverLimit } from '@/app/[orgSlug]/study/request/form-schemas'
+
+export const metadata: Metadata = { title: 'Study proposal' }
 
 export default async function StudyProposalRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -21,12 +26,29 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyReview({ orgSlug, studyId }))
     }
 
+    // A CHANGE-REQUESTED study belongs on /edit-and-resubmit; redirecting here lets
+    // ProposalProvider below be unconditionally DRAFT (OTTER-690).
+    if (result.status === 'CHANGE-REQUESTED') {
+        redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
+    }
+
+    // Step 2 has no title or datasets field, so a blank or over-cap title, or a draft saved before
+    // datasets moved to Step 1, can only be fixed there (OTTER-690, OTTER-737, OTTER-803).
+    if (!result.title?.trim() || isTitleOverLimit(result.title) || !result.datasets?.length) {
+        redirect(Routes.studyEdit({ orgSlug, studyId }))
+    }
+
+    // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
+    // id researcherId records.
+    const session = await sessionFromClerk()
+    const isDraftCreator = !!session && session.user.id === result.researcherId
+
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyRequestPageHeader orgSlug={orgSlug} studyId={studyId} studyTitle={result.title} />
+            <StudyPageHeader study={result} />
             <ProposalProvider
                 studyId={studyId}
                 draftData={{
@@ -46,6 +68,8 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     researcherName={result.researcherName}
                     researcherId={result.researcherId}
                     enclaveOrgSlug={result.orgSlug}
+                    studyTitle={result.title}
+                    isDraftCreator={isDraftCreator}
                 />
             </ProposalProvider>
         </Stack>

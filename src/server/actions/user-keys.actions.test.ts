@@ -53,8 +53,6 @@ describe('User Keys Actions', () => {
 
         await setUserPublicKeyAction({ publicKey })
 
-        // Fingerprint is derived server-side from publicKey, not taken from the client. It must match
-        // an independent derivation of the same key.
         const newKeyResult = actionResult(await getUserPublicKeyAction())
         expect(newKeyResult).toBeDefined()
         expect(newKeyResult?.fingerprint).toEqual(fingerprint)
@@ -126,17 +124,14 @@ describe('User Keys Actions', () => {
         await updateUserPublicKeyAction({ publicKey })
         const rotated = await readTimestamps()
 
-        // OTTER-654 reads these: createdAt stays the first-ever generation, updatedAt tracks the
-        // key currently in the user's hands. Inequality rather than ordering, because the insert
-        // takes its timestamp from the database default and the rotation writes one from the app,
-        // so a clock difference between the two must not decide whether this passes.
+        // Inequality rather than ordering: the insert's timestamp is the DB default and the
+        // rotation's comes from the app, so clock skew must not decide this.
         expect(rotated.createdAt).toEqual(created.createdAt)
         expect(rotated.updatedAt).not.toEqual(created.updatedAt)
     })
 })
 
 describe('getKeyPageStateAction', () => {
-    // The landing only applies to a first key, so every case below starts from a keyless account.
     const keylessSession = async (options: Parameters<typeof mockSessionWithTestData>[0] = {}) => {
         const session = await mockSessionWithTestData(options)
         await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
@@ -152,8 +147,6 @@ describe('getKeyPageStateAction', () => {
         })
     })
 
-    // The card's audience is "DP & RL", so an enclave member resolves the same way a lab member
-    // does and org.type stays out of the condition.
     it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
         const { org } = await keylessSession({ orgType: 'lab' })
 
@@ -163,8 +156,6 @@ describe('getKeyPageStateAction', () => {
         })
     })
 
-    // Two orgs means no unambiguous landing, and nothing in orgUser records which one invited the
-    // signup, so the action declines rather than guessing.
     it('falls back to My dashboard when the account belongs to more than one org', async () => {
         const { user } = await keylessSession()
         const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
@@ -180,8 +171,6 @@ describe('getKeyPageStateAction', () => {
         expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
     })
 
-    // A key already on file makes this a reset, which lands on "My dashboard" regardless of how
-    // many orgs the account belongs to.
     it('reports an existing key and skips the org resolution', async () => {
         await mockSessionWithTestData()
 

@@ -13,7 +13,6 @@ describe('GlobalError Component', () => {
 
         render(<GlobalError error={testError} />, { container: document })
 
-        // Verify that captureException is called with the error
         expect(Sentry.captureException).toHaveBeenCalledWith(testError)
     })
 })

@@ -3,9 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { db, insertTestJobInfo } from '@/tests/unit.helpers'
 import { collapseArtifactSlots } from './migrations/1780600000000_dedupe_study_job_file_artifacts'
 
-// Verifies the partial unique index and the backfill added in
-// 1780600000000_dedupe_study_job_file_artifacts.ts. An artifact slot is one
-// (study_job_id, path, file_type); code file types are outside the index.
 describe('study_job_file artifact slots', () => {
     const setupJob = async () => (await insertTestJobInfo()).jobInfo.studyJobId
 
@@ -28,8 +25,7 @@ describe('study_job_file artifact slots', () => {
         )
     })
 
-    // Pre-2025-06-26 runs wrote a log and a result to the same path, so those rows differ only by
-    // file_type. Including the type in the key is what lets them stay in the table untouched.
+    // Pre-2025-06-26 runs wrote a log and a result to the same path, differing only by file_type.
     it('allows rows of different types on one path', async () => {
         const studyJobId = await setupJob()
         await db.insertInto('studyJobFile').values(artifactRow(studyJobId)).execute()
@@ -42,8 +38,8 @@ describe('study_job_file artifact slots', () => {
         expect(rows).toHaveLength(2)
     })
 
-    // Submitted code is outside the index on purpose: two uploads can sanitize to one path, and a
-    // constrained submit would fail outright rather than write a row nobody minds.
+    // Code is outside the index because two uploads can sanitize to one path, and a constrained
+    // submit would fail outright rather than write a row nobody minds.
     it('leaves code file rows unconstrained', async () => {
         const studyJobId = await setupJob()
         const codeRow = { studyJobId, name: 'main.r', path: `test-org/${studyJobId}/code/main.r` }
@@ -61,10 +57,8 @@ describe('study_job_file artifact slots', () => {
         expect(rows).toHaveLength(2)
     })
 
-    // The backfill runs against duplicates the index now forbids, so it is exercised on temporary
-    // tables of the same names inside one transaction. pg_temp comes first in the search path, so the
-    // migration's unqualified SQL resolves to these; ON COMMIT DROP keeps the pooled connection clean
-    // and nothing locks the real tables while other test files run in parallel.
+    // The backfill needs duplicates the index now forbids, so it runs against temporary tables of
+    // the same names: pg_temp comes first in the search path, so its unqualified SQL resolves there.
     describe('collapseArtifactSlots', () => {
         async function withSeededDuplicates(
             seed: (trx: Kysely<unknown>) => Promise<void>,
@@ -74,9 +68,8 @@ describe('study_job_file artifact slots', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const raw = trx as any as Kysely<unknown>
 
-                // source_id mirrors the real column: a self-reference with no ON DELETE clause, so
-                // NO ACTION applies and a referenced row cannot be deleted. Without it here the
-                // backfill's foreign key hazard would not be reproducible.
+                // source_id must mirror the real column's NO ACTION self-reference, or the
+                // backfill's foreign key hazard is not reproducible here.
                 await sql`
                     CREATE TEMPORARY TABLE study_job_file (
                         id uuid PRIMARY KEY DEFAULT v7uuid(),
@@ -132,8 +125,7 @@ describe('study_job_file artifact slots', () => {
                     const middle = (await insertSlotRow(trx, 'second-delivery.zip', 20)).rows[0].id
                     const newest = (await insertSlotRow(trx, 'third-delivery.zip', 10)).rows[0].id
 
-                    // Keys spread across the rows about to be deleted, including one the survivor
-                    // already holds: a researcher granted through any duplicate must keep access.
+                    // Spread across the rows about to be deleted, including one the survivor holds.
                     await grantKey(trx, oldest, 'results.csv')
                     await grantKey(trx, middle, 'summary.csv')
                     await grantKey(trx, newest, 'results.csv')
@@ -156,9 +148,6 @@ describe('study_job_file artifact slots', () => {
             )
         })
 
-        // Approval records the encrypted row an APPROVED-* row came from. On a job that already held
-        // duplicates that reference can point at one this backfill drops, and source_id is NO ACTION,
-        // so a delete without repointing it first fails the whole migration.
         it('repoints an approved row that referenced a deleted duplicate', async () => {
             await withSeededDuplicates(
                 async (trx) => {

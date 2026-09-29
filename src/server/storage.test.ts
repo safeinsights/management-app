@@ -1,15 +1,28 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test } from 'vitest'
 import { db } from '@/database'
 import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
 import { pathForStudyJob } from '@/lib/paths'
-import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from './storage'
-import { storeS3File } from './aws'
+import {
+    deleteDiscardedScanLogObjects,
+    discardStaleScanLogRows,
+    storeStudyEncryptedLogFile,
+    storeStudyEncryptedResultsFile,
+    storeStudyLogFile,
+} from './storage'
+import { fetchS3File } from './aws'
 
-vi.mock('@/server/aws', () => ({
-    storeS3File: vi.fn(),
-    fetchS3File: vi.fn(),
-    signedUrlForFile: vi.fn(),
-}))
+// S3 is not mocked here. tests/unit.helpers pulls @/server/aws into the module graph before a
+// vi.mock in this file can intercept it, so a mock would silently never apply — which is how the
+// call-count assertions this file used to make passed against a function that was never called.
+// The suite talks to the local SeaweedFS instead, which lets these assert on real object state.
+async function objectExists(path: string) {
+    try {
+        await fetchS3File(path)
+        return true
+    } catch {
+        return false
+    }
+}
 
 const logFile = (name = 'encrypted-logs.zip') => testUploadFile(name)
 
@@ -24,9 +37,6 @@ async function jobLogRows(studyJobId: string) {
 
 const setupJob = async () => (await insertTestJobInfo()).jobInfo
 
-// The storage path is derived from the job and the artifact type, so a re-delivered webhook
-// overwrites the same S3 object. Before OTTER-642 it also inserted a second row pointing at that
-// object, which surfaced as the log listed twice for both the reviewer and the researcher.
 test('storing the same artifact twice updates the row instead of adding a duplicate', async () => {
     const info = await setupJob()
 
@@ -38,29 +48,19 @@ test('storing the same artifact twice updates the row instead of adding a duplic
     expect(rows[0].name).toBe('re-delivered.zip')
 })
 
-// Once the round is decided the artifact has been released and the researcher's per-file keys are
-// wrapped against the AES keys of that exact ciphertext. Replacing the object would leave a released
-// file that no longer decrypts, so a late re-delivery is ignored outright.
 test('ignores a repeat delivery once the round has been decided', async () => {
     const info = await setupJob()
     await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
     await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'FILES-APPROVED' }).execute()
 
-    const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
     const delivery = await storeStudyEncryptedLogFile(info, logFile('late-redelivery.zip'), 'ENCRYPTED-CODE-RUN-LOG')
 
-    // `stored: false` is what lets the route say the artifacts were dropped rather than received.
     expect(delivery.stored).toBe(false)
-    expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
     const rows = await jobLogRows(info.studyJobId)
     expect(rows).toHaveLength(1)
     expect(rows[0].name).toBe('encrypted-logs.zip')
 })
 
-// Sharing does not wait for a round to close: a reviewer approving CODE re-wraps keys for researchers
-// alongside CODE-APPROVED, and the round stays open afterwards. So a round-status-only guard left a
-// scan log that had already been shared replaceable by a delayed scanner delivery, which would leave
-// the researcher holding keys wrapped against bytes that no longer exist.
 test('refuses to replace an artifact whose keys are already shared on an open round', async () => {
     const info = await setupJob()
     const stored = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
@@ -75,15 +75,15 @@ test('refuses to replace an artifact whose keys are already shared on an open ro
         })
         .execute()
 
-    const uploadsBefore = vi.mocked(storeS3File).mock.calls.length
     const redelivery = await storeStudyEncryptedLogFile(info, logFile('rescanned.zip'), 'ENCRYPTED-SECURITY-SCAN-LOG')
 
     expect(redelivery.stored).toBe(false)
-    expect(vi.mocked(storeS3File).mock.calls.length).toBe(uploadsBefore)
+    // The row keeps its original name, so the stored copy the recipient's keys were wrapped from
+    // was left in place rather than replaced.
+    const rows = await db.selectFrom('studyJobFile').select('name').where('id', '=', stored.id).execute()
+    expect(rows).toEqual([{ name: 'encrypted-logs.zip' }])
 })
 
-// A closed round only protects artifacts it already has: dropping a never-seen one would lose data
-// with nothing released to protect.
 test('still stores a first-time artifact after the round has been decided', async () => {
     const info = await setupJob()
     await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'FILES-APPROVED' }).execute()
@@ -93,11 +93,8 @@ test('still stores a first-time artifact after the round has been decided', asyn
     expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
 })
 
-// Run logs and results were both written to results/encrypted-results.zip until mid-2025, so a job
-// from that era can hold a log row on the path a result now uses. A delivery claims its own slot
-// (job + path + type) and leaves the other row alone: retyping it in place would silently relabel a
-// different artifact, and the slot key is what the unique index enforces. Unreachable for jobs still
-// receiving deliveries, since those runs finished long before the paths were split.
+// Logs and results shared results/encrypted-results.zip until mid-2025, so a job from that era can
+// hold a log row on the path a result now uses.
 test('leaves a legacy row of another type on the results path alone', async () => {
     const info = await setupJob()
     const legacyLogPath = `${pathForStudyJob(info)}/results/encrypted-results.zip`
@@ -118,7 +115,6 @@ test('leaves a legacy row of another type on the results path alone', async () =
         .select(['fileType', 'name'])
         .where('studyJobId', '=', info.studyJobId)
         .where('path', '=', legacyLogPath)
-        // By name, not fileType: ordering an enum column follows its declaration order, not alphabet.
         .orderBy('name', 'asc')
         .execute()
     expect(rows).toEqual([
@@ -127,9 +123,6 @@ test('leaves a legacy row of another type on the results path alone', async () =
     ])
 })
 
-// Two deliveries can pass the existing-row lookup before either inserts. The unique index turns the
-// loser's insert into a violation instead of a duplicate row, and it is recovered as the repeat it
-// effectively is: one row, and only one caller told the outcome was new.
 test('collapses two concurrent first deliveries into one row', async () => {
     const info = await setupJob()
 
@@ -140,4 +133,104 @@ test('collapses two concurrent first deliveries into one row', async () => {
 
     expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
     expect(results.every((r) => r.stored)).toBe(true)
+})
+
+async function scanLogRows(studyJobId: string) {
+    return await db
+        .selectFrom('studyJobFile')
+        .select(['id', 'path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', 'ENCRYPTED-SECURITY-SCAN-LOG')
+        .execute()
+}
+
+test("discards the previous round's scan log row and its object", async () => {
+    const info = await setupJob()
+    await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
+    const [{ path }] = await scanLogRows(info.studyJobId)
+    expect(await objectExists(path)).toBe(true)
+
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
+
+    expect(await scanLogRows(info.studyJobId)).toHaveLength(0)
+    // The object is the caller's to delete once it has committed, so the row can never be rolled
+    // back onto a missing object. Until then it is still there.
+    expect(discarded).toEqual([path])
+    expect(await objectExists(path)).toBe(true)
+
+    await deleteDiscardedScanLogObjects(discarded)
+
+    // It still has to go, or the next delivery takes storeJobFile's insert path and overwrites it
+    // without consulting unreplaceableReason.
+    expect(await objectExists(path)).toBe(false)
+})
+
+test('leaves a scan log whose keys are already wrapped for recipients', async () => {
+    const info = await setupJob()
+    const stored = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: stored.id,
+            filePath: 'scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
+
+    const [remaining] = await scanLogRows(info.studyJobId)
+    expect(remaining).toBeDefined()
+    expect(discarded).toEqual([])
+    // Deleting the object would strand the recipient: their wrapped keys stop decrypting.
+    expect(await objectExists(remaining.path)).toBe(true)
+})
+
+// The delivery route couples the two writes: once the encrypted row survives with wrapped keys,
+// unreplaceableReason makes its write a no-op and the guard skips the plaintext write too. Removing
+// only the plaintext row would leave the panel pending for the whole round.
+test('keeps every scan log for the job when one of them is already shared', async () => {
+    const info = await setupJob()
+    const shared = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
+    await storeStudyLogFile(info, logFile('scan-log.txt'), 'SECURITY-SCAN-LOG')
+    await db
+        .insertInto('studyJobFileRecipientKey')
+        .values({
+            studyJobFileId: shared.id,
+            filePath: 'scan-log.txt',
+            fingerprint: 'test-fingerprint',
+            crypt: 'test-crypt',
+        })
+        .execute()
+
+    const discarded = await discardStaleScanLogRows(info.studyJobId)
+
+    expect(discarded).toEqual([])
+    // Both halves survive: the plaintext row going alone is what leaves the next scan unable to
+    // write either of them.
+    const remaining = await db
+        .selectFrom('studyJobFile')
+        .select('fileType')
+        .where('studyJobId', '=', info.studyJobId)
+        .where('fileType', 'in', ['SECURITY-SCAN-LOG', 'ENCRYPTED-SECURITY-SCAN-LOG'])
+        .execute()
+    expect(remaining.map((row) => row.fileType).sort()).toEqual(['ENCRYPTED-SECURITY-SCAN-LOG', 'SECURITY-SCAN-LOG'])
+})
+
+test('leaves code and result artifacts alone', async () => {
+    const info = await setupJob()
+    await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
+    await storeStudyEncryptedResultsFile(info, logFile('results.zip'))
+
+    await discardStaleScanLogRows(info.studyJobId)
+
+    expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
+    const results = await db
+        .selectFrom('studyJobFile')
+        .select('id')
+        .where('studyJobId', '=', info.studyJobId)
+        .where('fileType', '=', 'ENCRYPTED-RESULT')
+        .execute()
+    expect(results).toHaveLength(1)
 })

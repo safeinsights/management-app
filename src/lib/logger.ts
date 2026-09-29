@@ -3,23 +3,20 @@ import * as Sentry from '@sentry/nextjs'
 import type { SeverityLevel } from '@sentry/nextjs'
 import { inspect } from 'util'
 
-// map our log levels to the right console method
 const consoleMethodMap = {
     warn: console.warn,
     error: console.error,
 } as const
 
-// map our log levels to Sentry severities
 const sentrySeverityMap: Record<'warn' | 'error', SeverityLevel> = {
     warn: 'warning',
     error: 'error',
 }
 
-// keep namespace‐based debug for debug/info
 const debugWarn = debug('app:warn')
 const debugError = debug('app:error')
 
-// wrap any Sentry call in try/catch to avoid infinite loops
+// Wrapped so a Sentry failure cannot re-enter the logger and loop.
 function safeCapture(fn: () => void, warningMsg: string): void {
     try {
         fn()
@@ -41,7 +38,7 @@ function pretty(a: unknown): string {
         try {
             return JSON.stringify(a)
         } catch {
-            // fallback: pretty-print circular or deep objects with util.inspect
+            // circular or too deep for JSON
             return inspect(a, { depth: null })
         }
     }
@@ -53,7 +50,6 @@ function logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
     const consoleMethod = consoleMethodMap[level]
     const sentrySeverity = sentrySeverityMap[level]
 
-    // print to console
     consoleMethod(...args)
 
     const realErr = args.find((a) => a instanceof Error) as Error | undefined
@@ -62,7 +58,6 @@ function logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
         debugInstance(realErr.stack ?? realErr.message)
         safeCapture(() => Sentry.captureException(realErr), `Failed to send ${level} exception to Sentry:`)
     } else {
-        // Build a message string for debug and Sentry.captureMessage
         const msg = args.map(pretty).join(' ')
         debugInstance(msg)
         safeCapture(() => Sentry.captureMessage(msg, sentrySeverity), `Failed to send ${level} message to Sentry:`)
@@ -76,7 +71,6 @@ const logger = {
     error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
-// Enable debug output
 debug.enable('app:*')
 
 export default logger

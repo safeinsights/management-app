@@ -1,11 +1,12 @@
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import { Group } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { useSession } from '@/hooks/session'
 import { Audience, Scope, StudyRow } from './types'
 import { DeleteDraftButton } from './delete-draft-button'
-import { projectStudyState, resolveDashboardAction } from '@/lib/study-screen'
-import { dashboardRawStateFromRow } from './dashboard-raw-state'
+import { resolveDashboardAction } from '@/lib/study-screen'
+import { rowStudyState } from './dashboard-raw-state'
 
 type StudyActionLinkProps = {
     study: StudyRow
@@ -28,7 +29,7 @@ function ResearcherLink({
 }) {
     const { session } = useSession()
     const labSlug = study.submittedByOrgSlug || orgSlug
-    const action = resolveDashboardAction('researcher', projectStudyState(dashboardRawStateFromRow(study)), {
+    const action = resolveDashboardAction('researcher', rowStudyState(study), {
         orgSlug: labSlug,
         studyId: study.id,
     })
@@ -47,7 +48,11 @@ function ResearcherLink({
     }
 
     return (
-        <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
+        <Link
+            href={href}
+            aria-label={`View details for study ${study.title}`}
+            fw={isHighlighted ? fontWeight.semibold : undefined}
+        >
             {action.label}
         </Link>
     )
@@ -58,7 +63,7 @@ function ReviewerLink({ study, orgSlug, isHighlighted }: { study: StudyRow; orgS
     const href = Routes.studyReview({ orgSlug: slug, studyId: study.id })
 
     return (
-        <Link href={href} c="blue.7" fw={isHighlighted ? 600 : undefined}>
+        <Link href={href} c={semanticColor('link.default')} fw={isHighlighted ? fontWeight.semibold : undefined}>
             View
         </Link>
     )

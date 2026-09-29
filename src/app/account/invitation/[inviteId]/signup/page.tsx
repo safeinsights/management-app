@@ -25,8 +25,8 @@ const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 
-    // A claimed or deleted invite no longer resolves; without this the page would show the
-    // loading spinner forever (data stays undefined after the query errors).
+    // A claimed or deleted invite no longer resolves; data stays undefined after the query errors,
+    // so without this the spinner never stops.
     if (isError) return <InvalidInvitePanel />
 
     if (!isLoadedAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />

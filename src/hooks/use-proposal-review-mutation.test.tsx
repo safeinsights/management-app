@@ -26,10 +26,7 @@ import {
 } from '@/lib/realtime/review-feedback-provider-context'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
 
-// Stub the editor's HocuspocusProvider. We publish this into the
-// ReviewFeedbackProviderShare context to imitate what CollaborativeEditor's
-// `onProviderReady` does in production. The mutation hook reads it via
-// useReviewFeedbackProvider() and calls sendStateless on it.
+// Published into ReviewFeedbackProviderShare to imitate CollaborativeEditor's `onProviderReady`.
 type StubProvider = {
     sendStateless: ReturnType<typeof vi.fn>
 }
@@ -49,12 +46,8 @@ function PublishProvider({ provider }: { provider: StubProvider | null }) {
 
 function makeWrapper(provider: StubProvider | null) {
     const QueryWrapper = createTestQueryWrapper()
-    // PublishProvider mounts AFTER children so the children's effects (the
-    // hook's subscribe) run before PublishProvider's publish effect. Without
-    // this ordering the publish notifies an empty subscriber set and the hook
-    // ends up with editorProvider = null. In production the CollaborativeEditor
-    // mounts dynamically much later than the surrounding tree, so the timing
-    // is naturally correct.
+    // PublishProvider mounts after children so the hook subscribes before the publish effect runs;
+    // otherwise publish notifies an empty subscriber set and editorProvider stays null.
     return function Wrapper({ children }: { children: ReactNode }) {
         return (
             <QueryWrapper>
@@ -102,14 +95,17 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        // Status lands only once the action has resolved. isSubmitting is also true while the
+        // request is in flight, so the lock has to still be on after that write.
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
@@ -118,6 +114,10 @@ describe('useProposalReviewMutation', () => {
         expect(payload.submittedByTabId).toBe(tabSessionId)
         expect(typeof payload.submittedByName).toBe('string')
         expect(payload.submittedByName.length).toBeGreaterThan(0)
+
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ color: 'green', title: 'Decision submitted' }),
+        )
 
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
@@ -135,6 +135,10 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
         })
         const provider = createStubProvider()
+        const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
+        memoryRouter.setCurrentUrl(reviewUrl)
+        const refresh = (memoryRouter as unknown as { refresh: Mock }).refresh
+        refresh.mockClear()
 
         const { result } = renderHook(
             () =>
@@ -150,20 +154,23 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision, feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe(expectedStatus)
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe(expectedStatus)
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
         expect(payload.type).toBe('proposal-review-submitted')
         expect(payload.studyId).toBe(study.id)
         expect(payload.submittedByTabId).toBe(tabSessionId)
+        // The editable screen is already this URL, so push alone would leave the locked form mounted.
+        expect(refresh).toHaveBeenCalledTimes(1)
     })
 
     it('no editor provider published: navigates without broadcasting', async () => {
@@ -174,9 +181,7 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        // No provider in the share context, simulating the editor not having
-        // mounted yet. The hook should gracefully skip broadcasting rather
-        // than crash.
+        // No provider in the share context, simulating the editor not having mounted yet.
         const { result } = renderHook(
             () =>
                 useProposalReviewMutation({
@@ -191,11 +196,10 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
         )
+        expect(result.current.isSubmitting).toBe(true)
     })
 
     it('action error: no navigation, no broadcast', async () => {
@@ -205,8 +209,7 @@ describe('useProposalReviewMutation', () => {
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        // Force the action's editable-status guard to reject by promoting the study
-        // out of PENDING-REVIEW after fixtures are inserted.
+        // Promoting out of PENDING-REVIEW forces the action's editable-status guard to reject.
         await setTestStudyStatus(study.id, 'APPROVED')
         const provider = createStubProvider()
 
@@ -227,13 +230,45 @@ describe('useProposalReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
+        expect(errorCall![0]).toMatchObject({ message: 'Your work is saved. Try again.' })
         expect(provider.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
 
         const after = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(after.status).toBe('APPROVED')
+    })
+
+    it('fires the caller-supplied onError callback alongside the hook-level one', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        await setTestStudyStatus(study.id, 'APPROVED')
+        const provider = createStubProvider()
+
+        const callerOnError = vi.fn()
+
+        const { result } = renderHook(
+            () =>
+                useProposalReviewMutation({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    tabSessionId,
+                    reviewVersion: REVIEW_VERSION,
+                }),
+            { wrapper: makeWrapper(provider) },
+        )
+
+        await act(async () => {
+            result.current.submitReview({ decision: 'approve', feedback: validFeedback }, { onError: callerOnError })
+        })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
+
+        expect(callerOnError).toHaveBeenCalledTimes(1)
     })
 })

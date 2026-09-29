@@ -4,38 +4,59 @@ import { v7 as uuidv7 } from 'uuid'
 import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, type UserSession } from '@/lib/types'
 import {
-    acknowledgeLegalDocumentSchema,
     createLegalDocumentDraftSchema,
     enforcedLegalDocumentTypes,
     type EnforcedLegalDocumentType,
     fetchLegalDocumentAcknowledgementsSchema,
+    orgLegalParams,
+    orgStudyAgreementParams,
     participationAgreementTypeParams,
+    userParticipationAgreementParams,
+    userStudyAgreementParams,
+    participationAgreementTypeForOrgType,
     legalDocumentFormats,
     legalDocumentScopeSchema,
+    legalDocumentVersionParams,
     participationAgreementOrgTypes,
     publishLegalDocumentVersionSchema,
+    studyAgreementStatusSchema,
+    type StudyAgreementStatus,
+    globalDocumentTypeParams,
+    inviteParams,
+    GlobalLegalDocumentType,
+    globalLegalDocumentTypes,
+    type GlobalLegalDocument,
+    type PendingLegalDocument,
+    type ResolvedLegalDocument,
+    type LegalDocumentBody,
 } from '@/schema/legal-document'
-import { createSignedUploadUrlForKey, signedUrlForFile } from '../aws'
-import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
+import { storeS3File } from '../aws'
+import {
+    findLegalDocument,
+    findOrCreateLegalDocument,
+    orgParticipationAgreement,
+    orgStudyAgreements,
+    userParticipationAgreements,
+    userStudyAgreements,
+    owedDocValidatorEb,
+} from '../db/legal-document'
+import { orgIdFromSlug } from '../db/queries'
 import { fetchFileContents } from '../storage'
+import { urlForLegalDocumentVersion } from '../legal-document'
+import { studyAgreementStatusFor } from '../study-agreement'
+import { onStudyAgreementPublished } from '../events'
+import { requireResolvedOrg } from './org-context'
 import { Action, ActionFailure } from './action'
 
 // Only these carry an out-of-app signature; tos/pn are published, not signed.
 const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
 
-const isEnforcedType = (type: LegalDocumentType): type is EnforcedLegalDocumentType =>
-    (enforcedLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
+    (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
 
-/**
- * Resolves who a version binds, for the ability check to match on.
- *
- * tos/pn bind everyone (isGlobal). A ropa/dopa binds its org; an sla binds both of its study's orgs
- * — the Data Partner holding the data (study.orgId) and the Research Lab that submitted it
- * (study.submittedByOrgId) — which is the same audience the upload confirmation names. An unknown
- * versionId yields no audience at all, so every condition fails closed.
- */
+// An unknown versionId yields no audience, so every condition fails closed.
 const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { versionId: string }; db: DBExecutor }) => {
     const scope = await db
         .selectFrom('legalDocumentVersion')
@@ -54,38 +75,76 @@ const scopeFromVersionId = async ({ params: { versionId }, db }: { params: { ver
     return {
         orgId: scope?.orgId ?? undefined,
         studyId: scope?.studyId ?? undefined,
-        isGlobal: scope ? isEnforcedType(scope.type) : false,
+        // Only global tos/pn bind everyone. A ropa/dopa is enforced but binds one org
+        isGlobal: scope ? isGlobalType(scope.type) : false,
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
         ),
     }
 }
 
-// Reads none but the globally-scoped documents, which is what the global acknowledge rule grants.
+// As scopeFromVersionId, for a caller holding a study rather than a version.
+const scopeFromStudyId = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
+    const study = await db
+        .selectFrom('study')
+        .select(['orgId as dataPartnerId', 'submittedByOrgId as researchLabId'])
+        .where('id', '=', studyId)
+        .executeTakeFirst()
+
+    return {
+        studyId,
+        isGlobal: false,
+        audienceOrgIds: study ? [study.dataPartnerId, study.researchLabId] : [],
+    }
+}
+
 const globalDocumentScope = async () => ({ isGlobal: true, audienceOrgIds: [] })
 
-// Admin-wide listings have no document to scope against. Needed because the all-optional ability
-// conditions are a TS weak type: params sharing none of those properties won't compile.
+// Needed because the all-optional ability conditions are a TS weak type.
 const noDocumentScope = async () => ({ orgId: undefined, studyId: undefined })
+
+const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
+// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
+// it names the download (the S3 key is a bare uuid).
+const bodyForVersion = async ({
+    type,
+    filePath,
+    fileName,
+}: {
+    type: LegalDocumentType
+    filePath: string
+    fileName: string
+}): Promise<LegalDocumentBody> =>
+    legalDocumentFormats[type] === 'pdf'
+        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
+        : { format: 'markdown', content: await contentOf(filePath) }
 
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,
 })
     .params(createLegalDocumentDraftSchema)
     .requireAbilityTo('create', 'LegalDocument')
-    .handler(async ({ db, params: { type, orgId, studyId, fileName } }) => {
+    .handler(async ({ db, params: { type, orgId, studyId, file } }) => {
         const legalDocument = await findOrCreateLegalDocument(db, { type, orgId, studyId })
 
-        // A fresh upload supersedes any pending draft. The old S3 object is left orphaned — deleting
-        // it here couldn't roll back with the transaction, and it's unreachable anyway.
+        if (orgId) {
+            const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
+            const acceptableDocType = participationAgreementTypeForOrgType[org.type]
+            if (type !== acceptableDocType)
+                throw new ActionFailure({
+                    orgId: `Cannot create draft of type ${type}. Participation agreement type must be ${acceptableDocType}`,
+                })
+        }
+
+        // The old S3 object is left orphaned: deleting it could not roll back with the transaction.
         await db
             .deleteFrom('legalDocumentVersion')
             .where('legalDocumentId', '=', legalDocument.id)
             .where('publishedAt', 'is', null)
             .execute()
 
-        // Generated up front so the stored file_path is the key the upload is signed for, without a
-        // second round-trip.
+        // Generated up front so the row and the stored object agree on the key.
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId: legalDocument.id, versionId })
 
@@ -95,17 +154,17 @@ export const createLegalDocumentDraftAction = new Action('createLegalDocumentDra
                 id: versionId,
                 legalDocumentId: legalDocument.id,
                 filePath,
-                fileName,
+                fileName: file.name,
                 format: legalDocumentFormats[type],
             })
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        return {
-            legalDocument,
-            version,
-            upload: await createSignedUploadUrlForKey(filePath),
-        }
+        // A failed store rolls the row back; a failed commit still orphans the object, the same
+        // trade storeJobFile accepts.
+        await storeS3File({ legalDocumentType: type }, file.stream(), filePath)
+
+        return { legalDocument, version }
     })
 
 export const publishLegalDocumentVersionAction = new Action('publishLegalDocumentVersionAction', {
@@ -119,7 +178,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .selectFrom('legalDocumentVersion')
             .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
             .selectAll('legalDocumentVersion')
-            .select('legalDocument.type as type')
+            .select(['legalDocument.type as type', 'legalDocument.studyId as studyId'])
             .where('legalDocumentVersion.id', '=', versionId)
             .executeTakeFirstOrThrow()
 
@@ -127,9 +186,7 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             throw new ActionFailure({ version: 'has already been published and cannot be republished' })
         }
 
-        // Checked here rather than in the schema because publish only receives a version id, so the
-        // type is not known until the row is loaded. Publishing cannot be undone, so a signed
-        // agreement missing the date it was signed would be permanent.
+        // Publish only receives a version id, so the type is unknown until the row is loaded.
         if (requiresSignedAt(version.type) && !signedAt) {
             throw new ActionFailure({ signedAt: 'is required to publish a signed agreement' })
         }
@@ -143,9 +200,8 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('legalDocumentId', '=', version.legalDocumentId)
             .executeTakeFirstOrThrow()
 
-        // The publishedAt guard makes a concurrent second publish claim zero rows and throw rather
-        // than overwrite the first.
-        return await db
+        // Makes a concurrent second publish claim zero rows and throw rather than overwrite.
+        const published = await db
             .updateTable('legalDocumentVersion')
             .set({
                 publishedAt: new Date(),
@@ -157,6 +213,13 @@ export const publishLegalDocumentVersionAction = new Action('publishLegalDocumen
             .where('publishedAt', 'is', null)
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        // Only a Study Agreement has an audience to notify; the org-wide types are not acknowledged per study.
+        if (version.type === 'SLA' && version.studyId) {
+            onStudyAgreementPublished({ studyId: version.studyId })
+        }
+
+        return published
     })
 
 export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVersionsAction')
@@ -185,7 +248,7 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
             .execute()
 
         const withUrls = await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
         const published = withUrls.filter(
             (row): row is typeof row & { publishedAt: Date; versionNumber: number } => row.publishedAt !== null,
@@ -199,10 +262,32 @@ export const fetchLegalDocumentVersionsAction = new Action('fetchLegalDocumentVe
         }
     })
 
+// Read server-side: fetching the presigned S3 URL from the page needs a GET CORS rule on every bucket.
+export const fetchLegalDocumentContentAction = new Action('fetchLegalDocumentContentAction')
+    .params(legalDocumentVersionParams)
+    .middleware(scopeFromVersionId)
+    .requireAbilityTo('view', 'LegalDocument')
+    .handler(async ({ db, params: { versionId } }) => {
+        const version = await db
+            .selectFrom('legalDocumentVersion')
+            .innerJoin('legalDocument', 'legalDocument.id', 'legalDocumentVersion.legalDocumentId')
+            .select(['legalDocumentVersion.filePath', 'legalDocumentVersion.fileName', 'legalDocument.type'])
+            .where('legalDocumentVersion.id', '=', versionId)
+            .executeTakeFirstOrThrow()
+
+        // Through bodyForVersion so one place decides how a format maps to a body.
+        const body = await bodyForVersion(version)
+        if (body.format !== 'markdown') {
+            throw new ActionFailure({ version: 'is not a markdown document' })
+        }
+
+        return { content: body.content }
+    })
+
 export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocumentAction', {
     performsMutations: true,
 })
-    .params(acknowledgeLegalDocumentSchema)
+    .params(legalDocumentVersionParams)
     .middleware(scopeFromVersionId)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, params: { versionId }, session }) => {
@@ -212,12 +297,10 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
             .where('id', '=', versionId)
             .executeTakeFirstOrThrow()
 
-        // Agreeing to a draft would record consent to something never shown.
         if (!version.publishedAt) {
             throw new ActionFailure({ version: 'is not published and cannot be acknowledged' })
         }
 
-        // Re-submitting keeps the original acked_at.
         await db
             .insertInto('legalDocumentAcknowledgement')
             .values({ legalDocumentVersionId: versionId, userId: session.user.id })
@@ -227,56 +310,77 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
         return { acknowledged: true }
     })
 
-type EnforcedVersion = {
-    type: EnforcedLegalDocumentType
+type GenericVersion = {
+    type: EnforcedLegalDocumentType | GlobalLegalDocumentType
     legalDocumentId: string
     versionId: string
     filePath: string
+    fileName: string // names the download; a pdf key is a bare uuid without it
+    orgId: string | null // not null only for ropa/dopa
+    studyId: string | null // not null only for sla
+    publishedAt: Date | null // tos/pn carry no signed_at, so this is their only effective date
 }
 
-// The current version of each globally-scoped document. Drafts are excluded: nobody can be obliged
-// by something that was never published.
-const latestEnforcedVersions = async (db: DBExecutor): Promise<EnforcedVersion[]> => {
+type EnforcedVersion = GenericVersion & { type: EnforcedLegalDocumentType }
+
+export type GlobalVersion = GenericVersion & { type: GlobalLegalDocumentType }
+
+// Current published version of each document of the given types, ordered as `types` lists them.
+const latestVersionsOfTypes = async <T extends GenericVersion['type']>(
+    db: DBExecutor,
+    types: readonly T[],
+    orgIds: string[],
+    // TBD: include study IDs for SLA case
+): Promise<(GenericVersion & { type: T })[]> => {
     const rows = await db
         .selectFrom('legalDocument')
         .innerJoin('legalDocumentVersion', 'legalDocumentVersion.legalDocumentId', 'legalDocument.id')
         .select([
             'legalDocument.id as legalDocumentId',
             'legalDocument.type as type',
+            'legalDocument.orgId as orgId',
+            'legalDocument.studyId as studyId',
             'legalDocumentVersion.id as versionId',
             'legalDocumentVersion.filePath as filePath',
+            'legalDocumentVersion.fileName as fileName',
+            'legalDocumentVersion.publishedAt as publishedAt',
         ])
-        .where('legalDocument.type', 'in', [...enforcedLegalDocumentTypes])
+        .where('legalDocument.type', 'in', [...types])
         .where('legalDocumentVersion.publishedAt', 'is not', null)
+        // filter by relevant orgs - tbd add studyIds
+        .where((eb) => owedDocValidatorEb(eb, 'legalDocument.orgId', 'legalDocument.studyId', orgIds))
         .distinctOn('legalDocument.id')
         .orderBy('legalDocument.id')
         .orderBy('legalDocumentVersion.versionNumber', 'desc')
         .execute()
 
-    // distinctOn dictates the ORDER BY above, so presentation order is applied after the fact.
+    const isRequestedType = (type: LegalDocumentType): type is T =>
+        (types as readonly LegalDocumentType[]).includes(type)
+
     return rows
-        .flatMap((row) => (isEnforcedType(row.type) ? [{ ...row, type: row.type }] : []))
-        .sort((a, b) => enforcedLegalDocumentTypes.indexOf(a.type) - enforcedLegalDocumentTypes.indexOf(b.type))
+        .flatMap((row) => (isRequestedType(row.type) ? [{ ...row, type: row.type }] : []))
+        .sort((a, b) => types.indexOf(a.type) - types.indexOf(b.type))
 }
 
-const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+const latestGlobalVersions = (db: DBExecutor): Promise<GlobalVersion[]> =>
+    latestVersionsOfTypes(db, globalLegalDocumentTypes, [])
 
-/**
- * The next thing the signed-in user still owes, current version only.
- *
- * A user owes a document when its latest published version has no acknowledgement row from them.
- * Superseded versions are not backfilled — the obligation is to the terms in force, which is also
- * what the SI-admin audit reports, so the two views cannot disagree.
- *
- * One document rather than the whole list because the gate asks for one at a time; the next arrives
- * on the refetch that acknowledging triggers.
- */
+const latestOwedVersions = async (db: DBExecutor, session: UserSession): Promise<EnforcedVersion[] | null> => {
+    const usersOrgIds = Object.values(session.orgs).map((org) => org.id)
+    const owed = await latestVersionsOfTypes(db, enforcedLegalDocumentTypes, usersOrgIds)
+    if (!owed.length) return null
+    return owed
+}
+
+// The next document the signed-in user still owes. Superseded versions are not backfilled: the
+// obligation is to the terms in force, matching what the SI-admin audit reports. One at a time, the
+// next arriving on the refetch that acknowledging triggers.
 export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
-    .handler(async ({ db, session }) => {
-        const latest = await latestEnforcedVersions(db)
-        if (!latest.length) return null
+    .handler(async ({ db, session }): Promise<PendingLegalDocument | null> => {
+        const owed = await latestOwedVersions(db, session)
+        if (!owed) return null
 
         const acknowledged = await db
             .selectFrom('legalDocumentAcknowledgement')
@@ -290,47 +394,53 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
             .where(
                 'legalDocumentVersion.legalDocumentId',
                 'in',
-                latest.map((version) => version.legalDocumentId),
+                owed.map((version) => version.legalDocumentId),
             )
             .execute()
 
         const acknowledgedVersionIds = new Set(acknowledged.map((ack) => ack.versionId))
-        // An earlier ack on the same document is what separates "has been updated" from "is now
-        // available", so the modal can say which one happened.
+        // Separates "has been updated" from "is now available" for the modal copy.
         const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
 
-        // latestEnforcedVersions is ordered, so the first outstanding one is also the one to ask about.
-        const next = latest.find((version) => !acknowledgedVersionIds.has(version.versionId))
+        // owed is ordered, so the first outstanding one is also the one to ask about.
+        const next = owed.find((version) => !acknowledgedVersionIds.has(version.versionId))
         if (!next) return null
 
-        // S3 is read only once something is actually outstanding. Every page load runs this action and
-        // the overwhelmingly common answer is "nothing pending".
+        // Only ropa/dopa carry an org. Looked up for the returned document alone, not joined onto
+        // every owed row.
+        const orgName = next.orgId
+            ? ((await db.selectFrom('org').select('name').where('id', '=', next.orgId).executeTakeFirst())?.name ??
+              null)
+            : null
+
         return {
             type: next.type,
             versionId: next.versionId,
             isUpdate: acknowledgedDocumentIds.has(next.legalDocumentId),
-            content: await contentOf(next.filePath),
+            orgName,
+            ...(await bodyForVersion({ type: next.type, filePath: next.filePath, fileName: next.fileName })),
         }
     })
 
-/**
- * The published tos/pn, readable without a session.
- *
- * The invitation signup form renders these before an account exists, so there is nobody to
- * authorise. Safe because the response is confined to published versions of the two globally-scoped
- * public documents; nothing org- or study-scoped is reachable here.
- */
-export const fetchPublicLegalDocumentsAction = new Action('fetchPublicLegalDocumentsAction').handler(async ({ db }) => {
-    const latest = await latestEnforcedVersions(db)
+// Readable without a session: the invitation signup form renders these before an account exists.
+// Confined to published versions of the two globally-scoped documents.
+export const fetchGlobalLegalDocumentsAction = new Action('fetchGlobalLegalDocumentsAction').handler(
+    async ({ db }): Promise<GlobalLegalDocument[]> => {
+        const latest = await latestGlobalVersions(db)
 
-    return await Promise.all(
-        latest.map(async (version) => ({
-            type: version.type,
-            versionId: version.versionId,
-            content: await contentOf(version.filePath),
-        })),
-    )
-})
+        return await Promise.all(
+            latest.map(async (version) => ({
+                type: version.type,
+                versionId: version.versionId,
+                ...(await bodyForVersion({
+                    type: version.type,
+                    filePath: version.filePath,
+                    fileName: version.fileName,
+                })),
+            })),
+        )
+    },
+)
 
 export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDocumentAcknowledgementsAction')
     .params(fetchLegalDocumentAcknowledgementsSchema)
@@ -338,13 +448,34 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
     .handler(async ({ db, params: { type, orgId, studyId, sort } }) => {
         const legalDocument = await findLegalDocument(db, { type, orgId, studyId })
 
-        // Audience is derived, not stored: for tos/pn that's every user, and a missing row means
-        // "has not agreed".
+        // Audience is derived, not stored, so a missing row means "has not agreed".
         const memberships = await db
             .selectFrom('user')
             .leftJoin('orgUser', 'orgUser.userId', 'user.id')
             .leftJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['user.id', 'user.fullName', 'user.email', 'org.name as orgName', 'org.type as orgType'])
+            // recordId, not userId: same value for a login, but recordId is the event's subject (userId is
+            // the actor, and an invite records the inviter) and it is the indexed column.
+            .leftJoinLateral(
+                (eb) =>
+                    eb
+                        .selectFrom('audit')
+                        .select('audit.createdAt as lastLoginAt')
+                        .whereRef('audit.recordId', '=', 'user.id')
+                        .where('audit.recordType', '=', 'USER')
+                        .where('audit.eventType', '=', 'LOGGED_IN')
+                        .orderBy('audit.createdAt', 'desc')
+                        .limit(1)
+                        .as('lastLogin'),
+                (join) => join.onTrue(),
+            )
+            .select([
+                'user.id',
+                'user.fullName',
+                'user.email',
+                'org.id as orgId',
+                'org.name as orgName',
+                'lastLogin.lastLoginAt',
+            ])
             .execute()
 
         const acknowledgements = legalDocument
@@ -360,10 +491,8 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                       'legalDocumentAcknowledgement.ackedAt',
                       'legalDocumentVersion.versionNumber',
                   ])
-                  // Versions of this document only: without it the user's highest-numbered ack of
-                  // anything wins, and a tos acknowledgement reports itself on the privacy notice.
+                  // Without this the user's highest-numbered ack of anything wins.
                   .where('legalDocumentVersion.legalDocumentId', '=', legalDocument.id)
-                  // Newest acknowledged version per user.
                   .distinctOn('legalDocumentAcknowledgement.userId')
                   .orderBy('legalDocumentAcknowledgement.userId')
                   .orderBy('legalDocumentVersion.versionNumber', 'desc')
@@ -372,7 +501,6 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
 
         const latestByUser = new Map(acknowledgements.map((ack) => [ack.userId, ack]))
 
-        // Collapsed to one row per user, since a user can belong to several orgs.
         const byUser = new Map<string, ReturnType<typeof buildRow>>()
         function buildRow(row: (typeof memberships)[number]) {
             const ack = latestByUser.get(row.id)
@@ -380,30 +508,33 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
                 userId: row.id,
                 fullName: row.fullName,
                 email: row.email,
-                orgs: [] as { name: string; type: string }[],
+                orgs: [] as { id: string; name: string }[],
                 acknowledgedVersionNumber: ack?.versionNumber ?? null,
                 ackedAt: ack?.ackedAt ?? null,
+                // Absent means no record, not "never signed in" — the trail starts partway through.
+                lastLoginAt: row.lastLoginAt ?? null,
             }
         }
 
         for (const row of memberships) {
             const existing = byUser.get(row.id) ?? buildRow(row)
-            if (row.orgName && row.orgType && !existing.orgs.some((org) => org.name === row.orgName)) {
-                existing.orgs.push({ name: row.orgName, type: row.orgType })
+            // Deduped on id: org names carry no unique constraint.
+            if (row.orgId && row.orgName && !existing.orgs.some((org) => org.id === row.orgId)) {
+                existing.orgs.push({ id: row.orgId, name: row.orgName })
             }
             byUser.set(row.id, existing)
         }
 
-        // Sorted here because the rows were collapsed above. Revisit if audiences outgrow org size.
         const users = [...byUser.values()]
         const { columnAccessor = 'fullName', direction = 'asc' } = sort ?? {}
         const flip = direction === 'asc' ? 1 : -1
         users.sort((a, b) => {
-            if (columnAccessor === 'ackedAt') {
-                // Never-acked users sort last whichever way the column is pointed: sorting by a date
-                // asks for the rows that have one, and "has not agreed" is what the version column says.
-                if (!a.ackedAt || !b.ackedAt) return Number(Boolean(b.ackedAt)) - Number(Boolean(a.ackedAt))
-                return (a.ackedAt.getTime() - b.ackedAt.getTime()) * flip
+            if (columnAccessor === 'ackedAt' || columnAccessor === 'lastLoginAt') {
+                // Rows with no date sort last whichever way the column is pointed.
+                const left = a[columnAccessor]
+                const right = b[columnAccessor]
+                if (!left || !right) return Number(Boolean(right)) - Number(Boolean(left))
+                return (left.getTime() - right.getTime()) * flip
             }
             return (a[columnAccessor] ?? '').localeCompare(b[columnAccessor] ?? '') * flip
         })
@@ -411,8 +542,6 @@ export const fetchLegalDocumentAcknowledgementsAction = new Action('fetchLegalDo
         return { legalDocumentId: legalDocument?.id ?? null, users }
     })
 
-// One row per agreement we hold — an org's latest published version. Orgs that have not signed are
-// absent: they are reached through the picker below, not by listing every org here.
 export const fetchParticipationAgreementsAction = new Action('fetchParticipationAgreementsAction')
     .params(participationAgreementTypeParams)
     .middleware(noDocumentScope)
@@ -427,6 +556,8 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'org.id as orgId',
@@ -439,16 +570,14 @@ export const fetchParticipationAgreementsAction = new Action('fetchParticipation
             .orderBy('legalDocumentVersion.versionNumber', 'desc')
             .execute()
 
-        // distinctOn dictates the ORDER BY above, so the display order is applied after the fact.
         rows.sort((a, b) => a.orgName.localeCompare(b.orgName))
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
     })
 
-// Drives the org picker in the upload modal. An org that has already signed stays selectable — a
-// renewal is a new version of the same document, not a second one.
+// An org that has already signed stays selectable: a renewal is a new version of the same document.
 export const fetchParticipationSignatoriesAction = new Action('fetchParticipationSignatoriesAction')
     .params(participationAgreementTypeParams)
     .middleware(noDocumentScope)
@@ -458,13 +587,12 @@ export const fetchParticipationSignatoriesAction = new Action('fetchParticipatio
             .selectFrom('org')
             .select(['org.id as orgId', 'org.name as orgName'])
             .where('org.type', '=', participationAgreementOrgTypes[type])
-            // SafeInsights is the counterparty to every one of these, so it never signs one itself.
             .where('org.slug', '!=', CLERK_ADMIN_ORG_SLUG)
             .orderBy('org.name')
             .execute(),
     )
 
-export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreementsAction')
+export const fetchStudyAgreementsAction = new Action('fetchStudyAgreementsAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
@@ -479,6 +607,8 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
                 'legalDocumentVersion.id as versionId',
                 'legalDocumentVersion.versionNumber',
                 'legalDocumentVersion.filePath',
+                'legalDocumentVersion.fileName',
+                'legalDocumentVersion.format',
                 'legalDocumentVersion.publishedAt',
                 'legalDocumentVersion.signedAt',
                 'study.id as studyId',
@@ -488,33 +618,28 @@ export const fetchStudyLevelAgreementsAction = new Action('fetchStudyLevelAgreem
             ])
             .where('legalDocument.type', '=', 'SLA')
             .where('legalDocumentVersion.publishedAt', 'is not', null)
-            // Newest published agreement per study; the latest is all this table shows.
             .distinctOn('legalDocument.id')
             .orderBy('legalDocument.id')
             .orderBy('legalDocumentVersion.versionNumber', 'desc')
             .execute()
 
-        // distinctOn dictates the ORDER BY above, so the display order is applied after the fact. It
-        // matches the picker's Data Partner > Research Lab > study ordering, so the table groups the
-        // way the admin navigated to create the row.
+        // distinctOn dictates the ORDER BY above, so display order is applied after the fact.
         rows.sort(
             (a, b) =>
                 a.dataPartnerName.localeCompare(b.dataPartnerName) ||
                 a.researchLabName.localeCompare(b.researchLabName) ||
-                // An untitled study sorts by the id it is displayed under.
                 (a.studyTitle ?? a.studyId).localeCompare(b.studyTitle ?? b.studyId),
         )
 
         return await Promise.all(
-            rows.map(async (row) => ({ ...row, downloadUrl: await signedUrlForFile(row.filePath) })),
+            rows.map(async (row) => ({ ...row, downloadUrl: await urlForLegalDocumentVersion(row) })),
         )
     })
 
-export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSlaAction')
+export const fetchStudiesAwaitingStudyAgreementAction = new Action('fetchStudiesAwaitingStudyAgreementAction')
     .middleware(noDocumentScope)
     .requireAbilityTo('view', 'LegalDocument')
     .handler(async ({ db }) => {
-        // Approved only: an SLA is drawn up after approval, so earlier studies have nothing signed.
         return await db
             .selectFrom('study')
             .innerJoin('org as dataPartner', 'dataPartner.id', 'study.orgId')
@@ -529,9 +654,10 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             ])
             .where('study.status', '=', 'APPROVED')
             .where('study.deletedAt', 'is', null)
-            // Keyed on a PUBLISHED version, not on the document row: the row is written before the
-            // file is uploaded, so an abandoned upload would otherwise hide the study here while it
-            // is still absent from the agreements table, leaving it unreachable from either screen.
+            // A test study needs no agreement, so leaving it here would queue work that never ends.
+            .where('study.isTestStudy', '=', false)
+            // Keyed on a PUBLISHED version, not the document row: that row is written before the
+            // file is uploaded, so an abandoned upload would hide the study from both screens.
             .where((eb) =>
                 eb.not(
                     eb.exists(
@@ -553,4 +679,131 @@ export const fetchStudiesAwaitingSlaAction = new Action('fetchStudiesAwaitingSla
             .orderBy('researchLab.name')
             .orderBy('study.title')
             .execute()
+    })
+
+// `notAParty` for anyone the agreement does not bind: an SI admin passes the ability check with
+// `manage all`, but is the counterparty to every agreement and never a signatory.
+export const fetchStudyAgreementStatusAction = new Action('fetchStudyAgreementStatusAction')
+    .params(studyAgreementStatusSchema)
+    .middleware(scopeFromStudyId)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, params: { studyId }, session }): Promise<StudyAgreementStatus> => {
+        // An unknown study reads as notAParty, so a probe learns nothing it could not guess.
+        return (await studyAgreementStatusFor(db, { studyId, userId: session.user.id })) ?? { state: 'notAParty' }
+    })
+
+export const fetchOrgStudyAgreementsAction = new Action('fetchOrgStudyAgreementsAction')
+    .params(orgStudyAgreementParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'OrgLegalDocuments')
+    .handler(async ({ db, orgId, orgType, params: { sort } }) => {
+        requireResolvedOrg({ orgId, orgType })
+
+        // An unsigned study carries a null versionId, so the table has one shape and no sentinel.
+        return await orgStudyAgreements(db, { orgId, orgType, sort })
+    })
+
+export const fetchOrgParticipationAgreementAction = new Action('fetchOrgParticipationAgreementAction')
+    .params(orgLegalParams)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'OrgLegalDocuments')
+    .handler(async ({ db, orgId, orgType }) => {
+        requireResolvedOrg({ orgId, orgType })
+
+        const type = participationAgreementTypeForOrgType[orgType]
+        const agreement = await orgParticipationAgreement(db, { orgId, type })
+
+        if (!agreement) return { type, agreement: null }
+
+        return { type, agreement: { signedAt: agreement.signedAt, versionId: agreement.versionId } }
+    })
+
+export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
+    .params(userStudyAgreementParams)
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    .handler(async ({ db, session, params: { sort } }) => {
+        return await userStudyAgreements(db, { userId: session.user.id, sort })
+    })
+
+export const fetchUserParticipationAgreementsAction = new Action('fetchUserParticipationAgreementsAction')
+    .params(userParticipationAgreementParams)
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    .handler(async ({ db, session, params: { type, sort } }) => {
+        return await userParticipationAgreements(db, { userId: session.user.id, type, sort })
+    })
+
+// The terms in force, not the version the user acked. Those coincide whenever the login gate has
+// done its job; ackedAt is looked up separately so it reads null for a user who reached the page
+// still owing this version.
+export const fetchUserGlobalDocumentAction = new Action('fetchUserGlobalDocumentAction')
+    .params(globalDocumentTypeParams)
+    .requireAbilityTo('view', 'UserLegalDocuments')
+    .handler(
+        async ({
+            db,
+            session,
+            params: { type },
+        }): Promise<(ResolvedLegalDocument & { publishedAt: Date | null; ackedAt: Date | null }) | null> => {
+            const [version] = await latestVersionsOfTypes(db, [type], [])
+            if (!version) return null
+
+            const ack = await db
+                .selectFrom('legalDocumentAcknowledgement')
+                .select('ackedAt')
+                .where('legalDocumentVersionId', '=', version.versionId)
+                .where('userId', '=', session.user.id)
+                .executeTakeFirst()
+
+            return {
+                type,
+                versionId: version.versionId,
+                publishedAt: version.publishedAt,
+                ackedAt: ack?.ackedAt ?? null,
+                ...(await bodyForVersion(version)),
+            }
+        },
+    )
+
+export type ParticipationData = {
+    versionId: string
+    type: 'ROPA' | 'DOPA'
+    url: string
+}
+
+/**
+ * The published ropa/dopa the invite's org owes, or null when none is published yet.
+ *
+ * Read by the invitation signup form, so null (an ordinary state) stands for "nothing to show or
+ * agree to" rather than a sentinel row the caller has to decode.
+ */
+export const fetchParticipationAgreementFromInviteIdAction = new Action('fetchParticipationAgreementFromInviteIdAction')
+    .params(inviteParams)
+    // Unauthenticated by necessity: the signup form has only the invite id. That makes an
+    // unclaimed invite id a bearer token for this org's executed agreement, and invites
+    // have no TTL - revoking means deleting the row.
+    .handler(async ({ db, params: { inviteId } }): Promise<ParticipationData | null> => {
+        const inviteOrgDetails: { inviteId: string; type: 'enclave' | 'lab'; orgId: string } | undefined = await db
+            .selectFrom('pendingUser')
+            .innerJoin('org', 'org.id', 'pendingUser.orgId')
+            .select(['pendingUser.id as inviteId', 'org.type', 'org.id as orgId'])
+            .where('pendingUser.id', '=', inviteId)
+            .where('pendingUser.claimedByUserId', 'is', null)
+            .executeTakeFirst()
+
+        if (!inviteOrgDetails) return null
+
+        const doctype = participationAgreementTypeForOrgType[inviteOrgDetails.type]
+
+        const agreement = await orgParticipationAgreement(db, { orgId: inviteOrgDetails.orgId, type: doctype })
+        if (!agreement) return null
+
+        const body = await bodyForVersion({ type: doctype, filePath: agreement.filePath, fileName: agreement.fileName })
+        // `legalDocumentFormats` fixes ropa/dopa as pdf, so this narrowing cannot fail.
+        if (body.format !== 'pdf') throw new Error('participation agreement is not a pdf')
+
+        return {
+            versionId: agreement.versionId,
+            type: doctype,
+            url: body.url,
+        }
     })

@@ -1,38 +1,41 @@
-import { Box, Group, Stack } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import type { FC } from 'react'
+import { semanticColor } from '@/theme/tokens'
+import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { ButtonLink } from '@/components/links'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
-import { Routes } from '@/lib/routes'
+import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { latestStatusAt } from '@/lib/study-job-status'
-import type { RawStudyState } from '@/lib/study-screen'
+import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {
-    orgSlug: string
     study: SelectedStudy
     raw: RawStudyState
+    nav: StepNav
 }
 
-const FeedbackSection: FC<{ feedbackLoadError: boolean; entries: OutputsDecisionFeedbackEntry[] }> = ({
-    feedbackLoadError,
-    entries,
-}) => {
-    if (feedbackLoadError) {
-        return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
+function outputsDecisionAttribution(
+    entries: OutputsDecisionFeedbackEntry[],
+    statusChanges: LatestJobForStudy['statusChanges'],
+) {
+    const latestDecision = entries[0]
+    return {
+        reviewerName: latestDecision?.authorName ?? null,
+        decidedAt:
+            latestDecision?.createdAt ??
+            latestStatusAt(statusChanges, 'FILES-APPROVED') ??
+            latestStatusAt(statusChanges, 'FILES-REJECTED'),
     }
-    return <FeedbackAndNotesSection entries={entries} alwaysExpandLatest />
 }
 
-export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOutputsDecidedProps) {
+export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) {
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
@@ -49,42 +52,33 @@ export async function ReviewerOutputsDecided({ study, orgSlug, raw }: ReviewerOu
     }
 
     const labName = study.submittingLabName ?? study.submittedByOrgSlug
-    const decidedAt =
-        latestStatusAt(job.statusChanges, 'FILES-APPROVED') ?? latestStatusAt(job.statusChanges, 'FILES-REJECTED')
-
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
+    const { reviewerName, decidedAt } = outputsDecisionAttribution(feedbackEntries, job.statusChanges)
+
+    // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
+    // submission-time scan log does not count as an output (OTTER-524).
+    const hasDecryptableOutputs = jobHasDecryptableRunOutcome(job.files ?? [])
 
     return (
-        <Box bg="grey.10">
+        <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader>Secondary analysis study</StudyPageHeader>
+                <StudyPageHeader study={study} />
                 <ProposalStepHeader
                     stepLabel="STEP 3"
                     heading="Review outputs"
-                    studyTitle={study.title ?? ''}
                     banner={
                         <OutputsDecidedBanner
                             resultsErrored={state.resultsErrored}
                             resultsApproved={state.resultsApproved}
                             labName={labName}
+                            reviewerName={reviewerName}
                             decidedAt={decidedAt}
                         />
                     }
                 />
-                <FeedbackSection feedbackLoadError={feedbackLoadError} entries={feedbackEntries} />
-                <DecryptAndViewOutputs job={job} />
-                <Group justify="space-between">
-                    <ButtonLink
-                        href={Routes.studyReviewCode({ orgSlug, studyId: study.id })}
-                        variant="subtle"
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous step
-                    </ButtonLink>
-                    <ButtonLink href={Routes.dashboard} variant="filled" size="md">
-                        Back to my studies
-                    </ButtonLink>
-                </Group>
+                <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
+                <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
+                <StepNavigation nav={nav} />
             </Stack>
         </Box>
     )

@@ -78,13 +78,11 @@ describe('CodeEnvs', async () => {
         await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
         await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 
-        // Upload a starter code file via the dropzone input
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement
         await userEvent.upload(fileInput, file)
 
-        // Add a command line entry
         await userEvent.type(screen.getByPlaceholderText(/Extension/i), 'r')
         await userEvent.type(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
         await userEvent.click(screen.getByRole('button', { name: /Add command line/i }))
@@ -96,9 +94,8 @@ describe('CodeEnvs', async () => {
         })
     })
 
-    // OTTER-647: a malformed variable name is now rejected on the field the admin typed into
-    // when they click "+", instead of being accepted into the list and only surfacing later in
-    // the generic summary above Save, where nothing said which row was at fault.
+    // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
+    // said which row was at fault.
     it('rejects a malformed env var name on the field itself', { timeout: 15000 }, async () => {
         renderWithProviders(<CodeEnvs />)
 
@@ -108,22 +105,18 @@ describe('CodeEnvs', async () => {
             expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
         })
 
-        // A name starting with a digit is invalid per envVarKeyRegex.
         await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
         await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
         await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
 
-        // Rendered both inline on the field and in the summary above Save.
         expect((await screen.findAllByText(/Invalid variable name/i)).length).toBeGreaterThan(0)
         const nameInput = screen.getByPlaceholderText(/Variable name/i)
         expect(nameInput).toHaveAttribute('aria-invalid', 'true')
-        // The row was not added, so the draft value is still in the input.
         expect(nameInput).toHaveValue('1BAD')
     })
 
-    // OTTER-647: the form seeded starterCodes as undefined, so the create schema's array type
-    // check failed before `.min(1)` could run and Save surfaced Zod's internal
-    // "expected array, received undefined" instead of naming the requirement.
+    // OTTER-647: an undefined seed made the array type check fail before `.min(1)` ran, so Save
+    // surfaced Zod's internal message instead of the requirement.
     it('names the starter code requirement in plain language', async () => {
         renderWithProviders(<CodeEnvs />)
 
@@ -148,15 +141,13 @@ describe('CodeEnvs', async () => {
 
         expect(screen.queryByText(/At least one starter code file is required/i)).not.toBeInTheDocument()
 
-        // The dropzone has no input to blur, so "left incomplete" is visited-then-left-empty.
         fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
         expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
     })
 
-    // The `[]` seeding above is what lets the create schema report its own requirement, but it
-    // also reaches the edit path, where the file list is optional and an empty one would read as
-    // "the admin cleared the starter code" rather than "left the existing files alone".
+    // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the
+    // starter code" rather than "left the existing files alone".
     it('saves an edit with an untouched dropzone and keeps the existing starter code', async () => {
         const codeEnv = await insertTestCodeEnv({
             orgId: org.id,

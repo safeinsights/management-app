@@ -72,10 +72,9 @@ interface CodeViewerProps {
     code: string
     language: HighlightLanguage
     fileName?: string
-    // Wraps the code display in an outline, matching the reviewer's submitted-code design.
     withBorder?: boolean
-    // Soft-wrap long lines instead of scrolling horizontally. Off by default: wrapping source code
-    // mid-statement hurts readability, but data formats like JSON have no meaningful line length.
+    // Off by default: wrapping source mid-statement hurts readability, but data formats like
+    // JSON have no meaningful line length.
     wrapLines?: boolean
 }
 
@@ -132,7 +131,7 @@ export function CodeViewer({ code, language, fileName, withBorder = false, wrapL
 export function codeViewer(path: string, text: string): ReactNode | null {
     const language = highlightLanguageForFile(path)
     if (language === 'plaintext') return null
-    // Minified JSON is one long line; re-indent so it reads as a document rather than overflowing.
+    // Minified JSON is one long line, which would otherwise overflow.
     const code = (language === 'json' && formatJson(text)) || text
     return <CodeViewer code={code} language={language} wrapLines={language === 'json'} />
 }

@@ -1,11 +1,5 @@
-// E2E Clerk fake — role fixtures.
-//
-// This module mirrors the DB seed in src/database/seeds/1743608138837_test_users.ts.
-// The fake auth()/useUser() present one of these identities based on the __e2e_role
-// cookie, building v3 session metadata WITHOUT a DB round-trip so marshalSession
-// short-circuits and no Clerk network is ever hit.
-//
-// If the seed changes (UUIDs, org memberships, emails), update this table to match.
+// Mirrors the DB seed in src/database/seeds/1743608138837_test_users.ts; update this table
+// when that seed changes.
 
 export type FakeRole = 'admin' | 'researcher' | 'reviewer' | 'legal'
 
@@ -18,9 +12,7 @@ export type FakeOrg = {
 
 export type FakeFixture = {
     role: FakeRole
-    /** DB `user.id` (and v3 metadata user.id) — fixed UUID from the seed. */
     userId: string
-    /** DB `user.clerkId` — the value the seed inserts. */
     clerkId: string
     email: string
     firstName: string
@@ -81,10 +73,8 @@ export const ROLE_FIXTURES: Record<FakeRole, FakeFixture> = {
             'reviewer-is-org-admin': org(ORG.reviewerIsOrgAdmin, true),
         },
     },
-    // Reserved for the legal-acknowledgement spec, which needs a user carrying an outstanding
-    // Terms of Service. Those are global, so the block follows the user everywhere and no other
-    // spec's role can be left owing one. Same memberships as `researcher` — the role only exists to
-    // isolate acknowledgement state.
+    // Reserved for the legal-acknowledgement spec: outstanding Terms of Service are global, so
+    // this role isolates acknowledgement state from every other spec.
     legal: {
         role: 'legal',
         userId: '00000000-0000-4000-8000-000000000004',
@@ -100,8 +90,6 @@ export const ROLE_FIXTURES: Record<FakeRole, FakeFixture> = {
 
 export const FAKE_ROLES = Object.keys(ROLE_FIXTURES) as FakeRole[]
 
-// Derived from the fixture table rather than restated, so adding a role above cannot leave the
-// guard silently rejecting it.
 export function isFakeRole(value: string | undefined | null): value is FakeRole {
     return !!value && (FAKE_ROLES as string[]).includes(value)
 }
@@ -116,9 +104,8 @@ export function fixtureForEmail(email: string | undefined | null): FakeFixture |
     return FAKE_ROLES.map((r) => ROLE_FIXTURES[r]).find((f) => f.email.toLowerCase() === lower) ?? null
 }
 
-// Builds the v3 UserInfo metadata that marshalSession short-circuits on. The shape
-// is identical to what tests/unit.helpers.tsx mockClerkSession() produces and to what
-// src/server/clerk.ts calculateUserPublicMetadata() builds for a real user.
+// Shape must stay identical to tests/unit.helpers.tsx mockClerkSession() and
+// src/server/clerk.ts calculateUserPublicMetadata().
 export function buildV3Metadata(fixture: FakeFixture): UserInfo {
     return {
         format: 'v3',
@@ -133,8 +120,6 @@ export function buildV3Metadata(fixture: FakeFixture): UserInfo {
     }
 }
 
-// The org slug the fake reports as "current" when none is derivable from the request
-// path. Used to populate unsafeMetadata.currentOrgSlug.
 export function defaultOrgSlug(fixture: FakeFixture): string {
     return Object.keys(fixture.orgs)[0]
 }

@@ -3,9 +3,10 @@
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
+import { PageHeader } from '@/components/page-header'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
-import { Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
+import { Paper, SegmentedControl, Stack, Text } from '@mantine/core'
 import type { Route } from 'next'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
@@ -53,7 +54,7 @@ export default function UserStudiesDashboard() {
 
     return (
         <Stack p="xxl" gap="xxl">
-            <Title order={1}>My dashboard</Title>
+            <PageHeader title="My dashboard" />
             <JoinedOrgBanner />
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 

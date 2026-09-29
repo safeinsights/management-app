@@ -16,11 +16,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('body', 'jsonb', (col) => col.notNull())
         .addColumn('criteria', 'jsonb')
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
-        // Composite unique (study_job_id, review_kind) avoids a partial index that
-        // references a freshly added enum value in the same transaction (Postgres
-        // rejects that with "unsafe use of new value of enum type"). Postgres
-        // treats NULL as distinct, so PROPOSAL rows with study_job_id NULL are
-        // unrestricted; CODE rows always carry a job id (enforced by CHECK below).
+        // A composite unique rather than a partial index: the latter would reference a
+        // freshly added enum value in the same transaction, which Postgres rejects.
         .addUniqueConstraint('study_review_comment_one_code_review_per_job', ['study_job_id', 'review_kind'])
         .execute()
 

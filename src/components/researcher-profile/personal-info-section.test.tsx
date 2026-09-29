@@ -13,11 +13,8 @@ import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
-    // usePersonalInfoSection deliberately closes edit mode without calling the action when the
-    // form is pristine (see 'should close edit mode without API call when no changes are made').
-    // The seeded user gets a faker-random name, so typing a hardcoded literal stops exercising
-    // the save at all on the runs where faker happens to emit that same name. Deriving the edit
-    // from the seeded value keeps the form dirty whatever faker produced.
+    // Derived from the seeded value: a hardcoded literal would match what faker emitted on
+    // some runs, leaving the form pristine and skipping the save entirely.
     const editOf = (seededName: string) => `${seededName}Edited`
 
     it('should display user data in view mode', async () => {
@@ -91,7 +88,6 @@ describe('PersonalInfoSection', () => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB was updated
         const updated = await db
             .selectFrom('user')
             .select(['firstName', 'lastName'])
@@ -111,7 +107,6 @@ describe('PersonalInfoSection', () => {
         const data = await getTestResearcherProfileData(user.id)
         const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Make Clerk mock throw error
         const { updateClerkUserName } = await import('@/server/clerk')
         vi.mocked(updateClerkUserName).mockRejectedValueOnce(new Error('Network error'))
 
@@ -164,8 +159,7 @@ describe('PersonalInfoSection', () => {
         const initialData = await getTestResearcherProfileData(user.id)
         const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Harness lets the test swap in changed server data (as a periodic refetch or a
-        // window-focus refetch would) while the form is open for editing.
+        // Swaps in changed server data mid-edit, as a periodic or window-focus refetch would.
         const Harness = () => {
             const [data, setData] = useState(initialData)
             return (
@@ -195,7 +189,6 @@ describe('PersonalInfoSection', () => {
 
         await userEvents.click(screen.getByRole('button', { name: 'simulate-refetch' }))
 
-        // The in-progress edit must not be clobbered by the refetch.
         expect((screen.getByPlaceholderText('Enter your first name') as HTMLInputElement).value).toBe('MyUnsavedName')
     })
 
@@ -226,7 +219,6 @@ describe('PersonalInfoSection', () => {
             expect(screen.getByText(originalFirstName)).toBeDefined()
         })
 
-        // refetch should not be called when no changes were made
         expect(refetch).not.toHaveBeenCalled()
     })
 })

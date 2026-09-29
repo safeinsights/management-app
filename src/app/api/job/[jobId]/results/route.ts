@@ -32,7 +32,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         results = file
     }
 
-    // join is a security check to ensure the job is owned by the org
+    // The join is a security check: the job must be owned by the requesting org.
     const info = await db
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id))
@@ -55,35 +55,24 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         deliveries.push(await storeStudyEncryptedResultsFile(info, results))
     }
 
-    const outcome = logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE' // TODO: verify this is correct status
+    const outcome = logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE'
 
-    // The newest artifact this delivery carried, and so the earliest moment our own outcome could have
-    // been recorded: the status insert below always follows the artifact writes above. Epoch when the
-    // delivery carried nothing, which leaves the check equivalent to a bare status lookup.
+    // The earliest moment our own outcome could have been recorded, since the status insert always
+    // follows the artifact writes. Epoch when the delivery carried nothing.
     const artifactsHeldSince = deliveries.reduce(
         (newest, artifact) => (artifact.createdAt > newest ? artifact.createdAt : newest),
         new Date(0),
     )
 
-    // OTTER-642: an errored run ends at JOB-ERRORED and never reaches the RUN-COMPLETE guard above, so
-    // a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer email.
-    //
-    // Serialized on the job row because this is a check-then-insert: two callbacks arriving together
-    // would both read "not yet recorded" and both announce. The lock is taken AFTER the uploads and
-    // released before the email, so no S3 or SMTP call ever runs inside the transaction.
+    // OTTER-642: a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer
+    // email. Serialized on the job row; the lock is taken after the uploads and released before the
+    // email, so no S3 or SMTP call runs inside the transaction.
     const announcement = await db.transaction().execute(async (trx) => {
         await trx.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
 
-        // Scoped to statuses recorded after this job already held these artifacts. JOB-ERRORED is
-        // shared with the scanner, the containerizer and the generic PUT /api/job/[jobId] route, so a
-        // bare status lookup would read one of theirs as proof that this callback finished and silently
-        // drop a run failure that never got announced.
-        //
-        // Ordering is a heuristic, not proof of ownership: a status one of those producers writes AFTER
-        // the artifacts arrived is still indistinguishable from ours, so a callback that stored its log
-        // and then died can still be masked by one. jobStatusChange records no producer, and the fix is
-        // to make the artifact write and the outcome write one transaction so presence implies
-        // announcement, rather than a fourth guess at whose status this is. Own card.
+        // JOB-ERRORED is shared with the scanner, the containerizer and PUT /api/job/[jobId], so a
+        // bare lookup would read one of theirs as proof this callback finished. Ordering is a
+        // heuristic: jobStatusChange records no producer.
         const alreadyAnnounced = await trx
             .selectFrom('jobStatusChange')
             .select('id')
@@ -94,10 +83,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
 
         if (alreadyAnnounced) return 'already-announced' as const
 
-        // A decided round takes no further status. storeJobFile still keeps a slot the job has never
-        // seen (dropping it would lose data with nothing released to protect), so a late delivery
-        // carrying one reaches here looking like a first delivery. Recording the outcome now would
-        // append RUN-COMPLETE after FILES-APPROVED and email the reviewer about a decided study.
+        // storeJobFile keeps a never-seen slot, so a late delivery reaches here looking like a
+        // first one. Recording the outcome would append RUN-COMPLETE after FILES-APPROVED.
         if (await roundIsClosed(info.studyJobId, trx)) return 'round-decided' as const
 
         await trx.insertInto('jobStatusChange').values({ status: outcome, studyJobId: info.studyJobId }).execute()
@@ -114,9 +101,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     }
 
     if (announcement === 'already-announced') {
-        // Artifacts the round-closed guard dropped were not refreshed, so say so: "already received"
-        // would read as a promise we did not keep, and the warning in storage.ts would be the only
-        // trace of the discarded content.
+        // Dropped artifacts were not refreshed, so "already received" would promise what we did
+        // not do.
         const wasDropped = deliveries.some((artifact) => !artifact.stored)
         const detail = wasDropped ? 'artifacts dropped, this round is already decided' : 'artifacts already received'
 

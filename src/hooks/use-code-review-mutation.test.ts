@@ -35,7 +35,6 @@ const validFeedback = buildFeedback(60)
 const validCriteria: CodeReviewCriteria = {
     proposalAlignment: 'yes',
     agreementCompliance: 'yes',
-    securityChecks: 'not-sure',
     privacyProtection: 'yes',
 }
 
@@ -61,7 +60,7 @@ describe('useCodeReviewMutation', () => {
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve broadcasts code-review-submitted and redirects to bare /review', async () => {
+    it('approve broadcasts code-review-submitted and redirects to the code step', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const { result } = renderHook(
@@ -71,21 +70,23 @@ describe('useCodeReviewMutation', () => {
 
         await waitFor(() => expect(constructed).toHaveLength(1))
         const handle = constructed[0]
-        // Broadcast provider is keyed by study_job.id so future code-resubmits
-        // (OTTER-558) get a fresh room. studyId is the action-call payload only.
+        // Keyed by study_job.id so future code-resubmits get a fresh room (OTTER-558).
         expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        // Status lands only once the action has resolved. isSubmitting is also true while the
+        // request is in flight, so the lock has to still be on after that write.
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
@@ -94,8 +95,9 @@ describe('useCodeReviewMutation', () => {
         expect(payload.submittedByTabId).toBe(tabSessionId)
         expect(typeof payload.submittedByName).toBe('string')
 
+        // Bare /review resolves an approved study forward to the outputs step.
         await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+            expect(memoryRouter.asPath).toBe(Routes.studyReviewCode({ orgSlug: org.slug, studyId: study.id })),
         )
     })
 
@@ -114,14 +116,15 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'reject', feedback: validFeedback, criteria: validCriteria })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         const jobRejected = await db
             .selectFrom('jobStatusChange')
@@ -135,9 +138,8 @@ describe('useCodeReviewMutation', () => {
 
     it('action error: no navigation, no broadcast', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        // Force the action's job-status guard to reject: eligibility keys on job status
-        // alone (OTTER-552), so record a decision on the job. The latest code change is
-        // then a decision, not a submission, and claimInitialCodeReviewJob rejects.
+        // Eligibility keys on job status alone (OTTER-552), so recording a decision makes the
+        // latest code change a decision rather than a submission, which the claim rejects.
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
@@ -157,9 +159,11 @@ describe('useCodeReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         const errorCall = (notifications.show as Mock).mock.calls.find(
-            ([arg]) => arg && (arg as { title?: string }).title === 'Failed to submit code review',
+            ([arg]) => arg && (arg as { title?: string }).title === 'Decision could not be submitted',
         )
         expect(errorCall).toBeDefined()
+        // A refusal reaches the reviewer verbatim, so it must not arrive wearing an "Error:" prefix.
+        expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
         expect(handle.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
     })

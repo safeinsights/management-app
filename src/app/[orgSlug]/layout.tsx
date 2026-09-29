@@ -4,9 +4,8 @@ import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { type ReactNode } from 'react'
 
-// Middleware runs before rendering but is not the authorization boundary: it can be bypassed by
-// direct RSC/segment requests and it only sees the URL. Re-check membership here so a non-member
-// never gets a rendered payload for another org's pages.
+// Middleware is not the authorization boundary: direct RSC/segment requests bypass it. Re-check
+// membership here so a non-member never gets a rendered payload for another org's pages.
 export default async function OrgLayout({
     children,
     params,

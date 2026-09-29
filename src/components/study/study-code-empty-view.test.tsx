@@ -4,9 +4,11 @@ import { StudyCodeEmptyView } from './study-code-empty-view'
 const baseProps = {
     launchWorkspace: vi.fn(),
     isLaunching: false,
-    launchError: null,
     uploadFiles: vi.fn(),
     isUploading: false,
+    isIdeClaimed: false,
+    canEditInIde: true,
+    ideOwnerName: null,
     starterFiles: [],
 }
 

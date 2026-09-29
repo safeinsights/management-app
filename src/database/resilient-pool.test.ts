@@ -5,8 +5,6 @@ function invalidPasswordError() {
     return Object.assign(new Error('password authentication failed for user "u"'), { code: '28P01' })
 }
 
-// Records every pool the factory builds so tests can stage per-pool behavior
-// and assert which connection string each was built with.
 function trackingFactory() {
     const pools: Array<{
         connectionString: string
@@ -54,9 +52,9 @@ describe('ResilientPool', () => {
         const client = await pool.connect()
 
         expect(pools).toHaveLength(2)
-        expect(client).toBe(pools[1].client) // came from the rebuilt pool
+        expect(client).toBe(pools[1].client)
         expect(pools[1].connectionString).toBe('postgres://u:new@h/d')
-        expect(pools[0].end).toHaveBeenCalled() // stale pool torn down
+        expect(pools[0].end).toHaveBeenCalled()
     })
 
     it('rethrows and does not rebuild when the password is unchanged', async () => {
@@ -80,7 +78,7 @@ describe('ResilientPool', () => {
         await pool.connect()
 
         expect(pools[0].on).toHaveBeenCalledWith('error', listener)
-        expect(pools[1].on).toHaveBeenCalledWith('error', listener) // carried over
+        expect(pools[1].on).toHaveBeenCalledWith('error', listener)
     })
 
     it('rethrows non-password errors without re-reading the secret', async () => {

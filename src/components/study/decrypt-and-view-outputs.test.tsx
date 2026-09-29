@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-    db,
     fireEvent,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -11,9 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { type FileType } from '@/database/types'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
@@ -24,48 +21,6 @@ vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
     fetchJobFileActivityAction: vi.fn(() => []),
     recordJobFileActivityAction: vi.fn(() => ({})),
 }))
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-async function seedArtifact(
-    jobId: string,
-    { fileType, files }: { fileType: FileType; files: { name: string; content: string }[] },
-) {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }])
-    for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
-    const zip = await writer.generate()
-
-    const path = `test-org/${jobId}/results/encrypted-results/encrypted-results.zip`
-    const inserted = await db
-        .insertInto('studyJobFile')
-        .values({ studyJobId: jobId, name: 'encrypted-results.zip', path, fileType })
-        .onConflict((oc) => oc.doNothing())
-        .returning('id')
-        .executeTakeFirst()
-
-    const row =
-        inserted ??
-        (await db
-            .selectFrom('studyJobFile')
-            .select('id')
-            .where('studyJobId', '=', jobId)
-            .where('path', '=', path)
-            .where('fileType', '=', fileType)
-            .executeTakeFirstOrThrow())
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-results.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 describe('DecryptAndViewOutputs', () => {
     let org: Org
@@ -78,7 +33,7 @@ describe('DecryptAndViewOutputs', () => {
         job = (await latestJobForStudy(study.id))!
 
         const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedArtifact(job.id, {
+        const artifact = await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
         })
@@ -86,7 +41,7 @@ describe('DecryptAndViewOutputs', () => {
     })
 
     it('renders the View outputs again security-key copy (OTTER-677 overrides)', async () => {
-        renderWithProviders(<DecryptAndViewOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
         await screen.findByRole('button', { name: 'View' })
 
@@ -97,9 +52,18 @@ describe('DecryptAndViewOutputs', () => {
         expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
     })
 
+    // Otherwise a run with nothing to decrypt asks for a key that could never open anything
+    // (OTTER-524).
+    it('renders nothing when the job holds no artifact a key could open', async () => {
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible={false} />)
+
+        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+    })
+
     it('replaces the form with the output files table after a successful decrypt', async () => {
         const privateKeyPem = await readTestSupportFile('private_key.pem')
-        renderWithProviders(<DecryptAndViewOutputs job={job} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
         await screen.findByRole('button', { name: 'View' })
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })

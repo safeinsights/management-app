@@ -60,7 +60,6 @@ describe('Org Actions', () => {
         })
 
         it('throws error when duplicate organization name exists for new org', async () => {
-            // was inserted in beforeEach, should throw on dupe insert
             vi.spyOn(console, 'error').mockImplementation(() => undefined)
             const result = await insertOrgAction(newOrg)
             expect(result).toEqual({ error: expect.stringContaining('duplicate key value violates unique constraint') })
@@ -91,8 +90,6 @@ describe('Org Actions', () => {
             expect(result).toMatchObject({ slug: newOrg.slug, name: newOrg.name, type: newOrg.type })
         })
 
-        // Sits on the unconditioned `view Org`, so every authenticated user reaches it. It must
-        // therefore never carry the enclave's publicKey or the org's contact email (MA-6).
         it('omits settings and email from the org it returns', async () => {
             const result = actionResult(await getOrgFromSlugAction({ orgSlug: newOrg.slug }))
             expect(result).not.toHaveProperty('settings')
@@ -101,9 +98,6 @@ describe('Org Actions', () => {
             expect(JSON.stringify(result)).not.toContain(newOrg.email)
         })
 
-        // The row is now read in the handler, so an unknown slug errors there rather than
-        // returning the whole row through the middleware. Either way the response must carry
-        // none of the org's secrets (MA-6).
         it('leaks neither publicKey nor email when the org is not found', async () => {
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const result = await getOrgFromSlugAction({ orgSlug: 'non-existent' })
@@ -112,9 +106,7 @@ describe('Org Actions', () => {
             expect(JSON.stringify(result)).not.toContain(newOrg.email)
         })
 
-        // Same for a plain org admin. `view Org` is unconditioned by design (the dataset picker),
-        // so this errors in the handler rather than at the ability check — the point of the test
-        // is the response body, not which layer refused.
+        // `view Org` is unconditioned by design, so this errors in the handler, not at the ability check.
         it('leaks nothing for a non-SI-admin when the org is not found', async () => {
             await mockSessionWithTestData({ isAdmin: true })
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
@@ -127,8 +119,6 @@ describe('Org Actions', () => {
     })
 
     describe('fetchAdminOrgsWithStatsAction', () => {
-        // Returns every org's email and settings; its SI-admin-console callers have no layout
-        // gate, so this action's own check is the only thing standing in the way (MA-6).
         it('denies an org admin who is not an SI admin', async () => {
             await mockSessionWithTestData({ isAdmin: true })
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
@@ -146,9 +136,7 @@ describe('Org Actions', () => {
     })
 
     describe('updateOrgAction', () => {
-        // updateOrgSchema is built from the CREATE schemas, so it accepts type, slug and
-        // settings.publicKey — the RS256 key verifying that enclave's M2M API tokens. An org admin
-        // must not reach this path at all (MA-5).
+        // settings.publicKey is the RS256 key verifying that enclave's M2M API tokens (MA-5).
         it('denies an org admin changing type, slug, or settings.publicKey', async () => {
             const target = await db
                 .selectFrom('org')
@@ -336,7 +324,6 @@ describe('Org Actions', () => {
                 type: 'enclave',
             })
 
-            // Add a non-testing R code environment
             await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'R Production Image',
@@ -344,7 +331,6 @@ describe('Org Actions', () => {
                 isTesting: false,
             })
 
-            // Add a testing Python code environment (should not appear in supportedLanguages)
             await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'Python Testing Image',
@@ -370,18 +356,13 @@ describe('Org Actions', () => {
             )
         })
 
-        // OTTER: a stale session can leave the form's orgSlug empty when a newly
-        // created org is missing from the user's JWT. An empty slug must fail
-        // validation rather than reach the org lookup, which would otherwise
-        // throw an opaque "no result" and 500 the study-request page.
+        // A stale session can leave orgSlug empty; it must fail validation, not 500 the page.
         it('rejects an empty orgSlug with a validation error', async () => {
             const result = await getLanguagesForOrgAction({ orgSlug: '' })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
         })
 
-        // Deliberately cross-org: a lab researcher starting a proposal browses enclaves they do
-        // not belong to and downloads their starter code. OTTER-724 narrowed the neighbouring
-        // config reads, so pin that this catalog pair stayed open.
+        // OTTER-724 narrowed the neighbouring config reads; pin that this catalog pair stayed open.
         it('stays readable cross-org for a lab researcher', async () => {
             const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
             await insertTestCodeEnv({ orgId: enclaveOrg.id, language: 'R', isTesting: false })

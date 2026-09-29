@@ -12,6 +12,18 @@ const ACCEPTED_FILE_TYPE_LABELS: Record<Language, string[]> = {
     PYTHON: ['.py', '.ipynb'],
 }
 
+const TEMPLATE_FILE_NAMES: Record<Language, string> = {
+    R: 'Main.R',
+    PYTHON: 'Main.py',
+}
+
+/**
+ * OTTER-693: the name the Data Partner's starter file takes in a researcher's workspace. Derived
+ * from the language rather than the uploaded name, which the card requires and which keeps the
+ * copy and the Template badge reading the same string.
+ */
+export const templateFileNameFor = (language: Language) => TEMPLATE_FILE_NAMES[language]
+
 export type HighlightLanguage =
     | 'bash'
     | 'c'

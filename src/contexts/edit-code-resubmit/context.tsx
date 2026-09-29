@@ -56,11 +56,8 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
     const savingValueRef = useRef<string | null>(null)
     const inFlightSaveRef = useRef<Promise<boolean> | null>(null)
 
-    // A Server Action posts to whatever route is current when the request goes out, so an autosave
-    // still in flight when the researcher navigates away resolves against the new route. That route
-    // has no matching action, so Next returns a non-RSC 200 and the client throws "An unexpected
-    // response was received from the server." Reporting it would show an "unable to save" toast on
-    // a page the researcher already left, about a save they did not ask for and cannot retry.
+    // A Server Action posts to whatever route is current, so an autosave in flight across a
+    // navigation rejects; reporting it would toast on a page the researcher already left.
     const isMountedRef = useRef(true)
     useEffect(() => {
         isMountedRef.current = true

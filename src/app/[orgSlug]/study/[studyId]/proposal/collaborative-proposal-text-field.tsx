@@ -1,18 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState, type FC } from 'react'
 import { Paper, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { UseFormReturnType } from '@mantine/form'
 
-import { FormField, fieldDescribedBy } from '@/components/form-field'
-import { WordCounter } from '@/components/word-counter'
+import { fieldCounterId, FieldErrorBox, FormField, fieldDescribedBy } from '@/components/form-field'
+import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
-import { countWordsFromLexical } from '@/lib/lexical'
+import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
+import { liveLimitError, overCharacterLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
+import { textFieldInputId } from './field-ids'
+import { isLexicalOverLimit, type ProposalFormValues } from './schema'
 
 const contentStyle = {
-    minHeight: 200,
     padding: '8px 16px',
     outline: 'none',
     fontSize: '1rem',
@@ -27,8 +30,12 @@ type Props = {
     onChange: (val: string) => void
     onBlur: () => void
     websocketProvider: HocuspocusProviderWebsocket | null
+    contentHeight?: number
+    isResizable?: boolean
 }
 
+// No placeholder: the card removes placeholder text from every input on both pages that render
+// these fields (OTTER-691, OTTER-762).
 export function CollaborativeProposalTextField({
     studyId,
     field,
@@ -37,16 +44,22 @@ export function CollaborativeProposalTextField({
     onChange,
     onBlur,
     websocketProvider,
+    contentHeight,
+    isResizable,
 }: Props) {
-    const [wordCount, setWordCount] = useState(() => countWordsFromLexical(initialValue))
+    const [characterCount, setCharacterCount] = useState(() => countCharactersFromLexical(initialValue))
     const docName = proposalTextFieldDocName(studyId, field.id as ProposalTextFieldKey)
-    // The editor surface needs its own DOM id: `docName` is the Yjs document key.
-    const inputId = `proposal-field-${field.id}`
+    // The editor surface needs its own DOM id; `docName` is the Yjs document key.
+    const inputId = textFieldInputId(field.id)
 
     const onTextChange = (json: string) => {
         onChange(json)
-        setWordCount(countWordsFromLexical(json))
+        setCharacterCount(countCharactersFromLexical(json))
     }
+
+    // An emptied optional field raises no error to take the label's slot, so the label would
+    // otherwise sit alone under an empty box. Required fields keep it until their error lands.
+    const isSaveStatusVisible = !!field.required || characterCount > 0
 
     return (
         <Paper p="xxl">
@@ -56,8 +69,6 @@ export function CollaborativeProposalTextField({
                     label={field.label}
                     required={field.required}
                     description={field.description}
-                    error={error}
-                    footer={<WordCounter wordCount={wordCount} maxWords={field.maxWords} />}
                 >
                     <Editor
                         id={docName}
@@ -66,19 +77,73 @@ export function CollaborativeProposalTextField({
                         initialValue={initialValue}
                         websocketProvider={websocketProvider}
                         contentStyle={contentStyle}
-                        placeholder={field.placeholder}
+                        contentHeight={contentHeight}
+                        isResizable={isResizable}
                         ariaLabel={field.label}
                         onChange={onTextChange}
                         onBlur={onBlur}
                         error={error}
+                        isSaveStatusVisible={isSaveStatusVisible}
                         ariaRequired={field.required}
                         ariaDescribedBy={fieldDescribedBy(inputId, {
                             hasError: !!error,
                             hasDescription: !!field.description,
+                            hasCounter: true,
                         })}
+                        // The error takes the slot the save indicator vacates, so it shares the
+                        // counter's row instead of standing one row above it, which moved the
+                        // counter whenever the two swapped (OTTER-674, OTTER-777). Live because
+                        // the message can appear with the caret still in the field (OTTER-690).
+                        footerLeft={<FieldErrorBox fieldId={inputId} error={error} isLive />}
+                        footerRight={
+                            <CharacterCounter
+                                id={fieldCounterId(inputId)}
+                                count={characterCount}
+                                maxCharacters={field.maxCharacters}
+                            />
+                        }
                     />
                 </FormField>
             </Stack>
         </Paper>
+    )
+}
+
+export const ProposalTextFieldEntry: FC<{
+    field: EditableTextField
+    form: UseFormReturnType<ProposalFormValues>
+    studyId: string
+    websocketProvider: HocuspocusProviderWebsocket | null
+}> = ({ field, form, studyId, websocketProvider }) => {
+    const value = form.values[field.id] as string
+
+    // Memoized: a keystroke in any field re-renders all four, and this walks the whole tree.
+    const isOverLimit = useMemo(() => isLexicalOverLimit(value, field.maxCharacters), [value, field.maxCharacters])
+    const error = liveLimitError(
+        isOverLimit,
+        overCharacterLimitError(field.label, field.maxCharacters),
+        form.errors[field.id],
+    )
+
+    const onChange = (val: string) => {
+        // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
+        // Neither is an edit, and both would clear an error Submit has just raised (OTTER-762).
+        if (val === (form.getValues()[field.id] as string)) return
+        if (!hasLexicalContent(val) && !hasLexicalContent(value)) return
+        form.setFieldValue(field.id, val)
+    }
+
+    return (
+        <CollaborativeProposalTextField
+            studyId={studyId}
+            field={field as typeof field & { id: ProposalTextFieldKey }}
+            initialValue={value}
+            error={error}
+            onChange={onChange}
+            onBlur={() => form.validateField(field.id)}
+            websocketProvider={websocketProvider}
+            contentHeight={field.contentHeight}
+            isResizable
+        />
     )
 }

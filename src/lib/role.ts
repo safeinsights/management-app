@@ -11,7 +11,6 @@ export const permissionLabelForUser = (user: ObjectWithRole): PermissionLabel | 
     return 'Contributor'
 }
 
-// For display purposes - show the organization type as the role
 export const roleDisplayForOrgType = (orgType: 'enclave' | 'lab'): string => {
     return orgType === 'enclave' ? 'Reviewer' : 'Researcher'
 }

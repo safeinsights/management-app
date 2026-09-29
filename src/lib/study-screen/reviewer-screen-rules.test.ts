@@ -4,7 +4,7 @@ import { resolveScreen } from './resolve'
 import { studyState } from './state.fixture'
 
 const st = (overrides: Partial<StudyState>): StudyState =>
-    studyState({ status: 'PENDING-REVIEW', isDraft: false, displayStatus: 'PENDING-REVIEW', ...overrides })
+    studyState({ status: 'PENDING-REVIEW', isDraft: false, ...overrides })
 
 const screen = (s: StudyState) => resolveScreen('reviewer', s).screen
 
@@ -19,7 +19,8 @@ describe('resolveScreen(reviewer)', () => {
         expect(screen(st({ status: 'CHANGE-REQUESTED' }))).toBe('reviewer-proposal-feedback')
     })
 
-    it('code submitted, agreements NOT acked → reviewer-agreements (gate before review)', () => {
+    // OTTER-727 hid the Agreements gate that used to claim this state.
+    it('code submitted, agreements NOT acked → reviewer-code-review (gate hidden)', () => {
         expect(
             screen(
                 st({
@@ -29,7 +30,7 @@ describe('resolveScreen(reviewer)', () => {
                     reviewerAgreementsAcked: false,
                 }),
             ),
-        ).toBe('reviewer-agreements')
+        ).toBe('reviewer-code-review')
     })
 
     it('code submitted, agreements acked → reviewer-code-review', () => {
@@ -45,12 +46,20 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('live code decision → reviewer-code-feedback (not active review)', () => {
-        for (const d of ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
+    it('live negative code decision → reviewer-code-feedback (not active review)', () => {
+        for (const d of ['CODE-REJECTED', 'CODE-CHANGES-REQUESTED'] as const) {
             expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: d }))).toBe(
                 'reviewer-code-feedback',
             )
         }
+    })
+
+    // The approved-code screen is only reached by walking back (/review/code): /review moves on to
+    // the outputs step from the moment of approval (OTTER-673).
+    it('code approved, enclave not started yet → reviewer-outputs-pending', () => {
+        expect(screen(st({ status: 'APPROVED', hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' }))).toBe(
+            'reviewer-outputs-pending',
+        )
     })
 
     it('code approved and executing in the enclave, no results → reviewer-outputs-pending', () => {
@@ -66,7 +75,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-pending')
     })
 
-    it('job errored, no files decision → reviewer-outputs-errored (not study-results)', () => {
+    it('job errored, no files decision → reviewer-outputs-errored (not outputs-awaiting-review)', () => {
         expect(
             screen(
                 st({
@@ -80,7 +89,7 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-outputs-errored')
     })
 
-    it('run complete, no files decision → reviewer-outputs-available (not study-results)', () => {
+    it('run complete, no files decision → reviewer-outputs-available (not outputs-awaiting-review)', () => {
         expect(
             screen(
                 st({
@@ -212,13 +221,13 @@ describe('resolveScreen(reviewer)', () => {
         ).toBe('reviewer-code-review')
     })
 
-    it('agreements gate only applies while awaiting decision (irrelevant once decided)', () => {
+    it('an unacked study with a code decision still resolves on the decision', () => {
         expect(
             screen(
                 st({
                     status: 'APPROVED',
                     hasSubmittedCode: true,
-                    codeDecision: 'CODE-APPROVED',
+                    codeDecision: 'CODE-CHANGES-REQUESTED',
                     reviewerAgreementsAcked: false,
                 }),
             ),

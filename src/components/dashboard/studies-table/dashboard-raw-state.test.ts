@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { StudyRow } from './types'
-import { dashboardRawStateFromRow } from './dashboard-raw-state'
-import { projectStudyState, resolveDashboardAction } from '@/lib/study-screen'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { Audience, StudyRow } from './types'
+import { dashboardRawStateFromRow, rowStudyState } from './dashboard-raw-state'
+import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
 
 const row = (overrides: Partial<StudyRow>): StudyRow => ({
     id: '019000000000-0000-0000-0000-000000000001',
@@ -17,7 +18,6 @@ const row = (overrides: Partial<StudyRow>): StudyRow => ({
     jobStatusChanges: [{ status: 'CODE-SUBMITTED' }, { status: 'CODE-APPROVED' }],
     researcherAgreementsAckedAt: null,
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -47,10 +47,8 @@ describe('dashboardRawStateFromRow', () => {
         expect(state.hasAnyJob).toBe(false)
     })
 
-    // After a round closes (FILES-APPROVED/REJECTED) a fresh IDE launch opens a new INITIATED-only
-    // job, which is the dashboard's latest job. By design the dashboard reflects the CURRENT round
-    // ("new submission in progress"), not the prior round's results — so the link sends the
-    // researcher to the upload page to re-launch / upload, NOT back to the old results on /view.
+    // The dashboard reflects the CURRENT round, not the prior round's results, so a fresh IDE
+    // launch after a closed round links to upload rather than the old results.
     it('fresh INITIATED job after a closed round → link routes to /code (upload), not /view', () => {
         const state = projectStudyState(
             dashboardRawStateFromRow(row({ status: 'APPROVED', jobStatusChanges: [{ status: 'INITIATED' }] })),
@@ -64,5 +62,32 @@ describe('dashboardRawStateFromRow', () => {
             studyId: '01900000-0000-7000-8000-000000000001',
         })
         expect(action.href).toContain('/code')
+    })
+})
+
+const NAMES = { dataPartner: 'Openstax', researchLab: 'Openstax Lab' }
+
+// Proves a StudyRow reaches the right pill; the rule matrix itself lives in pill.test.ts.
+const pill = (status: StudyStatus, audience: Audience, jobStatusChanges: Array<{ status: StudyJobStatus }> = []) =>
+    resolvePillStatus(audience, rowStudyState(row({ status, jobStatusChanges })), NAMES)
+
+describe('row pill', () => {
+    it('reads the study status when the study has no jobs', () => {
+        expect(pill('PENDING-REVIEW', 'researcher')).toMatchObject({
+            id: 'proposal-submitted',
+            label: 'Proposal submitted',
+            tooltip: 'Waiting for Openstax to review proposal.',
+        })
+    })
+
+    it('reads the job statuses, including the RESULTS-VIEWED row, once jobs exist', () => {
+        const decided: Array<{ status: StudyJobStatus }> = [
+            { status: 'CODE-SUBMITTED' },
+            { status: 'CODE-APPROVED' },
+            { status: 'RUN-COMPLETE' },
+            { status: 'FILES-APPROVED' },
+        ]
+        expect(pill('APPROVED', 'researcher', decided).id).toBe('outputs-need-review')
+        expect(pill('APPROVED', 'researcher', [...decided, { status: 'RESULTS-VIEWED' }]).id).toBe('outputs-reviewed')
     })
 })

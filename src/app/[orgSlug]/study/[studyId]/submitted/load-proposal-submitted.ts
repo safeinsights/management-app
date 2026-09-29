@@ -16,9 +16,7 @@ export type ProposalSubmittedData = {
     feedbackError: boolean
 }
 
-// Shared loader for the ProposalSubmitted page (used by /submitted and the proposal-feedback /view
-// screen so they render identically). On a feedback fetch error: report to Sentry, degrade to empty
-// entries.
+// Shared by /submitted and the proposal-feedback /view screen so they render identically.
 export async function loadProposalSubmittedData(study: Submitted<SelectedStudy>): Promise<ProposalSubmittedData> {
     const [orgName, feedbackResult] = await Promise.all([
         getOrgNameFromId(study.orgId),

@@ -1,9 +1,7 @@
 import { getConfigValue } from '../config'
 import logger from '@/lib/logger'
 
-// Coder API calls had no timeout: a hung request leaves the launch poll
-// pending forever, which surfaces as an endless UI spinner with no error.
-// Bound it so a stall becomes a logged, throwable failure instead.
+// Without a bound, a hung request leaves the launch poll pending forever as a silent UI spinner.
 const CODER_FETCH_TIMEOUT_MS = 15_000
 
 export interface CoderFetchOptions {

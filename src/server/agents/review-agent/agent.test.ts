@@ -17,20 +17,21 @@ const baseContent: ReviewContent = {
 }
 
 function makeClient(content: unknown, extra: Record<string, unknown> = {}) {
-    const create = vi.fn().mockResolvedValue({ content, ...extra })
-    return { client: { messages: { create } } as unknown as Anthropic, create }
+    const message = { content, ...extra }
+    const stream = vi.fn().mockReturnValue({ finalMessage: () => Promise.resolve(message) })
+    return { client: { messages: { stream } } as unknown as Anthropic, stream }
 }
 
 const toolUseBlock = [{ type: 'tool_use', name: 'submit_analysis', id: '1', input: baseReport }]
 
 describe('generateAnalysis', () => {
     it('returns the structured report from a tool_use block', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         const result = await generateAnalysis({ client }, baseContent)
 
         expect(result.report).toEqual(baseReport)
-        expect(create).toHaveBeenCalledOnce()
+        expect(stream).toHaveBeenCalledOnce()
     })
 
     it('returns a conversation seed (messages) for chat continuation', async () => {
@@ -46,14 +47,14 @@ describe('generateAnalysis', () => {
     })
 
     it('passes config overrides to the client', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         await generateAnalysis(
             { client, model: 'claude-opus-4-7', maxTokens: 1024, systemPrompt: 'custom system' },
             baseContent,
         )
 
-        const args = create.mock.calls[0][0]
+        const args = stream.mock.calls[0][0]
         expect(args.model).toBe('claude-opus-4-7')
         expect(args.max_tokens).toBe(1024)
         expect(args.system).toBe('custom system')
@@ -61,45 +62,45 @@ describe('generateAnalysis', () => {
     })
 
     it('appends additionalContext to the system prompt, keeping the auditor persona', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         await generateAnalysis({ client, additionalContext: 'ORG GUIDANCE' }, baseContent)
 
-        const system = create.mock.calls[0][0].system as string
+        const system = stream.mock.calls[0][0].system as string
         expect(system).toContain('Code & Compliance Auditor')
         expect(system).toContain('ORG GUIDANCE')
     })
 
     it('appends additionalContext after a custom systemPrompt override', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         await generateAnalysis(
             { client, systemPrompt: 'custom system', additionalContext: 'ORG GUIDANCE' },
             baseContent,
         )
 
-        const system = create.mock.calls[0][0].system as string
+        const system = stream.mock.calls[0][0].system as string
         expect(system).toContain('custom system')
         expect(system).toContain('ORG GUIDANCE')
     })
 
     it('embeds code files and proposal in the user message', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         await generateAnalysis({ client }, baseContent)
 
-        const userMessage = create.mock.calls[0][0].messages[0].content as string
+        const userMessage = stream.mock.calls[0][0].messages[0].content as string
         expect(userMessage).toContain('main.r')
         expect(userMessage).toContain('print("hi")')
         expect(userMessage).toContain('p')
     })
 
     it('includes test results section when present', async () => {
-        const { client, create } = makeClient(toolUseBlock)
+        const { client, stream } = makeClient(toolUseBlock)
 
         await generateAnalysis({ client }, { ...baseContent, researcherTestResults: 'PASS' })
 
-        const userMessage = create.mock.calls[0][0].messages[0].content as string
+        const userMessage = stream.mock.calls[0][0].messages[0].content as string
         expect(userMessage).toContain('Researcher Test Results')
         expect(userMessage).toContain('PASS')
     })
@@ -146,5 +147,23 @@ describe('generateAnalysis', () => {
         const { client } = makeClient(malformedToolUseBlock)
 
         await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow()
+    })
+
+    it('hands the caller signal to the request so a deadline can abort it', async () => {
+        const { client, stream } = makeClient(toolUseBlock)
+        const controller = new AbortController()
+
+        await generateAnalysis({ client, signal: controller.signal }, baseContent)
+
+        expect(stream.mock.calls[0][1].signal).toBe(controller.signal)
+    })
+
+    it('bounds the code explanation, which is what makes a repetitive submission run for minutes', async () => {
+        const { client, stream } = makeClient(toolUseBlock)
+
+        await generateAnalysis({ client }, baseContent)
+
+        const schema = stream.mock.calls[0][0].tools[0].input_schema
+        expect(schema.properties.codeExplanation.description).toContain('1,500 words')
     })
 })

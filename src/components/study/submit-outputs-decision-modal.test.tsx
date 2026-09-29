@@ -48,19 +48,15 @@ describe('SubmitOutputsDecisionModal', () => {
         expect(confirmationBody('share-feedback-only', 'Acme Lab')).toContain('Acme Lab')
     })
 
-    // A null decision IS the closed state: there is no separate open flag to disagree with it.
-    // The component stays mounted while closed (that is what keeps Mantine's focus return alive),
-    // so "closed" means no dialog is rendered, not that nothing is.
+    // The component stays mounted while closed, so "closed" means no dialog is rendered.
     it('shows no dialog until a decision has been picked', () => {
         renderModal(null)
         expect(screen.queryByRole('dialog')).toBeNull()
         expect(screen.queryByText('Submit your decision?')).toBeNull()
     })
 
-    // Mantine keeps modal children mounted, so a cached body from the previously chosen option is
-    // exactly what a screen reader would re-announce on the next open. Driven through a real
-    // close → change → reopen cycle rather than a prop rerender, because a stale body would
-    // survive precisely that sequence.
+    // Driven through a real close → change → reopen cycle rather than a prop rerender, because
+    // Mantine keeps modal children mounted and a stale body survives precisely that sequence.
     it('shows the updated body after the decision changes between opens', async () => {
         const Harness = () => {
             const [confirming, setConfirming] = useState<OutputsDecision | null>('share-outputs')
@@ -89,8 +85,6 @@ describe('SubmitOutputsDecisionModal', () => {
         expect(screen.queryByText(SHARE_OUTPUTS_BODY)).toBeNull()
     })
 
-    // Focus restoration is Mantine's own returnFocus, which works because this component stays
-    // mounted across close; the e2e covers it end to end against a real trigger.
     it('closes without submitting from Cancel', async () => {
         const { onClose, onConfirm } = renderModal('share-outputs')
 

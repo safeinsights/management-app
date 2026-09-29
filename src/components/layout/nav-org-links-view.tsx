@@ -1,3 +1,4 @@
+import { semanticColor } from '@/theme/tokens'
 import { orgInitialsTitle } from '@/lib/string'
 import { ExternalLinks } from '@/lib/routes'
 import { type ActionSuccessType, isEnclaveOrg } from '@/lib/types'
@@ -39,14 +40,11 @@ const LabLinks: React.FC<LinksProps> = ({ org }) => (
     </>
 )
 
-// Presentational focused-org nav links. It owns the org title, the home/enclave/lab links, and
-// the admin sub-menu — but NOT the session: whether the admin gate shows is passed in as
-// `isOrgAdmin`. Kept session-free so it renders in isolation (e.g. Ladle). The NavOrgLinks
-// container (./nav-org-links) reads the session and supplies the flag.
+// Session-free so it renders in isolation; the container reads the session and passes
+// `isOrgAdmin` in.
 export type NavOrgLinksViewProps = {
     org: Org
-    // The admin sub-menu (OrgAdminDashboardLink) reads the route params, so it is injected by
-    // the container; in isolation (e.g. Ladle) a story passes a session/route-free stand-in.
+    // OrgAdminDashboardLink reads route params, so the container injects it.
     adminLink: ReactNode
 }
 
@@ -55,7 +53,7 @@ export const NavOrgLinksView: React.FC<NavOrgLinksViewProps> = ({ org, adminLink
 
     return (
         <Stack>
-            <Title c="white" py="md" px="sm" order={4}>
+            <Title c={semanticColor('text.white')} py="md" px="sm" order={4}>
                 {orgInitialsTitle(org.name, org.type)}
             </Title>
             <Divider />

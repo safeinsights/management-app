@@ -8,6 +8,5 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(): Promise<void> {
-    // Destructive cleanup; the deleted rows held Yjs CRDT scratchpad state
-    // for a code path no live writer emits, so there is nothing to restore.
+    // Irreversible: the deleted Yjs scratchpad rows belong to a code path no live writer emits.
 }

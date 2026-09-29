@@ -5,10 +5,8 @@ import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 
-// OTTER-647's acceptance criteria in its most reduced form: moving away from an incomplete
-// required field must raise its error. Mantine defaults `validateInputOnBlur` to false, so
-// this exercises the project `useForm` wrapper in @/common that turns it on, and the
-// FormField wrapper that renders and associates the message.
+// OTTER-647: Mantine defaults `validateInputOnBlur` to false, so this exercises the @/common
+// `useForm` wrapper that turns it on.
 
 const schema = z.object({
     title: z.string().trim().min(1, { message: 'Study title is required.' }),
@@ -35,9 +33,7 @@ function Harness() {
                     {...nativeFieldProps(form.errors.partner)}
                 />
             </FormField>
-            {/* MultiSelect completes the nativeFieldProps matrix: it wraps its input in its own
-                Input.Wrapper like the others, but stores an array and renders pills, so the error
-                and description ids are worth asserting separately from TextInput and Select. */}
+            {/* MultiSelect stores an array and renders pills, so its ids are asserted separately. */}
             <FormField inputId="datasets" label="Dataset(s) of interest" required error={form.errors.datasets}>
                 <MultiSelect
                     id="datasets"
@@ -51,8 +47,7 @@ function Harness() {
     )
 }
 
-// The description path is the fragile one: it depends on the inner and outer Input.Wrapper
-// deriving the same description id from the shared `id`.
+// Fragile because it depends on the inner and outer Input.Wrapper deriving the same description id.
 function HarnessWithDescription() {
     const form = useForm({
         initialValues: { title: '' },
@@ -171,11 +166,8 @@ describe('required-field blur validation', () => {
     })
 })
 
-// Turning `validateInputOnBlur` on globally made Mantine revalidate on every blur, and Mantine
-// clears the error whenever the client rule passes. That silently erased messages installed with
-// `setFieldError` after a server rejection: a wrong password, a spent recovery code, a rejected
-// reset email, a failed key decryption. Re-reading the message and tabbing away wiped it, leaving
-// an unchanged value and no explanation. The wrapper now guards blur revalidation centrally.
+// Global `validateInputOnBlur` cleared the error whenever the client rule passed, silently erasing
+// `setFieldError` messages from a server rejection.
 describe('server-set errors survive a blur', () => {
     function ServerErrorHarness() {
         const form = useForm({
@@ -201,7 +193,6 @@ describe('server-set errors survive a blur', () => {
         await user.click(screen.getByRole('button', { name: 'reject' }))
         expect(await screen.findByText('Incorrect password.')).toBeInTheDocument()
 
-        // Re-focus and leave without editing, exactly what a user does to check what they typed.
         await user.click(screen.getByLabelText('Password'))
         await user.tab()
 

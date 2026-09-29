@@ -1,8 +1,5 @@
 import { type Kysely, sql } from 'kysely'
 
-// Convert legacy gen_random_uuid() defaults to v7uuid() and timestamp columns to timestamptz
-// so the schema is consistent across all tables.
-
 const UUID_DEFAULT_COLUMNS: Array<{ table: string; column: string }> = [
     { table: 'org_data_source', column: 'id' },
     { table: 'pending_user', column: 'id' },

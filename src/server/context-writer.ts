@@ -9,9 +9,8 @@ import { generateDataSourcesContextString } from '@/server/utils'
 import logger from '@/lib/logger'
 
 const CONTEXT_FILE_NAME = 'CLAUDE.md'
-// Dotfile sentinel: stores the hash of the content we last generated, so we can tell a
-// system-generated CLAUDE.md from one the user edited. Dotfiles are excluded from the workspace
-// file list and the "files changed" Submit gate, so it stays invisible to the user.
+// Holds the hash of the last generated content, so a user-edited CLAUDE.md is distinguishable.
+// Dotfiles are excluded from the file list and the Submit gate, so it stays invisible.
 const SENTINEL_FILE_NAME = '.claude-context-hash'
 
 const sha256 = (content: string): string => createHash('sha256').update(content).digest('hex')
@@ -56,13 +55,8 @@ export type WriteAgentContextOptions = {
     logCtx?: string
 }
 
-/**
- * Writes the combined SYSTEM + language + data-sources agent context to CLAUDE.md in `targetDir`,
- * refreshing it from the latest DB content on every workspace launch. Manual user edits are
- * preserved: we only overwrite CLAUDE.md when it's missing or still matches the content we last
- * generated (tracked via a sibling hash sentinel). The file mtime is backdated to `pastDate` so the
- * refresh doesn't trip the "files changed" Submit gate.
- */
+// Overwrites only when the file is missing or still matches the last generated content, and
+// backdates the mtime so Submit's "files changed" gate does not trip.
 export async function writeAgentContext({
     targetDir,
     language,

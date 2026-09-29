@@ -1,0 +1,224 @@
+'use client'
+
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    type CSSProperties,
+    type MouseEvent as ReactMouseEvent,
+    type ReactNode,
+    type RefObject,
+} from 'react'
+import { Popover } from '@mantine/core'
+import { useIsomorphicEffect } from '@mantine/hooks'
+import type { LexicalEditor } from 'lexical'
+import { LINK_CARD_POPOVER_PROPS } from '@/components/link-hover-card/link-card-interactions'
+
+// Out of flow and sized to nothing, so mounting the card inside read-only content cannot add a
+// line to a clamped block. Only the measured box matters, never where the host itself lands.
+const ANCHOR_HOST_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: 0, height: 0 }
+const ANCHOR_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }
+
+const SECONDARY_BUTTON = 2
+const APPLE_PLATFORM = /Mac|iPhone|iPad|iPod/i
+
+const isApplePlatform = () => typeof navigator !== 'undefined' && APPLE_PLATFORM.test(navigator.userAgent)
+
+/** Cmd on Apple platforms and Ctrl everywhere else, because macOS gives Ctrl to the secondary click. */
+export function hasPrimaryModifier(event: { ctrlKey: boolean; metaKey: boolean }) {
+    return isApplePlatform() ? event.metaKey : event.ctrlKey
+}
+
+/** The gesture that asks for the context menu, which on macOS is also ctrl with the main button. */
+export function isSecondaryClick(event: MouseEvent) {
+    return event.button === SECONDARY_BUTTON || (isApplePlatform() && event.ctrlKey)
+}
+
+/**
+ * Lays the invisible anchor over the link, sized to it, so the card points where the link is. The
+ * box is written to the element rather than held in state: this runs on every scroll frame, and a
+ * render per frame would be wasteful. Both boxes are viewport relative, so their difference holds
+ * however the field is scrolled.
+ */
+function useLinkAnchorPosition(
+    editor: LexicalEditor,
+    nodeKey: string | null,
+    hostRef: RefObject<HTMLElement | null>,
+    anchorRef: RefObject<HTMLElement | null>,
+) {
+    useIsomorphicEffect(() => {
+        if (!nodeKey) return
+
+        const position = () => {
+            const host = hostRef.current
+            const anchor = anchorRef.current
+            const element = editor.getElementByKey(nodeKey)
+            if (!host || !anchor || !element) return
+
+            const linkBox = element.getBoundingClientRect()
+            const hostBox = host.getBoundingClientRect()
+            anchor.style.top = `${linkBox.top - hostBox.top}px`
+            anchor.style.left = `${linkBox.left - hostBox.left}px`
+            anchor.style.width = `${linkBox.width}px`
+            anchor.style.height = `${linkBox.height}px`
+        }
+
+        position()
+        const unregister = editor.registerUpdateListener(position)
+        window.addEventListener('resize', position)
+        // Capturing, because the field scrolls its own content and the host sits outside it.
+        window.addEventListener('scroll', position, true)
+
+        return () => {
+            unregister()
+            window.removeEventListener('resize', position)
+            window.removeEventListener('scroll', position, true)
+        }
+    }, [editor, nodeKey, hostRef, anchorRef])
+}
+
+const DRAG_SLOP_PX = 3
+
+/**
+ * Tells a plain click from the end of a drag. The DOM selection cannot answer this, because a
+ * browser keeps a selection alive through a press inside it, in case the press becomes a drag of
+ * the selected text. So a click on text that is already selected still looks like a selection.
+ */
+export function useClickWithoutDrag() {
+    const pressRef = useRef<{ x: number; y: number } | null>(null)
+
+    const rememberPress = useCallback((event: MouseEvent) => {
+        pressRef.current = { x: event.clientX, y: event.clientY }
+    }, [])
+
+    // Consumed on read, so an earlier press cannot answer for a later click that had none.
+    const movedSincePress = useCallback((event: MouseEvent) => {
+        const press = pressRef.current
+        pressRef.current = null
+        if (!press) return false
+
+        return Math.abs(event.clientX - press.x) > DRAG_SLOP_PX || Math.abs(event.clientY - press.y) > DRAG_SLOP_PX
+    }, [])
+
+    return { rememberPress, movedSincePress }
+}
+
+interface RootListeners {
+    mousedown?: (event: MouseEvent) => void
+    click?: (event: MouseEvent) => void
+    auxclick?: (event: MouseEvent) => void
+    keydown?: (event: KeyboardEvent) => void
+}
+
+/**
+ * Listens on the editor's root, which Lexical swaps out on its own. One list drives both the add
+ * and the remove, so a handler cannot be left behind on the root it was attached to.
+ */
+export function useRootDomListeners(editor: LexicalEditor, { mousedown, click, auxclick, keydown }: RootListeners) {
+    useEffect(() => {
+        const listeners = Object.entries({ mousedown, click, auxclick, keydown }) as [string, EventListener?][]
+
+        return editor.registerRootListener((rootElement, prevRootElement) => {
+            for (const [type, handler] of listeners) {
+                if (!handler) continue
+                prevRootElement?.removeEventListener(type, handler)
+                rootElement?.addEventListener(type, handler)
+            }
+        })
+    }, [editor, mousedown, click, auxclick, keydown])
+}
+
+/** The link keeps the popover semantics, since Lexical owns the anchor React cannot render into. */
+export function useLinkCardTriggerAria(editor: LexicalEditor, nodeKey: string | null, dropdownId: string) {
+    useEffect(() => {
+        if (!nodeKey) return
+
+        const apply = () => {
+            const element = editor.getElementByKey(nodeKey)
+            if (!element) return
+            element.setAttribute('aria-expanded', 'true')
+            element.setAttribute('aria-controls', dropdownId)
+        }
+
+        apply()
+        // Lexical rebuilds the anchor on edits, dropping attributes set from outside.
+        const unregister = editor.registerUpdateListener(apply)
+
+        return () => {
+            unregister()
+            const element = editor.getElementByKey(nodeKey)
+            element?.removeAttribute('aria-expanded')
+            element?.removeAttribute('aria-controls')
+        }
+    }, [editor, nodeKey, dropdownId])
+}
+
+interface AnchoredLinkCardProps {
+    editor: LexicalEditor
+    nodeKey: string | null
+    opened: boolean
+    trapFocus: boolean
+    /** False keeps the card inside the field, so interacting with it is not a blur (OTTER-647). */
+    withinPortal: boolean
+    floatingStrategy?: 'absolute' | 'fixed'
+    dropdownId: string
+    ariaLabel: string
+    onDismiss: () => void
+    children: ReactNode
+}
+
+export function AnchoredLinkCard({
+    editor,
+    nodeKey,
+    opened,
+    trapFocus,
+    withinPortal,
+    floatingStrategy,
+    dropdownId,
+    ariaLabel,
+    onDismiss,
+    children,
+}: AnchoredLinkCardProps) {
+    const hostRef = useRef<HTMLDivElement>(null)
+    const anchorRef = useRef<HTMLSpanElement>(null)
+    useLinkAnchorPosition(editor, nodeKey, hostRef, anchorRef)
+
+    // A press inside the card must not move the caret or read as leaving the field, but a press in
+    // one of its inputs still has to place that input's own cursor.
+    const keepEditorSelection = (event: ReactMouseEvent<HTMLDivElement>) => {
+        event.stopPropagation()
+        if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
+    }
+
+    return (
+        <div ref={hostRef} style={ANCHOR_HOST_STYLE}>
+            <Popover
+                {...LINK_CARD_POPOVER_PROPS}
+                opened={opened}
+                // The anchor is a synthetic box laid over the link rather than a laid-out element,
+                // so the detached-reference check reads it as off-screen and hides the card.
+                hideDetached={false}
+                withinPortal={withinPortal}
+                floatingStrategy={floatingStrategy}
+                trapFocus={trapFocus}
+                returnFocus={false}
+                closeOnEscape={false}
+                withRoles={false}
+                onDismiss={onDismiss}
+            >
+                <Popover.Target>
+                    <span ref={anchorRef} aria-hidden style={ANCHOR_STYLE} />
+                </Popover.Target>
+                <Popover.Dropdown
+                    id={dropdownId}
+                    role="dialog"
+                    aria-label={ariaLabel}
+                    p="sm"
+                    onMouseDown={keepEditorSelection}
+                >
+                    {children}
+                </Popover.Dropdown>
+            </Popover>
+        </div>
+    )
+}

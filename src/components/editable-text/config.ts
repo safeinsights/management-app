@@ -12,9 +12,8 @@ export function isValidUrl(url: string): boolean {
     }
 }
 
-// Module-level so the object identity is stable: LinkPlugin lists `attributes`
-// in its effect deps, so an inline literal would re-register TOGGLE_LINK_COMMAND
-// on every render.
+// Stable identity: LinkPlugin lists `attributes` in its effect deps, so an inline literal would
+// re-register TOGGLE_LINK_COMMAND on every render.
 export const linkAttributes: LinkAttributes = { target: '_blank', rel: 'noopener noreferrer' }
 
 export const lexicalTheme = {

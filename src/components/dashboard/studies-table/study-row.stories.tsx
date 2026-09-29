@@ -3,12 +3,12 @@ import type { ReactNode } from 'react'
 import { Anchor, Table } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { StudyRowView } from './study-row-view'
-import { useStudyStatus } from '@/hooks/use-study-status'
+import { resolvePillStatus } from '@/lib/study-screen'
+import { rowStudyState } from './dashboard-raw-state'
+import { pillOrgNamesFromRow } from './pill-context'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 
-// Stories target the presentational StudyRowView (the StudyRow container reads the
-// Clerk session via StudyActionLink, which isn't available in isolation). The action
-// link is passed in as a plain anchor here.
+// Targets StudyRowView because the container reads the Clerk session via StudyActionLink.
 const meta = { title: 'Tables / Study row', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -26,7 +26,6 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -44,8 +43,6 @@ const link = (
     </Anchor>
 )
 
-// useStudyStatus is a pure helper; calling it derives a realistic StatusLabel from the
-// fixture, mirroring how the StudyRow container computes it.
 function Row({
     s,
     audience,
@@ -57,7 +54,7 @@ function Row({
     scope: Scope
     highlighted?: boolean
 }) {
-    const status = useStudyStatus({ studyStatus: s.status, audience, jobStatusChanges: s.jobStatusChanges })
+    const status = resolvePillStatus(audience, rowStudyState(s), pillOrgNamesFromRow(s))
     return (
         <StudyRowView
             study={s}

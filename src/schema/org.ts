@@ -2,14 +2,12 @@ import { z } from 'zod'
 import { Selectable } from 'kysely'
 import { Org as DefinedOrg } from '@/database/types'
 
-// Settings schemas for different org types
 const enclaveSettingsSchema = z.object({
     publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
 })
 
-const labSettingsSchema = z.object({}).strict() // Empty for now
+const labSettingsSchema = z.object({}).strict()
 
-// Base org schema
 const baseOrgSchema = z.object({
     slug: z.string().regex(/^[a-z0-9-]+$/, { message: 'Invalid slug: must be all lowercase alphanumeric or dashes' }),
     name: z
@@ -27,12 +25,11 @@ const baseOrgSchema = z.object({
     description: z
         .string()
         .max(250, 'Description cannot exceed 250 characters')
-        .transform((val) => (val === '' ? null : val)) // Convert empty string to null
+        .transform((val) => (val === '' ? null : val))
         .nullable()
         .optional(),
 })
 
-// Discriminated union schemas
 export const enclaveOrgSchema = baseOrgSchema.extend({
     type: z.literal('enclave'),
     settings: enclaveSettingsSchema,
@@ -65,8 +62,8 @@ export const getNewOrg = (type: 'enclave' | 'lab' = 'enclave'): NewOrg => {
 
 export type Org = Selectable<DefinedOrg>
 
-// The subset of an org any authenticated user may read (getOrgFromSlugAction). Deliberately
-// excludes `settings` — which holds an enclave's publicKey — and `email` (OTTER-724 / MA-6).
+// Readable by any authenticated user, so it deliberately excludes `settings`, which holds an
+// enclave's publicKey, and `email` (OTTER-724 / MA-6).
 export type PublicOrg = Pick<Org, 'id' | 'slug' | 'name' | 'type' | 'description'>
 
 export type NewOrg = Omit<Org, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: never; updatedAt?: never }

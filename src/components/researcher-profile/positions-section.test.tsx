@@ -9,6 +9,7 @@ import {
     db,
 } from '@/tests/unit.helpers'
 import { PositionsSection } from './positions-section'
+import { notifications } from '@mantine/notifications'
 
 describe('PositionsSection', () => {
     it('should auto-open form when no positions exist', async () => {
@@ -21,12 +22,10 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Form should be visible because there are no existing positions
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Table should not be visible (no hasExistingPositions)
         expect(screen.queryByText('Institutional affiliation')).toBeNull()
     })
 
@@ -49,12 +48,10 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Table should be visible
         await waitFor(() => {
             expect(screen.getByText('Institutional affiliation')).toBeDefined()
         })
 
-        // Should show the position data
         expect(screen.getByText('MIT')).toBeDefined()
         expect(screen.getByText('Professor')).toBeDefined()
     })
@@ -70,12 +67,10 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Form should be auto-opened
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Fill in the form
         const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
         const positionInput = screen.getByPlaceholderText('Ex: Senior Researcher')
 
@@ -86,10 +81,9 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
-        // Verify DB was updated
         const positions = await db
             .selectFrom('researcherPosition')
             .select(['affiliation', 'position'])
@@ -136,7 +130,7 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const positions = await db
@@ -171,14 +165,11 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Table should be visible
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Delete button should not be visible when only one position exists
         expect(screen.queryByRole('button', { name: /delete current position/i })).toBeNull()
-        // Delete column header should not be visible either
         expect(screen.queryByText('Delete')).toBeNull()
     })
 
@@ -205,28 +196,22 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Table should be visible with both positions
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
             expect(screen.getByText('Stanford')).toBeDefined()
         })
 
-        // Delete column header should be visible
         expect(screen.getByText('Delete')).toBeDefined()
 
-        // Delete buttons should be visible (2 positions = 2 delete buttons)
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         expect(deleteButtons).toHaveLength(2)
 
-        // Click delete on the first position (MIT)
         await userEvents.click(deleteButtons[0])
 
-        // Wait for the action to complete
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
         })
 
-        // Verify DB was updated - only one position should remain
         const positions = await db
             .selectFrom('researcherPosition')
             .select(['affiliation'])
@@ -247,12 +232,10 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Form should be visible
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Cancel button should not be visible when there are no existing positions
         expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull()
     })
 
@@ -275,16 +258,13 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Table should be visible
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click edit to open form
         const editButton = screen.getByRole('button', { name: /edit current position/i })
         await userEvents.click(editButton)
 
-        // Cancel button should be visible when editing with existing positions
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /cancel/i })).toBeDefined()
         })
@@ -312,19 +292,14 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
 
-        // Table should be visible with position data
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
             expect(screen.getByText('Stanford')).toBeDefined()
         })
 
-        // Edit column header should not be visible
         expect(screen.queryByText('Edit')).toBeNull()
-        // Delete column header should not be visible
         expect(screen.queryByText('Delete')).toBeNull()
-        // Edit buttons should not be visible
         expect(screen.queryByRole('button', { name: /edit current position/i })).toBeNull()
-        // Delete buttons should not be visible
         expect(screen.queryByRole('button', { name: /delete current position/i })).toBeNull()
     })
 
@@ -346,12 +321,10 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
 
-        // Table should be visible
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // "+ Add another current position" link should not be visible
         expect(screen.queryByText('+ Add another current position')).toBeNull()
     })
 
@@ -425,7 +398,7 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const positions = await db
@@ -469,10 +442,8 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // Add link should not be visible while editing
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
-        // The remaining edit button (for Stanford) should be data-disabled
         const remainingEditButton = screen.getByRole('button', { name: /edit current position/i })
         expect(remainingEditButton).toHaveAttribute('data-disabled')
 
@@ -510,16 +481,13 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Add link should not be visible while adding
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
-        // Edit buttons should be data-disabled
         const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
         for (const btn of editButtons) {
             expect(btn).toHaveAttribute('data-disabled')
         }
 
-        // Delete buttons should be data-disabled
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         for (const btn of deleteButtons) {
             expect(btn).toHaveAttribute('data-disabled')
@@ -630,7 +598,6 @@ describe('PositionsSection', () => {
         await userEvents.type(positionInput, 'Professor')
         await userEvents.type(profileUrlInput, 'not-a-valid-url')
 
-        // Trigger validation by blurring the field
         await userEvents.tab()
 
         const saveButton = screen.getByRole('button', { name: /save changes/i })
@@ -671,7 +638,6 @@ describe('PositionsSection', () => {
         expect(screen.queryByText('Add current position')).toBeNull()
 
         const rows = screen.getAllByRole('row')
-        // 1 header + 1 data row
         expect(rows).toHaveLength(2)
     })
 })

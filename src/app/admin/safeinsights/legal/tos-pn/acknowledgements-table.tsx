@@ -5,13 +5,13 @@ import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
-    type EnforcedLegalDocumentType,
+    type GlobalLegalDocumentType,
     type LegalDocumentAcknowledgementSort,
 } from '@/schema/legal-document'
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
 import { Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { formatInstant } from '../dates'
+import { formatInstant } from '@/lib/dates'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 
@@ -19,10 +19,10 @@ const DEFAULT_SORT: LegalDocumentAcknowledgementSort = { columnAccessor: 'fullNa
 
 export const ACKNOWLEDGEMENTS_PAGE_SIZE = 25
 
-// mantine-datatable reports the accessor as a bare string, so a change from a column the action
-// cannot order by leaves the current sort alone rather than reaching the server as a bad param.
+// mantine-datatable reports the accessor as a bare string, so an unsortable column would otherwise
+// reach the server as a bad param.
 const isSortable = (accessor: string): accessor is LegalDocumentAcknowledgementSort['columnAccessor'] =>
-    accessor === 'fullName' || accessor === 'email' || accessor === 'ackedAt'
+    accessor === 'fullName' || accessor === 'email' || accessor === 'ackedAt' || accessor === 'lastLoginAt'
 
 const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
     { accessor: 'fullName', title: 'Name', sortable: true },
@@ -35,8 +35,6 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
     {
         accessor: 'acknowledgedVersionNumber',
         title: 'Version agreed',
-        // A user who has agreed to nothing is the point of the audit, so it reads as a word rather
-        // than the dash used for merely absent values.
         render: (row) => row.acknowledgedVersionNumber ?? 'None',
     },
     {
@@ -45,11 +43,19 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
         sortable: true,
         render: (row) => formatInstant(row.ackedAt),
     },
+    {
+        accessor: 'lastLoginAt',
+        title: 'Last login',
+        sortable: true,
+        // A dash, not "Never": the trail does not reach back to the start of the app, so an absent
+        // value means no record rather than no logins.
+        render: (row) => formatInstant(row.lastLoginAt),
+    },
 ]
 
 // Sorted server-side: the action builds the audience in memory from every user, so ordering it is
 // part of the read.
-const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
+const useAcknowledgements = (type: GlobalLegalDocumentType) => {
     const [sort, setSort] = useState<LegalDocumentAcknowledgementSort>(DEFAULT_SORT)
     const [page, setPage] = useState(1)
     const { data, isLoading } = useQuery({
@@ -61,12 +67,10 @@ const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
         const accessor = String(columnAccessor)
         if (!isSortable(accessor)) return
         setSort({ columnAccessor: accessor, direction })
-        // A re-sort reorders the whole audience, so the page the reader was on no longer means anything.
         setPage(1)
     }
 
-    // Paged in the browser: the action returns the audience in one read, so this bounds what is
-    // rendered rather than what is fetched.
+    // Paged in the browser: the action returns the whole audience in one read.
     const users = data?.users ?? []
     const start = (page - 1) * ACKNOWLEDGEMENTS_PAGE_SIZE
 
@@ -81,10 +85,9 @@ const useAcknowledgements = (type: EnforcedLegalDocumentType) => {
     }
 }
 
-// Every user in the app, with the version of this document they last agreed to. The audience is
-// derived rather than stored, so someone who has never agreed is a row with no version, not a
-// missing row.
-export const AcknowledgementsTable: FC<{ type: EnforcedLegalDocumentType }> = ({ type }) => {
+// The audience is derived rather than stored, so someone who has never agreed is a row with no
+// version, not a missing row.
+export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ type }) => {
     const { records, totalRecords, isLoading, sort, onSortStatusChange, page, setPage } = useAcknowledgements(type)
 
     return (

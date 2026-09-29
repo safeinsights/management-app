@@ -4,6 +4,7 @@ import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -16,13 +17,13 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
 
     const isApproved = statusChange.status === 'CODE-APPROVED' || statusChange.status === 'FILES-APPROVED'
 
-    const color = isApproved ? 'green.9' : 'red.9'
+    const color = isApproved ? semanticColor('success.text') : semanticColor('error.text')
     const statusDisplay = isApproved ? 'Approved' : 'Rejected'
 
     return (
         <Group c={color} gap="xs" align="center">
             {isApproved ? <CheckCircleIcon weight="fill" size={24} /> : <XCircleIcon weight="fill" size={24} />}
-            <Text fz="xs" fw={600} c={color}>
+            <Text fz="xs" fw={fontWeight.semibold} c={color}>
                 {statusDisplay} on {dayjs(statusChange.createdAt).format('MMM DD, YYYY')}
             </Text>
         </Group>
@@ -43,7 +44,6 @@ export const ApprovalStatus: FC<{
         return statusChange.status === statusPair[0] || statusChange.status === statusPair[1]
     })
 
-    //  check if any status change is CODE-REJECTED (since find returns first match)
     const codeRejectedStatusChange = job.statusChanges.find((statusChange) => statusChange.status === 'CODE-REJECTED')
 
     const finalStatusChange = statusChange ?? codeRejectedStatusChange

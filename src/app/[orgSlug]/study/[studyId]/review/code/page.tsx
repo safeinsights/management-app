@@ -1,14 +1,17 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderReviewerCodeStep } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
 
-// Read-only post-decision code step for the reviewer (DO), reached by walking back from the results
-// screen. renderReviewerCodeStep 404s if the study hasn't reached the code stage. Uses the shared
-// reviewerPageGuard so a non-reviewer is handled exactly as on /review and /review/proposal.
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Review study code' }
+}
+
+// Uses the shared reviewerPageGuard so a non-reviewer is handled exactly as on /review.
 export default async function StudyReviewCodePage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
     const { orgSlug, studyId } = await props.params
 
@@ -23,6 +26,6 @@ export default async function StudyReviewCodePage(props: { params: Promise<{ org
         raw,
         study,
         orgSlug,
-        dashboardHref: Routes.orgDashboard({ orgSlug }),
+        dashboardHref: Routes.dashboard,
     })
 }

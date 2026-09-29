@@ -73,8 +73,6 @@ describe('file-content-helpers', () => {
             expect(parseLogMessages('[{"message":"hello"}]')).toBeNull()
         })
 
-        // This viewer is selected by sniffing content, so a log-shaped result file would otherwise
-        // render as a two-column table with its remaining fields silently dropped.
         it('declines log-shaped entries carrying extra fields rather than dropping them', () => {
             expect(parseLogMessages('[{"timestamp":1,"message":"ok","estimate":42}]')).toBeNull()
         })

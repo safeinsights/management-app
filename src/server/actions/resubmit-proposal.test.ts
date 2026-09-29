@@ -1,5 +1,3 @@
-// OTTER-521: DB-backed tests for resubmitProposalAction. Uses the
-// studyProposalComment table (migration 1776200000001).
 import {
     actionResult,
     buildFeedback,
@@ -60,9 +58,7 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
         expect(updated.title).toBe('Updated title')
-        // submittedAt is intentionally NOT bumped on resubmit — the original
-        // first-submission timestamp is preserved; the studyProposalComment
-        // row carries the resubmission timestamp instead.
+        // submittedAt is deliberately not bumped; the studyProposalComment row carries it.
         expect(updated.submittedAt).toEqual(study.submittedAt)
         expect(new Date(updated.lastUpdatedAt).getTime()).toBeGreaterThan(
             new Date(beforeResubmit.lastUpdatedAt).getTime(),
@@ -83,7 +79,6 @@ describe('resubmitProposalAction', () => {
                 version: 2,
             }),
         )
-        // body is stored as Lexical JSON; the note words should round-trip
         expect(JSON.stringify(comments[0].body)).toContain('word1')
     })
 
@@ -215,7 +210,6 @@ describe('resubmitProposalAction', () => {
     })
 
     it('rejects when caller is not a member of the submitting lab', async () => {
-        // study belongs to lab A
         const { org: labA, user: ownerA } = await mockSessionWithTestData({ orgSlug: 'lab-A', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org: labA,
@@ -224,7 +218,6 @@ describe('resubmitProposalAction', () => {
             title: 'Other lab study',
         })
 
-        // a different user from lab B logs in and tries to resubmit it
         await mockSessionWithTestData({ orgSlug: 'lab-B', orgType: 'lab' })
 
         const result = await resubmitProposalAction({
@@ -256,7 +249,6 @@ describe('resubmitProposalAction', () => {
             title: 'Original title',
         })
 
-        // a second researcher in the same lab takes over the resubmission
         const { user: teammate } = await insertTestUser({ org })
         mockClerkSession({
             userId: teammate.id,
@@ -282,7 +274,6 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
         expect(updated.status).toBe('PENDING-REVIEW')
         expect(updated.title).toBe('Resubmitted by teammate')
-        // owner is preserved: researcherId stays the original creator
         expect(updated.researcherId).toBe(ownerA.id)
 
         const comment = await db
@@ -291,7 +282,6 @@ describe('resubmitProposalAction', () => {
             .where('studyId', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(comment.entryType).toBe('RESUBMISSION-NOTE')
-        // the note is attributed to whoever actually resubmitted, not the owner
         expect(comment.authorId).toBe(teammate.id)
     })
 
@@ -317,7 +307,6 @@ describe('resubmitProposalAction', () => {
                 orgType: 'lab',
             })
 
-        // teammate B resubmits first
         const { user: teammateB } = await insertTestUser({ org })
         loginAs(teammateB)
         actionResult(
@@ -328,18 +317,15 @@ describe('resubmitProposalAction', () => {
             }),
         )
 
-        // a third member C now finds the study already submitted (PENDING-REVIEW)
         const { user: teammateC } = await insertTestUser({ org })
         loginAs(teammateC)
 
-        // editing is no longer allowed (status flipped to PENDING-REVIEW)
         const editResult = await onUpdateDraftStudyAction({
             studyId: study.id,
             studyInfo: { title: 'Late edit by C' },
         })
         expect('error' in editResult).toBe(true)
 
-        // and a second resubmission is rejected
         const resubmitResult = await resubmitProposalAction({
             studyId: study.id,
             studyInfo: { title: 'Second resubmit by C' },
@@ -347,7 +333,6 @@ describe('resubmitProposalAction', () => {
         })
         expect('error' in resubmitResult).toBe(true)
 
-        // the study reflects only B's resubmission, and exactly one note was recorded
         const after = await db
             .selectFrom('study')
             .select(['status', 'title'])
@@ -366,12 +351,9 @@ describe('resubmitProposalAction', () => {
     })
 })
 
-// Any researcher in the submitting lab — not just the study's original
-// researcher — must be able to edit and resubmit a CHANGE-REQUESTED proposal.
 describe('lab co-author edit & resubmit', () => {
     it('lets a different researcher in the same lab save draft edits', async () => {
         const { org } = await mockSessionWithTestData({ orgSlug: 'lab-coauthor-draft', orgType: 'lab' })
-        // original author of the study
         const { user: originalAuthor } = await insertTestUser({ org })
         const { study } = await insertTestStudyJobData({
             org,
@@ -380,8 +362,6 @@ describe('lab co-author edit & resubmit', () => {
             title: 'Original',
         })
 
-        // Caller is the lab member from mockSessionWithTestData — a different
-        // researcher than the study owner.
         actionResult(
             await onUpdateDraftStudyAction({
                 studyId: study.id,
@@ -395,8 +375,6 @@ describe('lab co-author edit & resubmit', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(after.title).toBe('Co-author edited')
-        // researcherId should remain the original author; edits are credited to
-        // the lab, not the saving user.
         expect(after.researcherId).toBe(originalAuthor.id)
     })
 
@@ -430,7 +408,6 @@ describe('lab co-author edit & resubmit', () => {
     })
 
     it('still rejects callers from a different lab', async () => {
-        // Study is owned by lab-cross-author-A
         const { org: labA, user: ownerA } = await mockSessionWithTestData({
             orgSlug: 'lab-cross-author-A',
             orgType: 'lab',
@@ -442,16 +419,13 @@ describe('lab co-author edit & resubmit', () => {
             title: 'Lab A study',
         })
 
-        // Switch session to a user in lab-cross-author-B
         await mockSessionWithTestData({ orgSlug: 'lab-cross-author-B', orgType: 'lab' })
 
         const result = await onUpdateDraftStudyAction({
             studyId: study.id,
             studyInfo: { title: 'Cross-lab hijack' },
         })
-        // Cross-lab attempt now fails loudly via the 0-row UPDATE check;
-        // without that the client would render the action as success while
-        // the row was never touched.
+        // Fails loudly via the 0-row UPDATE check; otherwise the client renders success.
         expect('error' in result).toBe(true)
         const unchanged = await db
             .selectFrom('study')
@@ -511,8 +485,6 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // The draft is serialized Lexical JSON since OTTER-658, so the schema bound is
-        // 100_000 chars; a legitimate heavily-formatted note can exceed the old 10kb limit.
         const tooLong = 'x'.repeat(100_001)
         const result = await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
         expect(result).toHaveProperty('error')
@@ -529,14 +501,12 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
-        // Switch session to a user in a different lab and try to save
         await mockSessionWithTestData({ orgSlug: 'lab-prop-note-cross-B', orgType: 'lab' })
         const result = await saveProposalResubmissionNoteDraftAction({
             studyId: study.id,
             note: 'cross-lab attempt',
         })
-        // Without the 0-row UPDATE check the client would show "All changes
-        // saved" while the note was never persisted.
+        // Without the 0-row check the client would show "All changes saved" for nothing.
         expect('error' in result).toBe(true)
 
         const row = await db
@@ -569,7 +539,6 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             researcherId: user.id,
             studyStatus: 'CHANGE-REQUESTED',
         })
-        // Seed an in-progress draft note
         actionResult(await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: 'will-be-cleared' }))
 
         const NOTE_50_WORDS = Array.from({ length: 50 }, (_, i) => `word${i}`).join(' ')

@@ -21,7 +21,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction invites a new user', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return no existing user for this email (new user)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({ data: [], totalCount: 0 }),
@@ -47,7 +46,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction blocks invite when user is already in org (merged email)', async () => {
         const { org, user } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return the session user when searching by email (simulating a merged email)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({
@@ -75,7 +73,6 @@ describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction allows invite when user exists in Clerk but not in this org', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Mock Clerk to return a different user (not in this org)
         mockClerkClient.mockResolvedValue({
             users: {
                 getUserList: vi.fn().mockResolvedValue({
@@ -127,8 +124,8 @@ describe('Admin Users Actions', () => {
         expect(pendingUsersResult).toHaveLength(origCount + 2)
     })
 
-    // Each row's `id` IS the live invite token, so a leak lets an outsider claim a seat in the org.
-    // Used to sit on the unconditioned `view Org`; now on `invite User` (OTTER-724 / MA-6).
+    // Each row's id is the live invite token, so a leak lets an outsider claim a seat in the org
+    // (OTTER-724 / MA-6).
     it('getPendingUsersAction denies a non-admin member of the org', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false })
         await db

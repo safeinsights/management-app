@@ -1,53 +1,51 @@
-import { type ProposalFormValues, WORD_LIMITS } from './schema'
+import { CHARACTER_LIMITS, FIELD_TITLES, type ProposalFormValues } from './schema'
 
 export interface EditableTextField {
     label: string
     id: keyof ProposalFormValues
     description: string
-    placeholder: string
-    maxWords: number
+    maxCharacters: number
+    // Per-field, from the Figma box heights less the toolbar row, which sits inside the box
+    // (OTTER-691).
+    contentHeight: number
     required?: boolean
 }
 
 export const editableTextFields: EditableTextField[] = [
     {
-        label: 'Research question(s)',
+        label: FIELD_TITLES.researchQuestions,
         id: 'researchQuestions',
-        maxWords: WORD_LIMITS.researchQuestions,
+        maxCharacters: CHARACTER_LIMITS.researchQuestions,
+        contentHeight: 205,
         description:
             'Describe the primary research question(s) your study aims to answer. Be as specific as possible to support review and alignment with available data.',
-        placeholder:
-            'Ex. How do textbook highlights correspond to student performance on assessments when the assessment directly is grounded in the highlighted content?',
         required: true,
     },
     {
-        label: 'Project summary',
+        label: FIELD_TITLES.projectSummary,
         id: 'projectSummary',
-        maxWords: WORD_LIMITS.projectSummary,
+        maxCharacters: CHARACTER_LIMITS.projectSummary,
+        contentHeight: 505,
         description:
             'Briefly explain your planned study, including the target population, research design, methods, and any interventions or comparisons.',
-        placeholder:
-            'Ex. This secondary research hopes to examine how textbook highlighting relates to student performance using archival data from your online homework system.',
         required: true,
     },
     {
-        label: 'Impact',
+        label: FIELD_TITLES.impact,
         id: 'impact',
-        maxWords: WORD_LIMITS.impact,
+        maxCharacters: CHARACTER_LIMITS.impact,
+        contentHeight: 205,
         description:
             'What are the potential outcomes of this study? Describe how your findings could improve learning experiences, teaching practices, educational policy, etc.',
-        placeholder:
-            'Ex. How students encode information during highlighting and what impact it has on subsequent retention has a contentious literature.',
         required: true,
     },
     {
-        label: 'Additional notes or requests',
+        label: FIELD_TITLES.additionalNotes,
         id: 'additionalNotes',
-        maxWords: WORD_LIMITS.additionalNotes,
+        maxCharacters: CHARACTER_LIMITS.additionalNotes,
+        contentHeight: 105,
         description:
             'Add any other information, constraints, or questions for the Data Partner. This might include timing, special requirements, references, or related work.',
-        placeholder:
-            'Ex. This project is based on grants, so we are operating under specific timelines, reporting requirements, and budget constraints.',
         required: false,
     },
 ]

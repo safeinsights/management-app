@@ -1,6 +1,8 @@
 import { db } from '@/database'
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
+import { isCurrentCodeRound } from '@/server/db/code-round'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -10,6 +12,10 @@ const schema = z.object({
     jobId: z.string(),
     status: z.enum(['CODE-SUBMITTED', 'CODE-SCANNED', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
+    // OTTER-779. Optional on purpose: a build started before this shipped carries no round, and
+    // refusing every one of those would drop a scan of the code on screen. Coerced because the
+    // round crosses a repository boundary, as a value the scanner merges into its own payload.
+    round: z.coerce.number().int().positive().optional(),
 })
 
 const LOG_FILE_TYPES: Partial<Record<string, { encrypted: FileType; plaintext: FileType }>> = {
@@ -36,6 +42,21 @@ export const POST = createWebhookHandler({
             ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
 
+        // A scan of code that has since been replaced would otherwise be stored and shown as this
+        // round's verdict. Answered 200 all the same: the build did its work, and a retry would
+        // only deliver the same stale result again.
+        //
+        // A delivery that names no round is read as the first one, which is the only round a build
+        // predating this change can still be current for. That keeps the guard closed against a
+        // caller that omits the round, rather than leaving it permanently disabled for one.
+        const round = body.round ?? 1
+        if (!(await isCurrentCodeRound(job.jobId, round))) {
+            logger.warn(
+                `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
+            )
+            return
+        }
+
         const logFileTypes = LOG_FILE_TYPES[body.status]
         if (logFileTypes && body.plaintextLog) {
             const encrypted = await encryptAndStoreLog({
@@ -45,9 +66,8 @@ export const POST = createWebhookHandler({
                 job,
             })
 
-            // The two halves of one scan log move together. If the encrypted half was refused because
-            // its keys are already shared, replacing the plaintext half would leave the reviewer's
-            // parsed statuses reporting different findings than the log the researcher can decrypt.
+            // Both halves move together: replacing only the plaintext would show the reviewer
+            // findings from a log the researcher cannot open.
             if (!encrypted || encrypted.stored) {
                 const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
                     type: 'text/plain',
@@ -60,12 +80,8 @@ export const POST = createWebhookHandler({
             }
         }
 
-        // CODE-SUBMITTED is recorded by the submission action (markCodeSubmitted), not by the scanner:
-        // the scan trigger sends no ON_START_PAYLOAD (see buildTriggerScanForStudyJobCommandInput), so
-        // this webhook only ever reports CODE-SCANNED / JOB-ERRORED in practice. A stray CODE-SUBMITTED
-        // echo from an older scanner would corrupt the append-only submission log (each row is a real
-        // round), so reject it rather than dropping-as-duplicate (the old dedup is wrong now that a
-        // change-requested resubmit legitimately appends a second CODE-SUBMITTED).
+        // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
+        // append-only submission log.
         if (body.status === 'CODE-SUBMITTED') return
 
         const last = await db

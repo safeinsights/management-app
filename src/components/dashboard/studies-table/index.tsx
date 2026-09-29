@@ -24,19 +24,20 @@ import {
     StudyRow as StudyRowType,
 } from './types'
 
+// Key prefixes of the two researcher tables, for writes that change what a researcher row shows.
+export const RESEARCHER_STUDIES_QUERY_KEYS = { user: 'user-researcher-studies', org: 'researcher-studies' } as const
+
 function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string): string[] {
     if (scope === 'org') {
-        return audience === 'researcher' ? ['researcher-studies', orgSlug] : ['org-studies', orgSlug]
+        return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.org, orgSlug] : ['org-studies', orgSlug]
     }
-    // User scope
-    return audience === 'researcher' ? ['user-researcher-studies'] : ['user-reviewer-studies', userId || '']
+    return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.user] : ['user-reviewer-studies', userId || '']
 }
 
 function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userId: string): StudyRowType[] {
     if (audience === 'researcher') {
         return studies.filter((study) => study.researcherId === userId)
     }
-    // Reviewer: show studies where user is assigned OR has taken reviewer actions
     return studies.filter(
         (study) =>
             study.reviewerId === userId ||
@@ -47,11 +48,8 @@ function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userI
 }
 
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
-    // Two independent reasons to keep polling:
-    //  - study-level: a researcher is awaiting a DO decision (PENDING-REVIEW typically has no job
-    //    yet, so the job-level check below can't catch it). Reviewers are excluded because
-    //    PENDING-REVIEW is their own next action — re-fetching won't change until they act.
-    //  - job-level: an in-flight (non-final) job, regardless of audience or study status.
+    // PENDING-REVIEW usually has no job yet, so the job check alone misses a researcher awaiting
+    // a decision; reviewers are excluded because it is their own next action.
     return studies.some(
         (study) =>
             (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
@@ -73,11 +71,9 @@ export function StudiesTable({
     const { session } = useSession()
     const userId = session?.user.id
 
-    // For researcher user tables, we need the lab org slug for the "New Study" button
     const labOrg = session ? getLabOrg(session) : null
     const effectiveOrgSlug = scope === 'user' && audience === 'researcher' ? labOrg?.slug || orgSlug : orgSlug
 
-    // Select the appropriate fetch function and query key
     const queryKey = getQueryKey(audience, scope, orgSlug, userId)
 
     const fetchStudies = async () => {
@@ -105,17 +101,14 @@ export function StudiesTable({
         refetchOnWindowFocus: false,
     })
 
-    // For researcher user scope, we need the lab org - return null if not available
     if (scope === 'user' && audience === 'researcher' && !labOrg) {
         return null
     }
 
-    // Loading state
     if (isLoading) {
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    // Apply client-side filtering for user scope
     const displayedStudies =
         scope === 'user' && userId
             ? filterStudiesForUser(studies as StudyRowType[], audience, userId)

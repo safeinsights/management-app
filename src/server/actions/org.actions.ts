@@ -7,13 +7,8 @@ import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
-// Mass-assignment path: updateOrgSchema is a discriminated union of the CREATE schemas, so it
-// carries `type`, `slug`, `email` and `settings`. `settings.publicKey` is the RS256 key that
-// verifies an enclave's M2M API bearer tokens — an org admin who could overwrite it would forge
-// API JWTs as that enclave, and flipping `type` lab->enclave grants reviewer abilities. So this is
-// gated on ('manage','all') rather than the org-admin-scoped ('update','Org'). Its only caller is
-// the SI-admin console (EditOrgForm), which already required SI staff. Org admins edit their own
-// org through updateOrgSettingsAction below, which whitelists name + description (OTTER-724 / MA-5).
+// Mass-assignment path: overwriting settings.publicKey would let an org admin forge M2M API JWTs,
+// and flipping type lab->enclave grants reviewer abilities — hence ('manage','all') (MA-5).
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
     .requireAbilityTo('manage', 'all')
@@ -23,7 +18,7 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
 
 export const insertOrgAction = new Action('insertOrgAction')
     .params(orgSchema)
-    .middleware(async ({ params: { slug } }) => ({ orgSlug: slug })) // translate params for requireAbility below
+    .middleware(async ({ params: { slug } }) => ({ orgSlug: slug }))
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
@@ -40,9 +35,8 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
             .execute()
     })
 
-// Returns EVERY org's email and settings (including enclave publicKeys). Its only callers live in
-// the SI-admin console, whose layout applies no admin gate, so this check is the sole gate
-// (OTTER-724 / MA-6).
+// Returns every org's email and settings, including enclave publicKeys; the SI-admin console
+// layout applies no gate, so this check is the only one (MA-6).
 export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
     .requireAbilityTo('manage', 'all')
     .handler(async ({ db }) => {
@@ -73,8 +67,7 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
-// Cross-org by design: a lab researcher picks the enclave to submit to, so this must list enclaves
-// the caller does not belong to. Selects catalog columns only — keep it that way (OTTER-724 / MA-6).
+// Cross-org by design. Selects catalog columns only — keep it that way (MA-6).
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
@@ -103,8 +96,7 @@ type LanguageOption = {
     commandLines: Record<string, string>
 }
 
-// Cross-org by design, like getStudyCapableEnclaveOrgsAction: after choosing an enclave, the
-// researcher needs its languages and starter-code downloads to begin a proposal (OTTER-724 / MA-6).
+// Cross-org by design: a researcher needs the chosen enclave's languages to begin a proposal (MA-6).
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string().min(1) }))
@@ -155,9 +147,8 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
         }
     })
 
-// Cross-org starter-code download is the intended researcher flow, so this stays on `view Orgs`.
-// The admin console's editor view of the same files is fetchStarterCodeAction, which is scoped to
-// that org's admins via `view OrgConfig` (OTTER-724 / MA-6).
+// Cross-org download is the intended researcher flow, so this stays on `view Orgs`; the admin
+// console's editor view is fetchStarterCodeAction, scoped via `view OrgConfig` (MA-6).
 export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string(), language: z.string() }))
@@ -192,10 +183,8 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         return { starterCodeUrls }
     })
 
-// Sits on the unconditioned `view Org`, so the row read happens in the HANDLER and is narrowed to
-// PublicOrg. It previously selected the whole row in MIDDLEWARE, which both handed `settings`
-// (an enclave's publicKey) and `email` to any authenticated caller and echoed them back inside the
-// permission_denied message to a caller who was refused (OTTER-724 / MA-6).
+// On the unconditioned `view Org`, so the row is read in the HANDLER and narrowed to PublicOrg:
+// a middleware read would echo settings and email back in the permission_denied message (MA-6).
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(orgIdFromSlug)
@@ -211,9 +200,8 @@ export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
 
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
-// The org-admin-scoped update path. The field list here is the whitelist: it is the reason
-// ('update','Org') can safely be granted to every org admin, so keep `type`, `slug`, `email` and
-// `settings` out of it — those belong to updateOrgAction's SI-admin path (OTTER-724 / MA-5).
+// The field list is the whitelist that makes ('update','Org') safe for every org admin: keep type,
+// slug, email and settings out of it (MA-5).
 export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { performsMutations: true })
     .params(
         z.object({
@@ -227,7 +215,6 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
 
-        // If both DB and Clerk updates are successful
         revalidatePath(`/admin/team/${orgSlug}/settings`)
         revalidatePath(`/admin/team/${orgSlug}`)
 
@@ -252,9 +239,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
             .innerJoin('user', 'user.id', 'orgUser.userId')
             .leftJoin(
-                (
-                    eb, // join to the latest activity from audit
-                ) =>
+                (eb) =>
                     eb
                         .selectFrom('audit')
                         .distinctOn('audit.userId')

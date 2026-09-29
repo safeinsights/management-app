@@ -1,5 +1,7 @@
 'use client'
 
+import { semanticColor } from '@/theme/tokens'
+import type { ReactNode } from 'react'
 import { Group, Stack, Title } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
@@ -12,6 +14,7 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 import type { OrgType } from '@/database/types'
 
 interface ResearcherProfileViewProps {
+    header: ReactNode
     orgSlug: string
     studyId: string
     profileData: ResearcherProfileData
@@ -20,14 +23,15 @@ interface ResearcherProfileViewProps {
 
 const noop = async () => {}
 
-export function ResearcherProfileView({ orgSlug, studyId, profileData, orgType }: ResearcherProfileViewProps) {
+export function ResearcherProfileView({ header, orgSlug, studyId, profileData, orgType }: ResearcherProfileViewProps) {
     const studyParams = { orgSlug, studyId }
     const backHref = orgType === 'lab' ? Routes.studySubmitted(studyParams) : Routes.studyReview(studyParams)
 
     return (
         <Stack px="xl" gap="xl">
-            <Link href={backHref} c="blue.7">
-                <Group gap={4} display="inline-flex">
+            {header}
+            <Link href={backHref} c={semanticColor('link.default')}>
+                <Group gap="xxs" display="inline-flex">
                     <ArrowLeftIcon size={16} />
                     Back to study proposal
                 </Group>

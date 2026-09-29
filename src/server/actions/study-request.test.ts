@@ -9,16 +9,25 @@ import {
     expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
+    insertTestStudyAgreement,
     insertTestStudyData,
     insertTestStudyJobData,
+    seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
     mockSessionWithTestData,
+    renameTestOrg,
     setTestStudyStatus,
     writeWorkspaceFiles,
+    insertTestUser,
 } from '@/tests/unit.helpers'
+import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { mockClient } from 'aws-sdk-client-mock'
+import { deliver } from '@/server/mailgun'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     getDraftStudyAction,
     onDeleteStudyAction,
@@ -26,12 +35,18 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+    resubmitProposalAction,
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
+import {
+    DATASETS_REQUIRED_ERROR,
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { getStudyReviewForJob } from '@/server/db/queries'
+import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
@@ -47,10 +62,16 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
+
+const deliverMock = deliver as unknown as Mock
+
 const workspaceRoots: string[] = []
 
-// Append a status row to a job. Rows inserted later get higher v7 ids and sort ahead in statusChanges
-// (createdAt desc, id desc), so this reproduces a late webhook status landing on top of the decision.
 const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
     db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
 
@@ -64,10 +85,8 @@ describe('Request Study Actions', () => {
     })
 
     it('onSaveDraftStudyAction creates a draft study', async () => {
-        // create the enclave that owns the data
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-draft' })
 
-        // create its lab counterpart
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
@@ -97,9 +116,6 @@ describe('Request Study Actions', () => {
         expect(study?.status).toEqual('DRAFT')
     })
 
-    // OTTER-719: submittingOrgSlug is a client param and `create Study` is unconditioned by design
-    // (a new draft has no submittedByOrgId yet), so the handler is the only place this can be checked.
-    // Without it a caller could stamp another lab's id onto a study, handing that lab IDE access to it.
     it('onSaveDraftStudyAction rejects a submitting lab the caller does not belong to', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'foreign-submit' })
         const victimLab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -125,14 +141,11 @@ describe('Request Study Actions', () => {
     })
 
     it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {
-        // create the enclave that owns the data
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-submit' })
 
-        // create its lab counterpart
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-        // First create a draft
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
@@ -140,12 +153,12 @@ describe('Request Study Actions', () => {
                     title: 'Test Study',
                     piName: 'Test PI',
                     language: 'R' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
         )
 
-        // Verify it's a draft
         let study = await db
             .selectFrom('study')
             .selectAll('study')
@@ -153,7 +166,6 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study?.status).toEqual('DRAFT')
 
-        // Submit the draft - this creates the job but doesn't change status
         const submitResult = actionResult(
             await onSubmitDraftStudyAction({
                 studyId: draftResult.studyId,
@@ -165,16 +177,56 @@ describe('Request Study Actions', () => {
         expect(submitResult.studyId).toEqual(draftResult.studyId)
         expect(submitResult.studyJobId).toBeDefined()
 
-        // Verify status is still DRAFT after onSubmitDraftStudyAction
         study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
         expect(study?.status).toEqual('DRAFT')
 
-        // Finalize the submission - this changes status to PENDING-REVIEW
         actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
-        // Verify it's now PENDING-REVIEW
         study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
         expect(study?.status).toEqual('PENDING-REVIEW')
+    })
+
+    // The worker reads the round from its own connection, so a message sent from inside the
+    // transaction names code that is not visible yet and the round is discarded (OTTER-799).
+    it('finalizeStudySubmissionAction queues the review only once the submission has committed', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-review-after-commit' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: {
+                    title: 'Queued after commit',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        const { studyJobId } = actionResult(
+            await onSubmitDraftStudyAction({ studyId: draft.studyId, mainCodeFileName: 'main.R', codeFileNames: [] }),
+        )
+
+        const visibleWhenSent: boolean[] = []
+        const sqsMock = mockClient(SQSClient)
+        sqsMock.on(SendMessageCommand).callsFake(async () => {
+            const submitted = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', studyJobId)
+                .where('status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirst()
+            visibleWhenSent.push(submitted != null)
+            return {}
+        })
+        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
+
+        vi.unstubAllEnvs()
+        sqsMock.restore()
+        expect(visibleWhenSent).toEqual([true])
     })
 
     it('submission flow works with Python language', async () => {
@@ -182,7 +234,6 @@ describe('Request Study Actions', () => {
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-        // Create a draft with Python
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
@@ -190,12 +241,12 @@ describe('Request Study Actions', () => {
                     title: 'Python Study',
                     piName: 'Test PI',
                     language: 'PYTHON' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
         )
 
-        // Submit the draft - creates job but doesn't change status
         const submitResult = actionResult(
             await onSubmitDraftStudyAction({
                 studyId: draftResult.studyId,
@@ -207,7 +258,6 @@ describe('Request Study Actions', () => {
         expect(submitResult.studyId).toBeDefined()
         expect(submitResult.studyJobId).toBeDefined()
 
-        // Finalize the submission
         actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
         const study = await db
@@ -221,7 +271,6 @@ describe('Request Study Actions', () => {
 
     it('onSubmitDraftStudyAction rejects non-draft studies', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        // insertTestStudyData creates a study with PENDING-REVIEW status
         const { studyId } = await insertTestStudyData({ org })
 
         const result = await onSubmitDraftStudyAction({
@@ -230,7 +279,6 @@ describe('Request Study Actions', () => {
             codeFileNames: [],
         })
 
-        // The action returns an error object for non-draft studies
         expect(result).toHaveProperty('error')
         expect((result as { error: string }).error).toMatch(/expected status DRAFT|not found/)
     })
@@ -251,7 +299,6 @@ describe('Request Study Actions', () => {
         const { org: labA } = await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-A', orgType: 'lab' })
         const { studyId } = await insertTestStudyData({ org: labA })
 
-        // A member of a different lab must not be able to delete labA's study by id.
         await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-B', orgType: 'lab' })
         const result = await onDeleteStudyAction({ studyId })
         expect(result).toHaveProperty('error')
@@ -260,7 +307,80 @@ describe('Request Study Actions', () => {
         expect(study?.id).toBe(studyId)
     })
 
-    // DRAFT → PENDING-REVIEW is a first-time proposal submission, sends "new study proposal" email
+    const submitDraftProposal = async (slugPrefix: string) => {
+        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
+        await insertTestUser({ org: { id: siOrg.id, slug: siOrg.slug, type: 'enclave' }, isAdmin: true })
+        const enclave = await insertTestOrg({ type: 'enclave', slug: slugPrefix })
+        await insertTestUser({ org: { id: enclave.id, slug: enclave.slug, type: 'enclave' } })
+        const lab = await insertTestOrg({ slug: `${slugPrefix}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: {
+                    title: 'Agreement Email Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        return draft.studyId
+    }
+
+    const SLA_NOTICE = expect.objectContaining({ template: 'vb - sla notice' })
+
+    // SHRMP-328: submission, not approval, is when SafeInsights is asked to draw the agreement up.
+    it('finalizeStudySubmissionAction asks SafeInsights to prepare the Study Agreement', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    // Resubmission after CHANGE-REQUESTED comes back through this same action.
+    it('finalizeStudySubmissionAction asks for the Study Agreement once, not again on resubmission', async () => {
+        const studyId = await submitDraftProposal('sla-once')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+        expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+
+        deliverMock.mockClear()
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
+        const studyId = await submitDraftProposal('sla-already-drafted')
+        await insertTestStudyAgreement({ studyId, published: false })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    it('finalizeStudySubmissionAction asks for no Study Agreement on a test study', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit-test')
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', studyId).execute()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
     it('finalizeStudySubmissionAction calls onStudyCreated for DRAFT studies', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-evt-draft' })
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -269,7 +389,12 @@ describe('Request Study Actions', () => {
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Draft Event Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -292,8 +417,6 @@ describe('Request Study Actions', () => {
         )
     })
 
-    // Proposal finalize is proposal-stage only; code re-submission goes through
-    // submitStudyCodeAction/resubmitStudyCodeAction and never re-claims the proposal.
     it('finalizeStudySubmissionAction rejects APPROVED studies', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'APPROVED' })
@@ -310,18 +433,69 @@ describe('Request Study Actions', () => {
         expect(unchanged.status).toBe('APPROVED')
     })
 
+    it('finalizeStudySubmissionAction rejects a DRAFT whose title was never set', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-untitled' })
+        await db.updateTable('study').set({ title: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { title: STUDY_TITLE_BLANK_ERROR } })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
+    // A draft saved before datasets moved to Step 1 has none, and Step 2 cannot add them (OTTER-803).
+    it('finalizeStudySubmissionAction rejects a DRAFT with no datasets', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-no-datasets' })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { datasets: DATASETS_REQUIRED_ERROR } })
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
+    it('finalizeStudySubmissionAction keeps the datasets Step 1 stored', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'finalize-keeps-datasets',
+            studyInfo: { datasets: ['ds-step-1'] },
+        })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: { piName: 'PI' } }))
+
+        const row = await db
+            .selectFrom('study')
+            .select(['status', 'datasets'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(row.status).toBe('PENDING-REVIEW')
+        expect(row.datasets).toEqual(['ds-step-1'])
+    })
+
     describe('OpenStax Proposal Flow (Step 2)', () => {
         it('creates draft with step 1 fields, updates with proposal fields, and submits', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const step1Datasets = ['openstax-calculus', 'openstax-physics']
 
-            // Step 1: Create draft with org and language only (OpenStax step 1)
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
                     studyInfo: {
+                        title: 'Set on Step 1',
                         language: 'PYTHON' as const,
+                        datasets: step1Datasets,
                     },
                     submittingOrgSlug: lab.slug,
                 }),
@@ -329,7 +503,6 @@ describe('Request Study Actions', () => {
 
             expect(draftResult.studyId).toBeDefined()
 
-            // Drafts persist a NULL title until the researcher fills one in.
             let study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -337,13 +510,12 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
-            expect(study?.title).toBeNull()
+            expect(study?.title).toEqual('Set on Step 1')
+            expect(study?.datasets).toEqual(step1Datasets)
 
-            // Step 2: Update with proposal fields
             const proposalFields = {
                 title: 'Impact of Highlighting on Learning',
                 piName: 'Dr. Research Lead',
-                datasets: ['openstax-calculus', 'openstax-physics'],
                 researchQuestions: lexicalJson('How does highlighting affect retention?'),
                 projectSummary: lexicalJson('This study examines highlighting patterns.'),
                 impact: lexicalJson('Findings will inform textbook design.'),
@@ -357,7 +529,6 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            // Verify proposal fields saved
             study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -365,17 +536,15 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.title).toEqual(proposalFields.title)
             expect(study?.piName).toEqual(proposalFields.piName)
-            expect(study?.datasets).toEqual(proposalFields.datasets)
+            expect(study?.datasets).toEqual(step1Datasets)
             expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
             expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
             expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))
             expect(study?.additionalNotes).toEqual(JSON.parse(proposalFields.additionalNotes))
             expect(study?.status).toEqual('DRAFT')
 
-            // Step 3: Finalize submission (no code upload in OpenStax flow)
             actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
-            // Verify final state
             study = await db
                 .selectFrom('study')
                 .selectAll('study')
@@ -429,9 +598,8 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org })
+            const { study } = await insertTestStudyOnly({ org, datasets: ['test-dataset'] })
 
-            // Force the test study into CHANGE-REQUESTED status (insertTestStudyOnly defaults to APPROVED)
             await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
             const result = actionResult(await finalizeStudySubmissionAction({ studyId: study.id }))
@@ -450,7 +618,6 @@ describe('Request Study Actions', () => {
             const labA = await insertTestOrg({ slug: `${enclave.slug}-lab-a`, type: 'lab' })
             const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
 
-            // Lab A user creates the draft.
             await mockSessionWithTestData({ orgSlug: labA.slug, orgType: 'lab' })
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
@@ -460,7 +627,6 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            // Lab B user (no membership in lab A) tries to finalize.
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             const result = await finalizeStudySubmissionAction({ studyId: draftResult.studyId })
 
@@ -475,10 +641,9 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, datasets: ['test-dataset'] })
             await setTestStudyStatus(study.id, 'DRAFT')
 
-            // Simulate Hocuspocus-persisted Y.Doc rows accumulated during the editing session.
             await db
                 .insertInto('yjsDocument')
                 .values([
@@ -508,7 +673,6 @@ describe('Request Study Actions', () => {
                 .where('studyId', '=', study.id)
                 .execute()
             const remainingNames = remaining.map((r) => r.name).sort()
-            // Proposal docs gone; review-feedback row untouched (DO submit owns that one).
             expect(remainingNames).toEqual([`review-feedback-${study.id}-v1`])
         })
 
@@ -519,7 +683,6 @@ describe('Request Study Actions', () => {
             const before = new Date('2026-01-01T00:00:00Z')
             const after = new Date('2026-01-01T00:00:10Z')
 
-            // Stale row from before the captured submit timestamp; should be deleted.
             await db
                 .insertInto('yjsDocument')
                 .values({
@@ -530,7 +693,6 @@ describe('Request Study Actions', () => {
                 })
                 .execute()
 
-            // Fresh row from a fast reopen-and-edit cycle; should survive the bounded purge.
             await db
                 .insertInto('yjsDocument')
                 .values({
@@ -559,8 +721,6 @@ describe('Request Study Actions', () => {
 
             await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
 
-            // Second user in the same lab updates the draft. mockSessionWithTestData
-            // creates a fresh user; the lab-membership middleware should allow the edit.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
             actionResult(
@@ -585,7 +745,6 @@ describe('Request Study Actions', () => {
                 studyInfo: { title: 'Original DRAFT' },
             })
 
-            // Second user in the same lab.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             actionResult(
                 await onUpdateDraftStudyAction({
@@ -650,6 +809,261 @@ describe('Request Study Actions', () => {
         })
     })
 
+    describe('study title length rules (OTTER-690, OTTER-737)', () => {
+        const OVER_LIMIT = 'a'.repeat(61)
+
+        it('onSaveDraftStudyAction rejects a title over 60 characters', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-cap-create-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-cap-create-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                submittingOrgSlug: lab.slug,
+                studyInfo: { title: OVER_LIMIT, language: 'R' as const },
+            })
+
+            expect('error' in result).toBe(true)
+        })
+
+        it('onSaveDraftStudyAction rejects a create with no usable title', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-required-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-required-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const blank = await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                submittingOrgSlug: lab.slug,
+                studyInfo: { title: '   ', language: 'R' as const },
+            })
+            expect('error' in blank).toBe(true)
+
+            const untitled = await db
+                .selectFrom('study')
+                .select('id')
+                .where('submittedByOrgId', '=', lab.id)
+                .executeTakeFirst()
+            expect(untitled).toBeUndefined()
+        })
+
+        it('onUpdateDraftStudyAction rejects a cross-lab update without disclosing the stored title', async () => {
+            const { enclave, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'title-cap-cross-lab',
+                studyInfo: { title: 'LabA Draft' },
+            })
+            const labB = await insertTestOrg({ slug: `${enclave.slug}-lab-b`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
+
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect(result).toHaveProperty('error')
+            expect(result).not.toMatchObject({ error: expect.objectContaining({ title: expect.any(String) }) })
+            expect(JSON.stringify(result)).not.toContain('LabA Draft')
+
+            const after = await db
+                .selectFrom('study')
+                .select(['title'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(after.title).toBe('LabA Draft')
+        })
+
+        it('onSaveDraftStudyAction accepts a title at exactly 60 characters', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'title-cap-ok-enclave' })
+            const lab = await insertTestOrg({ slug: 'title-cap-ok-lab', type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const { studyId } = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    submittingOrgSlug: lab.slug,
+                    studyInfo: { title: 'b'.repeat(60), language: 'R' as const },
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('b'.repeat(60))
+        })
+
+        it('onUpdateDraftStudyAction rejects an over-limit title on a DRAFT row', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-draft' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('Test draft')
+        })
+
+        it('onUpdateDraftStudyAction accepts an over-limit title on a CHANGE-REQUESTED row', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-update-cr' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: OVER_LIMIT } }))
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe(OVER_LIMIT)
+        })
+
+        it('onUpdateDraftStudyAction saves other fields on a row whose stored title predates the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-legacy-row' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId,
+                    studyInfo: { title: OVER_LIMIT, projectSummary: lexicalJson('Revised summary') },
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select(['title', 'projectSummary'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.projectSummary).toEqual(JSON.parse(lexicalJson('Revised summary')))
+            expect(study.title).toBe(OVER_LIMIT)
+        })
+
+        it('resubmitProposalAction rejects an over-limit title', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: OVER_LIMIT, piName: 'PI', piUserId: user.id },
+                resubmissionNote: buildFeedback(20),
+            })
+
+            expect('error' in result).toBe(true)
+        })
+
+        it('finalizeStudySubmissionAction rejects an over-limit title', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await finalizeStudySubmissionAction({ studyId, studyInfo: { title: OVER_LIMIT } })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        it('finalizeStudySubmissionAction rejects an over-limit stored title when none is submitted', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-finalize-omit' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await db.updateTable('study').set({ title: OVER_LIMIT }).where('id', '=', studyId).execute()
+
+            const result = await finalizeStudySubmissionAction({ studyId })
+
+            expect(result).toEqual({ error: { title: STUDY_TITLE_OVER_LIMIT_ERROR } })
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('DRAFT')
+        })
+
+        it('accepts a title only pushed over the cap by whitespace at its ends', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-whitespace' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: `  ${'d'.repeat(60)}  ` } }))
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe('d'.repeat(60))
+        })
+
+        it('resubmitProposalAction rejects a resubmission note over the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const result = await resubmitProposalAction({
+                studyId,
+                studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+
+            expect('error' in result).toBe(true)
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('CHANGE-REQUESTED')
+        })
+
+        it('resubmitProposalAction accepts a resubmission note at exactly the cap', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'note-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: 'Fine title', piName: 'PI', piUserId: user.id },
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.status).toBe('PENDING-REVIEW')
+        })
+
+        it('resubmitProposalAction accepts a title at exactly 60 characters', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'title-cap-resubmit-ok' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            const { user } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const atLimit = 'c'.repeat(60)
+
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: atLimit, piName: 'PI', piUserId: user.id },
+                    resubmissionNote: buildFeedback(20),
+                }),
+            )
+
+            const study = await db
+                .selectFrom('study')
+                .select('title')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+            expect(study.title).toBe(atLimit)
+        })
+    })
+
     describe('getDraftStudyAction (OTTER-497)', () => {
         it('returns the draft for the original creator on DRAFT and CHANGE-REQUESTED', async () => {
             const { lab, studyId } = await createTestProposalDraft({
@@ -677,7 +1091,6 @@ describe('Request Study Actions', () => {
                 studyInfo: { title: 'Teammate Draft' },
             })
 
-            // Switch to a different user in the same lab.
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             const onDraft = actionResult(await getDraftStudyAction({ studyId }))
             expect(onDraft.id).toBe(studyId)
@@ -702,6 +1115,39 @@ describe('Request Study Actions', () => {
             const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
             expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
             expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
+        })
+
+        // The page header eyebrow reads submittingLabName. Before OTTER-619 this select carried the
+        // Data Partner's name, which is a different organization on the same row.
+        it('names the submitting lab, never the Data Partner', async () => {
+            const { enclave, lab, studyId } = await createTestProposalDraft({
+                enclaveSlug: 'getdraft-lab-name-enclave',
+            })
+            await renameTestOrg(lab.id, 'Genius Lab')
+            await renameTestOrg(enclave.id, 'Mars University')
+
+            const draft = actionResult(await getDraftStudyAction({ studyId }))
+
+            expect(draft.submittingLabName).toBe('Genius Lab')
+            expect(draft.submittedByOrgSlug).toBe(lab.slug)
+            expect(draft.orgName).toBe('Mars University')
+        })
+
+        it('keeps two labs apart, so no draft reads another lab name', async () => {
+            const first = await createTestProposalDraft({ enclaveSlug: 'getdraft-lab-one-enclave' })
+            await renameTestOrg(first.lab.id, 'Genius Lab')
+            const firstDraft = actionResult(await getDraftStudyAction({ studyId: first.studyId }))
+
+            // Creating the second draft re-mocks the session onto its own lab, so each draft is read
+            // by a member of the lab that submitted it.
+            const second = await createTestProposalDraft({ enclaveSlug: 'getdraft-lab-two-enclave' })
+            await renameTestOrg(second.lab.id, 'Aurora Lab')
+            const secondDraft = actionResult(await getDraftStudyAction({ studyId: second.studyId }))
+
+            expect(firstDraft.submittingLabName).toBe('Genius Lab')
+            expect(secondDraft.submittingLabName).toBe('Aurora Lab')
+            expect(firstDraft.submittedByOrgSlug).toBe(first.lab.slug)
+            expect(secondDraft.submittedByOrgSlug).toBe(second.lab.slug)
         })
 
         it('rejects studies whose status is not in DRAFT/CHANGE-REQUESTED/APPROVED', async () => {
@@ -774,8 +1220,6 @@ describe('Request Study Actions', () => {
         })
     })
 
-    // OTTER-601: one studyJob per submission round. Launch/upload opens the round's job; submit
-    // fills that same job in rather than minting a second that would mask the real submission.
     describe('one-job-per-round (OTTER-601)', () => {
         const jobCount = (studyId: string) =>
             db
@@ -812,6 +1256,14 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
                 .then((r) => Number(r.n))
 
+        const summariesFor = (studyJobId: string) =>
+            db
+                .selectFrom('studyReview')
+                .select(['round', 'report'])
+                .where('studyJobId', '=', studyJobId)
+                .orderBy('round')
+                .execute()
+
         const submitCode = (studyId: string, root: string, files: Record<string, string>, mainFileName: string) =>
             writeWorkspaceFiles(root, studyId, files).then(() =>
                 actionResult(submitStudyCodeAction({ studyId, mainFileName, fileNames: Object.keys(files) })),
@@ -823,7 +1275,6 @@ describe('Request Study Actions', () => {
             const root = await createWorkspaceDir('reuse-fill')
             workspaceRoots.push(root)
 
-            // IDE launch opens the round's job
             await ensureRoundJobForLaunch(db, study.id)
             expect(await jobCount(study.id)).toBe(1)
             const launchJob = await db
@@ -834,7 +1285,6 @@ describe('Request Study Actions', () => {
 
             await submitCode(study.id, root, { 'main.R': 'print(1)', 'helper.R': 'print(2)' }, 'main.R')
 
-            // still one job — the launch job, now carrying the submission
             expect(await jobCount(study.id)).toBe(1)
             const afterJob = await db
                 .selectFrom('studyJob')
@@ -859,7 +1309,6 @@ describe('Request Study Actions', () => {
             await submitCode(study.id, root, { 'main.R': 'v1', 'helper.R': 'v1' }, 'main.R')
             vi.mocked(aws.deleteFolderContents).mockClear()
 
-            // second submit drops helper.R, adds extra.R
             await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R')
 
             expect(await jobCount(study.id)).toBe(1)
@@ -867,10 +1316,73 @@ describe('Request Study Actions', () => {
                 { name: 'extra.R', fileType: 'SUPPLEMENTAL-CODE' },
                 { name: 'main.R', fileType: 'MAIN-CODE' },
             ])
-            // old S3 code objects cleared before re-upload
             expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
-            // still a single submission/version
             expect(await submittedStatusCount(study.id)).toBe(1)
+        })
+
+        // The summary is keyed by (job, round), and a replacement before the reviewer has decided
+        // opens no new round, so the row left behind would stand as the summary of code that no
+        // longer exists and would stop a new one being generated (SHRMP-263, OTTER-779).
+        it('drops the round summary when files are replaced before review', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-replaced')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'v1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes v1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+
+            await submitCode(study.id, root, { 'main.R': 'v2' }, 'main.R')
+
+            expect(await summariesFor(job.id)).toEqual([])
+        })
+
+        it('keeps the earlier round summary when a change request opens the next round', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('reuse-summary-kept')
+            workspaceRoots.push(root)
+
+            await ensureRoundJobForLaunch(db, study.id)
+            await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
+            await flushDeferred()
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .executeTakeFirstOrThrow()
+            await db
+                .updateTable('studyReview')
+                .set({ report: JSON.stringify({ codeExplanation: 'describes round 1' }) })
+                .where('studyJobId', '=', job.id)
+                .execute()
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
+                .execute()
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: 'addressed the feedback and updated the code',
+                }),
+            )
+
+            expect(await summariesFor(job.id)).toEqual([{ round: 1, report: { codeExplanation: 'describes round 1' } }])
         })
 
         it('resubmitting after change-requested REUSES the round job (same job, second submission)', async () => {
@@ -881,9 +1393,7 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
-            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
-            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
-            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            // Drain the deferred CODE-SCANNED insert first, or it races in and becomes the latest status.
             await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
@@ -905,15 +1415,9 @@ describe('Request Study Actions', () => {
                 }),
             )
 
-            // CR resubmit reuses the existing job — no new job is opened until FILES-APPROVED/REJECTED.
-            // markCodeSubmitted is round-aware: the CODE-CHANGES-REQUESTED opened a new round, so the
-            // resubmit appends a SECOND CODE-SUBMITTED on the same job (count = 2). This is what flips
-            // count-based liveness back to "under review" so the researcher leaves the feedback screen.
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            // The note records the round it opened (study-wide submission version) so the reviewer's
-            // feedback panel labels it v2, matching the round-2 decision (OTTER-638).
             const jobAfter = await db
                 .selectFrom('studyJob')
                 .select(['resubmissionNote', 'resubmissionRound'])
@@ -923,10 +1427,6 @@ describe('Request Study Actions', () => {
             expect(jobAfter.resubmissionRound).toBe(2)
         })
 
-        // Regression: in the real flow the researcher uploads files on the resubmit page *before*
-        // submitting. Under the new model ensureRoundJobForUpload REUSES the existing job (no new
-        // round job is minted on CR). The resubmit must still succeed and append a second
-        // CODE-SUBMITTED to the same job.
         it('resubmit succeeds after a file upload reuses the round job (no new job on CR upload)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -935,9 +1435,7 @@ describe('Request Study Actions', () => {
 
             await ensureRoundJobForLaunch(db, study.id)
             await submitCode(study.id, root, { 'main.R': 'round1' }, 'main.R')
-            // The submit fires a deferred CODE-SCANNED insert; drain it before recording the reviewer's
-            // CODE-CHANGES-REQUESTED so the time-ordered v7 ids reflect that real-world order (scan, then
-            // decision). Otherwise the scan can race in afterwards and become the "latest" status.
+            // Drain the deferred CODE-SCANNED insert first, or it races in and becomes the latest status.
             await flushDeferred()
             const round1Job = await db
                 .selectFrom('studyJob')
@@ -949,7 +1447,6 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // Researcher uploads a file on the resubmit page → reuses the existing round job (no new job).
             await ensureRoundJobForUpload(db, study.id)
             expect(await jobCount(study.id)).toBe(1)
 
@@ -962,9 +1459,6 @@ describe('Request Study Actions', () => {
             })
 
             expect(result).not.toHaveProperty('error')
-            // Still one job — reused throughout. markCodeSubmitted is round-aware: round 1's
-            // CODE-SUBMITTED + the reviewer's CODE-CHANGES-REQUESTED opened round 2, so the resubmit
-            // appends a second CODE-SUBMITTED on the same job (count = 2).
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
@@ -988,11 +1482,9 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            // First resubmit of round 2 → appends the second CODE-SUBMITTED.
             await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            // Resubmit AGAIN before the reviewer decides round 2 → same round, idempotent, still 2.
             await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
@@ -1000,8 +1492,6 @@ describe('Request Study Actions', () => {
     })
 
     describe('saveCodeResubmissionNoteDraftAction', () => {
-        // Code resubmission keeps study.status APPROVED; eligibility is the latest submitted
-        // job being in a resubmittable status (here CODE-CHANGES-REQUESTED), not study.status.
         it('persists the draft note while the study stays APPROVED for a same-lab user', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
@@ -1050,14 +1540,11 @@ describe('Request Study Actions', () => {
                 jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
-            // Switch session to a user in a different lab and try to save the draft.
             await mockSessionWithTestData({ orgSlug: 'lab-code-note-cross-B', orgType: 'lab' })
             const result = await saveCodeResubmissionNoteDraftAction({
                 studyId: study.id,
                 note: 'cross-lab attempt',
             })
-            // Without the 0-row UPDATE check the client would render the autosave
-            // indicator as "All changes saved" while nothing was persisted.
             expect('error' in result).toBe(true)
 
             const row = await db
@@ -1091,8 +1578,6 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBeNull()
         })
 
-        // OTTER-558: the QA repro, a Result-ready study whose FILES-APPROVED decision is buried under a
-        // later CODE-SCANNED row. The old at(0) gate read the scan and threw on every keystroke.
         it('persists the draft when FILES-APPROVED exists but a later CODE-SCANNED sorts first', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
@@ -1153,7 +1638,6 @@ describe('Request Study Actions', () => {
                 jobStatus: 'CODE-SUBMITTED',
             })
             await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
-            // Already resubmitted once, awaiting a new decision, so not resubmittable again.
             await insertStatus(job.id, 'CODE-SUBMITTED')
 
             const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'stale attempt' })
@@ -1219,7 +1703,7 @@ describe('Request Study Actions', () => {
             expect(newJob.resubmissionNote).not.toBeNull()
         })
 
-        it('clears the stale AI review so a fresh one is generated for the resubmitted code (SHRMP-263)', async () => {
+        it('generates a fresh AI review for the resubmitted code and keeps the previous round (OTTER-779)', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -1227,6 +1711,8 @@ describe('Request Study Actions', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: 'CODE-CHANGES-REQUESTED',
             })
+            // The round the change request was asked about, so the resubmit opens round 2.
+            await insertStatus(job.id, 'CODE-SUBMITTED')
             const staleExplanation = 'Summary of the previously submitted code'
             await db
                 .insertInto('studyReview')
@@ -1253,13 +1739,22 @@ describe('Request Study Actions', () => {
                     resubmissionNote: wordsString(10),
                 }),
             )
-            // A change-requested round is revised in place: same job, new files.
             expect(result.studyJobId).toBe(job.id)
 
             await flushDeferred()
 
-            const review = await getStudyReviewForJob(result.studyJobId)
+            const review = await getStudyReviewForJob(await latestJobForStudy(study.id))
             expect(review?.report?.codeExplanation).not.toBe(staleExplanation)
+
+            // The previous round keeps its own row rather than being destroyed to make room, which
+            // is what lets a late write be told from the current one.
+            const rounds = await db
+                .selectFrom('studyReview')
+                .select('round')
+                .where('studyJobId', '=', job.id)
+                .orderBy('round')
+                .execute()
+            expect(rounds.map((row) => row.round)).toEqual([1, 2])
         })
 
         it('rejects an empty note', async () => {
@@ -1284,6 +1779,37 @@ describe('Request Study Actions', () => {
             expect(result).toHaveProperty('error')
         })
 
+        it('rejects a note one character over the cap and accepts one at exactly the cap', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+
+            const root = await createWorkspaceDir('resubmit-note-cap')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            const over = await resubmitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+                resubmissionNote: 'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1),
+            })
+            expect(over).toHaveProperty('error')
+
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `,
+                }),
+            )
+        })
+
         it('rejects when latest job status is not in the allowed set', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
@@ -1306,8 +1832,6 @@ describe('Request Study Actions', () => {
             expect(result).toHaveProperty('error')
         })
 
-        // OTTER-558: the final submit must not read statusChanges.at(0) either; a resubmittable
-        // decision buried under a later CODE-SCANNED must still resubmit.
         it('resubmits when CODE-CHANGES-REQUESTED exists but a later CODE-SCANNED sorts first', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
@@ -1334,8 +1858,6 @@ describe('Request Study Actions', () => {
             expect(result.studyJobId).toBeDefined()
         })
 
-        // Results-ready (FILES-APPROVED) resubmit with a later CODE-SCANNED sorting first — the QA
-        // scenario, at the final-submit gate (mirrors the save-draft coverage).
         it('resubmits a results-ready study when FILES-APPROVED is buried under a later CODE-SCANNED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
@@ -1373,7 +1895,6 @@ describe('Request Study Actions', () => {
                 jobStatus: 'CODE-SUBMITTED',
             })
             await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
-            // Already resubmitted — awaiting a new decision, so the gate rejects before file checks.
             await insertStatus(job.id, 'CODE-SUBMITTED')
 
             const result = await resubmitStudyCodeAction({
@@ -1386,8 +1907,6 @@ describe('Request Study Actions', () => {
         })
     })
 
-    // Proposal approval is the last study.status transition; every code round after it
-    // (submit → decision → resubmit) lives on the job and must leave the study untouched.
     describe('proposal status across code rounds', () => {
         it('stays APPROVED with a stable submittedAt through submit, clarification, and resubmit', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-status-roundtrip' })
@@ -1397,7 +1916,12 @@ describe('Request Study Actions', () => {
             const draft = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
-                    studyInfo: { title: 'Status round trip', piName: 'PI', language: 'R' as const },
+                    studyInfo: {
+                        title: 'Status round trip',
+                        piName: 'PI',
+                        language: 'R' as const,
+                        datasets: ['test-dataset'],
+                    },
                     submittingOrgSlug: lab.slug,
                 }),
             )
@@ -1418,6 +1942,7 @@ describe('Request Study Actions', () => {
             expect(approved.approvedAt).not.toBeNull()
 
             const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             const root = await createWorkspaceDir('roundtrip-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })
@@ -1443,6 +1968,7 @@ describe('Request Study Actions', () => {
             })
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             actionResult(
                 await submitCodeReviewDecisionAction({
                     studyId: draft.studyId,
@@ -1452,7 +1978,6 @@ describe('Request Study Actions', () => {
                     criteria: {
                         proposalAlignment: 'yes',
                         agreementCompliance: 'yes',
-                        securityChecks: 'yes',
                         privacyProtection: 'yes',
                     },
                 }),
@@ -1462,6 +1987,7 @@ describe('Request Study Actions', () => {
             expect(afterDecision.status).toBe('APPROVED')
 
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await seedAcknowledgedStudyAgreement(draft.studyId)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("revised")' })
             actionResult(
                 await resubmitStudyCodeAction({

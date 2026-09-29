@@ -9,8 +9,6 @@ vi.mock('@/server/actions/study-request', () => ({
     saveCodeResubmissionNoteDraftAction: vi.fn(),
 }))
 
-// The provider passes reportMutationError's returned handler to useMutation's onError, so asserting
-// on the returned handler is what tells us whether a failure was surfaced to the researcher.
 const mutationErrorHandler = vi.fn()
 vi.mock('@/components/errors', () => ({
     reportMutationError: vi.fn(() => mutationErrorHandler),
@@ -36,17 +34,14 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
 }
 
 describe('EditCodeResubmitProvider', () => {
-    // A Server Action posts to whatever route is current when the request goes out, so an autosave
-    // already in flight when the researcher navigates away resolves against the NEW route, which
-    // has no matching action. Next returns a non-RSC 200 and the client throws "An unexpected
-    // response was received from the server." — an "Unable to save resubmission note draft" toast
-    // on a page the researcher already left.
+    // A Server Action posts to whatever route is current, so an autosave in flight across a
+    // navigation rejects; reporting it would toast on a page the researcher already left.
     it('does not report an autosave that rejects after the provider unmounts', async () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
         mutationErrorHandler.mockClear()
 
         const saveDraftAction = vi.mocked(saveCodeResubmissionNoteDraftAction)
-        // Stays pending until we reject it, so the save is genuinely in flight across the unmount.
+        // Stays pending so the save is genuinely in flight across the unmount.
         let rejectSave: (error: Error) => void = () => {}
         saveDraftAction.mockImplementation(
             () =>

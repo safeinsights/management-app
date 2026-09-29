@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema, diffFields } from './audit-diff'
 
-// Mirrors the shape of the audited orgCodeEnv columns. Declared explicitly so the
-// generic infers the full key set rather than narrowing to whichever keys a given
-// fixture happens to set.
+// Declared explicitly so the generic infers the full key set rather than narrowing
+// to whichever keys a given fixture happens to set.
 type Row = {
     name: string
     url: string
@@ -36,8 +35,6 @@ describe('diffFields', () => {
         expect(diffFields<Row>(before, after, FIELDS)).toEqual([])
     })
 
-    // The change is still detected even though neither value is recorded: comparison runs on
-    // the real values, redaction applies only to what gets written.
     it('detects a changed value inside settings.environment', () => {
         const before = { settings: { environment: [{ name: 'KEY', value: 'a' }] } }
         const after = { settings: { environment: [{ name: 'KEY', value: 'b' }] } }
@@ -68,8 +65,7 @@ describe('diffFields', () => {
         ])
     })
 
-    // Postgres reorders jsonb object keys on storage, so a stringify-based comparison
-    // would report a change here on every save.
+    // Postgres reorders jsonb object keys on storage.
     it('ignores key order differences in commandLines', () => {
         const before = { commandLines: { r: 'Rscript main.r', py: 'python main.py' } }
         const after = { commandLines: { py: 'python main.py', r: 'Rscript main.r' } }
