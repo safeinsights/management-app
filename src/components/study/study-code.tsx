@@ -111,7 +111,7 @@ export const StudyCode = ({
     studyId,
     dataPartnerName,
     isFirstVisit,
-    isEditable = true,
+    isEditable,
     nav,
     onSubmitSuccess,
 }: StudyCodeProps) => {
