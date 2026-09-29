@@ -13,7 +13,13 @@ import {
     vi,
     waitFor,
 } from '@/tests/unit.helpers'
+import { sendInviteEmail } from '@/server/mailer'
 import { InviteButton } from './invitation'
+
+vi.mock('@/server/mailer', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailer')>()),
+    sendInviteEmail: vi.fn(),
+}))
 
 const renderInviteModal = async () => {
     const { org } = await mockSessionWithTestData({ isAdmin: true })
@@ -39,14 +45,16 @@ const submitInvite = async (email: string) => {
 describe('InviteButton', () => {
     it('shows the success panel and the resend toast when the email already has a pending invite', async () => {
         const org = await renderInviteModal()
-        await db
+        const pending = await db
             .insertInto('pendingUser')
             .values({ orgId: org.id, email: 'already@test.com', isAdmin: false })
-            .execute()
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
         await submitInvite('already@test.com')
 
         expect(await screen.findByText('Invitation sent successfully!')).toBeInTheDocument()
+        expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'already@test.com', inviteId: pending.id })
         expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Invite resent' }))
         expect(screen.queryByLabelText('Invite by email')).not.toBeInTheDocument()
     })
