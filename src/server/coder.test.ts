@@ -7,6 +7,7 @@ import {
     getCoderOrganizationId,
     getCoderTemplateId,
     getCoderWorkspaceLaunchStatus,
+    getCoderUserFor,
     getOrCreateCoderUserFor,
     resolveCoderIdentity,
     generateCoderUsername,
@@ -203,6 +204,31 @@ describe('getOrCreateCoderUserFor', () => {
 
         expect(result.username).toBe('ann-x-edu-2222')
         expect(mockFetch.mock.calls[0][0]).toBe('https://api.coder.com/api/v2/users?q=email:ann%40x.edu')
+    })
+
+    // A Coder build that omits `email` from the list response looks exactly like this: the user
+    // exists, the re-check drops it, and the create that follows is rejected as a duplicate.
+    it('names the dropped rows when none is an exact match', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ id: 'u-ann', username: 'ann-x-edu-2222' }] }),
+        })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        const result = await getCoderUserFor({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })
+
+        expect(result).toBeNull()
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('none an exact email match'))
+    })
+
+    it('stays quiet when the query legitimately matched nobody', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({ users: [] }) })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        expect(await getCoderUserFor({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })).toBeNull()
+        expect(logger.warn).not.toHaveBeenCalled()
     })
 
     // OTTER-817: never silently fall back to the submitter — that is the bug this replaced.

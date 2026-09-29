@@ -1,4 +1,5 @@
 import { coderUsersPath } from '@/lib/paths'
+import logger from '@/lib/logger'
 import { getIdeOwnerForStudy } from '../db/queries'
 import { coderFetch } from './client'
 import { getCoderOrganizationId } from './organizations'
@@ -54,7 +55,16 @@ export async function getCoderUserFor(identity: CoderIdentity): Promise<CoderUse
     )
 
     const wanted = identity.email.toLowerCase()
-    return data.users?.find((user) => user.email?.toLowerCase() === wanted) ?? null
+    const match = data.users?.find((user) => user.email?.toLowerCase() === wanted) ?? null
+
+    // Rows came back but none matched: either the filter fell through to a fuzzy search, or this
+    // Coder omits email from the list response and dropped a user that exists. Both end as a
+    // duplicate-email rejection from the create below, so name the cause while we still have it.
+    if (!match && data.users?.length) {
+        logger.warn(`Coder returned ${data.users.length} user(s) for ${wanted}, none an exact email match`)
+    }
+
+    return match
 }
 
 export async function getOrCreateCoderUserFor(identity: CoderIdentity): Promise<CoderUser> {
