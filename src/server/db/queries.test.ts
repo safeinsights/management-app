@@ -5,6 +5,8 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyJobUsers,
+    insertTestStudyOnly,
+    insertTestUser,
     readTestSupportFile,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -23,6 +25,7 @@ import {
     studyInfoForStudyId,
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
+    getIdeOwnerForStudy,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -607,5 +610,27 @@ describe('outputsDecisionVersion', () => {
         await givenOutputsDecision(other.study.id, other.job.id, other.study.researcherId, 1)
 
         expect(await outputsDecisionVersion(study.id)).toBe(1)
+    })
+})
+
+describe('getIdeOwnerForStudy', () => {
+    it('returns the researcher who claimed the IDE, not the proposal submitter', async () => {
+        const org = await insertTestOrg({ slug: 'otter817-queries-lab', type: 'lab' })
+        const { user: submitter } = await insertTestUser({ org, email: 'otter817-submitter@test.com' })
+        const { user: claimant } = await insertTestUser({ org, email: 'otter817-claimant@test.com' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: submitter.id })
+
+        await db.updateTable('study').set({ ideOwnerId: claimant.id }).where('id', '=', study.id).execute()
+
+        const owner = await getIdeOwnerForStudy(study.id)
+
+        expect(owner).toMatchObject({ userId: claimant.id, email: 'otter817-claimant@test.com' })
+        expect(owner?.userId).not.toBe(submitter.id)
+    })
+
+    it('returns null while the IDE is unclaimed', async () => {
+        const { study } = await insertTestStudyOnly()
+
+        expect(await getIdeOwnerForStudy(study.id)).toBeNull()
     })
 })
