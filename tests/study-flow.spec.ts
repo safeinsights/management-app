@@ -788,7 +788,15 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToCodeUpload(page, studyTitle)
-        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+
+        // QA's reproduction (OTTER-693): reopening /code after submitting left it fully live, and
+        // both a main-file change and a second submission went through.
+        const studyId = page.url().match(/\/study\/([^/]+)/)![1]
+        await goto(page, `/openstax-lab/study/${studyId}/code`)
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeDisabled()
+        await expect(page.getByRole('button', { name: /submit code for review/i })).toBeHidden()
+        await expect(page.getByRole('button', { name: /launch ide/i })).toBeHidden()
 
         // Confirm the post-submission view renders for the researcher.
         await goto(page, RESEARCHER_DASHBOARD)
