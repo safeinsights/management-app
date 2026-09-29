@@ -8,18 +8,12 @@ import { renderStudyScreen } from '../_screens/render-screen'
 
 export const metadata: Metadata = { title: 'Study details' }
 
-export default async function StudyView(props: {
-    params: Promise<{ studyId: string; orgSlug: string }>
-    searchParams: Promise<Record<string, string | undefined>>
-}) {
+export default async function StudyView(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
-    const searchParams = await props.searchParams
 
     const study = actionResult(await getStudyAction({ studyId }))
     const rawStudyState = await rawStudyStateForStudy(studyId)
     if (!rawStudyState) notFound()
-
-    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     return renderStudyScreen({
         role: 'researcher',
@@ -27,6 +21,5 @@ export default async function StudyView(props: {
         study,
         orgSlug,
         dashboardHref: Routes.dashboard,
-        returnTo,
     })
 }

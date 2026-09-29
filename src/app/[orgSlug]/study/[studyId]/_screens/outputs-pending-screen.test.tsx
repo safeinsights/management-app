@@ -23,14 +23,9 @@ import type { ScreenComponentProps } from './types'
 
 const DASHBOARD_HREF: Route = '/dashboard'
 
-const renderScreen = async (
-    study: ScreenComponentProps['study'],
-    orgSlug: string,
-    dashboardHref = DASHBOARD_HREF,
-    returnTo?: 'org',
-) => {
+const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string, dashboardHref = DASHBOARD_HREF) => {
     const raw = await requireRawState(study.id)
-    const ctx = { orgSlug, studyId: study.id, dashboardHref, returnTo }
+    const ctx = { orgSlug, studyId: study.id, dashboardHref }
     return renderWithProviders(
         await OutputsPendingScreen({ study, raw, ...screenNavProps('researcher', 'outputs-pending', raw, ctx) }),
     )
@@ -71,16 +66,6 @@ describe('OutputsPendingScreen', () => {
         const back = screen.getByTestId('cta-back-to-my-studies')
         expect(back).toHaveAttribute('href', DASHBOARD_HREF)
         expect(back).toHaveAttribute('data-variant', 'filled')
-    })
-
-    it('passes returnTo through to the Previous step link', async () => {
-        const { org, study } = await setupExecuting('JOB-READY')
-        await renderScreen(study, org.slug, `/dashboard`, 'org')
-
-        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-            'href',
-            `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
-        )
     })
 
     it.each(['JOB-READY', 'JOB-RUNNING', 'JOB-PACKAGING', 'JOB-PROVISIONING'] as const)(

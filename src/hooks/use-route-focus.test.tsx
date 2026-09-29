@@ -135,7 +135,7 @@ describe('useRouteFocus', () => {
         const link = screen.getByRole('link', { name: 'Dashboard' })
         link.focus()
 
-        await navigate(Routes.studyEdit({ ...STUDY, returnTo: 'org' }))
+        await navigate(`${SETUP}?tab=details`)
 
         expect(link).toHaveFocus()
     })

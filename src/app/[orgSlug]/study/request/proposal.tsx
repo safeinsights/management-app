@@ -19,8 +19,6 @@ interface StudyProposalProps {
     draftData?: DraftStudyData | null
     /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
     submittingLabName?: string | null
-    /** Set when the researcher entered from an org dashboard, so the step forward can hand it back. */
-    returnTo?: 'org'
 }
 
 const MODAL_BODY =
@@ -64,7 +62,7 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName, returnTo }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
@@ -90,8 +88,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const goToSubmitted = useCallback(() => {
         if (!studyId) return
         setIsProceeding(true)
-        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId, returnTo }))
-    }, [router, submittingOrgSlug, studyId, returnTo])
+        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
+    }, [router, submittingOrgSlug, studyId])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({

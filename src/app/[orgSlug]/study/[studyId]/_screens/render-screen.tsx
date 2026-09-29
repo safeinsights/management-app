@@ -24,7 +24,6 @@ type RenderArgs = {
     study: SelectedStudy
     orgSlug: string
     dashboardHref: Route
-    returnTo?: 'org'
 }
 
 // The nav is resolved here, once, so no screen re-derives it from state. Exported for screen tests,
@@ -50,7 +49,6 @@ export async function renderScreenById(
         orgSlug: args.orgSlug,
         studyId: args.study.id,
         dashboardHref: args.dashboardHref,
-        returnTo: args.returnTo,
     })
     return (await Screen({
         descriptor,
@@ -58,7 +56,6 @@ export async function renderScreenById(
         raw: args.raw,
         orgSlug: args.orgSlug,
         dashboardHref: args.dashboardHref,
-        returnTo: args.returnTo,
         ...navProps,
     })) as React.JSX.Element
 }

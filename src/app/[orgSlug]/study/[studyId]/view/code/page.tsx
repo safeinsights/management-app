@@ -9,24 +9,17 @@ import { renderResearcherCodeStep } from '../../_screens/render-screen'
 export const metadata: Metadata = { title: 'Study code' }
 
 // renderResearcherCodeStep 404s if the study has not reached the code stage.
-export default async function StudyViewCode(props: {
-    params: Promise<{ studyId: string; orgSlug: string }>
-    searchParams: Promise<Record<string, string | undefined>>
-}) {
+export default async function StudyViewCode(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
-    const searchParams = await props.searchParams
 
     const study = actionResult(await getStudyAction({ studyId }))
     const rawStudyState = await rawStudyStateForStudy(studyId)
     if (!rawStudyState) notFound()
-
-    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     return renderResearcherCodeStep({
         raw: rawStudyState,
         study,
         orgSlug,
         dashboardHref: Routes.dashboard,
-        returnTo,
     })
 }

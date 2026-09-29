@@ -8,8 +8,6 @@ export type ScreenComponentProps = {
     raw: RawStudyState
     orgSlug: string
     dashboardHref: Route
-    // Threaded onto back/forward routes so the researcher stays in org scope across hops.
-    returnTo?: 'org'
     // Resolved once by the dispatcher from the nav table (OTTER-673); screens render it, never derive it.
     nav: StepNav
     // The same nav split for the security-key screens: only Previous while the outputs are locked.

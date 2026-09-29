@@ -8,7 +8,7 @@ import type { ScreenComponentProps } from './types'
 
 // code-approved and code-feedback both render this view; codeDecisionForScreen reads back which one
 // the rule table picked, so the banner cannot disagree with the page that routed.
-export async function CodeDecisionScreen({ study, raw, orgSlug, returnTo, descriptor, nav }: ScreenComponentProps) {
+export async function CodeDecisionScreen({ study, raw, orgSlug, descriptor, nav }: ScreenComponentProps) {
     const state = projectStudyState(raw)
     const decision = codeDecisionForScreen(descriptor.screen, state)
     if (!decision) notFound()
@@ -26,7 +26,6 @@ export async function CodeDecisionScreen({ study, raw, orgSlug, returnTo, descri
             job={job}
             entries={entries}
             reviewingOrgName={reviewingOrgName}
-            returnTo={returnTo}
             latestJobStatus={decision.status}
             nav={nav}
             feedbackLoadError={feedbackLoadError}

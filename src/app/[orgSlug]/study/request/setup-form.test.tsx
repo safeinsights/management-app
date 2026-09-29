@@ -141,7 +141,6 @@ const renderSetup = (
         studyId?: string
         draftData?: DraftStudyData | null
         submittingLabName?: string | null
-        returnTo?: 'org'
     } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
@@ -1403,25 +1402,6 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
-    })
-
-    // An org-scoped entry has to survive the round trip. /submitted hands returnTo down to Step 1
-    // and Step 1 hands it back, so the exit there still points at the dashboard the researcher
-    // actually came from rather than the personal one.
-    it('carries an org-scoped entry back to the submitted record', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        const draftData = submittedDraft(fixtures)
-        renderSetup(fixtures, { studyId: draftData.id, draftData, returnTo: 'org' })
-
-        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
-        await user.click(nextStepButton())
-
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id, returnTo: 'org' }),
-            ),
-        )
     })
 
     it('reaches the submitted record for a decided proposal too', async () => {

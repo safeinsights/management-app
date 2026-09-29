@@ -109,7 +109,6 @@ const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
-    returnTo?: 'org',
 ) =>
     renderWithProviders(
         await SharedOutputsScreen({
@@ -120,7 +119,6 @@ const renderScreen = async (
                 orgSlug,
                 studyId: study.id,
                 dashboardHref: DASHBOARD_HREF,
-                returnTo,
             }),
         }),
     )
@@ -400,16 +398,6 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         } else {
             expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
         }
-    })
-
-    it('passes returnTo through to the Previous step link', async () => {
-        const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug, 'org')
-
-        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-            'href',
-            `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
-        )
     })
 
     it('short-circuits on the routing guard for a study with no job (no shared outputs to show)', async () => {

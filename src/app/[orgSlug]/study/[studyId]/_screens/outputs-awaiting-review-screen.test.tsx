@@ -25,14 +25,9 @@ import type { ScreenComponentProps } from './types'
 
 const DASHBOARD_HREF: Route = '/dashboard'
 
-const renderScreen = async (
-    study: ScreenComponentProps['study'],
-    orgSlug: string,
-    dashboardHref = DASHBOARD_HREF,
-    returnTo?: 'org',
-) => {
+const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string, dashboardHref = DASHBOARD_HREF) => {
     const raw = await requireRawState(study.id)
-    const ctx = { orgSlug, studyId: study.id, dashboardHref, returnTo }
+    const ctx = { orgSlug, studyId: study.id, dashboardHref }
     return renderWithProviders(
         await OutputsAwaitingReviewScreen({
             study,

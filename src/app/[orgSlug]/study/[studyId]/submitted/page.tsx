@@ -12,13 +12,8 @@ export const metadata: Metadata = { title: 'Submit proposal' }
 // The proposal-status page whatever the study has done since: it is the anchor every code-phase
 // "Previous step" walks back to, so the screen is pinned rather than resolved (resolveScreen would
 // forward-jump to a code screen for the same state).
-export default async function StudySubmittedRoute(props: {
-    params: Promise<{ studyId: string; orgSlug: string }>
-    searchParams: Promise<Record<string, string | undefined>>
-}) {
+export default async function StudySubmittedRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
-    const searchParams = await props.searchParams
-    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
 
     const result = await getStudyAction({ studyId })
 
@@ -37,6 +32,6 @@ export default async function StudySubmittedRoute(props: {
 
     return renderScreenById(
         { screen: 'proposal-feedback' },
-        { role: 'researcher', raw, study: result, orgSlug, dashboardHref: Routes.dashboard, returnTo },
+        { role: 'researcher', raw, study: result, orgSlug, dashboardHref: Routes.dashboard },
     )
 }
