@@ -29,10 +29,11 @@ const ErrorContent: FC<{ message: string | null }> = ({ message }) => {
 /**
  * The region is mounted even when empty, and never conditionally rendered: a live region is only
  * announced when content it already owns changes, and `aria-describedby` on the button has to
- * resolve to something for the error to stay discoverable on tabbing back.
+ * resolve to something for the error to stay discoverable on tabbing back. tabIndex -1 because a
+ * failed submit focuses this, and a bare div takes no focus.
  */
 export const SubmitCodeError: FC<{ message: string | null }> = ({ message }) => (
-    <Box id={SUBMIT_CODE_ERROR_ID} aria-live="polite">
+    <Box id={SUBMIT_CODE_ERROR_ID} aria-live="polite" tabIndex={-1}>
         <ErrorContent message={message} />
     </Box>
 )

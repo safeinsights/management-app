@@ -27,9 +27,7 @@ interface EditStudyCodeFooterProps {
 const UNSAVED_EDITS_TOOLTIP =
     "Progress saved! Note: On leaving the edit mode, your changes won't be visible until you hit Resubmit code for review."
 
-const ORDERED_FIELD_IDS = [RESUBMISSION_NOTE_FIELD_ID]
-
-const FILES_INCOMPLETE = 'files-incomplete'
+const ORDERED_FIELD_IDS = [SUBMIT_CODE_ERROR_ID, RESUBMISSION_NOTE_FIELD_ID]
 
 type PreviousStepButtonProps = {
     hasChanges: boolean
@@ -76,7 +74,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         validate: () => {
             const invalid = new Set<string>()
             if (noteForm.validate().hasErrors) invalid.add(RESUBMISSION_NOTE_FIELD_ID)
-            if (blockedReason) invalid.add(FILES_INCOMPLETE)
+            if (blockedReason) invalid.add(SUBMIT_CODE_ERROR_ID)
             return invalid
         },
         orderedFieldIds: ORDERED_FIELD_IDS,

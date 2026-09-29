@@ -22,10 +22,18 @@ function Harness({
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
-        validateInputOnChange: true,
     })
-    return <ResubmissionNoteSection noteForm={noteForm} orgName="Rice University" autosaveStatus={autosaveStatus} />
+    return (
+        <>
+            <ResubmissionNoteSection noteForm={noteForm} orgName="Rice University" autosaveStatus={autosaveStatus} />
+            {/* Stands in for the footer's Resubmit, which validates the whole form on click. */}
+            <button onClick={() => noteForm.validate()}>Resubmit probe</button>
+        </>
+    )
 }
+
+const clickResubmit = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole('button', { name: 'Resubmit probe' }))
 
 const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     renderWithProviders(<Harness {...props} />)
@@ -81,6 +89,34 @@ describe('ResubmissionNoteSection', () => {
         await user.tab()
 
         expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+    })
+
+    it('clears a click-raised error on input and leaves it clear until the next click', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+
+        await clickResubmit(user)
+        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+
+        await user.click(textarea)
+        await user.paste(' ')
+        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
+
+        await clickResubmit(user)
+        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+    })
+
+    it('does not re-raise the required error when a note emptied by the user is blurred', async () => {
+        const user = userEvent.setup()
+        renderSection()
+        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+
+        await user.type(textarea, 'some draft text')
+        await user.clear(textarea)
+        await user.tab()
+
+        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
     })
 
     it('accepts a single character without surfacing a range error', async () => {
@@ -190,7 +226,7 @@ describe('ResubmissionNoteSection', () => {
         expect(section.querySelectorAll('svg')).toHaveLength(1)
     })
 
-    it('replaces "All changes saved" with the error once the note is emptied (OTTER-674)', async () => {
+    it('keeps "All changes saved" when the note is emptied, and yields to the error on a Resubmit click', async () => {
         const user = userEvent.setup()
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
         const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
@@ -199,6 +235,10 @@ describe('ResubmissionNoteSection', () => {
         expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
 
         await user.clear(textarea)
+        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
+        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
+
+        await clickResubmit(user)
         expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })

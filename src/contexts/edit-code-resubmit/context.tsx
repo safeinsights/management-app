@@ -55,7 +55,6 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
-        validateInputOnChange: true,
     })
 
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)

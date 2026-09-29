@@ -5,7 +5,7 @@ import { renderWithProviders, screen, userEvent, waitFor, within } from '@/tests
 import { EditCodeResubmitProvider, useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
+import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
@@ -42,6 +42,7 @@ const renderFooter = (
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
     return renderWithProviders(
         <EditCodeResubmitProvider studyId={STUDY_ID} orgName={ORG_NAME} initialNote={opts.initialNote ?? ''}>
+            <SubmitCodeError message={opts.blockedReason ?? null} />
             {opts.withNoteInput && <NoteInput />}
             <EditStudyCodeFooter
                 mainFileName={opts.mainFileName ?? ''}
@@ -136,6 +137,26 @@ describe('EditStudyCodeFooter — Resubmit button', () => {
             'aria-describedby',
             SUBMIT_CODE_ERROR_ID,
         )
+    })
+
+    it('moves focus to the Code files error when the files are what block the submit', async () => {
+        const user = userEvent.setup()
+        renderFooter({ initialNote: wordsString(5), blockedReason: SELECT_MAIN_FILE_MESSAGE, fileNames: ['a.R'] })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(document.activeElement).toBe(document.getElementById(SUBMIT_CODE_ERROR_ID))
+    })
+
+    it('prefers the Code files error over the note when both are unresolved', async () => {
+        const user = userEvent.setup()
+        renderFooter({ blockedReason: SELECT_MAIN_FILE_MESSAGE, withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(document.activeElement).toBe(document.getElementById(SUBMIT_CODE_ERROR_ID))
+        expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
     })
 
     it('does not open the modal when files are present but the note is empty', async () => {

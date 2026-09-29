@@ -14,6 +14,7 @@ import {
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
     resubmissionNoteIsBlank,
+    resubmissionNoteIsOverLimit,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 
@@ -41,10 +42,15 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const characterCount = resubmissionNoteCharacterCount(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
-    // Blur raises the over-limit error but never the required one; only a Resubmit click does.
     const handleBlur = () => {
         if (resubmissionNoteIsBlank(value)) return
         noteForm.validateField('resubmissionNote')
+    }
+
+    // Over-limit stays live, so the message arrives with the caret still in the field.
+    const handleChange = (next: string) => {
+        noteForm.setFieldValue('resubmissionNote', next)
+        if (resubmissionNoteIsOverLimit(next)) noteForm.validateField('resubmissionNote')
     }
 
     return (
@@ -66,7 +72,7 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         rows={5}
                         {...resizableTextareaProps(noteFloor)}
                         value={value}
-                        onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
+                        onChange={(e) => handleChange(e.currentTarget.value)}
                         onBlur={handleBlur}
                         // Mantine spreads its own derived describedBy after the caller's props,
                         // so a hand-passed aria-describedby would be discarded.
