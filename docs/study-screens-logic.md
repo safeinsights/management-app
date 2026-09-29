@@ -342,6 +342,16 @@ navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`,
 before that. It takes `NavCtxBase` — the context without `dashboardHref`, which this rule never
 reads.
 
+Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
+once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
+`CODE-SUBMITTED`, whatever the reviewer has decided since — because its confirmation modal promises
+no changes after submitting (OTTER-693). `study.status` stays `APPROVED` through submission, so the
+answer comes from the job statuses, not the study row. Post-decision editing lives on `/resubmit`,
+gated by `canResearcherResubmitCode`, which requires a resubmission note. Both rules are enforced
+server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submitStudyCodeAction`, and
+`requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
+pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
+
 `Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
 for reviewers, and for researchers the org dashboard only when the study was entered with
 `?returnTo=org`.

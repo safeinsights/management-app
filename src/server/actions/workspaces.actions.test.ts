@@ -15,6 +15,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { pathForStarterCode } from '@/lib/paths'
 import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
+import type { StudyJobStatus } from '@/database/types'
 
 // Echo the key back so a test can assert which S3 key gets signed.
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -379,6 +380,142 @@ describe('Workspace Actions', () => {
             const { ensureWorkspaceAction } = await import('./workspaces.actions')
 
             expect('error' in (await ensureWorkspaceAction({ studyId: study.id }))).toBe(false)
+        })
+    })
+
+    // OTTER-693: 'load IDE' is org-scoped and says nothing about where the study is in its
+    // lifecycle, so a submitted round was mutable through every one of these endpoints.
+    describe('code round lifecycle gate (OTTER-693)', () => {
+        // Same spread-the-real-module reason as the sibling describe above: a bare factory drops
+        // exports the actions import and leaks into every later test in this file.
+        const mockCoder = () =>
+            vi.doMock('@/server/coder', async (importOriginal) => ({
+                ...(await importOriginal<typeof import('@/server/coder')>()),
+                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
+                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
+            }))
+
+        const studyAtJobStatus = async (statuses: StudyJobStatus[]) => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: statuses[0],
+            })
+            for (const status of statuses.slice(1)) {
+                await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
+            }
+
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'main.r'), 'print(1)')
+            await fs.writeFile(path.join(studyDir, 'helper.r'), 'print(2)')
+
+            return { study, user, org, studyDir }
+        }
+
+        const mutations = async (studyId: string) => {
+            const {
+                uploadWorkspaceFileAction,
+                setMainCodeFileAction,
+                deleteWorkspaceFileAction,
+                recordWorkspaceFileEditAction,
+            } = await import('./workspace-files.actions')
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            return {
+                upload: () =>
+                    uploadWorkspaceFileAction({
+                        studyId,
+                        file: new File(['print(3)'], 'added.r', { type: 'text/plain' }),
+                    }),
+                // main.r, so the later delete of helper.r is not refused by the main-file rule.
+                setMain: () => setMainCodeFileAction({ studyId, fileName: 'main.r' }),
+                remove: () => deleteWorkspaceFileAction({ studyId, fileName: 'helper.r' }),
+                recordEdit: () => recordWorkspaceFileEditAction({ studyId, fileName: 'helper.r' }),
+                launch: () => ensureWorkspaceAction({ studyId }),
+            }
+        }
+
+        const mainFileName = (studyId: string) =>
+            db
+                .selectFrom('study')
+                .select('mainCodeFileName')
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+                .then((r) => r.mainCodeFileName)
+
+        test('refuses every file mutation once the round is submitted', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study, studyDir } = await studyAtJobStatus(['CODE-SUBMITTED'])
+
+            const m = await mutations(study.id)
+            for (const call of [m.upload, m.setMain, m.remove, m.recordEdit, m.launch]) {
+                expect((await call()) ?? {}).toHaveProperty('error')
+            }
+
+            // The refusals have to leave the workspace exactly as the reviewer sees it.
+            expect(await mainFileName(study.id)).toBeNull()
+            await expect(fs.readFile(path.join(studyDir, 'helper.r'), 'utf8')).resolves.toBe('print(2)')
+            await expect(fs.readFile(path.join(studyDir, 'added.r'), 'utf8')).rejects.toThrow()
+        })
+
+        test('leaves the IDE unclaimed when a launch is refused', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study } = await studyAtJobStatus(['CODE-SUBMITTED'])
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            expect('error' in (await ensureWorkspaceAction({ studyId: study.id }))).toBe(true)
+
+            const owner = await db
+                .selectFrom('study')
+                .select('ideOwnerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(owner.ideOwnerId).toBeNull()
+        })
+
+        test('refuses every file mutation once the code is approved', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study } = await studyAtJobStatus(['CODE-SUBMITTED', 'CODE-APPROVED'])
+
+            const m = await mutations(study.id)
+            for (const call of [m.upload, m.setMain, m.remove, m.recordEdit, m.launch]) {
+                expect((await call()) ?? {}).toHaveProperty('error')
+            }
+        })
+
+        // The regression that would break /resubmit: it writes through these same actions.
+        test('still allows every file mutation after a change request', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study } = await studyAtJobStatus(['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])
+
+            const m = await mutations(study.id)
+            for (const call of [m.upload, m.setMain, m.recordEdit, m.launch, m.remove]) {
+                // recordWorkspaceFileEditAction resolves void on success, so a missing result is
+                // itself a pass; only an `error` key means the gate refused.
+                expect((await call()) ?? {}).not.toHaveProperty('error')
+            }
+
+            expect(await mainFileName(study.id)).toBe('main.r')
+        })
+
+        test('preload does nothing and opens no round job once the round is submitted', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await studyAtJobStatus(['CODE-SUBMITTED'])
+            const jobsBefore = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+
+            const { ensureStarterCodePreloadAction } = await import('./workspaces.actions')
+            expect(actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))).toEqual({
+                preloaded: false,
+            })
+
+            const jobsAfter = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobsAfter).toHaveLength(jobsBefore.length)
         })
     })
 
