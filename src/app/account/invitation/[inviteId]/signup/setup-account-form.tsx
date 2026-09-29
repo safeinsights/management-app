@@ -6,17 +6,7 @@ import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
-import {
-    Alert,
-    Button,
-    Flex,
-    Paper,
-    PasswordInput,
-    Text,
-    TextInput,
-    Title,
-    Stack,
-} from '@mantine/core'
+import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
 import {
     AcknowledgementCheckbox,
     globalDocAgreementLabel,
