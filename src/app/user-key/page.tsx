@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import dayjs from 'dayjs'
 import { redirect } from 'next/navigation'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { getUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { RegenerateKey } from './regenerate-key'
+
+export const metadata: Metadata = { title: 'Security key' }
 
 export default async function ManageKeysPage() {
     // Guarded here too, so a missing key never silently formats today's date as generated-on.

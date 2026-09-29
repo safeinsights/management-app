@@ -24,11 +24,14 @@ import {
     StudyRow as StudyRowType,
 } from './types'
 
+// Key prefixes of the two researcher tables, for writes that change what a researcher row shows.
+export const RESEARCHER_STUDIES_QUERY_KEYS = { user: 'user-researcher-studies', org: 'researcher-studies' } as const
+
 function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string): string[] {
     if (scope === 'org') {
-        return audience === 'researcher' ? ['researcher-studies', orgSlug] : ['org-studies', orgSlug]
+        return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.org, orgSlug] : ['org-studies', orgSlug]
     }
-    return audience === 'researcher' ? ['user-researcher-studies'] : ['user-reviewer-studies', userId || '']
+    return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.user] : ['user-reviewer-studies', userId || '']
 }
 
 function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userId: string): StudyRowType[] {

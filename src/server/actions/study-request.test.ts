@@ -9,6 +9,7 @@ import {
     expectStudyJobRecords,
     getAuditEntries,
     insertTestOrg,
+    insertTestStudyAgreement,
     insertTestStudyData,
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
@@ -17,11 +18,16 @@ import {
     renameTestOrg,
     setTestStudyStatus,
     writeWorkspaceFiles,
+    insertTestUser,
 } from '@/tests/unit.helpers'
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { mockClient } from 'aws-sdk-client-mock'
+import { deliver } from '@/server/mailgun'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     getDraftStudyAction,
     onDeleteStudyAction,
@@ -34,7 +40,11 @@ import {
     saveCodeResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import {
+    DATASETS_REQUIRED_ERROR,
+    STUDY_TITLE_BLANK_ERROR,
+    STUDY_TITLE_OVER_LIMIT_ERROR,
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -51,6 +61,14 @@ vi.mock('@/server/aws', async () => {
         triggerScanForStudyJob: vi.fn(),
     }
 })
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
+
+const deliverMock = deliver as unknown as Mock
 
 const workspaceRoots: string[] = []
 
@@ -135,6 +153,7 @@ describe('Request Study Actions', () => {
                     title: 'Test Study',
                     piName: 'Test PI',
                     language: 'R' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -167,6 +186,49 @@ describe('Request Study Actions', () => {
         expect(study?.status).toEqual('PENDING-REVIEW')
     })
 
+    // The worker reads the round from its own connection, so a message sent from inside the
+    // transaction names code that is not visible yet and the round is discarded (OTTER-799).
+    it('finalizeStudySubmissionAction queues the review only once the submission has committed', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-review-after-commit' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: {
+                    title: 'Queued after commit',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        const { studyJobId } = actionResult(
+            await onSubmitDraftStudyAction({ studyId: draft.studyId, mainCodeFileName: 'main.R', codeFileNames: [] }),
+        )
+
+        const visibleWhenSent: boolean[] = []
+        const sqsMock = mockClient(SQSClient)
+        sqsMock.on(SendMessageCommand).callsFake(async () => {
+            const submitted = await db
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', studyJobId)
+                .where('status', '=', 'CODE-SUBMITTED')
+                .executeTakeFirst()
+            visibleWhenSent.push(submitted != null)
+            return {}
+        })
+        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
+
+        vi.unstubAllEnvs()
+        sqsMock.restore()
+        expect(visibleWhenSent).toEqual([true])
+    })
+
     it('submission flow works with Python language', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -179,6 +241,7 @@ describe('Request Study Actions', () => {
                     title: 'Python Study',
                     piName: 'Test PI',
                     language: 'PYTHON' as const,
+                    datasets: ['test-dataset'],
                 },
                 submittingOrgSlug: lab.slug,
             }),
@@ -244,6 +307,80 @@ describe('Request Study Actions', () => {
         expect(study?.id).toBe(studyId)
     })
 
+    const submitDraftProposal = async (slugPrefix: string) => {
+        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
+        await insertTestUser({ org: { id: siOrg.id, slug: siOrg.slug, type: 'enclave' }, isAdmin: true })
+        const enclave = await insertTestOrg({ type: 'enclave', slug: slugPrefix })
+        await insertTestUser({ org: { id: enclave.id, slug: enclave.slug, type: 'enclave' } })
+        const lab = await insertTestOrg({ slug: `${slugPrefix}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const draft = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: {
+                    title: 'Agreement Email Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+        return draft.studyId
+    }
+
+    const SLA_NOTICE = expect.objectContaining({ template: 'vb - sla notice' })
+
+    // SHRMP-328: submission, not approval, is when SafeInsights is asked to draw the agreement up.
+    it('finalizeStudySubmissionAction asks SafeInsights to prepare the Study Agreement', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    // Resubmission after CHANGE-REQUESTED comes back through this same action.
+    it('finalizeStudySubmissionAction asks for the Study Agreement once, not again on resubmission', async () => {
+        const studyId = await submitDraftProposal('sla-once')
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+        expect(deliverMock).toHaveBeenCalledWith(SLA_NOTICE)
+
+        deliverMock.mockClear()
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
+        const studyId = await submitDraftProposal('sla-already-drafted')
+        await insertTestStudyAgreement({ studyId, published: false })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    it('finalizeStudySubmissionAction asks for no Study Agreement on a test study', async () => {
+        const studyId = await submitDraftProposal('sla-on-submit-test')
+        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', studyId).execute()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await flushDeferred()
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
+        expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
     it('finalizeStudySubmissionAction calls onStudyCreated for DRAFT studies', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-evt-draft' })
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -252,7 +389,12 @@ describe('Request Study Actions', () => {
         const draftResult = actionResult(
             await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo: { title: 'Draft Event Test', piName: 'PI', language: 'R' as const },
+                studyInfo: {
+                    title: 'Draft Event Test',
+                    piName: 'PI',
+                    language: 'R' as const,
+                    datasets: ['test-dataset'],
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
@@ -307,11 +449,45 @@ describe('Request Study Actions', () => {
         expect(unchanged.status).toBe('DRAFT')
     })
 
+    // A draft saved before datasets moved to Step 1 has none, and Step 2 cannot add them (OTTER-803).
+    it('finalizeStudySubmissionAction rejects a DRAFT with no datasets', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'finalize-no-datasets' })
+        await db.updateTable('study').set({ datasets: null }).where('id', '=', studyId).execute()
+
+        const result = await finalizeStudySubmissionAction({ studyId })
+
+        expect(result).toEqual({ error: { datasets: DATASETS_REQUIRED_ERROR } })
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.status).toBe('DRAFT')
+    })
+
+    it('finalizeStudySubmissionAction keeps the datasets Step 1 stored', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'finalize-keeps-datasets',
+            studyInfo: { datasets: ['ds-step-1'] },
+        })
+
+        actionResult(await finalizeStudySubmissionAction({ studyId, studyInfo: { piName: 'PI' } }))
+
+        const row = await db
+            .selectFrom('study')
+            .select(['status', 'datasets'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        expect(row.status).toBe('PENDING-REVIEW')
+        expect(row.datasets).toEqual(['ds-step-1'])
+    })
+
     describe('OpenStax Proposal Flow (Step 2)', () => {
         it('creates draft with step 1 fields, updates with proposal fields, and submits', async () => {
             const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
             const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
             await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const step1Datasets = ['openstax-calculus', 'openstax-physics']
 
             const draftResult = actionResult(
                 await onSaveDraftStudyAction({
@@ -319,6 +495,7 @@ describe('Request Study Actions', () => {
                     studyInfo: {
                         title: 'Set on Step 1',
                         language: 'PYTHON' as const,
+                        datasets: step1Datasets,
                     },
                     submittingOrgSlug: lab.slug,
                 }),
@@ -334,11 +511,11 @@ describe('Request Study Actions', () => {
             expect(study?.status).toEqual('DRAFT')
             expect(study?.language).toEqual('PYTHON')
             expect(study?.title).toEqual('Set on Step 1')
+            expect(study?.datasets).toEqual(step1Datasets)
 
             const proposalFields = {
                 title: 'Impact of Highlighting on Learning',
                 piName: 'Dr. Research Lead',
-                datasets: ['openstax-calculus', 'openstax-physics'],
                 researchQuestions: lexicalJson('How does highlighting affect retention?'),
                 projectSummary: lexicalJson('This study examines highlighting patterns.'),
                 impact: lexicalJson('Findings will inform textbook design.'),
@@ -359,7 +536,7 @@ describe('Request Study Actions', () => {
                 .executeTakeFirst()
             expect(study?.title).toEqual(proposalFields.title)
             expect(study?.piName).toEqual(proposalFields.piName)
-            expect(study?.datasets).toEqual(proposalFields.datasets)
+            expect(study?.datasets).toEqual(step1Datasets)
             expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
             expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
             expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))
@@ -421,7 +598,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction transitions CHANGE-REQUESTED → PENDING-REVIEW', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org })
+            const { study } = await insertTestStudyOnly({ org, datasets: ['test-dataset'] })
 
             await setTestStudyStatus(study.id, 'CHANGE-REQUESTED')
 
@@ -464,7 +641,7 @@ describe('Request Study Actions', () => {
 
         it('finalizeStudySubmissionAction deletes proposal-* yjs_document rows so re-edit reseeds from study columns', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id, datasets: ['test-dataset'] })
             await setTestStudyStatus(study.id, 'DRAFT')
 
             await db
@@ -1739,7 +1916,12 @@ describe('Request Study Actions', () => {
             const draft = actionResult(
                 await onSaveDraftStudyAction({
                     orgSlug: enclave.slug,
-                    studyInfo: { title: 'Status round trip', piName: 'PI', language: 'R' as const },
+                    studyInfo: {
+                        title: 'Status round trip',
+                        piName: 'PI',
+                        language: 'R' as const,
+                        datasets: ['test-dataset'],
+                    },
                     submittingOrgSlug: lab.slug,
                 }),
             )
@@ -1796,7 +1978,6 @@ describe('Request Study Actions', () => {
                     criteria: {
                         proposalAlignment: 'yes',
                         agreementCompliance: 'yes',
-                        securityChecks: 'yes',
                         privacyProtection: 'yes',
                     },
                 }),

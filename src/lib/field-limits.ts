@@ -2,6 +2,11 @@
 export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
     `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
+// Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
+// setFieldError that would put it back (OTTER-777). The required half stays with blur and submit.
+export const liveLimitError = (isOverLimit: boolean, overLimitError: string, storedError: unknown) =>
+    isOverLimit ? overLimitError : (storedError as string | undefined)
+
 // Grapheme clusters, not `.length`: code units charge for storage rather than for what the user
 // typed. Built once because the counter runs per keystroke.
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })

@@ -255,7 +255,7 @@ describe('ResearchDetailsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const updated = await db
@@ -290,7 +290,7 @@ describe('ResearchDetailsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const updated = await db

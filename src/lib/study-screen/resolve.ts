@@ -3,13 +3,13 @@ import type { ScreenId, ScreenDescriptor, DashboardAction } from './screens'
 import { RESEARCHER_SCREEN_RULES } from './researcher-screen-rules'
 import { REVIEWER_SCREEN_RULES } from './reviewer-screen-rules'
 import { DASHBOARD_RULES, type DashboardRuleCtx } from './dashboard-rules'
+import { firstMatch } from './screen-rules'
 
 // Pure state → screen: the URL never influences which screen renders, so routing context is
 // deliberately not a parameter here.
 export function resolveScreen(role: StudyRole, state: StudyState): ScreenDescriptor {
     const rules = role === 'reviewer' ? REVIEWER_SCREEN_RULES : RESEARCHER_SCREEN_RULES
-    const [screen] = rules.find(([, rule]) => rule.when(state))! // total: last entry is `when: () => true`
-    return { screen }
+    return { screen: firstMatch(rules, state) }
 }
 
 const RESEARCHER_CODE_SCREENS: ReadonlyArray<ScreenId> = ['code-approved', 'code-feedback', 'code-under-review']

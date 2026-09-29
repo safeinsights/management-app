@@ -4,6 +4,7 @@ import { AlertNotFound } from '@/components/errors'
 import { projectStudyState } from '@/lib/study-screen'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
@@ -16,10 +17,15 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
     const state = projectStudyState(raw)
 
     const job = await latestSubmittedJobForStudy(study.id)
-    // The post-decision page shows the same full "Submitted code" section as active review, so it
-    // needs the review and scan rows too (OTTER-613).
-    const analysis = job ? await jobAnalysisForJob(job) : null
-    const entries = await getCodeReviewFeedbackAction({ studyId: study.id })
+    const [analysis, entries, reviewVersion] = await Promise.all([
+        // The same full "Submitted code" section as active review, so the review and scan rows too
+        // (OTTER-613).
+        job ? jobAnalysisForJob(job) : null,
+        getCodeReviewFeedbackAction({ studyId: study.id }),
+        // Not codeSubmissionVersion: that counts the CODE-CHANGES-REQUESTED just written and would
+        // label this page as the next iteration.
+        job ? codeRoundForJob(job.id) : 1,
+    ])
     const safeEntries = isActionError(entries) ? [] : entries
     if (safeEntries.length > 0) {
         return (
@@ -30,6 +36,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
                 kind="CODE"
                 job={job}
                 analysis={analysis}
+                reviewVersion={reviewVersion}
                 nav={nav}
             />
         )
@@ -53,6 +60,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
             job={job}
             analysis={analysis}
             fallback={fallback}
+            reviewVersion={reviewVersion}
             nav={nav}
         />
     )

@@ -139,14 +139,17 @@ export function FeedbackAndNotesSection({
     entries,
     alwaysExpandLatest = false,
     loadError = false,
+    isVisible = true,
 }: {
     entries: FeedbackEntryShape[]
     alwaysExpandLatest?: boolean
     /** Shows a notice rather than hiding the section, so a failed query never reads as "no feedback". */
     loadError?: boolean
+    isVisible?: boolean
 }) {
     const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)
 
+    if (!isVisible) return null
     if (loadError) return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
     if (entries.length === 0) return null
 

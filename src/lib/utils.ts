@@ -58,6 +58,11 @@ export const enclaveOrgIds = (session: UserSession) =>
         .filter((org) => org.type === 'enclave')
         .map((org) => org.id)
 
+// Membership alone, deliberately narrower than a `view` ability: several callers gate on the
+// viewer being on one specific side of the study rather than on being allowed to see it.
+export const isSessionOrgMember = (session: UserSession, orgId: string): boolean =>
+    Object.values(session.orgs).some((org) => org.id === orgId)
+
 export function actionResult<T>(result: ActionResponse<T>): T {
     if (isActionError(result)) {
         throw new Error(errorToString(result))

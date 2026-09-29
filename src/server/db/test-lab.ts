@@ -16,13 +16,17 @@ export const orgTestLabs = (db: DBExecutor, dataPartnerId: string) =>
     db
         .selectFrom('orgTestLab')
         .innerJoin('org as researchLab', 'researchLab.id', 'orgTestLab.researchLabId')
-        .select(['orgTestLab.id', 'researchLab.id as researchLabId', 'researchLab.name as researchLabName'])
+        .select([
+            'orgTestLab.id',
+            'orgTestLab.createdAt',
+            'researchLab.id as researchLabId',
+            'researchLab.name as researchLabName',
+        ])
         .where('orgTestLab.dataPartnerId', '=', dataPartnerId)
         .orderBy('researchLab.name')
         .execute()
 
-// Every lab, not the ones this partner has worked with: no schema ties a research lab to a data
-// partner, and the card leaves that out of scope.
+// Every lab: no schema ties a research lab to a data partner.
 export const labsEligibleAsTestLabs = (db: DBExecutor, dataPartnerId: string) =>
     db
         .selectFrom('org')
@@ -42,10 +46,8 @@ export const labsEligibleAsTestLabs = (db: DBExecutor, dataPartnerId: string) =>
         .orderBy('org.name')
         .execute()
 
-// No undesignate yet, deliberately: a test lab is permanent for now. The write itself is a delete
-// scoped to the pair, but two things need answering first. Studies already stamped is_test_study
-// stay exempt forever, which is not what a Remove button reads like; unstamping them instead would
-// unenforce an agreement a study may already carry. The modal copy also promises permanence.
+// No undesignate yet: stamped studies would stay exempt forever, and unstamping would unenforce an
+// agreement a study may carry. The modal also promises permanence.
 export const designateTestLabs = async (
     db: DBExecutor,
     {

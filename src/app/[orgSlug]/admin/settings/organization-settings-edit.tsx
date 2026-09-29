@@ -9,6 +9,8 @@ import { z } from 'zod'
 import { type PublicOrg } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
+import { resizableTextareaProps } from '@/components/textarea-resize'
+import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 interface FormFieldMessageProps {
     message: string
@@ -38,6 +40,7 @@ interface OrganizationSettingsEditProps {
 export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: OrganizationSettingsEditProps) {
     const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
     const inputSpan = { base: 12, sm: 9, md: 6, lg: 4 }
+    const { ref: descriptionRef, floor: descriptionFloor } = useTextareaResizeFloor()
 
     const form: UseFormReturnType<SettingsFormValues> = useForm<SettingsFormValues>({
         initialValues: {
@@ -130,8 +133,9 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 aria-label="Description"
                                 key={form.key('description')}
                                 {...form.getInputProps('description')}
-                                autosize
-                                minRows={3}
+                                ref={descriptionRef}
+                                rows={3}
+                                {...resizableTextareaProps(descriptionFloor)}
                                 placeholder="Consider adding a sentence to publicly introduce your organization."
                                 error={
                                     form.errors.description && (

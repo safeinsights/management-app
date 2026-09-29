@@ -1,5 +1,6 @@
 import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { createRef } from 'react'
+import { TEXTAREA_RESIZE_FLOOR } from '@/components/textarea-resize'
 import { SecurityKeyInput } from './security-key-input'
 
 describe('SecurityKeyInput', () => {
@@ -45,5 +46,18 @@ describe('SecurityKeyInput', () => {
     it('supports the native disabled attribute', () => {
         renderWithProviders(<SecurityKeyInput disabled />)
         expect(screen.getByRole('textbox')).toBeDisabled()
+    })
+
+    it('offers a vertical resize handle (OTTER-787)', () => {
+        renderWithProviders(<SecurityKeyInput />)
+        const host = screen.getByRole('textbox').closest('[style*="--input-resize"]') as HTMLElement
+        expect(host.style.getPropertyValue('--input-resize')).toBe('vertical')
+    })
+
+    // The floor is the whole point: without it a drag shrinks the field under the height it loads
+    // at, because Mantine's own minimum for a multiline input is a single row.
+    it('floors the field at its own load height so a drag cannot shrink it', () => {
+        renderWithProviders(<SecurityKeyInput />)
+        expect(screen.getByRole('textbox')).toHaveStyle({ minHeight: `${TEXTAREA_RESIZE_FLOOR}px` })
     })
 })

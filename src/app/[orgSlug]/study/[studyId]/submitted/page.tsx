@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -5,6 +6,8 @@ import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
 import { renderScreenById } from '../_screens/render-screen'
+
+export const metadata: Metadata = { title: 'Submit proposal' }
 
 // The proposal-status page whatever the study has done since: it is the anchor every code-phase
 // "Previous step" walks back to, so the screen is pinned rather than resolved (resolveScreen would

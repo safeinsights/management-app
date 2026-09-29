@@ -42,14 +42,14 @@ export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
     approve: {
         title: 'Approve code?',
         body: (lab) =>
-            `Your approval and feedback will be sent to ${lab}, and the code will run in the secure enclave. You will not be able to make changes after approving.`,
+            `Your approval and feedback will be sent to ${lab}. You will not be able to make changes after approving.`,
         confirmLabel: 'Approve code',
         variant: 'default',
     },
     'needs-clarification': {
         title: 'Request revision?',
         body: (lab) =>
-            `Your feedback will be sent to ${lab} so they can update and resubmit their code. You'll be notified when the revised code is ready for review.`,
+            `Your feedback will be sent to ${lab} so they can update their code and resubmit. You'll be notified when the revised code is ready for review.`,
         confirmLabel: 'Request revision',
         variant: 'default',
     },

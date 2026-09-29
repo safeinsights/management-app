@@ -16,11 +16,15 @@ import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
 import { HydrationMarker } from '@/components/layout/hydration-marker'
+import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
+
+const APP_TITLE = 'SafeInsights'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
-        title: 'SafeInsights',
+        // Each page names itself; the default only shows where none does (not-found, errors).
+        title: { default: APP_TITLE, template: `%s - ${APP_TITLE}` },
         description: 'Manages studies, members, and data',
         icons: {
             icon: '/icon.png',
@@ -49,6 +53,7 @@ export default async function RootLayout({
                         {children}
                         <HydrationMarker />
                     </Suspense>
+                    <RouteFocusManager />
                     <PiSymbol />
                 </Providers>
             </body>

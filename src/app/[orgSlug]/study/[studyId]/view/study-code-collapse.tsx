@@ -12,8 +12,8 @@ export const DEFAULT_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
 }
 
 export const FULL_STUDY_CODE_TOGGLE_LABELS: StudyCodeToggleLabels = {
-    expand: 'View full study code',
-    collapse: 'Hide full study code',
+    expand: 'View full submission details',
+    collapse: 'Hide full submission details',
 }
 
 interface StudyCodeToggleProps {

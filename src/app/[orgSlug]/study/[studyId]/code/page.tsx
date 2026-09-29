@@ -1,17 +1,23 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
+import { codeSubmissionNav } from '@/lib/study-screen'
 import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.actions'
 import logger from '@/lib/logger'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Study code' }
+}
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -50,11 +56,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 // against — not the submitting lab. Same source /resubmit reads.
                 dataPartnerName={displayOrgName(result.orgName)}
                 isFirstVisit={isFirstVisit}
-                previousHref={
-                    result.status === 'APPROVED'
-                        ? Routes.studySubmitted({ orgSlug, studyId })
-                        : Routes.studyEdit({ orgSlug, studyId })
-                }
+                nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />
         </Stack>
     )

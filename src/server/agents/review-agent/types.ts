@@ -26,6 +26,9 @@ export interface ReviewAgentConfig {
     additionalContext?: string
     analysisPromptTemplate?: string
     maxRetries?: number
+    // Caller-owned deadline. An aborted request rejects and is not retried by the SDK, so the
+    // runner is free to record the failure (OTTER-799).
+    signal?: AbortSignal
 }
 
 // Mirrors ANALYSIS_TOOL in agent.ts so AnalysisReport has one source, and guards the write

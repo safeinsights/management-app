@@ -177,7 +177,13 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
             .where('study.orgId', 'in', reviewerOrgIds)
             .where('study.status', '!=', 'DRAFT')
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug'])
+            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+            .select([
+                'org.name as orgName',
+                'org.slug as orgSlug',
+                'submittingOrg.name as submittingLabName',
+                'submittingOrg.slug as submittedByOrgSlug',
+            ])
             .execute()
     })
 
@@ -669,7 +675,6 @@ async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {
 const codeReviewCriteriaSchema = z.object({
     proposalAlignment: z.enum(['yes', 'no', 'not-sure']),
     agreementCompliance: z.enum(['yes', 'no', 'not-sure']),
-    securityChecks: z.enum(['yes', 'no', 'not-sure']),
     privacyProtection: z.enum(['yes', 'no', 'not-sure']),
 })
 

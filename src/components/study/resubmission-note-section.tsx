@@ -8,6 +8,8 @@ import { RequiredIndicator } from '@/components/required-indicator'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox, nativeFieldProps } from '@/components/form-field'
 import { CharacterCounter } from '@/components/character-counter'
 import { SaveStatusIndicator, type SaveStatusValue } from '@/components/save-status'
+import { resizableTextareaProps } from '@/components/textarea-resize'
+import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import {
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
@@ -32,6 +34,7 @@ export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveSta
 }
 
 export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ noteForm, orgName, autosaveStatus }) => {
+    const { ref: noteRef, floor: noteFloor } = useTextareaResizeFloor()
     const value = noteForm.values.resubmissionNote
     const error = noteForm.errors.resubmissionNote as string | undefined
     const characterCount = resubmissionNoteCharacterCount(value)
@@ -53,9 +56,9 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                         id="resubmissionNote"
                         aria-label="Resubmission Note"
                         placeholder="Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission."
-                        autosize
-                        minRows={5}
-                        styles={{ input: { resize: 'vertical' } }}
+                        ref={noteRef}
+                        rows={5}
+                        {...resizableTextareaProps(noteFloor)}
                         value={value}
                         onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
                         onBlur={() => noteForm.validateField('resubmissionNote')}

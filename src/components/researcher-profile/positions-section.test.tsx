@@ -9,6 +9,7 @@ import {
     db,
 } from '@/tests/unit.helpers'
 import { PositionsSection } from './positions-section'
+import { notifications } from '@mantine/notifications'
 
 describe('PositionsSection', () => {
     it('should auto-open form when no positions exist', async () => {
@@ -80,7 +81,7 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const positions = await db
@@ -129,7 +130,7 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const positions = await db
@@ -208,7 +209,7 @@ describe('PositionsSection', () => {
         await userEvents.click(deleteButtons[0])
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
         })
 
         const positions = await db
@@ -397,7 +398,7 @@ describe('PositionsSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull()
         })
 
         const positions = await db

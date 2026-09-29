@@ -469,6 +469,27 @@ export const insertTestBaselineJob = async (studyId: string, { createdAt }: { cr
     return job
 }
 
+// Advances a job that already has CODE-SUBMITTED to round 2 (change request + resubmit). Timestamps
+// are staggered after `after` so they sort after the original submission.
+export const appendCodeResubmission = async (studyJobId: string, after: Date = new Date()) => {
+    const base = after.getTime()
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            {
+                studyJobId,
+                status: 'CODE-CHANGES-REQUESTED',
+                createdAt: new Date(base + 1000),
+            },
+            {
+                studyJobId,
+                status: 'CODE-SUBMITTED',
+                createdAt: new Date(base + 2000),
+            },
+        ])
+        .execute()
+}
+
 // Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
 // Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
 export const insertTestStudyOnly = async ({
@@ -480,6 +501,7 @@ export const insertTestStudyOnly = async ({
     isTestStudy = false,
     // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
+    datasets = null,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
@@ -488,6 +510,7 @@ export const insertTestStudyOnly = async ({
     status?: StudyStatus
     isTestStudy?: boolean
     withStudyAgreement?: boolean
+    datasets?: string[] | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -511,6 +534,7 @@ export const insertTestStudyOnly = async ({
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
+            datasets,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -858,6 +882,7 @@ type CreateTestProposalDraftOptions = {
         title?: string
         piName?: string
         language?: Language
+        datasets?: string[]
     }
 }
 
@@ -871,7 +896,8 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     const draft = actionResult(
         await onSaveDraftStudyAction({
             orgSlug: enclave.slug,
-            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
+            // Step 1 always saves datasets now (OTTER-803), and a draft without any cannot be submitted.
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', datasets: ['test-dataset'], ...studyInfo },
             submittingOrgSlug: lab.slug,
         }),
     )
@@ -1171,7 +1197,6 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
-    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,

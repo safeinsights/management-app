@@ -6,6 +6,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { fetchOrgDataSourcesAction } from './data-sources.actions'
 import { useDataSourceForm } from './use-data-source-form'
 import { GetInputPropsReturnType } from '@mantine/form'
+import { resizableTextareaProps } from '@/components/textarea-resize'
+import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
@@ -39,14 +41,14 @@ function SourceUrlLine({
                 {...urlProps}
                 value={url}
                 onChange={(e) => onUrlChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="URL"
             />
             <TextInput
                 {...descriptionProps}
                 value={description}
                 onChange={(e) => onDescriptionChange(e.target.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 placeholder="URL description"
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
@@ -59,6 +61,7 @@ function SourceUrlLine({
 export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormProps) {
     const { form, isEditMode, isPending, onSubmit, updateUrl, updateUrlDescription, removeUrl, addUrl } =
         useDataSourceForm(dataSource, onCompleteAction)
+    const { ref: descriptionRef, floor: descriptionFloor } = useTextareaResizeFloor({ maxRows: 5 })
 
     return (
         <form onSubmit={onSubmit}>
@@ -72,9 +75,9 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                 <Textarea
                     label="Description"
                     placeholder="Brief description of this data source"
-                    autosize
-                    minRows={2}
-                    maxRows={5}
+                    ref={descriptionRef}
+                    rows={2}
+                    {...resizableTextareaProps(descriptionFloor)}
                     {...form.getInputProps('description')}
                 />
                 <Divider />
@@ -105,13 +108,13 @@ export function DataSourceForm({ dataSource, onCompleteAction }: DataSourceFormP
                                 {...form.getInputProps('newUrl')}
                                 placeholder="URL"
                                 aria-label="New URL"
-                                style={{ flex: 1 }}
+                                flex={1}
                             />
                             <TextInput
                                 {...form.getInputProps('newUrlDescription')}
                                 placeholder="URL description"
                                 aria-label="New URL description"
-                                style={{ flex: 1 }}
+                                flex={1}
                             />
                             <ActionIcon color="blue" variant="subtle" aria-label="Add URL" onClick={addUrl} mt="xxs">
                                 <PlusCircleIcon size={16} />

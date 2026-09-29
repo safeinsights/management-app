@@ -9,7 +9,8 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
-import { generateAndStoreStudyReview } from './agents/review-agent/runner'
+import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
+import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { siUser } from './db/queries'
 import * as email from './mailer'
 
@@ -89,6 +90,7 @@ type StudyEvent = { studyId: string; userId: string }
 export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalEmails(studyId)
+    await email.sendStudyAgreementPreparationEmail(studyId)
 
     await capturePostHogEvent({
         distinctId: userId,
@@ -101,9 +103,21 @@ export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId:
     await email.sendStudyAgreementReadyEmail(studyId)
 })
 
-export const onStudyReviewRequested = deferred(async ({ studyJobId, round }: { studyJobId: string; round: number }) => {
-    await generateAndStoreStudyReview(studyJobId, round)
-})
+const runJobInProcess = deferred(runJob)
+
+// Awaited from afterCommit, so the message is sent before the response and names committed rows.
+// A job can take minutes, which after() cannot hold open in a Lambda, so the queue is the real path
+// and the in-process run is the fallback for environments that have none (OTTER-799).
+const startJob = async (message: JobMessage) => {
+    if (isJobQueueConfigured()) {
+        await enqueueJob(message)
+    } else {
+        runJobInProcess(message)
+    }
+}
+
+export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
+    startJob({ job: 'study-review', payload })
 
 export const onStudyCodeSubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
@@ -115,8 +129,6 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalApprovedEmail(studyId)
-    // Approval is the earliest point an agreement can exist, so it is also the earliest it can be asked for.
-    await email.sendStudyAgreementPreparationEmail(studyId)
 })
 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {

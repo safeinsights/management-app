@@ -1,10 +1,15 @@
 'use server'
 
+import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderStudyScreen } from '../_screens/render-screen'
 import { reviewerPageGuard } from './reviewer-page-guard'
+
+export async function generateMetadata(): Promise<Metadata> {
+    return { title: 'Study review' }
+}
 
 export default async function StudyReviewPage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
     const { orgSlug, studyId } = await props.params

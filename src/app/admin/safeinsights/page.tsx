@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { OrgsAdminTable } from './table'
 // eslint-disable-next-line no-restricted-imports
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
@@ -6,6 +7,8 @@ import { AgentContext } from './agent-context'
 import { getAgentContextAction } from '@/server/actions/agent-context.actions'
 import { CONTEXT_NAMES } from '@/lib/agent-context'
 import { Stack } from '@mantine/core'
+
+export const metadata: Metadata = { title: 'Organizations' }
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()

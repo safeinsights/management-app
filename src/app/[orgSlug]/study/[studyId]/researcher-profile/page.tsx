@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { isActionError } from '@/lib/errors'
@@ -5,6 +6,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { getResearcherProfileByUserIdAction } from '@/server/actions/researcher-profile.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { ResearcherProfileView } from './researcher-profile-view'
+
+export const metadata: Metadata = { title: 'Researcher profile' }
 
 export default async function ResearcherProfilePage(props: {
     params: Promise<{

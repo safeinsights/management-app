@@ -41,13 +41,7 @@ export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspace
         refetch,
     } = useQuery({
         queryKey: ['workspace-files', studyId],
-        queryFn: async () => {
-            const result = await listWorkspaceFilesAction({ studyId })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
+        queryFn: () => listWorkspaceFilesAction({ studyId }),
         enabled,
         refetchInterval: enabled ? (props.refetchInterval ?? false) : false,
     })

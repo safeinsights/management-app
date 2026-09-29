@@ -1,3 +1,9 @@
+/* Focused by script on route change (useRouteFocus), never by Tab, so a ring around the whole
+   page would only be noise. */
+#main-content:focus {
+    outline: none;
+}
+
 .pi-symbol {
     position: fixed;
     bottom: 0px;
@@ -85,6 +91,13 @@
     color: var(--mantine-color-blue-6);
     text-decoration: underline;
     cursor: pointer;
+}
+
+/* A disabled field must not offer a handle (OTTER-787). Browsers keep a disabled textarea
+   resizable unless a rule says otherwise. Read-only is deliberately not covered: the only
+   read-only textarea is the Launch progress log viewer, which is a display, not an input. */
+textarea:disabled {
+    resize: none;
 }
 
 /* Collaborative editor focus border */

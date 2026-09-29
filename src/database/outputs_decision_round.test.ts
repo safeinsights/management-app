@@ -7,7 +7,6 @@ const EMPTY_BODY = { root: { type: 'root', children: [] } }
 const CODE_CRITERIA = {
     proposalAlignment: 'yes',
     agreementCompliance: 'yes',
-    securityChecks: 'yes',
     privacyProtection: 'yes',
 } as const
 

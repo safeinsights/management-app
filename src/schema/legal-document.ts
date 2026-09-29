@@ -184,7 +184,8 @@ export const studyAgreementStatusSchema = z.object({
 // `exempt` is separate from `none` because only `none` blocks: a test study needs no agreement, but
 // one published against it anyway still binds.
 export type StudyAgreementStatus =
-    | { state: 'none' }
+    // The notice names both parties, so `none` carries them; no other state renders them.
+    | { state: 'none'; researchLabName: string; dataPartnerName: string }
     | { state: 'exempt' }
     | { state: 'notAParty' }
     | { state: 'pending'; versionId: string }

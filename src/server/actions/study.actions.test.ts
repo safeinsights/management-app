@@ -25,6 +25,7 @@ import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
     fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
@@ -104,29 +105,18 @@ describe('Study Actions', () => {
         return user
     }
 
-    // The preparation email is held until its Mailgun template exists, so the log line is what there is
-    // to observe. Assert on `deliver` again once the template lands.
-    const HELD_PREPARATION_EMAIL = 'Holding email until its Mailgun template exists: Study Agreement needed'
-
-    it('approving a proposal asks SafeInsights to prepare the Study Agreement', async () => {
+    // SHRMP-328 moved this email to submission. Approval is where it used to fire, so it is the one
+    // place worth proving it no longer does.
+    it('approving a proposal no longer asks SafeInsights to prepare the Study Agreement', async () => {
         await insertSiAdmin()
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
-
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-        await waitFor(() => {
-            expect(logger.info).toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
+        // No agreement: with the fixture's own, the email would be skipped for the wrong reason.
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            withStudyAgreement: false,
         })
-    })
-
-    it('approving a test study asks for no Study Agreement', async () => {
-        await insertSiAdmin()
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-        await db.updateTable('study').set({ isTestStudy: true }).where('id', '=', study.id).execute()
-        vi.spyOn(logger, 'info').mockImplementation(() => true)
 
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
 
@@ -136,7 +126,7 @@ describe('Study Actions', () => {
                 expect.objectContaining({ template: 'vb - research proposal approved' }),
             )
         })
-        expect(logger.info).not.toHaveBeenCalledWith(HELD_PREPARATION_EMAIL)
+        expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - sla notice' }))
     })
 
     it('successfully approves a python language study proposal', async () => {
@@ -495,6 +485,28 @@ describe('Study Actions', () => {
         await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
             error: expect.objectContaining({ permission_denied: expect.any(String) }),
         })
+    })
+
+    // The reviewer's personal dashboard builds its status tooltips from the submitting lab's name,
+    // which this query has to carry: the org dashboards get it from their own joins (OTTER-698).
+    it('fetchStudiesForCurrentReviewerAction names the submitting lab on each row', async () => {
+        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'reviewer-dashboard-lab', type: 'lab', name: 'Genius Lab' })
+        const { user: researcher } = await insertTestUser({ org: lab })
+        const { studyId } = await insertTestStudyData({ org: enclave, researcherId: researcher.id })
+        await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', studyId).execute()
+
+        const rows = actionResult(await fetchStudiesForCurrentReviewerAction())
+
+        expect(rows).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: studyId,
+                    submittingLabName: 'Genius Lab',
+                    submittedByOrgSlug: lab.slug,
+                }),
+            ]),
+        )
     })
 
     describe('fetchStudiesForOrgAction lab-branch visibility (OTTER-497)', () => {
@@ -1502,7 +1514,6 @@ describe('submitCodeReviewDecisionAction', () => {
     const validCriteria = {
         proposalAlignment: 'yes',
         agreementCompliance: 'yes',
-        securityChecks: 'yes',
         privacyProtection: 'yes',
     } as const
 
@@ -1743,7 +1754,6 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: {
                 proposalAlignment: 'yes',
                 agreementCompliance: 'no',
-                securityChecks: 'not-sure',
                 privacyProtection: 'not-sure',
             },
         })
@@ -1756,7 +1766,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows[0].criteria).toEqual({
             proposalAlignment: 'yes',
             agreementCompliance: 'no',
-            securityChecks: 'not-sure',
             privacyProtection: 'not-sure',
         })
     })
@@ -2391,7 +2400,6 @@ describe('getCodeReviewFeedbackAction', () => {
                 criteria: {
                     proposalAlignment: 'yes',
                     agreementCompliance: 'no',
-                    securityChecks: 'no',
                     privacyProtection: 'yes',
                 },
                 createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -2561,7 +2569,6 @@ function validCriteriaFixture() {
     return {
         proposalAlignment: 'yes',
         agreementCompliance: 'yes',
-        securityChecks: 'yes',
         privacyProtection: 'yes',
     } as const
 }

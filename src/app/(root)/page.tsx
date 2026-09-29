@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { Flex, Stack } from '@mantine/core'
 import { UserNav } from './user-nav'
 import { fontWeight } from '@/theme/tokens'
+
+export const metadata: Metadata = { title: 'Home' }
 
 export default function Home() {
     return (

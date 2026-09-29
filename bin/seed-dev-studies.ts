@@ -68,7 +68,13 @@ const main = async () => {
             const title = `${topic} (${lab.name} / ${enclave.name} #${n + 1})`
             const status = created % PENDING_EVERY === PENDING_EVERY - 1 ? 'PENDING-REVIEW' : 'APPROVED'
 
-            await seedStudyFor({ title, status, enclaveSlug: enclave.slug, labSlug: lab.slug })
+            await seedStudyFor({
+                title,
+                status,
+                enclaveSlug: enclave.slug,
+                labSlug: lab.slug,
+                withStudyAgreement: false,
+            })
             created++
             console.log(`  ${status.padEnd(14)} ${title}`)
         }

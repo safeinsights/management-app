@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
@@ -5,9 +6,12 @@ import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/q
 import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
+import { isSessionOrgMember } from '@/lib/utils'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
+
+export const metadata: Metadata = { title: 'Edit proposal' }
 
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -23,8 +27,7 @@ export default async function StudyEditAndResubmitRoute(props: {
     // Study`, which reviewer-org users also hold.
     const session = await sessionFromClerk()
     if (!session) return notFound()
-    const isLabMember = Object.values(session.orgs).some((o) => o.id === study.submittedByOrgId)
-    if (!isLabMember) return notFound()
+    if (!isSessionOrgMember(session, study.submittedByOrgId)) return notFound()
 
     // Resolved server-side: the browser only knows the viewer's Clerk id, not the database user
     // id researcherId records.

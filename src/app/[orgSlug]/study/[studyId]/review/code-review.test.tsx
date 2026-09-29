@@ -3,6 +3,7 @@ import { type CodeReviewFeedbackEntry, getStudyAction, type SelectedStudy } from
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
+    appendCodeResubmission,
     db,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -63,11 +64,11 @@ describe('CodeReview', () => {
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
         })
 
-        it('renders the STEP 3 sub-label and the section heading', async () => {
+        it('renders the STEP 2 sub-label and the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByText('STEP 3')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: 'Review study code', level: 2 })).toBeInTheDocument()
+            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
         })
 
         it('does not render the study title in the section header', async () => {
@@ -90,7 +91,7 @@ describe('CodeReview', () => {
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
             expect(banner).toHaveAttribute('data-variant', 'action')
             expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
-            expect(banner).toHaveTextContent('Review the code files, security log, and AI summary')
+            expect(banner).toHaveTextContent('Review the code files and AI summary')
             expect(banner).not.toHaveTextContent('Revised code submitted')
 
             const strongs = banner.querySelectorAll('strong')
@@ -105,30 +106,37 @@ describe('CodeReview', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('collapses and restores the entire Submitted code section', async () => {
+        it('keeps datasets visible when submission details collapse', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
 
             const user = userEvent.setup()
             await user.click(screen.getByTestId('study-code-toggle-collapse'))
 
-            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).not.toBeVisible())
-            expect(screen.getByTestId('submitted-code-datasets')).not.toBeVisible()
-            expect(screen.getByTestId('ai-summary')).not.toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
+            await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
-            expect(opener).toHaveTextContent('View full study code')
+            expect(opener).toHaveTextContent('View full submission details')
+            expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
+            expect(
+                screen.getByTestId('submitted-code-datasets').compareDocumentPosition(opener) &
+                    Node.DOCUMENT_POSITION_FOLLOWING,
+            ).toBeTruthy()
             expect(opener).toHaveFocus()
 
             await user.click(opener)
 
-            await waitFor(() => expect(screen.getByTestId('submitted-code-section')).toBeVisible())
+            await waitFor(() => expect(screen.getByTestId('ai-summary')).toBeVisible())
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus()
-            expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide full study code')
+            expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide full submission details')
         })
     })
 
@@ -155,8 +163,26 @@ describe('CodeReview', () => {
         })
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
+        // Round comes from the job via codeRoundForJob — seed a real change-request + resubmit.
+        beforeEach(async () => {
+            const job = await db
+                .selectFrom('studyJob')
+                .select('id')
+                .where('studyId', '=', study.id)
+                .orderBy('createdAt', 'desc')
+                .executeTakeFirstOrThrow()
+            await appendCodeResubmission(job.id, jobCreatedAt)
+        })
+
         it('switches the banner title to the revised wording', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                }),
+            )
 
             const banner = screen.getByTestId('status-alert')
             const labName = study.submittingLabName ?? study.submittedByOrgSlug
@@ -165,14 +191,28 @@ describe('CodeReview', () => {
         })
 
         it('reflects the resubmission version in the section heading', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                }),
+            )
 
-            expect(screen.getByRole('heading', { name: 'Review study code v2.0', level: 2 })).toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: 'Review study code', level: 2 })).not.toBeInTheDocument()
+            expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
+            expect(screen.queryByRole('heading', { name: 'Review code', level: 2 })).not.toBeInTheDocument()
         })
 
         it('renders a Feedback and notes section showing both prior and current entries', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                }),
+            )
 
             const section = screen.getByTestId('feedback-and-notes-section')
             expect(section).toBeInTheDocument()
@@ -182,15 +222,26 @@ describe('CodeReview', () => {
             expect(section).toHaveTextContent('Debshilla Basu Mallick')
         })
 
-        it('positions the Feedback and notes section above the code evaluation form', async () => {
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+        it('positions Feedback and notes between STEP 2 and Submission details', async () => {
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                }),
+            )
 
+            const stepHeader = screen.getByTestId('proposal-section-header')
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            const evaluation = screen.getByTestId('code-evaluation-section')
+            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(feedback.compareDocumentPosition(evaluation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
-        it('collapses the entire Submitted code section by default on resubmission', async () => {
+        it('collapses the AI summary and code files by default on resubmission', async () => {
             const job = await db
                 .selectFrom('studyJob')
                 .select('id')
@@ -207,14 +258,24 @@ describe('CodeReview', () => {
                 })
                 .execute()
 
-            renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: resubmissionEntries, nav: {} }))
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: resubmissionEntries,
+                    nav: {},
+                }),
+            )
 
             const toggle = screen.getByTestId('study-code-toggle')
             expect(toggle).toHaveAttribute('aria-expanded', 'false')
-            expect(toggle).toHaveTextContent('View full study code')
-            expect(screen.getByTestId('submitted-code-section')).not.toBeVisible()
+            expect(toggle).toHaveTextContent('View full submission details')
+            expect(screen.getByTestId('submitted-code-section')).toContainElement(toggle)
+            expect(screen.getByTestId('submitted-code-section')).toBeVisible()
+            expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
-            expect(screen.getByTestId('security-scan-log')).not.toBeVisible()
+            expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
         })
     })
 })

@@ -1,12 +1,8 @@
 'use client'
 
-import { Box, Collapse } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { useCallback, useRef, type ReactNode, type RefObject } from 'react'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import {
-    FULL_STUDY_CODE_TOGGLE_LABELS,
-    StudyCodeToggle,
-} from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
 import { useExpandable } from '@/hooks/use-expandable'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
@@ -23,13 +19,16 @@ type CollapsibleSubmittedCodeSectionProps = {
     heading: string
     banner: ReactNode
     initiallyExpanded?: boolean
+    children?: ReactNode
 }
 
 type SubmittedCodePanelProps = Pick<CollapsibleSubmittedCodeSectionProps, 'orgSlug' | 'study' | 'job' | 'analysis'> & {
     isVisible: boolean
     expanded: boolean
     onCollapse: () => void
+    onExpand: () => void
     panelRef: RefObject<HTMLDivElement | null>
+    expandToggleRef: RefObject<HTMLButtonElement | null>
 }
 
 function SubmittedCodePanel({
@@ -40,22 +39,25 @@ function SubmittedCodePanel({
     analysis,
     expanded,
     onCollapse,
+    onExpand,
     panelRef,
+    expandToggleRef,
 }: SubmittedCodePanelProps) {
     // The analysis check only narrows its type: it is non-null whenever the job is.
     if (!isVisible || !job || !analysis) return null
     return (
-        <Collapse in={expanded} keepMounted>
-            <Box ref={panelRef} tabIndex={-1}>
-                <SubmittedCodeSection
-                    orgSlug={orgSlug}
-                    study={study}
-                    job={job}
-                    analysis={analysis}
-                    onCollapse={onCollapse}
-                />
-            </Box>
-        </Collapse>
+        <Box ref={panelRef} tabIndex={-1}>
+            <SubmittedCodeSection
+                orgSlug={orgSlug}
+                study={study}
+                job={job}
+                analysis={analysis}
+                detailsExpanded={expanded}
+                onCollapse={onCollapse}
+                onExpand={onExpand}
+                expandToggleRef={expandToggleRef}
+            />
+        </Box>
     )
 }
 
@@ -69,6 +71,7 @@ export function CollapsibleSubmittedCodeSection({
     heading,
     banner,
     initiallyExpanded = false,
+    children,
 }: CollapsibleSubmittedCodeSectionProps) {
     // Without a panel, an opener would expand an empty card with no way to collapse it again.
     const hasSubmittedCode = Boolean(job && analysis)
@@ -87,15 +90,8 @@ export function CollapsibleSubmittedCodeSection({
 
     return (
         <>
-            <ProposalStepHeader stepLabel={stepLabel} heading={heading} banner={banner}>
-                <StudyCodeToggle
-                    ref={openerRef}
-                    isVisible={!expanded && hasSubmittedCode}
-                    expanded={false}
-                    onClick={onExpand}
-                    labels={FULL_STUDY_CODE_TOGGLE_LABELS}
-                />
-            </ProposalStepHeader>
+            <ProposalStepHeader stepLabel={stepLabel} heading={heading} banner={banner} />
+            {children}
             <SubmittedCodePanel
                 isVisible={hasSubmittedCode}
                 orgSlug={orgSlug}
@@ -104,7 +100,9 @@ export function CollapsibleSubmittedCodeSection({
                 analysis={analysis}
                 expanded={expanded}
                 onCollapse={onCollapse}
+                onExpand={onExpand}
                 panelRef={panelRef}
+                expandToggleRef={openerRef}
             />
         </>
     )

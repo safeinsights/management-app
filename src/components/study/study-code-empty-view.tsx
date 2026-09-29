@@ -103,7 +103,7 @@ export function StudyCodeEmptyView({
                         </Text>
                         <Box mt="sm">
                             <Stack gap="xs" align="flex-start">
-                                <ThemeIcon variant="light" color="gray" size="xl" radius="md">
+                                <ThemeIcon variant="light" color="grey" size="xl" radius="md">
                                     <FileArrowUpIcon size={24} />
                                 </ThemeIcon>
                                 <Text fw={fontWeight.semibold}>Drop your files</Text>

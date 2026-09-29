@@ -1,7 +1,7 @@
 import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
-import { buttonVars, theme } from './theme'
+import { buttonVars, cssVariablesResolver, theme } from './theme'
 import { semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
@@ -32,6 +32,15 @@ describe('palette', () => {
     it.each(Object.entries(semanticShades))('resolves %s -> %s', (_token, ref) => {
         const [family, shade] = ref.split('.')
         expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
+    })
+})
+
+// A blanket resize default is deliberately absent: Mantine floors a multiline input at one row,
+// not at its own height, so a handle without a matching minHeight could be dragged under the
+// height the field loads at (OTTER-787). Each resizable field sets both for itself.
+describe('textarea', () => {
+    it('turns no resize handle on by default', () => {
+        expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
     })
 })
 
@@ -112,5 +121,38 @@ describe('required asterisk color', () => {
         const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
 
         expect(styles?.required?.color).toBe('#7e241e')
+    })
+})
+
+// Mantine builds every ramp's light/subtle variant from primaryShade, which is how yellow.5 text
+// ended up on a yellow tint at 2.2:1. Figma's Badge and Alert pages pair bg-light with text-icon,
+// and the neutral badge is grey/0 under text/Sub-labels, so those five ramps read their variant
+// variables from the tokens. They must come from the `light` slot: Mantine emits its own under
+// :root[data-mantine-color-scheme], which outranks the plain :root the `variables` slot renders to.
+describe('light variant pairs', () => {
+    const resolved = cssVariablesResolver(mergeMantineTheme(DEFAULT_THEME, theme))
+
+    it.each([
+        ['red', '#fbeceb', '#7e241e', '#f6d8d6'],
+        ['green', '#ecf4ee', '#285831', '#d9e9dc'],
+        ['yellow', '#fffae7', '#5e4418', '#fbeed8'],
+        ['blue', '#e7f1fe', '#004594', '#bddcff'],
+        ['grey', '#f1f3f5', '#404040', '#dadee1'],
+    ])('pairs the %s light variant with the library tokens', (ramp, bg, text, hover) => {
+        expect(resolved.light[`--mantine-color-${ramp}-light`]).toBe(bg)
+        expect(resolved.light[`--mantine-color-${ramp}-light-color`]).toBe(text)
+        expect(resolved.light[`--mantine-color-${ramp}-light-hover`]).toBe(hover)
+    })
+
+    it('leaves the brand ramp on Mantine defaults', () => {
+        expect(resolved.light).not.toHaveProperty('--mantine-color-navy-light-color')
+    })
+
+    // error, dimmed and placeholder were shadowed for the same reason; they move with the new ones.
+    it('rewires Mantine built-ins from the scheme slot, not the root slot', () => {
+        expect(resolved.light['--mantine-color-error']).toBe('#7e241e')
+        expect(resolved.light['--mantine-color-dimmed']).toBe('#404040')
+        expect(resolved.dark['--mantine-color-error']).toBe('#7e241e')
+        expect(resolved.variables).not.toHaveProperty('--mantine-color-error')
     })
 })

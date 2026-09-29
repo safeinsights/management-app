@@ -107,7 +107,7 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                 <Tooltip label="Download" events={{ hover: true, focus: true, touch: true }}>
                     <ActionIcon
                         variant="subtle"
-                        color="gray"
+                        color="grey"
                         aria-label={`Download ${row.name}`}
                         onClick={() => onDownload(row)}
                         data-testid={`outputs-file-download-${row.key}`}

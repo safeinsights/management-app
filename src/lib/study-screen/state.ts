@@ -1,8 +1,7 @@
 import type { StudyJobStatus } from '@/database/types'
-import type { AllStatus } from '@/lib/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import {
-    CODE_DECISION_JOB_STATUSES,
+    furthestStage,
     latestSubmittedJobHasLiveCodeDecision,
     STUDY_CODE_RUNNING_JOB_STATUSES,
     STUDY_RESULTS_JOB_STATUSES,
@@ -25,25 +24,6 @@ const RESULTS_PRIORITY: StudyState['resultsDisplayStatus'][] = [
 // APPROVED is permanent and wins if several ever coexist on the job.
 const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED']
 
-// Callers keep only the live code decision, so the three decisions' order among themselves is
-// immaterial here.
-export const DISPLAY_STATUS_PRIORITY: StudyJobStatus[] = [
-    'JOB-ERRORED',
-    'FILES-REJECTED',
-    'FILES-APPROVED',
-    'RUN-COMPLETE',
-    'JOB-RUNNING',
-    'JOB-READY',
-    'JOB-PACKAGING',
-    'JOB-PROVISIONING',
-    'CODE-REJECTED',
-    'CODE-CHANGES-REQUESTED',
-    'CODE-APPROVED',
-    'CODE-SCANNED',
-    'CODE-SUBMITTED',
-    'INITIATED',
-]
-
 // Exported so consumers read a display fact from the SAME job the projection decided on.
 export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
@@ -53,11 +33,6 @@ export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     const pool = submitted.length > 0 ? submitted : jobs
     return pool.reduce((a, b) => (b.id > a.id ? b : a))
 }
-
-// Dropping stale decisions makes the pill and displayStatus follow the live codeDecision, never
-// a prior round's (OTTER-641).
-export const isStaleCodeDecision = (status: StudyJobStatus, liveDecision: CodeDecisionStatus | null): boolean =>
-    CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus) && status !== liveDecision
 
 export function projectStudyState(raw: RawStudyState): StudyState {
     const job = latestJob(raw.jobs)
@@ -82,13 +57,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsRejected,
     })
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
-
-    // Only the live code decision passes, so DISPLAY_STATUS_PRIORITY never picks among coexisting
-    // decisions.
-    const visible = DISPLAY_STATUS_PRIORITY.filter(
-        (st) => jobStatuses.has(st) && !isStaleCodeDecision(st, codeDecision),
-    )
-    const displayStatus: AllStatus = visible[0] ?? raw.status
+    const executionStage = furthestStage(jobStatuses)
 
     // Across ALL jobs. NOT the user-facing displayed version, which counts round-opening events.
     const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
@@ -114,11 +83,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsErrored,
         runErrored,
         resultsDisplayStatus,
+        resultsViewed: jobStatuses.has('RESULTS-VIEWED'),
+        executionStage,
         submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
-        displayStatus,
-        latestJobStatuses: [...jobStatuses].sort(),
     }
 }
 
@@ -127,6 +96,11 @@ export function projectStudyState(raw: RawStudyState): StudyState {
 export const awaitingFilesDecisionOnError = (
     s: Pick<StudyState, 'resultsErrored' | 'resultsApproved' | 'resultsRejected'>,
 ): boolean => s.resultsErrored && !s.resultsApproved && !s.resultsRejected
+
+// The reviewer has released a decision on the outputs, whatever it was. Named apart from
+// hasOutputsDecision in @/lib/outputs-review, which asks the same question of raw job statuses.
+export const isOutputsDecided = (s: Pick<StudyState, 'resultsApproved' | 'resultsRejected'>): boolean =>
+    s.resultsApproved || s.resultsRejected
 
 // Shared by the rule table and the screen's render guard so the two cannot drift (OTTER-695/697).
 export const isFeedbackOnlyOutcome = (s: Pick<StudyState, 'resultsRejected'>): boolean => s.resultsRejected
@@ -164,9 +138,8 @@ export const isErroredOutputsSharedOutcome = (s: Pick<StudyState, 'resultsErrore
 // decides a screen. !resultsErrored yields the errored share to isErroredOutputsSharedOutcome, whose
 // page explains a failed run. !resultsRejected matters for a job carrying BOTH FILES-* rows —
 // unreachable via submitOutputsDecisionAction, which refuses a second decision, but writable by the
-// QA status route and the legacy approve/reject actions. There the pill reads Rejected
-// (DISPLAY_STATUS_PRIORITY ranks FILES-REJECTED first), so advertising outputs would contradict it;
-// the conservative feedback-only page keeps that state instead.
+// QA status route and the legacy approve/reject actions. Advertising shared outputs for a state that
+// also carries a rejection would overstate it; the conservative feedback-only page keeps it instead.
 export const isOutputsSharedOutcome = (
     s: Pick<StudyState, 'resultsApproved' | 'resultsRejected' | 'resultsErrored'>,
 ): boolean => s.resultsApproved && !s.resultsRejected && !s.resultsErrored

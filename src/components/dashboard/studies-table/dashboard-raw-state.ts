@@ -1,4 +1,4 @@
-import type { RawStudyState } from '@/lib/study-screen'
+import { projectStudyState, type RawStudyState, type StudyState } from '@/lib/study-screen'
 import type { StudyRow } from './types'
 
 // Diverging from /view's latest-*submitted*-job projection is deliberate: the dashboard tracks
@@ -15,7 +15,6 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         codeResubmissionNoteDraft: null,
         // The collaborative document covers Step 2 edits no flush wrote to the columns (OTTER-572).
         piUserId: study.piUserId,
-        datasets: study.datasets,
         researchQuestions: study.researchQuestions,
         projectSummary: study.projectSummary,
         impact: study.impact,
@@ -26,3 +25,7 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
             : [],
     }
 }
+
+// One projection per row, so the badge, the row highlight and the action link cannot disagree about
+// what the row is.
+export const rowStudyState = (study: StudyRow): StudyState => projectStudyState(dashboardRawStateFromRow(study))

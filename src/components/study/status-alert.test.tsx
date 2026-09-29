@@ -52,10 +52,11 @@ describe('StatusAlert', () => {
         expect(alert).toHaveTextContent('Nothing left to do')
     })
 
-    // The banner colours are hand-transcribed Figma tokens, so a ramp retint or reorder would
-    // silently repaint a variant while the data-variant assertions all still pass.
+    // Each variant is the Figma Alert's light status pair (status/*/bg-light under status/*/text-icon),
+    // so a token remap or ramp reorder would silently repaint a banner while the data-variant
+    // assertions all still pass.
     it.each<[StatusAlertVariant, string, string]>([
-        ['informative', '#eae8fc', '#291bc4'],
+        ['informative', '#e7f1fe', '#004594'],
         ['action', '#fffae7', '#5e4418'],
         ['success', '#ecf4ee', '#285831'],
         ['decline', '#fbeceb', '#7e241e'],

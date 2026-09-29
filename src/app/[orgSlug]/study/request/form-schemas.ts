@@ -6,8 +6,11 @@ export const STUDY_TITLE_MAX_CHARACTERS = 60
 
 export const STUDY_TITLE_BLANK_ERROR = 'Enter a study title before continuing.'
 export const STUDY_TITLE_OVER_LIMIT_ERROR = overCharacterLimitError('Study title', STUDY_TITLE_MAX_CHARACTERS)
+export const isTitleOverLimit = (title: string) => countCharacters(title) > STUDY_TITLE_MAX_CHARACTERS
+
 export const DATA_PARTNER_REQUIRED_ERROR = 'Select a Data Partner before continuing.'
 export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming language before continuing.'
+export const DATASETS_REQUIRED_ERROR = 'Select a dataset of interest before continuing.'
 
 // Measured trimmed so it matches the on-screen counter; the blank message is a parameter because
 // the two pages word it differently.
@@ -15,7 +18,7 @@ export const studyTitleField = (blankError: string) =>
     z.string().superRefine((val, ctx) => {
         if (val.trim().length === 0) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
-        } else if (countCharacters(val) > STUDY_TITLE_MAX_CHARACTERS) {
+        } else if (isTitleOverLimit(val)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
     })
@@ -26,16 +29,24 @@ const step1FieldsObject = z.object({
     title: studyTitleField(STUDY_TITLE_BLANK_ERROR),
     orgSlug: z.string().min(1, { message: DATA_PARTNER_REQUIRED_ERROR }),
     language: z.enum(['R', 'PYTHON']).nullable(),
+    datasets: z.array(z.string()),
 })
 
 export const step1FieldsSchema = step1FieldsObject.superRefine((values, ctx) => {
-    // Conditional because the language field renders nothing until a Data Partner is chosen; an
-    // unconditional rule would flag a field that is not on the page (OTTER-647).
+    // Conditional because the language and datasets fields render nothing until a Data Partner is
+    // chosen; an unconditional rule would flag a field that is not on the page (OTTER-647).
     if (values.orgSlug && values.language === null) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['language'],
             message: PROGRAMMING_LANGUAGE_REQUIRED_ERROR,
+        })
+    }
+    if (values.orgSlug && values.datasets.length === 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['datasets'],
+            message: DATASETS_REQUIRED_ERROR,
         })
     }
 })
@@ -107,6 +118,7 @@ export const studyProposalApiSchema = z.object({
     piName: z.string().max(100).trim(),
     piUserId: z.string().uuid(),
     language: z.enum(['R', 'PYTHON']),
+    datasets: z.array(z.string()),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
@@ -115,7 +127,6 @@ export const studyProposalApiSchema = z.object({
 })
 
 export const step2ProposalApiSchema = z.object({
-    datasets: z.array(z.string()),
     researchQuestions: z.string(),
     projectSummary: z.string(),
     impact: z.string(),

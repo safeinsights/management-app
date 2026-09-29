@@ -1,6 +1,7 @@
 // Keeps styling decisions on the theme. Every raw value banned here has a token equivalent in
-// src/theme/tokens.ts (colour, font weight) or on the Mantine theme scale (spacing). The theme
-// definition itself is exempted by glob in eslint.config.mjs — that is where raw values belong.
+// src/theme/tokens.ts (colour, font weight) or on the Mantine theme scale (spacing). Mantine's
+// `color` prop, and the object keys that feed it, may name an SI ramp: the theme maps those. The
+// theme definition itself is exempted by glob in eslint.config.mjs — that is where raw values belong.
 
 /** theme.spacing keys. Figma `Brand > Spacing`. */
 const SPACING_SCALE = ['xxs', 'xs', 'sm', 'md', 'lg', 'xl', 'xxl']
@@ -9,6 +10,15 @@ const SPACING_PROPS = ['p', 'm', 'mt', 'mb', 'ml', 'mr', 'mx', 'my', 'pt', 'pb',
 
 const COLOR_PROPS = ['c', 'bg']
 
+// Mantine's theme-colour prop on Badge, Alert, Button, ActionIcon, ThemeIcon, Burger, Loader…
+const RAMP_COLOR_PROPS = ['color']
+
+// Object keys that feed those props: badge config maps, notifications.show(), pill colour tables.
+const OBJECT_COLOR_KEYS = [...COLOR_PROPS, ...RAMP_COLOR_PROPS]
+
+// Defers to the surrounding colour rather than choosing one.
+const CSS_COLOR_KEYWORDS = ['inherit', 'currentColor']
+
 // Mantine aliases the theme rewires to semantic tokens in semanticCssVariables(). Passing these is
 // a token lookup, not a raw value, so they stay allowed.
 const WIRED_COLOR_ALIASES = ['dimmed']
@@ -16,30 +26,16 @@ const WIRED_COLOR_ALIASES = ['dimmed']
 // Helpers that resolve to a token; calling one is a lookup, not a raw value.
 const TOKEN_HELPERS = ['semanticColor', 'cssVar']
 
-// Ramp shades resolve through Mantine's palette lookup, so they read as theme-ish while pointing
-// at a fixed rung. `gray` and `dark` are worse: the theme defines neither, so Mantine's stock
-// palette answers and an SI retint leaves them behind.
-const RAMPS = [
-    'navy',
-    'turquoise',
-    'red',
-    'green',
-    'yellow',
-    'blue',
-    'purple',
-    'grey',
-    'charcoal',
-    'gray',
-    'dark',
-    'pink',
-    'grape',
-    'violet',
-    'indigo',
-    'cyan',
-    'teal',
-    'lime',
-    'orange',
-]
+// The ramps the theme defines. On Mantine's `color` prop a bare SI ramp name is the token route:
+// mantineColorOverrides() maps each ramp's light/subtle variant to the library pairing.
+const SI_RAMPS = ['navy', 'turquoise', 'red', 'green', 'yellow', 'blue', 'purple', 'grey', 'charcoal']
+
+// Mantine's stock ramps. The theme defines none of them, so Mantine's own palette answers and an
+// SI retint leaves the call site behind. `gray` and `dark` are the ones the migration keeps meeting.
+const STOCK_RAMPS = ['gray', 'dark', 'pink', 'grape', 'violet', 'indigo', 'cyan', 'teal', 'lime', 'orange']
+
+// A ramp shade reads as theme-ish while pointing at a fixed rung.
+const RAMPS = [...SI_RAMPS, ...STOCK_RAMPS]
 const SHADE = new RegExp(`^(?:${RAMPS.join('|')})\\.[0-9]$`)
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/
@@ -68,6 +64,8 @@ const noRawStyleValues = {
             rawShade:
                 '"{{value}}" names a ramp rung directly. Use semanticColor(…) from @/theme/tokens so a retint reaches it.',
             pxLiteral: '"{{value}}" hardcodes pixels. Use a theme scale key, or rem() in a CSS module.',
+            stockRamp:
+                '"{{value}}" is a Mantine stock ramp the theme does not define, so it paints from Mantine\'s palette and an SI retint never reaches it. Use an SI ramp ({{ramps}}) or semanticColor(…) from @/theme/tokens.',
         },
     },
     create(context) {
@@ -148,13 +146,52 @@ const noRawStyleValues = {
             return false
         }
 
-        function checkColor(attr, prop) {
-            eachValue(attr.value, (value, at) => {
-                if (isTokenReference(value)) return
+        /**
+         * Inside `style={{…}}` / `styles={{…}}` the prop itself is reported, so a colour key in
+         * that object must not be reported a second time.
+         */
+        const isInsideStyleAttribute = (node) => {
+            for (let cur = node.parent; cur; cur = cur.parent) {
+                if (cur.type === 'JSXAttribute') return cur.name?.name === 'style' || cur.name?.name === 'styles'
+                if (cur.type === 'JSXElement' || cur.type === 'Program') return false
+            }
+            return false
+        }
 
-                const str = stringValue(value)
+        // An object key has no isInsideStyleProp guard, so a shade/hex/px there is already the
+        // Literal visitor's report and must not be doubled here.
+        function checkColor(value, prop, { literalsReportedElsewhere = false } = {}) {
+            eachValue(value, (node, at) => {
+                if (isTokenReference(node)) return
+
+                const str = stringValue(node)
                 if (str === null || WIRED_COLOR_ALIASES.includes(str)) return
+                if (literalsReportedElsewhere && (SHADE.test(str) || HEX.test(str) || PX.test(str))) return
 
+                context.report({ node: at, messageId: 'rawColor', data: { value: str, prop } })
+            })
+        }
+
+        // `color` resolves through Mantine's palette, so an SI ramp name is a lookup and a stock
+        // ramp name is the bug. Shades, hex and px are the Literal visitor's to report.
+        function checkRampColor(value, prop) {
+            eachValue(value, (node, at) => {
+                if (isTokenReference(node)) return
+
+                const str = stringValue(node)
+                if (str === null) return
+                if (SI_RAMPS.includes(str) || WIRED_COLOR_ALIASES.includes(str) || CSS_COLOR_KEYWORDS.includes(str))
+                    return
+                if (SHADE.test(str) || HEX.test(str) || PX.test(str)) return
+
+                if (STOCK_RAMPS.includes(str)) {
+                    context.report({
+                        node: at,
+                        messageId: 'stockRamp',
+                        data: { value: str, ramps: SI_RAMPS.join(', ') },
+                    })
+                    return
+                }
                 context.report({ node: at, messageId: 'rawColor', data: { value: str, prop } })
             })
         }
@@ -198,9 +235,26 @@ const noRawStyleValues = {
                     context.report({ node, messageId: name === 'style' ? 'inlineStyle' : 'oneOffStyles' })
                     return
                 }
-                if (COLOR_PROPS.includes(name)) return checkColor(node, name)
+                if (COLOR_PROPS.includes(name)) return checkColor(node.value, name)
+                if (RAMP_COLOR_PROPS.includes(name)) return checkRampColor(node.value, name)
                 if (name === 'fw') return checkWeight(node)
                 if (SPACING_PROPS.includes(name)) return checkSpacing(node, name)
+            },
+
+            // Object expressions only: a destructuring pattern's `{ c }` is the caller's value.
+            Property(node) {
+                if (node.parent?.type !== 'ObjectExpression' || node.computed || node.shorthand) return
+                const key =
+                    node.key.type === 'Identifier'
+                        ? node.key.name
+                        : node.key.type === 'Literal'
+                          ? String(node.key.value)
+                          : null
+                if (!key || !OBJECT_COLOR_KEYS.includes(key)) return
+                if (isInsideStyleAttribute(node)) return
+
+                if (RAMP_COLOR_PROPS.includes(key)) return checkRampColor(node.value, key)
+                checkColor(node.value, key, { literalsReportedElsewhere: true })
             },
 
             Literal(node) {

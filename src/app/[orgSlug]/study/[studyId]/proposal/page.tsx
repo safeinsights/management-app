@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
@@ -8,8 +9,9 @@ import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
-import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+import { isTitleOverLimit } from '@/app/[orgSlug]/study/request/form-schemas'
+
+export const metadata: Metadata = { title: 'Study proposal' }
 
 export default async function StudyProposalRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -30,9 +32,9 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
         redirect(Routes.studyEditAndResubmit({ orgSlug, studyId }))
     }
 
-    // Step 2 has no title field, so a blank or over-cap title can only be fixed on Step 1
-    // (OTTER-690, OTTER-737).
-    if (!result.title?.trim() || countCharacters(result.title) > STUDY_TITLE_MAX_CHARACTERS) {
+    // Step 2 has no title or datasets field, so a blank or over-cap title, or a draft saved before
+    // datasets moved to Step 1, can only be fixed there (OTTER-690, OTTER-737, OTTER-803).
+    if (!result.title?.trim() || isTitleOverLimit(result.title) || !result.datasets?.length) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 

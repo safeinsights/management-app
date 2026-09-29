@@ -14,7 +14,7 @@ export type CodeEnvHistoryEntry = {
 }
 
 const EVENT_LABELS: Partial<Record<AuditEventType, { color: string; label: string }>> = {
-    CREATED: { color: 'teal', label: 'Created' },
+    CREATED: { color: 'green', label: 'Created' },
     UPDATED: { color: 'blue', label: 'Updated' },
     DELETED: { color: 'red', label: 'Deleted' },
 }
@@ -57,7 +57,7 @@ const StarterCodeBadge: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
     // "Replaced" rather than "uploaded": the browser pushes the files after the action returns.
     return (
-        <Badge color="grape" variant="light" size="sm">
+        <Badge color="purple" variant="light" size="sm">
             Starter code replaced
         </Badge>
     )

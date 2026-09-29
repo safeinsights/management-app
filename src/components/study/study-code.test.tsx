@@ -10,6 +10,7 @@ import {
     insertTestBaselineJob,
     insertTestCodeEnv,
     it,
+    insertTestStudyAgreement,
     insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
@@ -24,6 +25,8 @@ import {
 import { StrictMode } from 'react'
 import { StudyCode } from './study-code'
 import { notifications } from '@mantine/notifications'
+import { codeSubmissionNav, type StepNav } from '@/lib/study-screen'
+import { Routes } from '@/lib/routes'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile, storeS3File } from '@/server/aws'
@@ -94,13 +97,21 @@ const codeSubmittedCount = async (studyId: string) => {
     return Number(row.n)
 }
 
-const setupStudy = async (orgSlug = 'openstax-lab') => {
+const setupStudy = async (orgSlug = 'openstax-lab', { acknowledged = true } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
-    const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+    const { study } = await insertTestStudyOnly({ org, researcherId: user.id, withStudyAgreement: acknowledged })
+    // Published but unacknowledged leaves the button enabled and the server refusing, which is the
+    // only way to see what a refusal tells the researcher.
+    if (!acknowledged) await insertTestStudyAgreement({ studyId: study.id })
     return { org, user, study }
 }
 
 const DATA_PARTNER = 'Test Data Partner'
+
+// For the renders that exercise uploads rather than navigation: any back link will do.
+const backNav = (href: string): StepNav => ({
+    back: { label: 'Previous step', href: href as Route, variant: 'subtle', testId: 'cta-previous-step' },
+})
 
 const renderIDE = async (
     studyOrgSlug = 'openstax-lab',
@@ -109,24 +120,23 @@ const renderIDE = async (
         dataPartnerName = DATA_PARTNER,
         isFirstVisit = false,
         strictMode = false,
-    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean } = {},
+        acknowledged = true,
+    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean; acknowledged?: boolean } = {},
 ) => {
-    const { study } = await setupStudy(studyOrgSlug)
+    const { study } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, files)
     }
-    const previousHref = `/test-org/study/${study.id}/agreements` as Route
+    // The real rule, so a change to the nav table's label or anchor surfaces here rather than being
+    // shadowed by a hand-written copy of it.
+    const nav = codeSubmissionNav('APPROVED', { orgSlug: studyOrgSlug, studyId: study.id })
+    const previousHref = Routes.studySubmitted({ orgSlug: studyOrgSlug, studyId: study.id })
 
     const page = (
-        <StudyCode
-            studyId={study.id}
-            dataPartnerName={dataPartnerName}
-            isFirstVisit={isFirstVisit}
-            previousHref={previousHref}
-        />
+        <StudyCode studyId={study.id} dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} nav={nav} />
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
@@ -145,7 +155,7 @@ const setMainFileTo = async (user: ReturnType<typeof userEvent.setup>, fileName:
 
 const faqControl = () => screen.getByRole('button', { name: /New to SafeInsights IDE/ })
 
-const submitCodeButton = () => screen.getByRole('button', { name: /submit code for review/i })
+const submitCodeButton = () => within(screen.getByTestId('submit-row')).getByRole('button', { name: /submit code/i })
 
 /**
  * The study agreement gate is the only thing that disables the button, and it reads as blocked
@@ -260,7 +270,7 @@ describe('StudyCode component', () => {
         })
     })
 
-    it('shows the confirmation modal when Submit code for review is clicked', async () => {
+    it('shows the confirmation modal when Submit code is clicked', async () => {
         const user = userEvent.setup()
         await renderIDE('openstax-lab', { 'main.r': 'print("main")' })
 
@@ -723,7 +733,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -753,7 +763,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -801,7 +811,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
@@ -905,6 +915,29 @@ describe('StudyCode component', () => {
             expect(screen.getAllByText('main.R').length).toBeGreaterThan(0)
         })
 
+        // "Try again" would send them back at something that cannot succeed until they acknowledge.
+        it('names the reason when the submission is refused rather than failed', async () => {
+            const user = userEvent.setup()
+            const rendered = await renderIDE('openstax-lab', { 'main.R': 'print(1)' }, { acknowledged: false })
+            await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
+
+            await openSubmitConfirmation(user)
+            await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit code' }))
+
+            await waitFor(() => {
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Code could not be submitted.',
+                        message:
+                            'Study Agreement must be acknowledged before you can continue with this study. Your work is saved.',
+                        color: 'red',
+                    }),
+                )
+            })
+
+            expect(await codeSubmittedCount(rendered.study.id)).toBe(0)
+        })
+
         it('closes on Cancel without submitting', async () => {
             const user = userEvent.setup()
             const { study } = await readyToSubmit()
@@ -923,6 +956,16 @@ describe('StudyCode component', () => {
 
             const link = screen.getByRole('link', { name: /Previous step/i })
             expect(link).toHaveAttribute('href', previousHref)
+        })
+
+        // OTTER-673: this page used to hand-roll its footer, which is how its labels drifted from the
+        // spec. Both controls living in the shared row is what stops that recurring.
+        it('renders both controls inside the shared step navigation', async () => {
+            await renderIDE()
+
+            const row = screen.getByTestId('step-navigation')
+            expect(within(row).getByTestId('cta-previous-step')).toHaveTextContent('Previous step')
+            expect(within(row).getByTestId('submit-row')).toBeInTheDocument()
         })
 
         it('keeps the submit button enabled with nothing uploaded', async () => {
@@ -946,7 +989,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getAllByText('main.R').length).toBeGreaterThan(0))
@@ -1048,7 +1091,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1447,7 +1490,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1474,7 +1517,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
 
@@ -1557,7 +1600,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={'/test' as Route}
+                    nav={backNav('/test')}
                 />,
             )
             await waitFor(() => expect(screen.getByText('mine.R')).toBeInTheDocument())
@@ -1626,7 +1669,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
             return { study }
@@ -1701,7 +1744,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 
@@ -1718,7 +1761,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => {
-                expect(screen.getByText(/Study Agreement is being prepared/i)).toBeInTheDocument()
+                expect(screen.getByText(/Study agreements are being prepared/i)).toBeInTheDocument()
                 expect(submitCodeButton()).toBeDisabled()
             })
         })
@@ -1728,7 +1771,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => expect(submitCodeButton()).toBeEnabled())
-            expect(screen.queryByText(/Study Agreement is being prepared/i)).toBeNull()
+            expect(screen.queryByText(/Study agreements are being prepared/i)).toBeNull()
         })
     })
 
@@ -1750,7 +1793,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 
@@ -1765,7 +1808,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
-                    previousHref={previousHref}
+                    nav={backNav(previousHref)}
                 />,
             )
 

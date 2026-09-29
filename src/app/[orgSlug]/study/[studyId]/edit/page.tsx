@@ -1,11 +1,15 @@
+import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
 import { Routes } from '@/lib/routes'
+import { datasetDisplayNames } from '@/lib/studies'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 import { StudyProposal } from '../../request/proposal'
+
+export const metadata: Metadata = { title: 'Set up study' }
 
 export default async function StudyEditPage(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
@@ -54,6 +58,8 @@ export default async function StudyEditPage(props: {
                 title: study.title ?? '',
                 piName: study.piName,
                 language: study.language,
+                datasets: study.datasets,
+                datasetNames: datasetDisplayNames(study.datasets ?? [], study.orgDataSources),
                 status: study.status,
                 orgSlug: study.orgSlug,
                 orgName: study.orgName,

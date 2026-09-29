@@ -1,5 +1,7 @@
-import type { ReviewDecision, StudyJobStatus } from '@/database/types'
+import type { FileType, ReviewDecision, StudyJobStatus } from '@/database/types'
 import { overCharacterLimitError } from '@/lib/field-limits'
+import { APPROVED_LOG_TYPES } from '@/lib/file-type-helpers'
+import { DECISION_NOTICES } from '@/lib/review-decision'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
@@ -51,13 +53,13 @@ export const OUTPUTS_DECIDED_NOTIFICATION_ID = 'outputs-decision-closed'
 // where there is no reviewer to name.
 export const OUTPUTS_DECIDED_NOTICE = {
     id: OUTPUTS_DECIDED_NOTIFICATION_ID,
-    title: 'Decision submitted',
+    title: DECISION_NOTICES.submitted.title,
     message: 'A decision has been submitted for this output. No further edits are allowed at this point.',
 } as const
 
 export const OUTPUTS_DECISION_FAILURE = {
-    title: 'Decision could not be submitted',
-    saved: 'Your work is saved. Try again.',
+    title: DECISION_NOTICES.failed.title,
+    saved: DECISION_NOTICES.failed.message,
     // Never promises the work is safe: without a collaborative session the feedback is only on screen.
     unsaved: 'We could not save your work. Keep this tab open and try again.',
     // A retry cannot succeed until the page loads the build now serving, and that costs the key.
@@ -67,6 +69,19 @@ export const OUTPUTS_DECISION_FAILURE = {
 } as const
 
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
+
+export type OutputFileOrder = { fileType: FileType; name: string }
+
+// Ranks approved names, because callers sort files that useDecryptFiles has already rewritten.
+const logRank = (fileType: FileType): number => {
+    const index = APPROVED_LOG_TYPES.indexOf(fileType)
+    return index === -1 ? APPROVED_LOG_TYPES.length : index
+}
+
+// Logs first, in APPROVED_LOG_TYPES order, then the results by name (OTTER-758).
+export const compareOutputFiles = (a: OutputFileOrder, b: OutputFileOrder): number =>
+    logRank(a.fileType) - logRank(b.fileType) ||
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 
 export const OUTPUTS_DECISION_ERRORS = {
     feedbackEmpty: (labName: string) => `Enter your feedback for ${labName} before submitting.`,

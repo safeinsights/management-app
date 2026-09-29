@@ -1,9 +1,11 @@
 import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
+import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_EMAIL } from './mailgun'
@@ -33,26 +35,16 @@ async function getSiAdmins() {
 
 type StudyInfo = Awaited<ReturnType<typeof getStudyAndOrgDisplayInfo>>
 
-type HeldEmail = Omit<Parameters<typeof deliver>[0], 'template'>
-
-// A template name Mailgun does not know fails the send, so an email whose template is not written yet
-// is assembled and logged instead. Returns the message either way, which keeps recipients assertable.
-const deliverWhenTemplateReady = async (template: string | null, message: HeldEmail) => {
-    if (!template) {
-        logger.info(`Holding email until its Mailgun template exists: ${message.subject}`)
-        return message
-    }
-
-    await deliver({ ...message, template })
-    return message
-}
-
 function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
+        // Pre-header var on the agreement emails. Same value, because the templates disagree on the name.
+        studyName: study.title,
         submittedBy: study.researcherFullName,
-        submittedOn: dayjs().format('MM/DD/YYYY'),
+        submittedOn: dayjs(study.submittedAt ?? study.createdAt).format('MM/DD/YYYY'),
         submittedTo: study.orgName,
+        researchLab: study.labName,
+        dataPartner: study.orgName,
     }
 }
 
@@ -90,16 +82,34 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// TODO(Iris): put the Mailgun template name here to start sending this email.
-const STUDY_AGREEMENT_PREPARATION_TEMPLATE: string | null = null
+// onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
+// this submission is already there: a second one means the lab has submitted before.
+const isResubmission = async (studyId: string) => {
+    const { submissions } = await db
+        .selectFrom('audit')
+        .select((eb) => eb.fn.countAll().as('submissions'))
+        .where('recordType', '=', 'STUDY')
+        .where('recordId', '=', studyId)
+        .where('eventType', '=', 'CREATED')
+        .executeTakeFirstOrThrow()
 
-// Audience: SafeInsights admins, Trigger: a Data Partner approves the proposal. Only they can draw
-// the agreement up, and the study sits behind the gate until one of them publishes it.
+    return Number(submissions) > 1
+}
+
+// Audience: SafeInsights admins, Trigger: a proposal is submitted to a Data Partner. Only they can
+// draw the agreement up, and the study sits behind the gate until one of them publishes it.
 export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
     // A test study is exempt from the agreement, so there is nothing to prepare.
     if (study.isTestStudy) return
+
+    // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
+    // reaches here too, and its gate only passes once one is acknowledged.
+    if (await findLegalDocument(db, { type: 'SLA', studyId })) return
+
+    // The same proposal coming back is already on the admins' list.
+    if (await isResubmission(studyId)) return
 
     const admins = await getSiAdmins()
     const emails = admins.map((admin) => admin.email).filter((email) => email)
@@ -110,13 +120,14 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     }
 
     // See OTTER-651: never put multiple recipient addresses in "To".
-    return deliverWhenTemplateReady(STUDY_AGREEMENT_PREPARATION_TEMPLATE, {
+    await deliver({
         to: SI_EMAIL,
         bcc: emails.join(', '),
-        subject: 'Study Agreement needed',
+        subject: `New ${legalDocumentTypeLabels.SLA} required`,
+        template: 'vb - sla notice',
         vars: {
             ...baseStudyVars(study),
-            researchLab: study.labName,
+            studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
             legalURL: `${APP_BASE_URL}${Routes.adminSafeinsightsLegal}`,
         },
     })
@@ -261,33 +272,56 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     })
 }
 
-// TODO(Iris): put the Mailgun template name here to start sending this email.
-const STUDY_AGREEMENT_READY_TEMPLATE: string | null = null
+// The lab side of the agreement. researcherId is the original submitter, and a later version can be
+// submitted by any lab member, who is recorded only as the author of its resubmission note. A PI
+// holding no account has no address and drops out.
+async function getStudyAgreementAudience(studyId: string, study: StudyInfo) {
+    const resubmitters = await db
+        .selectFrom('studyProposalComment')
+        .select('authorId')
+        .distinct()
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'RESUBMISSION-NOTE')
+        .execute()
 
-// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement
+    const userIds = [...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId)])].filter(
+        (id): id is string => Boolean(id),
+    )
+
+    return db
+        .selectFrom('user')
+        .select(['email', 'fullName'])
+        .where('id', 'in', userIds)
+        .where('email', 'is not', null)
+        .$narrowType<{ email: string }>()
+        .execute()
+}
+
+// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement. One send each rather
+// than a Bcc, because the template greets its reader by name.
 export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
+    const recipients = await getStudyAgreementAudience(studyId, study)
 
-    // piUserId is null until the PI holds an account, and until then there is no address for them.
-    const pi = study.piUserId
-        ? await db.selectFrom('user').select('email').where('id', '=', study.piUserId).executeTakeFirst()
-        : undefined
-
-    const emails = [...new Set([study.researcherEmail, pi?.email].filter((email) => Boolean(email)))] as string[]
-
-    if (emails.length === 0) {
+    if (recipients.length === 0) {
         logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)
         return
     }
 
-    // See OTTER-651: never put multiple recipient addresses in "To".
-    return deliverWhenTemplateReady(STUDY_AGREEMENT_READY_TEMPLATE, {
-        to: SI_EMAIL,
-        bcc: emails.join(', '),
-        subject: 'Study Agreement ready to acknowledge',
-        vars: {
-            ...baseStudyVars(study),
-            studyURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
-        },
-    })
+    const studyURL = `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`
+
+    await Promise.all(
+        recipients.map((recipient) =>
+            deliver({
+                to: recipient.email,
+                subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
+                template: 'vb - sla ready for acknowledgment',
+                vars: {
+                    ...baseStudyVars(study),
+                    fullName: recipient.fullName,
+                    studyURL,
+                },
+            }),
+        ),
+    )
 }

@@ -81,6 +81,12 @@ describe('CollaborativeResubmissionNoteSection', () => {
         expect(screen.getByText(/feedback from Rice University/)).toBeInTheDocument()
     })
 
+    it('renders a vertical resize handle on the editor', () => {
+        renderSingleUserSection()
+        const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
+        expect(surface.style.resize).toBe('vertical')
+    })
+
     it('does not render the section-level autosave indicator in collaborative mode', () => {
         renderSection()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
@@ -154,6 +160,24 @@ describe('CollaborativeResubmissionNoteSection character limit', () => {
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
 
         expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+    })
+
+    // The message used to be stored right after setFieldValue had queued a clear of the same
+    // field, so Mantine's dedupe dropped it on every other keystroke (OTTER-777).
+    it('keeps the message through the keystrokes that follow', async () => {
+        const user = userEvent.setup()
+        renderSingleUserSection()
+
+        const editor = await screen.findByLabelText('Resubmission note')
+        await user.click(editor)
+        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.paste('y')
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+
+        await user.paste('z')
+        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 })
 

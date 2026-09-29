@@ -3,6 +3,7 @@ import { Group, Paper, Stack, Text } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import { SiBulbLogo } from './si-bulb-logo'
 import { SmallMonoColorLogo } from './small-mono-color-logo'
+import { SIDENAV_BG } from '@/lib/constants'
 
 // SmallMonoColorLogo renders in white, so it sits on a dark purple backdrop here.
 const meta = { title: 'Layout / Logos' }
@@ -25,7 +26,7 @@ export const BulbLogo: Story = () => (
 )
 
 export const MonoColorLogo: Story = () => (
-    <Paper p="xl" bg="purple.8">
+    <Paper p="xl" bg={SIDENAV_BG}>
         <Group align="center" gap="xl">
             <SmallMonoColorLogo width={32} />
             <SmallMonoColorLogo width={64} />

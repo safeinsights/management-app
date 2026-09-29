@@ -5,6 +5,7 @@ import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { PageHeader } from '@/components/page-header'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { KEY_RESET_CONFIRM_COLOR, KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
 
 export type RegenerateKeyViewProps = {
     generatedOn: string
@@ -48,8 +49,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                     organization to access them with their key. To restore your own access going forward, you can
                     generate a new key below.{' '}
                     <Text component="b" fw={fontWeight.bold} inherit>
-                        A new key cannot decrypt your current outputs. It works only for outputs encrypted after you
-                        generate it.
+                        {KEY_RESET_WARNING}
                     </Text>
                 </Text>
                 <Group>
@@ -68,17 +68,16 @@ const ConfirmKeyResetModal: FC<{
     onConfirmAndClose: () => void
 }> = ({ onClose, isOpen, onConfirmAndClose }) => {
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
+        <AppModal isOpen={isOpen} onClose={onClose} title={KEY_RESET_MODAL_TITLE}>
             <Stack>
                 <Text fz={16} mb="md">
-                    A new key cannot decrypt your current outputs. If you no longer have your key and no one in your
-                    organization can access them, those outputs will be lost. This action cannot be undone.
+                    {KEY_RESET_MODAL_BODY}
                 </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button color="red.6" onClick={onConfirmAndClose}>
+                    <Button color={KEY_RESET_CONFIRM_COLOR} onClick={onConfirmAndClose}>
                         Generate new key
                     </Button>
                 </Group>

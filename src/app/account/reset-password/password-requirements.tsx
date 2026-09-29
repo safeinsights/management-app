@@ -59,7 +59,7 @@ export function Requirements({ requirements }: RequirementsProps) {
         rows.push(
             <Flex key={i} component="span" direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
-                    <Flex key={i + index} component="span" align="center" gap="xs" style={{ flex: 1 }}>
+                    <Flex key={i + index} component="span" align="center" gap="xs" flex={1}>
                         {requirement.meets ? (
                             <CheckIcon size={14} color={theme.colors.green[7]} />
                         ) : (

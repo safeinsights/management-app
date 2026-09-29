@@ -48,6 +48,11 @@ export function effectiveProposalStatus(study: {
     return decision ? REVIEW_DECISION_TO_STATUS[decision] : study.status
 }
 
+export const DECISION_NOTICES = {
+    submitted: { color: 'green', title: 'Decision submitted', message: '' },
+    failed: { color: 'red', title: 'Decision could not be submitted', message: 'Your work is saved. Try again.' },
+} as const
+
 // A code decision can be written without a code-review comment, so the feedback view synthesizes
 // it from the job's CODE-* status rather than blanking out.
 export const CODE_DECISION_TO_REVIEW_DECISION: Record<CodeDecisionStatus, ReviewDecision> = {

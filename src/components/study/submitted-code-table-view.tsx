@@ -52,7 +52,7 @@ const SubmittedCodeRow: FC<{
                     <ActionIcon
                         onClick={() => onPreview(file)}
                         variant="subtle"
-                        color="gray"
+                        color="grey"
                         aria-label={`View ${file.name}`}
                     >
                         <EyeIcon weight="fill" />
@@ -62,7 +62,7 @@ const SubmittedCodeRow: FC<{
                         href={studyCodeURL(jobId, file.name)}
                         download={file.name}
                         variant="subtle"
-                        color="gray"
+                        color="grey"
                         aria-label={`Download ${file.name}`}
                     >
                         <DownloadSimpleIcon weight="fill" />

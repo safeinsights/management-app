@@ -3,46 +3,16 @@ import * as Y from 'yjs'
 import { useForm } from '@mantine/form'
 import { act, beforeEach, describe, expect, it, renderHook, waitFor } from '@/tests/unit.helpers'
 
+import { createFakeYjsProvider, type FakeYjsProvider } from '@/tests/yjs.helpers'
 import { type CodeReviewCriteriaDraft, useCodeReviewEvaluationMap } from './use-code-review-evaluation-map'
-
-type Listener = () => void
-
-// Exposes a real Y.Doc so tests can drive map mutations directly.
-function createFakeProvider(doc: Y.Doc) {
-    const syncedListeners: Listener[] = []
-    return {
-        document: doc,
-        isSynced: false,
-        on(event: string, fn: Listener) {
-            if (event === 'synced') syncedListeners.push(fn)
-        },
-        off(event: string, fn: Listener) {
-            if (event === 'synced') {
-                const idx = syncedListeners.indexOf(fn)
-                if (idx >= 0) syncedListeners.splice(idx, 1)
-            }
-        },
-        triggerSynced() {
-            this.isSynced = true
-            syncedListeners.forEach((fn) => fn())
-        },
-    }
-}
 
 const initialDraft: CodeReviewCriteriaDraft = {
     proposalAlignment: null,
     agreementCompliance: null,
-    securityChecks: null,
     privacyProtection: null,
 }
 
-const setupHook = ({
-    provider,
-    enabled = true,
-}: {
-    provider: ReturnType<typeof createFakeProvider> | null
-    enabled?: boolean
-}) => {
+const setupHook = ({ provider, enabled = true }: { provider: FakeYjsProvider | null; enabled?: boolean }) => {
     const { result: formResult } = renderHook(() =>
         useForm<{ criteria: CodeReviewCriteriaDraft }>({
             mode: 'uncontrolled',
@@ -63,14 +33,14 @@ const setupHook = ({
 describe('useCodeReviewEvaluationMap', () => {
     let docA: Y.Doc
     let docB: Y.Doc
-    let providerA: ReturnType<typeof createFakeProvider>
-    let providerB: ReturnType<typeof createFakeProvider>
+    let providerA: FakeYjsProvider
+    let providerB: FakeYjsProvider
 
     beforeEach(() => {
         docA = new Y.Doc()
         docB = new Y.Doc()
-        providerA = createFakeProvider(docA)
-        providerB = createFakeProvider(docB)
+        providerA = createFakeYjsProvider(docA)
+        providerB = createFakeYjsProvider(docB)
     })
 
     const syncDocs = (source: Y.Doc, target: Y.Doc) => {
@@ -83,13 +53,13 @@ describe('useCodeReviewEvaluationMap', () => {
 
         const map = docA.getMap<unknown>('evaluationCriteria')
         map.set('proposalAlignment', 'yes')
-        map.set('securityChecks', 'not-sure')
+        map.set('privacyProtection', 'not-sure')
 
         act(() => providerA.triggerSynced())
 
         await waitFor(() => expect(hook.result.current.isSynced).toBe(true))
         expect(form.getValues().criteria.proposalAlignment).toBe('yes')
-        expect(form.getValues().criteria.securityChecks).toBe('not-sure')
+        expect(form.getValues().criteria.privacyProtection).toBe('not-sure')
         expect(form.getValues().criteria.agreementCompliance).toBeNull()
         expect(form.isDirty()).toBe(false)
     })

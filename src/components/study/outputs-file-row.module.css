@@ -1,14 +1,19 @@
-/* The row highlight and the file-name underline must appear on keyboard focus as well as
-   hover, so the two states are always declared together (OTTER-675 accessibility criteria). */
+/* Keyboard focus gets the same highlight and underline as hover (OTTER-675 accessibility criteria). */
 
 .row:hover,
 .row:focus-within {
     background-color: var(--si-color-surface-hover);
 }
 
+/* The column width is fixed, so a name still too long after truncation ends in an ellipsis. */
 .fileName {
     cursor: pointer;
     font-size: var(--mantine-font-size-sm);
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fileName:hover,

@@ -1,7 +1,8 @@
 import type React from 'react'
 import { Json, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { StudyRole } from '@/lib/study-screen/state.types'
 
-export type Audience = 'researcher' | 'reviewer'
+export type Audience = StudyRole
 export type Scope = 'org' | 'user'
 
 export type StudyRow = {
@@ -19,7 +20,6 @@ export type StudyRow = {
     researcherAgreementsAckedAt: Date | null
     // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
-    datasets: string[] | null
     researchQuestions: Json | null
     projectSummary: Json | null
     impact: Json | null

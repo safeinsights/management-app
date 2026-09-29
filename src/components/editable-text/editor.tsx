@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Skeleton } from '@mantine/core'
+import { Skeleton, Stack } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
+import { EditorFooterArea } from './editor-footer'
 import { SingleUserEditor } from './single-user-editor'
 import { resolveContentHeight } from './editor-surface'
 
@@ -63,8 +64,16 @@ export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorPr
         return <SingleUserEditor {...props} />
     }
 
-    // Callers pass a null websocket during SSR and pre-hydration.
-    if (!mounted || !websocketProvider) return <Skeleton h={placeholderHeight} radius={4} />
+    // Callers pass a null websocket during SSR and pre-hydration. The footer rides along: Submit
+    // stays enabled to surface errors, so a field whose editor has not mounted still owes the
+    // researcher its own error and count (OTTER-777).
+    if (!mounted || !websocketProvider)
+        return (
+            <Stack gap="xxs">
+                <Skeleton h={placeholderHeight} radius={4} />
+                <EditorFooterArea left={props.footerLeft} right={props.footerRight} />
+            </Stack>
+        )
 
     return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
 }

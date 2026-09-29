@@ -9,6 +9,7 @@ import {
     resolveReviewerStepNav,
     resolveScreenNav,
     resolveStepNav,
+    codeSubmissionNav,
     type NavCtx,
     type StepNav,
 } from './nav'
@@ -30,11 +31,11 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
     resultsErrored: false,
     runErrored: false,
     resultsDisplayStatus: null,
+    resultsViewed: false,
+    executionStage: null,
     submissionRound: 0,
     hasSavedEdits: false,
     hasSavedCodeEdits: false,
-    displayStatus: 'DRAFT',
-    latestJobStatuses: [],
     ...overrides,
 })
 
@@ -215,6 +216,29 @@ describe('resolveStepNav — code phase', () => {
     it('code rejected → terminal, no further submissions offered', () => {
         const nav = resolveStepNav('code-feedback', state({ ...submitted, codeDecision: 'CODE-REJECTED' }), ctx)
         expect(labels(nav)).toEqual(['Previous step', undefined, 'Back to my studies'])
+    })
+})
+
+// /code resolves its own nav: it is a form route, not a dispatcher screen (OTTER-673).
+describe('codeSubmissionNav', () => {
+    it('anchors "Previous step" to the approved proposal once the proposal is approved', () => {
+        expect(codeSubmissionNav('APPROVED', ctx)).toMatchObject({
+            back: { label: 'Previous step', href: `${base}/submitted`, variant: 'subtle' },
+        })
+    })
+
+    // getDraftStudyAction serves only DRAFT, CHANGE-REQUESTED and APPROVED, so no other status reaches /code.
+    it.each(['DRAFT', 'CHANGE-REQUESTED'] as const)(
+        'anchors "Previous step" to Step 1 while the proposal is %s',
+        (status) => {
+            expect(codeSubmissionNav(status, ctx).back?.href).toBe(`${base}/edit`)
+        },
+    )
+
+    it('offers no solid action: submitting is form-owned', () => {
+        const nav = codeSubmissionNav('APPROVED', ctx)
+        expect(solids(nav)).toBe(0)
+        expect(labels(nav)).toEqual(['Previous step', undefined, undefined])
     })
 })
 

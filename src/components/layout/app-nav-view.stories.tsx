@@ -2,7 +2,7 @@ import type { Story } from '@ladle/react'
 import { useState } from 'react'
 import { Avatar, NavLink } from '@mantine/core'
 import { GearIcon, LockIcon, SignOutIcon, SlidersIcon, UserIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
-import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
+import { ENCLAVE_BG, LAB_BG, SIDENAV_BG } from '@/lib/constants'
 import { Routes } from '@/lib/routes'
 import type { ActionSuccessType } from '@/lib/types'
 import type { fetchUsersOrgsAction } from '@/server/actions/org.actions'
@@ -111,7 +111,7 @@ export const PersonalDashboard: Story = () => (
             focusedOrgSlug={null}
             isMainDashboard={true}
             isDesktop={true}
-            navbarBg="purple.8"
+            navbarBg={SIDENAV_BG}
             navContent={<NavOrgsList orgs={ORGS} />}
             profileMenu={<ProfileMenuFixture />}
         />
@@ -153,7 +153,7 @@ export const ProfileMenuExpanded: Story = () => (
             focusedOrgSlug={null}
             isMainDashboard={true}
             isDesktop={true}
-            navbarBg="purple.8"
+            navbarBg={SIDENAV_BG}
             navContent={<NavOrgsList orgs={ORGS} />}
             profileMenu={<ProfileMenuFixture defaultOpened />}
         />

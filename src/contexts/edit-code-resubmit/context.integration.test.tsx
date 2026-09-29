@@ -10,6 +10,7 @@ import {
     screen,
     waitFor,
 } from '@/tests/unit.helpers'
+import { notifications } from '@mantine/notifications'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
 
 function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) {
@@ -27,6 +28,26 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
         </>
     )
 }
+
+function ResubmitHarness() {
+    const { resubmit } = useEditCodeResubmit()
+    return (
+        <button type="button" onClick={() => resubmit({ mainFileName: 'main.R', fileNames: ['main.R'] })}>
+            Resubmit
+        </button>
+    )
+}
+
+const jobCount = async (studyId: string) =>
+    Number(
+        (
+            await db
+                .selectFrom('studyJob')
+                .select((eb) => eb.fn.countAll().as('n'))
+                .where('studyId', '=', studyId)
+                .executeTakeFirstOrThrow()
+        ).n,
+    )
 
 const readDraft = async (studyId: string) =>
     (
@@ -83,5 +104,40 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
 
         await waitFor(() => expect(results).toContain(false))
         expect(await readDraft(study.id)).toBeNull()
+    })
+
+    // The wrapped useMutation unwraps the refusal, so a bare mutationFn is enough; pinned because
+    // reaching for actionResult here would flatten it and toast "Try again" instead.
+    it('reports the refusal rather than a resubmission when the study agreement is unacknowledged', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-CHANGES-REQUESTED',
+            withStudyAgreement: false,
+        })
+
+        renderWithProviders(
+            <EditCodeResubmitProvider studyId={study.id} initialNote="the reviewer asked for a change">
+                <ResubmitHarness />
+            </EditCodeResubmitProvider>,
+        )
+
+        fireEvent.click(screen.getByRole('button', { name: 'Resubmit' }))
+
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    color: 'red',
+                    title: 'Unable to resubmit study code',
+                    message: expect.stringContaining('Study Agreement has not been signed yet for this study'),
+                }),
+            ),
+        )
+        expect(notifications.show).not.toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Study Code Resubmitted' }),
+        )
+        expect(await jobCount(study.id)).toBe(1)
     })
 })
