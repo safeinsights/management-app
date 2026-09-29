@@ -3,8 +3,8 @@
 import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { type FC } from 'react'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
-import { StudyPill } from './study-pill'
-import { Text } from '@mantine/core'
+import { Badge, Text } from '@mantine/core'
+import { InfoTooltip } from '../tooltip'
 
 const LABEL = 'Test study'
 const TOOLTIP = `A test study does not have ${legalDocumentCollectionLabels.SLA}.`
@@ -13,21 +13,18 @@ export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <StudyPill
-            label={LABEL}
-            bg="gray.1"
-            c="black"
-            bd="black"
-            tooltip={TOOLTIP}
-            icon={<InfoIcon size={12} weight="fill" aria-hidden />}
-        />
+        <InfoTooltip label={TOOLTIP}>
+            <Badge variant="outline" color="grey.5" leftSection={<InfoIcon size={10} weight="fill" aria-hidden />}>
+                {LABEL}
+            </Badge>
+        </InfoTooltip>
     )
 }
 
 const TestStudyCell: FC = () => {
     return (
         <Text size="sm" c="gray.7">
-            Test Study
+            {LABEL}
         </Text>
     )
 }
