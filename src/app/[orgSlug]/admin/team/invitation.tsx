@@ -58,9 +58,8 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                     title: 'Invite resent',
                     message: 'This user has already been invited. Resending invite.',
                 })
-            } else {
-                onInvited()
             }
+            onInvited()
         },
     })
 
