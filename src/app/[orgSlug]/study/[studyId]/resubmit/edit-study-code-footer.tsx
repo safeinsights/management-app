@@ -1,14 +1,13 @@
 'use client'
 
-import { FC, useCallback, useEffect, useRef } from 'react'
+import { FC } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { Routes } from '@/lib/routes'
-import { focusFirstInvalid } from '@/lib/focus-first-invalid'
+import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import {
     RESUBMISSION_NOTE_FIELD_ID,
     RESUBMIT_CODE_BUTTON_ID,
@@ -26,6 +25,8 @@ const UNSAVED_EDITS_TOOLTIP =
     "Progress saved! Note: On leaving the edit mode, your changes won't be visible until you hit Resubmit code for review."
 
 const ORDERED_FIELD_IDS = [RESUBMISSION_NOTE_FIELD_ID]
+
+const FILES_INCOMPLETE = 'files-incomplete'
 
 type PreviousStepButtonProps = {
     hasChanges: boolean
@@ -66,13 +67,16 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { studyId, orgName, noteForm, saveDraft, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
 
-    const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
-
-    const wasSubmitting = useRef(false)
-    useEffect(() => {
-        if (wasSubmitting.current && !isSubmitting) closeConfirm()
-        wasSubmitting.current = isSubmitting
-    }, [isSubmitting, closeConfirm])
+    const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt({
+        isSubmitting,
+        validate: () => {
+            const invalid = new Set<string>()
+            if (noteForm.validate().hasErrors) invalid.add(RESUBMISSION_NOTE_FIELD_ID)
+            if (!hasFiles || mainFileName === '') invalid.add(FILES_INCOMPLETE)
+            return invalid
+        },
+        orderedFieldIds: ORDERED_FIELD_IDS,
+    })
 
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
@@ -86,20 +90,6 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         }
         router.push(exitTarget)
     }
-
-    const attemptSubmit = useCallback(() => {
-        const invalid = new Set<string>()
-        if (noteForm.validate().hasErrors) invalid.add(RESUBMISSION_NOTE_FIELD_ID)
-
-        if (invalid.size > 0) {
-            focusFirstInvalid(ORDERED_FIELD_IDS, (id) => invalid.has(id))
-            return
-        }
-
-        if (!hasFiles || mainFileName === '') return
-
-        openConfirm()
-    }, [noteForm, hasFiles, mainFileName, openConfirm])
 
     const handleConfirmResubmit = () => {
         resubmit({ mainFileName, fileNames })
@@ -127,7 +117,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
             </Group>
 
             <SubmitConfirmationModal
-                isOpen={confirmOpen}
+                isOpen={isConfirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmResubmit}
                 isSubmitting={isSubmitting}

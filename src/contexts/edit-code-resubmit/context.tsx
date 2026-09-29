@@ -4,9 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { captureException } from '@sentry/nextjs'
 import { useForm, useMutation, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
+import {
+    CODE_SUBMIT_FAILURE_TITLE,
+    CODE_SUBMIT_SUCCESS_TITLE,
+    reportSubmissionFailure,
+} from '@/contexts/proposal/hooks/submission-toasts'
 import { Routes } from '@/lib/routes'
 import {
     initialResubmitNoteValue,
@@ -51,6 +55,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
+        validateInputOnChange: true,
     })
 
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
@@ -140,21 +145,14 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             }),
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
-            notifications.show({ title: 'Code submitted', message: undefined, color: 'green' })
+            notifications.show({ title: CODE_SUBMIT_SUCCESS_TITLE, message: '', color: 'green' })
             router.push(Routes.studyView({ orgSlug, studyId }))
         },
-        onError: async (error: unknown) => {
-            captureException(error)
-            const saved = await flushSave(pendingValueRef.current)
-            notifications.show({
-                color: 'red',
-                title: 'Code could not be submitted',
-                message: saved
-                    ? 'Your work is saved. Try again.'
-                    : 'We could not save your work. Keep this tab open and try again.',
-            })
-            document.getElementById(RESUBMIT_CODE_BUTTON_ID)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        },
+        onError: (error: unknown) =>
+            reportSubmissionFailure(error, [flushSave(pendingValueRef.current)], {
+                title: CODE_SUBMIT_FAILURE_TITLE,
+                buttonId: RESUBMIT_CODE_BUTTON_ID,
+            }),
     })
 
     const resubmit = useCallback(
