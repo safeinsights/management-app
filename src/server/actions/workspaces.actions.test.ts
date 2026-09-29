@@ -6,6 +6,7 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
+    insertTestStudyOnly,
     insertTestUser,
     mockClerkSession,
     db,
@@ -233,7 +234,6 @@ describe('Workspace Actions', () => {
             vi.doMock('@/server/coder', async (importOriginal) => ({
                 ...(await importOriginal<typeof import('@/server/coder')>()),
                 createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
             }))
 
         const jobCreatedAt = async (jobId: string) =>
@@ -296,7 +296,6 @@ describe('Workspace Actions', () => {
             vi.doMock('@/server/coder', async (importOriginal) => ({
                 ...(await importOriginal<typeof import('@/server/coder')>()),
                 createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
             }))
 
         const approvedStudy = async () => {
@@ -585,6 +584,113 @@ describe('Workspace Actions', () => {
             const { listWorkspaceFilesAction } = await import('./workspaces.actions')
 
             expect(actionResult(await listWorkspaceFilesAction({ studyId }))).toMatchObject({ files: [] })
+        })
+    })
+
+    /**
+     * OTTER-817: the Coder account is keyed on the IDE owner, not the proposal submitter. Unlike the
+     * describes above this must NOT mock @/server/coder — the whole point is to run the real
+     * resolution against the real db, so global.fetch is stubbed at the Coder API boundary instead.
+     */
+    describe('IDE owner provisioning (OTTER-817)', () => {
+        const SUBMITTER_EMAIL = 'otter817-submitter@test.com'
+
+        // The describes above doMock @/server/coder, and a doMock outlives resetModules — without
+        // this the action imports a stubbed createUserAndWorkspace and never reaches the API.
+        beforeEach(() => {
+            vi.doUnmock('@/server/coder')
+        })
+
+        const stubCoderApi = () => {
+            const calls: string[] = []
+            const ok = (json: unknown) => ({ ok: true, json: async () => json })
+
+            global.fetch = vi.fn(async (url: string, init?: { body?: string }) => {
+                calls.push(url)
+                if (url.includes('/api/v2/users?')) return ok({ users: [] })
+                // Echo the posted username back, as Coder does — that is what the workspace path is
+                // then built from, so the assertions below are testing the real chain.
+                if (url.endsWith('/api/v2/users')) return ok(JSON.parse(init?.body ?? '{}'))
+                if (url.includes('/api/v2/organizations') && url.includes('/workspaces')) return ok({ id: 'ws-new' })
+                if (url.includes('/api/v2/organizations')) return ok([{ id: 'org1', name: 'coder' }])
+                if (url.includes('/api/v2/templates')) return ok([{ id: 'tpl1', name: 'test-template' }])
+                // The workspace read 404s, which is what routes the flow into workspace creation.
+                return { ok: false, status: 404, text: async () => 'Not found' }
+            }) as unknown as typeof global.fetch
+
+            return calls
+        }
+
+        // The launcher reaches `load IDE` through the lab arm of the rule (permissions.ts), so the
+        // session org has to be the lab that submitted the study.
+        const studyLaunchedByTeammate = async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            process.env.CODER_API_ENDPOINT = 'https://coder.test'
+            process.env.CODER_TOKEN = 'token'
+            process.env.CODER_TEMPLATE = 'test-template'
+
+            const { org: lab, user: launcher } = await mockSessionWithTestData({ orgType: 'lab' })
+            const enclave = await insertTestOrg({ slug: `otter817-enclave-${Math.random().toString(36).slice(2, 8)}` })
+            const { user: submitter } = await insertTestUser({ org: lab, email: SUBMITTER_EMAIL })
+            const { study } = await insertTestStudyOnly({
+                org: enclave,
+                submittedByOrg: lab,
+                researcherId: submitter.id,
+            })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R' })
+
+            return { study, launcher, submitter }
+        }
+
+        test('queries Coder for the launcher, not the proposal submitter', async () => {
+            const { study, launcher } = await studyLaunchedByTeammate()
+            const calls = stubCoderApi()
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            const lookup = calls.find((u) => u.includes('/api/v2/users?'))
+            expect(lookup).toContain(encodeURIComponent(launcher.email!))
+            expect(calls.join(' ')).not.toContain(encodeURIComponent(SUBMITTER_EMAIL))
+        })
+
+        test("creates the workspace under the launcher's Coder account", async () => {
+            const { study, launcher } = await studyLaunchedByTeammate()
+            const calls = stubCoderApi()
+
+            const { generateCoderUsername } = await import('@/server/coder')
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            const create = calls.find((u) => u.includes('/workspaces'))
+            expect(create).toContain(`/members/${generateCoderUsername(launcher.email!)}/workspaces`)
+            expect(create).not.toContain(generateCoderUsername(SUBMITTER_EMAIL))
+        })
+
+        // The other direction: the fix must not break the case that always worked.
+        test('still provisions under the submitter when the submitter launches', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            process.env.CODER_API_ENDPOINT = 'https://coder.test'
+            process.env.CODER_TOKEN = 'token'
+            process.env.CODER_TEMPLATE = 'test-template'
+
+            const { org: lab, user: submitter } = await mockSessionWithTestData({ orgType: 'lab' })
+            const enclave = await insertTestOrg({ slug: `otter817-own-${Math.random().toString(36).slice(2, 8)}` })
+            const { study } = await insertTestStudyOnly({
+                org: enclave,
+                submittedByOrg: lab,
+                researcherId: submitter.id,
+            })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R' })
+            const calls = stubCoderApi()
+
+            const { generateCoderUsername } = await import('@/server/coder')
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            expect(calls.find((u) => u.includes('/workspaces'))).toContain(
+                `/members/${generateCoderUsername(submitter.email!)}/workspaces`,
+            )
         })
     })
 })
