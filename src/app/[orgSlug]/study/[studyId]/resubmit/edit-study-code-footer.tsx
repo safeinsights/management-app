@@ -6,6 +6,7 @@ import { Button, Group } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { Routes } from '@/lib/routes'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import {
@@ -17,7 +18,9 @@ import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 interface EditStudyCodeFooterProps {
     mainFileName: string
     fileNames: string[]
-    hasFiles: boolean
+    /** Why a resubmit would be refused, or null when it would go through. */
+    blockedReason: string | null
+    onSubmitAttempt: () => void
     filesEdited: boolean
 }
 
@@ -60,7 +63,8 @@ const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, i
 export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     mainFileName,
     fileNames,
-    hasFiles,
+    blockedReason,
+    onSubmitAttempt,
     filesEdited,
 }) => {
     const router = useRouter()
@@ -72,7 +76,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         validate: () => {
             const invalid = new Set<string>()
             if (noteForm.validate().hasErrors) invalid.add(RESUBMISSION_NOTE_FIELD_ID)
-            if (!hasFiles || mainFileName === '') invalid.add(FILES_INCOMPLETE)
+            if (blockedReason) invalid.add(FILES_INCOMPLETE)
             return invalid
         },
         orderedFieldIds: ORDERED_FIELD_IDS,
@@ -89,6 +93,12 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
             if (!saved) return
         }
         router.push(exitTarget)
+    }
+
+    // The files card names the reason, so a blocked click reports rather than doing nothing.
+    const handleResubmitClick = () => {
+        onSubmitAttempt()
+        attemptSubmit()
     }
 
     const handleConfirmResubmit = () => {
@@ -110,7 +120,8 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                     variant="filled"
                     disabled={isBusy}
                     loading={isSubmitting}
-                    onClick={attemptSubmit}
+                    onClick={handleResubmitClick}
+                    aria-describedby={SUBMIT_CODE_ERROR_ID}
                 >
                     Resubmit code for review
                 </Button>

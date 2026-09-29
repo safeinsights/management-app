@@ -5,6 +5,7 @@ import { renderWithProviders, screen, userEvent, waitFor, within } from '@/tests
 import { EditCodeResubmitProvider, useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
@@ -34,6 +35,8 @@ const renderFooter = (
         fileNames?: string[]
         filesEdited?: boolean
         withNoteInput?: boolean
+        blockedReason?: string | null
+        onSubmitAttempt?: () => void
     } = {},
 ) => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
@@ -43,7 +46,8 @@ const renderFooter = (
             <EditStudyCodeFooter
                 mainFileName={opts.mainFileName ?? ''}
                 fileNames={opts.fileNames ?? []}
-                hasFiles={(opts.fileNames ?? []).length > 0}
+                blockedReason={opts.blockedReason ?? null}
+                onSubmitAttempt={opts.onSubmitAttempt ?? (() => {})}
                 filesEdited={opts.filesEdited ?? false}
             />
         </EditCodeResubmitProvider>,
@@ -95,6 +99,43 @@ describe('EditStudyCodeFooter — Resubmit button', () => {
 
         await screen.findByText(REQUIRED_NOTE_ERROR)
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+    })
+
+    // OTTER-778: the click used to return silently when files or the main file were missing. It
+    // now reports the attempt so the Code files card can name the reason.
+    it('reports the attempt so a blocked click can be explained', async () => {
+        const user = userEvent.setup()
+        const onSubmitAttempt = vi.fn()
+        renderFooter({
+            initialNote: wordsString(5),
+            blockedReason: SELECT_MAIN_FILE_MESSAGE,
+            fileNames: ['a.R'],
+            onSubmitAttempt,
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(onSubmitAttempt).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('reports the attempt on a clean click too, so a stale message clears', async () => {
+        const user = userEvent.setup()
+        const onSubmitAttempt = vi.fn()
+        renderFooter({ initialNote: wordsString(5), mainFileName: 'main.R', fileNames: ['main.R'], onSubmitAttempt })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(onSubmitAttempt).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('points the button at the error region so the reason is reachable on tab-back', () => {
+        renderFooter({ blockedReason: SELECT_MAIN_FILE_MESSAGE })
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toHaveAttribute(
+            'aria-describedby',
+            SUBMIT_CODE_ERROR_ID,
+        )
     })
 
     it('does not open the modal when files are present but the note is empty', async () => {

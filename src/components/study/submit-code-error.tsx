@@ -11,6 +11,8 @@ export const SUBMIT_CODE_ERROR_ID = 'submit-code-error'
 export const NO_CHANGES_MESSAGE =
     'No changes have been made to your file yet. Update your code before submitting for review.'
 
+export const SELECT_MAIN_FILE_MESSAGE = 'Select a main file to submit'
+
 const ErrorContent: FC<{ message: string | null }> = ({ message }) => {
     if (!message) return null
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, renderWithProviders, screen, vi, within } from '@/tests/unit.helpers'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { showsLaunchIdeControl } from './study-code-files'
+import { SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from './submit-code-error'
 import { YourFilesSection } from './your-files-section'
 
 const sampleFiles = [
@@ -114,6 +115,41 @@ describe('YourFilesSection', () => {
             expect(screen.getByText('main.R')).toBeInTheDocument()
             expect(screen.getByTestId('already-have-code')).toBeInTheDocument()
         })
+    })
+})
+
+describe('submit error', () => {
+    it('names the blocked reason inside the files card', () => {
+        renderWithProviders(
+            <YourFilesSection
+                ide={createMockIde()}
+                dataPartnerName="Test Data Partner"
+                submitError={SELECT_MAIN_FILE_MESSAGE}
+            />,
+        )
+
+        expect(screen.getByText(SELECT_MAIN_FILE_MESSAGE)).toBeInTheDocument()
+    })
+
+    // /resubmit nests the card, and the error has to survive that layout too.
+    it('names it when nested as well', () => {
+        renderWithProviders(
+            <YourFilesSection
+                ide={createMockIde()}
+                dataPartnerName="Test Data Partner"
+                submitError={SELECT_MAIN_FILE_MESSAGE}
+                isNested
+            />,
+        )
+
+        expect(screen.getByText(SELECT_MAIN_FILE_MESSAGE)).toBeInTheDocument()
+    })
+
+    it('renders the live region empty when nothing is blocked', () => {
+        renderWithProviders(<YourFilesSection ide={createMockIde()} dataPartnerName="Test Data Partner" />)
+
+        expect(screen.queryByText(SELECT_MAIN_FILE_MESSAGE)).not.toBeInTheDocument()
+        expect(document.getElementById(SUBMIT_CODE_ERROR_ID)).toBeInTheDocument()
     })
 })
 
