@@ -57,9 +57,10 @@ overrides:
     # Range widened again to carry past the version the earlier pin landed on.
     'brace-expansion@>=5.0.0 <5.0.9': '>=5.0.9 <6'
     # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
-    # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4: host confusion via a backslash authority
-    # introducer, so a crafted URI parses to an unintended host.
-    'fast-uri@>=3.0.0 <3.1.5': '>=3.1.5 <4'
+    # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4, now CVE-2026-84292 + CVE-2026-84394 against
+    # 3.1.6 — authority injection via an unvalidated port and host confusion via unbalanced
+    # brackets, both parsing a crafted URI to an unintended host.
+    'fast-uri@>=3.0.0 <3.1.7': '>=3.1.7 <4'
     # nanoid <3.3.18: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
     # size. Transitive via postcss (itself pinned above), reached from both next and vite. The
     # advisory's fix version moved to 3.3.18, so the range is widened past the 3.3.17 the earlier
