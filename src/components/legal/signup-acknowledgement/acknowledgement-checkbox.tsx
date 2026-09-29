@@ -6,6 +6,7 @@ import { FC, ReactNode, useId } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
 import { ParticipationData } from '@/server/actions/legal-document.actions'
+import { semanticColor } from '@/theme/tokens'
 import { PlaceholderLabel } from './placeholder-tos-pn'
 
 type AcknowledgeProps = {
@@ -45,6 +46,8 @@ export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, 
 
     return (
         <Checkbox
+            color={semanticColor('surface.selected')}
+            radius="xs"
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}
             onBlur={onBlur}
