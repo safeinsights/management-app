@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
@@ -30,8 +29,5 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    return renderScreenById(
-        { screen: 'proposal-feedback' },
-        { role: 'researcher', raw, study: result, orgSlug, dashboardHref: Routes.dashboard },
-    )
+    return renderScreenById({ screen: 'proposal-feedback' }, { role: 'researcher', raw, study: result, orgSlug })
 }

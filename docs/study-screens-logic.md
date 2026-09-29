@@ -275,7 +275,7 @@ error**, not a runtime throw. Both pages dispatch through the shared `renderStud
 
 ```ts
 // view/page.tsx → role: 'researcher'   |   review/page.tsx → role: 'reviewer'
-return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref })
+return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId })
 ```
 
 The `reviewer-*` components are **thin adapters** over the existing reviewer views
@@ -339,12 +339,11 @@ forward-jump to a code screen for the same state.
 `/code` is a form route, not a dispatcher screen, so it has no `ScreenId` and resolves its own nav
 through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous step` is the only
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
-before that. It takes `NavCtxBase` — the context without `dashboardHref`, which this rule never
-reads.
+before that.
 
-`Back to my studies` goes to `ctx.dashboardHref`, which every page sets to the personal `/dashboard`
-(My studies) for both roles. The spec routes this exit to one fixed destination, never back to the
-entry point, so no route carries an entry marker (OTTER-805).
+`Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
+routes this exit to one fixed destination, never back to the entry point, so neither the page nor
+the route carries an entry marker (OTTER-805).
 
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 

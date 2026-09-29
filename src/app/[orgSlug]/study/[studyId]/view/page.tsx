@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -20,6 +19,5 @@ export default async function StudyView(props: { params: Promise<{ studyId: stri
         raw: rawStudyState,
         study,
         orgSlug,
-        dashboardHref: Routes.dashboard,
     })
 }

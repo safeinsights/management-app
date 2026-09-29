@@ -1,6 +1,5 @@
 import type React from 'react'
 import { notFound } from 'next/navigation'
-import type { Route } from 'next'
 import {
     phasedStepNav,
     projectStudyState,
@@ -23,7 +22,6 @@ type RenderArgs = {
     raw: RawStudyState
     study: SelectedStudy
     orgSlug: string
-    dashboardHref: Route
 }
 
 // The nav is resolved here, once, so no screen re-derives it from state. Exported for screen tests,
@@ -48,14 +46,12 @@ export async function renderScreenById(
     const navProps = screenNavProps(args.role, descriptor.screen, args.raw, {
         orgSlug: args.orgSlug,
         studyId: args.study.id,
-        dashboardHref: args.dashboardHref,
     })
     return (await Screen({
         descriptor,
         study: args.study,
         raw: args.raw,
         orgSlug: args.orgSlug,
-        dashboardHref: args.dashboardHref,
         ...navProps,
     })) as React.JSX.Element
 }

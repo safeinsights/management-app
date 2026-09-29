@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { Route } from 'next'
 import type { StudyState } from './state.types'
 import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import {
@@ -40,7 +39,7 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
 })
 
 const STUDY_ID = '01900000-0000-7000-8000-000000000001'
-const ctx: NavCtx = { orgSlug: 'lab', studyId: STUDY_ID, dashboardHref: '/dashboard' as Route }
+const ctx: NavCtx = { orgSlug: 'lab', studyId: STUDY_ID }
 
 const base = `/lab/study/${STUDY_ID}`
 const labels = (nav: StepNav) => [nav.back?.label, nav.secondary?.label, nav.forward?.label]

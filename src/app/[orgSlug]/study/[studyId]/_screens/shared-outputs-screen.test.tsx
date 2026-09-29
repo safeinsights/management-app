@@ -48,8 +48,6 @@ const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const RUN_AT = new Date('2026-07-02T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
-const DASHBOARD_HREF = '/dashboard'
-
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
  * rather than in two mirror-image files (PR #1003 review). Each variant carries only what actually
@@ -118,7 +116,6 @@ const renderScreen = async (
             ...screenNavProps('researcher', variant.screen, raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
             }),
         }),
     )
@@ -222,7 +219,6 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             ...screenNavProps('researcher', 'study-overview', raw, {
                 orgSlug: org.slug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
             }),
         })
 

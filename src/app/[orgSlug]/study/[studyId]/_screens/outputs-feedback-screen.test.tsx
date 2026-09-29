@@ -36,8 +36,6 @@ const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DATA_PARTNER = 'Riverside University'
-const DASHBOARD_HREF = '/dashboard'
-
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
 // would still match.
 const givenDataPartner = async (studyId: string) => {
@@ -58,7 +56,6 @@ const renderScreen = async (study: ScreenComponentProps['study'], raw: RawStudyS
             ...screenNavProps('researcher', 'outputs-feedback', raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
             }),
         }),
     )
