@@ -1,4 +1,5 @@
 import {
+    Badge,
     type ButtonProps,
     type ButtonVariant,
     createTheme,
@@ -11,7 +12,13 @@ import {
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
-import { mantineColorOverrides, semanticColor, semanticCssVariables, typographyCssVariables } from './theme/tokens'
+import {
+    fontWeight,
+    mantineColorOverrides,
+    semanticColor,
+    semanticCssVariables,
+    typographyCssVariables,
+} from './theme/tokens'
 
 // Transcribed 1:1 from the "SI UI Component Library" Figma file, collection `color primitive`
 // (read from Dev Mode → Variables). Every ramp is exactly ten shades indexed 0-9 — Figma defines
@@ -230,6 +237,16 @@ export const theme = createTheme({
         // uiThemeComponents carries the Figma-transcribed Alert/TextInput overrides; it is spread
         // first so the app-specific entries below win on any shared key.
         ...uiThemeComponents,
+        // No SI badge design uses Mantine's uppercase, bold default. Outline keeps its border colour but
+        // takes text/Sub-labels, since a border shade like grey/5 is too faint for text. Badges never
+        // truncate: Mantine's ellipsis cut dashboard status labels to "Pro…" in narrow columns.
+        Badge: Badge.extend({
+            defaultProps: { tt: 'none', fw: fontWeight.semibold },
+            styles: { root: { minWidth: 'max-content' } },
+            vars: (_theme, { variant }) => ({
+                root: variant === 'outline' ? { '--badge-color': semanticColor('text.secondary') } : {},
+            }),
+        }),
         // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
