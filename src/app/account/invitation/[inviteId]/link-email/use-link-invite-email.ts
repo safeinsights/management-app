@@ -16,6 +16,14 @@ export type LinkInviteEmailStatus = 'loading' | 'sending' | 'awaiting-code' | 'v
 
 type AddEmailAddress = (owner: UserResource, email: string) => Promise<EmailAddressResource>
 
+// Matches the cooldown Clerk's own components enforce; the code already sent stays valid for 10 minutes.
+const RESEND_INTERVAL_MS = 30_000
+const RESEND_THROTTLED_MESSAGE = 'A code was just sent. Please wait 30 seconds before requesting another.'
+
+const isRateLimited = (error: unknown) =>
+    isClerkApiError(error) &&
+    ['too_many_requests', 'verification_code_too_many_requests'].includes(extractClerkCodeAndMessage(error).code)
+
 const matchingAddress = (user: UserResource, email: string) =>
     user.emailAddresses.find((address) => address.emailAddress.toLowerCase() === email.toLowerCase())
 
@@ -48,6 +56,7 @@ export function useLinkInviteEmail(inviteId: string) {
     const [status, setStatus] = useState<LinkInviteEmailStatus>('loading')
     const [failureMessage, setFailureMessage] = useState<string | null>(null)
     const pendingAddress = useRef<EmailAddressResource | null>(null)
+    const lastSentAt = useRef(0)
     const hasStarted = useRef(false)
 
     const form = useForm({
@@ -93,6 +102,7 @@ export function useLinkInviteEmail(inviteId: string) {
         const start = async () => {
             try {
                 pendingAddress.current = await prepareAddress(user, invite.email, existing, addEmailAddress)
+                lastSentAt.current = Date.now()
                 setStatus('awaiting-code')
             } catch (error) {
                 reportFailure(error)
@@ -103,7 +113,12 @@ export function useLinkInviteEmail(inviteId: string) {
 
     const resendCode = useCallback(async () => {
         if (!invite || !user) return
+        if (Date.now() - lastSentAt.current < RESEND_INTERVAL_MS) {
+            form.setFieldError('code', RESEND_THROTTLED_MESSAGE)
+            return
+        }
         setFailureMessage(null)
+        form.clearFieldError('code')
         setStatus('sending')
         try {
             pendingAddress.current = await prepareAddress(
@@ -112,11 +127,18 @@ export function useLinkInviteEmail(inviteId: string) {
                 pendingAddress.current ?? undefined,
                 addEmailAddress,
             )
+            lastSentAt.current = Date.now()
             setStatus('awaiting-code')
         } catch (error) {
+            // A code sent earlier is still in the inbox, so keep the person on the code form.
+            if (pendingAddress.current && isRateLimited(error)) {
+                form.setFieldError('code', RESEND_THROTTLED_MESSAGE)
+                setStatus('awaiting-code')
+                return
+            }
             reportFailure(error)
         }
-    }, [invite, user, addEmailAddress, reportFailure])
+    }, [invite, user, form, addEmailAddress, reportFailure])
 
     const verify = useCallback(
         async ({ code }: { code: string }) => {

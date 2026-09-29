@@ -179,6 +179,40 @@ describe('invite email linking screen', () => {
         expect(readJoinedOrg()).toBeNull()
     })
 
+    it('holds back a resend inside 30 seconds and keeps the code form', async () => {
+        const { user, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+
+        renderPage(invite.id)
+
+        await screen.findByText(/Enter the code we sent to/)
+        await userEvent.click(screen.getByRole('button', { name: /resend code/i }))
+
+        expect(await screen.findByText(/A code was just sent/)).toBeDefined()
+        expect(screen.getByLabelText('Digit 1 of 6')).toBeDefined()
+        expect(address.prepareVerification).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the code form when Clerk rate-limits a resend', async () => {
+        const { user, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+
+        renderPage(invite.id)
+
+        await screen.findByText(/Enter the code we sent to/)
+        address.prepareVerification.mockRejectedValue(clerkApiError('too_many_requests'))
+        vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
+        await userEvent.click(screen.getByRole('button', { name: /resend code/i }))
+
+        expect(await screen.findByText(/A code was just sent/)).toBeDefined()
+        expect(address.prepareVerification).toHaveBeenCalledTimes(2)
+        expect(screen.getByLabelText('Digit 1 of 6')).toBeDefined()
+    })
+
     it('shows the invalid-invite panel when the invite is not this account to finish', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         mockClerkUser(user.email!, [])
