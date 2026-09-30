@@ -16,9 +16,6 @@ export interface DraftStudyData {
     submittingLabName?: string
     title?: string
     piName?: string
-    datasets?: string[] | null
-    /** Display names of `datasets`, resolved on the server for the locked field. */
-    datasetNames?: string[]
     descriptionDocPath?: string | null
     irbDocPath?: string | null
     agreementDocPath?: string | null
@@ -61,7 +58,6 @@ export const initialFormValues: StudyProposalFormValues = {
     piName: '',
     orgSlug: '',
     language: null,
-    datasets: [],
     mainCodeFile: null,
     additionalCodeFiles: [],
     stepIndex: 0,

@@ -20,7 +20,6 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
-import { Routes } from '@/lib/routes'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
@@ -50,7 +49,6 @@ const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
             ...screenNavProps('reviewer', 'reviewer-outputs-errored', raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: Routes.dashboard,
             }),
         }),
     )
@@ -386,7 +384,6 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
                 ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
                     orgSlug: org.slug,
                     studyId: study.id,
-                    dashboardHref: Routes.dashboard,
                 }),
             }),
         )

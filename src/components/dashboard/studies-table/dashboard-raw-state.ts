@@ -15,6 +15,7 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         codeResubmissionNoteDraft: null,
         // The collaborative document covers Step 2 edits no flush wrote to the columns (OTTER-572).
         piUserId: study.piUserId,
+        datasets: study.datasets,
         researchQuestions: study.researchQuestions,
         projectSummary: study.projectSummary,
         impact: study.impact,

@@ -126,6 +126,7 @@ export function FileDropOverlay({
     return (
         <Box pos="relative" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDragDrop}>
             <Dropzone
+                data-testid="file-drop-zone"
                 openRef={openRef}
                 onDrop={handleDrop}
                 accept={ACCEPTED_FILE_TYPES}

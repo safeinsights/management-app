@@ -7,6 +7,7 @@ import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
+import { requireChangeableCodeFiles } from '@/server/study-code-gate'
 import {
     ACCEPTED_FILE_FORMATS_TEXT,
     hasAcceptedExtension,
@@ -36,6 +37,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
+    .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, file }, session }) => {
         await ensureRoundJobForUpload(db, studyId)
 
@@ -68,6 +70,7 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
+    .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName }, session }) => {
         await db
             .insertInto('workspaceFileActivity')
@@ -84,6 +87,7 @@ export const setMainCodeFileAction = new Action('setMainCodeFileAction', { perfo
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
+    .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName } }) => {
         await db
             .updateTable('study')
@@ -123,6 +127,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
+    .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName } }) => {
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)

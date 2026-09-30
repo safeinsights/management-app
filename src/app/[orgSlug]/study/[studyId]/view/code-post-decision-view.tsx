@@ -31,11 +31,6 @@ interface CodePostDecisionViewProps {
     job: LatestJobForStudy
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
-    /**
-     * Org-scoped entry: threaded onto the "View approved initial request" link so org scope survives.
-     * The step nav carries its own copy of it through NavCtx.
-     */
-    returnTo?: 'org'
     latestJobStatus: CodeDecisionStatus
     nav: StepNav
     /** When the reviewer-feedback fetch failed, show an inline notice instead of the feedback section. */
@@ -122,7 +117,6 @@ export function CodePostDecisionView({
     job,
     entries,
     reviewingOrgName,
-    returnTo,
     latestJobStatus,
     nav,
     feedbackLoadError = false,
@@ -131,7 +125,7 @@ export function CodePostDecisionView({
     const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
     const { expanded, toggle, collapse } = useExpandable()
 
-    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id, returnTo })
+    const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
 
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 

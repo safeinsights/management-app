@@ -59,7 +59,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
@@ -71,17 +70,6 @@ describe('StudyViewCode (/view/code)', () => {
         expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
-    it('threads returnTo=org onto the forward link and dashboardHref', async () => {
-        const { org, study } = await seedResultsStudy()
-
-        const page = await StudyViewCode({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ returnTo: 'org' }),
-        })
-
-        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
-    })
-
     // /view/code stays on this screen while the job runs, but plain /view resolves to the
     // outputs-pending screen (OTTER-686), so there is a step to move forward to.
     it('forwards to /view once the enclave is running the job', async () => {
@@ -89,7 +77,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
@@ -107,7 +94,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
@@ -134,7 +120,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
@@ -153,7 +138,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         renderWithProviders(page!)
@@ -170,7 +154,6 @@ describe('StudyViewCode (/view/code)', () => {
         await expect(
             StudyViewCode({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow()
     })

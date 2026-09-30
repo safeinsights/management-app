@@ -5,7 +5,6 @@ import { Box, Divider, Group, Stack, Text } from '@mantine/core'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ProfessionalProfileLink } from '@/components/professional-profile-link'
 import type { SelectedStudy } from '@/server/actions/study.actions'
-import { datasetDisplayNames } from '@/lib/studies'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type FieldDividerVariant = 'subtle' | 'default' | 'none'
@@ -65,8 +64,9 @@ export function DatasetsField({
 }) {
     if (!datasets.length) return null
 
-    const names = datasetDisplayNames(datasets, orgDataSources)
-    const named = datasets.map((id, index) => ({ id, name: names[index] }))
+    const nameMap = Object.fromEntries(orgDataSources.map((ds) => [ds.id, ds.name]))
+    // Stands in for a data source the org no longer lists, which is still worth showing.
+    const named = datasets.map((id) => ({ id, name: nameMap[id] || id }))
 
     return (
         <Stack gap="xxs">
