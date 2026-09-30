@@ -9,6 +9,7 @@ import {
     db,
     getAuditEntries,
     insertTestOrg,
+    insertTestCodeResubmissionNote,
     insertTestStudyData,
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
@@ -1961,14 +1962,7 @@ describe('submitCodeReviewDecisionAction', () => {
         })
 
         await simulateResubmitOnSameJob(job.id, user.id)
-        await db
-            .updateTable('studyJob')
-            .set({
-                resubmissionNote: { root: { type: 'root', children: [{ text: 'addressed feedback' }] } },
-                resubmissionRound: 2,
-            })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
 
         await submitCodeReviewDecisionAction({
             studyId: study.id,
@@ -2437,7 +2431,7 @@ describe('getCodeReviewFeedbackAction', () => {
         expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
     })
 
-    it('attaches version numbers and surfaces resubmission notes from studyJob rows', async () => {
+    it('surfaces resubmission notes beside the decisions, labeled by their own round', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -2460,26 +2454,50 @@ describe('getCodeReviewFeedbackAction', () => {
                 createdAt: new Date('2026-01-01T00:00:00Z'),
             })
             .execute()
-
-        const secondJob = await db
-            .insertInto('studyJob')
-            .values({
-                studyId: study.id,
-                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: secondJob.id, userId: user.id, status: 'CODE-SUBMITTED' })
-            .execute()
+        const note = await insertTestCodeResubmissionNote({
+            studyId: study.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 2,
+            text: 'fixed things',
+            createdAt: new Date('2026-01-02T00:00:00Z'),
+        })
 
         const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
         expect(rows).toHaveLength(2)
         const noteRow = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
         const feedbackRow = rows.find((r) => r.entryType === 'REVIEWER-FEEDBACK')
-        expect(noteRow?.version).toBe(2)
+        expect(noteRow).toMatchObject({ id: note.id, version: 2, authorName: user.fullName, decision: null })
         expect(feedbackRow?.version).toBe(1)
+    })
+
+    // Change-requested resubmits reuse the job, and the single study_job column they used to share
+    // kept only the latest note (OTTER-802).
+    it('keeps every round of resubmission notes on one job', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        for (const round of [2, 3, 4]) {
+            await insertTestCodeResubmissionNote({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                round,
+                createdAt: new Date(`2026-01-0${round}T00:00:00Z`),
+            })
+        }
+
+        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
+        expect(rows.map((r) => [r.entryType, r.version])).toEqual([
+            ['RESUBMISSION-NOTE', 4],
+            ['RESUBMISSION-NOTE', 3],
+            ['RESUBMISSION-NOTE', 2],
+        ])
     })
 
     it('orders feedback deterministically when review and resubmission note timestamps match', async () => {
@@ -2491,21 +2509,6 @@ describe('getCodeReviewFeedbackAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         const sharedCreatedAt = new Date('2026-03-01T00:00:00Z')
-
-        await db
-            .updateTable('studyJob')
-            .set({
-                createdAt: sharedCreatedAt,
-                resubmissionNote: { root: { type: 'root', children: [{ text: 'fixed things' }] } },
-            })
-            .where('id', '=', job.id)
-            .execute()
-        await db
-            .updateTable('jobStatusChange')
-            .set({ createdAt: sharedCreatedAt })
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-SUBMITTED')
-            .execute()
 
         const review = await db
             .insertInto('studyReviewComment')
@@ -2522,46 +2525,20 @@ describe('getCodeReviewFeedbackAction', () => {
             })
             .returning('id')
             .executeTakeFirstOrThrow()
-
-        const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
-
-        expect(rows.map((row) => row.id)).toEqual([`job-note-${job.id}`, review.id])
-        expect(rows.map((row) => row.entryType)).toEqual(['RESUBMISSION-NOTE', 'REVIEWER-FEEDBACK'])
-        expect(rows.map((row) => row.version)).toEqual([1, 1])
-    })
-
-    it('positions a resubmission note by the latest CODE-SUBMITTED timestamp even with a null userId', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
+        // Inserted second, so an id tie-break alone would list it first.
+        const note = await insertTestCodeResubmissionNote({
+            studyId: study.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            createdAt: sharedCreatedAt,
         })
-        const jobCreatedAt = new Date('2026-01-01T00:00:00Z')
-        const submittedAt = new Date('2026-02-15T00:00:00Z')
-
-        await db.updateTable('studyJob').set({ createdAt: jobCreatedAt }).where('id', '=', job.id).execute()
-
-        await db
-            .deleteFrom('jobStatusChange')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-SUBMITTED')
-            .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt, userId: null })
-            .execute()
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: { root: { type: 'root', children: [{ text: 'note text' }] } } })
-            .where('id', '=', job.id)
-            .execute()
 
         const rows = actionResult(await getCodeReviewFeedbackAction({ studyId: study.id }))
-        const note = rows.find((r) => r.entryType === 'RESUBMISSION-NOTE')
-        expect(note).toBeTruthy()
-        expect(new Date(note!.createdAt).toISOString()).toBe(submittedAt.toISOString())
+
+        expect(rows.map((row) => row.id)).toEqual([review.id, note.id])
+        expect(rows.map((row) => row.entryType)).toEqual(['REVIEWER-FEEDBACK', 'RESUBMISSION-NOTE'])
+        expect(rows.map((row) => row.version)).toEqual([1, 1])
     })
 })
 
@@ -2648,11 +2625,7 @@ describe('getOutputsDecisionFeedbackAction', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
 
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('my resubmission note')), resubmissionRound: 2 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
         await db
             .insertInto('studyReviewComment')
             .values({
