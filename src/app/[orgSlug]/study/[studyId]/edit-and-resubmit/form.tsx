@@ -78,6 +78,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}
+                    enclaveOrgSlug={enclaveOrgSlug}
                     isDraftCreator={isDraftCreator}
                 />
 
