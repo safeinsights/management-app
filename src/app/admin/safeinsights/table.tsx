@@ -44,6 +44,7 @@ export function OrgsAdminTable() {
                 fetching={isLoading}
                 withTableBorder
                 withColumnBorders
+                pinLastColumn
                 idAccessor="slug"
                 noRecordsText="No organizations yet, add some using the button below"
                 noRecordsIcon={<UsersIcon />}

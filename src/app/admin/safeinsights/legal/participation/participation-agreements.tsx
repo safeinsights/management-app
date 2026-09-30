@@ -111,6 +111,7 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 minHeight={140}
+                pinLastColumn
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
                 noRecordsText="No agreements to show"
