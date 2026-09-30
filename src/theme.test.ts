@@ -148,6 +148,12 @@ describe('checkboxes', () => {
     })
 })
 
+describe('radios', () => {
+    it('defaults every radio to the same selected blue as the checkboxes', () => {
+        expect(theme.components?.Radio?.defaultProps?.color).toBe('var(--si-color-surface-selected)')
+    })
+})
+
 // Locks the mandatory-field asterisk (OTTER-769). Figma status/error/text-icon, i.e. red.7 on
 // the ten-shade ramp.
 describe('required asterisk color', () => {

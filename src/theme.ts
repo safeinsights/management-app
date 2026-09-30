@@ -11,6 +11,7 @@ import {
     Input,
     type InputProps,
     MantineColorsTuple,
+    Radio,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -284,6 +285,10 @@ export const theme = createTheme({
         // One default for every checkbox, so the signup consent box and the acknowledgement modals match.
         Checkbox: Checkbox.extend({
             defaultProps: { radius: 'xs', color: semanticColor('surface.selected') },
+        }),
+        // Same blue as the checkboxes, which share forms with radios (code-env-form).
+        Radio: Radio.extend({
+            defaultProps: { color: semanticColor('surface.selected') },
         }),
         Table: {
             styles: () => ({
