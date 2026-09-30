@@ -108,6 +108,15 @@ describe('buttons', () => {
     })
 })
 
+describe('checkboxes', () => {
+    it('defaults every checkbox to the selected blue and the small radius', () => {
+        expect(theme.components?.Checkbox?.defaultProps).toMatchObject({
+            radius: 'xs',
+            color: 'var(--si-color-surface-selected)',
+        })
+    })
+})
+
 // Locks the mandatory-field asterisk (OTTER-769). Figma status/error/text-icon, i.e. red.7 on
 // the ten-shade ramp.
 describe('required asterisk color', () => {

@@ -56,7 +56,7 @@ describe('AcknowledgementCheckbox', () => {
         expect(onChange).toHaveBeenCalledWith(true)
     })
 
-    it('paints the box in the selected blue with the small radius', () => {
+    it('takes the selected blue and the small radius from the theme', () => {
         renderWithProviders(<AcknowledgementCheckbox label="I agree" checked={true} onChange={vi.fn()} />)
 
         const root = screen.getByRole('checkbox').closest<HTMLElement>('.mantine-Checkbox-root')

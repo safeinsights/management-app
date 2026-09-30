@@ -2,6 +2,7 @@ import {
     Badge,
     type ButtonProps,
     type ButtonVariant,
+    Checkbox,
     createTheme,
     CSSVariablesResolver,
     defaultVariantColorsResolver,
@@ -252,6 +253,10 @@ export const theme = createTheme({
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         InputWrapper: Input.Wrapper.extend({
             styles: { required: { color: red[7] } },
+        }),
+        // One default for every checkbox, so the signup consent box and the acknowledgement modals match.
+        Checkbox: Checkbox.extend({
+            defaultProps: { radius: 'xs', color: semanticColor('surface.selected') },
         }),
         Table: {
             styles: () => ({
