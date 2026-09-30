@@ -481,7 +481,7 @@ describe('ProposalSubmitted', () => {
             const nav: StepNav = {
                 back: {
                     label: 'Previous step',
-                    href: Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id, returnTo: 'org' }),
+                    href: Routes.studyEdit({ orgSlug: ORG_SLUG, studyId: study.id }),
                     variant: 'subtle',
                     testId: 'cta-previous-step',
                 },

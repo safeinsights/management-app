@@ -19,12 +19,10 @@ interface StudyProposalProps {
     draftData?: DraftStudyData | null
     /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
     submittingLabName?: string | null
-    /** Set when the researcher entered from an org dashboard, so the step forward can hand it back. */
-    returnTo?: 'org'
 }
 
 const MODAL_BODY =
-    'Make sure your Data Partner, Programming language and Datasets of interest selections are correct. They cannot be changed after this step. You can still edit your study title.'
+    'Make sure your Data Partner and Programming language selections are correct. They cannot be changed after this step. You can still edit your study title.'
 
 // The three states Step 1 is reached in (OTTER-764): `create` has no study row and every field
 // open, `revisit` is a persisted draft with only the title editable, and `submitted` is a
@@ -53,18 +51,16 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
 
     const locks: SetupFormLocks = {
         isTitleLocked: isSubmitted,
-        // The `!!persistedValue` guards stay on a draft: a studyId does not mean a Data Partner, a
-        // language or a dataset was ever chosen, and locking on the id alone would leave it
-        // uncompletable.
+        // The `!!persistedValue` guards stay on a draft: a studyId does not mean a Data Partner or a
+        // language was ever chosen, and locking on the id alone would leave it uncompletable.
         isOrgLocked: isSubmitted || (!!studyId && !!draftData?.orgSlug),
         isLanguageLocked: isSubmitted || (!!studyId && !!draftData?.language),
-        isDatasetsLocked: isSubmitted || (!!studyId && !!draftData?.datasets?.length),
     }
 
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName, returnTo }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
@@ -90,8 +86,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const goToSubmitted = useCallback(() => {
         if (!studyId) return
         setIsProceeding(true)
-        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId, returnTo }))
-    }, [router, submittingOrgSlug, studyId, returnTo])
+        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
+    }, [router, submittingOrgSlug, studyId])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({
@@ -100,7 +96,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             ...locks,
             // Derived from the same locks rather than from navMode, so the modal cannot go quiet
             // while a choice it warns about is still editable.
-            requiresConfirmation: !locks.isOrgLocked || !locks.isLanguageLocked || !locks.isDatasetsLocked,
+            requiresConfirmation: !locks.isOrgLocked || !locks.isLanguageLocked,
             onProceed: saveAndAdvance,
         })
 
@@ -137,7 +133,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 onTitleBlur={onTitleBlur}
                 lockedOrgName={draftData?.orgName}
                 lockedLanguageLabel={lockedLanguageLabel}
-                lockedDatasetNames={draftData?.datasetNames}
+                // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
+                isIntroVisible={navMode !== 'submitted'}
                 {...locks}
             />
 

@@ -10,9 +10,18 @@ import { SubmittedCodeTableView } from './submitted-code-table-view'
 interface SubmittedCodeTableProps {
     jobId: string
     files: LatestJobForStudy['files']
+    maxVisibleFiles?: number
+    expanded?: boolean
+    onToggleExpand?: () => void
 }
 
-export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }) => {
+export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
+    jobId,
+    files,
+    maxVisibleFiles,
+    expanded,
+    onToggleExpand,
+}) => {
     const [previewFileName, setPreviewFileName] = useState<string | null>(null)
 
     const { data } = useQuery({
@@ -28,7 +37,14 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({ jobId, files }
 
     return (
         <>
-            <SubmittedCodeTableView jobId={jobId} files={files} onPreview={(file) => setPreviewFileName(file.name)} />
+            <SubmittedCodeTableView
+                jobId={jobId}
+                files={files}
+                onPreview={(file) => setPreviewFileName(file.name)}
+                maxVisibleFiles={maxVisibleFiles}
+                expanded={expanded}
+                onToggleExpand={onToggleExpand}
+            />
             {!!files?.length && <FileOrImagePreviewModal file={previewFile} onClose={() => setPreviewFileName(null)} />}
         </>
     )

@@ -329,6 +329,25 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     return res
 }
 
+/**
+ * OTTER-817: the Coder account a workspace is provisioned under is the researcher who claimed the
+ * IDE, not whoever submitted the proposal. Action.db is load-bearing — ensureWorkspaceAction claims
+ * ideOwnerId inside its transaction and reads it back through here before the commit.
+ *
+ * Null covers both "no such study" and "unclaimed": by the time any Coder code runs, requireIdeOwner
+ * has already passed, so either one is equally a bug.
+ */
+export const getIdeOwnerForStudy = async (studyId: string) => {
+    const owner = await Action.db
+        .selectFrom('study')
+        .innerJoin('user as ideOwner', 'ideOwner.id', 'study.ideOwnerId')
+        .select(['ideOwner.id as userId', 'ideOwner.email', 'ideOwner.fullName'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+
+    return owner ?? null
+}
+
 export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }

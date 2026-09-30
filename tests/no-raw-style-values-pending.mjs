@@ -108,7 +108,6 @@ export const PENDING_RAW_STYLE_FILES = [
     'src/components/study/status-alert.tsx',
     'src/components/study/study-approval-status.tsx',
     'src/components/study/study-code-empty-view.tsx',
-    'src/components/study/study-code-panel.tsx',
     'src/components/study/submit-code-error.tsx',
     'src/components/study/submit-code-faq.tsx',
     'src/components/study/test-study-label.tsx',

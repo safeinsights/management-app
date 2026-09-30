@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { RawJob, RawStudyState } from './state.types'
 import { projectStudyState } from './state'
-import { canResearcherResubmitCode } from './eligibility'
+import {
+    canResearcherChangeCodeFiles,
+    canResearcherResubmitCode,
+    canResearcherSubmitCodeForReview,
+} from './eligibility'
 
 const job = (id: string, statuses: string[]): RawJob => ({
     id,
@@ -17,6 +21,7 @@ const stateFor = (jobs: RawJob[]): RawStudyState => ({
     proposalResubmissionNoteDraft: null,
     codeResubmissionNoteDraft: null,
     piUserId: null,
+    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -26,6 +31,8 @@ const stateFor = (jobs: RawJob[]): RawStudyState => ({
 })
 
 const canResubmit = (jobs: RawJob[]) => canResearcherResubmitCode(projectStudyState(stateFor(jobs)))
+const canSubmit = (jobs: RawJob[]) => canResearcherSubmitCodeForReview(projectStudyState(stateFor(jobs)))
+const canChangeFiles = (jobs: RawJob[]) => canResearcherChangeCodeFiles(projectStudyState(stateFor(jobs)))
 
 const ID = '019000000000-0000-0000-0000-000000000001'
 const ID2 = '019000000000-0000-0000-0000-000000000002'
@@ -91,5 +98,70 @@ describe('canResearcherResubmitCode', () => {
     // filter must skip so eligibility still reads the last submitted round (OTTER-601).
     it('true when a later baseline-only INITIATED job trails a FILES-APPROVED round', () => {
         expect(canResubmit([job(ID, ['CODE-SUBMITTED', 'FILES-APPROVED']), job(ID2, ['INITIATED'])])).toBe(true)
+    })
+})
+
+describe('canResearcherSubmitCodeForReview', () => {
+    it('true before any job exists', () => {
+        expect(canSubmit([])).toBe(true)
+    })
+
+    it('true for a baseline INITIATED-only job', () => {
+        expect(canSubmit([job(ID, ['INITIATED'])])).toBe(true)
+    })
+
+    it('false while code is awaiting a first decision', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'CODE-SCANNED'])])).toBe(false)
+    })
+
+    it('false once code is approved', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED'])])).toBe(false)
+    })
+
+    it('false for a terminal CODE-REJECTED', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'CODE-REJECTED'])])).toBe(false)
+    })
+
+    // The round reopens on /resubmit, which requires a resubmission note, so /code stays shut.
+    it('false after a change request', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])])).toBe(false)
+    })
+
+    it('false once the outputs are decided', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])])).toBe(false)
+    })
+
+    // latestJob's prefer-submitted filter is what stops the baseline job reopening /code.
+    it('false when a later baseline-only INITIATED job trails a submitted round', () => {
+        expect(canSubmit([job(ID, ['CODE-SUBMITTED', 'FILES-APPROVED']), job(ID2, ['INITIATED'])])).toBe(false)
+    })
+})
+
+describe('canResearcherChangeCodeFiles', () => {
+    it('true before the first submission', () => {
+        expect(canChangeFiles([job(ID, ['INITIATED'])])).toBe(true)
+    })
+
+    it('false while code is under review', () => {
+        expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-SCANNED'])])).toBe(false)
+    })
+
+    it('false once code is approved and the run has not been decided', () => {
+        expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED'])])).toBe(false)
+    })
+
+    it('false for a terminal CODE-REJECTED', () => {
+        expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-REJECTED'])])).toBe(false)
+    })
+
+    // The two states /resubmit serves: it must keep writing files even though /code is shut.
+    it('true after a change request, where /resubmit edits the same round', () => {
+        expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])])).toBe(true)
+    })
+
+    it('true once the outputs are decided and the next round is open', () => {
+        expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED'])])).toBe(
+            true,
+        )
     })
 })

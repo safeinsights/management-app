@@ -7,7 +7,7 @@ import { ActionFailure, errorToString, extractActionFailure } from '@/lib/errors
 import { captureException } from '@sentry/nextjs'
 import { downloadBlob } from '@/lib/download-blob'
 import type { SaveStatusValue } from '@/components/save-status'
-import { NO_CHANGES_MESSAGE } from '@/components/study/submit-code-error'
+import { NO_CHANGES_MESSAGE, SELECT_MAIN_FILE_MESSAGE } from '@/components/study/submit-code-error'
 import { showUploadFailed, showUploadSucceeded } from '@/components/study/upload-notifications'
 import { showToast } from '@/components/toast-notifications'
 import { useUploadQueue } from './use-upload-queue'
@@ -164,7 +164,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
      */
     const submitDisabledReason = (() => {
         if (fileNames.length === 0) return NO_CHANGES_MESSAGE
-        if (mainFile === '') return 'Select a main file to submit'
+        if (mainFile === '') return SELECT_MAIN_FILE_MESSAGE
         if (!filesChanged) return NO_CHANGES_MESSAGE
         return null
     })()

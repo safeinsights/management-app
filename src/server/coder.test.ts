@@ -7,13 +7,15 @@ import {
     getCoderOrganizationId,
     getCoderTemplateId,
     getCoderWorkspaceLaunchStatus,
-    getOrCreateCoderUser,
+    getCoderUserFor,
+    getOrCreateCoderUserFor,
+    resolveCoderIdentity,
     generateCoderUsername,
     shaHash,
 } from './coder'
 import logger from '@/lib/logger'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
+import { getIdeOwnerForStudy, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
 import { getAgentContextAction } from './actions/agent-context.actions'
 
@@ -22,9 +24,10 @@ vi.mock('./config', () => ({
 }))
 
 vi.mock('./db/queries', () => ({
-    getStudyAndOrgDisplayInfo: vi.fn(),
+    getIdeOwnerForStudy: vi.fn(),
     siUser: vi.fn(),
     fetchLatestCodeEnvForStudyId: vi.fn(),
+    fetchLatestCodeEnvForStudyIdOrNull: vi.fn(),
     getDataSourcesForOrg: vi.fn(),
 }))
 
@@ -47,6 +50,8 @@ vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),
     utimes: vi.fn().mockResolvedValue(undefined),
+    // ENOENT is the "no context written yet" path, which is what a fresh workspace looks like.
+    readFile: vi.fn().mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })),
 }))
 
 vi.mock('@/server/actions/agent-context.actions', () => ({
@@ -56,7 +61,7 @@ vi.mock('@/server/actions/agent-context.actions', () => ({
 global.fetch = vi.fn()
 
 const getConfigValueMock = getConfigValue as unknown as Mock
-const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
+const getIdeOwnerForStudyMock = getIdeOwnerForStudy as unknown as Mock
 const siUserMock = siUser as unknown as Mock
 const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
@@ -64,7 +69,7 @@ const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
-describe('getOrCreateCoderUser', () => {
+describe('getOrCreateCoderUserFor', () => {
     const ORIGINAL_ENV = process.env
 
     beforeEach(() => {
@@ -85,13 +90,15 @@ describe('getOrCreateCoderUser', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
 
-        const result = await getOrCreateCoderUser('study123')
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
         expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john%40example.com', {
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=email:john%40example.com', {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
@@ -125,9 +132,10 @@ describe('getOrCreateCoderUser', () => {
         getConfigValueMock.mockResolvedValueOnce('token')
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
         getConfigValueMock.mockResolvedValueOnce('token')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
         siUserMock.mockResolvedValue({
             id: 'user123',
@@ -135,7 +143,7 @@ describe('getOrCreateCoderUser', () => {
             fullName: 'John Doe',
         })
 
-        const result = await getOrCreateCoderUser('study123')
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
         expect(result).toEqual(mockUsersEmailQueryResponse)
         expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
             method: 'POST',
@@ -147,7 +155,7 @@ describe('getOrCreateCoderUser', () => {
             body: JSON.stringify({
                 email: 'john@example.com',
                 login_type: 'oidc',
-                name: undefined,
+                name: 'John Doe',
                 username: 'john-example-com-855f96e9',
                 user_status: 'active',
                 organization_ids: ['org'],
@@ -165,14 +173,75 @@ describe('getOrCreateCoderUser', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
 
-        await expect(getOrCreateCoderUser('study123')).rejects.toThrow(
+        await expect(getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))).rejects.toThrow(
             'Failed to query users: 500 Internal server error',
         )
+    })
+
+    // Coder's free-text search is ILIKE '%..%' over email, username and name, so a longer address
+    // containing this one comes back too. Taking users[0] would hand back the wrong account.
+    it('prefers an exact email match over a longer address that contains it', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                users: [
+                    { id: 'u-joann', username: 'joann-x-edu-1111', email: 'joann@x.edu' },
+                    { id: 'u-ann', username: 'ann-x-edu-2222', email: 'ann@x.edu' },
+                ],
+            }),
+        })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getIdeOwnerForStudyMock.mockResolvedValue({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })
+
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
+
+        expect(result.username).toBe('ann-x-edu-2222')
+        expect(mockFetch.mock.calls[0][0]).toBe('https://api.coder.com/api/v2/users?q=email:ann%40x.edu')
+    })
+
+    // A Coder build that omits `email` from the list response looks exactly like this: the user
+    // exists, the re-check drops it, and the create that follows is rejected as a duplicate.
+    it('names the dropped rows when none is an exact match', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ id: 'u-ann', username: 'ann-x-edu-2222' }] }),
+        })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        const result = await getCoderUserFor({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })
+
+        expect(result).toBeNull()
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('none an exact email match'))
+    })
+
+    it('stays quiet when the query legitimately matched nobody', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({ users: [] }) })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        expect(await getCoderUserFor({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })).toBeNull()
+        expect(logger.warn).not.toHaveBeenCalled()
+    })
+
+    // OTTER-817: never silently fall back to the submitter — that is the bug this replaced.
+    it('throws when no researcher has claimed the IDE', async () => {
+        getIdeOwnerForStudyMock.mockResolvedValue(null)
+
+        await expect(resolveCoderIdentity('study123')).rejects.toThrow(/No IDE owner for study study123/)
+    })
+
+    it('throws when the IDE owner has no email address', async () => {
+        getIdeOwnerForStudyMock.mockResolvedValue({ userId: 'ide-owner-1', email: null, fullName: 'John Doe' })
+
+        await expect(resolveCoderIdentity('study123')).rejects.toThrow(/has no email address/)
     })
 })
 
@@ -239,9 +308,10 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
             return Promise.resolve('https://api.coder.com')
         })
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
@@ -340,9 +410,10 @@ describe('createUserAndWorkspace', () => {
             if (key === 'ATHENA_RESULTS_BUCKET_NAME') return Promise.resolve(null)
             return Promise.resolve('https://api.coder.com')
         })
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
@@ -433,9 +504,10 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER') return Promise.resolve('readonly_user')
             return Promise.resolve('https://api.coder.com')
         })
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
@@ -486,9 +558,10 @@ describe('createUserAndWorkspace', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
-            researcherEmail: 'john@example.com',
-            researcherId: 'user123',
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
@@ -731,7 +804,8 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
     const routeFetch = (overrides: { build?: object; buildLogs?: unknown; agentLogs?: unknown }) => (url: string) => {
         const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
-        if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
+        if (url.includes('/users?'))
+            return ok({ users: [{ id: 'u1', username: 'john-doe', email: 'john@example.com' }] })
         if (url.includes('/workspacebuilds/') && url.includes('/logs')) return ok(overrides.buildLogs ?? [])
         if (url.includes('/workspaceagents/') && url.includes('/logs')) return ok(overrides.agentLogs ?? [])
         if (url.includes('/workspacebuilds/')) return ok(overrides.build ?? { id: buildId, status: 'running' })
@@ -744,7 +818,11 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         vi.resetAllMocks()
         global.fetch = vi.fn()
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getStudyAndOrgDisplayInfoMock.mockResolvedValue({ researcherEmail: 'john@example.com' })
+        getIdeOwnerForStudyMock.mockResolvedValue({
+            userId: 'ide-owner-1',
+            email: 'john@example.com',
+            fullName: 'John Doe',
+        })
     })
 
     afterEach(() => {
@@ -823,12 +901,77 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         }
         ;(global.fetch as unknown as Mock).mockImplementation((url: string) => {
             const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
-            if (url.includes('/users?')) return ok({ users: [{ id: 'u1', username: 'john-doe' }] })
+            if (url.includes('/users?'))
+                return ok({ users: [{ id: 'u1', username: 'john-doe', email: 'john@example.com' }] })
             if (url.includes('/workspace/')) return ok(twoAgentEvent)
             return ok([])
         })
 
         await expect(getCoderWorkspaceLaunchStatus('study-1')).rejects.toThrow(/expected at most one agent/)
+    })
+
+    // OTTER-817: the url carries the Coder username, so this is the assertion that distinguishes a
+    // workspace opened under the IDE owner from one opened under the proposal submitter.
+    describe('once ready', () => {
+        // A real uuid: the ready path reaches latestStudyJobCreatedAt, which queries study_job for real.
+        const READY_STUDY_ID = '00000000-0000-0000-0000-000000000817'
+
+        const readyEvent = {
+            ...workspaceEvent,
+            latest_build: {
+                ...workspaceEvent.latest_build,
+                resources: [
+                    {
+                        agents: [
+                            {
+                                id: agentId,
+                                lifecycle_state: 'ready',
+                                status: 'connected',
+                                apps: [{ slug: 'code-server', health: 'healthy' }],
+                            },
+                        ],
+                    },
+                ],
+            },
+        }
+
+        const routeReady = (url: string) => {
+            const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+            if (url.includes('/users?'))
+                return ok({ users: [{ id: 'u1', username: 'owner-b', email: 'john@example.com' }] })
+            if (url.includes('/workspace/')) return ok(readyEvent)
+            if (url.includes('/workspacebuilds/') && url.includes('/logs')) return ok([])
+            if (url.includes('/workspaceagents/') && url.includes('/logs')) return ok([])
+            if (url.includes('/workspacebuilds/')) return ok({ id: buildId, status: 'running' })
+            return ok([])
+        }
+
+        beforeEach(() => {
+            ;(global.fetch as unknown as Mock).mockImplementation(routeReady)
+            fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({ language: 'R', orgId: 'org-1' })
+            getDataSourcesForOrgMock.mockResolvedValue([])
+        })
+
+        it("returns the IDE owner's workspace url", async () => {
+            const status = await getCoderWorkspaceLaunchStatus(READY_STUDY_ID)
+
+            // The lookup is keyed on the IDE owner's email, and the url carries the username that
+            // lookup resolved to — the two halves of what returned a 404 for a non-submitter.
+            expect((global.fetch as unknown as Mock).mock.calls[0][0]).toContain('john%40example.com')
+            expect(status.ready).toBe(true)
+            expect(status.url).toBe(
+                `https://api.coder.com/@owner-b/${generateWorkspaceName(READY_STUDY_ID)}.main/apps/code-server`,
+            )
+        })
+
+        it('resolves the Coder user once per poll rather than again to build the url', async () => {
+            await getCoderWorkspaceLaunchStatus(READY_STUDY_ID)
+
+            const userLookups = (global.fetch as unknown as Mock).mock.calls.filter((c) =>
+                (c[0] as string).includes('/users?'),
+            )
+            expect(userLookups).toHaveLength(1)
+        })
     })
 })
 
