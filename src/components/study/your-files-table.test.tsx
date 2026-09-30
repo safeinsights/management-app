@@ -49,10 +49,26 @@ describe('YourFilesTable', () => {
         expect(onDelete).toHaveBeenCalledWith('main.R')
     })
 
+    it('paints enabled pencil, download, and trash in icon/light-default', () => {
+        renderWithProviders(<YourFilesTable {...baseProps} mainFile="helper.R" />)
+
+        for (const name of ['Edit main.R in IDE', 'Download main.R', 'Delete main.R']) {
+            const button = screen.getByRole('button', { name })
+            expect(button).toHaveAttribute('data-variant', 'transparent')
+            expect(button.querySelector('svg')).toHaveAttribute('fill', 'var(--si-color-icon-light)')
+        }
+    })
+
     // The main file is the one the enclave runs, so it cannot be deleted out from under a submission.
     it('disables delete on the main file', () => {
         renderWithProviders(<YourFilesTable {...baseProps} mainFile="main.R" />)
-        expect(screen.getByRole('button', { name: /delete main\.R/i })).toBeDisabled()
+        const deleteMain = screen.getByRole('button', { name: /delete main\.R/i })
+        expect(deleteMain).toBeDisabled()
+        expect(deleteMain).toHaveStyle({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#dadee1',
+        })
+        expect(deleteMain.querySelector('svg')).toHaveAttribute('fill', 'currentColor')
         expect(screen.getByRole('button', { name: /delete helper\.R/i })).toBeEnabled()
     })
 })
