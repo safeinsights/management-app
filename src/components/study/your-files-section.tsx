@@ -28,11 +28,16 @@ type FilesBodyProps = {
 }
 
 const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, submitError, openRef }) => {
+    // View-only has to reach the dropzone itself, not just the link that opens it: a drag-and-drop
+    // onto the table bypasses "Already have code?" entirely.
+    const isDropDisabled = !isEditable || ide.isUploading
+
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
     if (ide.showEmptyState) {
         return (
             <StudyCodeEmptyView
+                isEditable={isEditable}
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchLastUpdatedAt={ide.launchLastUpdatedAt}
@@ -54,7 +59,7 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
             {/* Wraps the table so a drop and the "Already have code?" link take one path. */}
             <FileDropOverlay
                 onDrop={ide.uploadFiles}
-                disabled={ide.isUploading}
+                disabled={isDropDisabled}
                 showHelperText={false}
                 openRef={openRef}
             >
