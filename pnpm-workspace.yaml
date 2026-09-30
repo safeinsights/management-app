@@ -33,10 +33,6 @@ overrides:
     # CVE-2026-84375 against 4.3.1 — DoS resolving YAML anchors. Range widened past the version the
     # earlier pin landed on. Bounded to <5 to avoid a surprise major bump.
     'js-yaml@>=4.0.0 <4.3.2': '>=4.3.2 <5'
-    'nodemailer@<=8.0.8': '>=8.0.9'
-    # nodemailer <9.1.0: GHSA-2x7j-588g-ccc2 — quadratic time complexity in address parsing (DoS).
-    # Dev-only transitive via monocart-reporter, but Trivy scans dev deps.
-    'nodemailer@<9.1.1': '>=9.1.1'
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
     # Keep @vitest/coverage-istanbul on Babel 7: @babel/core@8 declares node '^22.18.0 || >=24.11.0',
@@ -52,10 +48,11 @@ overrides:
     # the bump stays a patch/minor, never a breaking major.
     # axios <1.18.0: GHSA-gcfj-64vw-6mp9 — Node adapter can reuse an inherited proxy after config clone.
     'axios@>=1.0.0 <1.18.0': '>=1.18.0 <2'
-    # brace-expansion <5.0.9: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, now CVE-2026-69152
-    # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation).
-    # Range widened again to carry past the version the earlier pin landed on.
-    'brace-expansion@>=5.0.0 <5.0.9': '>=5.0.9 <6'
+    # brace-expansion <5.0.12: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, CVE-2026-69152
+    # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation),
+    # now GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 and GHSA-q2hr-2g5m-vwhr against 5.0.9 (stack
+    # exhaustion on nested groups and quadratic `{a},b}` expansion). Fixed in 5.0.12.
+    'brace-expansion@>=5.0.0 <5.0.12': '>=5.0.12 <6'
     # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
     # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4, now CVE-2026-84292 + CVE-2026-84394 against
     # 3.1.6 — authority injection via an unvalidated port and host confusion via unbalanced

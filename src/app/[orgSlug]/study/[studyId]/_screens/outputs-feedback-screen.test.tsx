@@ -36,8 +36,6 @@ const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DATA_PARTNER = 'Riverside University'
-const DASHBOARD_HREF = '/dashboard'
-
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
 // would still match.
 const givenDataPartner = async (studyId: string) => {
@@ -50,12 +48,7 @@ const copyFor = (runErrored: boolean, dataPartner = 'Any Data Partner') =>
     researcherOutputsFeedbackBanner({ runErrored }, { dataPartner })
 
 // The screen records the lab's view on mount; that write has to land before the teardown check.
-const renderScreen = async (
-    study: ScreenComponentProps['study'],
-    raw: RawStudyState,
-    orgSlug: string,
-    returnTo?: 'org',
-) => {
+const renderScreen = async (study: ScreenComponentProps['study'], raw: RawStudyState, orgSlug: string) => {
     const rendered = renderWithProviders(
         await OutputsFeedbackScreen({
             study,
@@ -63,8 +56,6 @@ const renderScreen = async (
             ...screenNavProps('researcher', 'outputs-feedback', raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
-                returnTo,
             }),
         }),
     )
@@ -537,16 +528,6 @@ describe('OutputsFeedbackScreen', () => {
                 expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
             },
         )
-
-        it('passes returnTo through to the Previous step link', async () => {
-            const { org, study, raw } = await setupFeedbackOnly()
-            await renderScreen(study, raw, org.slug, 'org')
-
-            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-                'href',
-                Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id, returnTo: 'org' }),
-            )
-        })
     })
 
     describe('guards', () => {

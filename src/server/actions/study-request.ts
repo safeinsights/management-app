@@ -24,7 +24,6 @@ import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import {
-    DATASETS_REQUIRED_ERROR,
     STUDY_TITLE_BLANK_ERROR,
     STUDY_TITLE_MAX_CHARACTERS,
     STUDY_TITLE_OVER_LIMIT_ERROR,
@@ -39,6 +38,7 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -195,7 +195,6 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                 piName: studyInfo.piName || '',
                 piUserId: studyInfo.piUserId || null,
                 language: studyInfo.language,
-                datasets: studyInfo.datasets ?? null,
                 descriptionDocPath: studyInfo.descriptionDocPath || null,
                 irbDocPath: studyInfo.irbDocPath || null,
                 agreementDocPath: studyInfo.agreementDocPath || null,
@@ -342,7 +341,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -370,15 +369,11 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         // Kept out of the middleware: that output is serialized into permission_denied and would
         // leak the title to anyone who guessed a study id (OTTER-724 / MA-6).
-        const stored = await db
-            .selectFrom('study')
-            .select(['title', 'datasets'])
-            .where('id', '=', studyId)
-            .executeTakeFirst()
         const submittedTitle =
-            'title' in snapshotFields ? (snapshotFields.title as string | null) : (stored?.title ?? null)
-        const submittedDatasets =
-            'datasets' in snapshotFields ? (snapshotFields.datasets as string[]) : (stored?.datasets ?? null)
+            'title' in snapshotFields
+                ? (snapshotFields.title as string | null)
+                : ((await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirst())?.title ??
+                  null)
 
         if (!submittedTitle?.trim()) {
             throw new ActionFailure({ title: STUDY_TITLE_BLANK_ERROR })
@@ -386,14 +381,6 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         if (countCharacters(submittedTitle) > STUDY_TITLE_MAX_CHARACTERS) {
             throw new ActionFailure({ title: STUDY_TITLE_OVER_LIMIT_ERROR })
-        }
-
-        // Step 2 no longer renders datasets, so a draft saved before they moved to Step 1 could
-        // otherwise be submitted without any (OTTER-803). Other statuses fall through to the claim,
-        // which rejects them as already submitted.
-        const isEditable = status === 'DRAFT' || status === 'CHANGE-REQUESTED'
-        if (isEditable && !submittedDatasets?.length) {
-            throw new ActionFailure({ datasets: DATASETS_REQUIRED_ERROR })
         }
 
         const submittedAt = new Date()
@@ -538,6 +525,10 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
+    // The confirmation modal promises no changes after submitting, so the round's one submission is
+    // enforced here rather than left to markCodeSubmitted, which swallowed a second one (OTTER-693).
+    // A resubmission goes through resubmitStudyCodeAction, which requires a resubmission note.
+    .middleware(requireUnsubmittedCodeRound(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')

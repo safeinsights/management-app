@@ -54,28 +54,16 @@ export const Routes = {
 
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
-    studyView: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/view`, { returnTo }),
-        StudyParams.extend({ returnTo: z.string().optional() }),
-    ),
+    studyView: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view`, StudyParams),
 
     // 404s until the code step is reached; /view resolves to results once decided.
-    studyViewCode: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/view/code`, { returnTo }),
-        StudyParams.extend({ returnTo: z.string().optional() }),
-    ),
+    studyViewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view/code`, StudyParams),
 
-    // Carries returnTo because Step 1 is a leaf the researcher steps back to and forward from
-    // (OTTER-764): without it, a round trip through here strands an org-scoped entry on the
-    // personal dashboard.
-    studyEdit: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/edit`, { returnTo }),
-        StudyParams.extend({ returnTo: z.string().optional() }),
-    ),
+    studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
-    // Reviewer counterpart to studyViewCode; no returnTo, the path is always org-scoped.
+    // Reviewer counterpart to studyViewCode.
     studyReviewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review/code`, StudyParams),
 
     studyReviewProposal: makeRoute(
@@ -94,9 +82,8 @@ export const Routes = {
 
     // Split by role so a dual-role user's flow comes from the URL, not a guess.
     studyResearcherAgreements: makeRoute(
-        ({ orgSlug, studyId, returnTo }) =>
-            withQuery(`/${orgSlug}/study/${studyId}/agreements/researcher`, { returnTo }),
-        StudyParams.extend({ returnTo: z.string().optional() }),
+        ({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/agreements/researcher`,
+        StudyParams,
     ),
 
     studyReviewerAgreements: makeRoute(
@@ -106,10 +93,7 @@ export const Routes = {
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
-    studySubmitted: makeRoute(
-        ({ orgSlug, studyId, returnTo }) => withQuery(`/${orgSlug}/study/${studyId}/submitted`, { returnTo }),
-        StudyParams.extend({ returnTo: z.string().optional() }),
-    ),
+    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
 
     researcherProfileView: makeRoute(
         ({ orgSlug, studyId, userId }) => withQuery(`/${orgSlug}/study/${studyId}/researcher-profile`, { userId }),

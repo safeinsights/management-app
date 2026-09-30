@@ -136,7 +136,13 @@ const renderIDE = async (
     const previousHref = Routes.studySubmitted({ orgSlug: studyOrgSlug, studyId: study.id })
 
     const page = (
-        <StudyCode studyId={study.id} dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} nav={nav} />
+        <StudyCode
+            studyId={study.id}
+            dataPartnerName={dataPartnerName}
+            isFirstVisit={isFirstVisit}
+            isEditable
+            nav={nav}
+        />
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
@@ -733,6 +739,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -763,6 +770,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -811,6 +819,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -989,6 +998,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -1091,6 +1101,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -1490,6 +1501,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -1517,6 +1529,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -1600,6 +1613,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav('/test')}
                 />,
             )
@@ -1669,6 +1683,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav(previousHref)}
                 />,
             )
@@ -1744,6 +1759,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav(previousHref)}
                 />,
             )
@@ -1793,6 +1809,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav(previousHref)}
                 />,
             )
@@ -1808,6 +1825,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    isEditable
                     nav={backNav(previousHref)}
                 />,
             )

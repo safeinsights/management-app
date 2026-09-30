@@ -18,8 +18,8 @@ function focusMainContent(): boolean {
     return true
 }
 
-// Keyed on the pathname alone, so a query-string change (tabs, filters, returnTo) is not a
-// navigation. The ref starts at the first pathname, which leaves the initial load to the browser.
+// Keyed on the pathname alone, so a query-string change (tabs, filters) is not a navigation. The ref
+// starts at the first pathname, which leaves the initial load to the browser.
 export function useRouteFocus() {
     const pathname = usePathname()
     const previousPathname = useRef(pathname)

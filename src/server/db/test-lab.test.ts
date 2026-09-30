@@ -21,7 +21,7 @@ const createDraft = async (enclaveSlug: string, labSlug: string) => {
     const { studyId } = actionResult(
         await onSaveDraftStudyAction({
             orgSlug: enclaveSlug,
-            studyInfo: { title: 'Stamped at creation', piName: 'PI', language: 'R', datasets: ['test-dataset'] },
+            studyInfo: { title: 'Stamped at creation', piName: 'PI', language: 'R' },
             submittingOrgSlug: labSlug,
         }),
     )

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-    DATASETS_REQUIRED_ERROR,
     DATA_PARTNER_REQUIRED_ERROR,
     PROGRAMMING_LANGUAGE_REQUIRED_ERROR,
     STUDY_TITLE_BLANK_ERROR,
@@ -13,7 +12,7 @@ import {
 } from './form-schemas'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
-const VALID_STEP_1 = { title: 'A study', orgSlug: 'test-org', language: 'R' as const, datasets: ['ds-1'] }
+const VALID_STEP_1 = { title: 'A study', orgSlug: 'test-org', language: 'R' as const }
 
 const messagesFor = (value: unknown, path: string) => {
     const result = step1FieldsSchema.safeParse(value)
@@ -89,27 +88,12 @@ describe('step1FieldsSchema', () => {
         })
 
         it('reports the title and Data Partner problems together', () => {
-            const result = step1FieldsSchema.safeParse({ title: '', orgSlug: '', language: null, datasets: [] })
+            const result = step1FieldsSchema.safeParse({ title: '', orgSlug: '', language: null })
             expect(result.success).toBe(false)
             if (result.success) return
             const paths = result.error.issues.map((issue) => issue.path.join('.'))
             expect(paths).toContain('title')
             expect(paths).toContain('orgSlug')
-        })
-    })
-
-    describe('datasets', () => {
-        it('requires a dataset once a Data Partner is selected', () => {
-            expect(messagesFor({ ...VALID_STEP_1, datasets: [] }, 'datasets')).toEqual([DATASETS_REQUIRED_ERROR])
-            expect(DATASETS_REQUIRED_ERROR).toBe('Select a dataset of interest before continuing.')
-        })
-
-        it('does not require a dataset while no Data Partner is selected', () => {
-            expect(messagesFor({ ...VALID_STEP_1, orgSlug: '', datasets: [] }, 'datasets')).toEqual([])
-        })
-
-        it('accepts several datasets', () => {
-            expect(step1FieldsSchema.safeParse({ ...VALID_STEP_1, datasets: ['ds-1', 'ds-2'] }).success).toBe(true)
         })
     })
 })
@@ -119,7 +103,6 @@ describe('studyProposalFormSchema', () => {
         const result = studyProposalFormSchema.safeParse({
             orgSlug: 'test-org',
             language: 'R',
-            datasets: ['ds-1'],
             title: 'Valid Test Title',
             piName: 'Test PI',
         })
@@ -149,7 +132,6 @@ describe('studyProposalApiSchema', () => {
             piName: 'Test PI',
             piUserId: BLANK_UUID,
             language: 'R',
-            datasets: [],
             descriptionDocPath: '/path/to/description.pdf',
             irbDocPath: '/path/to/irb.pdf',
             agreementDocPath: '/path/to/agreement.pdf',

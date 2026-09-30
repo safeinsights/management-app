@@ -2,7 +2,6 @@
 
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
-import { Routes } from '@/lib/routes'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderReviewerCodeStep } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
@@ -26,6 +25,5 @@ export default async function StudyReviewCodePage(props: { params: Promise<{ org
         raw,
         study,
         orgSlug,
-        dashboardHref: Routes.dashboard,
     })
 }
