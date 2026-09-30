@@ -12,7 +12,6 @@ const schema = z.object({
         'JOB-ERRORED',
         'FILES-REJECTED',
         'FILES-APPROVED',
-        'CODE-REJECTED',
         'RUN-COMPLETE',
     ]),
 })
