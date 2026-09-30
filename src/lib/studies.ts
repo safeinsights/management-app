@@ -17,10 +17,10 @@ export function studyHasJobStatus(study: StudyWithJobStatuses, status: StudyJobS
 // an advanced study straight to results (OTTER-727).
 export function researcherCodeStepHref(
     study: StudyWithJobStatuses & { id: string },
-    { orgSlug, returnTo }: { orgSlug: string; returnTo?: string },
+    { orgSlug }: { orgSlug: string },
 ): Route {
     if (studyHasJobStatus(study, 'CODE-SUBMITTED')) {
-        return Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+        return Routes.studyViewCode({ orgSlug, studyId: study.id })
     }
     return Routes.studyCode({ orgSlug, studyId: study.id })
 }

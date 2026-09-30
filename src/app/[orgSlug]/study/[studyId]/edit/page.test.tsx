@@ -27,8 +27,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) =>
-    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }), searchParams: Promise.resolve(searchParams) })
+const renderRoute = (orgSlug: string, studyId: string) =>
+    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }) })
 
 const setupDraft = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -71,8 +71,8 @@ const insertSubmittedStudyFor = async (
 
 // StudyProposal calls useStudyRequest(); production wires that provider in the study layout,
 // which this render does not exercise.
-const renderPage = async (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) => {
-    const page = await renderRoute(orgSlug, studyId, searchParams)
+const renderPage = async (orgSlug: string, studyId: string) => {
+    const page = await renderRoute(orgSlug, studyId)
     renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
 }
 
@@ -215,43 +215,19 @@ describe('StudyEditPage', () => {
         expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
     })
 
-    // The URL is the only carrier of returnTo across a step back and forward, so the parse is
-    // covered here rather than only at the two ends of the chain.
-    it('carries returnTo from the URL into the forward link', async () => {
+    it('steps forward to the submitted record', async () => {
         const user = userEvent.setup()
         const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
             researcherId: researcher.id,
             studyStatus: 'PENDING-REVIEW',
-            title: 'A study entered from an org dashboard',
+            title: 'A submitted study',
         })
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
         memoryRouter.setCurrentUrl('/start')
 
-        await renderPage(org.slug, study.id, { returnTo: 'org' })
-        await user.click(screen.getByRole('button', { name: 'Next step' }))
-
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id, returnTo: 'org' }),
-            ),
-        )
-    })
-
-    it('discards a returnTo the routes do not build', async () => {
-        const user = userEvent.setup()
-        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: researcher.id,
-            studyStatus: 'PENDING-REVIEW',
-            title: 'A study reached with a bogus entry',
-        })
-        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-        memoryRouter.setCurrentUrl('/start')
-
-        await renderPage(org.slug, study.id, { returnTo: 'bogus' })
+        await renderPage(org.slug, study.id)
         await user.click(screen.getByRole('button', { name: 'Next step' }))
 
         await waitFor(() =>
