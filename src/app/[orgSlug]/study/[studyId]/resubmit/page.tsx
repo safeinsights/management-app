@@ -40,7 +40,11 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
-                <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
+                <EditCodeResubmitProvider
+                    studyId={studyId}
+                    orgName={orgName}
+                    initialNote={study.codeResubmissionNoteDraft ?? ''}
+                >
                     <EditStudyCodeView
                         studyId={studyId}
                         orgName={orgName}
