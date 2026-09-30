@@ -124,7 +124,7 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
                 New studies submitted to you from your Test Labs will not require {legalDocumentCollectionLabels.SLA}.
             </Text>
             <IrreversibleWarning />
-            <Group justify="space-between">
+            <Group>
                 <Button variant="outline" onClick={onCancel}>
                     Cancel
                 </Button>
@@ -159,7 +159,7 @@ function ConfirmStep({ isVisible, picker, isSubmitting, error, onConfirm }: Conf
             </Stack>
             <IrreversibleWarning />
             <ErrorAlert error={error} title="Failed to add test labs" />
-            <Group justify="space-between">
+            <Group>
                 <Button variant="outline" onClick={picker.goBack} disabled={isSubmitting}>
                     Back
                 </Button>
