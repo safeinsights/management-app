@@ -57,7 +57,7 @@ describe('KeysPage', () => {
         await waitFor(() => expect(router.asPath).toBe(`/${org.slug}/dashboard`))
     })
 
-    it('lands a keyless multi-org account on My dashboard, since no org is unambiguous', async () => {
+    it('lands a keyless multi-org account on My studies, since no org is unambiguous', async () => {
         router.setCurrentUrl('/account/keys')
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()

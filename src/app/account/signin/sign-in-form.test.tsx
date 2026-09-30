@@ -97,7 +97,7 @@ describe('SignInForm', () => {
         )
     })
 
-    // Emitting the fallback as a parameter would pin the key page to "My dashboard".
+    // Emitting the fallback as a parameter would pin the key page to "My studies".
     it('sends a keyless user with no destination to a bare key page', async () => {
         memoryRouter.setCurrentUrl('/account/signin')
         await keylessUserSigningIn()

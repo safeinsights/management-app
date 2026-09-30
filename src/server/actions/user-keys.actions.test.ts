@@ -156,7 +156,7 @@ describe('getKeyPageStateAction', () => {
         })
     })
 
-    it('falls back to My dashboard when the account belongs to more than one org', async () => {
+    it('falls back to My studies when the account belongs to more than one org', async () => {
         const { user } = await keylessSession()
         const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
         await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
@@ -164,7 +164,7 @@ describe('getKeyPageStateAction', () => {
         expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
     })
 
-    it('falls back to My dashboard when the account belongs to no org', async () => {
+    it('falls back to My studies when the account belongs to no org', async () => {
         const { user } = await keylessSession()
         await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
 

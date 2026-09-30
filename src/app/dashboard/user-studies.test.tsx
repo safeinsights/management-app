@@ -69,7 +69,7 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText('My dashboard')).toBeDefined()
+        expect(await screen.findByText('My studies')).toBeDefined()
         expect(await screen.findByText("You haven't yet participated in a study")).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
@@ -88,7 +88,7 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { level: 1, name: 'My studies' })).toBeInTheDocument()
         expect(pageHeaderEyebrow()).toBe('')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })

@@ -44,7 +44,7 @@ export function FocusedLayoutShellView({
             >
                 {children}
             </AppShellMain>
-            <AppFooter />
+            <AppFooter isDark />
         </AppShell>
     )
 }
