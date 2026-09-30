@@ -45,7 +45,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data, invite) {
-            studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
             posthog.capture('team_member_invited', {
                 org_slug: orgSlug,
@@ -58,9 +57,8 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                     title: 'Invite resent',
                     message: 'This user has already been invited. Resending invite.',
                 })
-            } else {
-                onInvited()
             }
+            onInvited()
         },
     })
 

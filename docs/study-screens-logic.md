@@ -341,6 +341,16 @@ through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
 before that.
 
+Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
+once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
+`CODE-SUBMITTED`, whatever the reviewer has decided since — because its confirmation modal promises
+no changes after submitting (OTTER-693). `study.status` stays `APPROVED` through submission, so the
+answer comes from the job statuses, not the study row. Post-decision editing lives on `/resubmit`,
+gated by `canResearcherResubmitCode`, which requires a resubmission note. Both rules are enforced
+server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submitStudyCodeAction`, and
+`requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
+pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
+
 `Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
 routes this exit to one fixed destination, never back to the entry point, so neither the page nor
 the route carries an entry marker (OTTER-805).

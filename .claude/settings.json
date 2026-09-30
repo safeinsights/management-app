@@ -26,7 +26,18 @@
       "mcp__playwright-test__browser_evaluate",
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
-      "mcp__playwright-test__browser_navigate"
+      "mcp__playwright-test__browser_navigate",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(awk '/^=== id=/{p=1} p')",
+      "Bash(git --no-pager show 47282be54 --stat --format=\"%an | %s\")",
+      "Bash(git --no-pager show 47282be54 -- src/components/study/study-code.tsx)",
+      "Bash(perl -0pi -e 's/^\\(\\\\s*\\)isFirstVisit=\\\\{false\\\\}$/$1isFirstVisit={false}\\\\n$1isEditable/gm' src/components/study/study-code.test.tsx)",
+      "Bash(perl -0pi -e 's/\\(<StudyCode studyId=\\\\{study\\\\.id\\\\} dataPartnerName=\\\\{dataPartnerName\\\\} isFirstVisit=\\\\{isFirstVisit\\\\}\\) \\(nav=\\\\{nav\\\\} \\\\/>\\)/$1 isEditable $2/' src/components/study/study-code.test.tsx)",
+      "Bash(timeout 900 ./bin/docker-test -- src/components/study/study-code.test.tsx \"src/app/[orgSlug]/study/[studyId]/code\")",
+      "Bash(git --no-pager diff --stat)",
+      "Bash(git --no-pager diff -- src/components/study/study-code.tsx \"src/app/[orgSlug]/study/[studyId]/code/page.tsx\")"
     ],
     "deny": [
       "Read(.env)",
