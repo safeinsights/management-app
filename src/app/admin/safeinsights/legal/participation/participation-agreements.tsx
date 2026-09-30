@@ -110,6 +110,7 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
                 withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
+                minHeight={140}
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
                 noRecordsText="No agreements to show"
