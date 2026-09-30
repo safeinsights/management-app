@@ -199,13 +199,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     <Text size="md">
                         You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
-                    <TextInput
-                        label="Email"
-                        radius="sm"
-                        value={email}
-                        disabled
-                        c={semanticColor('text.primary')}
-                    />
+                    <TextInput label="Email" radius="sm" value={email} disabled c={semanticColor('text.primary')} />
 
                     <Flex direction="row" gap="xl">
                         <TextInput
@@ -292,13 +286,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     </Stack>
 
                     <Flex mt="sm">
-                        <Button
-                            type="submit"
-                            loading={isCreating}
-                            disabled={!canSubmit}
-                            w="100%"
-                            size="lg"
-                        >
+                        <Button type="submit" loading={isCreating} disabled={!canSubmit} w="100%" size="lg">
                             Create account
                         </Button>
                     </Flex>
