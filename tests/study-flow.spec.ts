@@ -1155,7 +1155,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
-        await expect(resubmitButton).toBeEnabled()
+        await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await resubmitButton.click()
         await page
             .getByRole('dialog')
