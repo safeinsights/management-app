@@ -1,6 +1,6 @@
 'use client'
 
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from '@/app/account/reset-password/password-requirements'
 import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
@@ -298,7 +298,6 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                             disabled={!canSubmit}
                             w="100%"
                             size="lg"
-                            fw={fontWeight.regular}
                         >
                             Create account
                         </Button>
