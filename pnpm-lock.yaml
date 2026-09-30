@@ -17,14 +17,12 @@ overrides:
   vite: ^8.0.16
   ws: ^8.21.0
   js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5'
-  nodemailer@<=8.0.8: '>=8.0.9'
-  nodemailer@<9.1.1: '>=9.1.1'
   '@opentelemetry/core@<2.8.0': '>=2.8.0'
   '@babel/core@<=7.29.0': '>=7.29.1'
   '@vitest/coverage-istanbul>@babel/core': 7.29.7
   shell-quote@<1.8.5: '>=1.8.5'
   axios@>=1.0.0 <1.18.0: '>=1.18.0 <2'
-  brace-expansion@>=5.0.0 <5.0.9: '>=5.0.9 <6'
+  brace-expansion@>=5.0.0 <5.0.12: '>=5.0.12 <6'
   fast-uri@>=3.0.0 <3.1.7: '>=3.1.7 <4'
   nanoid@>=3.0.0 <3.3.18: '>=3.3.18 <4'
   sharp@>=0.34.0 <0.35.0: '>=0.35.0 <0.36'
@@ -324,11 +322,11 @@ importers:
         specifier: ^1.2.8
         version: 1.2.8
       monocart-coverage-reports:
-        specifier: ^2.12.11
-        version: 2.12.11
+        specifier: ^2.13.0
+        version: 2.13.0
       monocart-reporter:
-        specifier: ^2.10.0
-        version: 2.11.2
+        specifier: ^2.13.1
+        version: 2.13.1
       next-router-mock:
         specifier: ^1.0.5
         version: 1.0.5(next@16.3.4(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(@types/node@24.13.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
@@ -2850,11 +2848,6 @@ packages:
     resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
     engines: {node: '>=0.4.0'}
 
-  acorn@8.16.0:
-    resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
-    engines: {node: '>=0.4.0'}
-    hasBin: true
-
   acorn@8.18.0:
     resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
     engines: {node: '>=0.4.0'}
@@ -3041,8 +3034,8 @@ packages:
     resolution: {integrity: sha512-F3PH5k5juxom4xktynS7MoFY+NUWH5LC4CnH11YB8NPew+HLpmBLCybSAEyb2F+4pRXhuhWqFesoQd6DAyc2hw==}
     engines: {node: '>=18'}
 
-  brace-expansion@5.0.9:
-    resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
+  brace-expansion@5.0.12:
+    resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
     engines: {node: 20 || >=22}
 
   braces@3.0.3:
@@ -4441,15 +4434,15 @@ packages:
     resolution: {integrity: sha512-asOvN6bFlSnxewce2e/DK3p4tltyfC4VM7ZwuTuepI7dEQVcvpyFuBcEARu1+Hxg8DIwytce2n7jrZtRlPrARA==}
     engines: {node: '>= 10'}
 
-  koa-static-resolver@1.0.6:
-    resolution: {integrity: sha512-ZX5RshSzH8nFn05/vUNQzqw32nEigsPa67AVUr6ZuQxuGdnCcTLcdgr4C81+YbJjpgqKHfacMBd7NmJIbj7fXw==}
+  koa-static-resolver@1.0.7:
+    resolution: {integrity: sha512-w8pYqxK5brl1/OPbqQdysUsdad6FL0VplfkkQX/4X1iEopwOmth8BNBlmRlNZzKfmaAx5UDit9Qx/GHQEkqykA==}
 
   koa@2.16.4:
     resolution: {integrity: sha512-3An0GCLDSR34tsCO4H8Tef8Pp2ngtaZDAZnsWJYelqXUK5wyiHvGItgK/xcSkmHLSTn1Jcho1mRQs2ehRzvKKw==}
     engines: {node: ^4.8.4 || ^6.10.1 || ^7.10.1 || >= 8.1.4}
 
-  koa@3.2.0:
-    resolution: {integrity: sha512-TrM4/tnNY7uJ1aW55sIIa+dqBvc4V14WRIAlGcWat9wV5pRS9Wr5Zk2ZTjQP1jtfIHDoHiSbPuV08P0fUZo2pg==}
+  koa@3.2.1:
+    resolution: {integrity: sha512-e7IpWJrnanNUroVK2taAgMxoEZvHLXdQiNjeExSu/DEIWm83jaKGBgb7tLmu2rMYpA027qFB3iLR/k3AVpFRnA==}
     engines: {node: '>= 18'}
 
   kysely-codegen@0.20.0:
@@ -4941,11 +4934,15 @@ packages:
     resolution: {integrity: sha512-yo4/FdUdFIWoc9OjhBZCNXM95tYHS4e8nov9Q3AGbpvteT/W5aQSc4B+Q0nhmedZFvjvm3BUH/Xu9GT2n/0wkw==}
     hasBin: true
 
+  monocart-coverage-reports@2.13.0:
+    resolution: {integrity: sha512-RJfwzbn+EvR0OhCSU3bX2mKd0tSv4RLvood0weoCZV1L99+kBYH0Yq5SnnBFRik7nRoEoGB4mLuZAvO1Fr3DpQ==}
+    hasBin: true
+
   monocart-locator@1.0.3:
     resolution: {integrity: sha512-pe29W2XAoA1WQmZZqxXoP7s06ZEXUhcb81086v68cqjk1HnVL7Q/iU/WJnnetxjPcLqwb4qG8vaSGUOMQU602g==}
 
-  monocart-reporter@2.11.2:
-    resolution: {integrity: sha512-CMzRSN1QyjbPvQRm7TOc/kTzozKNzwySVI47iajwPnvrkKOtS3P4PV2korNPNE/4uqkhvbzhXjZNjfWT03OT6Q==}
+  monocart-reporter@2.13.1:
+    resolution: {integrity: sha512-xQ+50hz5TkfCkVmbsmEu11bGuPvTjeoX2tD6sJnhmVUhmXDQXcG+58i4gKoSsiKksp8zTGpfb7PXSL3e4WVFuw==}
     hasBin: true
 
   ms@2.1.3:
@@ -5034,10 +5031,6 @@ packages:
   node-releases@2.0.54:
     resolution: {integrity: sha512-YHs7BmmcsdAI5Ozuf8JZo6PT0mv2GIWC9vMfvUC3dp65M8hn7Ux8CPL+2oBI7juNuj9d0ndhTcznq2ODBps9cQ==}
     engines: {node: '>=18'}
-
-  nodemailer@10.0.1:
-    resolution: {integrity: sha512-c+gU9cL9HLDax3vjxL88kW+6NOgdtEUWaZ+AUtxdJR6LLhf0kGdCLExof7yiKW7zdO9EfXCSIgmhGyFmUM0mYQ==}
-    engines: {node: '>=20.0.0'}
 
   normalize-package-data@3.0.3:
     resolution: {integrity: sha512-p2W1sgqij3zMMyRC067Dg16bfzVH+w7hyegmpIvZ4JNjqtGOVAIvLmjBx3yP7YTe9vKJgkoNOPjwQGogDoMXFA==}
@@ -7931,7 +7924,7 @@ snapshots:
       '@types/estree-jsx': 1.0.5
       '@types/hast': 3.0.4
       '@types/mdx': 2.0.14
-      acorn: 8.16.0
+      acorn: 8.18.0
       collapse-white-space: 2.1.0
       devlop: 1.1.0
       estree-util-is-identifier-name: 3.0.0
@@ -7940,7 +7933,7 @@ snapshots:
       hast-util-to-jsx-runtime: 2.3.6
       markdown-extensions: 2.0.0
       recma-build-jsx: 1.0.0
-      recma-jsx: 1.0.1(acorn@8.16.0)
+      recma-jsx: 1.0.1(acorn@8.18.0)
       recma-stringify: 1.0.0
       rehype-recma: 1.0.0
       remark-mdx: 3.1.1
@@ -9423,23 +9416,17 @@ snapshots:
     dependencies:
       acorn: 8.18.0
 
-  acorn-jsx@5.3.2(acorn@8.16.0):
-    dependencies:
-      acorn: 8.16.0
-
   acorn-jsx@5.3.2(acorn@8.18.0):
     dependencies:
       acorn: 8.18.0
 
   acorn-loose@8.5.2:
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.18.0
 
   acorn-walk@8.3.5:
     dependencies:
-      acorn: 8.16.0
-
-  acorn@8.16.0: {}
+      acorn: 8.18.0
 
   acorn@8.18.0: {}
 
@@ -9649,7 +9636,7 @@ snapshots:
       widest-line: 5.0.0
       wrap-ansi: 9.0.2
 
-  brace-expansion@5.0.9:
+  brace-expansion@5.0.12:
     dependencies:
       balanced-match: 4.0.4
 
@@ -10379,8 +10366,8 @@ snapshots:
 
   espree@10.4.0:
     dependencies:
-      acorn: 8.16.0
-      acorn-jsx: 5.3.2(acorn@8.16.0)
+      acorn: 8.18.0
+      acorn-jsx: 5.3.2(acorn@8.18.0)
       eslint-visitor-keys: 4.2.1
 
   esquery@1.7.0:
@@ -11220,7 +11207,7 @@ snapshots:
       co: 4.6.0
       koa-compose: 4.1.0
 
-  koa-static-resolver@1.0.6: {}
+  koa-static-resolver@1.0.7: {}
 
   koa@2.16.4:
     dependencies:
@@ -11250,7 +11237,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  koa@3.2.0:
+  koa@3.2.1:
     dependencies:
       accepts: 1.3.8
       content-disposition: 1.0.1
@@ -11959,7 +11946,7 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.9
+      brace-expansion: 5.0.12
 
   minimist-options@4.1.0:
     dependencies:
@@ -11975,7 +11962,22 @@ snapshots:
 
   monocart-coverage-reports@2.12.11:
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.18.0
+      acorn-loose: 8.5.2
+      acorn-walk: 8.3.5
+      commander: 14.0.3
+      console-grid: 2.2.4
+      eight-colors: 1.3.3
+      foreground-child: 4.0.3
+      istanbul-lib-coverage: 3.2.2
+      istanbul-lib-report: 3.0.1
+      istanbul-reports: 3.2.0
+      lz-utils: 2.1.1
+      monocart-locator: 1.0.3
+
+  monocart-coverage-reports@2.13.0:
+    dependencies:
+      acorn: 8.18.0
       acorn-loose: 8.5.2
       acorn-walk: 8.3.5
       commander: 14.0.3
@@ -11990,16 +11992,15 @@ snapshots:
 
   monocart-locator@1.0.3: {}
 
-  monocart-reporter@2.11.2:
+  monocart-reporter@2.13.1:
     dependencies:
       console-grid: 2.2.4
       eight-colors: 1.3.3
-      koa: 3.2.0
-      koa-static-resolver: 1.0.6
+      koa: 3.2.1
+      koa-static-resolver: 1.0.7
       lz-utils: 2.1.1
-      monocart-coverage-reports: 2.12.11
+      monocart-coverage-reports: 2.13.0
       monocart-locator: 1.0.3
-      nodemailer: 10.0.1
 
   ms@2.1.3: {}
 
@@ -12093,8 +12094,6 @@ snapshots:
       whatwg-url: 5.0.0
 
   node-releases@2.0.54: {}
-
-  nodemailer@10.0.1: {}
 
   normalize-package-data@3.0.3:
     dependencies:
@@ -12599,10 +12598,10 @@ snapshots:
       estree-util-build-jsx: 3.0.1
       vfile: 6.0.3
 
-  recma-jsx@1.0.1(acorn@8.16.0):
+  recma-jsx@1.0.1(acorn@8.18.0):
     dependencies:
-      acorn: 8.16.0
-      acorn-jsx: 5.3.2(acorn@8.16.0)
+      acorn: 8.18.0
+      acorn-jsx: 5.3.2(acorn@8.18.0)
       estree-util-to-js: 2.0.0
       recma-parse: 1.0.0
       recma-stringify: 1.0.0
