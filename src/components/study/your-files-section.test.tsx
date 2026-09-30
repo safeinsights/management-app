@@ -116,6 +116,28 @@ describe('YourFilesSection', () => {
             expect(screen.getByTestId('already-have-code')).toBeInTheDocument()
         })
     })
+
+    it('shows an image preview when viewing a png file (OTTER-516)', () => {
+        const contents = new TextEncoder().encode('fake-png-bytes').buffer
+        renderWithProviders(
+            <YourFilesSection
+                ide={createMockIde({ viewingFile: { name: 'plot.png', contents } })}
+                dataPartnerName="Test Data Partner"
+            />,
+        )
+        expect(screen.getByAltText('plot.png')).toBeInTheDocument()
+    })
+
+    it('shows a text preview when viewing a code file', () => {
+        const contents = new TextEncoder().encode('print(1)').buffer
+        renderWithProviders(
+            <YourFilesSection
+                ide={createMockIde({ viewingFile: { name: 'main.R', contents } })}
+                dataPartnerName="Test Data Partner"
+            />,
+        )
+        expect(screen.getByText(/print/)).toBeInTheDocument()
+    })
 })
 
 describe('submit error', () => {
