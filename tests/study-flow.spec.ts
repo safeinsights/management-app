@@ -170,7 +170,7 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 
     // The Data Partner holds the next move, so the exit is the solid action (OTTER-673).
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 // ============================================================================
@@ -335,7 +335,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     // A live-approved study has no agreement yet, so the preparing notice is a second status alert.
     await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
     await page.getByTestId('cta-back-to-my-studies').click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacyProtection']
@@ -386,7 +386,7 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('cta-next-step').click()
     await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 // ============================================================================
@@ -943,7 +943,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
 
         // Both roles read the same badge for a declined proposal, which is the stored REJECTED
         // status under the name the spec gives it (OTTER-698).
@@ -1023,7 +1023,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -1141,7 +1141,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
     })
 
     await withRole(browser, 'researcher', async (page) => {
