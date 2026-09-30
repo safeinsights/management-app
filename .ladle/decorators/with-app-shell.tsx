@@ -1,28 +1,30 @@
 import type { ReactNode } from 'react'
-import { AppShellHeader, AppShellMain, Burger, Group, AppShell as MantineAppShell } from '@mantine/core'
+import { AppShellHeader, AppShellMain, AppShell as MantineAppShell } from '@mantine/core'
 import { APP_MAIN_BG, APP_SHELL } from '@/lib/constants'
-import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
 import { BrowserFrame } from './browser-frame'
 
 // Ladle decorator that reproduces the app's real <AppShell> chrome so AppShell* sections
 // (AppShellNavbar / AppShellSection / AppShellFooter / AppShellHeader) consume the same
-// `--app-shell-*` CSS vars and positioning they do in production. The dimensions/colors come
-// from the shared APP_SHELL constant (the same one src/components/layout/app-shell.tsx uses),
-// so this can't drift from the real shell. The whole shell is wrapped in a BrowserFrame so its
+// `--app-shell-*` CSS vars and positioning they do in production. The dimensions come from the
+// shared APP_SHELL constant (the same one src/components/layout/app-shell.tsx uses), so this
+// can't drift from the real shell. The whole shell is wrapped in a BrowserFrame so its
 // position:fixed sections stay inside a bounded "browser" instead of overlapping Ladle's chrome.
 
 type WithAppShellProps = {
     children: ReactNode
     /** Placeholder content for the main pane so the navbar/footer sit beside something realistic. */
     main?: ReactNode
+    /** Replaces the bar's contents; the default is an empty bar of the production height. */
+    header?: ReactNode
 }
 
-export function WithAppShell({ children, main }: WithAppShellProps) {
+export function WithAppShell({ children, main, header }: WithAppShellProps) {
     return (
         <BrowserFrame>
             <MantineAppShell
                 bg={APP_MAIN_BG}
-                header={{ height: APP_SHELL.headerHeight, collapsed: true }}
+                layout={APP_SHELL.layout}
+                header={{ height: APP_SHELL.headerHeight }}
                 footer={{ height: APP_SHELL.footerHeight }}
                 navbar={{
                     width: APP_SHELL.navbarWidth,
@@ -31,12 +33,7 @@ export function WithAppShell({ children, main }: WithAppShellProps) {
                 }}
                 padding={APP_SHELL.padding}
             >
-                <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
-                    <Group h="100%" px="md">
-                        <Burger opened={false} hiddenFrom="sm" size="sm" color="white" />
-                        <SafeInsightsLogo />
-                    </Group>
-                </AppShellHeader>
+                <AppShellHeader withBorder={false}>{header}</AppShellHeader>
 
                 {children}
 

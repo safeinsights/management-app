@@ -54,7 +54,7 @@ export default function UserStudiesDashboard() {
 
     return (
         <Stack p="xxl" gap="xxl">
-            <PageHeader title="My dashboard" />
+            <PageHeader title="My studies" />
             <JoinedOrgBanner />
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 
