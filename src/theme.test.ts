@@ -1,7 +1,7 @@
 import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
-import { buttonVars, cssVariablesResolver, theme } from './theme'
+import { buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
 import { semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
@@ -105,6 +105,29 @@ describe('buttons', () => {
 
     it('falls back to the md geometry for an unsized button', () => {
         expect(buttonVars({}, {}).root['--button-height']).toBe('42px')
+    })
+})
+
+describe('inputs', () => {
+    it.each([undefined, 'default'])('gives the %s variant the selected blue focus border', (variant) => {
+        expect(inputVars({}, { variant }).wrapper['--input-bd-focus']).toBe('var(--si-color-surface-selected)')
+    })
+
+    it.each(['unstyled', 'filled'])('leaves the %s variant focus border to Mantine', (variant) => {
+        expect(inputVars({}, { variant }).wrapper).not.toHaveProperty('--input-bd-focus')
+    })
+
+    it.each(['default', 'unstyled'])('paints the disabled %s input from the library tokens', (variant) => {
+        expect(inputVars({}, { variant }).wrapper).toMatchObject({
+            '--input-disabled-bg': 'var(--si-color-surface-disabled-medium)',
+            '--input-disabled-color': 'var(--si-color-text-disabled)',
+        })
+    })
+
+    it('keeps disabled inputs at full opacity', () => {
+        const styles = theme.components?.Input?.styles as { input?: { opacity?: number } } | undefined
+
+        expect(styles?.input?.opacity).toBe(1)
     })
 })
 
