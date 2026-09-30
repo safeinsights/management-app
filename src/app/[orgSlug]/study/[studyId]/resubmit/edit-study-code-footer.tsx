@@ -8,6 +8,7 @@ import { InfoTooltip } from '@/components/tooltip'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { Routes } from '@/lib/routes'
+import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import {
     RESUBMISSION_NOTE_FIELD_ID,
@@ -130,9 +131,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                 onClose={closeConfirm}
                 onConfirm={handleConfirmResubmit}
                 isSubmitting={isSubmitting}
-                title="Resubmit your code for review?"
-                body={`Your code will be sent to ${orgName} for review. If approved, it will run in the secure enclave. You will not be able to make changes after you submit.`}
-                confirmLabel="Resubmit code"
+                {...resubmitCodeModalCopy(orgName)}
             />
         </>
     )
