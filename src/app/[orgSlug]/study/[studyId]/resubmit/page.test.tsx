@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
-import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders, screen } from '@/tests/unit.helpers'
 import ResubmitStudyCodePage from './page'
 
 const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
@@ -28,6 +28,25 @@ describe('ResubmitStudyCodePage', () => {
         })
 
         expect(page).toBeDefined()
+    })
+
+    it('labels Edit study code as STEP 3, the code step', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('STEP 3')).toBeInTheDocument()
+        expect(screen.getByText('Edit study code')).toBeInTheDocument()
     })
 
     it('returns notFound when no resubmittable status exists in the job history', async () => {

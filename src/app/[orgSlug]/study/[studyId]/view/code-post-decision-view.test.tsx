@@ -120,14 +120,14 @@ function renderView(
 
 describe('CodePostDecisionView', () => {
     describe('header', () => {
-        it('renders the page title, STEP 4 eyebrow, and "Study code" section', async () => {
+        it('renders the page title, STEP 3 eyebrow, and "Submit code" section', async () => {
             const { study, job, latestJobStatus } = await setupDecidedStudy('CODE-APPROVED')
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
             expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
-            expect(screen.getByText('STEP 4')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
         })
 
         it('dates the approved banner title from the decision row', async () => {

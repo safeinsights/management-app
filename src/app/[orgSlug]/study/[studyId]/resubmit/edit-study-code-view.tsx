@@ -31,7 +31,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
             <StudyCodePanel
                 ide={ide}
                 dataPartnerName={orgName}
-                stepLabel="STEP 4"
+                stepLabel="STEP 3"
                 heading="Edit study code"
                 showLaunchIde={studyHasCodeEnv}
                 footer={null}

@@ -138,13 +138,13 @@ const resubmissionNoteEntry = (): CodeReviewFeedbackEntry => ({
 
 describe('CodePostSubmissionView', () => {
     describe('header', () => {
-        it('renders STEP 4, the page title, and the section title "Study code"', async () => {
+        it('renders STEP 3, the page title, and the section title "Submit code"', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job)
 
-            expect(screen.getByText('STEP 4')).toBeInTheDocument()
+            expect(screen.getByText('STEP 3')).toBeInTheDocument()
             expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
             expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
@@ -320,7 +320,7 @@ describe('CodePostSubmissionView', () => {
                 feedbackEntries: [reviewerFeedbackEntry(), resubmissionNoteEntry()],
             })
 
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code v2.0' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code v2.0' })).toBeInTheDocument()
 
             const banner = screen.getByTestId('status-alert')
             expect(banner).toHaveTextContent(`Code v2.0 resubmitted to ${REVIEWING_ORG_NAME}`)
@@ -346,11 +346,11 @@ describe('CodePostSubmissionView', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps v1 layout unchanged: "Study code" heading, first-submission banner, no feedback section', async () => {
+        it('keeps v1 layout unchanged: "Submit code" heading, first-submission banner, no feedback section', async () => {
             const { study, job } = await setupSubmittedStudy()
             renderView(study, job, { submissionVersion: 1 })
 
-            expect(screen.getByRole('heading', { level: 2, name: 'Study code' })).toBeInTheDocument()
+            expect(screen.getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
             expect(screen.getByTestId('status-alert')).toHaveTextContent('Code submitted to')
             expect(screen.queryByText('View submitted study code')).not.toBeInTheDocument()
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()

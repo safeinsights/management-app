@@ -174,7 +174,7 @@ export function CodePostSubmissionView({
     const { expanded, toggle, collapse } = useExpandable()
 
     const isResubmission = submissionVersion > 1
-    const sectionTitle = isResubmission ? `Study code v${submissionVersion}.0` : 'Study code'
+    const sectionTitle = isResubmission ? `Submit code v${submissionVersion}.0` : 'Submit code'
     const submittedAt = latestCodeSubmittedAt(job)
 
     const proposalHref = Routes.studySubmitted({ orgSlug, studyId: study.id })
@@ -188,7 +188,7 @@ export function CodePostSubmissionView({
             <Stack gap="xxl">
                 <Paper p="xxl">
                     <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
-                        STEP 4
+                        STEP 3
                     </Text>
                     <Title fz={20} order={2} c={semanticColor('text.primary')} pb="xxs">
                         {sectionTitle}
