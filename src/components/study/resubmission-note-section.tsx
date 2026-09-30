@@ -13,6 +13,8 @@ import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import {
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
+    resubmissionNoteIsBlank,
+    resubmissionNoteIsOverLimit,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 
@@ -40,6 +42,17 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
     const characterCount = resubmissionNoteCharacterCount(value)
     const saveStatus = noteSaveStatus(autosaveStatus)
 
+    const handleBlur = () => {
+        if (resubmissionNoteIsBlank(value)) return
+        noteForm.validateField('resubmissionNote')
+    }
+
+    // Over-limit stays live, so the message arrives with the caret still in the field.
+    const handleChange = (next: string) => {
+        noteForm.setFieldValue('resubmissionNote', next)
+        if (resubmissionNoteIsOverLimit(next)) noteForm.validateField('resubmissionNote')
+    }
+
     return (
         <Paper p="xxl" data-testid="resubmission-note-section">
             <Stack gap="md">
@@ -55,13 +68,12 @@ export const ResubmissionNoteSection: FC<ResubmissionNoteSectionProps> = ({ note
                     <Textarea
                         id="resubmissionNote"
                         aria-label="Resubmission Note"
-                        placeholder="Ex. Summarize the modifications made to your submitted code, including specific sections revised, issues identified by the reviewer that have been addressed, and the rationale behind your resubmission."
                         ref={noteRef}
                         rows={5}
                         {...resizableTextareaProps(noteFloor)}
                         value={value}
-                        onChange={(e) => noteForm.setFieldValue('resubmissionNote', e.currentTarget.value)}
-                        onBlur={() => noteForm.validateField('resubmissionNote')}
+                        onChange={(e) => handleChange(e.currentTarget.value)}
+                        onBlur={handleBlur}
                         // Mantine spreads its own derived describedBy after the caller's props,
                         // so a hand-passed aria-describedby would be discarded.
                         {...nativeFieldProps(error, {

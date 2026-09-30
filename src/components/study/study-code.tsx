@@ -16,6 +16,7 @@ import { ProposalStepHeader } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
 import { fontWeight } from '@/theme/tokens'
+import { submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 
 const STEP_LABEL = 'STEP 3'
 const SECTION_TITLE = 'Submit code'
@@ -197,9 +198,7 @@ export const StudyCode = ({
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
                 isSubmitting={ide.isDirectSubmitting}
-                title="Submit code for review?"
-                body={`Your code will be sent to ${dataPartnerName} for review. If approved, it will run in the secure enclave. You will not be able to make changes after you submit.`}
-                confirmLabel="Submit code"
+                {...submitCodeModalCopy(dataPartnerName)}
             />
         </>
     )

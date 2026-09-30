@@ -4,13 +4,17 @@ import { memoryRouter } from 'next-router-mock'
 import { renderWithProviders, screen, userEvent, waitFor, within } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
+import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
+
+const ORG_NAME = 'Reviewing Org'
 
 // The real note textarea on the footer's form context, so a test can make a genuine session edit.
 const NoteInput = () => {
     const { noteForm } = useEditCodeResubmit()
-    return <ResubmissionNoteSection noteForm={noteForm} orgName="Reviewing Org" />
+    return <ResubmissionNoteSection noteForm={noteForm} orgName={ORG_NAME} />
 }
 
 vi.mock('@/server/actions/study-request', () => ({
@@ -31,39 +35,142 @@ const renderFooter = (
         fileNames?: string[]
         filesEdited?: boolean
         withNoteInput?: boolean
+        blockedReason?: string | null
+        onSubmitAttempt?: () => void
     } = {},
 ) => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
     return renderWithProviders(
-        <EditCodeResubmitProvider studyId={STUDY_ID} initialNote={opts.initialNote ?? ''}>
+        <EditCodeResubmitProvider studyId={STUDY_ID} orgName={ORG_NAME} initialNote={opts.initialNote ?? ''}>
+            <SubmitCodeError message={opts.blockedReason ?? null} />
             {opts.withNoteInput && <NoteInput />}
             <EditStudyCodeFooter
                 mainFileName={opts.mainFileName ?? ''}
                 fileNames={opts.fileNames ?? []}
-                hasFiles={(opts.fileNames ?? []).length > 0}
+                blockedReason={opts.blockedReason ?? null}
+                onSubmitAttempt={opts.onSubmitAttempt ?? (() => {})}
                 filesEdited={opts.filesEdited ?? false}
             />
         </EditCodeResubmitProvider>,
     )
 }
 
-describe('EditStudyCodeFooter', () => {
-    it('disables Resubmit when there are no files', () => {
+describe('EditStudyCodeFooter — Resubmit button', () => {
+    it('is enabled on first paint even when the resubmission note is empty', () => {
+        renderFooter()
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeEnabled()
+    })
+
+    it('is enabled when there are no files', () => {
         renderFooter({ initialNote: wordsString(5) })
-        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeEnabled()
     })
 
-    it('disables Resubmit when the note is empty even with files present', () => {
-        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'] })
-        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeDisabled()
-    })
-
-    it('disables Resubmit when no main file is selected, even with files and a valid note', () => {
+    it('is enabled when no main file is selected', () => {
         renderFooter({ initialNote: wordsString(10), mainFileName: '', fileNames: ['a.R', 'b.R'] })
-        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeEnabled()
     })
 
-    it('opens the confirmation modal with the OTTER-563 copy when Resubmit is clicked', async () => {
+    it('flags an empty resubmission note with the card wording instead of opening the modal', async () => {
+        const user = userEvent.setup()
+        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'], withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeEnabled()
+    })
+
+    it('treats a whitespace-only note as empty', async () => {
+        const user = userEvent.setup()
+        renderFooter({ initialNote: '   ', mainFileName: 'main.R', fileNames: ['main.R'], withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('moves focus to the flagged note when it is the only invalid field', async () => {
+        const user = userEvent.setup()
+        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'], withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        await screen.findByText(REQUIRED_NOTE_ERROR)
+        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+    })
+
+    // OTTER-778: the click used to return silently when files or the main file were missing. It
+    // now reports the attempt so the Code files card can name the reason.
+    it('reports the attempt so a blocked click can be explained', async () => {
+        const user = userEvent.setup()
+        const onSubmitAttempt = vi.fn()
+        renderFooter({
+            initialNote: wordsString(5),
+            blockedReason: SELECT_MAIN_FILE_MESSAGE,
+            fileNames: ['a.R'],
+            onSubmitAttempt,
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(onSubmitAttempt).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('reports the attempt on a clean click too, so a stale message clears', async () => {
+        const user = userEvent.setup()
+        const onSubmitAttempt = vi.fn()
+        renderFooter({ initialNote: wordsString(5), mainFileName: 'main.R', fileNames: ['main.R'], onSubmitAttempt })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(onSubmitAttempt).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('points the button at the error region so the reason is reachable on tab-back', () => {
+        renderFooter({ blockedReason: SELECT_MAIN_FILE_MESSAGE })
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toHaveAttribute(
+            'aria-describedby',
+            SUBMIT_CODE_ERROR_ID,
+        )
+    })
+
+    it('moves focus to the Code files error when the files are what block the submit', async () => {
+        const user = userEvent.setup()
+        renderFooter({ initialNote: wordsString(5), blockedReason: SELECT_MAIN_FILE_MESSAGE, fileNames: ['a.R'] })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(document.activeElement).toBe(document.getElementById(SUBMIT_CODE_ERROR_ID))
+    })
+
+    it('prefers the Code files error over the note when both are unresolved', async () => {
+        const user = userEvent.setup()
+        renderFooter({ blockedReason: SELECT_MAIN_FILE_MESSAGE, withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(document.activeElement).toBe(document.getElementById(SUBMIT_CODE_ERROR_ID))
+        expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+    })
+
+    it('does not open the modal when files are present but the note is empty', async () => {
+        const user = userEvent.setup()
+        renderFooter({ mainFileName: 'main.R', fileNames: ['main.R'], withNoteInput: true })
+
+        await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+})
+
+describe('EditStudyCodeFooter — confirmation modal', () => {
+    it('opens the modal with the expected copy when Resubmit is clicked', async () => {
         const user = userEvent.setup()
         renderFooter({
             initialNote: wordsString(10),
@@ -73,9 +180,9 @@ describe('EditStudyCodeFooter', () => {
         await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
 
         const dialog = screen.getByRole('dialog')
-        expect(dialog).toHaveTextContent('Resubmit code for review?')
+        expect(dialog).toHaveTextContent('Resubmit your code for review?')
         expect(dialog).toHaveTextContent(
-            /Please confirm you are ready to resubmit your study code\. Further edits are not permitted once submitted\./,
+            `Your code will be sent to ${ORG_NAME} for review. If approved, it will run in the secure enclave. You will not be able to make changes after you submit.`,
         )
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Resubmit code' })).toBeInTheDocument()
@@ -135,9 +242,9 @@ describe('EditStudyCodeFooter', () => {
             }),
         )
     })
+})
 
-    // OTTER-673: one subtle "Previous step" whatever the edit state; it flushes pending edits on
-    // the way out rather than offering a separate Save and exit.
+describe('EditStudyCodeFooter — Previous step', () => {
     it('steps back to the study view without saving when nothing has changed', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
@@ -167,9 +274,6 @@ describe('EditStudyCodeFooter', () => {
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled()
     })
 
-    // OTTER-558: file edits this session count as changes even with an empty note. The files
-    // themselves already live in the workspace, so there is no note to flush and the step still
-    // completes.
     it('steps back when only files have been edited this session', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')

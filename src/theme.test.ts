@@ -1,7 +1,7 @@
 import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
-import { buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
+import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
 import { semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
@@ -90,6 +90,14 @@ describe('buttons', () => {
             })
         },
     )
+
+    it('paints a disabled action icon as a pale glyph with no tile', () => {
+        expect(theme.components?.ActionIcon?.vars).toBe(actionIconVars)
+        expect(actionIconVars().root).toEqual({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#dadee1',
+        })
+    })
 
     it('no longer ships button colours through a styles callback', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')

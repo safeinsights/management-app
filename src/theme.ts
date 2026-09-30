@@ -194,6 +194,15 @@ const DISABLED_VARS: Record<string, string> = {
     '--mantine-color-disabled-color': charcoal[6],
 }
 
+// A disabled ActionIcon is a pale glyph with no tile. Mantine's disabled rule reads these two
+// variables, so the tile stays off and the glyph takes surface/Disabled medium.
+export const actionIconVars = (): { root: Record<string, string> } => ({
+    root: {
+        '--mantine-color-disabled': 'transparent',
+        '--mantine-color-disabled-color': grey[1],
+    },
+})
+
 export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
     root: {
         ...DISABLED_VARS,
@@ -282,6 +291,9 @@ export const theme = createTheme({
                     backgroundColor: semanticColor('surface.tableheader'),
                 },
             }),
+        },
+        ActionIcon: {
+            vars: actionIconVars,
         },
         // Button geometry comes from buttonSizeVars, its colours from OTTER-761's buttonVars — one
         // `vars` function, because Mantine only calls one per component.
