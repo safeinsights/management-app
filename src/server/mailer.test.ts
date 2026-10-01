@@ -343,6 +343,39 @@ describe('mailgun email functions', () => {
         }
     })
 
+    it('sendProposalNeedsRevisionEmail asks each lab party to revise, linking through the lab', async () => {
+        const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db
+            .updateTable('study')
+            .set({ submittedByOrgId: researchLab.id, piUserId: pi.id })
+            .where('id', '=', study.id)
+            .execute()
+        const researcher = await getUser(study.researcherId)
+
+        await mailgun.sendProposalNeedsRevisionEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: researcher.email,
+                subject: 'Proposal needs revision',
+                template: 'vb - research proposal needs revision',
+                vars: expect.objectContaining({
+                    fullName: researcher.fullName,
+                    studyTitle: study.title,
+                    researchLab: researchLab.name,
+                    dataPartner: dataPartner.name,
+                    studyURL: expect.stringContaining(
+                        Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+                    ),
+                }),
+            }),
+        )
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({ to: pi.email, vars: expect.objectContaining({ fullName: pi.fullName }) }),
+        )
+    })
+
     it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {
         const { study, user1: reviewer } = await insertTestOrgStudyJobUsers()
         await db.updateTable('study').set({ reviewerId: reviewer.id }).where('id', '=', study.id).execute()

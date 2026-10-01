@@ -213,6 +213,34 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     })
 }
 
+// Audience: research lab, Trigger: a Data Partner requests changes to the proposal.
+export const sendProposalNeedsRevisionEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+    const recipients = await getStudyLabAudience(studyId, study)
+
+    if (recipients.length === 0) {
+        logger.warn(`No recipients for proposal needs revision email, studyId: ${studyId}`)
+        return
+    }
+
+    const vars = {
+        ...baseStudyVars(study),
+        submittedOn: dayjs(await latestProposalSubmittedAt(studyId, study)).format('MM/DD/YYYY'),
+        studyURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
+    }
+
+    await Promise.all(
+        recipients.map((recipient) =>
+            deliver({
+                to: recipient.email,
+                subject: 'Proposal needs revision',
+                template: 'vb - research proposal needs revision',
+                vars: { ...vars, fullName: recipient.fullName },
+            }),
+        ),
+    )
+}
+
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
@@ -296,10 +324,10 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     })
 }
 
-// The lab side of the agreement. researcherId is the original submitter, and a later version can be
-// submitted by any lab member, who is recorded only as the author of its resubmission note. A PI
-// holding no account has no address and drops out.
-async function getStudyAgreementAudience(studyId: string, study: StudyInfo) {
+// The study's lab side. researcherId is the original submitter, and a later version can be submitted
+// by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
+// account has no address and drops out.
+async function getStudyLabAudience(studyId: string, study: StudyInfo) {
     const resubmitters = await db
         .selectFrom('studyProposalComment')
         .select('authorId')
@@ -325,7 +353,7 @@ async function getStudyAgreementAudience(studyId: string, study: StudyInfo) {
 // than a Bcc, because the template greets its reader by name.
 export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const recipients = await getStudyAgreementAudience(studyId, study)
+    const recipients = await getStudyLabAudience(studyId, study)
 
     if (recipients.length === 0) {
         logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)

@@ -872,6 +872,25 @@ describe('submitProposalReviewAction', () => {
         })
     })
 
+    it('needs-clarification asks the researcher to revise the proposal', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'needs-clarification',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({ to: user.email, template: 'vb - research proposal needs revision' }),
+            )
+        })
+    })
+
     it('needs-clarification writes review row, moves study to CHANGE-REQUESTED, writes only clarification audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
