@@ -663,7 +663,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
-            onStudyCodeApproved({ studyId, userId })
+            onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
             await db
                 .insertInto('jobStatusChange')
@@ -674,7 +674,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
-            onStudyCodeChangesRequested({ studyId, userId })
+            onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })

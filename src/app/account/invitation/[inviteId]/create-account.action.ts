@@ -146,7 +146,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             throw new ActionFailure({ user: 'does not exist' })
         }
 
-        const siUser = await db.transaction().execute(async (trx) => {
+        const { user: siUser, invite } = await db.transaction().execute(async (trx) => {
             // Claim first, atomically: concurrent accepts race on this row, and a failure below
             // rolls the claim back with the membership.
             const invite = await trx
@@ -174,7 +174,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
                 }
-                return user
+                return { user, invite }
             }
 
             // isAdmin comes from the invite row alone; no caller-supplied input can raise it.
@@ -188,11 +188,17 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow()
 
-            return user
+            return { user, invite }
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({
+            userId: siUser.id,
+            inviteId,
+            orgId: invite.orgId,
+            isAdmin: invite.isAdmin,
+            isNewAccount: false,
+        })
 
         // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
         // stale right after this server-side update.
@@ -327,7 +333,13 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({
+            userId: siUser.id,
+            inviteId,
+            orgId: invite.orgId,
+            isAdmin: invite.isAdmin,
+            isNewAccount: true,
+        })
 
         return { userId: siUser.id }
     })

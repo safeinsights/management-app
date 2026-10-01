@@ -1,6 +1,8 @@
-import { getConfigValue } from './config'
+import { ENVIRONMENT_ID, getConfigValue } from './config'
 import { PostHog } from 'posthog-node'
+import * as Sentry from '@sentry/nextjs'
 import { POSTHOG_HOST } from '@/lib/constants'
+import logger from '@/lib/logger'
 
 let client: PostHog | null = null
 
@@ -20,15 +22,42 @@ async function getPostHogClient(): Promise<PostHog | null> {
     return client
 }
 
+export type PostHogEventName =
+    | 'study_created'
+    | 'study_proposal_submitted'
+    | 'study_proposal_approved'
+    | 'study_proposal_declined'
+    | 'study_proposal_clarification_requested'
+    | 'study_code_submitted'
+    | 'study_code_approved'
+    | 'study_code_clarification_requested'
+    | 'study_results_outputs_shared'
+    | 'study_results_outputs_not_shared'
+    | 'user_logged_in'
+    | 'invited'
+    | 'accepted_invite'
+    | 'role_updated'
+
+type PostHogProperties = Record<string, unknown>
+
 type PostHogEvent = {
     distinctId: string
-    event: string
-    properties?: Record<string, unknown>
+    event: PostHogEventName
+    // A function defers its lookups until PostHog is known to be on, and folds their failures in.
+    properties?: PostHogProperties | (() => Promise<PostHogProperties>)
 }
 
-export async function capturePostHogEvent(event: PostHogEvent): Promise<void> {
-    const posthog = await getPostHogClient()
-    if (!posthog) return
+// Never throws: callers capture next to emails and audit rows, and analytics must not block either.
+export async function capturePostHogEvent({ properties, ...event }: PostHogEvent): Promise<void> {
+    try {
+        const posthog = await getPostHogClient()
+        if (!posthog) return
 
-    await posthog.captureImmediate(event)
+        const resolved = typeof properties === 'function' ? await properties() : properties
+        await posthog.captureImmediate({ ...event, properties: { ...resolved, environment: ENVIRONMENT_ID } })
+    } catch (error: unknown) {
+        logger.error(error)
+        Sentry.captureException(error)
+        await Sentry.flush(2_000)
+    }
 }

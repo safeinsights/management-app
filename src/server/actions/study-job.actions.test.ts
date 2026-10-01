@@ -10,6 +10,8 @@ import {
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
+    expectPostHogCapture,
+    waitFor,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -431,6 +433,16 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(1)
+
+            await expectPostHogCapture({
+                distinctId: reviewer.id,
+                event: 'study_results_outputs_shared',
+                properties: expect.objectContaining({
+                    study_id: study.id,
+                    study_job_id: job.id,
+                    user_role: 'reviewer',
+                }),
+            })
         })
 
         test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
@@ -490,7 +502,6 @@ describe('Study Job Actions', () => {
 
             expect((await jobStatuses(job.id)).map((s) => s.status)).toContain('FILES-REJECTED')
             expect(await resultsComment(study.id)).toMatchObject({ decision: 'NEEDS-CLARIFICATION' })
-            expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
 
             const keys = await db
                 .selectFrom('studyJobFileRecipientKey')
@@ -498,6 +509,14 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(0)
+
+            await expectPostHogCapture(
+                expect.objectContaining({
+                    event: 'study_results_outputs_not_shared',
+                    properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),
+                }),
+            )
+            await waitFor(() => expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id))
         })
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first

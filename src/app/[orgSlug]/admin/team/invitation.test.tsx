@@ -42,7 +42,9 @@ describe('InviteButton', () => {
         await submitInvite('already@test.com')
 
         expect(await screen.findByText('Invitation sent successfully!')).toBeInTheDocument()
-        expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'already@test.com', inviteId: pending.id })
+        await waitFor(() =>
+            expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'already@test.com', inviteId: pending.id }),
+        )
         expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Invite resent' }))
         expect(screen.queryByLabelText('Invite by email')).not.toBeInTheDocument()
     })

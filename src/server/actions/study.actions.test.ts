@@ -16,6 +16,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    expectPostHogCapture,
     setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
@@ -600,6 +601,18 @@ describe('submitProposalReviewAction', () => {
             expect(audit.some((e) => e.eventType === 'CLARIFICATION_REQUESTED')).toBe(false)
             expect(audit.some((e) => e.eventType === 'REJECTED')).toBe(false)
         })
+
+        await expectPostHogCapture({
+            distinctId: user.id,
+            event: 'study_proposal_approved',
+            properties: expect.objectContaining({
+                study_id: study.id,
+                do_id: org.id,
+                user_role: 'reviewer',
+                approver_role: 'reviewer',
+                approval_duration_days: expect.any(Number),
+            }),
+        })
     })
 
     it('needs-clarification writes review row, moves study to CHANGE-REQUESTED, writes only clarification audit', async () => {
@@ -667,6 +680,12 @@ describe('submitProposalReviewAction', () => {
             .select('jobStatusChange.id')
             .execute()
         expect(jobStatusAfter.length).toBe(jobStatusBefore.length)
+
+        await expectPostHogCapture({
+            distinctId: user.id,
+            event: 'study_proposal_clarification_requested',
+            properties: expect.objectContaining({ study_id: study.id, user_role: 'reviewer' }),
+        })
     })
 
     it('reject decision writes review row, rejects study, emits rejection audit', async () => {
@@ -720,6 +739,12 @@ describe('submitProposalReviewAction', () => {
                 userId: user.id,
             })
             expect(audit.some((e) => e.eventType === 'APPROVED')).toBe(false)
+        })
+
+        await expectPostHogCapture({
+            distinctId: user.id,
+            event: 'study_proposal_declined',
+            properties: expect.objectContaining({ study_id: study.id, user_role: 'reviewer' }),
         })
     })
 
@@ -1412,6 +1437,12 @@ describe('submitCodeReviewDecisionAction', () => {
 
         const latest = await latestJobForStudy(study.id)
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
+
+        await expectPostHogCapture({
+            distinctId: user.id,
+            event: 'study_code_approved',
+            properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id, user_role: 'reviewer' }),
+        })
     })
 
     it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
@@ -1450,6 +1481,12 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-CHANGES-REQUESTED')).toBeTruthy()
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeUndefined()
+
+        await expectPostHogCapture({
+            distinctId: user.id,
+            event: 'study_code_clarification_requested',
+            properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),
+        })
     })
 
     it('needs-clarification still enforces the feedback word-count minimum', async () => {

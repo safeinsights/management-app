@@ -188,9 +188,9 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(studyJobId)).execute()
 
         if (shareOutputs) {
-            onStudyResultsApproved({ studyId, userId })
+            onStudyResultsApproved({ studyId, userId, studyJobId })
         } else {
-            onStudyResultsRejected({ studyId, userId })
+            onStudyResultsRejected({ studyId, userId, studyJobId })
         }
 
         const submitterFullName = await fetchUserFullName(userId, db)

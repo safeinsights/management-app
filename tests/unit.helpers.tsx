@@ -14,6 +14,7 @@ import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { PostHog } from 'posthog-node'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
@@ -49,6 +50,20 @@ export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
 export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+type CapturedPostHogEvent = { distinctId: string; event: string; properties: Record<string, unknown> }
+
+// The setup mock shares one captureImmediate across instances, so a fresh one sees every call.
+const postHogCaptureMock = () => vi.mocked(new PostHog('phc_unit_test').captureImmediate)
+
+export const postHogCaptures = () =>
+    postHogCaptureMock().mock.calls.map(([event]) => event as unknown as CapturedPostHogEvent)
+
+// Server captures run in deferred handlers, so this waits for the one expected.
+export const expectPostHogCapture = (expected: unknown) =>
+    waitForRtl(() => expect(postHogCaptures()).toContainEqual(expected))
+
+export const failNextPostHogCapture = (error: Error) => postHogCaptureMock().mockRejectedValueOnce(error)
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
     db
