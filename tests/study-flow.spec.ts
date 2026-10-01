@@ -784,7 +784,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
         // Confirm the post-submission view renders for the researcher.
         await goto(page, RESEARCHER_DASHBOARD)
         await viewStudyDetails(page, studyTitle)
-        await expect(page.getByRole('heading', { name: /^Submit code/ })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
     })
 })
@@ -1137,14 +1137,14 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 
         await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
-        await expect(resubmitButton).toBeEnabled()
+        await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await resubmitButton.click()
         await page
             .getByRole('dialog')
@@ -1167,7 +1167,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 

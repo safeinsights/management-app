@@ -29,7 +29,7 @@ import {
 import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import {
     initialResubmitNoteValue,
-    proposalResubmitNoteSchema,
+    resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import {
@@ -98,7 +98,7 @@ const renderResubmit = ({
             const noteForm = useForm<ResubmitNoteValue>({
                 mode: 'controlled',
                 initialValues: { ...initialResubmitNoteValue, resubmissionNote: note },
-                validate: withValidation ? zodResolver(proposalResubmitNoteSchema) : undefined,
+                validate: withValidation ? zodResolver(resubmitNoteSchema) : undefined,
             })
             const resubmit = useResubmitProposal({ studyId, form, noteForm, yjsForm, tabSessionId, flushNote })
             return { form, noteForm, ...resubmit }
