@@ -1092,7 +1092,7 @@ describe('submitProposalReviewAction', () => {
             submitProposalReviewAction({
                 studyId: study.id,
                 orgSlug: org.slug,
-                decision: 'needs-clarification',
+                decision: 'reject',
                 feedback: validFeedback,
                 reviewVersion: 1,
             }),
