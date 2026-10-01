@@ -65,7 +65,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
 }
 
 // submittedAt stays at the first submission; each revision is recorded only by its resubmission note.
-async function latestProposalSubmittedAt(studyId: string, study: StudyInfo) {
+async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
     const latest = await db
         .selectFrom('studyProposalComment')
         .select('createdAt')
@@ -74,36 +74,48 @@ async function latestProposalSubmittedAt(studyId: string, study: StudyInfo) {
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    return latest?.createdAt ?? study.submittedAt ?? study.createdAt
+    return dayjs(latest?.createdAt ?? study.submittedAt ?? study.createdAt).format('MM/DD/YYYY')
 }
 
-// Audience: the whole Data Partner org, Trigger: a lab submits a new or revised proposal. One send
-// each rather than a Bcc, because the template greets its reader by name.
-export const sendStudyProposalEmails = async (studyId: string) => {
-    const study = await getStudyAndOrgDisplayInfo(studyId)
-    const recipients = await getOrgMembers(study.orgId)
-
-    if (recipients.length === 0) {
-        logger.warn(`No recipients for study proposal email, studyId: ${studyId}`)
-        return
-    }
-
-    const vars = {
+// /view renders the lab's screen for the study's current state, so a link clicked later still lands right.
+async function labProposalDecisionVars(studyId: string, study: StudyInfo) {
+    return {
         ...baseStudyVars(study),
-        submittedOn: dayjs(await latestProposalSubmittedAt(studyId, study)).format('MM/DD/YYYY'),
-        studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+        submittedOn: await latestProposalSubmittedOn(studyId, study),
+        studyURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
+    }
+}
+
+type Recipient = { email: string; fullName: string }
+type StudyMessage = { subject: string; template: string; vars: Record<string, unknown> }
+
+// One send each rather than a Bcc, because the templates greet their reader by name.
+async function deliverToEach(studyId: string, recipients: Recipient[], { vars, ...message }: StudyMessage) {
+    if (recipients.length === 0) {
+        logger.warn(`No recipients for ${message.template} email, studyId: ${studyId}`)
+        return
     }
 
     await Promise.all(
         recipients.map((recipient) =>
-            deliver({
-                to: recipient.email,
-                subject: 'Proposal needs review',
-                template: 'vb - new research proposal',
-                vars: { ...vars, fullName: recipient.fullName },
-            }),
+            deliver({ ...message, to: recipient.email, vars: { ...vars, fullName: recipient.fullName } }),
         ),
     )
+}
+
+// Audience: the whole Data Partner org, Trigger: a lab submits a new or revised proposal.
+export const sendStudyProposalEmails = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    await deliverToEach(studyId, await getOrgMembers(study.orgId), {
+        subject: 'Proposal needs review',
+        template: 'vb - new research proposal',
+        vars: {
+            ...baseStudyVars(study),
+            submittedOn: await latestProposalSubmittedOn(studyId, study),
+            studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+        },
+    })
 }
 
 // onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
@@ -180,20 +192,14 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     })
 }
 
+// Audience: research lab, Trigger: a Data Partner approves the proposal.
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!study.researcherEmail) throw new Error(`no researcher is set for studyId: ${studyId}`)
-
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Proposal Approved',
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+        subject: 'Proposal approved',
         template: 'vb - research proposal approved',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
+        vars: await labProposalDecisionVars(studyId, study),
     })
 }
 
@@ -216,29 +222,12 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
 // Audience: research lab, Trigger: a Data Partner requests changes to the proposal.
 export const sendProposalNeedsRevisionEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const recipients = await getStudyLabAudience(studyId, study)
 
-    if (recipients.length === 0) {
-        logger.warn(`No recipients for proposal needs revision email, studyId: ${studyId}`)
-        return
-    }
-
-    const vars = {
-        ...baseStudyVars(study),
-        submittedOn: dayjs(await latestProposalSubmittedAt(studyId, study)).format('MM/DD/YYYY'),
-        studyURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
-    }
-
-    await Promise.all(
-        recipients.map((recipient) =>
-            deliver({
-                to: recipient.email,
-                subject: 'Proposal needs revision',
-                template: 'vb - research proposal needs revision',
-                vars: { ...vars, fullName: recipient.fullName },
-            }),
-        ),
-    )
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+        subject: 'Proposal needs revision',
+        template: 'vb - research proposal needs revision',
+        vars: await labProposalDecisionVars(studyId, study),
+    })
 }
 
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
@@ -333,31 +322,16 @@ async function getStudyLabAudience(studyId: string, study: StudyInfo) {
         .execute()
 }
 
-// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement. One send each rather
-// than a Bcc, because the template greets its reader by name.
+// Audience: research lab, Trigger: SI admin publishes a signed Study Agreement.
 export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const recipients = await getStudyLabAudience(studyId, study)
 
-    if (recipients.length === 0) {
-        logger.warn(`No recipients for study agreement email, studyId: ${studyId}`)
-        return
-    }
-
-    const studyURL = `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`
-
-    await Promise.all(
-        recipients.map((recipient) =>
-            deliver({
-                to: recipient.email,
-                subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
-                template: 'vb - sla ready for acknowledgment',
-                vars: {
-                    ...baseStudyVars(study),
-                    fullName: recipient.fullName,
-                    studyURL,
-                },
-            }),
-        ),
-    )
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+        subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
+        template: 'vb - sla ready for acknowledgment',
+        vars: {
+            ...baseStudyVars(study),
+            studyURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
+        },
+    })
 }
