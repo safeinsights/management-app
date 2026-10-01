@@ -1,42 +1,43 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { ENCLAVE_BG, LAB_BG, SIDENAV_BG } from '@/lib/constants'
+import { orderNavOrgs } from '@/lib/nav/side-nav'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
+import { semanticColor } from '@/theme/tokens'
+import { AppShellNavbar, Burger, Group } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
-import { AppNavView } from './app-nav-view'
-import { NavOrgLinks } from './nav-org-links'
-import { NavOrgsList } from './nav-orgs-list'
-import { NavbarProfileMenu } from './navbar-profile-menu'
+import { SideNavView } from './side-nav/side-nav-view'
 
-export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop }) => {
-    const path = usePathname()
+type Props = {
+    isOpened: boolean
+    onToggle: () => void
+}
+
+export const AppNav: React.FC<Props> = ({ isOpened, onToggle }) => {
+    const pathname = usePathname()
     const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsAction(),
         queryKey: ['user-orgs'],
     })
 
-    const sortedOrgs = useMemo(() => {
-        if (!orgs) return []
-        return [...orgs].sort((a, b) => a.name.localeCompare(b.name))
-    }, [orgs])
-
-    const focusedOrgSlug = extractOrgSlugFromPath(path)
-    const isMainDashboard = path == '/dashboard' || !focusedOrgSlug
-    const focusedOrg = focusedOrgSlug ? sortedOrgs.find((o) => o.slug == focusedOrgSlug) : undefined
-    const focusedOrgTheme = focusedOrg ? (focusedOrg.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : undefined
+    const orderedOrgs = useMemo(() => orderNavOrgs(orgs), [orgs])
+    const focusedOrgSlug = extractOrgSlugFromPath(pathname)
 
     return (
-        <AppNavView
-            orgs={sortedOrgs}
-            focusedOrgSlug={focusedOrgSlug}
-            isMainDashboard={isMainDashboard}
-            isDesktop={isDesktop}
-            navbarBg={focusedOrgTheme || SIDENAV_BG}
-            navContent={isMainDashboard ? <NavOrgsList orgs={sortedOrgs} /> : <NavOrgLinks org={focusedOrg} />}
-            profileMenu={<NavbarProfileMenu />}
-        />
+        <AppShellNavbar withBorder={false} bg={semanticColor('surface.sidenav')}>
+            {/* The alt layout runs the open mobile nav over the bar, so its own burger closes it. */}
+            <Group hiddenFrom="sm" justify="flex-end" px="md" pt="md">
+                <Burger
+                    opened={isOpened}
+                    onClick={onToggle}
+                    size="sm"
+                    color={semanticColor('text.white')}
+                    aria-label="Close navigation"
+                />
+            </Group>
+            <SideNavView orgs={orderedOrgs} focusedOrgSlug={focusedOrgSlug} pathname={pathname} />
+        </AppShellNavbar>
     )
 }

@@ -1,0 +1,106 @@
+/* Geometry from the TopNav spec (Devika, Sep 2026): 64px bar, 32px content row inset 24px, the
+   account cluster flush right, a 192px popover 4px below it. */
+
+.bar {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding-inline: var(--mantine-spacing-lg);
+    background-color: var(--si-color-surface-topnav);
+    border-bottom: rem(1px) solid var(--si-color-border-default);
+    transition: box-shadow 150ms ease;
+}
+
+.bar[data-scrolled] {
+    box-shadow: var(--mantine-shadow-xs);
+}
+
+.account {
+    margin-left: auto;
+}
+
+.trigger {
+    composes: focusRing from '../shell.module.css';
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-xs);
+    height: rem(32px);
+    border-radius: var(--mantine-radius-xs);
+    color: var(--si-color-surface-sidenav);
+    font-size: var(--si-font-size-14);
+    font-weight: var(--si-font-weight-semibold);
+    line-height: var(--si-line-height-normal);
+}
+
+.name {
+    min-width: rem(20px);
+    max-width: rem(120px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.caret {
+    display: inline-flex;
+    margin-left: calc(var(--mantine-spacing-xxs) - var(--mantine-spacing-xs));
+}
+
+.dropdown {
+    width: rem(192px);
+    padding: var(--mantine-spacing-xs);
+    border: 0;
+    border-radius: var(--mantine-radius-sm);
+    background-color: var(--si-color-surface-popover);
+    box-shadow: var(--mantine-shadow-md);
+}
+
+.list {
+    composes: plainList from '../shell.module.css';
+}
+
+.item {
+    composes: focusRing from '../shell.module.css';
+    --focus-ring-offset: rem(-2px);
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-xs);
+    width: 100%;
+    height: rem(40px);
+    padding-inline: var(--mantine-spacing-xs);
+    border: 0;
+    border-radius: var(--mantine-radius-xs);
+    background: none;
+    color: var(--si-color-text-primary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--si-font-size-14);
+    font-weight: var(--si-font-weight-semibold);
+    line-height: var(--si-line-height-normal);
+    text-align: left;
+    text-decoration: none;
+}
+
+.item:hover {
+    background-color: var(--si-color-surface-hover);
+}
+
+.item[aria-current='page'] {
+    background-color: var(--si-color-brand-accentalpha);
+}
+
+.itemIcon {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.divider {
+    border: 0;
+    border-top: rem(1px) solid var(--si-color-border-default);
+    margin: var(--mantine-spacing-xxs) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bar {
+        transition: none;
+    }
+}

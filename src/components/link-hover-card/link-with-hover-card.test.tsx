@@ -202,6 +202,6 @@ describe('LinkWithHoverCard', () => {
         fireEvent.click(screen.getByRole('link', { name: 'second' }))
 
         await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1))
-        await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('My dashboard'))
+        await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('My studies'))
     })
 })

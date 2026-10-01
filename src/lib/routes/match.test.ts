@@ -35,7 +35,7 @@ describe('matchInternalRoute', () => {
     it('matches the app pages that carry a fixed heading', () => {
         expect(matchInternalRoute('/dashboard')).toEqual({
             kind: 'appPage',
-            title: 'My dashboard',
+            title: 'My studies',
             category: null,
             access: null,
         })
@@ -62,7 +62,7 @@ describe('matchInternalRoute', () => {
     it('ignores a trailing slash', () => {
         expect(matchInternalRoute('/dashboard/')).toEqual({
             kind: 'appPage',
-            title: 'My dashboard',
+            title: 'My studies',
             category: null,
             access: null,
         })
