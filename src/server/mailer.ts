@@ -11,13 +11,18 @@ import logger from '@/lib/logger'
 import { deliver, SI_EMAIL } from './mailgun'
 
 async function getOrgMembers(orgId: string) {
-    return db
-        .selectFrom('user')
-        .innerJoin('orgUser', 'user.id', 'orgUser.userId')
-        .distinctOn('user.id')
-        .select(['user.id', 'user.email', 'user.fullName'])
-        .where('orgUser.orgId', '=', orgId)
-        .execute()
+    return (
+        db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .distinctOn('user.id')
+            .select(['user.id', 'user.email', 'user.fullName'])
+            .where('orgUser.orgId', '=', orgId)
+            .where('user.email', 'is not', null)
+            // Kysely doesn't narrow types from a where; keep this paired with the null filter above.
+            .$narrowType<{ email: string }>()
+            .execute()
+    )
 }
 
 // SI admin is org_user.is_admin on the safe-insights org, the same row Clerk's metadata is built from.
@@ -59,27 +64,46 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
     })
 }
 
+// submittedAt stays at the first submission; each revision is recorded only by its resubmission note.
+async function latestProposalSubmittedAt(studyId: string, study: StudyInfo) {
+    const latest = await db
+        .selectFrom('studyProposalComment')
+        .select('createdAt')
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'RESUBMISSION-NOTE')
+        .orderBy('createdAt', 'desc')
+        .executeTakeFirst()
+
+    return latest?.createdAt ?? study.submittedAt ?? study.createdAt
+}
+
+// Audience: the whole Data Partner org, Trigger: a lab submits a new or revised proposal. One send
+// each rather than a Bcc, because the template greets its reader by name.
 export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const reviewers = await getOrgMembers(study.orgId)
-    const emails = reviewers.map((r) => r.email).filter(Boolean)
+    const recipients = await getOrgMembers(study.orgId)
 
-    if (emails.length === 0) {
+    if (recipients.length === 0) {
         logger.warn(`No recipients for study proposal email, studyId: ${studyId}`)
         return
     }
 
-    // Bcc so no one sees another's address; Mailgun requires at least one "To" (OTTER-651).
-    await deliver({
-        to: SI_EMAIL,
-        bcc: emails.join(', '),
-        subject: 'New study proposal',
-        template: 'vb - new research proposal',
-        vars: {
-            ...baseStudyVars(study),
-            dashboardURL: `${APP_BASE_URL}/${study.orgSlug}/dashboard`,
-        },
-    })
+    const vars = {
+        ...baseStudyVars(study),
+        submittedOn: dayjs(await latestProposalSubmittedAt(studyId, study)).format('MM/DD/YYYY'),
+        studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+    }
+
+    await Promise.all(
+        recipients.map((recipient) =>
+            deliver({
+                to: recipient.email,
+                subject: 'Proposal needs review',
+                template: 'vb - new research proposal',
+                vars: { ...vars, fullName: recipient.fullName },
+            }),
+        ),
+    )
 }
 
 // onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
@@ -136,7 +160,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewers = await getOrgMembers(study.orgId)
-    const emails = reviewers.map((reviewer) => reviewer.email).filter((email) => email)
+    const emails = reviewers.map((reviewer) => reviewer.email)
 
     if (emails.length === 0) {
         logger.warn(`No recipients for study code submitted email, studyId: ${studyId}`)

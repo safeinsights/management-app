@@ -15,7 +15,13 @@ import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
-import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
+import {
+    deferred,
+    onStudyReviewRequested,
+    onStudyCodeSubmitted,
+    onStudyCreated,
+    onStudyProposalResubmitted,
+} from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
 import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
@@ -710,6 +716,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
+        onStudyProposalResubmitted({ studyId })
 
         return {
             studyId,

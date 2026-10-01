@@ -99,6 +99,11 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     })
 })
 
+// Only the proposal email: onStudyCreated's audit, PostHog event and agreement ask are first-submission only.
+export const onStudyProposalResubmitted = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendStudyProposalEmails(studyId)
+})
+
 export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
     await email.sendStudyAgreementReadyEmail(studyId)
 })

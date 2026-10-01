@@ -36,27 +36,66 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyProposalEmails sends all org members in Bcc, not To (OTTER-651)', async () => {
+    it('sendStudyProposalEmails greets each Data Partner member by name, linking to the study review', async () => {
         const { study, org, user1 } = await insertTestOrgStudyJobUsers()
-
-        const researcher = await getUser(study.researcherId)
 
         await mailgun.sendStudyProposalEmails(study.id)
 
-        expect(deliver).toHaveBeenCalledWith(
+        expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
-                bcc: expect.stringContaining(user1.email || ''),
-                subject: expect.stringContaining('New study proposal'),
+                to: user1.email,
+                subject: 'Proposal needs review',
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
-                    submittedTo: org.name,
+                    fullName: user1.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    dashboardURL: expect.stringContaining(`/${org.slug}/dashboard`),
+                    researchLab: org.name,
+                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
+    })
+
+    it('sendStudyProposalEmails sends one address per message, never a Bcc (OTTER-651)', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        const orgMembers = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .select(['user.email'])
+            .where('orgUser.orgId', '=', study.orgId)
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const messages = (deliverMock.mock.calls as [{ to: string; bcc?: string }][]).map(([message]) => message)
+        expect(messages.map((message) => message.to).sort()).toEqual(orgMembers.map((m) => m.email).sort())
+        for (const message of messages) expect(message.bcc).toBeUndefined()
+    })
+
+    it('sendStudyProposalEmails dates a revised proposal by its resubmission, not the first submission', async () => {
+        const { study, user2 } = await insertTestOrgStudyJobUsers()
+        await db
+            .updateTable('study')
+            .set({ submittedAt: new Date('2026-01-05') })
+            .where('id', '=', study.id)
+            .execute()
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user2.id,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: JSON.stringify({ text: 'revised the methodology' }),
+                version: 2,
+                createdAt: new Date('2026-03-10T12:00:00'),
+            })
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
+        expect(message.vars.submittedOn).toBe('03/10/2026')
     })
 
     it('sendStudyAgreementReadyEmail reaches the researcher, greeted by name', async () => {
@@ -294,14 +333,6 @@ describe('mailgun email functions', () => {
         const allEmails = orgMembers.map((m) => m.email).filter(Boolean)
 
         expect(allEmails.length).toBeGreaterThan(1)
-
-        await mailgun.sendStudyProposalEmails(study.id)
-        const proposalCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
-        expect(proposalCall.to).toBe(SI_EMAIL)
-        for (const email of allEmails) {
-            expect(proposalCall.to).not.toContain(email)
-            expect(proposalCall.bcc).toContain(email)
-        }
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
         const codeCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
