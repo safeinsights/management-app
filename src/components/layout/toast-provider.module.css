@@ -1,0 +1,12 @@
+/* Mantine renders the position group in array order, so for a top-right anchor the oldest sits
+   topmost; column-reverse puts the newest on top. The margin reset is required: Mantine spaces
+   siblings with margin-top on the notification slot, which would compound with the gap. */
+.root {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+}
+
+.notification {
+    margin-top: 0;
+}

@@ -11,7 +11,7 @@ import { TrashIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sources.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { ActionSuccessType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
 
@@ -29,7 +29,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
         mutationFn: deleteOrgDataSourceAction,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
-            reportSuccess('Data source was deleted successfully')
+            showToast({ category: 'success', title: 'Success', message: 'Data source was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete data source'),
     })

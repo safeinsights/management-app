@@ -11,6 +11,7 @@ import { Anchor, Box, Button, Container, Group, Paper, Stack, Stepper, Text, Tit
 import { useForm } from '@/common'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
 import { useState } from 'react'
@@ -73,9 +74,9 @@ export function AddSMSMFA() {
         if (!phoneForm.isValid || isSendingSms) return
 
         if (lastSentTime && Date.now() - lastSentTime < 30000) {
-            notifications.show({
-                message: 'You have recently requested a code. Please wait 30 seconds before trying again.',
-                color: 'yellow',
+            showToast({
+                category: 'warning',
+                title: 'You have recently requested a code. Please wait 30 seconds before trying again.',
             })
             return
         }
@@ -113,7 +114,7 @@ export function AddSMSMFA() {
     const resendCode = async () => {
         await sendVerificationCode(phoneForm.values)
         if (!(lastSentTime && Date.now() - lastSentTime < 30000)) {
-            notifications.show({ message: 'A new code has been sent!', color: 'green' })
+            showToast({ category: 'success', title: 'A new code has been sent!' })
         }
     }
 
@@ -121,7 +122,7 @@ export function AddSMSMFA() {
         if (!otpForm.isValid) return
 
         if (!phoneObj) {
-            notifications.show({ message: 'No phone number found', color: 'red' })
+            showToast({ category: 'error', title: 'No phone number found' })
             return
         }
 
@@ -134,7 +135,7 @@ export function AddSMSMFA() {
                 try {
                     await setReservedForSecondFactor(phoneObj)
                     await makeDefaultSecondFactor(phoneObj)
-                    notifications.show({ message: 'MFA enabled', color: 'green' })
+                    showToast({ category: 'success', title: 'MFA enabled' })
                 } catch (error) {
                     console.error(error)
                     otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
@@ -150,7 +151,7 @@ export function AddSMSMFA() {
                     setBackupCodes([])
                 }
 
-                notifications.show({ message: 'Verification successful', color: 'green' })
+                showToast({ category: 'success', title: 'Verification successful' })
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }

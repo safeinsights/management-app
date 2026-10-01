@@ -61,4 +61,20 @@ describe('a decision that fails twice for different reasons', () => {
         expect(screen.getByText(OUTPUTS_DECISION_FAILURE.staleSaved)).toBeDefined()
         expect(screen.queryByText(OUTPUTS_DECISION_FAILURE.saved)).toBeNull()
     })
+
+    // `update` shallow-merges, so without an explicit clear the reload notice would keep the error
+    // toast's X icon, assertive live region and category marker.
+    it('leaves none of the toast presentation behind on the replacement', async () => {
+        mountNotifications()
+
+        showOutputsDecisionFailure({ error: new TypeError('Failed to fetch'), isSaved: true })
+        await waitFor(() => expect(screen.getByText(OUTPUTS_DECISION_FAILURE.saved)).toBeDefined())
+
+        showOutputsDecisionFailure({ error: staleActionError(), isSaved: true })
+        await waitFor(() => expect(screen.getByRole('button', { name: RELOAD_BUTTON_LABEL })).toBeDefined())
+
+        expect(document.querySelector('[data-toast-kind]')).toBeNull()
+        expect(document.querySelector('[aria-live]')).toBeNull()
+        expect(document.querySelector('.mantine-Notification-icon')).toBeNull()
+    })
 })

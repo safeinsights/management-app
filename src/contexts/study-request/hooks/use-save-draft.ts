@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
 import { errorToString } from '@/lib/errors'
@@ -68,8 +68,8 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
         },
         onError: (error) => {
-            notifications.show({
-                color: 'red',
+            showToast({
+                category: 'error',
                 title: 'Failed to save draft',
                 message: `${errorToString(error)}\nPlease contact support.`,
             })

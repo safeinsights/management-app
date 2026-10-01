@@ -36,7 +36,7 @@ describe('AgentContext', () => {
         await waitFor(() => {
             expect(showSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'green',
+                    'data-toast-kind': 'success',
                     title: 'Context saved',
                     message: 'Updated System context.',
                 }),

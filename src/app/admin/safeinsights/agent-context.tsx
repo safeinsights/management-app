@@ -7,7 +7,7 @@ import { getAgentContextAction, writeAgentContextAction } from '@/server/actions
 import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 
 type ContextProps = { name: ContextName; orgId: string | null }
 
@@ -25,18 +25,17 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
             queryClient.invalidateQueries({ queryKey: ['agentContext', name, orgId] })
-            notifications.show({
-                color: 'green',
+            showToast({
+                category: 'success',
                 title: 'Context saved',
                 message: `Updated ${CONTEXT_LABELS[name].label}.`,
             })
         },
         onError: (error) => {
-            notifications.show({
-                color: 'red',
+            showToast({
+                category: 'error',
                 title: 'Context save failed',
                 message: errorToString(error),
-                autoClose: false,
             })
         },
     })

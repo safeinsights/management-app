@@ -116,7 +116,8 @@ export class ActionFailure extends Error {
     }
 }
 
-export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) => {
+/** The message to show a user, or null when the error carries nothing worth showing them. */
+export const userFacingErrorMessage = (error: unknown, clerkOverrides?: Record<string, string>): string | null => {
     if (!error) return ''
 
     if (typeof error === 'string') {
@@ -150,12 +151,17 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
         return STALE_DEPLOYMENT_MESSAGE
     }
 
+    // A bare Error carries developer text — "TypeError: Failed to fetch" — so there is nothing here
+    // a reader can use. Callers showing this to a user substitute their own copy.
     if (error instanceof Error) {
-        return String(error)
+        return null
     }
 
     return 'Unknown error occurred'
 }
+
+export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) =>
+    userFacingErrorMessage(error, clerkOverrides) ?? String(error)
 
 class RecordError extends ActionFailure {
     constructor(sanitizedError: Record<string, string>) {
