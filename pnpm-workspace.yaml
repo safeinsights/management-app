@@ -46,8 +46,9 @@ overrides:
     # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
     # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
     # the bump stays a patch/minor, never a breaking major.
-    # axios <1.18.0: GHSA-gcfj-64vw-6mp9 — Node adapter can reuse an inherited proxy after config clone.
-    'axios@>=1.0.0 <1.18.0': '>=1.18.0 <2'
+    # axios <1.20.0: GHSA-gcfj-64vw-6mp9 (inherited proxy reuse), then GHSA-542g-h47m-68v8,
+    # GHSA-vh66-26gq-q6x8, GHSA-9fr6-4gfg-395g and related prototype-pollution gadgets.
+    'axios@>=1.0.0 <1.20.0': '>=1.20.0 <2'
     # brace-expansion <5.0.12: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, CVE-2026-69152
     # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation),
     # now GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 and GHSA-q2hr-2g5m-vwhr against 5.0.9 (stack
