@@ -224,22 +224,6 @@ export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     })
 }
 
-export const sendStudyCodeRejectedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrgDisplayInfo(studyId)
-    if (!study.researcherEmail) return
-
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Code Rejected',
-        template: 'vb - code rejected',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
-    })
-}
-
 export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return

@@ -9,7 +9,7 @@ import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-fi
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
-import type { Decision } from '@/lib/review-decision'
+import type { CodeDecision } from '@/lib/review-decision'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const EDITOR_SKELETON_HEIGHT = 400
@@ -30,8 +30,8 @@ type CodeReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     studyId: string
     jobId: string
-    decisionValue: Decision | null
-    onDecisionChange: (next: Decision) => void
+    decisionValue: CodeDecision | null
+    onDecisionChange: (next: CodeDecision) => void
     onDecisionBlur: () => void
     decisionError: ReactNode
     labName: string
@@ -72,7 +72,7 @@ function FeedbackEditor({
 }
 
 type DecisionOption = {
-    value: Decision
+    value: CodeDecision
     title: string
     description: ReactNode
     testId: string
@@ -108,14 +108,14 @@ function DecisionRadioGroup({
     error,
     labName,
 }: {
-    value: Decision | null
-    onChange: (next: Decision) => void
+    value: CodeDecision | null
+    onChange: (next: CodeDecision) => void
     onBlur: () => void
     error: ReactNode
     labName: string
 }) {
     const options = buildDecisionOptions(labName)
-    const handleChange = (next: string) => onChange(next as Decision)
+    const handleChange = (next: string) => onChange(next as CodeDecision)
     const widgetBlur = useWidgetBlur(onBlur)
     const errorId = fieldErrorId(DECISION_GROUP_ID)
 
