@@ -86,6 +86,31 @@ async function labProposalDecisionVars(studyId: string, study: StudyInfo) {
     }
 }
 
+// The study's lab side. researcherId is the original submitter, and a later version can be submitted
+// by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
+// account has no address and drops out.
+async function getStudyLabAudience(studyId: string, study: StudyInfo) {
+    const resubmitters = await db
+        .selectFrom('studyProposalComment')
+        .select('authorId')
+        .distinct()
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'RESUBMISSION-NOTE')
+        .execute()
+
+    const userIds = [...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId)])].filter(
+        (id): id is string => Boolean(id),
+    )
+
+    return db
+        .selectFrom('user')
+        .select(['email', 'fullName'])
+        .where('id', 'in', userIds)
+        .where('email', 'is not', null)
+        .$narrowType<{ email: string }>()
+        .execute()
+}
+
 type Recipient = { email: string; fullName: string }
 type StudyMessage = { subject: string; template: string; vars: Record<string, unknown> }
 
@@ -215,7 +240,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
 }
 
 // Audience: research lab, Trigger: a Data Partner requests changes to the proposal.
-export const sendProposalNeedsRevisionEmail = async (studyId: string) => {
+export const sendStudyProposalNeedsRevisionEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
     await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
@@ -290,31 +315,6 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
             dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
         },
     })
-}
-
-// The study's lab side. researcherId is the original submitter, and a later version can be submitted
-// by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
-// account has no address and drops out.
-async function getStudyLabAudience(studyId: string, study: StudyInfo) {
-    const resubmitters = await db
-        .selectFrom('studyProposalComment')
-        .select('authorId')
-        .distinct()
-        .where('studyId', '=', studyId)
-        .where('entryType', '=', 'RESUBMISSION-NOTE')
-        .execute()
-
-    const userIds = [...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId)])].filter(
-        (id): id is string => Boolean(id),
-    )
-
-    return db
-        .selectFrom('user')
-        .select(['email', 'fullName'])
-        .where('id', 'in', userIds)
-        .where('email', 'is not', null)
-        .$narrowType<{ email: string }>()
-        .execute()
 }
 
 // Audience: research lab, Trigger: SI admin publishes a signed Study Agreement.
