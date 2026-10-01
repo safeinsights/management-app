@@ -11,6 +11,7 @@ import {
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     seedAcknowledgedStudyAgreement,
     insertTestUser,
     mockClerkSession,
@@ -208,57 +209,6 @@ describe('Study Actions', () => {
                 .execute()
             expect(jobStatusChanges).toHaveLength(0)
         })
-
-        it('rejects a proposal-only study without crashing', async () => {
-            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const study = await insertProposalOnlyStudy(org, user.id)
-
-            actionResult(
-                await submitProposalReviewAction({
-                    studyId: study.id,
-                    orgSlug: org.slug,
-                    decision: 'reject',
-                    feedback: buildFeedback(60),
-                    reviewVersion: 1,
-                }),
-            )
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.status).toBe('REJECTED')
-            expect(updatedStudy.rejectedAt).toBeTruthy()
-            expect(updatedStudy.approvedAt).toBeNull()
-            expect(updatedStudy.reviewerId).toBe(user.id)
-
-            await waitFor(async () => {
-                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
-                    eventType: 'REJECTED',
-                    recordType: 'STUDY',
-                    recordId: study.id,
-                    userId: user.id,
-                })
-            })
-
-            await waitFor(() => {
-                expect(deliverMock).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        to: user.email,
-                        template: 'vb - research proposal rejected',
-                    }),
-                )
-            })
-
-            const jobStatusChanges = await db
-                .selectFrom('jobStatusChange')
-                .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-                .where('studyJob.studyId', '=', study.id)
-                .select('jobStatusChange.id')
-                .execute()
-            expect(jobStatusChanges).toHaveLength(0)
-        })
     })
 
     it('fetchStudiesForOrgAction requires user to be a researcher', async () => {
@@ -389,27 +339,6 @@ describe('Study Actions', () => {
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
             const result = await approveProposal(studyId, enclave.slug)
-
-            expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
-            const row = await db
-                .selectFrom('study')
-                .select('status')
-                .where('id', '=', studyId)
-                .executeTakeFirstOrThrow()
-            expect(row.status).toBe('DRAFT')
-        })
-
-        it('data-org member cannot reject an unsubmitted draft, and status stays DRAFT', async () => {
-            const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-reject-draft' })
-
-            await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
-            const result = await submitProposalReviewAction({
-                studyId,
-                orgSlug: enclave.slug,
-                decision: 'reject',
-                feedback: buildFeedback(60),
-                reviewVersion: 1,
-            })
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
             const row = await db
@@ -794,6 +723,62 @@ describe('submitProposalReviewAction', () => {
         })
     })
 
+    it('reject decision on a study with no job rejects it without writing a job status', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyOnly({
+            org,
+            researcherId: user.id,
+            status: 'PENDING-REVIEW',
+            withStudyAgreement: false,
+        })
+
+        actionResult(
+            await submitProposalReviewAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision: 'reject',
+                feedback: validFeedback,
+                reviewVersion: 1,
+            }),
+        )
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('REJECTED')
+        expect(updatedStudy.rejectedAt).toBeTruthy()
+        expect(updatedStudy.approvedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
+
+        await waitFor(async () => {
+            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
+                eventType: 'REJECTED',
+                recordType: 'STUDY',
+                recordId: study.id,
+                userId: user.id,
+            })
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: user.email,
+                    template: 'vb - research proposal rejected',
+                }),
+            )
+        })
+
+        const jobStatusChanges = await db
+            .selectFrom('jobStatusChange')
+            .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+            .where('studyJob.studyId', '=', study.id)
+            .select('jobStatusChange.id')
+            .execute()
+        expect(jobStatusChanges).toHaveLength(0)
+    })
+
     it('rejects feedback below minimum word count', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -947,6 +932,23 @@ describe('submitProposalReviewAction', () => {
         },
     )
 
+    it('rejects a decline on an unsubmitted draft, and status stays DRAFT', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-reject-draft' })
+
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        const result = await submitProposalReviewAction({
+            studyId,
+            orgSlug: enclave.slug,
+            decision: 'reject',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
+        const row = await db.selectFrom('study').select('status').where('id', '=', studyId).executeTakeFirstOrThrow()
+        expect(row.status).toBe('DRAFT')
+    })
+
     it('rejects a second proposal review submission after the first decision is recorded', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -996,7 +998,7 @@ describe('submitProposalReviewAction', () => {
             submitProposalReviewAction({
                 studyId: study.id,
                 orgSlug: org.slug,
-                decision: 'reject',
+                decision: 'needs-clarification',
                 feedback: validFeedback,
                 reviewVersion: 1,
             }),
@@ -1412,25 +1414,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
     })
 
-    it('refuses a reject decision and writes nothing', async () => {
-        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-
-        const result = await submitCodeReviewDecisionAction({
-            studyId: study.id,
-            orgSlug: org.slug,
-            // @ts-expect-error the schema rejects it; this proves the runtime does too.
-            decision: 'reject',
-            feedback: validFeedback,
-            criteria: validCriteria,
-        })
-
-        expect(result).toMatchObject({ error: expect.anything() })
-        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
-        const latest = await latestJobForStudy(study.id)
-        expect(latest.id).toBe(job.id)
-        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
-    })
-
     it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
@@ -1497,6 +1480,25 @@ describe('submitCodeReviewDecisionAction', () => {
 
         expect(result).toMatchObject({ error: expect.objectContaining({ feedback: expect.any(String) }) })
         expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
+    it('refuses a reject decision and writes nothing', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            // @ts-expect-error the schema rejects it; this proves the runtime does too.
+            decision: 'reject',
+            feedback: validFeedback,
+            criteria: validCriteria,
+        })
+
+        expect(result).toMatchObject({ error: expect.anything() })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+        const latest = await latestJobForStudy(study.id)
+        expect(latest.id).toBe(job.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
     })
 
     it('rejects with a friendly error when no code job exists for the study', async () => {

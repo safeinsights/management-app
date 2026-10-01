@@ -129,13 +129,13 @@ describe('useCodeReviewMutation', () => {
             expect(result.current.isSubmitting).toBe(true)
         })
 
-        const changesRequested = await db
+        const jobChangesRequested = await db
             .selectFrom('jobStatusChange')
             .select('id')
             .where('studyJobId', '=', job.id)
             .where('status', '=', 'CODE-CHANGES-REQUESTED')
             .executeTakeFirst()
-        expect(changesRequested).toBeTruthy()
+        expect(jobChangesRequested).toBeTruthy()
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
     })
 
