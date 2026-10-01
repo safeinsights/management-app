@@ -3,6 +3,8 @@ import type { CodeDecisionStatus } from '@/lib/study-job-status'
 
 export type Decision = 'approve' | 'needs-clarification' | 'reject'
 
+export type CodeReviewDecision = Exclude<Decision, 'reject'>
+
 const DECISION_TO_REVIEW: Record<Decision, ReviewDecision> = {
     approve: 'APPROVE',
     'needs-clarification': 'NEEDS-CLARIFICATION',

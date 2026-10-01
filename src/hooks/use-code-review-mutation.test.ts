@@ -101,8 +101,7 @@ describe('useCodeReviewMutation', () => {
         )
     })
 
-    // OTTER-603: rejecting code fails the job only; the proposal stays APPROVED.
-    it('reject broadcasts and marks the code rejected, leaving the proposal approved', async () => {
+    it('needs-clarification broadcasts and requests code changes, leaving the proposal approved', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const { result } = renderHook(
@@ -114,7 +113,11 @@ describe('useCodeReviewMutation', () => {
         const handle = constructed[0]
 
         await act(async () => {
-            result.current.submitReview({ decision: 'reject', feedback: validFeedback, criteria: validCriteria })
+            result.current.submitReview({
+                decision: 'needs-clarification',
+                feedback: validFeedback,
+                criteria: validCriteria,
+            })
         })
         await waitFor(async () => {
             const updated = await db
@@ -126,13 +129,13 @@ describe('useCodeReviewMutation', () => {
             expect(result.current.isSubmitting).toBe(true)
         })
 
-        const jobRejected = await db
+        const changesRequested = await db
             .selectFrom('jobStatusChange')
             .select('id')
             .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-REJECTED')
+            .where('status', '=', 'CODE-CHANGES-REQUESTED')
             .executeTakeFirst()
-        expect(jobRejected).toBeTruthy()
+        expect(changesRequested).toBeTruthy()
         expect(handle.sendStateless).toHaveBeenCalledTimes(1)
     })
 

@@ -14,7 +14,7 @@ import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feed
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
-import type { Decision } from '@/lib/review-decision'
+import type { CodeReviewDecision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -74,7 +74,7 @@ function useCodeReview({
     labName: string
 }) {
     const feedback = useReviewFeedback(`Enter your feedback for ${labName}.`)
-    const decision = useReviewDecision()
+    const decision = useReviewDecision<CodeReviewDecision>()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // State (not a ref): must re-render so validateOnBlur and the gated field blurs see the flip.
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
@@ -167,7 +167,7 @@ type EditableBodyProps = {
     isVisible: boolean
     feedback: ReturnType<typeof useReviewFeedback>
     evaluationForm: ReturnType<typeof useCodeReview>['evaluationForm']
-    decision: ReturnType<typeof useReviewDecision>
+    decision: ReturnType<typeof useReviewDecision<CodeReviewDecision>>
     job: LatestJobForStudy
     labName: string
     proposalHref: string
@@ -175,7 +175,7 @@ type EditableBodyProps = {
     nav: StepNav
     isTestStudy: boolean
     onSubmit: () => void
-    onDecisionChange: (next: Decision) => void
+    onDecisionChange: (next: CodeReviewDecision) => void
     hasAttemptedSubmit: boolean
 }
 

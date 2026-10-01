@@ -21,7 +21,7 @@ import {
     insertTestUser,
 } from '@/tests/unit.helpers'
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { approveStudyProposalAction, submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
+import { submitCodeReviewDecisionAction, submitProposalReviewAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
@@ -1922,7 +1922,15 @@ describe('Request Study Actions', () => {
                     .executeTakeFirstOrThrow()
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
-            actionResult(await approveStudyProposalAction({ studyId: draft.studyId, orgSlug: enclave.slug }))
+            actionResult(
+                await submitProposalReviewAction({
+                    studyId: draft.studyId,
+                    orgSlug: enclave.slug,
+                    decision: 'approve',
+                    feedback: buildFeedback(60),
+                    reviewVersion: 1,
+                }),
+            )
 
             const approved = await studyRow()
             expect(approved.status).toBe('APPROVED')

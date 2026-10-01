@@ -22,15 +22,12 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
     ackAgreementsAction,
-    approveStudyProposalAction,
-    doesTestImageExistForStudyAction,
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
     getOutputsDecisionFeedbackAction,
     getStudyAction,
-    rejectStudyProposalAction,
     softDeleteStudyAction,
     submitCodeReviewDecisionAction,
     submitProposalReviewAction,
@@ -57,44 +54,14 @@ describe('Study Actions', () => {
         vi.clearAllMocks()
     })
 
-    it('successfully approves a study proposal', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-        await waitFor(async () => {
-            expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
-                eventType: 'APPROVED',
-                recordType: 'STUDY',
-                recordId: study.id,
-                userId: user.id,
-            })
+    const approveProposal = (studyId: string, orgSlug: string) =>
+        submitProposalReviewAction({
+            studyId,
+            orgSlug,
+            decision: 'approve',
+            feedback: buildFeedback(60),
+            reviewVersion: 1,
         })
-
-        await waitFor(() => {
-            expect(deliverMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    to: user.email,
-                    template: 'vb - research proposal approved',
-                }),
-            )
-        })
-
-        const job = await latestJobForStudy(study.id)
-
-        expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
-
-        const updatedStudy = await db
-            .selectFrom('study')
-            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('APPROVED')
-        expect(updatedStudy.approvedAt).toBeTruthy()
-        expect(updatedStudy.rejectedAt).toBeNull()
-        expect(updatedStudy.reviewerId).toBe(user.id)
-    })
 
     const insertSiAdmin = async () => {
         const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG, type: 'enclave' })
@@ -118,7 +85,7 @@ describe('Study Actions', () => {
             withStudyAgreement: false,
         })
 
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+        await approveProposal(study.id, org.slug)
 
         // The approval email proves the deferred work ran, so the absent one is absent by choice.
         await waitFor(() => {
@@ -129,45 +96,11 @@ describe('Study Actions', () => {
         expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - sla notice' }))
     })
 
-    it('successfully approves a python language study proposal', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-
-        await db
-            .insertInto('orgCodeEnv')
-            .values({
-                name: 'Python Base',
-                identifier: 'python-base',
-                language: 'PYTHON',
-                commandLines: { py: 'python %f' },
-                url: 'test/url',
-                isTesting: true,
-                orgId: org.id,
-                starterCodeFileNames: ['starter.py'],
-            })
-            .execute()
-
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            language: 'PYTHON',
-        })
-
-        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-        const job = await latestJobForStudy(study.id)
-
-        expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
-    })
-
     it('does not approve a study proposal twice', async () => {
         const { user, org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
 
-        await Promise.all([
-            approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
-            approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
-        ])
+        await Promise.all([approveProposal(study.id, org.slug), approveProposal(study.id, org.slug)])
 
         await waitFor(async () => {
             const auditEntries = await getAuditEntries(study.id, 'STUDY')
@@ -184,32 +117,6 @@ describe('Study Actions', () => {
                 ),
             ).toHaveLength(1)
         })
-    })
-
-    it('rejects proposal approval for an already-decided study', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SCANNED',
-        })
-        await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
-
-        const result = await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-        expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
-        expect(deliverMock).not.toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - code approved' }))
-        expect(deliverMock).not.toHaveBeenCalledWith(
-            expect.objectContaining({ template: 'vb - research proposal approved' }),
-        )
-
-        const updatedStudy = await db
-            .selectFrom('study')
-            .select(['status'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('PENDING-REVIEW')
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
@@ -239,50 +146,6 @@ describe('Study Actions', () => {
         expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
     })
 
-    describe('rejectStudyProposalAction', () => {
-        it('rejects a study with a job', async () => {
-            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { study } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-            })
-
-            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.status).toBe('REJECTED')
-            expect(updatedStudy.rejectedAt).toBeTruthy()
-            expect(updatedStudy.approvedAt).toBeNull()
-            expect(updatedStudy.reviewerId).toBe(user.id)
-
-            await waitFor(async () => {
-                expect(await getAuditEntries(study.id, 'STUDY')).toContainEqual({
-                    eventType: 'REJECTED',
-                    recordType: 'STUDY',
-                    recordId: study.id,
-                    userId: user.id,
-                })
-            })
-
-            await waitFor(() => {
-                expect(deliverMock).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        to: user.email,
-                        template: 'vb - code rejected',
-                    }),
-                )
-            })
-
-            const job = await latestJobForStudy(study.id)
-            expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
-        })
-    })
-
     describe('proposal-only studies (no job)', () => {
         async function insertProposalOnlyStudy(org: { id: string }, researcherId: string) {
             return db
@@ -307,7 +170,7 @@ describe('Study Actions', () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)
 
-            await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+            actionResult(await approveProposal(study.id, org.slug))
 
             const updatedStudy = await db
                 .selectFrom('study')
@@ -350,7 +213,15 @@ describe('Study Actions', () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const study = await insertProposalOnlyStudy(org, user.id)
 
-            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+            actionResult(
+                await submitProposalReviewAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision: 'reject',
+                    feedback: buildFeedback(60),
+                    reviewVersion: 1,
+                }),
+            )
 
             const updatedStudy = await db
                 .selectFrom('study')
@@ -387,85 +258,6 @@ describe('Study Actions', () => {
                 .select('jobStatusChange.id')
                 .execute()
             expect(jobStatusChanges).toHaveLength(0)
-        })
-    })
-
-    describe('doesTestImageExistForStudyAction', () => {
-        it('returns true when a test image exists for the study language and org', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
-            await db
-                .insertInto('orgCodeEnv')
-                .values({
-                    name: 'Test R Image',
-                    identifier: 'test-r-image',
-                    language: 'R',
-                    commandLines: { r: 'Rscript %f' },
-                    url: 'test/url',
-                    isTesting: true,
-                    orgId: org.id,
-                    starterCodeFileNames: ['starter.R'],
-                })
-                .execute()
-
-            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
-
-            expect(result).toBe(true)
-        })
-
-        it('returns false when no test image exists for the study org', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
-
-            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
-
-            expect(result).toBe(false)
-        })
-
-        it('returns false when only non-test images exist', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
-            await db
-                .insertInto('orgCodeEnv')
-                .values({
-                    name: 'Non-Test R Image',
-                    identifier: 'non-test-r',
-                    language: 'R',
-                    commandLines: { r: 'Rscript %f' },
-                    url: 'test/url',
-                    isTesting: false,
-                    orgId: org.id,
-                    starterCodeFileNames: ['starter.R'],
-                })
-                .execute()
-
-            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
-
-            expect(result).toBe(false)
-        })
-
-        it('returns false for a test image in a different org', async () => {
-            const { org: studyOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { study } = await insertTestStudyJobData({ org: studyOrg, studyStatus: 'PENDING-REVIEW' })
-
-            const otherOrg = await insertTestOrg()
-            await db
-                .insertInto('orgCodeEnv')
-                .values({
-                    name: 'Other Org Test Image',
-                    identifier: 'other-org-test',
-                    language: 'R',
-                    commandLines: { r: 'Rscript %f' },
-                    url: 'test/url',
-                    isTesting: true,
-                    orgId: otherOrg.id,
-                    starterCodeFileNames: ['starter.R'],
-                })
-                .execute()
-
-            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
-
-            expect(result).toBe(false)
         })
     })
 
@@ -596,7 +388,7 @@ describe('Study Actions', () => {
             const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-approve-draft' })
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
-            const result = await approveStudyProposalAction({ studyId, orgSlug: enclave.slug })
+            const result = await approveProposal(studyId, enclave.slug)
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
             const row = await db
@@ -611,7 +403,13 @@ describe('Study Actions', () => {
             const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'otter596-reject-draft' })
 
             await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
-            const result = await rejectStudyProposalAction({ studyId, orgSlug: enclave.slug })
+            const result = await submitProposalReviewAction({
+                studyId,
+                orgSlug: enclave.slug,
+                decision: 'reject',
+                feedback: buildFeedback(60),
+                reviewVersion: 1,
+            })
 
             expect(result).toMatchObject({ error: expect.objectContaining({ study: expect.any(String) }) })
             const row = await db
@@ -858,6 +656,9 @@ describe('submitProposalReviewAction', () => {
         expect(updatedStudy.status).toBe('APPROVED')
         expect(updatedStudy.approvedAt).toBeTruthy()
         expect(updatedStudy.reviewerId).toBe(user.id)
+
+        const job = await latestJobForStudy(study.id)
+        expect(job.statusChanges.find((sc) => sc.status === 'JOB-READY')).toBeTruthy()
 
         await waitFor(async () => {
             const audit = await getAuditEntries(study.id, 'STUDY')
@@ -1611,34 +1412,23 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
     })
 
-    it('reject writes a code-review row, marks job CODE-REJECTED, and leaves study.status APPROVED', async () => {
-        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
+    it('refuses a reject decision and writes nothing', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
-        await submitCodeReviewDecisionAction({
+        const result = await submitCodeReviewDecisionAction({
             studyId: study.id,
             orgSlug: org.slug,
+            // @ts-expect-error the schema rejects it; this proves the runtime does too.
             decision: 'reject',
             feedback: validFeedback,
             criteria: validCriteria,
         })
 
-        const rows = await loadCodeReviewRows(study.id)
-        expect(rows).toHaveLength(1)
-        expect(rows[0].decision).toBe('REJECT')
-        expect(rows[0].studyJobId).toBe(job.id)
-
-        const updatedStudy = await db
-            .selectFrom('study')
-            .select(['status', 'rejectedAt', 'approvedAt', 'reviewerId'])
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updatedStudy.status).toBe('APPROVED')
-        expect(updatedStudy.approvedAt).toBeTruthy()
-        expect(updatedStudy.rejectedAt).toBeNull()
-        expect(updatedStudy.reviewerId).toBe(user.id)
-
+        expect(result).toMatchObject({ error: expect.anything() })
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
         const latest = await latestJobForStudy(study.id)
-        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
+        expect(latest.id).toBe(job.id)
+        expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
     })
 
     it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
@@ -1884,46 +1674,6 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(rows.every((r) => r.studyJobId === job.id)).toBe(true)
     })
 
-    it('OTTER-638: accepts a round-2 reject on resubmitted code', async () => {
-        const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
-
-        await submitCodeReviewDecisionAction({
-            studyId: study.id,
-            orgSlug: org.slug,
-            decision: 'needs-clarification',
-            feedback: validFeedback,
-            criteria: validCriteria,
-        })
-        await simulateResubmitOnSameJob(job.id, user.id)
-
-        const second = await submitCodeReviewDecisionAction({
-            studyId: study.id,
-            orgSlug: org.slug,
-            decision: 'reject',
-            feedback: validFeedback,
-            criteria: validCriteria,
-        })
-        expect(second).not.toMatchObject({ error: expect.anything() })
-
-        const rows = await loadCodeReviewRows(study.id)
-        expect(rows.map((r) => r.round)).toEqual([1, 2])
-        expect(rows.map((r) => r.decision)).toEqual(['NEEDS-CLARIFICATION', 'REJECT'])
-
-        const rejected = await db
-            .selectFrom('jobStatusChange')
-            .select('id')
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-REJECTED')
-            .execute()
-        expect(rejected).toHaveLength(1)
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
-    })
-
     it('OTTER-638: getCodeReviewFeedbackAction labels each round with a distinct, increasing version', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
@@ -2068,7 +1818,7 @@ describe('submitCodeReviewDecisionAction', () => {
         const second = await submitCodeReviewDecisionAction({
             studyId: study.id,
             orgSlug: org.slug,
-            decision: 'reject',
+            decision: 'needs-clarification',
             feedback: validFeedback,
             criteria: validCriteria,
         })
@@ -2107,7 +1857,7 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
 
-    it('OTTER-471: parallel approve + reject through submit action, exactly one CODE-* terminal row', async () => {
+    it('OTTER-471: parallel approve + needs-clarification through submit action, exactly one CODE-* decision row', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
 
         const results = await Promise.all([
@@ -2121,7 +1871,7 @@ describe('submitCodeReviewDecisionAction', () => {
             submitCodeReviewDecisionAction({
                 studyId: study.id,
                 orgSlug: org.slug,
-                decision: 'reject',
+                decision: 'needs-clarification',
                 feedback: validFeedback,
                 criteria: validCriteria,
             }),
@@ -2138,13 +1888,13 @@ describe('submitCodeReviewDecisionAction', () => {
             .where('studyJobId', '=', job.id)
             .where('status', '=', 'CODE-APPROVED')
             .execute()
-        const codeRejected = await db
+        const codeChangesRequested = await db
             .selectFrom('jobStatusChange')
             .select('id')
             .where('studyJobId', '=', job.id)
-            .where('status', '=', 'CODE-REJECTED')
+            .where('status', '=', 'CODE-CHANGES-REQUESTED')
             .execute()
-        expect(codeApproved.length + codeRejected.length).toBe(1)
+        expect(codeApproved.length + codeChangesRequested.length).toBe(1)
     })
 
     it('composite unique constraint blocks two CODE decisions for the same job in the same round', async () => {

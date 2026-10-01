@@ -6,7 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
-import { DECISION_NOTICES } from '@/lib/review-decision'
+import { DECISION_NOTICES, type CodeReviewDecision } from '@/lib/review-decision'
 import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -16,7 +16,7 @@ import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
-    decision: 'approve' | 'needs-clarification' | 'reject'
+    decision: CodeReviewDecision
     feedback: string
     criteria: CodeReviewCriteria
 }

@@ -56,44 +56,6 @@ function assertSharesEveryArtifact(
     }
 }
 
-// The study is resolved from the job, not taken alongside it: otherwise a reviewer entitled to
-// study A could name a job in study B and pass the ability check against the wrong study.
-export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction', { performsMutations: true })
-    .params(
-        z.object({
-            orgSlug: z.string(),
-            studyJobId: z.string(),
-            sharedFiles: z.array(sharedFileSchema),
-        }),
-    )
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { sharedFiles }, studyJob, session, db }) => {
-        // Re-wrap, not re-encrypt, so the server never sees plaintext. No backfill for late
-        // joiners: re-wrapping needs an AES key the browser has already dropped.
-        await insertSharedFileKeys(db, studyJob.studyJobId, sharedFiles)
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: session.user.id,
-                status: 'FILES-APPROVED',
-                studyJobId: studyJob.studyJobId,
-            })
-            .executeTakeFirstOrThrow()
-
-        await db
-            .updateTable('study')
-            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
-            .where('id', '=', studyJob.studyId)
-            .execute()
-
-        onStudyResultsApproved({ studyId: studyJob.studyId, userId: session.user.id })
-    })
-
 export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
@@ -115,37 +77,6 @@ export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { jobId } }) => {
         return await getSharedFileIdsForJob(jobId)
-    })
-
-export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction', { performsMutations: true })
-    .params(
-        z.object({
-            orgSlug: z.string(),
-            studyJobId: z.string(),
-        }),
-    )
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('reject', 'Study')
-    .handler(async ({ studyJob, session, db }) => {
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: session.user.id,
-                status: 'FILES-REJECTED',
-                studyJobId: studyJob.studyJobId,
-            })
-            .executeTakeFirstOrThrow()
-
-        await db
-            .updateTable('study')
-            .set({ reviewerId: session.user.id, lastUpdatedAt: new Date() })
-            .where('id', '=', studyJob.studyId)
-            .execute()
-
-        onStudyResultsRejected({ studyId: studyJob.studyId, userId: session.user.id })
     })
 
 // Feedback and the files decision land together so the reviewer's rationale can never be orphaned

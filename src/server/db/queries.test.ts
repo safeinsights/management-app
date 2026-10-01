@@ -581,8 +581,8 @@ describe('outputsDecisionVersion', () => {
         expect(await outputsDecisionVersion(study.id)).toBe(2)
     })
 
-    // rejectStudyJobFilesAction writes the status with no comment; counting it would leave the first
-    // visible entry labeled v2.0 with no v1.0 anywhere.
+    // Older rejections wrote the status with no comment; counting them would leave the first visible
+    // entry labeled v2.0 with no v1.0 anywhere.
     it('ignores a FILES-REJECTED written without a decision comment', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
