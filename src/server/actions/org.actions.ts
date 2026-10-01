@@ -30,7 +30,7 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
         return await db
             .selectFrom('orgUser')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['org.id', 'org.name', 'org.slug', 'org.type'])
+            .select(['org.id', 'org.name', 'org.slug', 'org.type', 'orgUser.isAdmin'])
             .where('orgUser.userId', '=', session.user.id)
             .execute()
     })

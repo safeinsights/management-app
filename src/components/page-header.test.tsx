@@ -29,9 +29,9 @@ describe('PageHeader', () => {
     // no text a screen reader would announce. Its reserved height is a layout fact, so
     // tests/page-header.spec.ts measures that in a real browser.
     it('reserves an empty eyebrow slot when none is given', () => {
-        renderWithProviders(<PageHeader title="My dashboard" />)
+        renderWithProviders(<PageHeader title="My studies" />)
 
-        expect(screen.getByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: 'My studies' })).toBeInTheDocument()
         expect(pageHeaderEyebrow()).toBe('')
     })
 

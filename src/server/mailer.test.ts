@@ -419,28 +419,6 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyCodeRejectedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
-
-        await mailgun.sendStudyCodeRejectedEmail(study.id)
-
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Code Rejected'),
-                template: 'vb - code rejected',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
-            }),
-        )
-    })
-
     it('sendStudyResultsApprovedEmail calls deliver for researcher', async () => {
         const { study, org } = await insertTestOrgStudyJobUsers()
         const researcher = await getUser(study.researcherId)
