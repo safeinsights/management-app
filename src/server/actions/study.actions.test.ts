@@ -769,6 +769,25 @@ describe('submitProposalReviewAction', () => {
         })
     })
 
+    it('reject tells the researcher the proposal was declined', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'reject',
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({ to: user.email, template: 'vb - research proposal rejected' }),
+            )
+        })
+    })
+
     it('needs-clarification asks the researcher to revise the proposal', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })

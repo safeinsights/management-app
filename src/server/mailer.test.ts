@@ -311,24 +311,36 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyProposalRejectedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
+    it('sendStudyProposalRejectedEmail tells each lab party the proposal was declined, linking through the lab', async () => {
+        const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db
+            .updateTable('study')
+            .set({ submittedByOrgId: researchLab.id, piUserId: pi.id })
+            .where('id', '=', study.id)
+            .execute()
         const researcher = await getUser(study.researcherId)
 
         await mailgun.sendStudyProposalRejectedEmail(study.id)
+
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: researcher.email,
-                subject: expect.stringContaining('Proposal Rejected'),
+                subject: 'Proposal declined',
                 template: 'vb - research proposal rejected',
                 vars: expect.objectContaining({
                     fullName: researcher.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
+                    researchLab: researchLab.name,
+                    dataPartner: dataPartner.name,
+                    studyURL: expect.stringContaining(
+                        Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+                    ),
                 }),
             }),
+        )
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({ to: pi.email, vars: expect.objectContaining({ fullName: pi.fullName }) }),
         )
     })
 

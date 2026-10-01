@@ -203,19 +203,14 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     })
 }
 
+// Audience: research lab, Trigger: a Data Partner declines the proposal.
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    if (!study.researcherEmail) return
 
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Proposal Rejected',
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+        subject: 'Proposal declined',
         template: 'vb - research proposal rejected',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
+        vars: await labProposalDecisionVars(studyId, study),
     })
 }
 
