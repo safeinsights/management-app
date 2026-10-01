@@ -10,10 +10,10 @@ import {
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
-    expectPostHogCapture,
-    waitFor,
+    postHogCaptures,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
@@ -434,7 +434,8 @@ describe('Study Job Actions', () => {
                 .execute()
             expect(keys).toHaveLength(1)
 
-            await expectPostHogCapture({
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
                 distinctId: reviewer.id,
                 event: 'study_results_outputs_shared',
                 properties: expect.objectContaining({
@@ -510,13 +511,14 @@ describe('Study Job Actions', () => {
                 .execute()
             expect(keys).toHaveLength(0)
 
-            await expectPostHogCapture(
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual(
                 expect.objectContaining({
                     event: 'study_results_outputs_not_shared',
                     properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),
                 }),
             )
-            await waitFor(() => expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id))
+            expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
         })
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first

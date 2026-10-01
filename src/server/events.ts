@@ -4,14 +4,15 @@ import type { AuditFieldChange } from '@/lib/audit-diff'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import logger from '@/lib/logger'
 import { capturePostHogEvent, type PostHogEventName } from '@/server/posthog'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, isLabOrg, UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
+import dayjs from 'dayjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
 import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
 import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
-import { siUser } from './db/queries'
+import { getOrgInfoForUserId, siUser } from './db/queries'
 import * as email from './mailer'
 
 // These run after the calling action has completed; the caller's success must not depend on them.
@@ -88,32 +89,16 @@ export const onCodeEnvDeleted = (args: CodeEnvAuditArgs) => auditCodeEnv('DELETE
 type StudyEvent = { studyId: string; userId: string }
 type StudyJobEvent = StudyEvent & { studyJobId: string }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-const orgRole = (isAdmin: boolean) => (isAdmin ? 'admin' : 'member')
+const permissionLabel = (isAdmin: boolean) => (isAdmin ? 'admin' : 'contributor')
 
 // Relative to the event's org: one user can be a researcher in a lab and a reviewer in an enclave.
 const actorRoleProps = async (userId: string, orgId: string) => {
-    const member = await db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.type', 'orgUser.isAdmin'])
-        .where('orgUser.userId', '=', userId)
-        .where('orgUser.orgId', '=', orgId)
-        .executeTakeFirst()
-    if (member) {
-        return { user_role: member.type === 'lab' ? 'researcher' : 'reviewer', is_org_admin: member.isAdmin }
-    }
+    const memberships = await getOrgInfoForUserId(userId)
+    const member = memberships.find((org) => org.id === orgId)
+    if (member) return { user_role: isLabOrg(member) ? 'researcher' : 'reviewer', is_org_admin: member.isAdmin }
 
-    const siAdmin = await db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select('orgUser.id')
-        .where('orgUser.userId', '=', userId)
-        .where('org.slug', '=', CLERK_ADMIN_ORG_SLUG)
-        .where('orgUser.isAdmin', '=', true)
-        .executeTakeFirst()
-    return siAdmin ? { user_role: 'si_staff_admin', is_org_admin: false } : {}
+    const isSiAdmin = memberships.some((org) => org.slug === CLERK_ADMIN_ORG_SLUG && org.isAdmin)
+    return isSiAdmin ? { user_role: 'si_staff_admin', is_org_admin: false } : {}
 }
 
 type StudyForCapture = { language: string; submittedAt: Date | null; approvedAt: Date | null }
@@ -122,10 +107,14 @@ type StudyCapture = StudyEvent & {
     // The lab submits and the data partner reviews, which decides the org user_role is read from.
     side: 'lab' | 'data-partner'
     studyJobId?: string
+    isResubmission?: boolean
     extra?: (study: StudyForCapture, role: { user_role?: string }) => Record<string, unknown>
 }
 
-const captureStudyEvent = (event: PostHogEventName, { studyId, userId, side, studyJobId, extra }: StudyCapture) =>
+const captureStudyEvent = (
+    event: PostHogEventName,
+    { studyId, userId, side, studyJobId, isResubmission, extra }: StudyCapture,
+) =>
     capturePostHogEvent({
         distinctId: userId,
         event,
@@ -142,7 +131,8 @@ const captureStudyEvent = (event: PostHogEventName, { studyId, userId, side, stu
                 do_id: study.orgId,
                 lab_id: study.submittedByOrgId,
                 is_test_study: study.isTestStudy,
-                ...(studyJobId ? { study_job_id: studyJobId } : {}),
+                study_job_id: studyJobId,
+                is_resubmission: isResubmission,
                 ...role,
                 ...extra?.(study, role),
             }
@@ -161,12 +151,7 @@ export const onStudyDraftCreated = deferred(async ({ studyId, userId }: StudyEve
 export const onStudyProposalSubmitted = deferred(
     async ({ studyId, userId, isResubmission }: StudyEvent & { isResubmission: boolean }) => {
         await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_proposal_submitted', {
-            studyId,
-            userId,
-            side: 'lab',
-            extra: () => ({ is_resubmission: isResubmission }),
-        })
+        await captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
         await email.sendStudyProposalEmails(studyId)
         await email.sendStudyAgreementPreparationEmail(studyId)
     },
@@ -175,12 +160,7 @@ export const onStudyProposalSubmitted = deferred(
 // Its own handler: this path has never written CREATED/STUDY or sent the submission emails.
 export const onStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_proposal_submitted', {
-        studyId,
-        userId,
-        side: 'lab',
-        extra: () => ({ is_resubmission: true }),
-    })
+    await captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
 })
 
 export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
@@ -207,13 +187,7 @@ export const onStudyCodeSubmitted = deferred(
     async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_code_submitted', {
-            studyId,
-            userId,
-            side: 'lab',
-            studyJobId,
-            extra: () => ({ is_resubmission: isResubmission }),
-        })
+        await captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
         await email.sendStudyCodeSubmittedEmail(studyId)
     },
 )
@@ -229,7 +203,7 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
         extra: (study, role) => ({
             approval_duration_days:
                 study.approvedAt && study.submittedAt
-                    ? Math.round(((study.approvedAt.getTime() - study.submittedAt.getTime()) / DAY_MS) * 100) / 100
+                    ? Math.round(dayjs(study.approvedAt).diff(study.submittedAt, 'day', true) * 100) / 100
                     : undefined,
             approver_role: role.user_role,
         }),
@@ -303,37 +277,30 @@ export const onUserResetPW = deferred(async (userId: string) => {
     await audit({ userId, eventType: 'RESET_PASSWORD', recordType: 'USER', recordId: userId })
 })
 
-export const onUserInvited = deferred(
-    async ({ pendingId, invitedEmail, isResend }: { invitedEmail: string; pendingId: string; isResend: boolean }) => {
-        const user = await siUser()
+type Invite = { invitedEmail: string; pendingId: string; orgId: string; isAdmin: boolean; isResend: boolean }
 
-        await audit({
-            userId: user.id,
-            eventType: 'INVITED',
-            recordType: 'USER',
-            recordId: pendingId,
-            metadata: { invitedEmail },
-        })
-        await capturePostHogEvent({
-            distinctId: user.id,
-            event: 'invited',
-            properties: async () => {
-                const invite = await db
-                    .selectFrom('pendingUser')
-                    .select(['orgId', 'isAdmin'])
-                    .where('id', '=', pendingId)
-                    .executeTakeFirstOrThrow()
-                return {
-                    org_id: invite.orgId,
-                    role: orgRole(invite.isAdmin),
-                    is_resend: isResend,
-                    ...(await actorRoleProps(user.id, invite.orgId)),
-                }
-            },
-        })
-        await email.sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
-    },
-)
+export const onUserInvited = deferred(async ({ invitedEmail, pendingId, orgId, isAdmin, isResend }: Invite) => {
+    const user = await siUser()
+
+    await audit({
+        userId: user.id,
+        eventType: 'INVITED',
+        recordType: 'USER',
+        recordId: pendingId,
+        metadata: { invitedEmail },
+    })
+    await capturePostHogEvent({
+        distinctId: user.id,
+        event: 'invited',
+        properties: async () => ({
+            org_id: orgId,
+            role: permissionLabel(isAdmin),
+            is_resend: isResend,
+            ...(await actorRoleProps(user.id, orgId)),
+        }),
+    })
+    await email.sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
+})
 
 type AcceptedInvite = { userId: string; inviteId: string; orgId: string; isAdmin: boolean; isNewAccount: boolean }
 
@@ -351,7 +318,7 @@ export const onUserAcceptInvite = deferred(
             event: 'accepted_invite',
             properties: async () => ({
                 org_id: orgId,
-                role: orgRole(isAdmin),
+                role: permissionLabel(isAdmin),
                 is_new_account: isNewAccount,
                 ...(await actorRoleProps(userId, orgId)),
             }),
@@ -377,8 +344,8 @@ export const onUserRoleUpdate = deferred(async ({ userId, actorId, orgId, before
         properties: async () => ({
             target_user_id: userId,
             org_id: orgId,
-            role_before: orgRole(before.isAdmin),
-            role_after: orgRole(after.isAdmin),
+            role_before: permissionLabel(before.isAdmin),
+            role_after: permissionLabel(after.isAdmin),
             ...(await actorRoleProps(actorId, orgId)),
         }),
     })

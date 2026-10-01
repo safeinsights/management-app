@@ -15,7 +15,7 @@ import {
     seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
     mockSessionWithTestData,
-    expectPostHogCapture,
+    postHogCaptures,
     renameTestOrg,
     setTestStudyStatus,
     writeWorkspaceFiles,
@@ -117,7 +117,8 @@ describe('Request Study Actions', () => {
         expect(study?.title).toEqual(studyInfo.title)
         expect(study?.status).toEqual('DRAFT')
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_created',
             properties: expect.objectContaining({
@@ -414,7 +415,8 @@ describe('Request Study Actions', () => {
             }),
         )
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_proposal_submitted',
             properties: expect.objectContaining({ study_id: draftResult.studyId, is_resubmission: false }),
@@ -581,7 +583,8 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(updated.status).toBe('PENDING-REVIEW')
 
-            await expectPostHogCapture({
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
                 distinctId: user.id,
                 event: 'study_proposal_submitted',
                 properties: expect.objectContaining({ study_id: study.id, is_resubmission: true }),
@@ -1015,7 +1018,8 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(study.status).toBe('PENDING-REVIEW')
 
-            await expectPostHogCapture({
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
                 distinctId: user.id,
                 event: 'study_proposal_submitted',
                 properties: expect.objectContaining({ study_id: studyId, is_resubmission: true }),
@@ -1186,7 +1190,8 @@ describe('Request Study Actions', () => {
 
             expect(aws.storeS3File).toHaveBeenCalledTimes(2)
 
-            await expectPostHogCapture({
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
                 distinctId: user.id,
                 event: 'study_code_submitted',
                 properties: expect.objectContaining({
@@ -1743,7 +1748,8 @@ describe('Request Study Actions', () => {
                 .executeTakeFirstOrThrow()
             expect(newJob.resubmissionNote).not.toBeNull()
 
-            await expectPostHogCapture({
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
                 distinctId: user.id,
                 event: 'study_code_submitted',
                 properties: expect.objectContaining({

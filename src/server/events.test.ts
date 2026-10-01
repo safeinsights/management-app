@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import { after } from 'next/server'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
 import {
     db,
@@ -7,13 +6,9 @@ import {
     getAuditEntriesWithMetadata,
     insertTestUser,
     mockSessionWithTestData,
-    expectPostHogCapture,
+    postHogCaptures,
 } from '@/tests/unit.helpers'
-
-// Run after() inline so the failure-reporting path is observable synchronously.
-vi.mock('next/server', () => ({
-    after: vi.fn((cb: () => unknown) => cb()),
-}))
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@sentry/nextjs', () => ({
     captureException: vi.fn(),
@@ -26,19 +21,10 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
     deliver: vi.fn(),
 }))
 
-const afterMock = after as unknown as Mock
 const captureExceptionMock = Sentry.captureException as unknown as Mock
 const flushMock = Sentry.flush as unknown as Mock
 
 describe('deferred', () => {
-    beforeEach(() => {
-        afterMock.mockImplementation((cb: () => unknown) => cb())
-    })
-
-    afterEach(() => {
-        vi.clearAllMocks()
-    })
-
     it('captures and flushes to Sentry when the handler rejects', async () => {
         const { deferred } = await import('./events')
         const boom = new Error('handler exploded')
@@ -47,7 +33,8 @@ describe('deferred', () => {
         })
 
         run()
-        await vi.waitFor(() => expect(captureExceptionMock).toHaveBeenCalledWith(boom))
+        await flushDeferred()
+        expect(captureExceptionMock).toHaveBeenCalledWith(boom)
         // Without the flush the event is dropped when the instance freezes after the response.
         expect(flushMock).toHaveBeenCalled()
     })
@@ -57,13 +44,12 @@ describe('deferred', () => {
         const run = deferred(async () => undefined)
 
         run()
-        await vi.waitFor(() => expect(afterMock).toHaveBeenCalled())
+        await flushDeferred()
         expect(captureExceptionMock).not.toHaveBeenCalled()
         expect(flushMock).not.toHaveBeenCalled()
     })
 })
 
-// after() runs inline here rather than through the shared queue, so captures are polled for.
 describe('user event captures', () => {
     it('onUserLogIn captures user_logged_in for the user', async () => {
         const { onUserLogIn } = await import('./events')
@@ -71,21 +57,31 @@ describe('user event captures', () => {
 
         onUserLogIn({ userId: user.id })
 
-        await expectPostHogCapture(expect.objectContaining({ distinctId: user.id, event: 'user_logged_in' }))
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual(
+            expect.objectContaining({ distinctId: user.id, event: 'user_logged_in' }),
+        )
     })
 
     it('onUserInvited captures invited for the inviter, with the invite org and role', async () => {
         const { onUserInvited } = await import('./events')
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave', isAdmin: true })
-        const pending = await db
+        const invite = await db
             .insertInto('pendingUser')
             .values({ orgId: org.id, email: 'invitee@test.com', isAdmin: true, invitedByUserId: user.id })
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        onUserInvited({ invitedEmail: 'invitee@test.com', pendingId: pending.id, isResend: true })
+        onUserInvited({
+            invitedEmail: 'invitee@test.com',
+            pendingId: invite.id,
+            orgId: org.id,
+            isAdmin: true,
+            isResend: true,
+        })
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'invited',
             properties: expect.objectContaining({
@@ -105,12 +101,13 @@ describe('user event captures', () => {
 
         onUserAcceptInvite({ userId: user.id, inviteId, orgId: org.id, isAdmin: false, isNewAccount: true })
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'accepted_invite',
             properties: expect.objectContaining({
                 org_id: org.id,
-                role: 'member',
+                role: 'contributor',
                 is_new_account: true,
                 user_role: 'researcher',
             }),
@@ -133,13 +130,14 @@ describe('user event captures', () => {
             after: { isAdmin: true },
         })
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: admin.id,
             event: 'role_updated',
             properties: expect.objectContaining({
                 target_user_id: member.id,
                 org_id: org.id,
-                role_before: 'member',
+                role_before: 'contributor',
                 role_after: 'admin',
                 is_org_admin: true,
             }),

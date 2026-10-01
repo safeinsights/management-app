@@ -13,10 +13,14 @@ async function getPostHogClient(): Promise<PostHog | null> {
     if (!postHogProjectToken) return null
 
     // flushAt/flushInterval follow PostHog's serverless guidance; captureImmediate makes them moot.
+    // Tight timeout and one quick retry: captures run before emails, and the defaults can stall ~50s.
     client = new PostHog(postHogProjectToken, {
         host: POSTHOG_HOST,
         flushAt: 1,
         flushInterval: 0,
+        requestTimeout: 3_000,
+        fetchRetryCount: 1,
+        fetchRetryDelay: 500,
     })
 
     return client

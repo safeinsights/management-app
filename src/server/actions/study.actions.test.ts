@@ -16,10 +16,11 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
-    expectPostHogCapture,
+    postHogCaptures,
     setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
@@ -602,7 +603,8 @@ describe('submitProposalReviewAction', () => {
             expect(audit.some((e) => e.eventType === 'REJECTED')).toBe(false)
         })
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_proposal_approved',
             properties: expect.objectContaining({
@@ -681,7 +683,8 @@ describe('submitProposalReviewAction', () => {
             .execute()
         expect(jobStatusAfter.length).toBe(jobStatusBefore.length)
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_proposal_clarification_requested',
             properties: expect.objectContaining({ study_id: study.id, user_role: 'reviewer' }),
@@ -741,7 +744,8 @@ describe('submitProposalReviewAction', () => {
             expect(audit.some((e) => e.eventType === 'APPROVED')).toBe(false)
         })
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_proposal_declined',
             properties: expect.objectContaining({ study_id: study.id, user_role: 'reviewer' }),
@@ -1438,7 +1442,8 @@ describe('submitCodeReviewDecisionAction', () => {
         const latest = await latestJobForStudy(study.id)
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_code_approved',
             properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id, user_role: 'reviewer' }),
@@ -1482,7 +1487,8 @@ describe('submitCodeReviewDecisionAction', () => {
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeUndefined()
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeUndefined()
 
-        await expectPostHogCapture({
+        await flushDeferred()
+        expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'study_code_clarification_requested',
             properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),

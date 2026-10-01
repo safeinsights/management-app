@@ -146,7 +146,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             throw new ActionFailure({ user: 'does not exist' })
         }
 
-        const { user: siUser, invite } = await db.transaction().execute(async (trx) => {
+        const claimed = await db.transaction().execute(async (trx) => {
             // Claim first, atomically: concurrent accepts race on this row, and a failure below
             // rolls the claim back with the membership.
             const invite = await trx
@@ -174,7 +174,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
                 }
-                return { user, invite }
+                return invite
             }
 
             // isAdmin comes from the invite row alone; no caller-supplied input can raise it.
@@ -188,23 +188,23 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow()
 
-            return { user, invite }
+            return invite
         })
 
-        await updateClerkUserMetadata(siUser.id)
+        await updateClerkUserMetadata(user.id)
         onUserAcceptInvite({
-            userId: siUser.id,
+            userId: user.id,
             inviteId,
-            orgId: invite.orgId,
-            isAdmin: invite.isAdmin,
+            orgId: claimed.orgId,
+            isAdmin: claimed.isAdmin,
             isNewAccount: false,
         })
 
         // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
         // stale right after this server-side update.
-        const needsUserKey = !(await getUserPublicKey(siUser.id))
+        const needsUserKey = !(await getUserPublicKey(user.id))
 
-        return { ...siUser, needsUserKey }
+        return { ...user, needsUserKey }
     })
 
 export const onCreateAccountAction = new Action('onCreateAccountAction')

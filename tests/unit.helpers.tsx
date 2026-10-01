@@ -51,17 +51,9 @@ export { QueryClientProvider }
 export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
-type CapturedPostHogEvent = { distinctId: string; event: string; properties: Record<string, unknown> }
+const postHogCaptureMock = () => vi.mocked(PostHog.prototype.captureImmediate)
 
-// The setup mock shares one captureImmediate across instances, so a fresh one sees every call.
-const postHogCaptureMock = () => vi.mocked(new PostHog('phc_unit_test').captureImmediate)
-
-export const postHogCaptures = () =>
-    postHogCaptureMock().mock.calls.map(([event]) => event as unknown as CapturedPostHogEvent)
-
-// Server captures run in deferred handlers, so this waits for the one expected.
-export const expectPostHogCapture = (expected: unknown) =>
-    waitForRtl(() => expect(postHogCaptures()).toContainEqual(expected))
+export const postHogCaptures = () => postHogCaptureMock().mock.calls.map(([event]) => event)
 
 export const failNextPostHogCapture = (error: Error) => postHogCaptureMock().mockRejectedValueOnce(error)
 

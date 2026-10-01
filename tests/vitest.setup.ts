@@ -70,11 +70,11 @@ const postHogMock = vi.hoisted(() => ({ captureImmediate: vi.fn() }))
 
 // A token makes server captures run, and the mock keeps them off the network, whatever .env holds.
 process.env.POSTHOG_PROJECT_TOKEN = 'phc_unit_test'
-vi.mock('posthog-node', () => ({
-    PostHog: class {
-        captureImmediate = postHogMock.captureImmediate
-    },
-}))
+vi.mock('posthog-node', () => {
+    class PostHog {}
+    Object.assign(PostHog.prototype, { captureImmediate: postHogMock.captureImmediate })
+    return { PostHog }
+})
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 vi.mock('next/router', () => require('next-router-mock'))
