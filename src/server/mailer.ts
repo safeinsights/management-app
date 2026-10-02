@@ -86,6 +86,30 @@ async function labProposalDecisionVars(studyId: string, study: StudyInfo) {
     }
 }
 
+// For the Data Partner's copy; /review is the reviewer counterpart of /view.
+async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
+    return {
+        ...baseStudyVars(study),
+        submittedOn: await latestProposalSubmittedOn(studyId, study),
+        studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+    }
+}
+
+// Whoever decided on any version of the proposal, kept even if they have since left the Data Partner.
+async function getProposalDeciders(studyId: string) {
+    return db
+        .selectFrom('studyProposalComment')
+        .innerJoin('user', 'user.id', 'studyProposalComment.authorId')
+        .select(['user.email', 'user.fullName'])
+        .distinct()
+        .where('studyProposalComment.studyId', '=', studyId)
+        .where('studyProposalComment.entryType', '=', 'REVIEWER-FEEDBACK')
+        .where('studyProposalComment.decision', 'is not', null)
+        .where('user.email', 'is not', null)
+        .$narrowType<{ email: string }>()
+        .execute()
+}
+
 // The study's lab side. researcherId is the original submitter, and a later version can be submitted
 // by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
 // account has no address and drops out.
@@ -135,11 +159,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     await deliverToEach(studyId, await getOrgMembers(study.orgId), {
         subject: 'Proposal needs review',
         template: 'vb - new research proposal',
-        vars: {
-            ...baseStudyVars(study),
-            submittedOn: await latestProposalSubmittedOn(studyId, study),
-            studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
-        },
+        vars: await dataPartnerReviewVars(studyId, study),
     })
 }
 
@@ -194,26 +214,14 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     })
 }
 
+// Audience: the proposal's deciders, Trigger: a lab submits new or revised code.
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    const reviewers = await getOrgMembers(study.orgId)
-    const emails = reviewers.map((reviewer) => reviewer.email)
 
-    if (emails.length === 0) {
-        logger.warn(`No recipients for study code submitted email, studyId: ${studyId}`)
-        return
-    }
-
-    await deliver({
-        to: SI_EMAIL,
-        bcc: emails.join(', '),
-        subject: 'Study code submitted for review',
+    await deliverToEach(studyId, await getProposalDeciders(studyId), {
+        subject: 'Code needs review',
         template: 'vb - new code submission',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.reviewerFullName ?? '',
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=reviewer`,
-        },
+        vars: await dataPartnerReviewVars(studyId, study),
     })
 }
 

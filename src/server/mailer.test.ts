@@ -257,25 +257,53 @@ describe('mailgun email functions', () => {
         expect(deliverMock).not.toHaveBeenCalled()
     })
 
-    it('sendStudyCodeSubmittedEmail sends all org members in Bcc, not To (OTTER-651)', async () => {
-        const { study, user1 } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
+    const insertProposalDecision = (studyId: string, authorId: string) =>
+        db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                authorId,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.stringify({ text: 'please clarify the methodology' }),
+                version: 1,
+            })
+            .execute()
+
+    it('sendStudyCodeSubmittedEmail greets each proposal decider once, linking to the study review', async () => {
+        const { study, org, user2: decider } = await insertTestOrgStudyJobUsers()
+        await insertProposalDecision(study.id, decider.id)
+        await insertProposalDecision(study.id, decider.id)
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
 
+        // user1, the researcher, is also an org member but never decided on the proposal.
+        expect(deliverMock).toHaveBeenCalledTimes(1)
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
-                bcc: expect.stringContaining(user1.email || ''),
-                subject: 'Study code submitted for review',
+                to: decider.email,
+                subject: 'Code needs review',
                 template: 'vb - new code submission',
                 vars: expect.objectContaining({
+                    fullName: decider.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=reviewer'),
+                    researchLab: org.name,
+                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
+    })
+
+    it('sendStudyCodeSubmittedEmail still reaches a decider who has since left the Data Partner', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        const elsewhere = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user: formerMember } = await insertTestUser({ org: elsewhere })
+        await insertProposalDecision(study.id, formerMember.id)
+
+        await mailgun.sendStudyCodeSubmittedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ to: formerMember.email }))
     })
 
     it.each([
@@ -313,29 +341,6 @@ describe('mailgun email functions', () => {
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({ to: pi.email, vars: expect.objectContaining({ fullName: pi.fullName }) }),
         )
-    })
-
-    it('mass emails never put recipient addresses in To (OTTER-651 regression)', async () => {
-        const { study } = await insertTestOrgStudyJobUsers()
-
-        const orgMembers = await db
-            .selectFrom('user')
-            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
-            .distinctOn('user.id')
-            .select(['user.email'])
-            .where('orgUser.orgId', '=', study.orgId)
-            .execute()
-        const allEmails = orgMembers.map((m) => m.email).filter(Boolean)
-
-        expect(allEmails.length).toBeGreaterThan(1)
-
-        await mailgun.sendStudyCodeSubmittedEmail(study.id)
-        const codeCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
-        expect(codeCall.to).toBe(SI_EMAIL)
-        for (const email of allEmails) {
-            expect(codeCall.to).not.toContain(email)
-            expect(codeCall.bcc).toContain(email)
-        }
     })
 
     it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {
