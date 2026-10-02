@@ -1,5 +1,7 @@
-import { Flex, Text, useMantineTheme } from '@mantine/core'
-import { CheckIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { Flex, Text } from '@mantine/core'
+import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { type FC } from 'react'
+import { semanticColor } from '@/theme/tokens'
 
 interface RequirementItem {
     re: RegExp
@@ -50,22 +52,23 @@ export function usePasswordRequirements(password: string, touched = false) {
     }
 }
 
+const RequirementIcon: FC<{ meets: boolean }> = ({ meets }) =>
+    meets ? (
+        <CheckCircleIcon size={14} color={semanticColor('success.text')} />
+    ) : (
+        <XCircleIcon size={14} color={semanticColor('error.text')} />
+    )
+
 // Mantine renders a description inside a `<p>`, so every element here is a `span`: a `div` or
 // nested `p` would be invalid HTML and trigger a hydration error.
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
-    const theme = useMantineTheme()
     for (let i = 0; i < requirements.length; i += 2) {
         rows.push(
             <Flex key={i} component="span" direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
                     <Flex key={i + index} component="span" align="center" gap="xs" flex={1}>
-                        {requirement.meets ? (
-                            <CheckIcon size={14} color={theme.colors.green[7]} />
-                        ) : (
-                            <XCircleIcon size={14} color={theme.colors.red[7]} />
-                        )}
-
+                        <RequirementIcon meets={requirement.meets} />
                         <Text component="span" size="sm">
                             {requirement.label}
                         </Text>
