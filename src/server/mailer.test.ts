@@ -311,6 +311,7 @@ describe('mailgun email functions', () => {
         ['sendStudyProposalRejectedEmail', 'Proposal declined', 'vb - research proposal rejected'],
         ['sendStudyProposalNeedsRevisionEmail', 'Proposal needs revision', 'vb - research proposal needs revision'],
         ['sendStudyCodeApprovedEmail', 'Study code approved', 'vb - code approved'],
+        ['sendStudyCodeNeedsRevisionEmail', 'Code needs revision', 'vb - code needs revision'],
     ] as const)('%s tells each lab party by name, linking through the lab', async (send, subject, template) => {
         const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -366,25 +367,28 @@ describe('mailgun email functions', () => {
     })
 
     // Code can be submitted by a lab member who never touched the proposal.
-    it('sendStudyCodeApprovedEmail also reaches whoever submitted a version of the code', async () => {
-        const { study, job } = await insertTestOrgStudyJobUsers()
-        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
-        const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
-            .execute()
+    it.each(['sendStudyCodeApprovedEmail', 'sendStudyCodeNeedsRevisionEmail'] as const)(
+        '%s also reaches whoever submitted a version of the code',
+        async (send) => {
+            const { study, job } = await insertTestOrgStudyJobUsers()
+            const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
+            const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
+            await db
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
+                .execute()
 
-        await mailgun.sendStudyCodeApprovedEmail(study.id)
+            await mailgun[send](study.id)
 
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: codeSubmitter.email,
-                vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
-            }),
-        )
-    })
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: codeSubmitter.email,
+                    vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
+                }),
+            )
+        },
+    )
 
     it('sendStudyResultsApprovedEmail calls deliver for researcher', async () => {
         const { study, org } = await insertTestOrgStudyJobUsers()

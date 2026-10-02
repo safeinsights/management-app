@@ -305,6 +305,18 @@ export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     })
 }
 
+// Audience: research lab, including anyone who submitted a version of the code, Trigger: a Data
+// Partner requests changes to the code.
+export const sendStudyCodeNeedsRevisionEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+        subject: 'Code needs revision',
+        template: 'vb - code needs revision',
+        vars: await labDecisionVars(studyId, study),
+    })
+}
+
 export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     if (!study.researcherEmail) return
