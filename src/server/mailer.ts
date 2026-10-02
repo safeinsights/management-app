@@ -78,7 +78,7 @@ async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
 }
 
 // /view renders the lab's screen for the study's current state, so a link clicked later still lands right.
-async function labProposalDecisionVars(studyId: string, study: StudyInfo) {
+async function labDecisionVars(studyId: string, study: StudyInfo) {
     return {
         ...baseStudyVars(study),
         submittedOn: await latestProposalSubmittedOn(studyId, study),
@@ -110,10 +110,24 @@ async function getProposalDeciders(studyId: string) {
         .execute()
 }
 
+// Every version of the code is recorded by markCodeSubmitted as a CODE-SUBMITTED row naming its submitter.
+async function getCodeSubmitterIds(studyId: string) {
+    const rows = await db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .select('jobStatusChange.userId')
+        .distinct()
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .execute()
+
+    return rows.map((row) => row.userId)
+}
+
 // The study's lab side. researcherId is the original submitter, and a later version can be submitted
 // by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
 // account has no address and drops out.
-async function getStudyLabAudience(studyId: string, study: StudyInfo) {
+async function getStudyLabAudience(studyId: string, study: StudyInfo, { withCodeSubmitters = false } = {}) {
     const resubmitters = await db
         .selectFrom('studyProposalComment')
         .select('authorId')
@@ -122,9 +136,11 @@ async function getStudyLabAudience(studyId: string, study: StudyInfo) {
         .where('entryType', '=', 'RESUBMISSION-NOTE')
         .execute()
 
-    const userIds = [...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId)])].filter(
-        (id): id is string => Boolean(id),
-    )
+    const codeSubmitters = withCodeSubmitters ? await getCodeSubmitterIds(studyId) : []
+
+    const userIds = [
+        ...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId), ...codeSubmitters]),
+    ].filter((id): id is string => Boolean(id))
 
     return db
         .selectFrom('user')
@@ -232,7 +248,7 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
         subject: 'Proposal approved',
         template: 'vb - research proposal approved',
-        vars: await labProposalDecisionVars(studyId, study),
+        vars: await labDecisionVars(studyId, study),
     })
 }
 
@@ -243,7 +259,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
         subject: 'Proposal declined',
         template: 'vb - research proposal rejected',
-        vars: await labProposalDecisionVars(studyId, study),
+        vars: await labDecisionVars(studyId, study),
     })
 }
 
@@ -254,7 +270,7 @@ export const sendStudyProposalNeedsRevisionEmail = async (studyId: string) => {
     await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
         subject: 'Proposal needs revision',
         template: 'vb - research proposal needs revision',
-        vars: await labProposalDecisionVars(studyId, study),
+        vars: await labDecisionVars(studyId, study),
     })
 }
 
@@ -277,19 +293,15 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     })
 }
 
+// Audience: research lab, including anyone who submitted a version of the code, Trigger: a Data
+// Partner approves the code.
 export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    if (!study.researcherEmail) return
 
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Code Approved',
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+        subject: 'Study code approved',
         template: 'vb - code approved',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
+        vars: await labDecisionVars(studyId, study),
     })
 }
 

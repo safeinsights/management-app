@@ -310,6 +310,7 @@ describe('mailgun email functions', () => {
         ['sendStudyProposalApprovedEmail', 'Proposal approved', 'vb - research proposal approved'],
         ['sendStudyProposalRejectedEmail', 'Proposal declined', 'vb - research proposal rejected'],
         ['sendStudyProposalNeedsRevisionEmail', 'Proposal needs revision', 'vb - research proposal needs revision'],
+        ['sendStudyCodeApprovedEmail', 'Study code approved', 'vb - code approved'],
     ] as const)('%s tells each lab party by name, linking through the lab', async (send, subject, template) => {
         const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -364,24 +365,23 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyCodeApprovedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
+    // Code can be submitted by a lab member who never touched the proposal.
+    it('sendStudyCodeApprovedEmail also reaches whoever submitted a version of the code', async () => {
+        const { study, job } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
+        const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
+            .execute()
 
         await mailgun.sendStudyCodeApprovedEmail(study.id)
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Code Approved'),
-                template: 'vb - code approved',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
+                to: codeSubmitter.email,
+                vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
             }),
         )
     })
