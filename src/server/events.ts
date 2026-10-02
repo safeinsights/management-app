@@ -92,8 +92,7 @@ type StudyJobEvent = StudyEvent & { studyJobId: string }
 const permissionLabel = (isAdmin: boolean) => (isAdmin ? 'admin' : 'contributor')
 
 // Relative to the event's org: one user can be a researcher in a lab and a reviewer in an enclave.
-const actorRoleProps = async (userId: string, orgId: string) => {
-    const memberships = await getOrgInfoForUserId(userId)
+const roleInOrg = (memberships: Awaited<ReturnType<typeof getOrgInfoForUserId>>, orgId: string) => {
     const member = memberships.find((org) => org.id === orgId)
     if (member) return { user_role: isLabOrg(member) ? 'researcher' : 'reviewer', is_org_admin: member.isAdmin }
 
@@ -101,14 +100,24 @@ const actorRoleProps = async (userId: string, orgId: string) => {
     return isSiAdmin ? { user_role: 'si_staff_admin', is_org_admin: false } : {}
 }
 
-type StudyForCapture = { language: string; submittedAt: Date | null; approvedAt: Date | null }
+const actorRoleProps = async (userId: string, orgId: string) => roleInOrg(await getOrgInfoForUserId(userId), orgId)
+
+const selectStudyForCapture = (studyId: string) =>
+    db
+        .selectFrom('study')
+        .select(['orgId', 'submittedByOrgId', 'isTestStudy', 'language', 'submittedAt', 'approvedAt'])
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
 
 type StudyCapture = StudyEvent & {
     // The lab submits and the data partner reviews, which decides the org user_role is read from.
     side: 'lab' | 'data-partner'
     studyJobId?: string
     isResubmission?: boolean
-    extra?: (study: StudyForCapture, role: { user_role?: string }) => Record<string, unknown>
+    extra?: (
+        study: Awaited<ReturnType<typeof selectStudyForCapture>>,
+        role: { user_role?: string },
+    ) => Record<string, unknown> | Promise<Record<string, unknown>>
 }
 
 const captureStudyEvent = (
@@ -119,12 +128,11 @@ const captureStudyEvent = (
         distinctId: userId,
         event,
         properties: async () => {
-            const study = await db
-                .selectFrom('study')
-                .select(['orgId', 'submittedByOrgId', 'isTestStudy', 'language', 'submittedAt', 'approvedAt'])
-                .where('id', '=', studyId)
-                .executeTakeFirstOrThrow()
-            const role = await actorRoleProps(userId, side === 'lab' ? study.submittedByOrgId : study.orgId)
+            const [study, memberships] = await Promise.all([
+                selectStudyForCapture(studyId),
+                getOrgInfoForUserId(userId),
+            ])
+            const role = roleInOrg(memberships, side === 'lab' ? study.submittedByOrgId : study.orgId)
 
             return {
                 study_id: studyId,
@@ -134,7 +142,7 @@ const captureStudyEvent = (
                 study_job_id: studyJobId,
                 is_resubmission: isResubmission,
                 ...role,
-                ...extra?.(study, role),
+                ...(await extra?.(study, role)),
             }
         },
     })
@@ -199,14 +207,25 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
         studyId,
         userId,
         side: 'data-partner',
-        // From the first submission: a resubmit keeps submittedAt, so the lab's revision time counts.
-        extra: (study, role) => ({
-            approval_duration_days:
-                study.approvedAt && study.submittedAt
-                    ? Math.round(dayjs(study.approvedAt).diff(study.submittedAt, 'day', true) * 100) / 100
-                    : undefined,
-            approver_role: role.user_role,
-        }),
+        // From the first submission, so the lab's revision time counts. Read from the earliest CREATED
+        // row: finalizing a CHANGE-REQUESTED study moves submittedAt, resubmitProposalAction does not.
+        extra: async (study, role) => {
+            const firstSubmission = await db
+                .selectFrom('audit')
+                .select((eb) => eb.fn.min('createdAt').as('at'))
+                .where('recordType', '=', 'STUDY')
+                .where('recordId', '=', studyId)
+                .where('eventType', '=', 'CREATED')
+                .executeTakeFirst()
+            const submittedAt = firstSubmission?.at ?? study.submittedAt
+            return {
+                approval_duration_days:
+                    study.approvedAt && submittedAt
+                        ? Math.round(dayjs(study.approvedAt).diff(submittedAt, 'day', true) * 100) / 100
+                        : undefined,
+                approver_role: role.user_role,
+            }
+        },
     })
     await email.sendStudyProposalApprovedEmail(studyId)
 })
@@ -277,54 +296,65 @@ export const onUserResetPW = deferred(async (userId: string) => {
     await audit({ userId, eventType: 'RESET_PASSWORD', recordType: 'USER', recordId: userId })
 })
 
-type Invite = { invitedEmail: string; pendingId: string; orgId: string; isAdmin: boolean; isResend: boolean }
+type Invite = { pendingId: string; isResend: boolean }
 
-export const onUserInvited = deferred(async ({ invitedEmail, pendingId, orgId, isAdmin, isResend }: Invite) => {
+// Takes only the invite id and reads the rest from its row, so the audit and capture can't
+// disagree with the invite. Callers send the email themselves and await it, so a failed send
+// reaches the admin.
+export const onUserInvited = deferred(async ({ pendingId, isResend }: Invite) => {
     const user = await siUser()
+    const invite = await db
+        .selectFrom('pendingUser')
+        .select(['email', 'orgId', 'isAdmin'])
+        .where('id', '=', pendingId)
+        .executeTakeFirstOrThrow()
 
     await audit({
         userId: user.id,
         eventType: 'INVITED',
         recordType: 'USER',
         recordId: pendingId,
-        metadata: { invitedEmail },
+        metadata: { invitedEmail: invite.email, isResend },
     })
     await capturePostHogEvent({
         distinctId: user.id,
         event: 'invited',
         properties: async () => ({
-            org_id: orgId,
-            role: permissionLabel(isAdmin),
+            org_id: invite.orgId,
+            role: permissionLabel(invite.isAdmin),
             is_resend: isResend,
-            ...(await actorRoleProps(user.id, orgId)),
+            ...(await actorRoleProps(user.id, invite.orgId)),
         }),
     })
-    await email.sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
 })
 
-type AcceptedInvite = { userId: string; inviteId: string; orgId: string; isAdmin: boolean; isNewAccount: boolean }
+type AcceptedInvite = { userId: string; inviteId: string; isNewAccount: boolean }
 
-export const onUserAcceptInvite = deferred(
-    async ({ userId, inviteId, orgId, isAdmin, isNewAccount }: AcceptedInvite) => {
-        await audit({
-            userId,
-            eventType: 'ACCEPTED_INVITE',
-            recordType: 'USER',
-            recordId: userId,
-            metadata: { inviteId, orgId },
-        })
-        await capturePostHogEvent({
-            distinctId: userId,
-            event: 'accepted_invite',
-            properties: async () => ({
-                org_id: orgId,
-                role: permissionLabel(isAdmin),
+export const onUserAcceptInvite = deferred(async ({ userId, inviteId, isNewAccount }: AcceptedInvite) => {
+    await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId, metadata: { inviteId } })
+    await capturePostHogEvent({
+        distinctId: userId,
+        event: 'accepted_invite',
+        properties: async () => {
+            // The membership's role, not the invite's: accepting never demotes an existing admin.
+            const membership = await db
+                .selectFrom('pendingUser')
+                .innerJoin('orgUser', (join) =>
+                    join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
+                )
+                .select(['orgUser.orgId', 'orgUser.isAdmin'])
+                .where('pendingUser.id', '=', inviteId)
+                .executeTakeFirstOrThrow()
+
+            return {
+                org_id: membership.orgId,
+                role: permissionLabel(membership.isAdmin),
                 is_new_account: isNewAccount,
-                ...(await actorRoleProps(userId, orgId)),
-            }),
-        })
-    },
-)
+                ...(await actorRoleProps(userId, membership.orgId)),
+            }
+        },
+    })
+})
 
 type RoleUpdate = { userId: string; actorId: string; orgId: string; before: UserOrgRoles; after: UserOrgRoles }
 

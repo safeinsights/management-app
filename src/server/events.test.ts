@@ -2,23 +2,17 @@ import { describe, expect, it, vi, type Mock } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
 import {
     db,
+    flushDeferred,
     getAuditEntries,
     getAuditEntriesWithMetadata,
     insertTestUser,
     mockSessionWithTestData,
     postHogCaptures,
 } from '@/tests/unit.helpers'
-import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@sentry/nextjs', () => ({
     captureException: vi.fn(),
     flush: vi.fn(async () => true),
-}))
-
-// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
-vi.mock('@/server/mailgun', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/mailgun')>()),
-    deliver: vi.fn(),
 }))
 
 const captureExceptionMock = Sentry.captureException as unknown as Mock
@@ -72,15 +66,15 @@ describe('user event captures', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        onUserInvited({
-            invitedEmail: 'invitee@test.com',
-            pendingId: invite.id,
-            orgId: org.id,
-            isAdmin: true,
-            isResend: true,
-        })
+        onUserInvited({ pendingId: invite.id, isResend: true })
 
         await flushDeferred()
+        expect(await getAuditEntriesWithMetadata(invite.id, 'USER')).toContainEqual(
+            expect.objectContaining({
+                eventType: 'INVITED',
+                metadata: { invitedEmail: 'invitee@test.com', isResend: true },
+            }),
+        )
         expect(postHogCaptures()).toContainEqual({
             distinctId: user.id,
             event: 'invited',
@@ -94,12 +88,17 @@ describe('user event captures', () => {
         })
     })
 
-    it('onUserAcceptInvite records the invite and org, and captures accepted_invite', async () => {
+    it('onUserAcceptInvite records the invite and captures accepted_invite with the membership role', async () => {
         const { onUserAcceptInvite } = await import('./events')
-        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const inviteId = crypto.randomUUID()
+        // An admin accepting a contributor invite stays admin, so the capture reads the membership.
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: 'member@test.com', isAdmin: false, claimedByUserId: user.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-        onUserAcceptInvite({ userId: user.id, inviteId, orgId: org.id, isAdmin: false, isNewAccount: true })
+        onUserAcceptInvite({ userId: user.id, inviteId: invite.id, isNewAccount: false })
 
         await flushDeferred()
         expect(postHogCaptures()).toContainEqual({
@@ -107,13 +106,13 @@ describe('user event captures', () => {
             event: 'accepted_invite',
             properties: expect.objectContaining({
                 org_id: org.id,
-                role: 'contributor',
-                is_new_account: true,
+                role: 'admin',
+                is_new_account: false,
                 user_role: 'researcher',
             }),
         })
         expect(await getAuditEntriesWithMetadata(user.id, 'USER')).toContainEqual(
-            expect.objectContaining({ eventType: 'ACCEPTED_INVITE', metadata: { inviteId, orgId: org.id } }),
+            expect.objectContaining({ eventType: 'ACCEPTED_INVITE', metadata: { inviteId: invite.id } }),
         )
     })
 

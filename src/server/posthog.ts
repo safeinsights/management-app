@@ -4,17 +4,13 @@ import * as Sentry from '@sentry/nextjs'
 import { POSTHOG_HOST } from '@/lib/constants'
 import logger from '@/lib/logger'
 
-let client: PostHog | null = null
-
-async function getPostHogClient(): Promise<PostHog | null> {
-    if (client) return client
-
+async function createPostHogClient(): Promise<PostHog | null> {
     const postHogProjectToken = await getConfigValue('POSTHOG_PROJECT_TOKEN', false)
     if (!postHogProjectToken) return null
 
     // flushAt/flushInterval follow PostHog's serverless guidance; captureImmediate makes them moot.
     // Tight timeout and one quick retry: captures run before emails, and the defaults can stall ~50s.
-    client = new PostHog(postHogProjectToken, {
+    return new PostHog(postHogProjectToken, {
         host: POSTHOG_HOST,
         flushAt: 1,
         flushInterval: 0,
@@ -22,7 +18,17 @@ async function getPostHogClient(): Promise<PostHog | null> {
         fetchRetryCount: 1,
         fetchRetryDelay: 500,
     })
+}
 
+let client: Promise<PostHog | null> | undefined
+
+// Shared so concurrent first captures build one client; a null is retried, so a failed lookup
+// does not switch analytics off for the instance's lifetime.
+const getPostHogClient = () => {
+    client ??= createPostHogClient().then((created) => {
+        if (!created) client = undefined
+        return created
+    })
     return client
 }
 
@@ -58,7 +64,18 @@ export async function capturePostHogEvent({ properties, ...event }: PostHogEvent
         if (!posthog) return
 
         const resolved = typeof properties === 'function' ? await properties() : properties
-        await posthog.captureImmediate({ ...event, properties: { ...resolved, environment: ENVIRONMENT_ID } })
+
+        // captureImmediate reports a failed send through this event instead of rejecting.
+        let failure: unknown
+        const stopListening = posthog.on('error', (error: unknown) => {
+            failure ??= error
+        })
+        try {
+            await posthog.captureImmediate({ ...event, properties: { ...resolved, environment: ENVIRONMENT_ID } })
+        } finally {
+            stopListening()
+        }
+        if (failure) throw failure
     } catch (error: unknown) {
         logger.error(error)
         Sentry.captureException(error)

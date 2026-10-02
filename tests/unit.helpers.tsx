@@ -55,7 +55,13 @@ const postHogCaptureMock = () => vi.mocked(PostHog.prototype.captureImmediate)
 
 export const postHogCaptures = () => postHogCaptureMock().mock.calls.map(([event]) => event)
 
-export const failNextPostHogCapture = (error: Error) => postHogCaptureMock().mockRejectedValueOnce(error)
+// posthog-node reports a failed send through its 'error' event rather than rejecting, as the mock does.
+export const failNextPostHogCapture = (error: Error) =>
+    postHogCaptureMock().mockImplementationOnce(async function (this: { emitError(error: unknown): void }) {
+        this.emitError(error)
+    } as never)
+
+export const flushDeferred = () => globalThis.__flushDeferred()
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
     db

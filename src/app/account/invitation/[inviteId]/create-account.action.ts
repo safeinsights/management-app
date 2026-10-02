@@ -146,7 +146,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             throw new ActionFailure({ user: 'does not exist' })
         }
 
-        const claimed = await db.transaction().execute(async (trx) => {
+        const siUser = await db.transaction().execute(async (trx) => {
             // Claim first, atomically: concurrent accepts race on this row, and a failure below
             // rolls the claim back with the membership.
             const invite = await trx
@@ -174,7 +174,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
                 }
-                return invite
+                return user
             }
 
             // isAdmin comes from the invite row alone; no caller-supplied input can raise it.
@@ -188,23 +188,17 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .returning('id')
                 .executeTakeFirstOrThrow()
 
-            return invite
+            return user
         })
 
-        await updateClerkUserMetadata(user.id)
-        onUserAcceptInvite({
-            userId: user.id,
-            inviteId,
-            orgId: claimed.orgId,
-            isAdmin: claimed.isAdmin,
-            isNewAccount: false,
-        })
+        await updateClerkUserMetadata(siUser.id)
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: false })
 
         // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
         // stale right after this server-side update.
-        const needsUserKey = !(await getUserPublicKey(user.id))
+        const needsUserKey = !(await getUserPublicKey(siUser.id))
 
-        return { ...user, needsUserKey }
+        return { ...siUser, needsUserKey }
     })
 
 export const onCreateAccountAction = new Action('onCreateAccountAction')
@@ -333,13 +327,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite({
-            userId: siUser.id,
-            inviteId,
-            orgId: invite.orgId,
-            isAdmin: invite.isAdmin,
-            isNewAccount: true,
-        })
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: true })
 
         return { userId: siUser.id }
     })

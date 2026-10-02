@@ -10,10 +10,10 @@ import {
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
+    flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
-import { flushDeferred } from '@/tests/vitest.setup'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
@@ -489,7 +489,7 @@ describe('Study Job Actions', () => {
         })
 
         test('sharing feedback only rejects the files and shares no keys', async () => {
-            const { enclave, file, job, study } = await setupResultApprovalFixture()
+            const { enclave, file, job, reviewer, study } = await setupResultApprovalFixture()
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -519,6 +519,13 @@ describe('Study Job Actions', () => {
                 }),
             )
             expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
+
+            const decided = await db
+                .selectFrom('study')
+                .select('reviewerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(decided.reviewerId).toBe(reviewer.id)
         })
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first

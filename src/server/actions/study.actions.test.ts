@@ -16,11 +16,11 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
     waitFor,
 } from '@/tests/unit.helpers'
-import { flushDeferred } from '@/tests/vitest.setup'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { latestJobForStudy } from '../db/queries'
 import {
@@ -958,6 +958,11 @@ describe('submitProposalReviewAction', () => {
                 .where('id', '=', study.id)
                 .executeTakeFirstOrThrow()
             expect(unchanged.status).toBe(status)
+
+            await flushDeferred()
+            expect(deliverMock).not.toHaveBeenCalledWith(
+                expect.objectContaining({ template: 'vb - research proposal approved' }),
+            )
         },
     )
 

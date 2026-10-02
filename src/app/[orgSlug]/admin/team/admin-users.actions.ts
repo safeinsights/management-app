@@ -3,6 +3,7 @@
 import { ActionFailure } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
+import { sendInviteEmail } from '@/server/mailer'
 import { inviteUserSchema, z } from './invite-user.schema'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -40,18 +41,13 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
 
         const existingPendingUser = await db
             .selectFrom('pendingUser')
-            .select(['id', 'isAdmin'])
+            .select(['id'])
             .where('email', '=', invite.email)
             .where('orgId', '=', orgId)
             .executeTakeFirst()
         if (existingPendingUser) {
-            onUserInvited({
-                invitedEmail: invite.email,
-                pendingId: existingPendingUser.id,
-                orgId,
-                isAdmin: existingPendingUser.isAdmin,
-                isResend: true,
-            })
+            await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
+            onUserInvited({ pendingId: existingPendingUser.id, isResend: true })
             return { alreadyInvited: true }
         }
 
@@ -66,13 +62,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        onUserInvited({
-            invitedEmail: invite.email,
-            pendingId: record.id,
-            orgId,
-            isAdmin: invite.permission == 'admin',
-            isResend: false,
-        })
+        await sendInviteEmail({ emailTo: invite.email, inviteId: record.id })
+        onUserInvited({ pendingId: record.id, isResend: false })
         return { alreadyInvited: false }
     })
 
@@ -116,20 +107,15 @@ export const reInviteUserAction = new Action('reInviteUserAction')
         return { orgId: org.orgId }
     })
     .requireAbilityTo('invite', 'User')
-    .handler(async ({ params: { orgSlug, pendingUserId }, orgId, db }) => {
+    .handler(async ({ params: { orgSlug, pendingUserId }, db }) => {
         const pending = await db
             .selectFrom('pendingUser')
             .innerJoin('org', 'org.id', 'pendingUser.orgId')
-            .select(['pendingUser.id', 'pendingUser.email', 'pendingUser.isAdmin'])
+            .select(['pendingUser.id', 'pendingUser.email'])
             .where('org.slug', '=', orgSlug)
             .where('pendingUser.id', '=', pendingUserId)
             .executeTakeFirstOrThrow()
 
-        onUserInvited({
-            invitedEmail: pending.email,
-            pendingId: pending.id,
-            orgId,
-            isAdmin: pending.isAdmin,
-            isResend: true,
-        })
+        await sendInviteEmail({ emailTo: pending.email, inviteId: pending.id })
+        onUserInvited({ pendingId: pending.id, isResend: true })
     })

@@ -3,7 +3,6 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { db, mockSessionWithTestData, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { sendInviteEmail } from '@/server/mailer'
-import { flushDeferred } from '@/tests/vitest.setup'
 import { InviteButton } from './invitation'
 
 vi.mock('@/server/mailer', async (importOriginal) => ({
@@ -43,7 +42,6 @@ describe('InviteButton', () => {
         await submitInvite('already@test.com')
 
         expect(await screen.findByText('Invitation sent successfully!')).toBeInTheDocument()
-        await flushDeferred()
         expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'already@test.com', inviteId: pending.id })
         expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Invite resent' }))
         expect(screen.queryByLabelText('Invite by email')).not.toBeInTheDocument()

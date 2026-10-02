@@ -13,7 +13,7 @@ describe('capturePostHogEvent', () => {
         })
     })
 
-    it('resolves rather than throws when PostHog rejects the capture', async () => {
+    it('reports a failed send, which posthog-node emits rather than throws', async () => {
         const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         failNextPostHogCapture(new Error('PostHog is down'))
 
