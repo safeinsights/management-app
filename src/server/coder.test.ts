@@ -98,7 +98,7 @@ describe('getOrCreateCoderUserFor', () => {
 
         const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
         expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=email:john%40example.com', {
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john%40example.com', {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
@@ -203,7 +203,27 @@ describe('getOrCreateCoderUserFor', () => {
         const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
 
         expect(result.username).toBe('ann-x-edu-2222')
-        expect(mockFetch.mock.calls[0][0]).toBe('https://api.coder.com/api/v2/users?q=email:ann%40x.edu')
+        expect(mockFetch.mock.calls[0][0]).toBe('https://api.coder.com/api/v2/users?q=ann%40x.edu')
+    })
+
+    /**
+     * OTTER-817: an `email:` filter key was tried here and the deployed Coder answered
+     * `400 Invalid user search query, "email" is not a valid query param`, breaking every IDE
+     * launch. Keep the address bare — the exact match is enforced on the response, not the query.
+     */
+    it('queries with a bare address, not a filter key the server may reject', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ username: 'ann', email: 'ann@x.edu' }] }),
+        })
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        await getCoderUserFor({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })
+
+        const url = mockFetch.mock.calls[0][0] as string
+        expect(url).not.toContain('email:')
+        expect(url).not.toContain('%3A')
     })
 
     // A Coder build that omits `email` from the list response looks exactly like this: the user

@@ -40,25 +40,26 @@ async function createCoderUser(identity: CoderIdentity): Promise<CoderUser> {
 }
 
 /**
- * `email:` is Coder's exact filter (ExactEmail -> `lower(email) = lower(...)`). A bare address is a
- * free-text search instead, which is `ILIKE '%...%'` across email, username AND display name — so
- * ann@x.edu matched joann@x.edu and we took users[0] regardless.
+ * The address goes in bare. Newer Coder has an exact `email:` filter, but the deployed instance
+ * rejects the key outright — `400 Invalid user search query, "email" is not a valid query param` —
+ * which took out every IDE launch on QA (OTTER-817). Bare text is accepted by every version.
  *
- * The match is re-checked here rather than trusted: a Coder predating ExactEmail may parse an
- * unknown filter key as free text and silently fall back to that ILIKE, and returning the wrong
- * account is worse than returning none — it provisions one researcher's workspace under another's.
+ * That makes the match below load-bearing rather than defensive: a free-text query is
+ * `ILIKE '%...%'` across email, username AND display name, so it also returns longer addresses that
+ * merely contain this one. Returning the wrong account is worse than returning none — it would
+ * provision one researcher's workspace under another's.
  */
 export async function getCoderUserFor(identity: CoderIdentity): Promise<CoderUser | null> {
     const data = await coderFetch<CoderUserQueryResponse>(
-        `${coderUsersPath()}?q=email:${encodeURIComponent(identity.email)}`,
+        `${coderUsersPath()}?q=${encodeURIComponent(identity.email)}`,
         { errorMessage: 'Failed to query users' },
     )
 
     const wanted = identity.email.toLowerCase()
     const match = data.users?.find((user) => user.email?.toLowerCase() === wanted) ?? null
 
-    // Rows came back but none matched: either the filter fell through to a fuzzy search, or this
-    // Coder omits email from the list response and dropped a user that exists. Both end as a
+    // Rows came back but none matched: either they are all fuzzy hits on a longer address, or this
+    // Coder omits email from the list response and dropped a user that exists. The second ends as a
     // duplicate-email rejection from the create below, so name the cause while we still have it.
     if (!match && data.users?.length) {
         logger.warn(`Coder returned ${data.users.length} user(s) for ${wanted}, none an exact email match`)
