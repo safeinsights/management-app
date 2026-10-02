@@ -478,6 +478,7 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
             'orgCodeEnv.sampleDataPath',
             'org.slug',
             'study.orgId',
+            'study.codeEnvEnvironment',
         ])
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
