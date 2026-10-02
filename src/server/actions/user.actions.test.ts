@@ -10,6 +10,7 @@ import {
 import { faker } from '@faker-js/faker'
 import { onUserResetPWAction, onUserSignInAction, syncUserMetadataAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
+import { onUserRoleUpdate } from '@/server/events'
 
 vi.mock('@/server/events')
 
@@ -168,7 +169,7 @@ describe('User Actions', () => {
     })
 
     test('updateUserRoleAction should update user roles in the database', async () => {
-        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { org, user: admin } = await mockSessionWithTestData({ isAdmin: true })
         const { user: userToUpdate } = await insertTestUser({ org })
 
         await updateUserRoleAction({
@@ -184,5 +185,12 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
+        expect(onUserRoleUpdate).toHaveBeenCalledWith({
+            userId: userToUpdate.id,
+            actorId: admin.id,
+            orgId: org.id,
+            before: expect.objectContaining({ isAdmin: false }),
+            after: { isAdmin: true },
+        })
     })
 })

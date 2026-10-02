@@ -64,7 +64,38 @@ export async function flushDeferred() {
     }
 }
 
+declare global {
+    var __flushDeferred: typeof flushDeferred
+}
+
+// unit.helpers re-exports this through the global: importing the setup file from there re-runs it
+// after vi.resetModules, with an empty queue and its hooks registered twice.
+globalThis.__flushDeferred = flushDeferred
+
 // Vitest hoists vi.mock above imports, so factory-referenced values must come from vi.hoisted.
+
+const postHogMock = vi.hoisted(() => ({ captureImmediate: vi.fn() }))
+
+// A token makes server captures run, and the mock keeps them off the network, whatever .env holds.
+process.env.POSTHOG_PROJECT_TOKEN = 'phc_unit_test'
+vi.mock('posthog-node', () => {
+    class PostHog {
+        private errorListeners: ((error: unknown) => void)[] = []
+
+        on(event: string, listener: (error: unknown) => void) {
+            if (event === 'error') this.errorListeners.push(listener)
+            return () => {
+                this.errorListeners = this.errorListeners.filter((other) => other !== listener)
+            }
+        }
+
+        emitError(error: unknown) {
+            this.errorListeners.forEach((listener) => listener(error))
+        }
+    }
+    Object.assign(PostHog.prototype, { captureImmediate: postHogMock.captureImmediate })
+    return { PostHog }
+})
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 vi.mock('next/router', () => require('next-router-mock'))

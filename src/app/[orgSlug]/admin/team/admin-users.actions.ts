@@ -47,6 +47,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
+            onUserInvited({ pendingId: existingPendingUser.id, isResend: true })
             return { alreadyInvited: true }
         }
 
@@ -61,7 +62,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
+        await sendInviteEmail({ emailTo: invite.email, inviteId: record.id })
+        onUserInvited({ pendingId: record.id, isResend: false })
         return { alreadyInvited: false }
     })
 
@@ -114,5 +116,6 @@ export const reInviteUserAction = new Action('reInviteUserAction')
             .where('pendingUser.id', '=', pendingUserId)
             .executeTakeFirstOrThrow()
 
-        onUserInvited({ invitedEmail: pending.email, pendingId: pending.id })
+        await sendInviteEmail({ emailTo: pending.email, inviteId: pending.id })
+        onUserInvited({ pendingId: pending.id, isResend: true })
     })

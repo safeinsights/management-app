@@ -3,7 +3,7 @@
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
-import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import type { StudyStatus } from '@/database/types'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { assertDecisionFeedback } from './decision-feedback'
@@ -33,7 +33,6 @@ import {
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
-import { insertSharedFileKeys } from '@/server/results-sharing'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
@@ -276,8 +275,6 @@ async function approveJobCode({
     userId,
     studyId,
     orgSlug,
-    useTestImage,
-    sharedFiles,
 }: {
     db: DBExecutor
     job: LatestJobForStudy
@@ -285,8 +282,6 @@ async function approveJobCode({
     userId: string
     studyId: string
     orgSlug: string
-    useTestImage?: boolean
-    sharedFiles?: SharedFile[]
 }) {
     await db
         .insertInto('jobStatusChange')
@@ -303,7 +298,7 @@ async function approveJobCode({
             .selectFrom('orgCodeEnv')
             .where('language', '=', job.language)
             .where('orgId', '=', study.orgId)
-            .where('isTesting', '=', useTestImage || false)
+            .where('isTesting', '=', false)
             .orderBy('orgCodeEnv.createdAt', 'desc')
             .select(['url', 'commandLines'])
             .executeTakeFirstOrThrow(
@@ -327,11 +322,6 @@ async function approveJobCode({
             codeEnvURL: image.url,
         })
     }
-
-    if (sharedFiles?.length) {
-        // Persist only the per-researcher wrapped AES keys; ciphertext is untouched.
-        await insertSharedFileKeys(db, job.id, sharedFiles)
-    }
 }
 
 type StudyForApproval = { status: StudyStatus; approvedAt: Date | null; orgId: string; containerLocation: string }
@@ -342,16 +332,12 @@ async function performStudyProposalApproval({
     studyId,
     userId,
     orgSlug,
-    useTestImage,
-    sharedFiles,
 }: {
     db: DBExecutor
     study: StudyForApproval
     studyId: string
     userId: string
     orgSlug: string
-    useTestImage?: boolean
-    sharedFiles?: SharedFile[]
 }) {
     // PENDING-REVIEW + approvedAt IS NULL blocks flipping a DRAFT into a viewable status
     // (OTTER-596), and being atomic settles the OTTER-471 concurrent-decision race.
@@ -387,7 +373,7 @@ async function performStudyProposalApproval({
 
     const job = await latestJobForStudy(studyId)
 
-    await approveJobCode({ db, job, study, userId, studyId, orgSlug, useTestImage, sharedFiles })
+    await approveJobCode({ db, job, study, userId, studyId, orgSlug })
 }
 
 async function markStudyRejected({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
@@ -424,36 +410,6 @@ async function performStudyProposalRejection({
     await markStudyRejected({ db, studyId, userId })
     onStudyRejected({ studyId, userId })
 }
-
-export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
-    .params(
-        z.object({
-            studyId: z.string(),
-            orgSlug: z.string(),
-            useTestImage: z.boolean().optional(),
-            sharedFiles: z.array(sharedFileSchema).optional(),
-        }),
-    )
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['status', 'approvedAt', 'orgId', 'containerLocation'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId }
-    })
-    .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, useTestImage, sharedFiles }, study, session, db }) => {
-        await performStudyProposalApproval({
-            db,
-            study,
-            studyId,
-            userId: session.user.id,
-            orgSlug,
-            useTestImage,
-            sharedFiles,
-        })
-    })
 
 async function claimInitialProposalReviewStudy({
     db,
@@ -707,7 +663,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
-            onStudyCodeApproved({ studyId, userId })
+            onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
             await db
                 .insertInto('jobStatusChange')
@@ -718,7 +674,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
                 .where('id', '=', studyId)
                 .execute()
-            onStudyCodeChangesRequested({ studyId, userId })
+            onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
@@ -879,22 +835,3 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
     })
 
 export type OutputsDecisionFeedbackEntry = ActionSuccessType<typeof getOutputsDecisionFeedbackAction>[number]
-
-export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => {
-        const latestJob = await latestJobForStudy(studyId)
-        return { latestJob, orgId: latestJob.orgId }
-    })
-    .requireAbilityTo('approve', 'Study')
-    .handler(async ({ latestJob, db }) => {
-        const testImage = await db
-            .selectFrom('orgCodeEnv')
-            .select('id')
-            .where('orgId', '=', latestJob.orgId)
-            .where('language', '=', latestJob.language)
-            .where('isTesting', '=', true)
-            .executeTakeFirst()
-
-        return !!testImage
-    })

@@ -13,7 +13,7 @@ import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
-import { onUserLogIn } from '@/server/events'
+import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import {
     getOrgInfoForInviteAction,
     onCreateAccountAction,
@@ -106,6 +106,7 @@ describe('Create Account Actions', () => {
             .where('orgId', '=', org.id)
             .executeTakeFirstOrThrow()
         expect(membership.isAdmin).toBe(false)
+        expect(onUserAcceptInvite).toHaveBeenCalledWith({ userId: newUser.id, inviteId: invite.id, isNewAccount: true })
     })
 
     describe('signup acknowledgements', () => {
