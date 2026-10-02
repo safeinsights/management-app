@@ -238,3 +238,25 @@ test('non-SI-admin is still bounded (manage/all does not leak to regular users)'
     expect(ability.can('manageRole', toRecord('User', { orgId: otherOrgId }))).toBe(false)
     expect(ability.can('revoke', toRecord('PendingUser', { orgId: otherOrgId }))).toBe(false)
 })
+
+test('test labs: data partner admins designate, only SI admins undesignate', () => {
+    const { ability, session } = createAbilty({ isAdmin: true }, 'enclave')
+    const own = { orgType: 'enclave' as const, orgId: session.orgs.test.id }
+    const foreign = { orgType: 'enclave' as const, orgId: faker.string.uuid() }
+
+    expect(ability.can('view', toRecord('TestLab', own))).toBe(true)
+    expect(ability.can('designate', toRecord('TestLab', own))).toBe(true)
+    expect(ability.can('undesignate', toRecord('TestLab', own))).toBe(false)
+    expect(ability.can('designate', toRecord('TestLab', foreign))).toBe(false)
+
+    const member = createAbilty({}, 'enclave')
+    const memberOwn = { orgType: 'enclave' as const, orgId: member.session.orgs.test.id }
+    expect(member.ability.can('designate', toRecord('TestLab', memberOwn))).toBe(false)
+
+    const labAdmin = createAbilty({ isAdmin: true }, 'lab')
+    const labOwn = { orgType: 'lab' as const, orgId: labAdmin.session.orgs.test.id }
+    expect(labAdmin.ability.can('designate', toRecord('TestLab', labOwn))).toBe(false)
+
+    const siAdmin = createAbilty({}, 'enclave', { isSiAdmin: true })
+    expect(siAdmin.ability.can('undesignate', toRecord('TestLab', own))).toBe(true)
+})

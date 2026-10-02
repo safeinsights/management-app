@@ -1,22 +1,11 @@
-import { useEffect, type ReactNode } from 'react'
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, SpyMode } from '@/tests/unit.helpers'
 import { type TimedStep } from '@/hooks/use-timed-progress'
-import { useSpyMode } from './spy-mode-context'
 import { TimedProgressBar } from './timed-progress-bar'
 
 const steps: TimedStep<number>[] = [
     { estimateSeconds: 10, hasStarted: (n) => n >= 1 },
     { estimateSeconds: 30, hasStarted: (n) => n >= 2 },
 ]
-
-// Spy mode is otherwise driven by a UI button.
-function SpyMode({ children }: { children: ReactNode }) {
-    const { isSpyMode, toggleSpyMode } = useSpyMode()
-    useEffect(() => {
-        if (!isSpyMode) toggleSpyMode()
-    }, [isSpyMode, toggleSpyMode])
-    return <>{children}</>
-}
 
 describe('TimedProgressBar', () => {
     it('renders nothing when not visible', () => {
