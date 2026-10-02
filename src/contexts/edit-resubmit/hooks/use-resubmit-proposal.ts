@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
 import { resubmitProposalAction } from '@/server/actions/study-request'
@@ -51,9 +51,10 @@ export function useResubmitProposal({
         onSuccess: (result) => {
             form.resetDirty()
             noteForm.resetDirty()
-            // Fired before navigating: the Notifications provider lives in the persistent app
-            // shell, so the toast survives the push and lands on the destination page.
-            notifications.show({ color: 'green', title: SUBMIT_SUCCESS_TITLE, message: '' })
+            // Fired before the push: the provider is mounted at the root, and the navigation sweep
+            // spares a toast younger than TOAST_NAVIGATION_GRACE_MS, so this one lands on the
+            // destination page.
+            showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE, message: '' })
             const event: SubmissionEvent = {
                 type: 'proposal-submitted',
                 studyId,

@@ -34,8 +34,6 @@ export const APP_SHELL = {
 export const MAIN_CONTENT_ID = 'main-content'
 export const MAIN_CONTENT_PROPS = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const
 
-export const NOTIFICATION_DISPLAY_MS = 8000
-
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
 
 // Clerk's signOut can hang instead of settling, which strands whatever awaits it. Shared so the

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
 import { DECISION_NOTICES, type CodeDecision } from '@/lib/review-decision'
 import { pushDecided } from '@/lib/navigation'
@@ -46,11 +46,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: (err) => {
             captureException(err)
-            notifications.show(DECISION_NOTICES.failed)
+            showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            notifications.show(DECISION_NOTICES.submitted)
+            showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {

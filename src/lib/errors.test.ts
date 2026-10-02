@@ -7,6 +7,7 @@ import {
     isActionError,
     isStaleDeploymentError,
     errorToString,
+    userFacingErrorMessage,
     STALE_DEPLOYMENT_MESSAGE,
 } from './errors'
 
@@ -138,6 +139,21 @@ describe('errorToString', () => {
     it('returns undefined for objects that do not match any condition', () => {
         const nonMatching = { some: 'object' }
         expect(errorToString(nonMatching)).toBe('Unknown error occurred')
+    })
+})
+
+describe('userFacingErrorMessage', () => {
+    it('has nothing to offer for a plain Error, whose text is written for a developer', () => {
+        expect(userFacingErrorMessage(new Error('Failed to fetch'))).toBeNull()
+    })
+
+    it('keeps the branches that produce copy written for a reader', () => {
+        expect(userFacingErrorMessage('Code has already been submitted')).toBe('Code has already been submitted')
+        expect(userFacingErrorMessage(new ActionFailure({ study: 'is unavailable' }))).toBe('Study is unavailable')
+        expect(userFacingErrorMessage(staleActionError())).toBe(STALE_DEPLOYMENT_MESSAGE)
+        expect(
+            userFacingErrorMessage({ errors: [{ code: 'form_x', message: 'short', longMessage: 'The long one.' }] }),
+        ).toBe('The long one.')
     })
 })
 

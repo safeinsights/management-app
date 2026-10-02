@@ -320,7 +320,10 @@ describe('StudyCode component', () => {
         ])
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+            expect.objectContaining({
+                title: 'Code submitted.',
+                'data-toast-kind': 'success',
+            }),
         )
     })
 
@@ -913,7 +916,6 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'Code could not be submitted.',
                         message: 'Your work is saved. Try again.',
-                        color: 'red',
                         'data-toast-kind': 'error',
                     }),
                 )
@@ -939,7 +941,7 @@ describe('StudyCode component', () => {
                         title: 'Code could not be submitted.',
                         message:
                             'Study Agreement must be acknowledged before you can continue with this study. Your work is saved.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1194,7 +1196,7 @@ describe('StudyCode component', () => {
                 expect(await workspaceNames(study.id)).toEqual(['extra.R', 'main.R'])
             })
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'extra.R is uploaded.', color: 'green' }),
+                expect.objectContaining({ title: 'extra.R is uploaded.', 'data-toast-kind': 'success' }),
             )
         })
 
@@ -1209,7 +1211,7 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'huge.R failed to upload.',
                         message: 'Maximum file size is 3 MB.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1851,7 +1853,10 @@ describe('StudyCode component', () => {
             ])
 
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+                expect.objectContaining({
+                    title: 'Code submitted.',
+                    'data-toast-kind': 'success',
+                }),
             )
         })
     })

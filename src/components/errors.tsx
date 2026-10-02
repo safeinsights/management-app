@@ -1,11 +1,13 @@
 'use client'
 
+import { derivedToastId, forgetToast, showToast } from '@/components/toast-notifications'
 import {
     errorToString,
     extractActionFailure,
     isStaleDeploymentError,
     STALE_DEPLOYMENT_MESSAGE,
     STALE_DEPLOYMENT_TITLE,
+    userFacingErrorMessage,
 } from '@/lib/errors'
 import { Alert, AlertProps, Button, Group, Stack, Text } from '@mantine/core'
 import { notifications, type NotificationData } from '@mantine/notifications'
@@ -34,8 +36,22 @@ export const ReloadNotice: FC<{ message: string }> = ({ message }) => (
 // so a later notice under a shared id would never replace the first. `update` is a no-op for an
 // absent id, which makes the pair replace-or-add without reading the store (OTTER-726).
 export const showOrReplaceNotification = (notification: NotificationData) => {
-    notifications.update(notification)
-    notifications.show(notification)
+    // The id may be one showToast raised: take it out of the toast system's ownership so the
+    // navigation sweep cannot hide a notice meant to stay, and clear the presentation keys
+    // `update`'s shallow merge would otherwise leave behind.
+    if (notification.id) forgetToast(notification.id)
+
+    const replacement: NotificationData = {
+        icon: undefined,
+        role: undefined,
+        'aria-live': undefined,
+        'data-toast-kind': undefined,
+        styles: undefined,
+        ...notification,
+    }
+
+    notifications.update(replacement)
+    notifications.show(replacement)
 }
 
 // An action id is hashed with the pinned Server Actions key, so it survives an ordinary deploy. It
@@ -63,10 +79,17 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
         return eventId
     }
 
-    notifications.show({
-        color: 'red',
+    // An error with no message written for a reader would otherwise show framework text such as
+    // "TypeError: Failed to fetch", which names neither the problem nor a remedy.
+    const detail = userFacingErrorMessage(error) || 'Try again.'
+
+    // The id is derived without the reference: it changes per call, and an error toast never
+    // auto-closes, so folding it in would let a retried failure stack permanent notices.
+    showToast({
+        category: 'error',
+        id: derivedToastId({ category: 'error', title, message: detail }),
         title,
-        message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
+        message: eventId ? `${detail}\nReference: ${eventId}` : detail,
     })
     return eventId
 }

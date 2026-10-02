@@ -1,6 +1,7 @@
 'use client'
 
 import { ReloadNotice, showOrReplaceNotification } from '@/components/errors'
+import { showToast } from '@/components/toast-notifications'
 import { isStaleDeploymentError } from '@/lib/errors'
 import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
 
@@ -32,9 +33,9 @@ export function showOutputsDecisionFailure({ error, isSaved }: { error: unknown;
         return
     }
 
-    showOrReplaceNotification({
+    showToast({
+        category: 'error',
         id: FAILURE_NOTIFICATION_ID,
-        color: 'red',
         title: OUTPUTS_DECISION_FAILURE.title,
         message: retryMessage(isSaved),
     })

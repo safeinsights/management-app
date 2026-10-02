@@ -1,8 +1,9 @@
 'use client'
 
+import { showToast } from '@/components/toast-notifications'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useForm, zodResolver } from '@/common'
-import { notifications } from '@mantine/notifications'
 import { updateEducationAction } from '@/server/actions/researcher-profile.actions'
 import { educationSchema, type EducationValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
@@ -52,10 +53,10 @@ export function useEducationSection(data: ResearcherProfileData | null, refetch:
         onSuccess: async () => {
             await refetch()
             setIsEditing(false)
-            notifications.show({ title: 'Saved', message: 'Education updated', color: 'green' })
+            showToast({ category: 'success', title: 'Saved', message: 'Education updated' })
         },
         onError: (error) => {
-            notifications.show({ title: 'Save failed', message: String(error), color: 'red' })
+            showToast({ category: 'error', title: 'Save failed', message: String(error) })
         },
     })
 
