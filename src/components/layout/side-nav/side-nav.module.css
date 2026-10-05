@@ -41,7 +41,7 @@
     top: 0;
     left: var(--mantine-spacing-xs);
     right: var(--mantine-spacing-xs);
-    border-top: rem(1px) solid var(--si-color-brand-secondary);
+    border-top: rem(1px) solid var(--si-color-border-sidenav);
 }
 
 .row {
