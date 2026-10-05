@@ -165,7 +165,7 @@ describe('mailgun email functions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
+                to: 'agreements@safeinsights.org',
                 bcc: expect.stringContaining(admin.email || ''),
                 subject: 'New Study Agreement required',
                 template: 'vb - sla notice',

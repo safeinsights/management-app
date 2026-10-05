@@ -121,7 +121,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 
     // See OTTER-651: never put multiple recipient addresses in "To".
     await deliver({
-        to: SI_EMAIL,
+        to: 'agreements@safeinsights.org',
         bcc: emails.join(', '),
         subject: `New ${legalDocumentTypeLabels.SLA} required`,
         template: 'vb - sla notice',
