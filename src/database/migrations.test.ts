@@ -9,11 +9,13 @@ const migrationFiles = () => readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWit
 const RETROACTIVE_RULE_SINCE = 1787300000000
 
 // Widens a study-family table or enum: existing studies would otherwise fall behind new ones.
+// Every table with a study_id column, not just the study-prefixed ones.
+const STUDY_TABLES = '(study\\w*|job_status_change|yjs_document|workspace_file_activity|legal_document\\w*)'
 const WIDENS_STUDY_SHAPE = [
-    /alterTable\(['"](study\w*|job_status_change)['"]\)[\s\S]*?\.addColumn\(/,
-    /createTable\(['"](study\w*|job_status_change)['"]\)/,
-    /ALTER TABLE\s+(study\w*|job_status_change)\s+ADD COLUMN/i,
-    /ALTER TYPE\s+(study\w*|job_status)\s+ADD VALUE/i,
+    new RegExp(`alterTable\\(['"]${STUDY_TABLES}['"]\\)[\\s\\S]*?\\.addColumn\\(`),
+    new RegExp(`createTable\\(['"]${STUDY_TABLES}['"]\\)`),
+    new RegExp(`ALTER TABLE\\s+${STUDY_TABLES}\\s+ADD COLUMN`, 'i'),
+    /ALTER TYPE\s+study\w*\s+ADD VALUE/i,
 ]
 // ponytail: file-level regex, so a backfill in down() or on an unrelated table also satisfies it.
 // Reviewers read the migration anyway; tighten to per-statement parsing if it ever lets one slip.
