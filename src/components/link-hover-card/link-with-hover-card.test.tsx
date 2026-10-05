@@ -16,8 +16,7 @@ import {
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
 import { LINK_CARD_DIALOG_LABEL, LINK_CARD_LABELS } from './copy'
-import { LINK_CARD_HOVER_CLOSE_DELAY_MS } from './link-card-interactions'
-import { LinkWithHoverCard } from './link-with-hover-card'
+import { LINK_CARD_HOVER_CLOSE_DELAY_MS, LinkWithHoverCard } from './link-with-hover-card'
 
 const renderLink = (href: string, text = 'Study Agreement') => {
     renderWithProviders(
