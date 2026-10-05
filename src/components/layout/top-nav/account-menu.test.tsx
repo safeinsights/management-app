@@ -7,6 +7,7 @@ import {
     renderWithProviders,
     screen,
     userEvent,
+    within,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
 import { AccountMenu } from './account-menu'
@@ -70,6 +71,24 @@ describe('AccountMenu', () => {
         await userEvent.click(screen.getByRole('link', { name: 'Legal' }))
 
         expect(screen.getByRole('button', { name: 'Toggle profile menu' })).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('shows initials from the first and last name, never the Clerk image', () => {
+        mockPathname(Routes.dashboard)
+        mockClerkSession({
+            clerkUserId: 'c6',
+            userId: 'u6',
+            orgSlug: 'dp',
+            orgType: 'enclave',
+            firstName: 'Mary',
+            lastName: 'Van Dyke',
+            imageUrl: 'https://img.clerk.com/default-avatar.png',
+        })
+        renderWithProviders(<AccountMenu />)
+
+        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        expect(within(trigger).getByText('MV')).toBeInTheDocument()
+        expect(within(trigger).queryByRole('img')).toBeNull()
     })
 
     it('closes on Escape while the trigger still has focus', async () => {

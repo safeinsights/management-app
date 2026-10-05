@@ -617,6 +617,8 @@ type MockSession = {
     orgSlug: string
     email?: string
     imageUrl?: string
+    firstName?: string
+    lastName?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
     orgType?: 'enclave' | 'lab'
@@ -689,6 +691,8 @@ export const mockClerkSession = (values: MockSession | null) => {
         banned: false,
         twoFactorEnabled: values.twoFactorEnabled ?? true,
         imageUrl: values.imageUrl,
+        firstName: values.firstName,
+        lastName: values.lastName,
         organizationMemberships: [],
         unsafeMetadata,
         publicMetadata,

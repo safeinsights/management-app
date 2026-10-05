@@ -1,12 +1,11 @@
 'use client'
 
-import { UserAvatar } from '@/components/user-avatar'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
-import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
 import { getLabOrg } from '@/lib/types'
 import { useClerk, useUser } from '@clerk/nextjs'
+import { Avatar } from '@mantine/core'
 import { useDisclosure, useWindowEvent } from '@mantine/hooks'
 import {
     BooksIcon,
@@ -21,8 +20,24 @@ import { usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { navIcon } from '../nav-icon'
 import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
+import styles from './top-nav.module.css'
 
 const AVATAR_SIZE = 32
+
+// TopNav spec: initials come from the first- and last-name fields, and a multi-word surname gives its
+// first letter ("Van Dyke" -> V), which a split on the full name would get wrong.
+const accountInitials = (firstName?: string | null, lastName?: string | null) =>
+    [firstName, lastName]
+        .map((name) => name?.trim().charAt(0) ?? '')
+        .join('')
+        .toUpperCase()
+
+// Always initials, never the Clerk image: Clerk fills imageUrl with its default avatar for every user.
+const AccountAvatar: React.FC<{ initials: string }> = ({ initials }) => (
+    <Avatar size={AVATAR_SIZE} alt="User profile" classNames={{ placeholder: styles.avatar }}>
+        {initials}
+    </Avatar>
+)
 
 type MenuLinks = {
     isResearcher: boolean
@@ -104,13 +119,7 @@ export const AccountMenu: React.FC = () => {
             onClose={close}
             triggerRef={triggerRef}
             firstName={user?.firstName ?? ''}
-            avatar={
-                <UserAvatar
-                    size={AVATAR_SIZE}
-                    bg={semanticColor('surface.sidenav')}
-                    color={semanticColor('text.white')}
-                />
-            }
+            avatar={<AccountAvatar initials={accountInitials(user?.firstName, user?.lastName)} />}
             sections={sections}
         />
     )
