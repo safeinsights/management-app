@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { apiRequestingOrg } from '@/server/api-context'
+import { onJobErrored } from '@/server/events'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -34,7 +35,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
         .where('studyJob.id', '=', jobId)
-        .select('studyJob.id')
+        .select(['studyJob.id', 'studyJob.studyId'])
         .executeTakeFirst()
 
     if (!job) {
@@ -56,6 +57,8 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     if (!insert) {
         return new NextResponse('Failed to record update', { status: 500 })
     }
+
+    if (change.status === 'JOB-ERRORED') onJobErrored({ studyId: job.studyId })
 
     return new NextResponse('ok', { status: 200 })
 }

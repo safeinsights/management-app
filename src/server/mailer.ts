@@ -95,17 +95,29 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
     }
 }
 
-// Whoever decided on any version of the proposal, kept even if they have since left the Data Partner.
-async function getProposalDeciders(studyId: string) {
-    return db
+// Whoever decided on any version of the proposal (and, if asked, the code), kept even if they have
+// since left the Data Partner.
+async function getStudyDeciders(studyId: string, { withCodeDeciders = false } = {}) {
+    const proposalDeciders = db
         .selectFrom('studyProposalComment')
-        .innerJoin('user', 'user.id', 'studyProposalComment.authorId')
-        .select(['user.email', 'user.fullName'])
-        .distinct()
-        .where('studyProposalComment.studyId', '=', studyId)
-        .where('studyProposalComment.entryType', '=', 'REVIEWER-FEEDBACK')
-        .where('studyProposalComment.decision', 'is not', null)
-        .where('user.email', 'is not', null)
+        .select('authorId')
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'REVIEWER-FEEDBACK')
+        .where('decision', 'is not', null)
+
+    const codeDeciders = db
+        .selectFrom('studyReviewComment')
+        .select('authorId')
+        .where('studyId', '=', studyId)
+        .where('reviewKind', '=', 'CODE')
+        .where('entryType', '=', 'DECISION')
+        .where('decision', 'is not', null)
+
+    return db
+        .selectFrom('user')
+        .select(['email', 'fullName'])
+        .where('id', 'in', withCodeDeciders ? proposalDeciders.union(codeDeciders) : proposalDeciders)
+        .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
 }
@@ -234,7 +246,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getProposalDeciders(studyId), {
+    await deliverToEach(studyId, await getStudyDeciders(studyId), {
         subject: 'Code needs review',
         template: 'vb - new code submission',
         vars: await dataPartnerReviewVars(studyId, study),
@@ -314,6 +326,17 @@ export const sendStudyCodeNeedsRevisionEmail = async (studyId: string) => {
         subject: 'Code needs revision',
         template: 'vb - code needs revision',
         vars: await labDecisionVars(studyId, study),
+    })
+}
+
+// Audience: the Data Partner's deciders on the proposal or code, Trigger: the job records JOB-ERRORED.
+export const sendDataPartnerCodeErroredEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    await deliverToEach(studyId, await getStudyDeciders(studyId, { withCodeDeciders: true }), {
+        subject: 'Code errored',
+        template: 'vb - dp - code errored',
+        vars: await dataPartnerReviewVars(studyId, study),
     })
 }
 

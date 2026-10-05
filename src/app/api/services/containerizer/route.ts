@@ -5,6 +5,7 @@ import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
+import { onJobErrored } from '@/server/events'
 
 const schema = z.object({
     jobId: z.string(),
@@ -78,6 +79,7 @@ export const POST = createWebhookHandler({
                     message: failureReason,
                 })
                 .execute()
+            if (body.status === 'JOB-ERRORED') onJobErrored({ studyId: job.studyId })
             return
         }
 

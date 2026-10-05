@@ -5,6 +5,7 @@ import {
     faker,
     insertTestOrg,
     insertTestOrgStudyJobUsers,
+    insertTestProposalDecision,
     insertTestStudyJobData,
     insertTestUser,
 } from '@/tests/unit.helpers'
@@ -257,24 +258,10 @@ describe('mailgun email functions', () => {
         expect(deliverMock).not.toHaveBeenCalled()
     })
 
-    const insertProposalDecision = (studyId: string, authorId: string) =>
-        db
-            .insertInto('studyProposalComment')
-            .values({
-                studyId,
-                authorId,
-                authorRole: 'REVIEWER',
-                entryType: 'REVIEWER-FEEDBACK',
-                decision: 'NEEDS-CLARIFICATION',
-                body: JSON.stringify({ text: 'please clarify the methodology' }),
-                version: 1,
-            })
-            .execute()
-
     it('sendStudyCodeSubmittedEmail greets each proposal decider once, linking to the study review', async () => {
         const { study, org, user2: decider } = await insertTestOrgStudyJobUsers()
-        await insertProposalDecision(study.id, decider.id)
-        await insertProposalDecision(study.id, decider.id)
+        await insertTestProposalDecision({ studyId: study.id, authorId: decider.id })
+        await insertTestProposalDecision({ studyId: study.id, authorId: decider.id })
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
 
@@ -295,11 +282,48 @@ describe('mailgun email functions', () => {
         )
     })
 
+    it('sendDataPartnerCodeErroredEmail reaches whoever decided on the proposal or the code, linking to the review', async () => {
+        const { study, org, job, user1: researcher, user2: proposalDecider } = await insertTestOrgStudyJobUsers()
+        const { user: codeDecider } = await insertTestUser({ org })
+        await insertTestProposalDecision({ studyId: study.id, authorId: proposalDecider.id })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: codeDecider.id,
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'APPROVE',
+                body: JSON.stringify({ text: 'looks good' }),
+            })
+            .execute()
+
+        await mailgun.sendDataPartnerCodeErroredEmail(study.id)
+
+        const recipients = (deliverMock.mock.calls as [{ to: string }][]).map(([message]) => message.to)
+        expect(recipients.sort()).toEqual([proposalDecider.email, codeDecider.email].sort())
+        expect(recipients).not.toContain(researcher.email)
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: codeDecider.email,
+                subject: 'Code errored',
+                template: 'vb - dp - code errored',
+                vars: expect.objectContaining({
+                    fullName: codeDecider.fullName,
+                    studyTitle: study.title,
+                    researchLab: org.name,
+                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                }),
+            }),
+        )
+    })
+
     it('sendStudyCodeSubmittedEmail still reaches a decider who has since left the Data Partner', async () => {
         const { study } = await insertTestOrgStudyJobUsers()
         const elsewhere = await insertTestOrg({ slug: faker.string.alpha(10) })
         const { user: formerMember } = await insertTestUser({ org: elsewhere })
-        await insertProposalDecision(study.id, formerMember.id)
+        await insertTestProposalDecision({ studyId: study.id, authorId: formerMember.id })
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
 

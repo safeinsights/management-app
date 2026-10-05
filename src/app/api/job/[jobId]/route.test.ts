@@ -1,7 +1,15 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestProposalDecision, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
 import { db } from '@/database'
+import { deliver } from '@/server/mailgun'
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
 
 test('updating status', async () => {
     const { org, user } = await mockSessionWithTestData()
@@ -24,4 +32,20 @@ test('updating status', async () => {
         .executeTakeFirstOrThrow()
 
     expect(sr.status).toBe('JOB-RUNNING')
+})
+
+// setup-app reports every failed run here first, so this is how the Data Partner hears of one.
+test('tells the Data Partner when the runner reports JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestProposalDecision({ studyId, authorId: user.id })
+
+    const req = new Request('http://localhost', { method: 'PUT', body: JSON.stringify({ status: 'JOB-ERRORED' }) })
+    const resp = await apiHandler.PUT(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
+    expect(resp.ok).toBe(true)
+    await flushDeferred()
+
+    expect(deliver).toHaveBeenCalledWith(
+        expect.objectContaining({ to: user.email, template: 'vb - dp - code errored' }),
+    )
 })
