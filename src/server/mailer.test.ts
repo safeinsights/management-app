@@ -10,7 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { deliver, SI_EMAIL } from './mailgun'
+import { deliver, SI_AGREEMENTS_EMAIL, SI_EMAIL } from './mailgun'
 
 vi.mock('./mailgun')
 
@@ -165,7 +165,7 @@ describe('mailgun email functions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
+                to: SI_AGREEMENTS_EMAIL,
                 bcc: expect.stringContaining(admin.email || ''),
                 subject: 'New Study Agreement required',
                 template: 'vb - sla notice',

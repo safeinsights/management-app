@@ -8,7 +8,7 @@ import { Routes } from '@/lib/routes'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
-import { deliver, SI_EMAIL } from './mailgun'
+import { deliver, SI_AGREEMENTS_EMAIL, SI_EMAIL } from './mailgun'
 
 async function getOrgMembers(orgId: string) {
     return db
@@ -121,7 +121,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 
     // See OTTER-651: never put multiple recipient addresses in "To".
     await deliver({
-        to: SI_EMAIL,
+        to: SI_AGREEMENTS_EMAIL,
         bcc: emails.join(', '),
         subject: `New ${legalDocumentTypeLabels.SLA} required`,
         template: 'vb - sla notice',
