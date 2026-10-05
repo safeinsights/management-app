@@ -45,16 +45,11 @@ function useLinkWithHoverCard(url: string) {
 
     // Keyboard focus on the link, or any focus in the card, keeps it open. A mouse click focuses the
     // link too, and that focus outlives the trip to the new tab, so it must not pin the card.
-    const isFocusHoldingCard = useCallback(() => {
-        const focused = document.activeElement
-        if (!focused) return false
-        if (focused === triggerRef.current) return focused.matches(':focus-visible')
-        return isInsideCard(focused)
-    }, [isInsideCard])
-
     const closeUnlessFocused = useCallback(() => {
-        if (!isFocusHoldingCard()) close()
-    }, [isFocusHoldingCard, close])
+        const focused = document.activeElement
+        const holdsFocus = focused === triggerRef.current ? focused?.matches(':focus-visible') : isInsideCard(focused)
+        if (!holdsFocus) close()
+    }, [isInsideCard, close])
 
     const hover = useHoverIntent({ onEnter: openOnHover, onLeave: closeUnlessFocused })
     const { reset: resetHover, isPointerInside } = hover

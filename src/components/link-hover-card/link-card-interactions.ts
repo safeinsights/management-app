@@ -26,7 +26,7 @@ const PRIMARY_BUTTON = 0
 type ModifierKeys = { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }
 
 // Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
-export const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
 
 export const wantsBrowserDefault = (event: ModifierKeys & { button: number }) =>
     event.button !== PRIMARY_BUTTON || hasModifier(event)
