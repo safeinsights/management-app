@@ -4,13 +4,8 @@ import { APP_MAIN_BG, APP_SHELL } from '@/lib/constants'
 import shellStyles from '@/components/layout/shell.module.css'
 import { BrowserFrame } from './browser-frame'
 
-// Ladle decorator that reproduces the app's real <AppShell> chrome so AppShell* sections
-// (AppShellNavbar / AppShellSection / AppShellHeader) consume the same `--app-shell-*` CSS vars
-// and positioning they do in production, and the in-flow footer follows main as it does there. The
-// dimensions come from the shared APP_SHELL constant (the same one
-// src/components/layout/app-shell.tsx uses), so this can't drift from the real shell. The whole
-// shell is wrapped in a BrowserFrame so its position:fixed sections stay inside a bounded "browser"
-// instead of overlapping Ladle's chrome.
+// Reproduces the real app shell from the shared APP_SHELL constant so stories cannot drift from it.
+// BrowserFrame keeps the fixed sections inside a bounded "browser" instead of over Ladle's chrome.
 
 type WithAppShellProps = {
     children?: ReactNode

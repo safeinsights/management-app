@@ -27,7 +27,7 @@ test.describe('app shell bars and scrolled-to content', () => {
     })
 
     test('ends a short page with the footer at the viewport bottom, with nothing to scroll', async ({ page }) => {
-        // Taller than the security key page, so main alone cannot fill the viewport.
+        // Taller than the security key page's content, so the page is short.
         await page.setViewportSize({ width: 1280, height: 2000 })
         await goto(page, '/user-key')
 
