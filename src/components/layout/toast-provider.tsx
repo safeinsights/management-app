@@ -2,7 +2,6 @@
 
 import { useDismissToastsOnNavigation } from '@/hooks/use-dismiss-toasts-on-navigation'
 import { Notifications } from '@mantine/notifications'
-import classes from './toast-provider.module.css'
 
 export function ToastProvider() {
     useDismissToastsOnNavigation()
@@ -15,7 +14,6 @@ export function ToastProvider() {
             containerWidth={400}
             autoClose={12_000}
             notificationMaxHeight={600}
-            classNames={{ root: classes.root, notification: classes.notification }}
         />
     )
 }

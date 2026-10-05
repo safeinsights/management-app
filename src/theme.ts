@@ -299,6 +299,14 @@ export const theme = createTheme({
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
+        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
+        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        Notifications: {
+            styles: {
+                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
+                notification: { marginTop: 0 },
+            },
+        },
     },
     // brand/default is navy/5 and brand/hover navy/6, so primaryShade 5 makes Mantine resolve the
     // filled variant and its hover straight off the brand ramp.

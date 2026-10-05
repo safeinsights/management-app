@@ -1,3 +1,4 @@
+import { CLEAR_TOAST_KEYS } from '@/components/toast-notifications'
 import { notifications } from '@mantine/notifications'
 import type { ReactNode } from 'react'
 
@@ -17,7 +18,7 @@ export type SystemNotification = {
 }
 
 export const showSystemNotification = ({ id, title, message, withCloseButton = true, color }: SystemNotification) => {
-    const notification = { id, title, message, withCloseButton, color, autoClose: false as const }
+    const notification = { ...CLEAR_TOAST_KEYS, id, title, message, withCloseButton, color, autoClose: false as const }
     // `show` is add-if-absent and `update` a no-op for an unknown id, so the pair replaces-or-adds
     // without reading the store.
     notifications.update(notification)

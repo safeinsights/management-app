@@ -126,7 +126,11 @@ describe('PersonalInfoSection', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'Save failed', 'data-toast-kind': 'error' }),
+                expect.objectContaining({
+                    title: 'Save failed',
+                    'data-toast-kind': 'error',
+                    message: expect.stringMatching(/^Network error\nReference: [a-f0-9]{32}$/),
+                }),
             )
         })
     })

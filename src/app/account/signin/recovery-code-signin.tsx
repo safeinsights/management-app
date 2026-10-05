@@ -48,7 +48,7 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             form.setFieldError(
                 'code',
                 errorToString(err, {
-                    form_code_incorrect: 'Code is incorrect or already in use. Please try another.',
+                    clerkOverrides: { form_code_incorrect: 'Code is incorrect or already in use. Please try another.' },
                 }),
             )
         },

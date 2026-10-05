@@ -116,9 +116,10 @@ export class ActionFailure extends Error {
     }
 }
 
-/** The message to show a user, or null when the error carries nothing worth showing them. */
-export const userFacingErrorMessage = (error: unknown, clerkOverrides?: Record<string, string>): string | null => {
-    if (!error) return ''
+type ErrorToStringOptions = { clerkOverrides?: Record<string, string>; fallback?: string }
+
+export const errorToString = (error: unknown, { clerkOverrides, fallback }: ErrorToStringOptions = {}): string => {
+    if (!error) return fallback ?? ''
 
     if (typeof error === 'string') {
         return error
@@ -151,17 +152,18 @@ export const userFacingErrorMessage = (error: unknown, clerkOverrides?: Record<s
         return STALE_DEPLOYMENT_MESSAGE
     }
 
-    // A bare Error carries developer text — "TypeError: Failed to fetch" — so there is nothing here
-    // a reader can use. Callers showing this to a user substitute their own copy.
+    // The framework's text — "TypeError: Failed to fetch" — names neither the problem nor a remedy.
+    // Without a fallback it is kept as-is, which is what a log line wants.
+    if (error instanceof TypeError) {
+        return fallback ?? String(error)
+    }
+
     if (error instanceof Error) {
-        return null
+        return error.message || (fallback ?? String(error))
     }
 
     return 'Unknown error occurred'
 }
-
-export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) =>
-    userFacingErrorMessage(error, clerkOverrides) ?? String(error)
 
 class RecordError extends ActionFailure {
     constructor(sanitizedError: Record<string, string>) {

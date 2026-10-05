@@ -7,7 +7,6 @@ import {
     isActionError,
     isStaleDeploymentError,
     errorToString,
-    userFacingErrorMessage,
     STALE_DEPLOYMENT_MESSAGE,
 } from './errors'
 
@@ -131,9 +130,8 @@ describe('errorToString', () => {
         expect(errorToString(clerkError)).toBe('Error occurred')
     })
 
-    it('handles generic Error instances', () => {
-        const err = new Error('Generic error')
-        expect(errorToString(err)).toBe(String(err))
+    it('returns the message our own code wrote into a plain Error, without the class-name prefix', () => {
+        expect(errorToString(new Error('Generic error'))).toBe('Generic error')
     })
 
     it('returns undefined for objects that do not match any condition', () => {
@@ -142,18 +140,44 @@ describe('errorToString', () => {
     })
 })
 
-describe('userFacingErrorMessage', () => {
-    it('has nothing to offer for a plain Error, whose text is written for a developer', () => {
-        expect(userFacingErrorMessage(new Error('Failed to fetch'))).toBeNull()
+describe('errorToString with a fallback', () => {
+    // QA saw "TypeError: Failed to fetch" reach a researcher: the framework's text, not ours.
+    it('replaces a TypeError with the fallback', () => {
+        expect(errorToString(new TypeError('Failed to fetch'), { fallback: 'Try again.' })).toBe('Try again.')
     })
 
-    it('keeps the branches that produce copy written for a reader', () => {
-        expect(userFacingErrorMessage('Code has already been submitted')).toBe('Code has already been submitted')
-        expect(userFacingErrorMessage(new ActionFailure({ study: 'is unavailable' }))).toBe('Study is unavailable')
-        expect(userFacingErrorMessage(staleActionError())).toBe(STALE_DEPLOYMENT_MESSAGE)
+    it('keeps the raw TypeError text when no fallback is given, for logs', () => {
+        expect(errorToString(new TypeError('Failed to fetch'))).toBe('TypeError: Failed to fetch')
+    })
+
+    it('uses the fallback for an empty error', () => {
+        expect(errorToString(undefined, { fallback: 'Try again.' })).toBe('Try again.')
+        expect(errorToString(new Error(''), { fallback: 'Try again.' })).toBe('Try again.')
+    })
+
+    it('ignores the fallback when the error carries copy written for a reader', () => {
+        const fallback = 'Try again.'
+        expect(errorToString(new Error('Upload failed, please re-upload it.'), { fallback })).toBe(
+            'Upload failed, please re-upload it.',
+        )
+        expect(errorToString(new ActionFailure({ study: 'is unavailable' }), { fallback })).toBe('Study is unavailable')
+        expect(errorToString(staleActionError(), { fallback })).toBe(STALE_DEPLOYMENT_MESSAGE)
         expect(
-            userFacingErrorMessage({ errors: [{ code: 'form_x', message: 'short', longMessage: 'The long one.' }] }),
+            errorToString(
+                { errors: [{ code: 'form_x', message: 'short', longMessage: 'The long one.' }] },
+                { fallback },
+            ),
         ).toBe('The long one.')
+    })
+
+    it('applies Clerk overrides alongside a fallback', () => {
+        const clerkError = { errors: [{ code: 'form_code_incorrect', message: 'Incorrect code' }] }
+        expect(
+            errorToString(clerkError, {
+                clerkOverrides: { form_code_incorrect: 'Wrong code.' },
+                fallback: 'Try again.',
+            }),
+        ).toBe('Wrong code.')
     })
 })
 

@@ -158,7 +158,9 @@ export function AddSMSMFA() {
         } catch (err) {
             otpForm.setFieldError(
                 'code',
-                errorToString(err, { form_code_incorrect: 'Invalid verification code. Please try again.' }),
+                errorToString(err, {
+                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
+                }),
             )
         } finally {
             setIsVerifyingCode(false)

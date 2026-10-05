@@ -31,9 +31,9 @@ describe('showSystemNotification', () => {
         showSystemNotification({ id: 'inactivity-warning', message: 'Nearly out of time' })
         showToast({ category: 'info', id: 'ordinary-toast', title: 'Heads up' })
 
+        const live = vi.mocked(notifications.show).mock.calls.map(([notification]) => notification)
+
         // The toast is the control: it proves the sweep ran and still left the system id alone.
-        expect(staleToastIds(['inactivity-warning', 'ordinary-toast'], 3_000, Date.now() + 10_000)).toEqual([
-            'ordinary-toast',
-        ])
+        expect(staleToastIds(live, 3_000, Date.now() + 10_000)).toEqual(['ordinary-toast'])
     })
 })

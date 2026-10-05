@@ -96,9 +96,8 @@ describe('errorToString', () => {
         expect(errorToString(clerkError)).toBe('The username is invalid.\nThe password is too weak.')
     })
 
-    it('returns the Error instance string if error is an instance of Error', () => {
-        const errorInstance = new Error('Instance error')
-        expect(errorToString(errorInstance)).toBe(errorInstance.toString())
+    it('returns the message of a plain Error', () => {
+        expect(errorToString(new Error('Instance error'))).toBe('Instance error')
     })
 })
 
@@ -141,14 +140,24 @@ describe('reportError', () => {
         )
     })
 
-    // QA saw "TypeError: Failed to fetch" reach a researcher. Framework text explains nothing, so an
-    // error carrying no message written for a reader gets copy naming the next step instead.
-    it('substitutes copy the reader can act on when the error has nothing to say', () => {
-        const eventId = reportError(new Error('boom'))
+    // QA saw "TypeError: Failed to fetch" reach a researcher. Framework text explains nothing, so it
+    // gets copy naming the next step instead.
+    it('substitutes copy the reader can act on for a framework TypeError', () => {
+        const eventId = reportError(new TypeError('Failed to fetch'))
         const { message } = notificationsShowSpy.mock.calls[0][0]
 
-        expect(message).not.toContain('boom')
+        expect(message).not.toContain('Failed to fetch')
         expect(message).toBe(`Try again.\nReference: ${eventId}`)
+    })
+
+    it('keeps the text our own code wrote into a plain Error', () => {
+        const eventId = reportError(new Error('An error occurred when uploading a.R, please re-upload it.'))
+
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                message: `An error occurred when uploading a.R, please re-upload it.\nReference: ${eventId}`,
+            }),
+        )
     })
 
     // The Sentry reference is per call, so folding it into the id would give every retry its own
@@ -230,9 +239,8 @@ describe('ErrorAlert Component', () => {
     })
 
     it('renders error when error is an Error instance', () => {
-        const err = new Error('Instance error')
-        renderWithProviders(<ErrorAlert error={err} />)
-        expect(screen.getByText(err.toString())).toBeDefined()
+        renderWithProviders(<ErrorAlert error={new Error('Instance error')} />)
+        expect(screen.getByText('Instance error')).toBeDefined()
     })
 })
 

@@ -18,13 +18,10 @@ export function useDismissToastsOnNavigation() {
         if (previousPathname.current === pathname) return
         previousPathname.current = pathname
 
-        // Read here rather than at render time: a toast raised between commit and this flush would
-        // be missing from a captured snapshot, and pruning its entry leaves it undismissable.
-        // The queue counts as live for the same reason — it holds toasts not yet on screen.
+        // The queue holds toasts raised but not yet on screen; they are as stale as the visible ones.
         const { notifications: shown, queue } = notificationsStore.getState()
-        const liveIds = [...shown, ...queue].map(({ id }) => id).filter((id): id is string => !!id)
 
-        for (const id of staleToastIds(liveIds, TOAST_NAVIGATION_GRACE_MS)) {
+        for (const id of staleToastIds([...shown, ...queue], TOAST_NAVIGATION_GRACE_MS)) {
             notifications.hide(id)
         }
     }, [pathname])

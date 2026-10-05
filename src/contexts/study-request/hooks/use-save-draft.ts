@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
-import { showToast } from '@/components/toast-notifications'
+import { reportMutationError } from '@/components/errors'
 import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
-import { errorToString } from '@/lib/errors'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
 
@@ -67,13 +66,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
         },
-        onError: (error) => {
-            showToast({
-                category: 'error',
-                title: 'Failed to save draft',
-                message: `${errorToString(error)}\nPlease contact support.`,
-            })
-        },
+        onError: reportMutationError('Failed to save draft'),
     })
 
     const saveDraft = useCallback(

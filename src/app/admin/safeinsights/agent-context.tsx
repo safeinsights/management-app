@@ -2,7 +2,7 @@
 
 import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
-import { errorToString } from '@/lib/errors'
+import { reportMutationError } from '@/components/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
 import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
@@ -31,13 +31,7 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
                 message: `Updated ${CONTEXT_LABELS[name].label}.`,
             })
         },
-        onError: (error) => {
-            showToast({
-                category: 'error',
-                title: 'Context save failed',
-                message: errorToString(error),
-            })
-        },
+        onError: reportMutationError('Context save failed'),
     })
 
     const onSubmit = form.onSubmit(({ content }) => {

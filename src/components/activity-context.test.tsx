@@ -69,7 +69,7 @@ describe('ActivityContext', () => {
 
         // The toast is the control: it proves the sweep ran and still left the session ids alone.
         showToast({ category: 'info', id: 'ordinary-toast', title: 'Heads up' })
-        const live = ['inactivity-warning', 'session-expired', 'ordinary-toast']
+        const live = vi.mocked(notifications.show).mock.calls.map(([notification]) => notification)
 
         expect(staleToastIds(live, 3_000, Date.now() + 10_000)).toEqual(['ordinary-toast'])
     })

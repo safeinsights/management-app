@@ -1,5 +1,5 @@
 import { notifications } from '@mantine/notifications'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { showToast, staleToastIds } from './toast-notifications'
 
 describe('showToast', () => {
@@ -32,29 +32,20 @@ describe('showToast', () => {
 })
 
 describe('staleToastIds', () => {
-    it('returns only ids it raised, older than the grace period', () => {
+    // The suite-wide afterAll closes the database pool, which never settles while timers are faked.
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
+    it('returns only toasts raised longer ago than the grace period', () => {
         vi.useFakeTimers()
         showToast({ category: 'info', id: 'old', title: 'Old' })
         vi.advanceTimersByTime(5_000)
         showToast({ category: 'info', id: 'young', title: 'Young' })
 
-        // 'stranger' was never raised through showToast: a system notification.
-        expect(staleToastIds(['old', 'young', 'stranger'], 3_000)).toEqual(['old'])
-        vi.useRealTimers()
-    })
+        const raised = vi.mocked(notifications.show).mock.calls.map(([notification]) => notification)
+        const notToast = { id: 'stranger', message: 'Raised without showToast' }
 
-    it('forgets an id that has left the store entirely', () => {
-        showToast({ category: 'info', id: 'gone', title: 'Gone' })
-        staleToastIds([], 3_000) // Mantine closed it on its own timer.
-        expect(staleToastIds([], 3_000, Date.now() + 10_000)).toEqual([])
-    })
-
-    it('keeps a queued toast, which is live but not visible', () => {
-        showToast({ category: 'info', id: 'queued', title: 'Queued' })
-        // The caller must pass notifications AND queue. Passing only the visible list here would
-        // forget the toast and leave it permanently undismissable.
-        const liveIncludingQueue = ['queued']
-        staleToastIds(liveIncludingQueue, 3_000)
-        expect(staleToastIds(liveIncludingQueue, 3_000, Date.now() + 10_000)).toEqual(['queued'])
+        expect(staleToastIds([...raised, notToast], 3_000)).toEqual(['old'])
     })
 })

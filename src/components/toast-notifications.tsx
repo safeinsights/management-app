@@ -1,5 +1,5 @@
 import { semanticColor, type SemanticToken } from '@/theme/tokens'
-import { notifications } from '@mantine/notifications'
+import { notifications, type NotificationData } from '@mantine/notifications'
 import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import type { ReactNode } from 'react'
 
@@ -62,31 +62,29 @@ const CATEGORIES: Record<ToastCategory, CategorySpec> = {
     },
 }
 
-// Doubles as the ownership record: an id absent here was not raised as a toast, so the navigation
-// sweep leaves it alone. That is what keeps system notifications out of its reach without the hook
-// needing to know they exist.
-const raisedAt = new Map<string, number>()
+// Kept on the notification itself, so it leaves the store with the toast. Its presence is also what
+// marks a notification as a toast: the navigation sweep leaves anything without it alone.
+const RAISED_AT = 'data-toast-raised-at'
+
+// `update` shallow-merges, so a notification taking over a toast's id spreads this first, or it keeps
+// the toast's icon, live region and raise time.
+export const CLEAR_TOAST_KEYS = {
+    icon: undefined,
+    role: undefined,
+    'aria-live': undefined,
+    'data-toast-kind': undefined,
+    [RAISED_AT]: undefined,
+    styles: undefined,
+}
 
 /** Exported so a caller whose body varies per firing can pin the id to the part that does not. */
 export const derivedToastId = ({ category, title, message }: Toast) => `toast:${category}:${title}:${message ?? ''}`
 
-/**
- * Hands an id back to a non-toast path that is taking the notification over, so the navigation sweep
- * stops treating it as one of ours.
- */
-export const forgetToast = (id: string) => {
-    raisedAt.delete(id)
-}
-
 export const showToast = (toast: Toast) => {
     const { category, title, message, id } = toast
     const spec = CATEGORIES[category]
-    const notificationId = id ?? derivedToastId(toast)
-
-    raisedAt.set(notificationId, Date.now())
-
     const notification = {
-        id: notificationId,
+        id: id ?? derivedToastId(toast),
         color: spec.color,
         autoClose: spec.autoClose,
         icon: spec.icon,
@@ -95,6 +93,7 @@ export const showToast = (toast: Toast) => {
         role: spec.role,
         'aria-live': spec.ariaLive,
         'data-toast-kind': category,
+        [RAISED_AT]: Date.now(),
         styles: { icon: { backgroundColor: semanticColor(spec.iconBg) } },
     }
 
@@ -106,15 +105,10 @@ export const showToast = (toast: Toast) => {
     notifications.show(notification)
 }
 
-/**
- * Ids this module raised more than `graceMs` ago, after forgetting any no longer in `liveIds`.
- * `liveIds` must cover the queue as well as the visible list, or a pending toast is forgotten and
- * then never dismissed.
- */
-export const staleToastIds = (liveIds: string[], graceMs: number, now = Date.now()) => {
-    const live = new Set(liveIds)
-    for (const id of raisedAt.keys()) {
-        if (!live.has(id)) raisedAt.delete(id)
-    }
-    return [...raisedAt.entries()].filter(([, at]) => now - at > graceMs).map(([id]) => id)
-}
+export const staleToastIds = (live: NotificationData[], graceMs: number, now = Date.now()) =>
+    live
+        .filter((notification) => {
+            const raisedAt = notification[RAISED_AT]
+            return typeof raisedAt === 'number' && now - raisedAt > graceMs
+        })
+        .flatMap(({ id }) => (id ? [id] : []))

@@ -1,5 +1,6 @@
 'use client'
 
+import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -58,9 +59,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
             setEditingIndex(null)
             showToast({ category: 'success', title: 'Saved', message: 'Current institutional information updated' })
         },
-        onError: (error) => {
-            showToast({ category: 'error', title: 'Save failed', message: String(error) })
-        },
+        onError: reportMutationError('Save failed'),
     })
 
     const openEdit = (index: number) => {

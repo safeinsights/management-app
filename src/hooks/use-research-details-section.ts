@@ -1,5 +1,6 @@
 'use client'
 
+import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -57,9 +58,7 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
             setIsEditing(false)
             showToast({ category: 'success', title: 'Saved', message: 'Research details updated' })
         },
-        onError: (error) => {
-            showToast({ category: 'error', title: 'Save failed', message: String(error) })
-        },
+        onError: reportMutationError('Save failed'),
     })
 
     const addInterest = () => {
