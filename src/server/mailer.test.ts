@@ -51,7 +51,7 @@ describe('mailgun email functions', () => {
                     fullName: user1.fullName,
                     studyTitle: study.title,
                     researchLab: org.name,
-                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
@@ -276,7 +276,7 @@ describe('mailgun email functions', () => {
                     fullName: decider.fullName,
                     studyTitle: study.title,
                     researchLab: org.name,
-                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
@@ -318,7 +318,9 @@ describe('mailgun email functions', () => {
                         fullName: codeDecider.fullName,
                         studyTitle: study.title,
                         researchLab: org.name,
-                        studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                        actionURL: expect.stringContaining(
+                            Routes.studyReview({ orgSlug: org.slug, studyId: study.id }),
+                        ),
                     }),
                 }),
             )
@@ -366,7 +368,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     researchLab: researchLab.name,
                     dataPartner: dataPartner.name,
-                    studyURL: expect.stringContaining(
+                    actionURL: expect.stringContaining(
                         Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
                     ),
                 }),

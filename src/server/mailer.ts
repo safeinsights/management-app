@@ -77,12 +77,13 @@ async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
     return dayjs(latest?.createdAt ?? study.submittedAt ?? study.createdAt).format('MM/DD/YYYY')
 }
 
+// actionURL is deliberately generic, so a template need not change when its button's destination does.
 // /view shows the lab the screen for the study's current state, so the link stays correct if it is opened later.
 async function labDecisionVars(studyId: string, study: StudyInfo) {
     return {
         ...baseStudyVars(study),
         submittedOn: await latestProposalSubmittedOn(studyId, study),
-        studyURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
+        actionURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
     }
 }
 
@@ -91,7 +92,7 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
     return {
         ...baseStudyVars(study),
         submittedOn: await latestProposalSubmittedOn(studyId, study),
-        studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+        actionURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
     }
 }
 
