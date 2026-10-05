@@ -98,19 +98,9 @@
     margin-left: calc(var(--mantine-spacing-xxs) - var(--mantine-spacing-xs));
 }
 
-.typeBadge {
+.typeIcon {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: rem(14px);
-    height: rem(14px);
-    margin-inline: rem(1px);
-    border: rem(1px) solid currentColor;
-    border-radius: var(--mantine-radius-xs);
-    font-size: var(--si-font-size-10);
-    font-weight: var(--si-font-weight-bold);
-    line-height: 1;
-    text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .adminPill {
