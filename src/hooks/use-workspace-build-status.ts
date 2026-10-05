@@ -81,17 +81,21 @@ export function useWorkspaceBuildStatus({
         },
     })
 
-    const status = query.data?.status
+    // A disabled query still returns whatever the shared cache holds from an earlier mount, and the
+    // launcher would open that stale url on a revisit (OTTER-824).
+    const data = enabled ? query.data : undefined
+    const error = enabled ? (query.error ?? null) : null
+    const status = data?.status
     return {
         status,
         reason: status?.reason ?? null,
-        lastUpdatedAt: query.data?.lastUpdatedAt ?? null,
-        buildLog: query.data?.buildLog ?? '',
-        agentLog: query.data?.agentLog ?? '',
+        lastUpdatedAt: data?.lastUpdatedAt ?? null,
+        buildLog: data?.buildLog ?? '',
+        agentLog: data?.agentLog ?? '',
         ready: status?.ready ?? false,
         failed: status?.failed ?? false,
         url: status?.url ?? null,
-        error: query.error ?? null,
-        isPolling: enabled && !status?.ready && !status?.failed && !query.error,
+        error,
+        isPolling: enabled && !status?.ready && !status?.failed && !error,
     }
 }

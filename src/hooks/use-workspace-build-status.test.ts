@@ -85,4 +85,34 @@ describe('useWorkspaceBuildStatus', () => {
         expect(result.current.reason).toBe('boom')
         expect(result.current.isPolling).toBe(false)
     })
+
+    // OTTER-824: the cache outlives the page, so a later mount must not read an earlier launch.
+    it('reports nothing while disabled even when the cache holds a ready status', async () => {
+        statusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
+        const wrapper = createTestQueryWrapper()
+
+        const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
+        await waitFor(() => expect(first.result.current.url).toBe('https://ws.example.com'))
+        first.unmount()
+
+        const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: false }), { wrapper })
+        expect(result.current.url).toBeNull()
+        expect(result.current.ready).toBe(false)
+        expect(result.current.buildLog).toBe('')
+        expect(result.current.isPolling).toBe(false)
+    })
+
+    it('reports no failure while disabled even when the cache holds a failed status', async () => {
+        statusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
+        const wrapper = createTestQueryWrapper()
+
+        const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
+        await waitFor(() => expect(first.result.current.failed).toBe(true))
+        first.unmount()
+
+        const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: false }), { wrapper })
+        expect(result.current.failed).toBe(false)
+        expect(result.current.reason).toBeNull()
+        expect(result.current.error).toBeNull()
+    })
 })
