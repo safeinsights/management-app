@@ -1,6 +1,7 @@
 import { db } from '@/database'
 import { Routes } from '@/lib/routes'
 import * as mailgun from '@/server/mailer'
+import { audit } from '@/server/events'
 import {
     faker,
     insertTestOrg,
@@ -152,6 +153,21 @@ describe('mailgun email functions', () => {
 
         const recipients = (deliverMock.mock.calls as [{ to: string }][]).map(([message]) => message.to)
         expect(recipients).toContain(user2.email)
+    })
+
+    // Any lab member can finalize a draft someone else created; only the CREATED audit row names them.
+    it('sendStudyProposalApprovedEmail reaches a co-author who submitted the proposal', async () => {
+        const { study, user2: coAuthor } = await insertTestOrgStudyJobUsers()
+        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id })
+
+        await mailgun.sendStudyProposalApprovedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: coAuthor.email,
+                vars: expect.objectContaining({ fullName: coAuthor.fullName }),
+            }),
+        )
     })
 
     // piName is a plain string on the proposal, so most studies have no second address to reach. The

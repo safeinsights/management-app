@@ -137,9 +137,20 @@ async function getCodeSubmitterIds(studyId: string) {
     return rows.map((row) => row.userId)
 }
 
-// The researcher, the PI, and any lab member who resubmitted the proposal (recorded only as a resubmission
-// note's author), plus code submitters when withCodeSubmitters is set. A PI without an account is left out.
+// The researcher, the PI, and any lab member who submitted a version of the proposal, plus code
+// submitters when withCodeSubmitters is set. A PI without an account is left out.
 async function getStudyLabAudience(studyId: string, study: StudyInfo, { withCodeSubmitters = false } = {}) {
+    // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
+    // by onStudyCreated's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
+    const submitters = await db
+        .selectFrom('audit')
+        .select('userId')
+        .distinct()
+        .where('recordType', '=', 'STUDY')
+        .where('recordId', '=', studyId)
+        .where('eventType', '=', 'CREATED')
+        .execute()
+
     const resubmitters = await db
         .selectFrom('studyProposalComment')
         .select('authorId')
@@ -151,7 +162,13 @@ async function getStudyLabAudience(studyId: string, study: StudyInfo, { withCode
     const codeSubmitters = withCodeSubmitters ? await getCodeSubmitterIds(studyId) : []
 
     const userIds = [
-        ...new Set([study.researcherId, study.piUserId, ...resubmitters.map((r) => r.authorId), ...codeSubmitters]),
+        ...new Set([
+            study.researcherId,
+            study.piUserId,
+            ...submitters.map((s) => s.userId),
+            ...resubmitters.map((r) => r.authorId),
+            ...codeSubmitters,
+        ]),
     ].filter((id): id is string => Boolean(id))
 
     return db
