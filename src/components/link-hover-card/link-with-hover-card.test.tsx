@@ -240,6 +240,37 @@ describe('LinkWithHoverCard', () => {
         await waitFor(() => expect(queryCard()).toBeNull())
     })
 
+    it('stays closed after Escape while the pointer rests on the card', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+        fireEvent.pointerEnter(link, mouse)
+        const card = await findCard()
+        fireEvent.pointerEnter(card, mouse)
+
+        fireEvent.keyDown(document.body, { key: 'Escape' })
+        // Chrome sends the resting pointer a fresh pointerenter once the card's content is gone.
+        fireEvent.pointerEnter(card, mouse)
+
+        await waitFor(() => expect(queryCard()).toBeNull())
+        expect(link).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('does not reopen when the window hands focus back to the link after it opened a new tab', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+        link.focus()
+        await findCard()
+        fireEvent.click(link)
+        await waitFor(() => expect(queryCard()).toBeNull())
+
+        fireEvent.blur(window)
+        fireEvent.focusIn(link)
+
+        expect(queryCard()).toBeNull()
+        fireEvent.focusIn(link)
+        await findCard()
+    })
+
     it('offers copy alone and opens the destination from the title in a new tab', async () => {
         await mockSessionWithTestData()
         const link = renderLink(Routes.legal)

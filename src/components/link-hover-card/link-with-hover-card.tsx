@@ -71,6 +71,7 @@ function useLinkWithHoverCard(url: string) {
     const triggerRef = useRef<HTMLAnchorElement | null>(null)
     // Keeps the link's focus handler from reopening the card that Escape just closed.
     const isRestoringFocus = useRef(false)
+    const isReturningToWindow = useRef(false)
     const dropdownId = useId()
 
     const close = useCallback(() => setOpened(false), [])
@@ -119,6 +120,15 @@ function useLinkWithHoverCard(url: string) {
 
     useEscapeOnCard(opened, closeOnEscape)
 
+    // The browser hands focus back to the link when its tab returns from the page the link opened.
+    useEffect(() => {
+        const onWindowBlur = () => {
+            isReturningToWindow.current = document.activeElement === triggerRef.current
+        }
+        window.addEventListener('blur', onWindowBlur)
+        return () => window.removeEventListener('blur', onWindowBlur)
+    }, [])
+
     const onTriggerPointerEnter = (event: PointerEvent<HTMLAnchorElement>) => {
         triggerRef.current = event.currentTarget
         hover.onPointerEnter(event)
@@ -128,8 +138,16 @@ function useLinkWithHoverCard(url: string) {
     // tab, also focuses the link and must not reopen the card.
     const onTriggerFocus = (event: FocusEvent<HTMLAnchorElement>) => {
         triggerRef.current = event.currentTarget
-        if (isRestoringFocus.current || !event.currentTarget.matches(':focus-visible')) return
+        const isReturning = isReturningToWindow.current
+        isReturningToWindow.current = false
+        if (isReturning || isRestoringFocus.current || !event.currentTarget.matches(':focus-visible')) return
         open()
+    }
+
+    // Only an open card counts. Closing it removes its content from under a resting pointer, and
+    // Chrome answers with a fresh pointerenter that would undo Escape.
+    const onCardPointerEnter = (event: PointerEvent<HTMLDivElement>) => {
+        if (opened) hover.onPointerEnter(event)
     }
 
     // The browser follows the link into a new tab, so the card has done its job here.
@@ -165,7 +183,7 @@ function useLinkWithHoverCard(url: string) {
         onTriggerClick,
         onTriggerFocus,
         onTriggerPointerEnter,
-        onPointerEnter: hover.onPointerEnter,
+        onCardPointerEnter,
         onPointerLeave: hover.onPointerLeave,
     }
 }
@@ -217,7 +235,7 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
                 {...card.dialogAria}
                 p="sm"
                 onBlur={card.onBlur}
-                onPointerEnter={card.onPointerEnter}
+                onPointerEnter={card.onCardPointerEnter}
                 onPointerLeave={card.onPointerLeave}
             >
                 <LinkCardContent isVisible={card.opened} url={url} />
