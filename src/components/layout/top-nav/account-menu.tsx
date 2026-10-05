@@ -32,7 +32,7 @@ const accountInitials = (firstName?: string | null, lastName?: string | null) =>
         .join('')
         .toUpperCase()
 
-// Always initials, never the Clerk image: Clerk fills imageUrl with its default avatar for every user.
+// The spec asks for initials always. Clerk's imageUrl is its default silhouette unless a photo was uploaded.
 const AccountAvatar: React.FC<{ initials: string }> = ({ initials }) => (
     <Avatar size={AVATAR_SIZE} alt="User profile" classNames={{ placeholder: styles.avatar }}>
         {initials}
