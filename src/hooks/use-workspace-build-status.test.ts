@@ -115,4 +115,17 @@ describe('useWorkspaceBuildStatus', () => {
         expect(result.current.reason).toBeNull()
         expect(result.current.error).toBeNull()
     })
+
+    it('reports no error while disabled even when the cache holds a polling error', async () => {
+        statusMock.mockRejectedValue(new Error('network down'))
+        const wrapper = createTestQueryWrapper()
+
+        const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
+        await waitFor(() => expect(first.result.current.error?.message).toBe('network down'))
+        first.unmount()
+
+        const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: false }), { wrapper })
+        expect(result.current.error).toBeNull()
+        expect(result.current.isPolling).toBe(false)
+    })
 })
