@@ -285,22 +285,15 @@ export const sendStudyProposalNeedsRevisionEmail = async (studyId: string) => {
     })
 }
 
-export const sendResultsReadyForReviewEmail = async (studyId: string) => {
+// Audience: the Data Partner's deciders on the proposal or code, Trigger: a run completes with outputs
+// to review, unless the job has already errored.
+export const sendDataPartnerOutputsNeedReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!study.reviewerEmail || !study.reviewerFullName) {
-        throw new Error('Missing study reviewer')
-    }
-
-    await deliver({
-        to: study.reviewerEmail,
-        subject: 'Results ready for review',
-        template: 'vb - encrypted results ready for review',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.reviewerFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=reviewer`,
-        },
+    await deliverToEach(studyId, await getStudyDeciders(studyId, { withCodeDeciders: true }), {
+        subject: 'Outputs need review',
+        template: 'vb - dp - outputs need review',
+        vars: await dataPartnerReviewVars(studyId, study),
     })
 }
 

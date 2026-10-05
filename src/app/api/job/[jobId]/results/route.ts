@@ -1,4 +1,4 @@
-import { sendResultsReadyForReviewEmail } from '@/server/mailer'
+import { sendDataPartnerOutputsNeedReviewEmail } from '@/server/mailer'
 import { onJobErrored } from '@/server/events'
 
 import { db } from '@/database'
@@ -88,16 +88,14 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         // first one. Recording the outcome would append RUN-COMPLETE after FILES-APPROVED.
         if (await roundIsClosed(info.studyJobId, trx)) return 'round-decided' as const
 
-        // Any earlier JOB-ERRORED on the job has already emailed the Data Partner; setup-app always
-        // sends PUT /api/job/[jobId] before this log.
-        const erroredEarlier =
-            outcome === 'JOB-ERRORED' &&
-            (await trx
-                .selectFrom('jobStatusChange')
-                .select('id')
-                .where('studyJobId', '=', info.studyJobId)
-                .where('status', '=', 'JOB-ERRORED')
-                .executeTakeFirst())
+        // Any earlier JOB-ERRORED on the job has already emailed the Data Partner, and its outputs are
+        // reviewed as errored. setup-app always sends PUT /api/job/[jobId] before an error log.
+        const erroredEarlier = await trx
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', info.studyJobId)
+            .where('status', '=', 'JOB-ERRORED')
+            .executeTakeFirst()
 
         await trx.insertInto('jobStatusChange').values({ status: outcome, studyJobId: info.studyJobId }).execute()
 
@@ -121,10 +119,12 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'success', detail }, { status: 200 })
     }
 
-    if (outcome === 'JOB-ERRORED') {
-        if (announcement === 'announced') onJobErrored({ studyId: info.studyId })
-    } else {
-        await sendResultsReadyForReviewEmail(info.studyId)
+    if (announcement === 'announced') {
+        if (outcome === 'JOB-ERRORED') {
+            onJobErrored({ studyId: info.studyId })
+        } else {
+            await sendDataPartnerOutputsNeedReviewEmail(info.studyId)
+        }
     }
 
     return NextResponse.json({ status: 'success' }, { status: 200 })

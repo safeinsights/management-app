@@ -5,12 +5,12 @@ import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sql } from 'kysely'
 import { pathForStudyJob } from '@/lib/paths'
-import { sendDataPartnerCodeErroredEmail, sendResultsReadyForReviewEmail } from '@/server/mailer'
+import { sendDataPartnerCodeErroredEmail, sendDataPartnerOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
 import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/mailer', () => ({
-    sendResultsReadyForReviewEmail: vi.fn(),
+    sendDataPartnerOutputsNeedReviewEmail: vi.fn(),
     sendDataPartnerCodeErroredEmail: vi.fn(),
 }))
 
@@ -39,7 +39,7 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
-    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
+    expect(sendDataPartnerOutputsNeedReviewEmail).toHaveBeenCalled()
 
     const sr = await db
         .selectFrom('studyJobFile')
@@ -119,11 +119,11 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
     expect(erroredStatuses).toHaveLength(1)
 
     expect(sendDataPartnerCodeErroredEmail).toHaveBeenCalledTimes(1)
-    expect(sendResultsReadyForReviewEmail).not.toHaveBeenCalled()
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 // The scan and packaging steps also record JOB-ERRORED, and one of those must not block a real
-// delivery.
+// delivery. The earlier error already emailed the Data Partner, so no outputs review is requested.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -144,6 +144,7 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(1)
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 // A delivery can store its run log and still fail before the status insert and the reviewer email.
@@ -292,8 +293,6 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'FILES-APPROVED' }).execute()
 
-    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
-
     const formData = new FormData()
     formData.append('log', testUploadFile('log.txt', 'text/plain'))
     formData.append('result', testUploadFile('r.txt', 'text/plain'))
@@ -312,7 +311,7 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(0)
-    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore)
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 test.skipIf(!s3Available)('uploading logs', async () => {
