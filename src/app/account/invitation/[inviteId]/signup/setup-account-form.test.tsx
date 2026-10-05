@@ -100,7 +100,7 @@ const fillValidForm = async () => {
 const participationCheckbox = () =>
     screen.getByRole('checkbox', { name: /Research Organization Participation Agreement/ })
 
-const createAccountButton = () => screen.getByRole('button', { name: 'Create Account' })
+const createAccountButton = () => screen.getByRole('button', { name: 'Create account' })
 
 describe('SetupAccountForm legal documents', () => {
     it('shows the tos and the participation agreement, and lets a completed form through', async () => {
