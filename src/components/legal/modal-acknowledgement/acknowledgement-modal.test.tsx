@@ -67,6 +67,14 @@ describe('LegalAcknowledgementModal', () => {
         expect(onCheckedChange).toHaveBeenCalledWith(true)
     })
 
+    it('paints the consent box in the selected blue like the signup form', () => {
+        renderModal({ isChecked: true })
+
+        const root = screen.getByRole('checkbox').closest<HTMLElement>('.mantine-Checkbox-root')
+        expect(root?.style.getPropertyValue('--checkbox-color')).toBe('var(--si-color-surface-selected)')
+        expect(root?.style.getPropertyValue('--checkbox-radius')).toBe('var(--mantine-radius-xs)')
+    })
+
     it('acknowledges when Continue is pressed', async () => {
         const onContinue = vi.fn()
         const user = userEvent.setup()
