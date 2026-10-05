@@ -26,7 +26,8 @@ import {
     submitOutputsDecisionAction,
 } from './study-job.actions'
 import { codeSubmissionVersion } from '@/server/db/queries'
-import { sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { sendLabCodeErroredEmail, sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { flushDeferred } from '@/tests/vitest.setup'
 import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
@@ -42,6 +43,7 @@ vi.mock('@/server/storage', () => ({
 vi.mock('@/server/mailer', () => ({
     sendStudyResultsRejectedEmail: vi.fn(),
     sendStudyResultsApprovedEmail: vi.fn(),
+    sendLabCodeErroredEmail: vi.fn(),
 }))
 
 // Spy on the generation trigger only; study-request.ts depends on the rest of the module.
@@ -530,6 +532,48 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(0)
+        })
+
+        test.each([
+            ['share-outputs', sendStudyResultsApprovedEmail],
+            ['share-feedback-only', sendStudyResultsRejectedEmail],
+        ] as const)(
+            'a %s decision on an errored run tells the lab its code errored',
+            async (decision, resultsEmail) => {
+                const { enclave, job, sharedFiles } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The run failed before writing any outputs.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+                await flushDeferred()
+
+                expect(sendLabCodeErroredEmail).toHaveBeenCalledTimes(1)
+                expect(resultsEmail).not.toHaveBeenCalled()
+            },
+        )
+
+        test('a decision on a completed run still sends the results email', async () => {
+            const { enclave, job, sharedFiles } = await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'The outputs look clean and contain no PII.',
+                    sharedFiles,
+                }),
+            )
+            await flushDeferred()
+
+            expect(sendStudyResultsApprovedEmail).toHaveBeenCalledTimes(1)
+            expect(sendLabCodeErroredEmail).not.toHaveBeenCalled()
         })
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first

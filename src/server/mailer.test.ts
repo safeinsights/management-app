@@ -336,6 +336,7 @@ describe('mailgun email functions', () => {
         ['sendStudyProposalNeedsRevisionEmail', 'Proposal needs revision', 'vb - research proposal needs revision'],
         ['sendStudyCodeApprovedEmail', 'Study code approved', 'vb - code approved'],
         ['sendStudyCodeNeedsRevisionEmail', 'Code needs revision', 'vb - code needs revision'],
+        ['sendLabCodeErroredEmail', 'Code errored', 'vb - rl - code errored'],
     ] as const)('%s tells each lab party by name, linking through the lab', async (send, subject, template) => {
         const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -391,7 +392,7 @@ describe('mailgun email functions', () => {
     })
 
     // Code can be submitted by a lab member who never touched the proposal.
-    it.each(['sendStudyCodeApprovedEmail', 'sendStudyCodeNeedsRevisionEmail'] as const)(
+    it.each(['sendStudyCodeApprovedEmail', 'sendStudyCodeNeedsRevisionEmail', 'sendLabCodeErroredEmail'] as const)(
         '%s also reaches whoever submitted a version of the code',
         async (send) => {
             const { study, job } = await insertTestOrgStudyJobUsers()

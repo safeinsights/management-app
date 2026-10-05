@@ -77,7 +77,7 @@ async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
     return dayjs(latest?.createdAt ?? study.submittedAt ?? study.createdAt).format('MM/DD/YYYY')
 }
 
-// /view renders the lab's screen for the study's current state, so a link clicked later still lands right.
+// /view shows the lab the screen for the study's current state, so the link stays correct if it is opened later.
 async function labDecisionVars(studyId: string, study: StudyInfo) {
     return {
         ...baseStudyVars(study),
@@ -86,7 +86,7 @@ async function labDecisionVars(studyId: string, study: StudyInfo) {
     }
 }
 
-// For the Data Partner's copy; /review is the reviewer counterpart of /view.
+// Variables for emails to the Data Partner. /review is the reviewer's equivalent of /view.
 async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
     return {
         ...baseStudyVars(study),
@@ -95,8 +95,8 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
     }
 }
 
-// Whoever decided on any version of the proposal (and, if asked, the code), kept even if they have
-// since left the Data Partner.
+// Everyone who decided on any version of the proposal, plus the code when withCodeDeciders is set.
+// People who have since left the Data Partner are still included.
 async function getStudyDeciders(studyId: string, { withCodeDeciders = false } = {}) {
     const proposalDeciders = db
         .selectFrom('studyProposalComment')
@@ -136,9 +136,8 @@ async function getCodeSubmitterIds(studyId: string) {
     return rows.map((row) => row.userId)
 }
 
-// The study's lab side. researcherId is the original submitter, and a later version can be submitted
-// by any lab member, who is recorded only as the author of its resubmission note. A PI holding no
-// account has no address and drops out.
+// The researcher, the PI, and any lab member who resubmitted the proposal (recorded only as a resubmission
+// note's author), plus code submitters when withCodeSubmitters is set. A PI without an account is left out.
 async function getStudyLabAudience(studyId: string, study: StudyInfo, { withCodeSubmitters = false } = {}) {
     const resubmitters = await db
         .selectFrom('studyProposalComment')
@@ -337,6 +336,18 @@ export const sendDataPartnerCodeErroredEmail = async (studyId: string) => {
         subject: 'Code errored',
         template: 'vb - dp - code errored',
         vars: await dataPartnerReviewVars(studyId, study),
+    })
+}
+
+// Audience: research lab, including anyone who submitted a version of the code, Trigger: a Data
+// Partner submits their decision on an errored run's outputs.
+export const sendLabCodeErroredEmail = async (studyId: string) => {
+    const study = await getStudyAndOrgDisplayInfo(studyId)
+
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+        subject: 'Code errored',
+        template: 'vb - rl - code errored',
+        vars: await labDecisionVars(studyId, study),
     })
 }
 

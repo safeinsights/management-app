@@ -34,7 +34,7 @@ test('updating status', async () => {
     expect(sr.status).toBe('JOB-RUNNING')
 })
 
-// setup-app reports every failed run here first, so this is how the Data Partner hears of one.
+// setup-app reports every failed run here first, so this route sends the Data Partner's code errored email.
 test('tells the Data Partner when the runner reports JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })

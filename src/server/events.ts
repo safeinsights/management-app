@@ -99,7 +99,8 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
     })
 })
 
-// Only the proposal email: onStudyCreated's audit, PostHog event and agreement ask are first-submission only.
+// Sends only the proposal email. onStudyCreated's audit row, PostHog event and agreement request are for the
+// first submission only.
 export const onStudyProposalResubmitted = deferred(async ({ studyId }: { studyId: string }) => {
     await email.sendStudyProposalEmails(studyId)
 })
@@ -164,16 +165,20 @@ export const onJobErrored = deferred(async ({ studyId }: { studyId: string }) =>
     await email.sendDataPartnerCodeErroredEmail(studyId)
 })
 
-export const onStudyResultsApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
+// When the run errored, the lab gets the code errored email instead of the results email, whether the
+// Data Partner shared the outputs or only feedback.
+type OutputsDecisionEvent = StudyEvent & { errored?: boolean }
+
+export const onStudyResultsApproved = deferred(async ({ studyId, userId, errored }: OutputsDecisionEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await email.sendStudyResultsApprovedEmail(studyId)
+    await (errored ? email.sendLabCodeErroredEmail(studyId) : email.sendStudyResultsApprovedEmail(studyId))
 })
 
-export const onStudyResultsRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
+export const onStudyResultsRejected = deferred(async ({ studyId, userId, errored }: OutputsDecisionEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
-    await email.sendStudyResultsRejectedEmail(studyId)
+    await (errored ? email.sendLabCodeErroredEmail(studyId) : email.sendStudyResultsRejectedEmail(studyId))
 })
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
