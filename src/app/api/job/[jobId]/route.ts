@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { apiRequestingOrg } from '@/server/api-context'
 import { onJobErrored } from '@/server/events'
+import { roundIsClosed } from '@/server/storage'
+import logger from '@/lib/logger'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -44,6 +46,24 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
 
     const json = await req.json()
     const change = schema.parse(json)
+
+    // setup-app re-sends a status on every poll and expects this to be idempotent, so a repeat is
+    // acknowledged without being recorded, as the containerizer and scanner routes do.
+    const latest = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', job.id)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    if (latest?.status === change.status) return new NextResponse('ok', { status: 200 })
+
+    // A failure reported after the Data Partner has decided the outputs would reopen a closed round.
+    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id))) {
+        logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
+        return new NextResponse('ok', { status: 200 })
+    }
 
     const insert = await db
         .insertInto('jobStatusChange')
