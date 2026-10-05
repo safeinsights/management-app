@@ -165,6 +165,10 @@ export const onJobErrored = deferred(async ({ studyId }: { studyId: string }) =>
     await email.sendDataPartnerCodeErroredEmail(studyId)
 })
 
+export const onRunCompleted = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendDataPartnerOutputsNeedReviewEmail(studyId)
+})
+
 type OutputsDecisionEvent = StudyEvent & { errored?: boolean }
 
 // The lab gets the same email whether the Data Partner shared the outputs or only feedback: code errored

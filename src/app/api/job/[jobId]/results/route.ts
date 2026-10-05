@@ -1,5 +1,4 @@
-import { sendDataPartnerOutputsNeedReviewEmail } from '@/server/mailer'
-import { onJobErrored } from '@/server/events'
+import { onJobErrored, onRunCompleted } from '@/server/events'
 
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
@@ -123,7 +122,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         if (outcome === 'JOB-ERRORED') {
             onJobErrored({ studyId: info.studyId })
         } else {
-            await sendDataPartnerOutputsNeedReviewEmail(info.studyId)
+            onRunCompleted({ studyId: info.studyId })
         }
     }
 

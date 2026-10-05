@@ -39,6 +39,7 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
+    await flushDeferred()
     expect(sendDataPartnerOutputsNeedReviewEmail).toHaveBeenCalled()
 
     const sr = await db
@@ -54,6 +55,23 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const contents = await fetchFileContents(sr.path)
     expect(contents).toBeInstanceOf(Blob)
+})
+
+// RUN-COMPLETE is committed before the email, and a retry reads as already announced, so a failed email
+// must not fail the upload.
+test.skipIf(!s3Available)('answers a results upload even when the outputs email fails', async () => {
+    const { jobInfo } = await insertTestJobInfo()
+    vi.mocked(sendDataPartnerOutputsNeedReviewEmail).mockRejectedValueOnce(new Error('database unavailable'))
+
+    const formData = new FormData()
+    formData.append('result', testUploadFile('r.txt', 'text/plain'))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId: jobInfo.studyJobId }),
+    })
+    await flushDeferred()
+
+    expect(resp.ok).toBe(true)
+    expect(sendDataPartnerOutputsNeedReviewEmail).toHaveBeenCalled()
 })
 
 // Once a job is RUN-COMPLETE its encrypted results are frozen under already-shared keys, so a
@@ -144,6 +162,7 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(1)
+    await flushDeferred()
     expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
@@ -311,6 +330,7 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(0)
+    await flushDeferred()
     expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
