@@ -287,6 +287,56 @@ describe('Workspace Actions', () => {
         })
     })
 
+    // Spec rows 8 and 9: the round opens, and both badges leave "Proposal approved", at the first
+    // launch or upload. The page-load preload must not do it (see starter-code-preload.test.ts).
+    describe('code draft trigger (OTTER-698)', () => {
+        const mockCoder = () =>
+            vi.doMock('@/server/coder', async (importOriginal) => ({
+                ...(await importOriginal<typeof import('@/server/coder')>()),
+                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
+            }))
+
+        const pillsFor = async (studyId: string) => {
+            const { rawStudyStateForStudy } = await import('@/server/db/study-state-query')
+            const { projectStudyState, resolvePillId } = await import('@/lib/study-screen')
+            const state = projectStudyState((await rawStudyStateForStudy(studyId))!)
+            return { researcher: resolvePillId('researcher', state), reviewer: resolvePillId('reviewer', state) }
+        }
+
+        const approvedStudyWithoutJob = async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'proposal-approved', reviewer: 'proposal-approved' })
+            return { study }
+        }
+
+        test('launching the IDE opens the round', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study } = await approvedStudyWithoutJob()
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+
+        test('uploading a code file opens the round', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudyWithoutJob()
+
+            const { uploadWorkspaceFileAction } = await import('./workspace-files.actions')
+            actionResult(
+                await uploadWorkspaceFileAction({
+                    studyId: study.id,
+                    file: new File(['print(1)'], 'analysis.r', { type: 'text/plain' }),
+                }),
+            )
+
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+    })
+
     // OTTER-719: the `load IDE` grant used to be unconditioned, so any lab member could read or
     // overwrite another lab's in-progress code. These exercise the RPC endpoints themselves.
     describe('server-owned file rules (OTTER-693)', () => {

@@ -70,6 +70,9 @@ describe('ensureStarterCodePreloadAction', () => {
         (await db.selectFrom('study').select('mainCodeFileName').where('id', '=', studyId).executeTakeFirstOrThrow())
             .mainCodeFileName
 
+    const roundJobCount = async (studyId: string) =>
+        (await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()).length
+
     // The card names it after the language, not after whatever the Data Partner uploaded.
     it.skipIf(!s3Available)('copies the first starter file in as Main.{x} and stars it', async () => {
         const { study } = await preloadFor('R', ['main.r'])
@@ -120,5 +123,22 @@ describe('ensureStarterCodePreloadAction', () => {
 
         expect(actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))).toEqual({ preloaded: false })
         expect(await mainCodeFileName(study.id)).toBeNull()
+    })
+
+    // A round job reads as "Code draft"; only a launch or an upload may open one (OTTER-698).
+    it.skipIf(!s3Available)('opens no round job while copying the template', async () => {
+        const { study } = await preloadFor('R', ['main.r'])
+
+        await expect(fs.readFile(await templatePath(study.id, 'Main.R'), 'utf8')).resolves.toBeTruthy()
+        expect(await roundJobCount(study.id)).toBe(0)
+    })
+
+    it('opens no round job when there is nothing to copy', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+        actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))
+
+        expect(await roundJobCount(study.id)).toBe(0)
     })
 })

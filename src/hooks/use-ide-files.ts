@@ -144,11 +144,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
      * OTTER-693: the badge marks the pre-loaded Main.{x} and nothing else, which is why this is the
      * one derived template name rather than every starter file. copyStarterCodeIntoWorkspace
      * backdates its mtime behind the baseline job, so an untouched template sits at or before that
-     * timestamp and an edited or re-uploaded one has moved past it.
+     * timestamp and an edited or re-uploaded one has moved past it. With no job at all (null, not
+     * still loading) nobody has launched or uploaded yet, so the template is untouched (OTTER-698).
      */
     const templateFileNames = useMemo(() => {
         const templateName = starterCodeInfo?.templateFileName
-        if (!templateName || !lastJob) return []
+        if (!templateName || lastJob === undefined) return []
+        if (lastJob === null) return workspace.files.filter((f) => f.name === templateName).map((f) => f.name)
 
         const baselineAt = new Date(lastJob.createdAt).getTime()
         return workspace.files
