@@ -5,7 +5,7 @@ import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
-import { onJobErrored } from '@/server/events'
+import { recordJobStatus } from '@/server/job-status'
 
 const schema = z.object({
     jobId: z.string(),
@@ -60,28 +60,12 @@ export const POST = createWebhookHandler({
 
         const failureReason = classifiedFailureReason(body)
 
-        const last = await db
-            .selectFrom('jobStatusChange')
-            .select(['id', 'status', 'message'])
-            .where('studyJobId', '=', job.jobId)
-            .orderBy('createdAt', 'desc')
-            .orderBy('id', 'desc')
-            .limit(1)
-            .executeTakeFirst()
-
-        if (!last || last.status !== body.status) {
-            await db
-                .insertInto('jobStatusChange')
-                .values({
-                    userId: job.researcherId,
-                    studyJobId: job.jobId,
-                    status: body.status,
-                    message: failureReason,
-                })
-                .execute()
-            if (body.status === 'JOB-ERRORED') onJobErrored({ studyId: job.studyId })
-            return
-        }
+        const result = await recordJobStatus(
+            { id: job.jobId, studyId: job.studyId },
+            { status: body.status, userId: job.researcherId, message: failureReason },
+        )
+        if (result.recorded) return
+        const { last } = result
 
         // Two deliveries report one failure and only one carries the code, so the second must still
         // record it rather than lose it to the status dedup. A classification is never overwritten,
