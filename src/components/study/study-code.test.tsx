@@ -119,9 +119,16 @@ const renderIDE = async (
     {
         dataPartnerName = DATA_PARTNER,
         isFirstVisit = false,
+        videoDurationMinutes = 15,
         strictMode = false,
         acknowledged = true,
-    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean; acknowledged?: boolean } = {},
+    }: {
+        dataPartnerName?: string
+        isFirstVisit?: boolean
+        videoDurationMinutes?: number | null
+        strictMode?: boolean
+        acknowledged?: boolean
+    } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
@@ -140,6 +147,7 @@ const renderIDE = async (
             studyId={study.id}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
+            videoDurationMinutes={videoDurationMinutes}
             isEditable
             nav={nav}
         />
@@ -564,6 +572,76 @@ describe('StudyCode component', () => {
             // The card words this one generically, so it must NOT pick up the partner name.
             expect(faq).toHaveTextContent('It is an example dataset from a Data Partner that mirrors')
         })
+
+        it('announces the video duration as part of the accordion title', async () => {
+            await renderIDE()
+
+            expect(
+                screen.getByRole('button', { name: /New to SafeInsights IDE\? Start here\.\s*15 min video/ }),
+            ).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^15 min video$/ })).not.toBeInTheDocument()
+        })
+
+        it('omits the duration badge when the video length is unavailable', async () => {
+            await renderIDE('openstax-lab', undefined, { videoDurationMinutes: null })
+
+            expect(faqControl()).toBeInTheDocument()
+            expect(screen.queryByTestId('video-duration-badge')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('onboarding video (OTTER-827)', () => {
+        const PLAY_LABEL = 'Play video: Watch: Getting started with the SafeInsights IDE'
+        const playButton = () => screen.getByRole('button', { name: PLAY_LABEL })
+
+        it('only renders the teaser while the accordion is expanded', async () => {
+            await renderIDE()
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            const teaser = await screen.findByTestId('onboarding-video-teaser')
+            expect(teaser).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(teaser).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument())
+        })
+
+        it('opens expanded with the teaser on a first visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            await waitForPendingMutations()
+
+            expect(playButton()).toBeInTheDocument()
+        })
+
+        it('swaps the teaser for the player, keeping the title above it, when Play is pressed', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+
+            const player = await screen.findByTestId('onboarding-video-player')
+            expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+        })
+
+        it('goes back to the teaser after the accordion is collapsed and reopened', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+            await screen.findByTestId('onboarding-video-player')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument())
+            await user.click(faqControl())
+
+            expect(await screen.findByTestId('onboarding-video-teaser')).toBeInTheDocument()
+            expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument()
+        })
     })
 
     describe('Your files section (OTTER-693)', () => {
@@ -739,6 +817,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -770,6 +849,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -819,6 +899,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -998,6 +1079,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1101,6 +1183,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1501,6 +1584,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1529,6 +1613,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1613,6 +1698,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1683,6 +1769,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1759,6 +1846,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1809,6 +1897,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1825,6 +1914,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
