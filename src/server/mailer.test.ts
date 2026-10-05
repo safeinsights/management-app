@@ -343,6 +343,7 @@ describe('mailgun email functions', () => {
         ['sendStudyCodeApprovedEmail', 'Study code approved', 'vb - code approved'],
         ['sendStudyCodeNeedsRevisionEmail', 'Code needs revision', 'vb - code needs revision'],
         ['sendLabCodeErroredEmail', 'Code errored', 'vb - rl - code errored'],
+        ['sendLabOutputsNeedReviewEmail', 'Outputs need review', 'vb - rl - outputs need review'],
     ] as const)('%s tells each lab party by name, linking through the lab', async (send, subject, template) => {
         const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -376,69 +377,27 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it.each(['sendStudyCodeApprovedEmail', 'sendStudyCodeNeedsRevisionEmail', 'sendLabCodeErroredEmail'] as const)(
-        '%s also reaches whoever submitted a version of the code',
-        async (send) => {
-            const { study, job } = await insertTestOrgStudyJobUsers()
-            const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-            await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
-            const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
-                .execute()
+    it.each([
+        'sendStudyCodeApprovedEmail',
+        'sendStudyCodeNeedsRevisionEmail',
+        'sendLabCodeErroredEmail',
+        'sendLabOutputsNeedReviewEmail',
+    ] as const)('%s also reaches whoever submitted a version of the code', async (send) => {
+        const { study, job } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
+        const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
+            .execute()
 
-            await mailgun[send](study.id)
-
-            expect(deliverMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    to: codeSubmitter.email,
-                    vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
-                }),
-            )
-        },
-    )
-
-    it('sendStudyResultsApprovedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
-
-        await mailgun.sendStudyResultsApprovedEmail(study.id)
+        await mailgun[send](study.id)
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Results'),
-                template: 'vb - study results approved',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
-            }),
-        )
-    })
-
-    it('sendStudyResultsRejectedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
-
-        await mailgun.sendStudyResultsRejectedEmail(study.id)
-
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Results'),
-                template: 'vb - study results rejected',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
+                to: codeSubmitter.email,
+                vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
             }),
         )
     })

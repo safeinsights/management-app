@@ -344,35 +344,15 @@ export const sendLabCodeErroredEmail = async (studyId: string) => {
     })
 }
 
-export const sendStudyResultsApprovedEmail = async (studyId: string) => {
+// Audience: research lab, including anyone who submitted a version of the code, Trigger: a Data
+// Partner submits their decision on a completed run's outputs.
+export const sendLabOutputsNeedReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
-    if (!study.researcherEmail) return
 
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Results',
-        template: 'vb - study results approved',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
-    })
-}
-
-export const sendStudyResultsRejectedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrgDisplayInfo(studyId)
-    if (!study.researcherEmail) return
-
-    await deliver({
-        to: study.researcherEmail,
-        subject: 'Study Results',
-        template: 'vb - study results rejected',
-        vars: {
-            ...baseStudyVars(study),
-            fullName: study.researcherFullName,
-            dashboardURL: `${APP_BASE_URL}/dashboard?audience=researcher`,
-        },
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+        subject: 'Outputs need review',
+        template: 'vb - rl - outputs need review',
+        vars: await labDecisionVars(studyId, study),
     })
 }
 

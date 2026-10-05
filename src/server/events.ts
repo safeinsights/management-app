@@ -165,20 +165,23 @@ export const onJobErrored = deferred(async ({ studyId }: { studyId: string }) =>
     await email.sendDataPartnerCodeErroredEmail(studyId)
 })
 
-// When the run errored, the lab gets the code errored email instead of the results email, whether the
-// Data Partner shared the outputs or only feedback.
 type OutputsDecisionEvent = StudyEvent & { errored?: boolean }
+
+// The lab gets the same email whether the Data Partner shared the outputs or only feedback: code errored
+// when the run errored, otherwise outputs need review.
+const emailLabOutputsDecision = (studyId: string, errored = false) =>
+    errored ? email.sendLabCodeErroredEmail(studyId) : email.sendLabOutputsNeedReviewEmail(studyId)
 
 export const onStudyResultsApproved = deferred(async ({ studyId, userId, errored }: OutputsDecisionEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await (errored ? email.sendLabCodeErroredEmail(studyId) : email.sendStudyResultsApprovedEmail(studyId))
+    await emailLabOutputsDecision(studyId, errored)
 })
 
 export const onStudyResultsRejected = deferred(async ({ studyId, userId, errored }: OutputsDecisionEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
-    await (errored ? email.sendLabCodeErroredEmail(studyId) : email.sendStudyResultsRejectedEmail(studyId))
+    await emailLabOutputsDecision(studyId, errored)
 })
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
