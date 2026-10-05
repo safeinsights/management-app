@@ -25,6 +25,7 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
+            className={styles.shell}
             bg={APP_MAIN_BG}
             layout={APP_SHELL.layout}
             header={{ height: APP_SHELL.headerHeight }}

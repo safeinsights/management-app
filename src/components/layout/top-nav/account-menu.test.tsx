@@ -91,6 +91,22 @@ describe('AccountMenu', () => {
         expect(within(trigger).queryByRole('img')).toBeNull()
     })
 
+    it('keeps a name initial that spans two UTF-16 code units whole', () => {
+        mockPathname(Routes.dashboard)
+        mockClerkSession({
+            clerkUserId: 'c7',
+            userId: 'u7',
+            orgSlug: 'dp',
+            orgType: 'enclave',
+            firstName: '𠮷田',
+            lastName: 'Lee',
+        })
+        renderWithProviders(<AccountMenu />)
+
+        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        expect(within(trigger).getByText('𠮷L')).toBeInTheDocument()
+    })
+
     it('closes on Escape while the trigger still has focus', async () => {
         mockPathname(Routes.dashboard)
         mockClerkSession({ clerkUserId: 'c5', userId: 'u5', orgSlug: 'dp', orgType: 'enclave' })

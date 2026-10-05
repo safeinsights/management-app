@@ -26,6 +26,25 @@ test.describe('app shell bars and scrolled-to content', () => {
         }).toPass()
     })
 
+    test('ends a short page with the footer at the viewport bottom, with nothing to scroll', async ({ page }) => {
+        // Taller than the security key page, so main alone cannot fill the viewport.
+        await page.setViewportSize({ width: 1280, height: 2000 })
+        await goto(page, '/user-key')
+
+        const footer = page.getByRole('contentinfo')
+        await expect(footer).toHaveText(/SafeInsights \| Rice University/)
+
+        await expect(async () => {
+            const layout = await footer.evaluate((footerEl) => ({
+                footerBottom: Math.round(footerEl.getBoundingClientRect().bottom),
+                viewportHeight: window.innerHeight,
+                scrollHeight: document.documentElement.scrollHeight,
+            }))
+            expect(layout.footerBottom).toBe(layout.viewportHeight)
+            expect(layout.scrollHeight).toBe(layout.viewportHeight)
+        }).toPass()
+    })
+
     test('reserves the space the fixed header covers, at any viewport', async ({ page }) => {
         await goto(page, '/openstax/dashboard')
 

@@ -1,3 +1,4 @@
+import { APP_SHELL } from '@/lib/constants'
 import { semanticColor } from '@/theme/tokens'
 import { AppShellFooter, Box, Text } from '@mantine/core'
 import styles from './shell.module.css'
@@ -19,10 +20,12 @@ const FocusedFooter: React.FC = () => (
 
 // In document flow after main, never fixed, so it cannot overlay page content (Footer spec).
 const InAppFooter: React.FC = () => (
-    <Box component="footer" className={styles.footer}>
-        <Text c={semanticColor('text.secondary')} fz="sm">
-            {copyright()}
-        </Text>
+    <Box component="footer" className={styles.footer} maw={APP_SHELL.mainMaxWidth}>
+        <div className={styles.footerBar}>
+            <Text c={semanticColor('text.secondary')} fz="sm">
+                {copyright()}
+            </Text>
+        </div>
     </Box>
 )
 

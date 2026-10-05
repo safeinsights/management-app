@@ -14,17 +14,28 @@
     padding: 0;
 }
 
+.shell {
+    --app-footer-height: rem(48px);
+}
+
 /* Main gives up the footer's height so a short page still ends with the footer at the viewport
    bottom; a long page pushes it below the fold. */
 .main {
-    min-height: calc(100dvh - rem(48px));
+    min-height: calc(100dvh - var(--app-footer-height));
 }
 
+/* Same centered column and nav offset as main, so the stroke and text line up with the page
+   content on screens wider than main's max width. */
 .footer {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline-start: var(--app-shell-navbar-offset, 0rem);
+}
+
+.footerBar {
     display: flex;
     align-items: center;
-    height: rem(48px);
-    margin-inline-start: var(--app-shell-navbar-offset, 0rem);
+    height: var(--app-footer-height);
     padding-inline: var(--mantine-spacing-lg);
     border-top: rem(1px) solid var(--si-color-border-default);
 }

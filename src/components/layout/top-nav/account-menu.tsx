@@ -24,7 +24,7 @@ import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
 // first letter ("Van Dyke" -> V), which a split on the full name would get wrong.
 const accountInitials = (firstName?: string | null, lastName?: string | null) =>
     [firstName, lastName]
-        .map((name) => name?.trim().charAt(0) ?? '')
+        .map((name) => Array.from(name?.trim() ?? '')[0] ?? '')
         .join('')
         .toUpperCase()
 

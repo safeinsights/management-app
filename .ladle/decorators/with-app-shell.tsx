@@ -26,6 +26,7 @@ export function WithAppShell({ children, main, header, footer }: WithAppShellPro
     return (
         <BrowserFrame>
             <MantineAppShell
+                className={shellStyles.shell}
                 bg={APP_MAIN_BG}
                 layout={APP_SHELL.layout}
                 header={{ height: APP_SHELL.headerHeight }}
