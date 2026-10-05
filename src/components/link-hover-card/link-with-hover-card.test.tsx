@@ -82,6 +82,37 @@ describe('LinkWithHoverCard', () => {
         expect(queryCard()).not.toBeNull()
     })
 
+    it('closes on pointer leave while the link holds focus from a mouse click', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+        await userEvent.hover(link)
+        await findCard()
+        // happy-dom matches :focus-visible on any focus; a browser does not after a mouse click.
+        const matches = link.matches.bind(link)
+        vi.spyOn(link, 'matches').mockImplementation((selector) => selector !== ':focus-visible' && matches(selector))
+        link.focus()
+
+        vi.useFakeTimers()
+        fireEvent.pointerLeave(link, mouse)
+        passHoverCloseDelay()
+
+        expect(queryCard()).toBeNull()
+    })
+
+    it('stays open on pointer leave while keyboard focus is on the link', async () => {
+        await mockSessionWithTestData()
+        const link = renderLink(Routes.legal)
+        link.focus()
+        await findCard()
+        fireEvent.pointerEnter(link, mouse)
+
+        vi.useFakeTimers()
+        fireEvent.pointerLeave(link, mouse)
+        passHoverCloseDelay()
+
+        expect(queryCard()).not.toBeNull()
+    })
+
     it('ignores touch and pen pointers, so a tap follows the link', async () => {
         await mockSessionWithTestData()
         const link = renderLink(Routes.legal)
@@ -180,6 +211,34 @@ describe('LinkWithHoverCard', () => {
         await waitFor(() => expect(queryCard()).toBeNull())
         expect(document.activeElement).toBe(link)
         expect(link).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('closes once focus leaves, after Escape closed the card from under the pointer', async () => {
+        await mockSessionWithTestData()
+        const user = userEvent.setup()
+        renderWithProviders(
+            <>
+                <LinkWithHoverCard href={Routes.legal} icon={null}>
+                    Study Agreement
+                </LinkWithHoverCard>
+                <button type="button">next field</button>
+            </>,
+        )
+        const link = screen.getByRole('link', { name: 'Study Agreement' })
+        fireEvent.pointerEnter(link, mouse)
+        fireEvent.pointerEnter(await findCard(), mouse)
+        fireEvent.keyDown(document.body, { key: 'Escape' })
+        await waitFor(() => expect(queryCard()).toBeNull())
+
+        link.focus()
+        const card = await findCard()
+        await within(card).findByRole('link', { name: 'Legal' })
+        await user.tab()
+        await user.tab()
+        await user.tab()
+
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'next field' }))
+        await waitFor(() => expect(queryCard()).toBeNull())
     })
 
     it('offers copy alone and opens the destination from the title in a new tab', async () => {

@@ -12,8 +12,9 @@ import {
 } from './link-card-interactions'
 import { absoluteHref, currentOrigin } from './link-preview'
 import { ReadOnlyLinkCardBody } from './read-only-link-card'
+import { useLinkPreview } from './use-link-preview'
 
-function useLinkWithHoverCard() {
+function useLinkWithHoverCard(url: string) {
     const [opened, setOpened] = useState(false)
     const triggerRef = useRef<HTMLAnchorElement | null>(null)
     // Keeps the link's focus handler from reopening the card that Escape just closed.
@@ -21,7 +22,11 @@ function useLinkWithHoverCard() {
     const dropdownId = useId()
 
     const close = useCallback(() => setOpened(false), [])
-    const { claim } = useExclusiveLinkCard(close)
+    const { claim, isAnotherCardFocused } = useExclusiveLinkCard(close, dropdownId)
+
+    // Loaded with the page, not on open, so a keyboard user tabbing into the card meets the title
+    // rather than its skeleton.
+    useLinkPreview(url)
 
     const open = useCallback(() => {
         claim()
@@ -34,16 +39,28 @@ function useLinkWithHoverCard() {
         [dropdownId],
     )
 
-    // Focus on the link or in the card keeps it open, as a click in the card pins it.
-    const closeUnlessFocused = useCallback(() => {
-        if (!isInsideCard(document.activeElement)) close()
-    }, [isInsideCard, close])
+    const openOnHover = useCallback(() => {
+        if (!isAnotherCardFocused()) open()
+    }, [isAnotherCardFocused, open])
 
-    const hover = useHoverIntent({ onEnter: open, onLeave: closeUnlessFocused })
-    const { cancel: cancelHover, isPointerInside } = hover
+    // Keyboard focus on the link, or any focus in the card, keeps it open. A mouse click focuses the
+    // link too, and that focus outlives the trip to the new tab, so it must not pin the card.
+    const isFocusHoldingCard = useCallback(() => {
+        const focused = document.activeElement
+        if (!focused) return false
+        if (focused === triggerRef.current) return focused.matches(':focus-visible')
+        return isInsideCard(focused)
+    }, [isInsideCard])
+
+    const closeUnlessFocused = useCallback(() => {
+        if (!isFocusHoldingCard()) close()
+    }, [isFocusHoldingCard, close])
+
+    const hover = useHoverIntent({ onEnter: openOnHover, onLeave: closeUnlessFocused })
+    const { reset: resetHover, isPointerInside } = hover
 
     const closeOnEscape = useCallback(() => {
-        cancelHover()
+        resetHover()
         const hadFocus = isInsideCard(document.activeElement)
         close()
         if (!hadFocus) return
@@ -51,7 +68,7 @@ function useLinkWithHoverCard() {
         // focus() dispatches synchronously, so the flag is still set when onTriggerFocus reads it.
         triggerRef.current?.focus()
         isRestoringFocus.current = false
-    }, [cancelHover, isInsideCard, close])
+    }, [resetHover, isInsideCard, close])
 
     useEscapeOnCard(opened, closeOnEscape)
 
@@ -70,7 +87,7 @@ function useLinkWithHoverCard() {
 
     // The browser follows the link into a new tab, so the card has done its job here.
     const onTriggerClick = () => {
-        cancelHover()
+        resetHover()
         close()
     }
 
@@ -113,7 +130,8 @@ type LinkWithHoverCardProps = LinkWithIconProps & { href: string }
  * Enter. The destination always opens in a new tab, so the SafeInsights tab never unloads (OTTER-463).
  */
 export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHoverCardProps) {
-    const card = useLinkWithHoverCard()
+    const url = absoluteHref(href, currentOrigin())
+    const card = useLinkWithHoverCard(url)
 
     return (
         <Popover
@@ -155,16 +173,14 @@ export function LinkWithHoverCard({ href, children, ...linkProps }: LinkWithHove
                 onPointerEnter={card.onPointerEnter}
                 onPointerLeave={card.onPointerLeave}
             >
-                <LinkCardContent isVisible={card.opened} href={href} />
+                <LinkCardContent isVisible={card.opened} url={url} />
             </Popover.Dropdown>
         </Popover>
     )
 }
 
-function LinkCardContent({ isVisible, href }: { isVisible: boolean; href: string }) {
+function LinkCardContent({ isVisible, url }: { isVisible: boolean; url: string }) {
     if (!isVisible) return null
-
-    const url = absoluteHref(href, currentOrigin())
 
     return <ReadOnlyLinkCardBody url={url} opensInNewTab moveFocusOnOpen={false} />
 }

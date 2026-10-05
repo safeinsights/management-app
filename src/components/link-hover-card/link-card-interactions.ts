@@ -48,41 +48,48 @@ export function useHoverIntent({ onEnter, onLeave }: { onEnter: () => void; onLe
     const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pointerInside = useRef(false)
 
-    const cancel = useCallback(() => {
+    const clearLeaveTimer = useCallback(() => {
         if (leaveTimer.current === null) return
         clearTimeout(leaveTimer.current)
         leaveTimer.current = null
     }, [])
 
-    useEffect(() => cancel, [cancel])
+    useEffect(() => clearLeaveTimer, [clearLeaveTimer])
 
     const onPointerEnter = useCallback(
         (event: PointerEvent) => {
             if (event.pointerType !== MOUSE_POINTER) return
             pointerInside.current = true
-            cancel()
+            clearLeaveTimer()
             onEnter()
         },
-        [cancel, onEnter],
+        [clearLeaveTimer, onEnter],
     )
 
     const onPointerLeave = useCallback(
         (event: PointerEvent) => {
             if (event.pointerType !== MOUSE_POINTER) return
             pointerInside.current = false
-            cancel()
+            clearLeaveTimer()
             leaveTimer.current = setTimeout(() => {
                 leaveTimer.current = null
                 onLeave()
             }, LINK_CARD_HOVER_CLOSE_DELAY_MS)
         },
-        [cancel, onLeave],
+        [clearLeaveTimer, onLeave],
     )
+
+    // For a close that is not a pointer leave. A card removed from under the pointer gets no
+    // pointerleave, so the flag would otherwise stay set.
+    const reset = useCallback(() => {
+        clearLeaveTimer()
+        pointerInside.current = false
+    }, [clearLeaveTimer])
 
     // A getter, not the ref: a hook result that carries a ref cannot be read during render.
     const isPointerInside = useCallback(() => pointerInside.current, [])
 
-    return { onPointerEnter, onPointerLeave, cancel, isPointerInside }
+    return { onPointerEnter, onPointerLeave, reset, isPointerInside }
 }
 
 /**
@@ -125,23 +132,32 @@ export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
     }, [isOpen, onEscape])
 }
 
-let closeOpenCard: (() => void) | null = null
+type OpenLinkCard = { close: () => void; dropdownId: string }
+
+let openCard: OpenLinkCard | null = null
 
 /**
  * One link card at a time across the page, so opening one elsewhere closes this one. `close` has to
  * keep a stable identity.
  */
-export function useExclusiveLinkCard(close: () => void) {
+export function useExclusiveLinkCard(close: () => void, dropdownId: string) {
     const release = useCallback(() => {
-        if (closeOpenCard === close) closeOpenCard = null
+        if (openCard?.close === close) openCard = null
     }, [close])
 
     const claim = useCallback(() => {
-        if (closeOpenCard && closeOpenCard !== close) closeOpenCard()
-        closeOpenCard = close
+        if (openCard && openCard.close !== close) openCard.close()
+        openCard = { close, dropdownId }
+    }, [close, dropdownId])
+
+    // A card holding focus is in use, an edit form with unsaved changes above all, so a passing
+    // pointer must not take it over.
+    const isAnotherCardFocused = useCallback(() => {
+        if (!openCard || openCard.close === close) return false
+        return Boolean(document.getElementById(openCard.dropdownId)?.contains(document.activeElement))
     }, [close])
 
     useEffect(() => release, [release])
 
-    return { claim }
+    return { claim, isAnotherCardFocused }
 }
