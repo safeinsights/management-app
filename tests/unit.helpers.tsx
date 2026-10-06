@@ -611,6 +611,21 @@ export const insertTestOrgStudyJobUsers = async () => {
     return { ...result, org }
 }
 
+// A Data Partner's decision on the proposal, as submitProposalReviewAction records it.
+export const insertTestProposalDecision = ({ studyId, authorId }: { studyId: string; authorId: string }) =>
+    db
+        .insertInto('studyProposalComment')
+        .values({
+            studyId,
+            authorId,
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.stringify({ text: 'please clarify the methodology' }),
+            version: 1,
+        })
+        .execute()
+
 type MockSession = {
     clerkUserId: string
     userId: string
