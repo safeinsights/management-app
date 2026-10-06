@@ -7,6 +7,7 @@ import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { publicMetadata } from '@/lib/clerk'
+import { orgsBySlug } from './db/session-user'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -44,22 +45,7 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 
 export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo> {
     const orgs = await getOrgInfoForUserId(userId)
-    const metadata: UserInfo = {
-        format: 'v3',
-        user: { id: userId },
-        teams: null,
-        orgs: orgs.reduce(
-            (acc, org) => {
-                acc[org.slug] = {
-                    ...org,
-                    isAdmin: org.isAdmin || false,
-                }
-                return acc
-            },
-            {} as UserInfo['orgs'],
-        ),
-    }
-    return metadata
+    return { format: 'v3', user: { id: userId }, teams: null, orgs: orgsBySlug(orgs) }
 }
 
 // Returns the full info with orgs: callers build the session from it.

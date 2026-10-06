@@ -3,10 +3,10 @@ import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
-import { db } from '@/database'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { headers } from 'next/headers'
-import { calculateUserPublicMetadata, sessionFromClerk, updateClerkUserMetadata } from './clerk'
+import { sessionFromClerk, updateClerkUserMetadata } from './clerk'
+import { sessionUserExists, sessionUserOrgs } from './db/session-user'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -40,6 +40,15 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
     return await updateClerkUserMetadata(userId)
 }
 
+// Null when the token's user is not in the database or belongs to another Clerk user.
+async function verifiedOrgs(userId: string, orgs: UserInfo['orgs'] | undefined, clerkUserId: string) {
+    // A token from before the OTTER-752 script still carries orgs; only its user needs checking.
+    if (orgs) return (await sessionUserExists(userId, clerkUserId)) ? orgs : null
+    // The token leaves orgs out, because each org added ~320 bytes to every request and a user
+    // in many orgs went over the origin's header limit (OTTER-752).
+    return await sessionUserOrgs(userId, clerkUserId)
+}
+
 export async function marshalSession(
     clerkUserId: string | null,
     sessionClaims: JwtPayload | null,
@@ -49,36 +58,26 @@ export async function marshalSession(
 
     const { forceUpdate = false } = options
 
-    let info: UserInfo | null = (sessionClaims.userMetadata as UserInfo) || null
+    // Partial: older tokens can lack the format, the user or the orgs.
+    const token = (sessionClaims.userMetadata as Partial<UserPublicMetadata> | undefined) ?? null
+    const userId = token?.format === 'v3' && !forceUpdate ? token.user?.id : undefined
+    const orgs = userId ? await verifiedOrgs(userId, token?.orgs, clerkUserId) : null
 
-    let userMissing = false
-    if (info?.format === 'v3' && info.user?.id && !forceUpdate) {
-        const existing = await db.selectFrom('user').select('id').where('id', '=', info.user.id).executeTakeFirst()
-        userMissing = !existing
-    }
-
-    const needsUpdate = !info || info.format !== 'v3' || forceUpdate || userMissing
-
-    if (needsUpdate) {
+    let info: UserInfo | null = userId && orgs ? { format: 'v3', user: { id: userId }, teams: null, orgs } : null
+    if (!info) {
         logger.info(
-            `clerk user ${clerkUserId} needs metadata update (missing: ${!info}, format: ${info?.format}, forceUpdate: ${forceUpdate}, userMissing: ${userMissing})`,
+            `clerk user ${clerkUserId} needs metadata update (missing: ${!token}, format: ${token?.format}, user id: ${token?.user?.id}, forceUpdate: ${forceUpdate})`,
         )
-
         info = await syncAndUpdateUserMetadata(clerkUserId)
-        if (info) {
-            sessionClaims.userMetadata = info
-        } else {
+        if (!info) {
             logger.warn(`clerk user ${clerkUserId} metadata sync failed`)
             return null
         }
-    } else if (info && !info.orgs) {
-        // The token leaves orgs out, because each org added ~320 bytes to every request and a user
-        // in many orgs went over the origin's header limit (OTTER-752).
-        sessionClaims.userMetadata = await calculateUserPublicMetadata(info.user.id)
     }
+    sessionClaims.userMetadata = info
 
     return sessionFromMetadata({
-        metadata: sessionClaims.userMetadata || {},
+        metadata: sessionClaims.userMetadata,
         prefs: sessionClaims.unsafeMetadata || {},
         clerkUserId,
     })
