@@ -43,8 +43,6 @@ type StudyInfo = Awaited<ReturnType<typeof getStudyAndOrgDisplayInfo>>
 function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
-        // Pre-header var on the agreement emails. Same value, because the templates disagree on the name.
-        studyName: study.title,
         submittedBy: study.researcherFullName,
         submittedOn: dayjs(study.submittedAt ?? study.createdAt).format('MM/DD/YYYY'),
         submittedTo: study.orgName,
@@ -253,7 +251,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
         template: 'vb - sla notice',
         vars: {
             ...baseStudyVars(study),
-            studyURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
+            actionURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
             legalURL: `${APP_BASE_URL}${Routes.adminSafeinsightsLegal}`,
         },
     })
@@ -383,7 +381,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
         template: 'vb - sla ready for acknowledgment',
         vars: {
             ...baseStudyVars(study),
-            studyURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
+            actionURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
         },
     })
 }

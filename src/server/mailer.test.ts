@@ -113,7 +113,6 @@ describe('mailgun email functions', () => {
                 template: 'vb - sla ready for acknowledgment',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
-                    studyName: study.title,
                     fullName: researcher.fullName,
                     dataPartner: dataPartner.name,
                 }),
@@ -192,9 +191,9 @@ describe('mailgun email functions', () => {
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
-        const studyURL = message.vars.studyURL as string
-        expect(studyURL).toContain(Routes.studySubmitted({ orgSlug: researchLab.slug, studyId: study.id }))
-        expect(studyURL).not.toContain(Routes.studySubmitted({ orgSlug: dataPartner.slug, studyId: study.id }))
+        const actionURL = message.vars.actionURL as string
+        expect(actionURL).toContain(Routes.studySubmitted({ orgSlug: researchLab.slug, studyId: study.id }))
+        expect(actionURL).not.toContain(Routes.studySubmitted({ orgSlug: dataPartner.slug, studyId: study.id }))
     })
 
     const insertSiAdmin = async () => {
@@ -227,10 +226,9 @@ describe('mailgun email functions', () => {
                 template: 'vb - sla notice',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
-                    studyName: study.title,
                     researchLab: org.name,
                     dataPartner: org.name,
-                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                     legalURL: expect.stringContaining(Routes.adminSafeinsightsLegal),
                 }),
             }),
