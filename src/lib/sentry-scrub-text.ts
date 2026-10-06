@@ -5,9 +5,14 @@ export const REDACTED = '[Filtered]'
 const SENSITIVE_KEY_PATTERN =
     /(?:^|[_.-])(?:authorization|auth|bearer|jwt|password|passwd|secret|token|api[_.-]?key|session|cookie|credential|private[_.-]?key|access[_.-]?key|e[_.-]?mail|ssn|phone|dob|birth[_.-]?date)s?(?:[_.-]|$)/i
 
-const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g
-const BEARER_PATTERN = /\b(Bearer\s+)[\w.~+/-]+=*/gi
-const EMAIL_PATTERN = /[\w.+-]+(?:@|%40)[\w-]+(?:\.[\w-]+)+/gi
+// Every quantifier is bounded and matches start only where they can, because scrubText runs
+// synchronously on every string sent to Sentry and must stay linear on hostile input.
+
+// A JWT is only matched at the start of a base64url run, so a run of `eyJ` is scanned once.
+const JWT_PATTERN = /(^|[^\w-])eyJ[\w-]{1,8192}\.[\w-]{1,8192}\.[\w-]{1,8192}/g
+const AUTH_SCHEME_PATTERN = /\b((?:Bearer|Basic|Token)\s{1,16})[\w.~+/-]{1,8192}={0,2}/gi
+// Also matches URL-encoded `@`. The alphabetic TLD keeps `next@15.3.1` style versions.
+const EMAIL_PATTERN = /[\w.+%-]{1,64}(?:@|%40)[\w-]{1,63}(?:\.[\w-]{1,63}){0,8}\.[a-z]{2,24}\b/gi
 // `key=`, `key:`, `"key":` or `\"key\":` (escaped JSON). The leading non-key character means
 // matching only starts at the head of a key, which keeps the scan linear.
 const PAIR_KEY_PATTERN = /(?:^|[^\w.-])(\\?["']|)([\w.-]{1,128})\1\s{0,8}[:=]/g
@@ -37,9 +42,11 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function scrubText(text: string): string {
-    return scrubPairs(
-        text.replace(JWT_PATTERN, REDACTED).replace(BEARER_PATTERN, `$1${REDACTED}`).replace(EMAIL_PATTERN, REDACTED),
-    )
+    const masked = text
+        .replace(JWT_PATTERN, `$1${REDACTED}`)
+        .replace(AUTH_SCHEME_PATTERN, `$1${REDACTED}`)
+        .replace(EMAIL_PATTERN, REDACTED)
+    return scrubPairs(masked)
 }
 
 function openingQuote(value: string): string {
