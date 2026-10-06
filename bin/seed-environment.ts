@@ -11,7 +11,7 @@ import { sql } from 'kysely'
 import { db } from '@/database'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
-import { slimPublicMetadata } from '@/lib/clerk'
+import { publicMetadata } from '@/lib/clerk'
 import { testingDataAllowed } from './lib/testing-data-gate'
 
 const STARTER_CODE_BODY: Record<string, string> = {
@@ -239,7 +239,7 @@ async function ensurePublicKey(userId: string) {
 
 async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string, siUserId: string) {
     // updateUser, not updateUserMetadata: a deep merge would keep an old `orgs` key (OTTER-752).
-    await clerk.users.updateUser(clerkUserId, { publicMetadata: slimPublicMetadata({ user: { id: siUserId } }) })
+    await clerk.users.updateUser(clerkUserId, { publicMetadata: publicMetadata({ user: { id: siUserId } }) })
     console.log('📝 Updated Clerk publicMetadata')
 }
 

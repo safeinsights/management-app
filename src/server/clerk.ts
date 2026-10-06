@@ -6,11 +6,11 @@ import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
-import { slimPublicMetadata } from '@/lib/clerk'
+import { publicMetadata } from '@/lib/clerk'
 
 export { type UserSessionWithAbility } from './session'
 
-export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser, slimPublicMetadata } from '@/lib/clerk'
+export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser, publicMetadata } from '@/lib/clerk'
 
 type ClerkOrganizationProps = {
     adminUserId?: string
@@ -73,7 +73,7 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which would keep
     // an old `orgs` key.
-    await client.users.updateUser(clerkId, { publicMetadata: slimPublicMetadata(metadata) })
+    await client.users.updateUser(clerkId, { publicMetadata: publicMetadata(metadata) })
 
     return metadata
 }

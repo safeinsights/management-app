@@ -9,7 +9,7 @@ vi.mock('./config', () => ({
 
 const currentUserMock = currentUser as unknown as Mock
 
-const { slimPublicMetadata, syncCurrentClerkUser } = await import('./clerk')
+const { publicMetadata, syncCurrentClerkUser } = await import('./clerk')
 
 // vitest.setup.ts stubs this for every other suite; reach past the stub for the real implementation.
 const { updateClerkUserMetadata } = await vi.importActual<typeof import('./clerk')>('./clerk')
@@ -154,9 +154,9 @@ describe('syncCurrentClerkUser', () => {
     })
 })
 
-describe('slimPublicMetadata', () => {
+describe('publicMetadata', () => {
     it('keeps the format and the user id, and drops the orgs', () => {
-        expect(slimPublicMetadata({ user: { id: 'u1' } })).toEqual({ format: 'v3', user: { id: 'u1' }, teams: null })
+        expect(publicMetadata({ user: { id: 'u1' } })).toEqual({ format: 'v3', user: { id: 'u1' }, teams: null })
     })
 })
 

@@ -9,7 +9,7 @@
 import 'dotenv/config'
 import { createClerkClient, type ClerkClient, type User } from '@clerk/backend'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { slimPublicMetadata } from '@/lib/clerk'
+import { publicMetadata } from '@/lib/clerk'
 
 const PAGE_SIZE = 100
 // Keeps the writes below the Clerk Backend API rate limit.
@@ -34,7 +34,7 @@ async function slimUser(clerk: ClerkClient, user: User, apply: boolean, totals: 
         return before
     }
 
-    const slim = slimPublicMetadata({ user: { id: userId } })
+    const slim = publicMetadata({ user: { id: userId } })
     if (!apply) {
         totals.slimmed++
         return byteSize(slim)

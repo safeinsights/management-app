@@ -32,6 +32,6 @@ export function isTestUser(
 
 // Orgs stay out of publicMetadata because the session token copies it, and each org made every
 // request ~320 bytes larger (OTTER-752). The server and the client read orgs from the database.
-export function slimPublicMetadata(info: Pick<UserInfo, 'user'>): ClerkPublicMetadata {
+export function publicMetadata(info: Pick<UserInfo, 'user'>): ClerkPublicMetadata {
     return { format: 'v3', user: { id: info.user.id }, teams: null }
 }
