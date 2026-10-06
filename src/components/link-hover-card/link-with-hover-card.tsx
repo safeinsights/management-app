@@ -3,68 +3,12 @@
 import { useCallback, useEffect, useId, useRef, useState, type FocusEvent, type PointerEvent } from 'react'
 import { Popover } from '@mantine/core'
 import { LinkWithIcon, type LinkWithIconProps } from '@/components/links'
+import { useHoverIntent } from '@/hooks/use-hover-intent'
 import { LINK_CARD_DIALOG_LABEL } from './copy'
 import { LINK_CARD_POPOVER_PROPS, useEscapeOnCard, useExclusiveLinkCard } from './link-card-interactions'
 import { absoluteHref, currentOrigin } from './link-preview'
 import { ReadOnlyLinkCardBody } from './read-only-link-card'
 import { useLinkPreview } from './use-link-preview'
-
-// Time for the pointer to cross from the link into the card (WCAG 2.1 SC 1.4.13, hover content must be hoverable).
-export const LINK_CARD_HOVER_CLOSE_DELAY_MS = 120
-
-const MOUSE_POINTER = 'mouse'
-
-/**
- * Enter and leave for hover content, with a grace period on leave. Touch and pen are ignored: iOS
- * turns a tap that changes content on hover into a hover only, so the tap would not follow the link.
- */
-function useHoverIntent({ onEnter, onLeave }: { onEnter: () => void; onLeave: () => void }) {
-    const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const pointerInside = useRef(false)
-
-    const clearLeaveTimer = useCallback(() => {
-        if (leaveTimer.current === null) return
-        clearTimeout(leaveTimer.current)
-        leaveTimer.current = null
-    }, [])
-
-    useEffect(() => clearLeaveTimer, [clearLeaveTimer])
-
-    const onPointerEnter = useCallback(
-        (event: PointerEvent) => {
-            if (event.pointerType !== MOUSE_POINTER) return
-            pointerInside.current = true
-            clearLeaveTimer()
-            onEnter()
-        },
-        [clearLeaveTimer, onEnter],
-    )
-
-    const onPointerLeave = useCallback(
-        (event: PointerEvent) => {
-            if (event.pointerType !== MOUSE_POINTER) return
-            pointerInside.current = false
-            clearLeaveTimer()
-            leaveTimer.current = setTimeout(() => {
-                leaveTimer.current = null
-                onLeave()
-            }, LINK_CARD_HOVER_CLOSE_DELAY_MS)
-        },
-        [clearLeaveTimer, onLeave],
-    )
-
-    // For a close that is not a pointer leave. A card removed from under the pointer gets no
-    // pointerleave, so the flag would otherwise stay set.
-    const reset = useCallback(() => {
-        clearLeaveTimer()
-        pointerInside.current = false
-    }, [clearLeaveTimer])
-
-    // A getter, not the ref: a hook result that carries a ref cannot be read during render.
-    const isPointerInside = useCallback(() => pointerInside.current, [])
-
-    return { onPointerEnter, onPointerLeave, reset, isPointerInside }
-}
 
 function useLinkWithHoverCard(url: string) {
     const [opened, setOpened] = useState(false)

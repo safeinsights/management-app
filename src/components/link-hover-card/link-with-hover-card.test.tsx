@@ -15,8 +15,9 @@ import {
     within,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
+import { HOVER_CLOSE_DELAY_MS } from '@/hooks/use-hover-intent'
 import { LINK_CARD_DIALOG_LABEL, LINK_CARD_LABELS } from './copy'
-import { LINK_CARD_HOVER_CLOSE_DELAY_MS, LinkWithHoverCard } from './link-with-hover-card'
+import { LinkWithHoverCard } from './link-with-hover-card'
 
 const renderLink = (href: string, text = 'Study Agreement') => {
     renderWithProviders(
@@ -34,7 +35,7 @@ const queryCard = () => screen.queryByRole('dialog', { name: LINK_CARD_DIALOG_LA
 // happy-dom leaves pointerType empty unless the event says otherwise.
 const mouse = { pointerType: 'mouse' }
 
-const passHoverCloseDelay = () => act(() => vi.advanceTimersByTime(LINK_CARD_HOVER_CLOSE_DELAY_MS + 1))
+const passHoverCloseDelay = () => act(() => vi.advanceTimersByTime(HOVER_CLOSE_DELAY_MS + 1))
 
 describe('LinkWithHoverCard', () => {
     afterEach(() => vi.useRealTimers())
