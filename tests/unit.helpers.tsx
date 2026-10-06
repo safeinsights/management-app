@@ -653,6 +653,8 @@ export const mockClerkSession = (values: MockSession | null) => {
             isLoaded: true,
             isSignedIn: false,
         })
+        ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false, user: null })
+        ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
         ;(useClerk as Mock).mockReturnValue({
             signOut: vi.fn(),
         } as unknown as ReturnType<typeof useClerk>)
