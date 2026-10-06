@@ -3,6 +3,7 @@
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { Routes } from '@/lib/routes'
+import { initialsFromNames } from '@/lib/string'
 import { getLabOrg } from '@/lib/types'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { useDisclosure, useWindowEvent } from '@mantine/hooks'
@@ -19,14 +20,6 @@ import { usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { navIcon } from '../nav-icon'
 import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
-
-// TopNav spec: initials come from the first- and last-name fields, and a multi-word surname gives its
-// first letter ("Van Dyke" -> V), which a split on the full name would get wrong.
-const accountInitials = (firstName?: string | null, lastName?: string | null) =>
-    [firstName, lastName]
-        .map((name) => Array.from(name?.trim() ?? '')[0] ?? '')
-        .join('')
-        .toUpperCase()
 
 type MenuLinks = {
     isResearcher: boolean
@@ -108,7 +101,7 @@ export const AccountMenu: React.FC = () => {
             onClose={close}
             triggerRef={triggerRef}
             firstName={user?.firstName ?? ''}
-            initials={accountInitials(user?.firstName, user?.lastName)}
+            initials={initialsFromNames(user?.firstName, user?.lastName)}
             sections={sections}
         />
     )
