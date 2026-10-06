@@ -79,6 +79,8 @@ describe('ensureStarterCodePreloadAction', () => {
 
         await expect(fs.readFile(await templatePath(study.id, 'Main.R'), 'utf8')).resolves.toContain('main.r')
         expect(await mainCodeFileName(study.id)).toBe('Main.R')
+        // A round job reads as "Code draft"; only a launch or an upload may open one (OTTER-698).
+        expect(await roundJobCount(study.id)).toBe(0)
     })
 
     it.skipIf(!s3Available)('takes the extension from the code env language', async () => {
@@ -123,14 +125,6 @@ describe('ensureStarterCodePreloadAction', () => {
 
         expect(actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))).toEqual({ preloaded: false })
         expect(await mainCodeFileName(study.id)).toBeNull()
-    })
-
-    // A round job reads as "Code draft"; only a launch or an upload may open one (OTTER-698).
-    it.skipIf(!s3Available)('opens no round job while copying the template', async () => {
-        const { study } = await preloadFor('R', ['main.r'])
-
-        await expect(fs.readFile(await templatePath(study.id, 'Main.R'), 'utf8')).resolves.toBeTruthy()
-        expect(await roundJobCount(study.id)).toBe(0)
     })
 
     it('opens no round job when there is nothing to copy', async () => {

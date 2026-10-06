@@ -18,8 +18,8 @@ import {
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { memoryRouter } from 'next-router-mock'
-import { projectStudyState, resolvePillId } from '@/lib/study-screen'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
+import { resolvePillId } from '@/lib/study-screen'
+import { studyCodeStateFor } from '@/server/study-code-gate'
 import StudyCodeUploadRoute from './page'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
@@ -184,7 +184,7 @@ describe('StudyCodeUploadRoute', () => {
             const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
             expect(jobs).toHaveLength(0)
 
-            const state = projectStudyState((await rawStudyStateForStudy(study.id))!)
+            const state = (await studyCodeStateFor(db, study.id))!
             expect(resolvePillId('researcher', state)).toBe('proposal-approved')
             expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })

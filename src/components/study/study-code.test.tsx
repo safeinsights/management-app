@@ -1641,24 +1641,18 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
 
-        it('badges the untouched starter file, and only that file', async () => {
-            await renderWithTemplate({ baseline: 'pristine' })
+        // 'none' is the first visit: the pre-load opens no round job, so there is no baseline (OTTER-698).
+        it.each(['pristine', 'none'] as const)(
+            'badges the untouched starter file, and only that file (baseline: %s)',
+            async (baseline) => {
+                await renderWithTemplate({ baseline })
 
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
-
-        // The pre-load opens no round job (OTTER-698), so the first visit has no baseline to compare.
-        it('badges the untouched starter file before any round job exists', async () => {
-            await renderWithTemplate({ baseline: 'none' })
-
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
+                await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+                expect(screen.getAllByText('Template')).toHaveLength(1)
+                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                expect(templateRow).toHaveTextContent('Template')
+            },
+        )
 
         it('drops the badge once the starter file has been edited or replaced', async () => {
             await renderWithTemplate({ baseline: 'edited' })
