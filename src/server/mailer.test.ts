@@ -68,7 +68,7 @@ describe('mailgun email functions', () => {
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: researcher.email,
-                subject: 'Acknowledge Study Agreement',
+                subject: 'Acknowledge Study Agreements',
                 template: 'vb - sla ready for acknowledgment',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
@@ -167,7 +167,7 @@ describe('mailgun email functions', () => {
             expect.objectContaining({
                 to: SI_AGREEMENTS_EMAIL,
                 bcc: expect.stringContaining(admin.email || ''),
-                subject: 'New Study Agreement required',
+                subject: 'New Study Agreement Required',
                 template: 'vb - sla notice',
                 vars: expect.objectContaining({
                     studyTitle: study.title,

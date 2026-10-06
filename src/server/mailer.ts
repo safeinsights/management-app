@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_AGREEMENTS_EMAIL, SI_EMAIL } from './mailgun'
@@ -123,7 +123,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     await deliver({
         to: SI_AGREEMENTS_EMAIL,
         bcc: emails.join(', '),
-        subject: `New ${legalDocumentTypeLabels.SLA} required`,
+        subject: `New ${legalDocumentTypeLabels.SLA} Required`,
         template: 'vb - sla notice',
         vars: {
             ...baseStudyVars(study),
@@ -298,7 +298,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
         recipients.map((recipient) =>
             deliver({
                 to: recipient.email,
-                subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
+                subject: `Acknowledge ${legalDocumentCollectionLabels.SLA}`,
                 template: 'vb - sla ready for acknowledgment',
                 vars: {
                     ...baseStudyVars(study),
