@@ -163,6 +163,18 @@ describe('scrubSentryEvent', () => {
         expect(params.get('page')).toBe('2')
     })
 
+    it('redacts a JWT inside a URL-encoded query_string value', () => {
+        const event = makeEvent({
+            request: {
+                query_string: 'redirect_url=https%3A%2F%2Fapp.test%2Fx%3Fv%3DeyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl',
+            },
+        })
+
+        expect(scrubSentryEvent(event).request?.query_string).toBe(
+            'redirect_url=https%3A%2F%2Fapp.test%2Fx%3Fv%3D[Filtered]',
+        )
+    })
+
     it('scrubs values of other params in a query_string tuple array', () => {
         const event = makeEvent({
             request: {

@@ -73,6 +73,21 @@ describe('scrubText, long and structured values', () => {
     })
 })
 
+describe('scrubText, JWTs after URL-encoded chars', () => {
+    const jwt = 'eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl'
+
+    it.each([
+        [
+            '%3D',
+            `redirect_url=https%3A%2F%2Fapp.test%2Fx%3Fv%3D${jwt}&page=2`,
+            'redirect_url=https%3A%2F%2Fapp.test%2Fx%3Fv%3D[Filtered]&page=2',
+        ],
+        ['%22', `state=%22${jwt}%22`, 'state=%22[Filtered]%22'],
+    ])('redacts a JWT after %s', (_label, input, expected) => {
+        expect(scrubText(input)).toBe(expected)
+    })
+})
+
 describe('scrubText, auth schemes and package versions', () => {
     it.each([
         ['Basic', 'sent Basic YXBpOmtleS0xMjM= upstream', 'sent Basic [Filtered] upstream'],
@@ -107,6 +122,8 @@ const ADVERSARIAL: Array<[string, string]> = [
     ['jwt: repeated eyJ', 'eyJ'.repeat(SIZE / 3)],
     ['jwt: eyJ split by dashes', '-eyJ'.repeat(SIZE / 4)],
     ['jwt: eyJ split by dots', '.eyJa'.repeat(SIZE / 5)],
+    ['jwt: repeated encoded prefix', '%3DeyJ'.repeat(SIZE / 6)],
+    ['jwt: repeated percent signs', '%'.repeat(SIZE)],
     ['jwt: two segments only', `eyJ${'a'.repeat(SIZE / 2)}.${'b'.repeat(SIZE / 2)}`],
     ['bearer: repeated scheme', 'Bearer '.repeat(SIZE / 7)],
     ['bearer: scheme then whitespace', `Bearer${' '.repeat(SIZE)}`],

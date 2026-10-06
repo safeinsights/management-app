@@ -9,7 +9,8 @@ const SENSITIVE_KEY_PATTERN =
 // because scrubText runs synchronously on every string sent to Sentry and must stay linear.
 
 // A JWT is only matched at the start of a base64url run, so a run of `eyJ` is scanned once.
-const JWT_PATTERN = /(^|[^\w-])eyJ[\w-]{1,8192}\.[\w-]{1,8192}\.[\w-]{1,8192}/g
+// A URL-encoded char such as `%3D` also starts a run, though its hex digits are word chars.
+const JWT_PATTERN = /(^|[^\w-]|%[\dA-Fa-f]{2})eyJ[\w-]{1,8192}\.[\w-]{1,8192}\.[\w-]{1,8192}/g
 const AUTH_SCHEME_PATTERN = /\b((?:Bearer|Basic|Token)\s{1,16})[\w.~+/-]{1,8192}={0,2}/gi
 // Also matches URL-encoded `@`. The alphabetic TLD keeps `next@15.3.1` style versions.
 const EMAIL_PATTERN = /[\w.+%-]{1,64}(?:@|%40)[\w-]{1,63}(?:\.[\w-]{1,63}){0,8}\.[a-z]{2,24}\b/gi
