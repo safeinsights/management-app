@@ -31,6 +31,30 @@ describe('scrubSentryEvent', () => {
         })
     })
 
+    it('scrubs every header value and redacts headers whose names look sensitive', () => {
+        const event = makeEvent({
+            request: {
+                headers: {
+                    Referer: 'https://x.test/accept?token=abc&email=pat@example.org&page=2',
+                    'x-amzn-oidc-data': 'eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl',
+                    'x-session-token': 'tok',
+                    'x-amzn-oidc-accesstoken': 'opaque',
+                    'User-Agent': 'tests',
+                },
+            },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.request?.headers).toEqual({
+            Referer: 'https://x.test/accept?token=[Filtered]&email=[Filtered]&page=2',
+            'x-amzn-oidc-data': '[Filtered]',
+            'x-session-token': '[Filtered]',
+            'x-amzn-oidc-accesstoken': '[Filtered]',
+            'User-Agent': 'tests',
+        })
+    })
+
     it('redacts every cookie value in request.cookies', () => {
         const event = makeEvent({
             request: {
@@ -97,6 +121,34 @@ describe('scrubSentryEvent', () => {
 
         expect(result.request?.query_string).toEqual([
             ['token', '[Filtered]'],
+            ['page', '2'],
+        ])
+    })
+
+    it('scrubs values of other params in a query_string string, including URL-encoded emails', () => {
+        const event = makeEvent({
+            request: { query_string: 'q=pat%40example.org&x=pat@example.org&page=2' },
+        })
+
+        const params = new URLSearchParams(scrubSentryEvent(event).request?.query_string as string)
+
+        expect(params.get('q')).toBe('[Filtered]')
+        expect(params.get('x')).toBe('[Filtered]')
+        expect(params.get('page')).toBe('2')
+    })
+
+    it('scrubs values of other params in a query_string tuple array', () => {
+        const event = makeEvent({
+            request: {
+                query_string: [
+                    ['q', 'pat@example.org'],
+                    ['page', '2'],
+                ],
+            },
+        })
+
+        expect(scrubSentryEvent(event).request?.query_string).toEqual([
+            ['q', '[Filtered]'],
             ['page', '2'],
         ])
     })

@@ -7,7 +7,7 @@ const SENSITIVE_KEY_PATTERN =
 
 const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g
 const BEARER_PATTERN = /\b(Bearer\s+)[\w.~+/-]+=*/gi
-const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g
+const EMAIL_PATTERN = /[\w.+-]+(?:@|%40)[\w-]+(?:\.[\w-]+)+/gi
 // The key excludes `?` and `/`, or a whole URL at the start of a string reads as one key.
 const QUERY_PARAM_PATTERN = /(^|[?&;])([^=&#?/\s]+)=([^&#\s]*)/g
 

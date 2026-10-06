@@ -19,6 +19,8 @@ const SENSITIVE_HEADER_NAMES = [
     'x-auth-token',
     'x-csrf-token',
     'x-clerk-auth-token',
+    'x-amzn-oidc-accesstoken',
+    'x-amzn-oidc-data',
 ]
 
 function scrubDeep(value: unknown): unknown {
@@ -36,40 +38,33 @@ function scrubHeaders(headers: Record<string, string> | undefined): Record<strin
     if (!headers) return headers
     const out: Record<string, string> = {}
     for (const [name, value] of Object.entries(headers)) {
-        if (SENSITIVE_HEADER_NAMES.includes(name.toLowerCase())) {
-            out[name] = REDACTED
-        } else {
-            out[name] = value
-        }
+        const lower = name.toLowerCase()
+        out[name] = SENSITIVE_HEADER_NAMES.includes(lower) || isSensitiveKey(lower) ? REDACTED : scrubText(value)
     }
     return out
 }
 
-function scrubQueryString(qs: unknown): unknown {
-    if (!qs) return qs
-    if (typeof qs === 'string') {
-        try {
-            const params = new URLSearchParams(qs)
-            let mutated = false
-            for (const key of Array.from(params.keys())) {
-                if (isSensitiveKey(key)) {
-                    params.set(key, REDACTED)
-                    mutated = true
-                }
-            }
-            return mutated ? params.toString() : qs
-        } catch {
-            return qs
+function redactSensitiveParams(qs: string): string {
+    const params = new URLSearchParams(qs)
+    let mutated = false
+    for (const key of Array.from(params.keys())) {
+        if (isSensitiveKey(key)) {
+            params.set(key, REDACTED)
+            mutated = true
         }
     }
-    if (Array.isArray(qs)) {
-        return qs.map((entry) => {
-            if (Array.isArray(entry) && entry.length === 2 && isSensitiveKey(String(entry[0]))) {
-                return [entry[0], REDACTED]
-            }
-            return entry
-        })
-    }
+    return mutated ? params.toString() : qs
+}
+
+function scrubQueryEntry(entry: unknown): unknown {
+    if (!Array.isArray(entry) || entry.length !== 2) return scrubDeep(entry)
+    return [entry[0], isSensitiveKey(String(entry[0])) ? REDACTED : scrubDeep(entry[1])]
+}
+
+function scrubQueryString(qs: unknown): unknown {
+    if (!qs) return qs
+    if (typeof qs === 'string') return scrubText(redactSensitiveParams(qs))
+    if (Array.isArray(qs)) return qs.map(scrubQueryEntry)
     return scrubDeep(qs)
 }
 
