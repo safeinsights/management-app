@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
-import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, useDecryptFiles } from '@/hooks/use-decrypt-files'
+import {
+    ARCHIVE_INTEGRITY_MESSAGE,
+    ArchiveIntegrityError,
+    KeyParseError,
+    useDecryptFiles,
+} from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import * as Sentry from '@sentry/nextjs'
@@ -8,6 +13,7 @@ import * as Sentry from '@sentry/nextjs'
 const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
+    priorKey: "These outputs were encrypted with a prior key. Click 'Lost your key' below for next steps.",
     noFiles: 'No encrypted outputs available to decrypt.',
     integrity: ARCHIVE_INTEGRITY_MESSAGE,
 } as const
@@ -52,10 +58,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
-    const failDecrypt = useCallback(
-        (err: Error) => setError(err instanceof ArchiveIntegrityError ? ERRORS.integrity : ERRORS.invalid),
-        [],
-    )
+    const failDecrypt = useCallback((err: Error) => setError(decryptErrorMessage(err)), [])
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
@@ -95,6 +98,13 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         // programmatic call.
         if (isLoadingFiles) return
 
+        // A researcher is only served artifacts wrapped for their current key, so an answered-but-empty
+        // list means the outputs were shared to a key they have since replaced.
+        if (type === 'researcher' && isFileListLoaded && !encryptedFiles?.length) {
+            setError(ERRORS.priorKey)
+            return
+        }
+
         // Nothing to test the key against: the query failed, this reviewer has no registered public
         // key, or the job has no encrypted output. None of those is a bad key.
         if (!encryptedFiles?.length) {
@@ -104,7 +114,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
         setError(undefined)
         decrypt(trimmed)
-    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
+    }, [isPending, isLoadingFiles, isFileListLoaded, type, encryptedFiles, value, decrypt])
 
     return {
         value,
@@ -114,23 +124,12 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         isLoadingFiles,
         inputRef,
         handleSubmit,
-        /**
-         * The server answered, and this researcher holds no wrapped key for the job (OTTER-688).
-         *
-         * Role-resolved here rather than by the caller (PR #1003 review): an empty result means
-         * different things per role, so the flag would otherwise only acquire its meaning once
-         * recombined with `type` at the call site, splitting one contract across two files. The
-         * researcher branch of fetchEncryptedJobFilesAction filters to artifacts wrapped for THEIR
-         * fingerprint, so empty means they hold no key; the reviewer branch returns every encrypted
-         * artifact regardless of keys, so empty means the job produced nothing — a different state,
-         * handled elsewhere (OTTER-524), which this flag must never claim.
-         *
-         * Gated on isSuccess, not on a falsy length: queryFn re-throws after the Sentry capture, so a
-         * FAILED fetch leaves data undefined — and reporting that as "you hold no key" would blame the
-         * user's key for an outage. This is the distinction fetchEncryptedJobFilesAction's empty
-         * return conflates (no artifacts / no wrapped key for the caller / fetch failed), and the one
-         * the legacy gate in use-encrypted-files-panel misses with `encryptedFiles?.length ?? 0`.
-         */
-        hasNoWrappedKey: type === 'researcher' && isFileListLoaded && encryptedFiles?.length === 0,
     }
+}
+
+// A key that parses but opens nothing is a real key, just not one these outputs were encrypted for.
+const decryptErrorMessage = (err: Error) => {
+    if (err instanceof ArchiveIntegrityError) return ERRORS.integrity
+    if (err instanceof KeyParseError) return ERRORS.invalid
+    return ERRORS.priorKey
 }

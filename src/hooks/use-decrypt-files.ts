@@ -18,7 +18,7 @@ export type EncryptedJobFile = {
     recipientKeys: Record<string, string>
 }
 
-class KeyParseError extends Error {}
+export class KeyParseError extends Error {}
 class DecryptionError extends Error {}
 class WrongKeyError extends Error {}
 

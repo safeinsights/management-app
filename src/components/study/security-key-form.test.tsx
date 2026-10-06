@@ -16,6 +16,7 @@ import { type FileType } from '@/database/types'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { tamper } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 import { SecurityKeyForm } from './security-key-form'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
@@ -71,6 +72,7 @@ async function seedArtifact(
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
 const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
+const PRIOR_KEY_ERROR = "These outputs were encrypted with a prior key. Click 'Lost your key' below for next steps."
 const INTEGRITY_ERROR = 'These results failed verification and may have been altered. Contact your administrator.'
 
 const enterKey = (value: string) => {
@@ -259,6 +261,20 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
     })
 
+    it('tells a reviewer whose well-formed key is not a recipient that the outputs used a prior key', async () => {
+        const { privateKeyString } = await generateKeyPair()
+        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        enterKey(privateKeyString)
+        clickView()
+
+        expect(await screen.findByText(PRIOR_KEY_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(INVALID_ERROR)).toBeNull()
+        expect(onDecrypted).not.toHaveBeenCalled()
+    })
+
     // OTTER-675: an archive holding no files decrypts "successfully" with any syntactically valid
     // PEM, so accepting it would present an unopened job as reviewed.
     it('rejects a key that opened nothing rather than reporting an empty review', async () => {
@@ -298,68 +314,37 @@ describe('SecurityKeyForm', () => {
         expect(onDecrypted).not.toHaveBeenCalled()
     })
 
-    // OTTER-688. On the researcher path the action filters to artifacts wrapped for THIS user's
-    // fingerprint, so an empty result means they hold no key — not that the Data Partner withheld
-    // anything. Offering a form no key of theirs can satisfy, and then blaming the DP in its error,
-    // is what this replaces.
+    // The action only serves a researcher artifacts wrapped for their current key, so an empty
+    // answer means the outputs were shared to a key they have since replaced.
     describe('researcher with no wrapped key', () => {
-        it('replaces the form with an explanation instead of a form to nowhere', async () => {
+        it('keeps the form and reports the prior key on submit', async () => {
             vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 
             renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
 
-            expect(await screen.findByTestId('security-key-no-access')).toBeInTheDocument()
-            expect(
-                screen.getByRole('heading', { name: 'Your security key cannot open these outputs' }),
-            ).toBeInTheDocument()
-            expect(
-                screen.getByText(
-                    'These outputs were encrypted for a different security key. Ask an organization administrator to re-share them with your current key.',
-                ),
-            ).toBeInTheDocument()
-
-            // No form, and nothing that could imply the outputs themselves are missing.
-            expect(screen.queryByTestId('security-key-form')).toBeNull()
-            expect(screen.queryByRole('textbox')).toBeNull()
-            expect(screen.queryByRole('button', { name: 'View' })).toBeNull()
-            expect(screen.queryByText(NO_FILES_ERROR)).toBeNull()
-        })
-
-        it('still renders the form when the researcher does hold a key', async () => {
-            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
-
             await screen.findByRole('button', { name: 'View' })
-            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
-            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
+            expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
+
+            enterKey(await readTestSupportFile('private_key.pem'))
+            clickView()
+
+            expect(await screen.findByText(PRIOR_KEY_ERROR)).toBeInTheDocument()
+            expect(screen.queryByText(NO_FILES_ERROR)).toBeNull()
+            expect(onDecrypted).not.toHaveBeenCalled()
         })
 
-        // A failed fetch also yields no files, but the cause is an outage, not the user's key. The
-        // gate reads isSuccess so it cannot blame the key for it; the pre-existing error path stands.
-        it('does not claim a missing key when the fetch itself failed', async () => {
+        // A failed fetch also yields no files, but the cause is an outage, not the user's key.
+        it('does not blame the key when the fetch itself failed', async () => {
             vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
 
             renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
 
             await screen.findByRole('button', { name: 'View' })
-            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
 
             enterKey('some-key')
             clickView()
             expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-        })
-
-        // Role-awareness is load-bearing: the action's reviewer branch returns every encrypted
-        // artifact without consulting fingerprints, so an empty result there means the JOB produced
-        // nothing — a reviewer-side state OTTER-524 handles by letting them close out the round.
-        // This gate must not intercept it.
-        it('leaves the reviewer path untouched on an empty result', async () => {
-            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-
-            renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
-
-            await screen.findByRole('button', { name: 'View' })
-            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
-            expect(screen.queryByTestId('security-key-no-access')).toBeNull()
+            expect(screen.queryByText(PRIOR_KEY_ERROR)).toBeNull()
         })
     })
 })
