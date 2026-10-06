@@ -120,6 +120,12 @@ export function buildV3Metadata(fixture: FakeFixture): UserInfo {
     }
 }
 
+// Mirrors the production session-token template, which leaves orgs out (OTTER-752).
+export function buildSessionClaimsMetadata(fixture: FakeFixture): UserInfo {
+    const { orgs: _orgs, ...claims } = buildV3Metadata(fixture)
+    return claims as UserInfo
+}
+
 export function defaultOrgSlug(fixture: FakeFixture): string {
     return Object.keys(fixture.orgs)[0]
 }

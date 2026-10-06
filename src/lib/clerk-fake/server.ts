@@ -5,7 +5,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { readRoleCookieFromHeaders } from './cookie.server'
 import { isFakeRole } from './fixtures'
-import { buildV3Metadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole, type FakeFixture } from './fixtures'
+import { buildSessionClaimsMetadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole, type FakeFixture } from './fixtures'
 import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
@@ -30,7 +30,7 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
         userId,
         orgSlug,
         sessionClaims: {
-            userMetadata: buildV3Metadata(fixture),
+            userMetadata: buildSessionClaimsMetadata(fixture),
             unsafeMetadata: { currentOrgSlug: orgSlug },
         },
     }
@@ -54,7 +54,7 @@ export async function verifyToken(_token: string, _options: unknown): Promise<{ 
     const fixture = fixtureForRole('admin')!
     return {
         sub: await resolveClerkId(fixture),
-        userMetadata: buildV3Metadata(fixture),
+        userMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
     }
 }
