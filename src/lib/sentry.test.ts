@@ -152,4 +152,54 @@ describe('key and text matching', () => {
             scrubText('sent to pat@example.org with Bearer abc.def and eyJa.eyJb.sig, see /x?token=abc&page=2'),
         ).toBe('sent to [Filtered] with Bearer [Filtered] and [Filtered], see /x?token=[Filtered]&page=2')
     })
+
+    it('keeps allow-listed keys that only look sensitive', () => {
+        const event = makeEvent({
+            extra: {
+                tokenCount: 3,
+                tokenType: 'bearer',
+                sessionStorage: 'local',
+                emailConflictResolved: true,
+                emailMatches: false,
+                passwordSet: true,
+                passwordTouched: false,
+                authFailureCode: 'mfa_required',
+                phoneVerifyAttempt: 1,
+            },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.extra).toEqual({
+            tokenCount: 3,
+            tokenType: 'bearer',
+            sessionStorage: 'local',
+            emailConflictResolved: true,
+            emailMatches: false,
+            passwordSet: true,
+            passwordTouched: false,
+            authFailureCode: 'mfa_required',
+            phoneVerifyAttempt: 1,
+        })
+    })
+
+    it('still scrubs an email inside an allow-listed key value', () => {
+        const event = makeEvent({
+            extra: { authFailureCode: 'no user pat@example.org' },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.extra).toEqual({ authFailureCode: 'no user [Filtered]' })
+    })
+
+    it('still redacts a camelCase key not on the allow-list', () => {
+        const event = makeEvent({
+            extra: { sessionId: 'abc123' },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.extra).toEqual({ sessionId: '[Filtered]' })
+    })
 })

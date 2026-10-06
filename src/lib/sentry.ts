@@ -31,7 +31,23 @@ const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g
 // The key excludes `?` and `/`, or a whole URL at the start of a string reads as one key.
 const QUERY_PARAM_PATTERN = /(^|[?&;])([^=&#?/\s]+)=([^&#\s]*)/g
 
+// Flags and counts whose names only match SENSITIVE_KEY_PATTERN by coincidence. Values still
+// go through scrubDeep/scrubText, so an email or token inside them is still redacted. List
+// signed off by InfoSec (OTTER-707).
+const ALLOWED_KEYS = new Set([
+    'tokenCount',
+    'tokenType',
+    'sessionStorage',
+    'emailConflictResolved',
+    'emailMatches',
+    'passwordSet',
+    'passwordTouched',
+    'authFailureCode',
+    'phoneVerifyAttempt',
+])
+
 function isSensitiveKey(key: string): boolean {
+    if (ALLOWED_KEYS.has(key)) return false
     return SENSITIVE_KEY_PATTERN.test(key.replace(/([a-z0-9])([A-Z])/g, '$1_$2'))
 }
 
