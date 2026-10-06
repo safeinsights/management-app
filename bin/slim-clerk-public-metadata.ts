@@ -4,8 +4,10 @@
 // One-time removal of `orgs` from each Clerk user's publicMetadata (OTTER-752). The session token
 // copies publicMetadata, so every org made every request ~320 bytes larger.
 //
-// --restore writes the orgs back from the database. Run it before a rollback to code from before
-// OTTER-752, which reads the orgs only from the token. It needs the database (DATABASE_URL).
+// --restore writes the orgs back from the database. While the new code is live, any metadata write
+// (sign-up, role change, invite accept) strips the orgs again, so restore does not stick until the
+// old code is deployed. Revert/deploy the old code first, then run --restore --apply. It needs the
+// database (DATABASE_URL).
 //
 // Usage: pnpm clerk:slim-metadata [--restore] [--apply]   (a dry run, with no writes, unless --apply is given)
 

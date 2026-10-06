@@ -83,6 +83,7 @@ describe('marshalSession', () => {
         const session = await marshalSession('c-otter752', claimsWithoutOrgs(other.id))
 
         expect(client.users.getUser).toHaveBeenCalledWith('c-otter752')
+        expect(session).not.toBeNull()
         expect(session?.orgs ?? {}).not.toHaveProperty(org.slug)
     })
 
