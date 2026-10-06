@@ -4,7 +4,7 @@ import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty } from '@mantine/form'
 import { useForm, useMutation } from '@/common'
 import { ResultsReader, ResultsIntegrityError, type DecryptedEntry } from 'si-encryption/job-results/reader'
-import { LEGACY_CIPHER } from 'si-encryption/job-results/crypto'
+import { LEGACY_CIPHER, unwrapAesKey } from 'si-encryption/job-results/crypto'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
@@ -20,6 +20,7 @@ export type EncryptedJobFile = {
 
 class KeyParseError extends Error {}
 class DecryptionError extends Error {}
+class WrongKeyError extends Error {}
 
 export class ArchiveIntegrityError extends Error {}
 
@@ -40,9 +41,12 @@ async function readArchive(
         { jobId },
     )
     try {
+        await proveKey(reader, privateKey, fingerprint)
         // Captured so approval can re-wrap each key per researcher.
         return await reader.extractFilesWithKeys()
     } catch (err) {
+        if (err instanceof WrongKeyError) throw err
+
         // Only the legacy cipher leaves bodies unauthenticated. Anywhere else the unwrap has
         // already proven the key, so a decrypt rejection is a tampered body, not a wrong key.
         const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
@@ -51,6 +55,22 @@ async function readArchive(
             throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
         }
         throw err
+    }
+}
+
+// Unwrapping one file key up front is what proves the key, so the catch above can blame any later
+// failure on the archive rather than on a key that was never a recipient.
+async function proveKey(reader: ResultsReader, privateKey: ArrayBuffer, fingerprint: string) {
+    await reader.decode()
+    const [file] = Object.values(reader.manifest.files)
+    if (!file) return
+
+    const crypt = file.keys[fingerprint]?.crypt
+    try {
+        if (!crypt) throw new Error(`file was not encrypted with key signature ${fingerprint}`)
+        await unwrapAesKey(crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
+    } catch (err) {
+        throw new WrongKeyError('Key is not a recipient of these results', { cause: err })
     }
 }
 

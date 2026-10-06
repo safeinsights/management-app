@@ -11,6 +11,7 @@ import {
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
@@ -100,6 +101,35 @@ describe('useDecryptFiles', () => {
         const corrupted = await packArchive(manifest, [{ ...bodies[0], blob: await flipByte(bodies[0].blob) }])
 
         await expect(decrypt(await asJobFile(corrupted))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    describe('a key the archive was not encrypted for', () => {
+        const archiveForAnotherKey = async () => {
+            const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+            const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
+            await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+            return { archive: await writer.generate(), fingerprint }
+        }
+
+        it('is rejected as a wrong key, not tampering, when absent from the manifest', async () => {
+            const { archive } = await archiveForAnotherKey()
+
+            const failure = await decrypt(await asJobFile(archive)).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // A researcher's wrapped keys are spliced in under whatever key they enter, so only the unwrap catches it.
+        it('is rejected as a wrong key, not tampering, when its wrapped key does not unwrap', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { [FILENAME]: manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            const failure = await decrypt(file).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
     })
 
     it('refuses an archive belonging to a different job', async () => {
