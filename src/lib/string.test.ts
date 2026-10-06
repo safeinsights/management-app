@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
     strToAscii,
     slugify,
-    getInitials,
+    initialsFromNames,
     shellQuote,
     substituteEntryPointFile,
     orgInitialsTitle,
@@ -20,27 +20,22 @@ describe('orgInitialsTitle', () => {
     })
 })
 
-describe('getInitials', () => {
-    it('returns the uppercased first initial for a single name', () => {
-        expect(getInitials('Ada')).toBe('A')
-        expect(getInitials('ada')).toBe('A')
+describe('initialsFromNames', () => {
+    it('takes the first letter of the first and last name, uppercased', () => {
+        expect(initialsFromNames('ada', 'lovelace')).toBe('AL')
     })
 
-    it('returns first + last initials for a full name', () => {
-        expect(getInitials('Ada Lovelace')).toBe('AL')
+    it('takes the first letter of a multi-word surname', () => {
+        expect(initialsFromNames('Mary', 'Van Dyke')).toBe('MV')
     })
 
-    it('uses the first and last word for three or more names', () => {
-        expect(getInitials('Katherine Coleman Johnson')).toBe('KJ')
+    it('keeps a character that spans two UTF-16 code units whole', () => {
+        expect(initialsFromNames('𠮷田', 'Lee')).toBe('𠮷L')
     })
 
-    it('ignores extra surrounding and internal whitespace', () => {
-        expect(getInitials('  Ada   Lovelace  ')).toBe('AL')
-    })
-
-    it('returns an empty string for empty or whitespace-only input', () => {
-        expect(getInitials('')).toBe('')
-        expect(getInitials('   ')).toBe('')
+    it('ignores surrounding whitespace and a missing name', () => {
+        expect(initialsFromNames('  Ada ', null)).toBe('A')
+        expect(initialsFromNames(undefined, '   ')).toBe('')
     })
 })
 
