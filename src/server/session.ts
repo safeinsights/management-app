@@ -5,6 +5,7 @@ import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { headers } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 import { sessionFromClerk, updateClerkUserMetadata } from './clerk'
 import { sessionUserExists, sessionUserOrgs } from './db/session-user'
 
@@ -93,7 +94,17 @@ export function clientUserInfo(session: UserSession | null): UserInfo | null {
 // yet a 404 there still renders the root layout, where auth() would throw.
 const CLERK_AUTH_STATUS_HEADER = 'x-clerk-auth-status'
 
+// The root layout renders every page, sign-in included, so a throw here would leave the user on
+// the global error page with no sign-out. With null, the client fetches the list itself and reports
+// a failure there.
 export async function clientUserInfoForRequest(): Promise<UserInfo | null> {
     if (!(await headers()).get(CLERK_AUTH_STATUS_HEADER)) return null
-    return clientUserInfo(await sessionFromClerk())
+    try {
+        return clientUserInfo(await sessionFromClerk())
+    } catch (error) {
+        unstable_rethrow(error)
+        // logger.error also sends the error to Sentry.
+        logger.error('Failed to load the session for the root layout:', error)
+        return null
+    }
 }

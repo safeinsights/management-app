@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import PG from 'pg'
 import type { JwtPayload } from 'jsonwebtoken'
 import { headers } from 'next/headers'
+import logger from '@/lib/logger'
 import {
     db,
     faker,
@@ -129,13 +130,30 @@ describe('clientUserInfoForRequest', () => {
         expect(auth).not.toHaveBeenCalled()
     })
 
-    it('lets a session error through when the proxy ran', async () => {
+    // The root layout renders every page, sign-in included, so a throw here would leave the user on
+    // the global error page with no way to sign out.
+    it('reports a session error and returns null when the proxy ran', async () => {
         const { auth } = mockClerkSession({ clerkUserId: 'c1', userId: 'u1', orgSlug: 'any-org' })!
+        const error = new Error('database is down')
         auth.mockImplementation(() => {
-            throw new Error('database is down')
+            throw error
         })
         ;(await headers()).set('x-clerk-auth-status', 'signed-in')
+        const logError = vi.spyOn(logger, 'error')
 
-        await expect(clientUserInfoForRequest()).rejects.toThrow('database is down')
+        expect(await clientUserInfoForRequest()).toBeNull()
+        // logger.error also sends the error to Sentry.
+        expect(logError).toHaveBeenCalledWith(expect.any(String), error)
+    })
+
+    it('lets a Next.js control-flow error through', async () => {
+        const { redirect } = await vi.importActual<typeof import('next/navigation')>('next/navigation')
+        const { auth } = mockClerkSession({ clerkUserId: 'c1', userId: 'u1', orgSlug: 'any-org' })!
+        auth.mockImplementation(() => redirect('/account/signin'))
+        ;(await headers()).set('x-clerk-auth-status', 'signed-in')
+        const logError = vi.spyOn(logger, 'error')
+
+        await expect(clientUserInfoForRequest()).rejects.toThrow('NEXT_REDIRECT')
+        expect(logError).not.toHaveBeenCalled()
     })
 })
