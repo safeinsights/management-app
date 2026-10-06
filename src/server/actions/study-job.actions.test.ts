@@ -907,7 +907,7 @@ describe('Study Job Actions', () => {
             expect(analysis.scan).toBeNull()
         })
 
-        // The panel is parked pending a new scanning tool (OTTER-775), not gone: the pair must
+        // The panel is parked until it is rebuilt for Semgrep (OTTER-774), not gone: the pair must
         // still come back in one round-trip for whoever rebuilds it.
         test('returns the scan alongside the review when asked', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -917,7 +917,7 @@ describe('Study Job Actions', () => {
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })
+            expect(analysis.scan).toEqual({ semgrep: null, trivy: null, logFile: null })
         })
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there

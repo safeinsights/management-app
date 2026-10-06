@@ -651,48 +651,62 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-// PASSED only on an explicit clean signal. INDETERMINATE covers "reported, but no verdict": Trivy
-// has no R analyzer, so a successful scan of an R submission clears nothing (OTTER-649).
+// PASSED only on an explicit clean signal. INDETERMINATE covers "reported, but no verdict": a scan
+// that found nothing it could analyze, or analyzed only part of the code, clears nothing (OTTER-649).
 export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
 
 export type JobScanResult = {
-    // null when the scan hasn't reported yet (no readable plaintext log).
+    // null when the scan hasn't reported yet (no readable plaintext log). Semgrep has scanned study
+    // code since OTTER-774; Trivy is read only from logs stored before then, and a log without a
+    // tool's status line is INDETERMINATE for that tool.
+    semgrep: ScanToolStatus | null
     trivy: ScanToolStatus | null
-    sonarqube: ScanToolStatus | null
     // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
 
 // Unrecognized text is indeterminate, not FAILED: treating it as FAILED surfaced a scan that never
-// ran as a vulnerability finding. A Map, not an object literal, so `constructor` cannot look truthy.
+// ran as a vulnerability finding. Maps, not object literals, so `constructor` cannot look truthy.
+const SEMGREP_VERDICTS = new Map<string, ScanToolStatus>([
+    ['no findings', 'PASSED'],
+    ['findings found', 'FAILED'],
+])
 const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
     ['no vulnerabilities found', 'PASSED'],
     ['vulnerabilities found', 'FAILED'],
 ])
 
+const SEMGREP_STATUS_LINE = /^semgrep scan:/i
 const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
 const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
 
-// Anchored to a whole trimmed line: a scanned path or CVE title containing the header phrase would
-// otherwise decide the verdict.
-export function parseTrivyStatus(log: string): ScanToolStatus {
-    const lines = log.split('\n').map((line) => line.trim())
+// Anchored to a whole trimmed line: a scanned path, rule message, or CVE title containing the label
+// would otherwise decide the verdict.
+function statusLineVerdict(
+    lines: string[],
+    label: RegExp,
+    verdicts: Map<string, ScanToolStatus>,
+): ScanToolStatus | undefined {
+    const statusLine = lines.find((line) => label.test(line))
+    if (!statusLine) return undefined
+    const phrase = statusLine.replace(label, '').trim().toLowerCase()
+    return verdicts.get(phrase) ?? 'INDETERMINATE'
+}
 
-    const statusLine = lines.find((line) => TRIVY_STATUS_LINE.test(line))
-    if (statusLine) {
-        const phrase = statusLine.replace(TRIVY_STATUS_LINE, '').trim().toLowerCase()
-        return TRIVY_VERDICTS.get(phrase) ?? 'INDETERMINATE'
-    }
+const trimmedLines = (log: string) => log.split('\n').map((line) => line.trim())
+
+export function parseSemgrepStatus(log: string): ScanToolStatus {
+    return statusLineVerdict(trimmedLines(log), SEMGREP_STATUS_LINE, SEMGREP_VERDICTS) ?? 'INDETERMINATE'
+}
+
+export function parseTrivyStatus(log: string): ScanToolStatus {
+    const lines = trimmedLines(log)
+    const verdict = statusLineVerdict(lines, TRIVY_STATUS_LINE, TRIVY_VERDICTS)
+    if (verdict) return verdict
 
     // Logs predating the status phrase headed findings with this label.
     if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
     return 'INDETERMINATE'
-}
-
-// Anything but an OK quality gate means human review, so there is deliberately no INDETERMINATE.
-export function parseSonarqubeStatus(log: string): ScanToolStatus {
-    const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
-    return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
 }
 
 // No log row yet, or an unreadable file, is treated as "not reported".
@@ -707,16 +721,16 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { trivy: null, sonarqube: null, logFile: null }
+    if (!logFile) return { semgrep: null, trivy: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
         const contents = await blob.text()
-        return { trivy: parseTrivyStatus(contents), sonarqube: parseSonarqubeStatus(contents), logFile }
+        return { semgrep: parseSemgrepStatus(contents), trivy: parseTrivyStatus(contents), logFile }
     } catch {
         // The download route serves the file from the DB row + a signed URL, so keep it available
         // with unknown statuses rather than pretending the scan is pending.
-        return { trivy: null, sonarqube: null, logFile }
+        return { semgrep: null, trivy: null, logFile }
     }
 }
 
@@ -760,8 +774,8 @@ export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanRes
 
 // `withScan` because a scan costs an S3 fetch and two parses, while the summary is one row: a
 // caller that does not render a verdict should not pay for one. No surface renders one today —
-// OTTER-694 took the panel off the review page and the feature is parked until the replacement
-// scanning tool is chosen (OTTER-775) — so every current caller leaves it off and `scan` is null.
+// OTTER-694 took the panel off the review page, and it has not been rebuilt for Semgrep
+// (OTTER-774) — so every current caller leaves it off and `scan` is null.
 export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
     const [review, scan] = await Promise.all([
         getStudyReviewForJob(job),

@@ -42,13 +42,13 @@ vi.mock('@/server/storage', async () => {
 
 const ORG_SLUG = 'test-org-submitted'
 
-const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
-    trivy,
-    sonarqube,
+const scanResult = (semgrep: JobScanResult['semgrep']): JobScanResult => ({
+    semgrep,
+    trivy: null,
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 
-const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
+const scanInProgress: JobScanResult = { semgrep: null, trivy: null, logFile: null }
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -424,13 +424,13 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertPendingStudyReview(pollFixture.job.id, new Date())
         const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
         vi.mocked(getJobAnalysisAction).mockResolvedValue(
-            actionResult({ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }),
+            actionResult({ review: pendingReview, scan: scanResult('PASSED') }),
         )
 
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={pollFixture.job.id}
-                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }}
+                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED') }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
             />,
@@ -564,7 +564,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 describe('SubmittedCodeSection — Security scan log', () => {
     it('does not render the security scan log section', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
+        await renderSection(fixture, scanResult('PASSED'))
         expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
         expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
     })

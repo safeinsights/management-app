@@ -3,9 +3,23 @@ import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.he
 import { s3Available } from '@/tests/s3.helpers'
 import { storeStudyLogFile } from '@/server/storage'
 import { db } from '@/database'
-import { jobScanResultForJob, parseTrivyStatus, parseSonarqubeStatus } from './queries'
+import { jobScanResultForJob, parseSemgrepStatus, parseTrivyStatus } from './queries'
 
-// Real scanner output: see iac codebuild/scripts/common.ts injectScanResults.
+// Real scanner output: see iac codebuild/scripts/semgrep.ts semgrepPlaintextLog.
+const SEMGREP_CLEAN = ['Semgrep Scan: no findings', 'R and Python files analyzed: 1', '  main.R'].join('\n')
+const SEMGREP_FINDINGS = [
+    'Semgrep Scan: findings found',
+    'R and Python files analyzed: 1',
+    '  main.R',
+    '',
+    'Findings that fail the review gate:',
+    '  main.R:12  ERROR    privacy-r-network-call',
+    '',
+    'Rules:',
+    '  privacy-r-network-call: Sends or fetches data over the network.',
+].join('\n')
+
+// Logs stored before OTTER-774, when Trivy and SonarQube scanned study code.
 const TRIVY_CLEAN = 'Trivy Filesystem Scan: no vulnerabilities found'
 const TRIVY_FINDINGS = [
     'Trivy Filesystem Scan: vulnerabilities found',
@@ -18,7 +32,6 @@ const TRIVY_LEGACY_FINDINGS = [
     '  HIGH CVE-2024-1234 lodash 4.17.0 (fix: 4.17.21) - Prototype pollution',
 ].join('\n')
 const SONAR_OK = 'SonarQube Quality Gate: OK'
-const SONAR_ERROR = ['SonarQube Quality Gate: ERROR', '  new_coverage: ERROR'].join('\n')
 
 // Verbatim from QA: the scanner aborted before Trivy ran and still posted a completed scan.
 const QA_ABORTED_SCAN_LOG = [
@@ -92,33 +105,35 @@ describe('parseTrivyStatus', () => {
     })
 })
 
-describe('parseSonarqubeStatus', () => {
-    it('passes only when the quality gate is OK', () => {
-        expect(parseSonarqubeStatus(`${TRIVY_CLEAN}\n\n${SONAR_OK}`)).toBe('PASSED')
+describe('parseSemgrepStatus', () => {
+    it('passes on the explicit clean line', () => {
+        expect(parseSemgrepStatus(SEMGREP_CLEAN)).toBe('PASSED')
     })
 
-    it('needs review when the quality gate errored', () => {
-        expect(parseSonarqubeStatus(`${TRIVY_CLEAN}\n\n${SONAR_ERROR}`)).toBe('FAILED')
+    it('fails when Semgrep reports findings that fail the gate', () => {
+        expect(parseSemgrepStatus(SEMGREP_FINDINGS)).toBe('FAILED')
     })
 
-    it('needs review when the SonarQube section is absent (skipped/unavailable)', () => {
-        expect(parseSonarqubeStatus(TRIVY_CLEAN)).toBe('FAILED')
+    // A timed-out rule or an unparsable file left code unexamined, so it clears nothing.
+    it.each(['partially scanned', 'nothing scanned', 'scan did not complete'])(
+        'is indeterminate for "%s"',
+        (phrase) => {
+            expect(parseSemgrepStatus(`Semgrep Scan: ${phrase}`)).toBe('INDETERMINATE')
+        },
+    )
+
+    it('is indeterminate for a log stored before Semgrep scanned study code', () => {
+        expect(parseSemgrepStatus(QA_SUCCESSFUL_SCAN_LOG)).toBe('INDETERMINATE')
     })
 
-    it('needs review when no analysis could be resolved for this build', () => {
-        expect(parseSonarqubeStatus(`${TRIVY_CLEAN}\n\nSonarQube Quality Gate: not available`)).toBe('FAILED')
+    it('does not take a verdict from the label appearing mid-line', () => {
+        expect(parseSemgrepStatus('  notes/Semgrep Scan: no findings.R:3  INFO  r-silent-failure')).toBe(
+            'INDETERMINATE',
+        )
     })
 
-    it.each(['ERROR', 'WARN', 'NONE', 'TIMEOUT', 'UNKNOWN'])('needs review for non-OK gate status %s', (status) => {
-        expect(
-            parseSonarqubeStatus(
-                `Trivy Filesystem Scan: no vulnerabilities found\n\nSonarQube Quality Gate: ${status}`,
-            ),
-        ).toBe('FAILED')
-    })
-
-    it('matches OK case-insensitively', () => {
-        expect(parseSonarqubeStatus('sonarqube quality gate: ok')).toBe('PASSED')
+    it('matches the status phrase case-insensitively', () => {
+        expect(parseSemgrepStatus('semgrep scan: NO FINDINGS')).toBe('PASSED')
     })
 })
 
@@ -129,7 +144,7 @@ describe('jobScanResultForJob', () => {
 
         const result = await jobScanResultForJob(job.id)
 
-        expect(result).toEqual({ trivy: null, sonarqube: null, logFile: null })
+        expect(result).toEqual({ semgrep: null, trivy: null, logFile: null })
     })
 
     it('keeps the log downloadable with unknown statuses when the file cannot be read', async () => {
@@ -161,8 +176,8 @@ describe('jobScanResultForJob', () => {
 
         const result = await jobScanResultForJob(job.id)
 
+        expect(result.semgrep).toBeNull()
         expect(result.trivy).toBeNull()
-        expect(result.sonarqube).toBeNull()
         expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 
@@ -170,13 +185,13 @@ describe('jobScanResultForJob', () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        const file = new File([`${TRIVY_FINDINGS}\n\n${SONAR_OK}`], 'security-scan-log.txt', { type: 'text/plain' })
+        const file = new File([SEMGREP_FINDINGS], 'security-scan-log.txt', { type: 'text/plain' })
         await storeStudyLogFile({ orgSlug: org.slug, studyId: study.id, studyJobId: job.id }, file, 'SECURITY-SCAN-LOG')
 
         const result = await jobScanResultForJob(job.id)
 
-        expect(result.trivy).toBe('FAILED')
-        expect(result.sonarqube).toBe('PASSED')
+        expect(result.semgrep).toBe('FAILED')
+        expect(result.trivy).toBe('INDETERMINATE')
         expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 })
