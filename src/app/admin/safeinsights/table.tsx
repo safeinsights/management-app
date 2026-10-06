@@ -9,9 +9,8 @@ import { deleteOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { UserListIcon } from '@phosphor-icons/react'
-import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
+import { GearIcon, PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
-import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, useMemo, useState } from 'react'
 import * as R from 'remeda'
@@ -66,9 +65,9 @@ export function OrgsAdminTable() {
                     },
                     {
                         accessor: 'actions',
-                        width: 110,
+                        width: 140,
                         textAlign: 'center',
-                        title: <Box mr={6}>Edit</Box>,
+                        title: <Box mr="xs">Edit</Box>,
                         render: (org) => <OrgRow org={org} />,
                     },
                 ]}
@@ -113,9 +112,19 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     size="sm"
                     variant="subtle"
                     color="blue"
-                    onClick={() => router.push(`/${org.slug}/admin/team` as Route)}
+                    onClick={() => router.push(Routes.adminTeam({ orgSlug: org.slug }))}
                 >
                     <UsersIcon />
+                </ActionIcon>
+            </InfoTooltip>
+            <InfoTooltip label="Org Settings" withArrow>
+                <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="blue"
+                    onClick={() => router.push(Routes.adminSettings({ orgSlug: org.slug }))}
+                >
+                    <GearIcon />
                 </ActionIcon>
             </InfoTooltip>
             <InfoTooltip label="View Studies" withArrow>
