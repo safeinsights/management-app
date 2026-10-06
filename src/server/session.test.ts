@@ -56,22 +56,18 @@ describe('marshalSession', () => {
         expect(await countSelects(() => marshalSession(user.clerkId, claimsWithoutOrgs(user.id)))).toBe(1)
     })
 
-    it('uses the orgs in a token that still carries them, with one query for the user', async () => {
+    it('ignores the orgs in a token that still carries them, and reads the database', async () => {
         const org = await insertTestOrg({ slug: 'otter752-legacy', type: 'lab' })
         const { user } = await insertTestUser({ org: { id: org.id, slug: org.slug, type: org.type } })
-        const ghost = { id: faker.string.uuid(), slug: 'otter752-not-in-db', type: 'lab' as const, isAdmin: false }
-        let session: Awaited<ReturnType<typeof marshalSession>> = null
+        const revoked = { id: faker.string.uuid(), slug: 'otter752-not-in-db', type: 'lab' as const, isAdmin: true }
 
-        const selects = await countSelects(async () => {
-            session = await marshalSession(user.clerkId, claimsWithOrgs(user.id, { [ghost.slug]: ghost }))
-        })
+        const session = await marshalSession(user.clerkId, claimsWithOrgs(user.id, { [revoked.slug]: revoked }))
 
-        expect(selects).toBe(1)
-        expect(session!.orgs).toEqual({ [ghost.slug]: ghost })
+        expect(Object.keys(session!.orgs)).toEqual([org.slug])
     })
 
     it('makes a member of the SI admin org an SI admin from the database', async () => {
-        const { user } = await mockSessionWithTestData({ isSiAdmin: true, slimMetadata: true })
+        const { user } = await mockSessionWithTestData({ isSiAdmin: true })
 
         const session = await marshalSession(user.clerkId, claimsWithoutOrgs(user.id))
 

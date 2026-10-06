@@ -24,13 +24,3 @@ export async function sessionUserOrgs(userId: string, clerkUserId: string): Prom
         rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : [])),
     )
 }
-
-export async function sessionUserExists(userId: string, clerkUserId: string): Promise<boolean> {
-    const row = await db
-        .selectFrom('user')
-        .select('id')
-        .where('id', '=', userId)
-        .where('clerkId', '=', clerkUserId)
-        .executeTakeFirst()
-    return Boolean(row)
-}

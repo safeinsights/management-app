@@ -24,7 +24,7 @@ import AddTeam from './page'
 
 describe('AddTeam', () => {
     it('reloads the org list before it leaves for the joined org', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'lab', slimMetadata: true })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
         const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const invite = await db

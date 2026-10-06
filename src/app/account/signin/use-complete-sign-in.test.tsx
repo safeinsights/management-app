@@ -29,7 +29,7 @@ const CompleteSignIn: FC = () => {
 describe('useCompleteSignIn', () => {
     // The list loads as soon as Clerk reports the user, which can be before the invite is accepted.
     it('reloads the org list after it accepts an invite', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgType: 'lab', slimMetadata: true })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         ;(useAuth as Mock).mockReturnValue({ isLoaded: true, getToken: vi.fn() })
         const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const invite = await db

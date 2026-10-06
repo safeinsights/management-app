@@ -10,7 +10,6 @@ import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
-import { useAuth } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
@@ -33,7 +32,6 @@ type ConfirmationModalProps = {
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
-    const auth = useAuth()
     const reloadOrgList = useReloadOrgList()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
@@ -53,10 +51,6 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onSuccess: async (result) => {
             setIsDisabled(true)
 
-            await auth.getToken({ skipCache: true })
-
-            // Give the token time to propagate before navigating.
-            await new Promise((resolve) => setTimeout(resolve, 500))
             await reloadOrgList()
 
             markOrgJoined(org!.name)

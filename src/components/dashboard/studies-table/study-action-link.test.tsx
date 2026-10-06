@@ -1,6 +1,6 @@
 import { useUser } from '@clerk/nextjs'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { mockStudyRow, renderWithProviders } from '@/tests/unit.helpers'
+import { mockClerkSession, mockStudyRow, renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyActionLink } from './study-action-link'
@@ -10,23 +10,7 @@ const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 const RESEARCHER_ID = 'researcher-1' // matches mockStudyRow default
 
 function mockSignedInAs(userId: string) {
-    vi.mocked(useUser).mockReturnValue({
-        isLoaded: true,
-        isSignedIn: true,
-        user: {
-            id: 'clerk-id',
-            publicMetadata: {
-                format: 'v3',
-                user: { id: userId },
-                teams: null,
-                orgs: {
-                    [ORG_SLUG]: { id: 'org-id', slug: ORG_SLUG, type: 'lab', isAdmin: false },
-                },
-            },
-            unsafeMetadata: { currentOrgSlug: ORG_SLUG },
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)
+    mockClerkSession({ clerkUserId: 'clerk-id', userId, orgSlug: ORG_SLUG, orgId: 'org-id', orgType: 'lab' })
 }
 
 describe('StudyActionLink', () => {

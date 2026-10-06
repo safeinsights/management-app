@@ -18,6 +18,7 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { reportQueryError } from '@/hooks/query-wrappers'
 import { CURRENT_USER_INFO_KEY, useSession as useAppSession } from '@/hooks/session'
@@ -145,13 +146,24 @@ export const resetTestQueryClients = () => {
         client.clear()
     }
     liveTestQueryClients.clear()
+    mockedLayoutUserInfo = null
 }
 
+// The org list the root layout would pass for the session that mockClerkSession set up.
+let mockedLayoutUserInfo: UserInfo | null = null
+
+// A test of the client fetch passes `sessionInfo: null`, as the layout does when it has no session.
+type SessionInfoOption = { sessionInfo?: UserInfo | null }
+const layoutUserInfo = (options?: SessionInfoOption) =>
+    options && 'sessionInfo' in options ? (options.sessionInfo ?? null) : mockedLayoutUserInfo
+
 // For `renderHook(..., { wrapper: createTestQueryWrapper() })`.
-export const createTestQueryWrapper = () => {
+export const createTestQueryWrapper = (options?: SessionInfoOption) => {
     const client = createTestQueryClient()
     const Wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        <QueryClientProvider client={client}>
+            <SessionInfoProvider userInfo={layoutUserInfo(options)}>{children}</SessionInfoProvider>
+        </QueryClientProvider>
     )
     Wrapper.displayName = 'QueryClientWrapper'
     return Wrapper
@@ -163,20 +175,23 @@ export const createTestQueryWrapper = () => {
  */
 export function renderWithProviders(
     ui: ReactElement,
-    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean; queryClient?: QueryClient },
+    options?: Parameters<typeof render>[1] &
+        SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient },
 ) {
     // A caller-supplied client lets a test prime a query before the first render.
     const testQueryClient = options?.queryClient ?? createTestQueryClient()
 
     return render(
         <QueryClientProvider client={testQueryClient}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-                <SpyModeProvider>
-                    <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
-                        <ModalsProvider>{ui}</ModalsProvider>
-                    </YjsWebsocketProvider>
-                </SpyModeProvider>
-            </MantineProvider>
+            <SessionInfoProvider userInfo={layoutUserInfo(options)}>
+                <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                    <SpyModeProvider>
+                        <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
+                            <ModalsProvider>{ui}</ModalsProvider>
+                        </YjsWebsocketProvider>
+                    </SpyModeProvider>
+                </MantineProvider>
+            </SessionInfoProvider>
         </QueryClientProvider>,
         options,
     )
@@ -668,8 +683,6 @@ type MockSession = {
     // Ids must match real DB org ids when the mocked session drives server actions that
     // query by org id.
     extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
-    // Metadata as the OTTER-752 script leaves it: no orgs, so the server reads them from the database.
-    slimMetadata?: boolean
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -683,6 +696,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         })
         ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false, user: null })
         ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
+        mockedLayoutUserInfo = null
         ;(useClerk as Mock).mockReturnValue({
             signOut: vi.fn(),
         } as unknown as ReturnType<typeof useClerk>)
@@ -722,14 +736,9 @@ export const mockClerkSession = (values: MockSession | null) => {
             isAdmin: extra.isAdmin ?? false,
         }
     }
-    const publicMetadata = {
-        format: 'v3',
-        user: {
-            id: values.userId,
-        },
-        teams: null,
-        ...(values.slimMetadata ? {} : { orgs }),
-    }
+    // As in production: the token and Clerk hold no orgs, and the root layout passes them.
+    const publicMetadata = { format: 'v3', user: { id: values.userId }, teams: null }
+    mockedLayoutUserInfo = { ...publicMetadata, orgs } as UserInfo
     const mockEmail = values.email || testEmail()
     const userProperties = {
         id: values.clerkUserId,
@@ -824,7 +833,6 @@ type MockSessionWithTestDataOptions = {
     clerkId?: string
     twoFactorEnabled?: boolean
     useRealKeys?: boolean
-    slimMetadata?: boolean
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
@@ -854,7 +862,6 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         orgType: options.orgType ?? 'enclave',
         isSiAdmin: options.isSiAdmin,
         twoFactorEnabled: options.twoFactorEnabled,
-        slimMetadata: options.slimMetadata,
     })
 
     const session = { user, org: { id: org.id, slug: org.slug } }

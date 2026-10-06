@@ -14,6 +14,7 @@ import {
     screen,
     SessionOrgSlugs,
     waitFor,
+    vi,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
@@ -83,19 +84,8 @@ describe('useSession', () => {
         expect(orgList()).toHaveTextContent('from-server')
     })
 
-    it('uses the orgs in Clerk metadata the script has not slimmed yet, without asking the server', () => {
-        mockClerkSession({ clerkUserId: 'c1', userId: faker.string.uuid(), orgSlug: 'from-clerk' })
-        const queryClient = appLikeQueryClient()
-        const fetches = countFetches(queryClient)
-
-        renderWithLayoutInfo(null, queryClient)
-
-        expect(orgList()).toHaveTextContent('from-clerk')
-        expect(fetches()).toBe(0)
-    })
-
     it('asks the server once for all consumers when the layout passes no list', async () => {
-        const { org } = await mockSessionWithTestData({ slimMetadata: true })
+        const { org } = await mockSessionWithTestData()
         const queryClient = appLikeQueryClient()
         const fetches = countFetches(queryClient)
 
@@ -104,7 +94,7 @@ describe('useSession', () => {
                 <SessionOrgSlugs />
                 <SessionOrgSlugs />
             </>,
-            { queryClient },
+            { queryClient, sessionInfo: null },
         )
 
         const lists = screen.getAllByRole('status', { name: 'session orgs' })
@@ -114,9 +104,9 @@ describe('useSession', () => {
     })
 
     it('shows an org added after the first load once the org list is reloaded', async () => {
-        const { user, org } = await mockSessionWithTestData({ slimMetadata: true })
+        const { user, org } = await mockSessionWithTestData()
         const { result } = renderHook(() => ({ session: useSession(), reloadOrgList: useReloadOrgList() }), {
-            wrapper: createTestQueryWrapper(),
+            wrapper: createTestQueryWrapper({ sessionInfo: null }),
         })
         await waitFor(() => expect(sessionOrgSlugs(result.current.session)).toEqual([org.slug]))
 
@@ -128,7 +118,7 @@ describe('useSession', () => {
     })
 
     it('loads the list of the account Clerk switches to and never shows the previous one', async () => {
-        const first = await mockSessionWithTestData({ slimMetadata: true })
+        const first = await mockSessionWithTestData()
         const seen: string[][] = []
         const { result, rerender } = renderHook(
             () => {
@@ -136,11 +126,11 @@ describe('useSession', () => {
                 seen.push(sessionOrgSlugs(current))
                 return current
             },
-            { wrapper: createTestQueryWrapper() },
+            { wrapper: createTestQueryWrapper({ sessionInfo: null }) },
         )
         await waitFor(() => expect(sessionOrgSlugs(result.current)).toEqual([first.org.slug]))
 
-        const second = await mockSessionWithTestData({ slimMetadata: true })
+        const second = await mockSessionWithTestData()
         seen.length = 0
         rerender()
 
@@ -149,7 +139,7 @@ describe('useSession', () => {
     })
 
     it('reports once, and stays loading, when the server finds no session for a signed-in user', async () => {
-        await mockSessionWithTestData({ slimMetadata: true })
+        await mockSessionWithTestData()
         ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
 
         renderWithProviders(
@@ -157,6 +147,7 @@ describe('useSession', () => {
                 <SessionOrgSlugs />
                 <SessionOrgSlugs />
             </>,
+            { sessionInfo: null },
         )
 
         await waitFor(() =>
@@ -172,16 +163,16 @@ describe('useSession', () => {
     // An errored query has no data, so it is stale: without opting out, each tab focus and each newly
     // mounted consumer would ask again and toast again.
     it('reports a missing server session once across a window focus and a later consumer', async () => {
-        await mockSessionWithTestData({ slimMetadata: true })
+        await mockSessionWithTestData()
         ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
         const queryClient = appLikeQueryClient()
 
-        renderWithProviders(<SessionOrgSlugs />, { queryClient })
+        renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
         await waitFor(() => expect(notifications.show).toHaveBeenCalledTimes(1))
 
         window.dispatchEvent(new Event('visibilitychange'))
         await waitFor(() => expect(queryClient.isFetching()).toBe(0))
-        renderWithProviders(<SessionOrgSlugs />, { queryClient })
+        renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
         await waitFor(() => expect(queryClient.isFetching()).toBe(0))
 
         expect(notifications.show).toHaveBeenCalledTimes(1)
@@ -192,7 +183,7 @@ describe('useSession', () => {
     // The app refetches every query every 15 minutes; a failure then still leaves a usable list.
     it('stays quiet when a background refresh fails while the list is on screen', async () => {
         const userId = faker.string.uuid()
-        mockClerkSession({ clerkUserId: 'c1', userId, orgSlug: 'from-clerk', slimMetadata: true })
+        mockClerkSession({ clerkUserId: 'c1', userId, orgSlug: 'from-clerk' })
         ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
         const queryClient = appLikeQueryClient()
         renderWithLayoutInfo(serverInfoFor(userId), queryClient)
@@ -212,11 +203,29 @@ describe('useSession', () => {
         expect(orgList()).toHaveTextContent('loading')
     })
 
-    it('ignores the layout org list when it belongs to another account', () => {
-        mockClerkSession({ clerkUserId: 'c1', userId: faker.string.uuid(), orgSlug: 'from-clerk' })
+    it('ignores the layout org list when it belongs to another account', async () => {
+        const { org } = await mockSessionWithTestData()
 
         renderWithLayoutInfo(serverInfoFor(faker.string.uuid()))
 
-        expect(orgList()).toHaveTextContent('from-clerk')
+        await waitFor(() => expect(orgList()).toHaveTextContent(org.slug))
+        expect(orgList()).not.toHaveTextContent('from-server')
+    })
+
+    // The member's own joins reload the list; an admin's change arrives this way instead.
+    it('picks up a membership change when the tab regains focus a minute after the list loaded', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        renderWithProviders(<SessionOrgSlugs />, { queryClient: appLikeQueryClient() })
+        expect(orgList()).toHaveTextContent(org.slug)
+
+        const added = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await findOrCreateOrgMembership({ userId: user.id, slug: added.slug })
+        // Only Date is faked: the query client handles focus after an await, and waitFor needs real timers.
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(Date.now() + 61_000)
+        window.dispatchEvent(new Event('visibilitychange'))
+
+        await waitFor(() => expect(orgList()).toHaveTextContent(added.slug))
+        vi.useRealTimers()
     })
 })

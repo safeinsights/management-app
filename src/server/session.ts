@@ -7,7 +7,7 @@ import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { headers } from 'next/headers'
 import { unstable_rethrow } from 'next/navigation'
 import { sessionFromClerk, updateClerkUserMetadata } from './clerk'
-import { sessionUserExists, sessionUserOrgs } from './db/session-user'
+import { sessionUserOrgs } from './db/session-user'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -41,15 +41,6 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
     return await updateClerkUserMetadata(userId)
 }
 
-// Null when the token's user is not in the database or belongs to another Clerk user.
-async function verifiedOrgs(userId: string, orgs: UserInfo['orgs'] | undefined, clerkUserId: string) {
-    // A token from before the OTTER-752 script still carries orgs; only its user needs checking.
-    if (orgs) return (await sessionUserExists(userId, clerkUserId)) ? orgs : null
-    // The token leaves orgs out, because each org added ~320 bytes to every request and a user
-    // in many orgs went over the origin's header limit (OTTER-752).
-    return await sessionUserOrgs(userId, clerkUserId)
-}
-
 export async function marshalSession(
     clerkUserId: string | null,
     sessionClaims: JwtPayload | null,
@@ -59,10 +50,12 @@ export async function marshalSession(
 
     const { forceUpdate = false } = options
 
-    // Partial: older tokens can lack the format, the user or the orgs.
+    // Partial: older tokens can lack the format or the user.
     const token = (sessionClaims.userMetadata as Partial<UserPublicMetadata> | undefined) ?? null
     const userId = token?.format === 'v3' && !forceUpdate ? token.user?.id : undefined
-    const orgs = userId ? await verifiedOrgs(userId, token?.orgs, clerkUserId) : null
+    // Orgs come from the database even when a token from before the OTTER-752 script still carries
+    // them, so a membership change takes effect at the next request for every user.
+    const orgs = userId ? await sessionUserOrgs(userId, clerkUserId) : null
 
     let info: UserInfo | null = userId && orgs ? { format: 'v3', user: { id: userId }, teams: null, orgs } : null
     if (!info) {

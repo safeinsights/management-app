@@ -21,12 +21,6 @@ function usableServerInfo(serverInfo: UserInfo | null, user: ClerkUser): UserInf
     return serverInfo
 }
 
-// Only users that the OTTER-752 script has not slimmed yet still carry orgs in publicMetadata.
-function legacyMetadataInfo(user: ClerkUser): UserInfo | null {
-    const metadata = user?.publicMetadata
-    return metadata?.format === 'v3' && metadata.orgs ? (metadata as UserInfo) : null
-}
-
 // Null means the server found no session for a user Clerk reports as signed in. Throwing gets the
 // request retried and then reported, rather than leaving the user without orgs and no word why.
 async function fetchSignedInUserInfo() {
@@ -36,7 +30,7 @@ async function fetchSignedInUserInfo() {
 }
 
 // Keyed by the Clerk user id, so a sign-in, sign-out or account switch can never show another
-// user's orgs. The layout's list, or legacy metadata, seeds it, so a normal page load asks nothing.
+// user's orgs. The layout's list seeds it, so a normal page load asks nothing.
 function useOrgListInfo(user: ClerkUser): UserInfo | null {
     const serverInfo = usableServerInfo(useSessionInfo(), user)
     const clerkUserId = user?.id
@@ -44,12 +38,13 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
         queryKey: [...CURRENT_USER_INFO_KEY, clerkUserId],
         queryFn: fetchSignedInUserInfo,
         enabled: Boolean(clerkUserId),
-        initialData: clerkUserId ? (serverInfo ?? legacyMetadataInfo(user) ?? undefined) : undefined,
-        // The list changes only when a membership does, and those flows call useReloadOrgList.
-        staleTime: Infinity,
+        initialData: clerkUserId ? (serverInfo ?? undefined) : undefined,
+        // The member's own joins call useReloadOrgList. This picks up changes an admin makes, which
+        // the server enforces at the next request, about as soon as a new session token would.
+        staleTime: 60_000,
         // An errored query has no data and so counts as stale; without these, each focus and each new
         // consumer would ask again and report the same failure again.
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: (query) => query.state.data !== undefined,
         retryOnMount: false,
         meta: { errorMessage: 'Failed to load your organizations', reportOnlyWithoutData: true },
     })
