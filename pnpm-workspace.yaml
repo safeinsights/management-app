@@ -72,3 +72,5 @@ overrides:
     'decode-uri-component@<0.5.0': '>=0.5.0 <0.6'
     # dompurify 3.4.13–3.4.15: GHSA-p98j-92pf-mc4p — DOM XSS via IN_PLACE afterSanitize hook. Via posthog-js.
     'dompurify@>=3.4.13 <3.4.16': '>=3.4.16 <4'
+    # source-map-js <1.2.2: CVE-2026-93749 — DoS via malformed indexed source maps. Via postcss.
+    'source-map-js@<1.2.2': '>=1.2.2 <2'
