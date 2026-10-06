@@ -252,7 +252,6 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
         vars: {
             ...baseStudyVars(study),
             actionURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
-            legalURL: `${APP_BASE_URL}${Routes.adminSafeinsightsLegal}`,
         },
     })
 }

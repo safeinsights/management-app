@@ -229,7 +229,6 @@ describe('mailgun email functions', () => {
                     researchLab: org.name,
                     dataPartner: org.name,
                     actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
-                    legalURL: expect.stringContaining(Routes.adminSafeinsightsLegal),
                 }),
             }),
         )
