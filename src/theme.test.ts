@@ -2,7 +2,7 @@ import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
-import { semanticShades } from './theme/tokens'
+import { semanticCssVariables, semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
 // hand-copied from its Variables panel, so drift would otherwise be invisible in review.
@@ -38,6 +38,11 @@ describe('palette', () => {
     it('fills status/warning/bg-dark with the library value', () => {
         const [family, shade] = semanticShades['warning.bg.dark'].split('.')
         expect(theme.colors?.[family]?.[Number(shade)]).toBe('#f0bc62')
+    })
+
+    it('publishes border/SideNav as navy/0 at 30 percent', () => {
+        const vars = semanticCssVariables(mergeMantineTheme(DEFAULT_THEME, theme))
+        expect(vars['--si-color-border-sidenav']).toBe('#e6e9ef4d')
     })
 })
 

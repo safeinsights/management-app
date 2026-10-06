@@ -769,6 +769,26 @@ describe('submitProposalReviewAction', () => {
         })
     })
 
+    it.each([
+        ['reject', 'vb - research proposal rejected'],
+        ['needs-clarification', 'vb - research proposal needs revision'],
+    ] as const)('%s emails the researcher', async (decision, template) => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        await submitProposalReviewAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision,
+            feedback: validFeedback,
+            reviewVersion: 1,
+        })
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ to: user.email, template }))
+        })
+    })
+
     it('needs-clarification writes review row, moves study to CHANGE-REQUESTED, writes only clarification audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
@@ -1506,6 +1526,27 @@ describe('submitCodeReviewDecisionAction', () => {
 
         const latest = await latestJobForStudy(study.id)
         expect(latest.statusChanges.find((sc) => sc.status === 'CODE-APPROVED')).toBeTruthy()
+    })
+
+    it.each([
+        ['approve', 'vb - code approved'],
+        ['needs-clarification', 'vb - code needs revision'],
+    ] as const)('%s emails the researcher', async (decision, template) => {
+        const { user, org, study } = await setApprovedStudyAndCodeSubmitted()
+
+        actionResult(
+            await submitCodeReviewDecisionAction({
+                studyId: study.id,
+                orgSlug: org.slug,
+                decision,
+                feedback: validFeedback,
+                criteria: validCriteria,
+            }),
+        )
+
+        await waitFor(() => {
+            expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ to: user.email, template }))
+        })
     })
 
     it('needs-clarification writes a NEEDS-CLARIFICATION row, advances the job to CODE-CHANGES-REQUESTED, and leaves study.status APPROVED', async () => {
