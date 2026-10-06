@@ -51,6 +51,28 @@ describe('scrubText, sensitive key/value pairs', () => {
     })
 })
 
+describe('scrubText, long and structured values', () => {
+    it('redacts every char of a long bare value', () => {
+        const token = 'A'.repeat(2000)
+        const result = scrubText(`https://s3.test/f?X-Amz-Security-Token=${token}&X-Amz-Date=1`)
+
+        expect(result).toBe('https://s3.test/f?X-Amz-Security-Token=[Filtered]&X-Amz-Date=1')
+    })
+
+    it('redacts every char of a long quoted value', () => {
+        const secret = 'x'.repeat(5000)
+
+        expect(scrubText(`{"password":"${secret}","page":2}`)).toBe('{"password":"[Filtered]","page":2}')
+    })
+
+    it.each([
+        ['an array', '{"tokens":["aaa","bbb"],"page":2', '{"tokens":[Filtered],"page":2'],
+        ['an object', '{"password":{"v":"secret1"}', '{"password":[Filtered]'],
+    ])('redacts %s under a sensitive key in truncated JSON', (_label, input, expected) => {
+        expect(scrubText(input)).toBe(expected)
+    })
+})
+
 describe('scrubText, auth schemes and package versions', () => {
     it.each([
         ['Basic', 'sent Basic YXBpOmtleS0xMjM= upstream', 'sent Basic [Filtered] upstream'],
@@ -97,6 +119,11 @@ const ADVERSARIAL: Array<[string, string]> = [
     ['pair: escaped quotes in a value', `"password":"${'\\"'.repeat(SIZE / 2)}`],
     ['pair: repeated escaped keys', '\\"token\\":'.repeat(SIZE / 10)],
     ['pair: whitespace runs', `token${' '.repeat(SIZE)}`],
+    ['pair: long bare value', `token=${'a'.repeat(SIZE)}`],
+    ['pair: backslash escapes in a value', `password:"${'\\a'.repeat(SIZE / 2)}`],
+    ['pair: unterminated array value', `password:[${'a'.repeat(SIZE)}`],
+    ['pair: unterminated object value', `password:{${'a'.repeat(SIZE)}`],
+    ['pair: repeated array values', 'token:['.repeat(SIZE / 7)],
 ]
 
 describe('scrubText, adversarial input', () => {

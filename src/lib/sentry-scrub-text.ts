@@ -5,8 +5,8 @@ export const REDACTED = '[Filtered]'
 const SENSITIVE_KEY_PATTERN =
     /(?:^|[_.-])(?:authorization|auth|bearer|jwt|password|passwd|secret|token|api[_.-]?key|session|cookie|credential|private[_.-]?key|access[_.-]?key|e[_.-]?mail|ssn|phone|dob|birth[_.-]?date)s?(?:[_.-]|$)/i
 
-// Every quantifier is bounded and no two parts can match the same text, because scrubText runs
-// synchronously on every string sent to Sentry and must stay linear on hostile input.
+// No two parts of a pattern can match the same text, and repeated quantifiers are bounded,
+// because scrubText runs synchronously on every string sent to Sentry and must stay linear.
 
 // A JWT is only matched at the start of a base64url run, so a run of `eyJ` is scanned once.
 const JWT_PATTERN = /(^|[^\w-])eyJ[\w-]{1,8192}\.[\w-]{1,8192}\.[\w-]{1,8192}/g
@@ -16,10 +16,11 @@ const EMAIL_PATTERN = /[\w.+%-]{1,64}(?:@|%40)[\w-]{1,63}(?:\.[\w-]{1,63}){0,8}\
 // `key=`, `key:`, `"key":` or `\"key\":` (escaped JSON). The leading non-key character means
 // matching only starts at the head of a key, which keeps the scan linear.
 const PAIR_KEY_PATTERN = /(?:^|[^\w.-])(\\?["']|)([\w.-]{1,128})\1\s{0,8}[:=]/g
-// The value after a sensitive key: a double, single or escaped-double quoted string, or a bare
-// word. Closing quotes are optional, as Sentry may have truncated the string.
+// The value after a sensitive key: a quoted or escaped-quoted string, a one-level array or
+// object, or a bare word. Closing marks are optional, as Sentry may have truncated the string.
+// Unbounded, so long secrets go whole: the sticky match runs once per key, without overlap.
 const PAIR_VALUE_PATTERN =
-    /(\s{0,8})(?:"(?:[^"\\]|\\.){0,4096}"?|'(?:[^'\\]|\\.){0,4096}'?|\\"(?:[^"\\]|\\[^"]){0,4096}(?:\\")?|[^\s"'\\,;&#{}()[\]]{1,512})/y
+    /(\s{0,8})(?:"[^"\\]*(?:\\.[^"\\]*)*"?|'[^'\\]*(?:\\.[^'\\]*)*'?|\\"[^"\\]*(?:\\[^"][^"\\]*)*(?:\\")?|\[[^\]]*\]?|\{[^}]*\}?|[^\s"'\\,;&#{}()[\]]+)/y
 
 // Flags and counts whose names only match SENSITIVE_KEY_PATTERN by coincidence. Values still
 // go through scrubDeep/scrubText, so an email or token inside them is still redacted. List
