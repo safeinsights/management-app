@@ -23,8 +23,26 @@ const SENSITIVE_HEADER_NAMES = [
     'x-amzn-oidc-data',
 ]
 
+function parseJsonContainer(text: string): object | undefined {
+    const first = text.trimStart().charAt(0)
+    if (first !== '{' && first !== '[') return undefined
+    try {
+        const parsed: unknown = JSON.parse(text)
+        return parsed !== null && typeof parsed === 'object' ? parsed : undefined
+    } catch {
+        return undefined
+    }
+}
+
+// Raw request bodies and logged payloads are often serialized JSON; parsing them lets key
+// matching redact whole nested values, which text matching cannot.
+function scrubString(text: string): string {
+    const parsed = parseJsonContainer(text)
+    return parsed === undefined ? scrubText(text) : JSON.stringify(scrubDeep(parsed))
+}
+
 function scrubDeep(value: unknown): unknown {
-    if (typeof value === 'string') return scrubText(value)
+    if (typeof value === 'string') return scrubString(value)
     if (value === null || typeof value !== 'object') return value
     if (Array.isArray(value)) return value.map(scrubDeep)
     const out: Record<string, unknown> = {}

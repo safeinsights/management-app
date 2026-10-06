@@ -92,6 +92,32 @@ describe('scrubSentryEvent', () => {
         })
     })
 
+    it('scrubs a JSON string request body, including nested values under sensitive keys', () => {
+        const event = makeEvent({
+            request: {
+                data: '{"password":"hunter2","token":"abc","email":"pat@example.org","credentials":{"user":"u"},"page":2}',
+            },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(JSON.parse(result.request?.data as string)).toEqual({
+            password: '[Filtered]',
+            token: '[Filtered]',
+            email: '[Filtered]',
+            credentials: '[Filtered]',
+            page: 2,
+        })
+    })
+
+    it('scrubs a form-encoded string request body', () => {
+        const event = makeEvent({
+            request: { data: 'password=hunter2&note=pat%40example.org&page=2' },
+        })
+
+        expect(scrubSentryEvent(event).request?.data).toBe('password=[Filtered]&note=[Filtered]&page=2')
+    })
+
     it('redacts sensitive keys in a query_string string', () => {
         const event = makeEvent({
             request: {
@@ -235,6 +261,7 @@ describe('key and text matching', () => {
                 jwt: 'x',
                 ssn: '123',
                 phoneNumber: '555',
+                apiTokens: ['t'],
                 componentStack: 'stack',
             },
         })
@@ -247,6 +274,7 @@ describe('key and text matching', () => {
             jwt: '[Filtered]',
             ssn: '[Filtered]',
             phoneNumber: '[Filtered]',
+            apiTokens: '[Filtered]',
             componentStack: 'stack',
         })
     })
@@ -318,7 +346,12 @@ describe('scrubSentryTransaction', () => {
                     trace_id: 't',
                     start_timestamp: 0,
                     description: 'GET /api/x?token=abc',
-                    data: { 'http.query': '?api_key=k&page=1', authorization: 'Bearer z' },
+                    data: {
+                        'http.query': '?api_key=k&page=1',
+                        authorization: 'Bearer z',
+                        'http.request.header.authorization': 'x',
+                        'user.email_hash': 'h',
+                    },
                 },
             ],
             breadcrumbs: [{ message: 'pat@example.org' }],
@@ -330,6 +363,8 @@ describe('scrubSentryTransaction', () => {
         expect(result.spans![0].data).toEqual({
             'http.query': '?api_key=[Filtered]&page=1',
             authorization: '[Filtered]',
+            'http.request.header.authorization': '[Filtered]',
+            'user.email_hash': '[Filtered]',
         })
         expect(result.breadcrumbs![0].message).toBe('[Filtered]')
     })
@@ -347,6 +382,24 @@ describe('scrubSentryLog', () => {
             level: 'error',
             message: 'login failed for [Filtered]',
             attributes: { 'sentry.message.parameter.0': 'Bearer [Filtered]', token: '[Filtered]', route: '/x' },
+        })
+    })
+})
+
+describe('scrubSentryLog, console log bodies', () => {
+    it('scrubs a JSON body logged inside an object argument', () => {
+        const arg = { route: '/hook', body: '{"password":"hunter2","note":"ok"}' }
+        const log: Log = {
+            level: 'error',
+            message: `webhook failed { route: '/hook', body: '{"password":"hunter2","note":"ok"}' }`,
+            attributes: { 'sentry.message.parameter.0': arg },
+        }
+
+        const result = scrubSentryLog(log)
+
+        expect(result.message).toBe(`webhook failed { route: '/hook', body: '{"password":"[Filtered]","note":"ok"}' }`)
+        expect(result.attributes).toEqual({
+            'sentry.message.parameter.0': { route: '/hook', body: '{"password":"[Filtered]","note":"ok"}' },
         })
     })
 })
