@@ -11,7 +11,6 @@ import {
     renderWithProviders,
     resetLegalDocuments,
     userEvent,
-    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { RequireStudyAgreement } from './require-study-agreement'
 
@@ -61,7 +60,7 @@ describe('useAcknowledgementConsent', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
         await waitFor(() => expect(screen.getByText(title)).toBeDefined())
-        // The table can refresh before the gate's own refetch, which the mutation also awaits.
-        await waitForPendingMutations()
+        // The table can refresh before the gate's own refetch, which closes the dialog.
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 })

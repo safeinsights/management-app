@@ -11,7 +11,7 @@ import { orgsBySlug } from './db/session-user'
 
 export { type UserSessionWithAbility } from './session'
 
-export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser, publicMetadata } from '@/lib/clerk'
+export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
 
 type ClerkOrganizationProps = {
     adminUserId?: string

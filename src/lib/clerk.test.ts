@@ -1,8 +1,14 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { restoreMetadataPlan, slimMetadataPlan } from './clerk'
+import { publicMetadata, restoreMetadataPlan, slimMetadataPlan } from './clerk'
 
 const orgs: UserInfo['orgs'] = { lab: { id: 'org-1', slug: 'lab', type: 'lab', isAdmin: false } }
 const slim = { format: 'v3', user: { id: 'u1' }, teams: null } as const
+
+describe('publicMetadata', () => {
+    it('keeps the format and the user id, and drops the orgs', () => {
+        expect(publicMetadata({ user: { id: 'u1' } })).toEqual({ format: 'v3', user: { id: 'u1' }, teams: null })
+    })
+})
 
 describe('slimMetadataPlan', () => {
     it('removes the orgs of a v3 user', () => {
