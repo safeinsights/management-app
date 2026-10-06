@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@/tests/unit.helpers'
 import type { ErrorEvent, Event, Log } from '@sentry/nextjs'
 import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, scrubText, sentryScrubOptions } from './sentry'
 
