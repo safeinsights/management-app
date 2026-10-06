@@ -19,8 +19,10 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { reportQueryError } from '@/hooks/query-wrappers'
+import { useSession as useAppSession } from '@/hooks/session'
 // eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor as waitForRtl } from '@testing-library/react'
 import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
@@ -32,7 +34,7 @@ import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 
-import { ReactElement, ReactNode } from 'react'
+import { FC, ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -80,6 +82,7 @@ const liveTestQueryClients = new Set<QueryClient>()
 
 export const createTestQueryClient = () => {
     const client = new QueryClient({
+        queryCache: new QueryCache({ onError: reportQueryError }),
         defaultOptions: {
             queries: {
                 retry: false,
@@ -177,6 +180,13 @@ export function renderWithProviders(
         </QueryClientProvider>,
         options,
     )
+}
+
+// Shows the org list that useSession() holds, for tests of the flows that change it.
+export const SessionOrgSlugs: FC = () => {
+    const result = useAppSession()
+    const slugs = result.isLoaded ? Object.keys(result.session.orgs).sort().join(',') : 'loading'
+    return <output aria-label="session orgs">{slugs}</output>
 }
 
 // The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
@@ -642,6 +652,8 @@ type MockSession = {
     // Ids must match real DB org ids when the mocked session drives server actions that
     // query by org id.
     extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
+    // Metadata as the OTTER-752 script leaves it: no orgs, so the server reads them from the database.
+    slimMetadata?: boolean
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -700,7 +712,7 @@ export const mockClerkSession = (values: MockSession | null) => {
             id: values.userId,
         },
         teams: null,
-        orgs,
+        ...(values.slimMetadata ? {} : { orgs }),
     }
     const mockEmail = values.email || testEmail()
     const userProperties = {
@@ -796,6 +808,7 @@ type MockSessionWithTestDataOptions = {
     clerkId?: string
     twoFactorEnabled?: boolean
     useRealKeys?: boolean
+    slimMetadata?: boolean
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
@@ -825,6 +838,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         orgType: options.orgType ?? 'enclave',
         isSiAdmin: options.isSiAdmin,
         twoFactorEnabled: options.twoFactorEnabled,
+        slimMetadata: options.slimMetadata,
     })
 
     const session = { user, org: { id: org.id, slug: org.slug } }

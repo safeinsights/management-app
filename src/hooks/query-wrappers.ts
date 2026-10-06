@@ -11,10 +11,11 @@ import {
     keepPreviousData,
 } from '@tanstack/react-query'
 
-import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
+import { type ActionResponse, isActionError, ActionFailure, isStaleDeploymentError } from '@/lib/errors'
+import { reportError } from '@/components/errors'
 
 /**
- * Read by the shared QueryCache handler in `providers.tsx`. A query opts in to having its failure
+ * Read by `reportQueryError`, the shared QueryCache handler. A query opts in to having its failure
  * told to the reader by naming the title to show; without it the failure is reported nowhere, which
  * is what left a failed poll silent until the next submit (OTTER-726).
  */
@@ -23,6 +24,13 @@ type QueryMeta = { errorMessage?: string }
 declare module '@tanstack/react-query' {
     interface Register {
         queryMeta: QueryMeta
+    }
+}
+
+// The query cache's error handler, shared with the test client so tests report what the app reports.
+export const reportQueryError = (error: unknown, query: { meta?: QueryMeta }) => {
+    if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
+        reportError(error, query.meta?.errorMessage)
     }
 }
 

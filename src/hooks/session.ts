@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 
 import { useUser } from '@clerk/nextjs'
-import { reportError } from '@/components/errors'
-import { actionResult } from '@/lib/utils'
+import { useQuery, useQueryClient } from '@/common'
 import { currentUserInfoAction } from '@/server/actions/user.actions'
 import { useSessionInfo } from '@/components/layout/session-info-context'
+
+export const CURRENT_USER_INFO_KEY = ['currentUserInfo']
 
 type ClerkUser = ReturnType<typeof useUser>['user']
 
@@ -26,39 +27,45 @@ function legacyMetadataInfo(user: ClerkUser): UserInfo | null {
     return metadata?.format === 'v3' && metadata.orgs ? (metadata as UserInfo) : null
 }
 
-// Without the layout's list, publicMetadata has no orgs to fall back on, so ask the server.
-function useFallbackUserInfo(user: ClerkUser, isNeeded: boolean): UserInfo | null {
-    const [fetched, setFetched] = useState<{ clerkUserId: string; info: UserInfo } | null>(null)
-    const legacyInfo = legacyMetadataInfo(user)
+// Null means the server found no session for a user Clerk reports as signed in. Throwing gets the
+// request retried and then reported, rather than leaving the user without orgs and no word why.
+async function fetchSignedInUserInfo() {
+    const info = await currentUserInfoAction()
+    if (info === null) throw new Error('The server found no session for the signed-in user')
+    return info
+}
+
+// Keyed by the Clerk user id, so a sign-in, sign-out or account switch can never show another
+// user's orgs. The layout's list, or legacy metadata, seeds it, so a normal page load asks nothing.
+function useOrgListInfo(user: ClerkUser): UserInfo | null {
+    const serverInfo = usableServerInfo(useSessionInfo(), user)
     const clerkUserId = user?.id
-    const shouldFetch = isNeeded && Boolean(clerkUserId) && !legacyInfo
+    const { data } = useQuery({
+        queryKey: [...CURRENT_USER_INFO_KEY, clerkUserId],
+        queryFn: fetchSignedInUserInfo,
+        enabled: Boolean(clerkUserId),
+        initialData: clerkUserId ? (serverInfo ?? legacyMetadataInfo(user) ?? undefined) : undefined,
+        // The list changes only when a membership does, and those flows call useReloadOrgList.
+        staleTime: Infinity,
+        meta: { errorMessage: 'Failed to load your organizations' },
+    })
 
-    useEffect(() => {
-        if (!shouldFetch || !clerkUserId) return
-        let isCurrent = true
-        currentUserInfoAction()
-            .then((response) => {
-                const info = actionResult(response)
-                if (isCurrent && info) setFetched({ clerkUserId, info })
-            })
-            .catch((error: unknown) => reportError(error, 'Failed to load your organizations'))
-        return () => {
-            isCurrent = false
-        }
-    }, [shouldFetch, clerkUserId])
+    // Before Clerk loads, only the layout's list exists, and it is what the server rendered with.
+    if (user === undefined) return serverInfo
+    return clerkUserId ? (data ?? null) : null
+}
 
-    if (!isNeeded || !user) return null
-    if (legacyInfo) return legacyInfo
-    return fetched?.clerkUserId === user.id ? fetched.info : null
+// Await it before navigating, so the destination renders with the new membership.
+export const useReloadOrgList = (): (() => Promise<void>) => {
+    const queryClient = useQueryClient()
+    return useCallback(() => queryClient.invalidateQueries({ queryKey: CURRENT_USER_INFO_KEY }), [queryClient])
 }
 
 export const useSession = ():
     | { isLoaded: false; session: null }
     | { isLoaded: true; session: UserSessionWithAbility } => {
     const { user } = useUser()
-    const serverInfo = usableServerInfo(useSessionInfo(), user)
-    const fallbackInfo = useFallbackUserInfo(user, !serverInfo)
-    const info = serverInfo ?? fallbackInfo
+    const info = useOrgListInfo(user)
 
     const session = useMemo(
         () =>

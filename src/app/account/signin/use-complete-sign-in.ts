@@ -1,6 +1,7 @@
 'use client'
 
 import { reportError } from '@/components/errors'
+import { useReloadOrgList } from '@/hooks/session'
 import { markOrgJoined } from '@/lib/joined-org'
 import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
@@ -76,6 +77,7 @@ export const useCompleteSignIn = () => {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { getToken } = useAuth()
+    const reloadOrgList = useReloadOrgList()
 
     return useCallback(async () => {
         try {
@@ -89,6 +91,8 @@ export const useCompleteSignIn = () => {
             // membership, and a deep link captured before the join may not even be reachable yet.
             if (inviteId) {
                 redirectUrl = await acceptInviteAndResolveLanding(inviteId, getToken)
+                // The list loaded when Clerk signed the user in, which can be before the join.
+                await reloadOrgList()
             }
 
             // Key generation last, so a keyless user still accepts the invite and resumes afterwards.
@@ -101,7 +105,5 @@ export const useCompleteSignIn = () => {
             console.error('post sign-in navigation failed:', error)
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
         }
-        // The root layout rendered the signed-out org list and does not re-render on navigation.
-        router.refresh()
-    }, [router, searchParams, getToken])
+    }, [router, searchParams, getToken, reloadOrgList])
 }

@@ -13,8 +13,7 @@ import { SessionInfoProvider } from '@/components/layout/session-info-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
-import { reportError } from '@/components/errors'
-import { isStaleDeploymentError } from '@/lib/errors'
+import { reportQueryError } from '@/hooks/query-wrappers'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -23,11 +22,7 @@ function makeQueryClient() {
         // the only measure of how often that happens; everything else is opt-in through `meta`, so a
         // page of background polls cannot stack one toast per query (OTTER-726).
         queryCache: new QueryCache({
-            onError: (error, query) => {
-                if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
-                    reportError(error, query.meta?.errorMessage)
-                }
-            },
+            onError: reportQueryError,
         }),
         defaultOptions: {
             queries: {
