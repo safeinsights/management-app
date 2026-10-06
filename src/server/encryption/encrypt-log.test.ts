@@ -11,7 +11,8 @@ describe('createEncryptedLogBlob', () => {
 
         const message = 'Build failed during code packaging'
         const filename = 'packaging-error-log.txt'
-        const zipBlob = await createEncryptedLogBlob(message, [{ publicKey, fingerprint }], filename)
+        const jobId = '0193a1f0-0000-7000-8000-000000000001'
+        const zipBlob = await createEncryptedLogBlob(message, [{ publicKey, fingerprint }], filename, jobId)
 
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)
@@ -23,5 +24,6 @@ describe('createEncryptedLogBlob', () => {
         expect(files[0].path).toBe(filename)
         const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
         expect(decoded).toBe(message)
+        expect(reader.manifest.jobId).toBe(jobId)
     })
 })

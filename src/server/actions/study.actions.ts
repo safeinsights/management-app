@@ -30,7 +30,6 @@ import {
     onStudyApproved,
     onStudyCodeApproved,
     onStudyCodeChangesRequested,
-    onStudyCodeRejected,
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
@@ -426,27 +425,6 @@ async function performStudyProposalRejection({
     onStudyRejected({ studyId, userId })
 }
 
-async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await markStudyRejected({ db, studyId, userId })
-
-    const latestJob = await db
-        .selectFrom('studyJob')
-        .select('id')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .executeTakeFirst()
-
-    if (latestJob) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
-            .executeTakeFirstOrThrow()
-        onStudyCodeRejected({ studyId, userId })
-    } else {
-        onStudyRejected({ studyId, userId })
-    }
-}
-
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -475,26 +453,6 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             useTestImage,
             sharedFiles,
         })
-    })
-
-export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })
-    .params(
-        z.object({
-            studyId: z.string(),
-            orgSlug: z.string(),
-        }),
-    )
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId }
-    })
-    .requireAbilityTo('reject', 'Study')
-    .handler(async ({ params: { studyId }, session, db }) => {
-        await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
 
 async function claimInitialProposalReviewStudy({
@@ -684,7 +642,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             studyId: z.string().uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
-            decision: z.enum(['approve', 'needs-clarification', 'reject']),
+            decision: z.enum(['approve', 'needs-clarification']),
             criteria: codeReviewCriteriaSchema,
         }),
     )
@@ -750,18 +708,6 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
-        } else if (decision === 'reject') {
-            // Rejecting code fails the job, not the proposal; the study stays APPROVED (OTTER-603).
-            await db
-                .insertInto('jobStatusChange')
-                .values({ userId, status: 'CODE-REJECTED', studyJobId: claimedJob.id })
-                .executeTakeFirstOrThrow()
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-                .where('id', '=', studyId)
-                .execute()
-            onStudyCodeRejected({ studyId, userId })
         } else {
             await db
                 .insertInto('jobStatusChange')

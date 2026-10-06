@@ -5,8 +5,9 @@ export async function createEncryptedLogBlob(
     message: string,
     recipients: PublicKey[],
     filename: string,
+    jobId: string,
 ): Promise<Blob> {
-    const writer = new ResultsWriter(recipients)
+    const writer = new ResultsWriter(recipients, { jobId })
     const bytes = new TextEncoder().encode(message)
     await writer.addFile(filename, bytes.buffer)
     return await writer.generate()

@@ -51,7 +51,6 @@ const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: str
             nav: resolveScreenNav('reviewer', 'reviewer-outputs-decided', projectStudyState(raw), {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: Routes.dashboard,
             }),
         }),
     )

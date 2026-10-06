@@ -14,7 +14,11 @@ import { useForm } from '@mantine/form'
 import * as Y from 'yjs'
 import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
-import { initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import {
+    initialProposalValues,
+    PROPOSAL_PAGE_COLLAB_KEYS,
+    type ProposalFormValues,
+} from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useYjsFormMap } from './use-yjs-form-map'
 
 // Dynamic import inside the factory: a top-level import leaves the binding in TDZ once vitest
@@ -200,6 +204,37 @@ describe('useYjsFormMap', () => {
         await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
         await waitFor(() => expect(form.getValues().title).toBe('FromCRDT'))
         expect(form.isDirty()).toBe(false)
+    })
+
+    // Drafts saved on Step 1 while it owned the datasets have them only in the row (OTTER-803).
+    it('warm load: keeps row-seeded datasets when the collaborative doc has no datasets key', async () => {
+        const { studyId } = await createDraftStudy('warm-no-datasets')
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: proposalFieldsDocName(studyId),
+                studyId,
+                data: Buffer.from([0]),
+            })
+            .execute()
+
+        const { result: formResult } = buildProposalForm({ datasets: ['ds-step-1'], piName: 'PI' })
+        const form = formResult.current
+        const websocketProvider = newWebsocketProvider()
+        const hookResult = renderHook(() =>
+            useYjsFormMap({ studyId, form, websocketProvider, collabKeys: PROPOSAL_PAGE_COLLAB_KEYS }),
+        )
+
+        const handle = constructed[0]
+        const seedDoc = new Y.Doc()
+        seedDoc.getMap('fields').set('piName', 'Remote PI')
+        Y.applyUpdate(handle.document!, Y.encodeStateAsUpdate(seedDoc))
+
+        handle.triggerSync()
+
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+        await waitFor(() => expect(form.getValues().piName).toBe('Remote PI'))
+        expect(form.getValues().datasets).toEqual(['ds-step-1'])
     })
 
     it('remote update applies to local form mid-session', async () => {

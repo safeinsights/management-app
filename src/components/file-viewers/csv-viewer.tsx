@@ -27,6 +27,7 @@ export function csvViewer(path: string, text: string): ReactNode | null {
             // height would stretch a short file's rows to fill the viewer; maxHeight lets the
             // table keep its natural height and only scroll once it outgrows the modal.
             maxHeight={500}
+            minHeight={140}
             pinFirstColumn
             withColumnBorders
             striped

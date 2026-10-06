@@ -160,7 +160,7 @@ async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: boolean } =
 
     // The Data Partner holds the next move, so the exit is the solid action (OTTER-673).
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 // ============================================================================
@@ -325,7 +325,7 @@ async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     // A live-approved study has no agreement yet, so the preparing notice is a second status alert.
     await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
     await page.getByTestId('cta-back-to-my-studies').click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacyProtection']
@@ -366,11 +366,17 @@ async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await dialog.getByRole('button', { name: /^Approve code$/i }).click()
     await expect(dialog).toBeHidden()
 
-    // Approving kicks off the enclave run (JOB-READY under SIMULATE_CODE_BUILD), so the reviewer
-    // lands on the outputs-pending "Review outputs" screen rather than the approval confirmation.
+    // The decision lands on the approved STEP 2 code page. Bare /review would resolve an approved
+    // study straight past it to the outputs step.
+    await page.waitForURL(/\/review\/code$/)
+    await expect(page.getByTestId('status-alert')).toContainText('Code approved')
+
+    // That outputs step is what lies ahead, still pending because approving kicks off the enclave
+    // run (JOB-READY under SIMULATE_CODE_BUILD).
+    await page.getByTestId('cta-next-step').click()
     await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('**/dashboard')
+    await page.waitForURL('/dashboard')
 }
 
 // ============================================================================
@@ -767,12 +773,20 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToCodeUpload(page, studyTitle)
-        await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+
+        // QA's reproduction (OTTER-693): reopening /code after submitting left it fully live, and
+        // both a main-file change and a second submission went through.
+        const studyId = page.url().match(/\/study\/([^/]+)/)![1]
+        await goto(page, `/openstax-lab/study/${studyId}/code`)
+        await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeDisabled()
+        await expect(page.getByRole('button', { name: /submit code for review/i })).toBeHidden()
+        await expect(page.getByRole('button', { name: /launch ide/i })).toBeHidden()
 
         // Confirm the post-submission view renders for the researcher.
         await goto(page, RESEARCHER_DASHBOARD)
         await viewStudyDetails(page, studyTitle)
-        await expect(page.getByRole('heading', { name: /^Study code/ })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
     })
 })
@@ -914,7 +928,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
 
         // Both roles read the same badge for a declined proposal, which is the stored REJECTED
         // status under the name the spec gives it (OTTER-698).
@@ -993,7 +1007,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -1096,14 +1110,14 @@ async function reviewerRequestsCodeRevision(page: Page, feedback: string) {
 
 async function researcherResubmitsCode(page: Page, studyId: string, note: string) {
     await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-    await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
     await uploadResubmitFilesExpectingInheritedMain(page)
 
     await page.getByLabel(/Resubmission Note/i).fill(note)
 
     const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
-    await expect(resubmitButton).toBeEnabled()
+    await expect(page.getByText(/All changes saved/i)).toBeVisible()
     await resubmitButton.click()
     await page
         .getByRole('dialog')
@@ -1134,7 +1148,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         await reviewerRequestsCodeRevision(page, 'Requesting revisions to submitted code — please address criteria.')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('**/dashboard')
+        await page.waitForURL('/dashboard')
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -1185,7 +1199,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: /Edit study code/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 

@@ -1,4 +1,5 @@
 import type { Route } from 'next'
+import type { StudyStatus } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
 import type { StudyRole, StudyState } from './state.types'
@@ -38,9 +39,6 @@ export type StepNav = {
 export type NavCtx = {
     orgSlug: string
     studyId: string
-    // Resolved upstream (org-scoped vs personal dashboard) so the nav table stays free of that branch.
-    dashboardHref: Route
-    returnTo?: 'org'
 }
 
 type NavRule = (state: StudyState, ctx: NavCtx) => StepNav
@@ -62,9 +60,9 @@ const nextStep = (href: Route): NavAction => ({
 // Always "My studies", never the user's entry point. Deliberate for beta: entry-point routing would
 // need per-study tracking kept correct across every state, and the primary nav is due for rework right
 // after beta (spec § "Back to my studies for beta: why the lighter lift").
-const backToMyStudies = (ctx: NavCtx): NavAction => ({
+const backToMyStudies = (): NavAction => ({
     label: 'Back to my studies',
-    href: ctx.dashboardHref,
+    href: Routes.dashboard,
     variant: 'solid',
     testId: 'cta-back-to-my-studies',
 })
@@ -88,27 +86,26 @@ const editProposal = (ctx: NavCtx): NavAction => ({
 // lets this table stay a pure function of state.
 
 // Proposal phase anchors to Step 1, which serves a submitted study as a read-only record (OTTER-764).
-// returnTo rides along so the round trip lands back on the same entry point, exit included.
 const proposalPreviousStep = (ctx: NavCtx): NavAction =>
-    previousStep(Routes.studyEdit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
+    previousStep(Routes.studyEdit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
 
 // Code phase anchors to the approved proposal, matching the spec's RL table. This branch originally
 // anchored it to Agreements, the step that used to sit between them; OTTER-727 has since hidden that
 // page and stripped its last researcher-facing links, so anchoring there would make this the only
 // route back into it.
 const codePreviousStep = (ctx: NavCtx): NavAction =>
-    previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
+    previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
 
 // Outputs phase anchors to the approved-code step, which the read-only /view/code route already serves.
 const resultsPreviousStep = (ctx: NavCtx): NavAction =>
-    previousStep(Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }))
+    previousStep(Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
 
 // --- per-screen rules ----------------------------------------------------------------------------
 
 // PENDING-REVIEW is pattern 3: the Data Partner holds the next move. A DRAFT lands here too, but its
 // forward action is the wizard's own footer, so the step nav stays empty.
 const studyOverviewNav: NavRule = (state, ctx) =>
-    state.isDraft ? {} : { back: proposalPreviousStep(ctx), forward: backToMyStudies(ctx) }
+    state.isDraft ? {} : { back: proposalPreviousStep(ctx), forward: backToMyStudies() }
 
 // Submitting code and code decisions rewrite study.status, so a submitted job is checked first: it
 // means the proposal was approved and this page was reached by walking back, so forward returns to
@@ -118,22 +115,26 @@ const proposalFeedbackNav: NavRule = (state, ctx) => {
     if (state.hasSubmittedCode) {
         return {
             back,
-            forward: nextStep(
-                Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo }),
-            ),
+            forward: nextStep(Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })),
         }
     }
     if (state.status === 'CHANGE-REQUESTED') return { back, forward: editProposal(ctx) }
-    if (state.status === 'REJECTED') return { back, forward: backToMyStudies(ctx) }
+    if (state.status === 'REJECTED') return { back, forward: backToMyStudies() }
     if (state.status === 'APPROVED') {
         return { back, forward: nextStep(Routes.studyCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
     }
-    return { back, forward: backToMyStudies(ctx) }
+    return { back, forward: backToMyStudies() }
 }
+
+// /code is a form route, not a dispatcher screen, so it resolves its own nav; submitting is
+// form-owned, leaving "Previous step" as the only navigation.
+export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtx): StepNav => ({
+    back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
+})
 
 const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),
-    forward: backToMyStudies(ctx),
+    forward: backToMyStudies(),
 })
 
 // Code approved is only ever reached by walking back from the outputs step, which the screen table
@@ -141,14 +142,14 @@ const codeUnderReviewNav: NavRule = (_state, ctx) => ({
 // always offers Next step, whether or not the run has started).
 const codeApprovedNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),
-    forward: nextStep(Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, returnTo: ctx.returnTo })),
+    forward: nextStep(Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })),
 })
 
 const codeFeedbackNav: NavRule = (state, ctx) => {
     const back = codePreviousStep(ctx)
     if (state.codeDecision === 'CODE-CHANGES-REQUESTED') return { back, forward: editCode(ctx, 'solid') }
     // CODE-REJECTED is terminal negative: no further submissions accepted, so the exit is the action.
-    return { back, forward: backToMyStudies(ctx) }
+    return { back, forward: backToMyStudies() }
 }
 
 // --- outputs phase (researcher) -------------------------------------------------------------------
@@ -159,7 +160,7 @@ const codeFeedbackNav: NavRule = (state, ctx) => {
 // Running in the enclave: waiting on the run, so nothing is ahead.
 const outputsPendingNav: NavRule = (_state, ctx) => ({
     back: resultsPreviousStep(ctx),
-    forward: backToMyStudies(ctx),
+    forward: backToMyStudies(),
 })
 
 // Feedback shared without outputs, and an errored run whose outputs were shared: in both the spec's
@@ -174,9 +175,9 @@ const outputsFeedbackNav: NavRule = (_state, ctx) => ({
 // successful flow to conclude, so Edit code is the primary action instead (spec states 5 vs 6).
 const sharedOutputsNav: NavRule = (state, ctx) => {
     const back = resultsPreviousStep(ctx)
-    if (!canResearcherResubmitCode(state)) return { back, forward: backToMyStudies(ctx) }
+    if (!canResearcherResubmitCode(state)) return { back, forward: backToMyStudies() }
     if (state.resultsApproved) {
-        return { back, secondary: editCode(ctx, 'outline'), forward: backToMyStudies(ctx) }
+        return { back, secondary: editCode(ctx, 'outline'), forward: backToMyStudies() }
     }
     return { back, forward: editCode(ctx, 'solid') }
 }
@@ -234,7 +235,7 @@ const reviewerProposalFeedbackNav: NavRule = (state, ctx) => {
     if (state.hasSubmittedCode) {
         return { forward: nextStep(Routes.studyReviewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
     }
-    return { forward: backToMyStudies(ctx) }
+    return { forward: backToMyStudies() }
 }
 
 const reviewerCodeReviewNav: NavRule = (_state, ctx) => ({ back: reviewerCodePreviousStep(ctx) })
@@ -247,13 +248,13 @@ const reviewerCodeFeedbackNav: NavRule = (state, ctx) => {
     if (state.codeDecision === 'CODE-APPROVED') {
         return { back, forward: nextStep(Routes.studyReview({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })) }
     }
-    return { back, forward: backToMyStudies(ctx) }
+    return { back, forward: backToMyStudies() }
 }
 
 // Waiting on the run, or the round is closed: nothing is ahead, so the exit takes the solid slot.
 const reviewerOutputsExitNav: NavRule = (_state, ctx) => ({
     back: reviewerResultsPreviousStep(ctx),
-    forward: backToMyStudies(ctx),
+    forward: backToMyStudies(),
 })
 
 // Decrypting ("View") and "Submit decision" both belong to the panel, so only Previous is navigation.

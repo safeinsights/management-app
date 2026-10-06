@@ -49,8 +49,6 @@ const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const RUN_AT = new Date('2026-07-02T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
-const DASHBOARD_HREF = '/dashboard'
-
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
  * rather than in two mirror-image files (PR #1003 review). Each variant carries only what actually
@@ -110,7 +108,6 @@ const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
-    returnTo?: 'org',
 ) =>
     renderWithProviders(
         await SharedOutputsScreen({
@@ -120,8 +117,6 @@ const renderScreen = async (
             ...screenNavProps('researcher', variant.screen, raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
-                returnTo,
             }),
         }),
     )
@@ -227,7 +222,6 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             ...screenNavProps('researcher', 'study-overview', raw, {
                 orgSlug: org.slug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
             }),
         })
 
@@ -403,16 +397,6 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         } else {
             expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
         }
-    })
-
-    it('passes returnTo through to the Previous step link', async () => {
-        const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug, 'org')
-
-        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-            'href',
-            `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
-        )
     })
 
     it('short-circuits on the routing guard for a study with no job (no shared outputs to show)', async () => {

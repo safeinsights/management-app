@@ -14,7 +14,7 @@ import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feed
 import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
-import type { Decision } from '@/lib/review-decision'
+import type { CodeDecision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -74,7 +74,7 @@ function useCodeReview({
     labName: string
 }) {
     const feedback = useReviewFeedback(`Enter your feedback for ${labName}.`)
-    const decision = useReviewDecision()
+    const decision = useReviewDecision<CodeDecision>()
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // State (not a ref): must re-render so validateOnBlur and the gated field blurs see the flip.
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
@@ -98,7 +98,7 @@ function useCodeReview({
         },
     })
 
-    const { submitReview, isPending } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
+    const { submitReview, isSubmitting } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
 
     const handleSubmit = async () => {
         setHasAttemptedSubmit(true)
@@ -158,7 +158,7 @@ function useCodeReview({
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
-        isPending,
+        isSubmitting,
         hasAttemptedSubmit,
     }
 }
@@ -167,15 +167,15 @@ type EditableBodyProps = {
     isVisible: boolean
     feedback: ReturnType<typeof useReviewFeedback>
     evaluationForm: ReturnType<typeof useCodeReview>['evaluationForm']
-    decision: ReturnType<typeof useReviewDecision>
+    decision: ReturnType<typeof useReviewDecision<CodeDecision>>
     job: LatestJobForStudy
     labName: string
     proposalHref: string
-    isPending: boolean
+    isSubmitting: boolean
     nav: StepNav
     isTestStudy: boolean
     onSubmit: () => void
-    onDecisionChange: (next: Decision) => void
+    onDecisionChange: (next: CodeDecision) => void
     hasAttemptedSubmit: boolean
 }
 
@@ -187,7 +187,7 @@ function EditableBody({
     job,
     labName,
     proposalHref,
-    isPending,
+    isSubmitting,
     nav,
     isTestStudy,
     onSubmit,
@@ -222,7 +222,7 @@ function EditableBody({
                         <Button
                             size="md"
                             variant="filled"
-                            disabled={isPending}
+                            disabled={isSubmitting}
                             onClick={onSubmit}
                             data-testid="code-review-submit"
                         >
@@ -269,7 +269,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
         confirmOpen,
         closeConfirm,
         handleConfirmSubmit,
-        isPending,
+        isSubmitting,
         hasAttemptedSubmit,
     } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, labName })
 
@@ -279,7 +279,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
             orgSlug={orgSlug}
             editableStatuses={[]}
             isEditable={isCodeReviewEditable}
-            redirectTarget="studyReview"
+            redirectTarget="studyReviewCode"
             enabled={initiallyEditable}
         >
             <CodeReviewFeedbackProviderShare>
@@ -297,7 +297,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                     job={job}
                     labName={labName}
                     proposalHref={proposalHref}
-                    isPending={isPending}
+                    isSubmitting={isSubmitting}
                     nav={nav}
                     isTestStudy={study.isTestStudy}
                     onSubmit={handleSubmit}
@@ -314,7 +314,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                 isOpen={confirmOpen}
                 onClose={closeConfirm}
                 onConfirm={handleConfirmSubmit}
-                isPending={isPending}
+                isPending={isSubmitting}
             />
         </StudyKickOutProvider>
     )

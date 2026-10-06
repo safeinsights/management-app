@@ -72,6 +72,11 @@ const workspaceRoots: string[] = []
 const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
     db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
 
+// The code-round gate refuses with an ActionFailure keyed 'code', so the message arrives as an
+// object rather than the plain string most of these actions return.
+const expectCodeLocked = (result: unknown) =>
+    expect(result).toMatchObject({ error: { code: expect.stringContaining('submitted for review') } })
+
 describe('Request Study Actions', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
@@ -1163,6 +1168,30 @@ describe('Request Study Actions', () => {
             expect(result).toHaveProperty('error')
             expect((result as { error: string }).error).toContain('Main file not in file list')
         })
+
+        // QA's reproduction: reopening /code after submitting and clicking Submit again completed a
+        // second submission and reported success (OTTER-693).
+        it('refuses a second submission on a round already under review', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-twice')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+
+            actionResult(
+                await submitStudyCodeAction({ studyId: study.id, mainFileName: 'main.R', fileNames: ['main.R'] }),
+            )
+            vi.mocked(aws.storeS3File).mockClear()
+
+            const second = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'main.R',
+                fileNames: ['main.R'],
+            })
+
+            expectCodeLocked(second)
+            expect(aws.storeS3File).not.toHaveBeenCalled()
+        })
     })
 
     describe('one-job-per-round (OTTER-601)', () => {
@@ -1261,7 +1290,10 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        it('re-submitting before review overwrites files on the same job (no new job, no new version)', async () => {
+        // OTTER-601 made a replacement overwrite the round's files in place rather than stack a
+        // second job. OTTER-693 closes the round instead: the confirmation modal promises no
+        // changes after submitting, and a researcher who reopened /code could submit again.
+        it('refuses a second submission before review and leaves the round untouched', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-overwrite')
@@ -1271,21 +1303,21 @@ describe('Request Study Actions', () => {
             await submitCode(study.id, root, { 'main.R': 'v1', 'helper.R': 'v1' }, 'main.R')
             vi.mocked(aws.deleteFolderContents).mockClear()
 
-            await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R')
+            expectCodeLocked(await submitCode(study.id, root, { 'main.R': 'v2', 'extra.R': 'v2' }, 'main.R'))
 
             expect(await jobCount(study.id)).toBe(1)
             expect(await codeFilesFor(study.id)).toEqual([
-                { name: 'extra.R', fileType: 'SUPPLEMENTAL-CODE' },
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
                 { name: 'main.R', fileType: 'MAIN-CODE' },
             ])
-            expect(aws.deleteFolderContents).toHaveBeenCalledTimes(1)
+            expect(aws.deleteFolderContents).not.toHaveBeenCalled()
             expect(await submittedStatusCount(study.id)).toBe(1)
         })
 
-        // The summary is keyed by (job, round), and a replacement before the reviewer has decided
-        // opens no new round, so the row left behind would stand as the summary of code that no
-        // longer exists and would stop a new one being generated (SHRMP-263, OTTER-779).
-        it('drops the round summary when files are replaced before review', async () => {
+        // The summary is keyed by (job, round). It used to be dropped when a replacement landed
+        // before the reviewer decided; now no replacement can land, so it must survive the attempt
+        // rather than being cleared by a refused submission (SHRMP-263, OTTER-779, OTTER-693).
+        it('keeps the round summary when a second submission is refused', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
             const root = await createWorkspaceDir('reuse-summary-replaced')
@@ -1305,9 +1337,9 @@ describe('Request Study Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .execute()
 
-            await submitCode(study.id, root, { 'main.R': 'v2' }, 'main.R')
+            expectCodeLocked(await submitCode(study.id, root, { 'main.R': 'v2' }, 'main.R'))
 
-            expect(await summariesFor(job.id)).toEqual([])
+            expect(await summariesFor(job.id)).toEqual([{ round: 1, report: { codeExplanation: 'describes v1' } }])
         })
 
         it('keeps the earlier round summary when a change request opens the next round', async () => {
@@ -1540,6 +1572,9 @@ describe('Request Study Actions', () => {
             expect(await submittedStatusCount(study.id)).toBe(2)
         })
 
+        // Each reopened round is still one submission. OTTER-693 makes that a refusal rather than a
+        // silent no-op, and splits the two doors: /code's action never serves a reopened round, and
+        // /resubmit's serves it exactly once.
         it('re-submitting again within the SAME change-requested round does not append a third CODE-SUBMITTED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -1559,10 +1594,23 @@ describe('Request Study Actions', () => {
                 .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
                 .execute()
 
-            await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R')
+            // A change request reopens the round for /resubmit, never for /code.
+            expectCodeLocked(await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R'))
+
+            const resubmit = (note: string) =>
+                resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: note,
+                })
+
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2a' })
+            expect(await resubmit('addressed the feedback and updated the code')).not.toHaveProperty('error')
             expect(await submittedStatusCount(study.id)).toBe(2)
 
-            await submitCode(study.id, root, { 'main.R': 'round2b' }, 'main.R')
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2b' })
+            expect(await resubmit('changed my mind about the code')).toHaveProperty('error')
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
         })

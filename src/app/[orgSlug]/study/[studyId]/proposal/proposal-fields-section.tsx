@@ -8,7 +8,12 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
-import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from '@/components/save-status'
+import {
+    SaveStatusAnnouncer,
+    SaveStatusIndicator,
+    announcedSaveStatus,
+    type SaveStatusValue,
+} from '@/components/save-status'
 import { useCollabFieldsSaveStatus } from '@/hooks/use-collab-fields-save-status'
 import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
 import { ExternalLinks } from '@/lib/routes'
@@ -40,6 +45,76 @@ interface ProposalFieldsSectionProps {
     isDraftCreator?: boolean
 }
 
+function useDatasetsHandlers(form: UseFormReturnType<ProposalFormValues>, yjsForm: ReturnType<typeof useYjsFormMap>) {
+    const onChange = (datasets: string[]) => {
+        form.setFieldValue('datasets', datasets)
+        yjsForm.pushField('datasets', datasets)
+    }
+    const onBlur = () => form.validateField('datasets')
+
+    return { onChange, onBlur }
+}
+
+interface DatasetsOfInterestFieldProps {
+    form: UseFormReturnType<ProposalFormValues>
+    yjsForm: ReturnType<typeof useYjsFormMap>
+    orgName: string
+    enclaveOrgSlug?: string
+    saveStatus: SaveStatusValue
+}
+
+const DatasetsOfInterestField: FC<DatasetsOfInterestFieldProps> = ({
+    form,
+    yjsForm,
+    orgName,
+    enclaveOrgSlug,
+    saveStatus,
+}) => {
+    const { onChange, onBlur } = useDatasetsHandlers(form, yjsForm)
+
+    return (
+        <FormField
+            inputId={DATASETS_FIELD_ID}
+            label="Dataset(s) of interest"
+            required
+            description={datasetsDescription(orgName)}
+            error={form.errors.datasets}
+        >
+            <Group align="center" gap="xxl">
+                {/* 60% of the card's inner content width; the Paper's padding is already excluded. */}
+                <Box w="60%">
+                    <DatasetMultiSelect
+                        id={DATASETS_FIELD_ID}
+                        value={form.values.datasets}
+                        onChange={onChange}
+                        onBlur={onBlur}
+                        error={form.errors.datasets}
+                        suppressOwnError
+                        required
+                        orgSlug={enclaveOrgSlug}
+                        // The card removes placeholder text from every input.
+                        placeholder=""
+                    />
+                </Box>
+                <Anchor
+                    href={ExternalLinks.dataCatalog}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="sm"
+                    c={semanticColor('link.default')}
+                    fw={fontWeight.semibold}
+                >
+                    <Group gap="xxs" wrap="nowrap">
+                        Explore data catalog
+                        <ArrowSquareOutIcon size={16} weight="bold" />
+                    </Group>
+                </Anchor>
+            </Group>
+            <SaveStatusIndicator status={saveStatus} announce={false} />
+        </FormField>
+    )
+}
+
 // One card for Step 2 and Edit proposal (OTTER-691, OTTER-762). It takes the page's form and
 // collaboration handles as props rather than reading either page's context, so the two cannot
 // drift apart again.
@@ -67,12 +142,6 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
     const fieldsAnnouncedStatus = announcedSaveStatus([datasetsSaveStatus, piSaveStatus])
 
     const intro = proposalIntroText(orgName)
-    const datasetsHelp = datasetsDescription(orgName)
-
-    const handleDatasetsChange = (datasets: string[]) => {
-        form.setFieldValue('datasets', datasets)
-        yjsForm.pushField('datasets', datasets)
-    }
 
     // Cannot spread getInputProps('piName'): the Select's value is the piUserId while piName holds
     // the label, so the two are set together.
@@ -93,46 +162,13 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
                 <Stack gap="lg">
                     <Text>{intro}</Text>
 
-                    <FormField
-                        inputId={DATASETS_FIELD_ID}
-                        label="Dataset(s) of interest"
-                        required
-                        description={datasetsHelp}
-                        error={form.errors.datasets}
-                    >
-                        <Group align="center" gap="xxl">
-                            {/* 60% of the card's inner content width; the Paper's padding is
-                                already excluded. */}
-                            <Box w="60%">
-                                <DatasetMultiSelect
-                                    id={DATASETS_FIELD_ID}
-                                    value={form.values.datasets}
-                                    onChange={handleDatasetsChange}
-                                    onBlur={() => form.validateField('datasets')}
-                                    error={form.errors.datasets}
-                                    suppressOwnError
-                                    required
-                                    orgSlug={enclaveOrgSlug}
-                                    // The card removes placeholder text from every input.
-                                    placeholder=""
-                                />
-                            </Box>
-                            <Anchor
-                                href={ExternalLinks.dataCatalog}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                size="sm"
-                                c={semanticColor('link.default')}
-                                fw={fontWeight.semibold}
-                            >
-                                <Group gap="xxs" wrap="nowrap">
-                                    Explore data catalog
-                                    <ArrowSquareOutIcon size={16} weight="bold" />
-                                </Group>
-                            </Anchor>
-                        </Group>
-                        <SaveStatusIndicator status={datasetsSaveStatus} announce={false} />
-                    </FormField>
+                    <DatasetsOfInterestField
+                        form={form}
+                        yjsForm={yjsForm}
+                        orgName={orgName}
+                        enclaveOrgSlug={enclaveOrgSlug}
+                        saveStatus={datasetsSaveStatus}
+                    />
                 </Stack>
             </ProposalStepHeader>
 

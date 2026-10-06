@@ -70,7 +70,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
 
         const results: boolean[] = []
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={(r) => results.push(r)} />
             </EditCodeResubmitProvider>,
         )
@@ -94,7 +94,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
 
         const results: boolean[] = []
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={(r) => results.push(r)} />
             </EditCodeResubmitProvider>,
         )
@@ -106,9 +106,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
         expect(await readDraft(study.id)).toBeNull()
     })
 
-    // The wrapped useMutation unwraps the refusal, so a bare mutationFn is enough; pinned because
-    // reaching for actionResult here would flatten it and toast "Try again" instead.
-    it('reports the refusal rather than a resubmission when the study agreement is unacknowledged', async () => {
+    it('shows the failure toast and does not resubmit when the study agreement is unacknowledged', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -119,7 +117,11 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
         })
 
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={study.id} initialNote="the reviewer asked for a change">
+            <EditCodeResubmitProvider
+                studyId={study.id}
+                orgName="Test Org"
+                initialNote="the reviewer asked for a change"
+            >
                 <ResubmitHarness />
             </EditCodeResubmitProvider>,
         )
@@ -130,14 +132,12 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
                     color: 'red',
-                    title: 'Unable to resubmit study code',
-                    message: expect.stringContaining('Study Agreement has not been signed yet for this study'),
+                    title: 'Code could not be submitted',
+                    message: 'Your work is saved. Try again.',
                 }),
             ),
         )
-        expect(notifications.show).not.toHaveBeenCalledWith(
-            expect.objectContaining({ title: 'Study Code Resubmitted' }),
-        )
+        expect(notifications.show).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Code submitted' }))
         expect(await jobCount(study.id)).toBe(1)
     })
 })

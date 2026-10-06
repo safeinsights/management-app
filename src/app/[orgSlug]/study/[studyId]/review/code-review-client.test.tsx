@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { vi } from 'vitest'
 import {
     actionResult,
@@ -79,8 +80,7 @@ describe('CodeReviewClient decision selector', () => {
         submitReview.mockReset()
         mockUseCodeReviewMutation.mockReturnValue({
             submitReview,
-            isPending: false,
-            isSuccess: false,
+            isSubmitting: false,
             pendingReview: undefined,
         })
         mockUseReviewFeedback.mockReturnValue({
@@ -302,6 +302,8 @@ describe('CodeReviewClient decision selector', () => {
         expect(dialog).toHaveTextContent('Approve code?')
         expect(dialog).toHaveTextContent('Your approval and feedback will be sent to Rice University')
         expect(within(dialog).getByRole('button', { name: 'Approve code' })).toHaveAttribute('data-variant', 'filled')
+        // Mantine names no close button on its own, leaving the dismiss control unreachable by name.
+        expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
     })
 
     it('calls submitReview with decision=needs-clarification on confirm', async () => {
@@ -329,6 +331,40 @@ describe('CodeReviewClient decision selector', () => {
                 },
             })
         })
+    })
+
+    it('keeps the modal locked after the action resolves, while the navigation to the decided page is in flight', async () => {
+        const user = userEvent.setup()
+        // The hook keeps isSubmitting true after isPending clears, for the whole navigation.
+        mockUseCodeReviewMutation.mockImplementation(() => {
+            const [isSubmitting, setIsSubmitting] = useState(false)
+            return {
+                submitReview: (...args: Parameters<typeof submitReview>) => {
+                    submitReview(...args)
+                    setIsSubmitting(true)
+                },
+                isSubmitting,
+                pendingReview: undefined,
+            }
+        })
+        const { study, job, orgSlug, nav } = await setupValidReviewableJob()
+        renderWithProviders(
+            <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
+        )
+
+        await fillAllCriteria(user)
+        await user.click(screen.getByTestId('code-review-decision-approve'))
+        await user.click(screen.getByTestId('code-review-submit'))
+
+        const dialog = await screen.findByRole('dialog')
+        await user.click(within(dialog).getByRole('button', { name: 'Approve code' }))
+
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+        const confirm = within(dialog).getByRole('button', { name: 'Approve code' })
+        expect(confirm).toBeDisabled()
+        expect(confirm).toHaveAttribute('data-loading', 'true')
+        expect(within(dialog).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-review-submit')).toBeDisabled()
     })
 
     it('renders "Previous step" as a subtle link to the decided proposal and "Submit decision" as the action', async () => {

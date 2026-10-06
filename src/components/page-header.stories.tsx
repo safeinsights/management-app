@@ -24,7 +24,7 @@ export const OrganizationPage: Story = () => (
 
 export const NoEyebrow: Story = () => (
     <Frame>
-        <PageHeader title="My dashboard" />
+        <PageHeader title="My studies" />
     </Frame>
 )
 
