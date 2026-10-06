@@ -163,6 +163,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     await onPendingUserLoginAction({ inviteId })
                     markOrgJoined(orgName)
                     router.push(Routes.accountMfa)
+                    // The root layout rendered the signed-out org list and does not re-render on navigation.
+                    router.refresh()
                 } else if (attempt.status === 'needs_second_factor') {
                     // A fresh account has no MFA factors, so a second-factor challenge is
                     // unsatisfiable; Clerk's instance policy must let first sign-in complete.

@@ -82,3 +82,9 @@ export async function marshalSession(
         clerkUserId,
     })
 }
+
+// Plain data only: the client rebuilds `can` from it with sessionFromMetadata.
+export function clientUserInfo(session: UserSession | null): UserInfo | null {
+    if (!session) return null
+    return { format: 'v3', user: { id: session.user.id }, teams: null, orgs: session.orgs }
+}

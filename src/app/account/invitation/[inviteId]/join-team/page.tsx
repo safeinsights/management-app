@@ -64,6 +64,8 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             } else {
                 router.push(orgDashboard)
             }
+            // The root layout holds the org list and does not re-render on navigation.
+            router.refresh()
         },
         onError: (error) => {
             reportError(error, 'Unable to join team')

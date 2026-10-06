@@ -101,5 +101,7 @@ export const useCompleteSignIn = () => {
             console.error('post sign-in navigation failed:', error)
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
         }
+        // The root layout rendered the signed-out org list and does not re-render on navigation.
+        router.refresh()
     }, [router, searchParams, getToken])
 }

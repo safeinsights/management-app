@@ -9,6 +9,7 @@ import { type FC, type ReactNode } from 'react'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { SessionInfoProvider } from '@/components/layout/session-info-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
@@ -42,6 +43,7 @@ type Props = {
     children: ReactNode
     singleUserEditing?: boolean
     posthogProjectToken?: string
+    userInfo?: UserInfo | null
 }
 export function getQueryClient() {
     if (isServer) {
@@ -53,23 +55,30 @@ export function getQueryClient() {
     }
 }
 
-export const Providers: FC<Props> = ({ children, singleUserEditing = false, posthogProjectToken = '' }) => {
+export const Providers: FC<Props> = ({
+    children,
+    singleUserEditing = false,
+    posthogProjectToken = '',
+    userInfo = null,
+}) => {
     const queryClient = getQueryClient()
     usePostHogInit(posthogProjectToken)
 
     return (
         <QueryClientProvider client={queryClient}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-                <ModalsProvider>
-                    <ErrorBoundary>
-                        <SpyModeProvider>
-                            <YjsWebsocketProvider singleUserEditing={singleUserEditing}>
-                                {children}
-                            </YjsWebsocketProvider>
-                        </SpyModeProvider>
-                    </ErrorBoundary>
-                </ModalsProvider>
-            </MantineProvider>
+            <SessionInfoProvider userInfo={userInfo}>
+                <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                    <ModalsProvider>
+                        <ErrorBoundary>
+                            <SpyModeProvider>
+                                <YjsWebsocketProvider singleUserEditing={singleUserEditing}>
+                                    {children}
+                                </YjsWebsocketProvider>
+                            </SpyModeProvider>
+                        </ErrorBoundary>
+                    </ModalsProvider>
+                </MantineProvider>
+            </SessionInfoProvider>
         </QueryClientProvider>
     )
 }
