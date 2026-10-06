@@ -7,6 +7,8 @@ import {
     insertTestOrg,
     it,
     mockSessionWithTestData,
+    createTestQueryClient,
+    recordOrgListAtPush,
     renderWithProviders,
     screen,
     SessionOrgSlugs,
@@ -33,6 +35,9 @@ describe('AddTeam', () => {
 
         const params = Promise.resolve({ inviteId: invite.id })
 
+        const queryClient = createTestQueryClient()
+        const listsAtPush = recordOrgListAtPush(queryClient)
+
         // AddTeam suspends on its params, which React only lets settle inside an awaited act.
         await act(async () => {
             renderWithProviders(
@@ -42,6 +47,7 @@ describe('AddTeam', () => {
                         <AddTeam params={params} />
                     </Suspense>
                 </>,
+                { queryClient },
             )
         })
         const orgList = screen.getByRole('status', { name: 'session orgs' })
@@ -50,6 +56,6 @@ describe('AddTeam', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'Accept invitation' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toContain(invitingOrg.slug))
-        await waitFor(() => expect(orgList).toHaveTextContent(invitingOrg.slug))
+        expect(listsAtPush).toEqual([expect.arrayContaining([org.slug, invitingOrg.slug])])
     })
 })

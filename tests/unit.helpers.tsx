@@ -20,7 +20,7 @@ import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { reportQueryError } from '@/hooks/query-wrappers'
-import { useSession as useAppSession } from '@/hooks/session'
+import { CURRENT_USER_INFO_KEY, useSession as useAppSession } from '@/hooks/session'
 // eslint-disable-next-line no-restricted-imports
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor as waitForRtl } from '@testing-library/react'
@@ -187,6 +187,22 @@ export const SessionOrgSlugs: FC = () => {
     const result = useAppSession()
     const slugs = result.isLoaded ? Object.keys(result.session.orgs).sort().join(',') : 'loading'
     return <output aria-label="session orgs">{slugs}</output>
+}
+
+// Records the cached org list each time the app calls router.push, so a test can show that a flow
+// reloaded the list before it navigated, not after.
+export const recordOrgListAtPush = (client: QueryClient) => {
+    const listsAtPush: string[][] = []
+    const push = RouterMock.memoryRouter.push.bind(RouterMock.memoryRouter)
+    vi.spyOn(RouterMock.memoryRouter, 'push').mockImplementation((...args) => {
+        listsAtPush.push(
+            client
+                .getQueriesData<UserInfo>({ queryKey: CURRENT_USER_INFO_KEY })
+                .flatMap(([, info]) => Object.keys(info?.orgs ?? {})),
+        )
+        return push(...args)
+    })
+    return listsAtPush
 }
 
 // The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,

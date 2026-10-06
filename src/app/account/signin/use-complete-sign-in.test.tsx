@@ -6,6 +6,8 @@ import {
     insertTestOrg,
     it,
     mockSessionWithTestData,
+    createTestQueryClient,
+    recordOrgListAtPush,
     renderWithProviders,
     screen,
     SessionOrgSlugs,
@@ -37,11 +39,15 @@ describe('useCompleteSignIn', () => {
             .executeTakeFirstOrThrow()
         memoryRouter.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
 
+        const queryClient = createTestQueryClient()
+        const listsAtPush = recordOrgListAtPush(queryClient)
+
         renderWithProviders(
             <>
                 <SessionOrgSlugs />
                 <CompleteSignIn />
             </>,
+            { queryClient },
         )
         const orgList = screen.getByRole('status', { name: 'session orgs' })
         await waitFor(() => expect(orgList).toHaveTextContent(org.slug))
@@ -49,6 +55,6 @@ describe('useCompleteSignIn', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Complete sign-in' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toContain(invitingOrg.slug))
-        await waitFor(() => expect(orgList).toHaveTextContent(invitingOrg.slug))
+        expect(listsAtPush).toEqual([expect.arrayContaining([org.slug, invitingOrg.slug])])
     })
 })

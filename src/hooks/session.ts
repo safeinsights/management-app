@@ -47,6 +47,10 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
         initialData: clerkUserId ? (serverInfo ?? legacyMetadataInfo(user) ?? undefined) : undefined,
         // The list changes only when a membership does, and those flows call useReloadOrgList.
         staleTime: Infinity,
+        // An errored query has no data and so counts as stale; without these, each focus and each new
+        // consumer would ask again and report the same failure again.
+        refetchOnWindowFocus: false,
+        retryOnMount: false,
         meta: { errorMessage: 'Failed to load your organizations' },
     })
 

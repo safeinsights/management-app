@@ -32,11 +32,12 @@ const serverInfoFor = (userId: string): UserInfo => ({
     orgs: { 'from-server': { id: faker.string.uuid(), slug: 'from-server', type: 'lab', isAdmin: false } },
 })
 
-// The test client turns refetchOnMount off; the app's client leaves it on, and a request on mount
-// is exactly what the layout's list must prevent.
+// The test client turns refetching on mount and on focus off; the app's client leaves both on.
 const appLikeQueryClient = () => {
     const client = createTestQueryClient()
-    client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, refetchOnMount: true } })
+    client.setDefaultOptions({
+        queries: { ...client.getDefaultOptions().queries, refetchOnMount: true, refetchOnWindowFocus: true },
+    })
     return client
 }
 
@@ -163,6 +164,26 @@ describe('useSession', () => {
                 expect.objectContaining({ title: 'Failed to load your organizations' }),
             ),
         )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+        const lists = screen.getAllByRole('status', { name: 'session orgs' })
+        expect(lists.map((list) => list.textContent)).toEqual(['loading', 'loading'])
+    })
+
+    // An errored query has no data, so it is stale: without opting out, each tab focus and each newly
+    // mounted consumer would ask again and toast again.
+    it('reports a missing server session once across a window focus and a later consumer', async () => {
+        await mockSessionWithTestData({ slimMetadata: true })
+        ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
+        const queryClient = appLikeQueryClient()
+
+        renderWithProviders(<SessionOrgSlugs />, { queryClient })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalledTimes(1))
+
+        window.dispatchEvent(new Event('visibilitychange'))
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+        renderWithProviders(<SessionOrgSlugs />, { queryClient })
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+
         expect(notifications.show).toHaveBeenCalledTimes(1)
         const lists = screen.getAllByRole('status', { name: 'session orgs' })
         expect(lists.map((list) => list.textContent)).toEqual(['loading', 'loading'])
