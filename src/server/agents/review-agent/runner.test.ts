@@ -49,6 +49,20 @@ const insertMainCode = (studyJobId: string) =>
         .values({ studyJobId, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
         .execute()
 
+// Zero-padded so the alphabetical order matches the numeric order.
+const insertSupplementalCode = (studyJobId: string, count: number) =>
+    db
+        .insertInto('studyJobFile')
+        .values(
+            Array.from({ length: count }, (_, i) => ({
+                studyJobId,
+                name: `helper_${String(i).padStart(2, '0')}.r`,
+                path: `studies/helper_${i}.r`,
+                fileType: 'SUPPLEMENTAL-CODE' as const,
+            })),
+        )
+        .execute()
+
 type TestJobOptions = Parameters<typeof insertTestStudyJobData>[0]
 
 const setupJob = async (options?: TestJobOptions) => (await insertTestStudyJobData(options)).job
@@ -443,5 +457,16 @@ describe('generateAndStoreStudyReview', () => {
         expect(report.complianceCheck.isCompliant).toBe(false)
         expect(report.alignmentCheck.findings.length).toBeGreaterThan(0)
         expect(report.complianceCheck.findings.length).toBeGreaterThan(0)
+    })
+
+    it('sends the main file even when there are 10 or more supplemental files', async () => {
+        const job = await setupJobWithCode()
+        await insertSupplementalCode(job.id, 10)
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        expect(Object.keys(content.codeFiles)).toHaveLength(10)
+        expect(content.codeFiles).toHaveProperty('main.r')
     })
 })

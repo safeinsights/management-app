@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import { sql } from 'kysely'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { generateAnalysis } from './agent'
@@ -36,7 +37,8 @@ async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string
         .select(['name', 'path'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
-        .orderBy('fileType', 'desc')
+        // Explicit, because sorting the enum column follows its declaration order (OTTER-812).
+        .orderBy(sql`file_type = 'MAIN-CODE'`, 'desc')
         .orderBy('name', 'asc')
         .limit(MAX_FILE_COUNT)
         .execute()
