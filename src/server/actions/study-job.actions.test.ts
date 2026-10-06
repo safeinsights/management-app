@@ -26,7 +26,8 @@ import {
     submitOutputsDecisionAction,
 } from './study-job.actions'
 import { codeSubmissionVersion } from '@/server/db/queries'
-import { sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
+import { flushDeferred } from '@/tests/vitest.setup'
 import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
@@ -40,8 +41,8 @@ vi.mock('@/server/storage', () => ({
 }))
 
 vi.mock('@/server/mailer', () => ({
-    sendStudyResultsRejectedEmail: vi.fn(),
-    sendStudyResultsApprovedEmail: vi.fn(),
+    sendLabOutputsNeedReviewEmail: vi.fn(),
+    sendLabCodeErroredEmail: vi.fn(),
 }))
 
 // Spy on the generation trigger only; study-request.ts depends on the rest of the module.
@@ -307,7 +308,7 @@ describe('Study Job Actions', () => {
     })
 
     describe('result decision actions', () => {
-        test('creates FILES-REJECTED status and sends rejection email', async () => {
+        test('creates FILES-REJECTED status and emails the lab', async () => {
             const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
 
@@ -324,7 +325,7 @@ describe('Study Job Actions', () => {
                 .execute()
 
             expect(statusChanges.find((sc) => sc.status === 'FILES-REJECTED')).toBeTruthy()
-            expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
+            expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledWith(study.id)
 
             const updatedStudy = await db
                 .selectFrom('study')
@@ -531,6 +532,48 @@ describe('Study Job Actions', () => {
                 .execute()
             expect(keys).toHaveLength(0)
         })
+
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            'a %s decision on an errored run tells the lab its code errored',
+            async (decision) => {
+                const { enclave, job, sharedFiles } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The run failed before writing any outputs.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+                await flushDeferred()
+
+                expect(sendLabCodeErroredEmail).toHaveBeenCalledTimes(1)
+                expect(sendLabOutputsNeedReviewEmail).not.toHaveBeenCalled()
+            },
+        )
+
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            'a %s decision on a completed run tells the lab its outputs need review',
+            async (decision) => {
+                const { enclave, job, sharedFiles } = await setupResultApprovalFixture()
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The outputs look clean and contain no PII.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+                await flushDeferred()
+
+                expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledTimes(1)
+                expect(sendLabCodeErroredEmail).not.toHaveBeenCalled()
+            },
+        )
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first
         // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.

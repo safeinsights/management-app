@@ -1,16 +1,18 @@
 import { db } from '@/database'
 import { Routes } from '@/lib/routes'
 import * as mailgun from '@/server/mailer'
+import { audit } from '@/server/events'
 import {
     faker,
     insertTestOrg,
     insertTestOrgStudyJobUsers,
+    insertTestProposalDecision,
     insertTestStudyJobData,
     insertTestUser,
 } from '@/tests/unit.helpers'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { describe, expect, it, Mock, vi } from 'vitest'
-import { deliver, SI_AGREEMENTS_EMAIL, SI_EMAIL } from './mailgun'
+import { deliver, SI_AGREEMENTS_EMAIL } from './mailgun'
 
 vi.mock('./mailgun')
 
@@ -36,27 +38,66 @@ describe('mailgun email functions', () => {
         )
     })
 
-    it('sendStudyProposalEmails sends all org members in Bcc, not To (OTTER-651)', async () => {
+    it('sendStudyProposalEmails greets each Data Partner member by name, linking to the study review', async () => {
         const { study, org, user1 } = await insertTestOrgStudyJobUsers()
-
-        const researcher = await getUser(study.researcherId)
 
         await mailgun.sendStudyProposalEmails(study.id)
 
-        expect(deliver).toHaveBeenCalledWith(
+        expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
-                bcc: expect.stringContaining(user1.email || ''),
-                subject: expect.stringContaining('New study proposal'),
+                to: user1.email,
+                subject: 'Proposal needs review',
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
-                    submittedTo: org.name,
+                    fullName: user1.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    dashboardURL: expect.stringContaining(`/${org.slug}/dashboard`),
+                    researchLab: org.name,
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
+    })
+
+    it('sendStudyProposalEmails sends one address per message, never a Bcc (OTTER-651)', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        const orgMembers = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .select(['user.email'])
+            .where('orgUser.orgId', '=', study.orgId)
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const messages = (deliverMock.mock.calls as [{ to: string; bcc?: string }][]).map(([message]) => message)
+        expect(messages.map((message) => message.to).sort()).toEqual(orgMembers.map((m) => m.email).sort())
+        for (const message of messages) expect(message.bcc).toBeUndefined()
+    })
+
+    it('sendStudyProposalEmails dates a revised proposal by its resubmission, not the first submission', async () => {
+        const { study, user2 } = await insertTestOrgStudyJobUsers()
+        await db
+            .updateTable('study')
+            .set({ submittedAt: new Date('2026-01-05') })
+            .where('id', '=', study.id)
+            .execute()
+        await db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId: study.id,
+                authorId: user2.id,
+                authorRole: 'RESEARCHER',
+                entryType: 'RESUBMISSION-NOTE',
+                body: JSON.stringify({ text: 'revised the methodology' }),
+                version: 2,
+                createdAt: new Date('2026-03-10T12:00:00'),
+            })
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
+        expect(message.vars.submittedOn).toBe('03/10/2026')
     })
 
     it('sendStudyAgreementReadyEmail reaches the researcher, greeted by name', async () => {
@@ -72,7 +113,6 @@ describe('mailgun email functions', () => {
                 template: 'vb - sla ready for acknowledgment',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
-                    studyName: study.title,
                     fullName: researcher.fullName,
                     dataPartner: dataPartner.name,
                 }),
@@ -114,6 +154,21 @@ describe('mailgun email functions', () => {
         expect(recipients).toContain(user2.email)
     })
 
+    // Any lab member can finalize a draft someone else created; only the CREATED audit row names them.
+    it('sendStudyProposalApprovedEmail reaches a co-author who submitted the proposal', async () => {
+        const { study, user2: coAuthor } = await insertTestOrgStudyJobUsers()
+        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id })
+
+        await mailgun.sendStudyProposalApprovedEmail(study.id)
+
+        expect(deliverMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                to: coAuthor.email,
+                vars: expect.objectContaining({ fullName: coAuthor.fullName }),
+            }),
+        )
+    })
+
     // piName is a plain string on the proposal, so most studies have no second address to reach. The
     // PI is only mailable once piUserId points at an account.
     it('sendStudyAgreementReadyEmail adds the PI once they hold an account, without duplicating them', async () => {
@@ -136,9 +191,9 @@ describe('mailgun email functions', () => {
         await mailgun.sendStudyAgreementReadyEmail(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
-        const studyURL = message.vars.studyURL as string
-        expect(studyURL).toContain(Routes.studySubmitted({ orgSlug: researchLab.slug, studyId: study.id }))
-        expect(studyURL).not.toContain(Routes.studySubmitted({ orgSlug: dataPartner.slug, studyId: study.id }))
+        const actionURL = message.vars.actionURL as string
+        expect(actionURL).toContain(Routes.studySubmitted({ orgSlug: researchLab.slug, studyId: study.id }))
+        expect(actionURL).not.toContain(Routes.studySubmitted({ orgSlug: dataPartner.slug, studyId: study.id }))
     })
 
     const insertSiAdmin = async () => {
@@ -171,10 +226,9 @@ describe('mailgun email functions', () => {
                 template: 'vb - sla notice',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
-                    studyName: study.title,
                     researchLab: org.name,
                     dataPartner: org.name,
-                    studyURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                     legalURL: expect.stringContaining(Routes.adminSafeinsightsLegal),
                 }),
             }),
@@ -218,183 +272,148 @@ describe('mailgun email functions', () => {
         expect(deliverMock).not.toHaveBeenCalled()
     })
 
-    it('sendStudyCodeSubmittedEmail sends all org members in Bcc, not To (OTTER-651)', async () => {
-        const { study, user1 } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
+    it('sendStudyCodeSubmittedEmail greets each proposal decider once, linking to the study review', async () => {
+        const { study, org, user2: decider } = await insertTestOrgStudyJobUsers()
+        await insertTestProposalDecision({ studyId: study.id, authorId: decider.id })
+        await insertTestProposalDecision({ studyId: study.id, authorId: decider.id })
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
 
+        // user1, the researcher, is also an org member but never decided on the proposal.
+        expect(deliverMock).toHaveBeenCalledTimes(1)
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: SI_EMAIL,
-                bcc: expect.stringContaining(user1.email || ''),
-                subject: 'Study code submitted for review',
+                to: decider.email,
+                subject: 'Code needs review',
                 template: 'vb - new code submission',
                 vars: expect.objectContaining({
+                    fullName: decider.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=reviewer'),
+                    researchLab: org.name,
+                    actionURL: expect.stringContaining(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
                 }),
             }),
         )
     })
 
-    it('sendStudyProposalApprovedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
+    it.each([
+        ['sendDataPartnerCodeErroredEmail', 'Code errored', 'vb - dp - code errored'],
+        ['sendDataPartnerOutputsNeedReviewEmail', 'Outputs need review', 'vb - dp - outputs need review'],
+    ] as const)(
+        '%s reaches whoever decided on the proposal or the code, linking to the review',
+        async (send, subject, template) => {
+            const { study, org, job, user1: researcher, user2: proposalDecider } = await insertTestOrgStudyJobUsers()
+            const { user: codeDecider } = await insertTestUser({ org })
+            await insertTestProposalDecision({ studyId: study.id, authorId: proposalDecider.id })
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId: study.id,
+                    studyJobId: job.id,
+                    authorId: codeDecider.id,
+                    reviewKind: 'CODE',
+                    entryType: 'DECISION',
+                    decision: 'APPROVE',
+                    body: JSON.stringify({ text: 'looks good' }),
+                })
+                .execute()
 
-        await mailgun.sendStudyProposalApprovedEmail(study.id)
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Proposal Approved'),
-                template: 'vb - research proposal approved',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
+            await mailgun[send](study.id)
+
+            const recipients = (deliverMock.mock.calls as [{ to: string }][]).map(([message]) => message.to)
+            expect(recipients.sort()).toEqual([proposalDecider.email, codeDecider.email].sort())
+            expect(recipients).not.toContain(researcher.email)
+            expect(deliverMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    to: codeDecider.email,
+                    subject,
+                    template,
+                    vars: expect.objectContaining({
+                        fullName: codeDecider.fullName,
+                        studyTitle: study.title,
+                        researchLab: org.name,
+                        actionURL: expect.stringContaining(
+                            Routes.studyReview({ orgSlug: org.slug, studyId: study.id }),
+                        ),
+                    }),
                 }),
-            }),
-        )
-    })
+            )
+        },
+    )
 
-    it('sendStudyProposalRejectedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
-
-        await mailgun.sendStudyProposalRejectedEmail(study.id)
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Proposal Rejected'),
-                template: 'vb - research proposal rejected',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
-            }),
-        )
-    })
-
-    it('mass emails never put recipient addresses in To (OTTER-651 regression)', async () => {
+    it('sendStudyCodeSubmittedEmail still reaches a decider who has since left the Data Partner', async () => {
         const { study } = await insertTestOrgStudyJobUsers()
-
-        const orgMembers = await db
-            .selectFrom('user')
-            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
-            .distinctOn('user.id')
-            .select(['user.email'])
-            .where('orgUser.orgId', '=', study.orgId)
-            .execute()
-        const allEmails = orgMembers.map((m) => m.email).filter(Boolean)
-
-        expect(allEmails.length).toBeGreaterThan(1)
-
-        await mailgun.sendStudyProposalEmails(study.id)
-        const proposalCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
-        expect(proposalCall.to).toBe(SI_EMAIL)
-        for (const email of allEmails) {
-            expect(proposalCall.to).not.toContain(email)
-            expect(proposalCall.bcc).toContain(email)
-        }
+        const elsewhere = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const { user: formerMember } = await insertTestUser({ org: elsewhere })
+        await insertTestProposalDecision({ studyId: study.id, authorId: formerMember.id })
 
         await mailgun.sendStudyCodeSubmittedEmail(study.id)
-        const codeCall = deliverMock.mock.calls.at(-1)![0] as { to: string; bcc?: string }
-        expect(codeCall.to).toBe(SI_EMAIL)
-        for (const email of allEmails) {
-            expect(codeCall.to).not.toContain(email)
-            expect(codeCall.bcc).toContain(email)
-        }
+
+        expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ to: formerMember.email }))
     })
 
-    it('sendResultsReadyForReviewEmail calls deliver for reviewer', async () => {
-        const { study, user1: reviewer } = await insertTestOrgStudyJobUsers()
-        await db.updateTable('study').set({ reviewerId: reviewer.id }).where('id', '=', study.id).execute()
-
-        await mailgun.sendResultsReadyForReviewEmail(study.id)
-
-        expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: reviewer.email,
-                subject: expect.stringContaining('ready for review'),
-                template: 'vb - encrypted results ready for review',
-                vars: expect.objectContaining({
-                    fullName: reviewer.fullName,
-                    studyTitle: study.title,
-                    submittedBy: expect.any(String),
-                    dashboardURL: expect.stringContaining('/dashboard?audience=reviewer'),
-                }),
-            }),
-        )
-    })
-
-    it('sendStudyCodeApprovedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
+    it.each([
+        ['sendStudyProposalApprovedEmail', 'Proposal approved', 'vb - research proposal approved'],
+        ['sendStudyProposalRejectedEmail', 'Proposal declined', 'vb - research proposal rejected'],
+        ['sendStudyProposalNeedsRevisionEmail', 'Proposal needs revision', 'vb - research proposal needs revision'],
+        ['sendStudyCodeApprovedEmail', 'Study code approved', 'vb - code approved'],
+        ['sendStudyCodeNeedsRevisionEmail', 'Code needs revision', 'vb - code needs revision'],
+        ['sendLabCodeErroredEmail', 'Code errored', 'vb - rl - code errored'],
+        ['sendLabOutputsNeedReviewEmail', 'Outputs need review', 'vb - rl - outputs need review'],
+    ] as const)('%s tells each lab party by name, linking through the lab', async (send, subject, template) => {
+        const { study, org: dataPartner, user2: pi } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db
+            .updateTable('study')
+            .set({ submittedByOrgId: researchLab.id, piUserId: pi.id })
+            .where('id', '=', study.id)
+            .execute()
         const researcher = await getUser(study.researcherId)
 
-        await mailgun.sendStudyCodeApprovedEmail(study.id)
+        await mailgun[send](study.id)
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: researcher.email,
-                subject: expect.stringContaining('Code Approved'),
-                template: 'vb - code approved',
+                subject,
+                template,
                 vars: expect.objectContaining({
                     fullName: researcher.fullName,
                     studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
+                    researchLab: researchLab.name,
+                    dataPartner: dataPartner.name,
+                    actionURL: expect.stringContaining(
+                        Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+                    ),
                 }),
             }),
         )
-    })
-
-    it('sendStudyResultsApprovedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
-
-        await mailgun.sendStudyResultsApprovedEmail(study.id)
-
         expect(deliverMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Results'),
-                template: 'vb - study results approved',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
-            }),
+            expect.objectContaining({ to: pi.email, vars: expect.objectContaining({ fullName: pi.fullName }) }),
         )
     })
 
-    it('sendStudyResultsRejectedEmail calls deliver for researcher', async () => {
-        const { study, org } = await insertTestOrgStudyJobUsers()
-        const researcher = await getUser(study.researcherId)
+    it.each([
+        'sendStudyCodeApprovedEmail',
+        'sendStudyCodeNeedsRevisionEmail',
+        'sendLabCodeErroredEmail',
+        'sendLabOutputsNeedReviewEmail',
+    ] as const)('%s also reaches whoever submitted a version of the code', async (send) => {
+        const { study, job } = await insertTestOrgStudyJobUsers()
+        const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
+        const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
+            .execute()
 
-        await mailgun.sendStudyResultsRejectedEmail(study.id)
+        await mailgun[send](study.id)
 
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: researcher.email,
-                subject: expect.stringContaining('Results'),
-                template: 'vb - study results rejected',
-                vars: expect.objectContaining({
-                    fullName: researcher.fullName,
-                    studyTitle: study.title,
-                    submittedBy: researcher.fullName,
-                    submittedTo: org.name,
-                    dashboardURL: expect.stringContaining('/dashboard?audience=researcher'),
-                }),
+                to: codeSubmitter.email,
+                vars: expect.objectContaining({ fullName: codeSubmitter.fullName }),
             }),
         )
     })
