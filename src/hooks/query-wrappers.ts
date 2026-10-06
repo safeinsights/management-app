@@ -19,7 +19,11 @@ import { reportError } from '@/components/errors'
  * told to the reader by naming the title to show; without it the failure is reported nowhere, which
  * is what left a failed poll silent until the next submit (OTTER-726).
  */
-type QueryMeta = { errorMessage?: string }
+type QueryMeta = {
+    errorMessage?: string
+    // For a query whose cached data stays usable when a background refetch fails.
+    reportOnlyWithoutData?: boolean
+}
 
 declare module '@tanstack/react-query' {
     interface Register {
@@ -28,10 +32,10 @@ declare module '@tanstack/react-query' {
 }
 
 // The query cache's error handler, shared with the test client so tests report what the app reports.
-export const reportQueryError = (error: unknown, query: { meta?: QueryMeta }) => {
-    if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
-        reportError(error, query.meta?.errorMessage)
-    }
+export const reportQueryError = (error: unknown, query: { meta?: QueryMeta; state: { data: unknown } }) => {
+    const { meta } = query
+    const quiet = !meta?.errorMessage || (meta.reportOnlyWithoutData && query.state.data !== undefined)
+    if (isStaleDeploymentError(error) || !quiet) reportError(error, meta?.errorMessage)
 }
 
 export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }

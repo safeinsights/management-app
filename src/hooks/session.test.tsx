@@ -21,7 +21,7 @@ import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { notifications } from '@mantine/notifications'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { findOrCreateOrgMembership } from '@/server/mutations'
-import { useReloadOrgList, useSession } from './session'
+import { CURRENT_USER_INFO_KEY, useReloadOrgList, useSession } from './session'
 
 type TestQueryClient = ReturnType<typeof createTestQueryClient>
 
@@ -187,6 +187,21 @@ describe('useSession', () => {
         expect(notifications.show).toHaveBeenCalledTimes(1)
         const lists = screen.getAllByRole('status', { name: 'session orgs' })
         expect(lists.map((list) => list.textContent)).toEqual(['loading', 'loading'])
+    })
+
+    // The app refetches every query every 15 minutes; a failure then still leaves a usable list.
+    it('stays quiet when a background refresh fails while the list is on screen', async () => {
+        const userId = faker.string.uuid()
+        mockClerkSession({ clerkUserId: 'c1', userId, orgSlug: 'from-clerk', slimMetadata: true })
+        ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
+        const queryClient = appLikeQueryClient()
+        renderWithLayoutInfo(serverInfoFor(userId), queryClient)
+
+        await act(() => queryClient.refetchQueries({ queryKey: CURRENT_USER_INFO_KEY }))
+
+        expect(queryClient.getQueryState([...CURRENT_USER_INFO_KEY, 'c1'])?.status).toBe('error')
+        expect(notifications.show).not.toHaveBeenCalled()
+        expect(orgList()).toHaveTextContent('from-server')
     })
 
     it('ignores the layout org list once Clerk reports the user signed out', () => {

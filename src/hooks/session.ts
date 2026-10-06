@@ -51,7 +51,7 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
         // consumer would ask again and report the same failure again.
         refetchOnWindowFocus: false,
         retryOnMount: false,
-        meta: { errorMessage: 'Failed to load your organizations' },
+        meta: { errorMessage: 'Failed to load your organizations', reportOnlyWithoutData: true },
     })
 
     // Before Clerk loads, only the layout's list exists, and it is what the server rendered with.
