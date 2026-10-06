@@ -137,8 +137,8 @@ describe('mailgun email functions', () => {
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
         const studyURL = message.vars.studyURL as string
-        expect(studyURL).toContain(Routes.studySubmitted({ orgSlug: researchLab.slug, studyId: study.id }))
-        expect(studyURL).not.toContain(Routes.studySubmitted({ orgSlug: dataPartner.slug, studyId: study.id }))
+        expect(studyURL).toContain(Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }))
+        expect(studyURL).not.toContain(Routes.studyView({ orgSlug: dataPartner.slug, studyId: study.id }))
     })
 
     const insertSiAdmin = async () => {

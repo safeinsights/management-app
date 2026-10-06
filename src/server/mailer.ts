@@ -292,7 +292,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
         return
     }
 
-    const studyURL = `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`
+    const studyURL = `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`
 
     await Promise.all(
         recipients.map((recipient) =>
