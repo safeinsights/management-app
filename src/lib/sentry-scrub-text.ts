@@ -1,11 +1,11 @@
 export const REDACTED = '[Filtered]'
 
-// Tested against snake_case, so camelCase keys such as `userEmail` match too. Final list agreed
-// with InfoSec (OTTER-707).
+// Tested against snake_case, so camelCase keys such as `userEmail` match too. List pending
+// InfoSec review (OTTER-707).
 const SENSITIVE_KEY_PATTERN =
     /(?:^|[_.-])(?:authorization|auth|bearer|jwt|password|passwd|secret|token|api[_.-]?key|session|cookie|credential|private[_.-]?key|access[_.-]?key|e[_.-]?mail|ssn|phone|dob|birth[_.-]?date)s?(?:[_.-]|$)/i
 
-// Every quantifier is bounded and matches start only where they can, because scrubText runs
+// Every quantifier is bounded and no two parts can match the same text, because scrubText runs
 // synchronously on every string sent to Sentry and must stay linear on hostile input.
 
 // A JWT is only matched at the start of a base64url run, so a run of `eyJ` is scanned once.
@@ -23,7 +23,7 @@ const PAIR_VALUE_PATTERN =
 
 // Flags and counts whose names only match SENSITIVE_KEY_PATTERN by coincidence. Values still
 // go through scrubDeep/scrubText, so an email or token inside them is still redacted. List
-// signed off by InfoSec (OTTER-707).
+// pending InfoSec review (OTTER-707).
 const ALLOWED_KEYS = new Set([
     'tokenCount',
     'tokenType',

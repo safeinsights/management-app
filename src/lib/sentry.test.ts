@@ -252,6 +252,38 @@ describe('scrubSentryEvent, paths outside request', () => {
     })
 })
 
+describe('scrubSentryEvent, event metadata', () => {
+    it('scrubs the transaction name, tags, logentry and exception mechanism data', () => {
+        const event = makeEvent({
+            transaction: '/invite/pat@example.org',
+            tags: { orgs: 'openstax,rice-university,org-1', email: 'pat@example.org', note: 'token=abc' },
+            logentry: { message: 'failed for pat@example.org', params: ['pat@example.org', 3] },
+            exception: {
+                values: [
+                    { type: 'Error', mechanism: { type: 'generic', data: { url: '/x?token=abc', handler: 'h' } } },
+                ],
+            },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.transaction).toBe('/invite/[Filtered]')
+        expect(result.tags).toEqual({
+            orgs: 'openstax,rice-university,org-1',
+            email: '[Filtered]',
+            note: 'token=[Filtered]',
+        })
+        expect(result.logentry).toEqual({ message: 'failed for [Filtered]', params: ['[Filtered]', 3] })
+        expect(result.exception!.values![0].mechanism!.data).toEqual({ url: '/x?token=[Filtered]', handler: 'h' })
+    })
+
+    it('drops every user field when there is no id', () => {
+        const event = makeEvent({ user: { email: 'pat@example.org', ip_address: '1.2.3.4' } })
+
+        expect(scrubSentryEvent(event).user).toEqual({})
+    })
+})
+
 describe('key and text matching', () => {
     it('redacts camelCase keys and the newly listed terms', () => {
         const event = makeEvent({

@@ -140,6 +140,9 @@ function scrubCommon<T extends Event>(event: T): T {
     if (event.contexts) event.contexts = scrubDeep(event.contexts) as typeof event.contexts
     if (event.breadcrumbs) event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb)
     if (event.message) event.message = scrubText(event.message)
+    if (event.transaction) event.transaction = scrubText(event.transaction)
+    if (event.tags) event.tags = scrubDeep(event.tags) as typeof event.tags
+    if (event.logentry) event.logentry = scrubDeep(event.logentry) as typeof event.logentry
     if (event.user) event.user = event.user.id === undefined ? {} : { id: event.user.id }
     return event
 }
@@ -147,6 +150,9 @@ function scrubCommon<T extends Event>(event: T): T {
 export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent {
     for (const exception of event.exception?.values ?? []) {
         if (exception.value) exception.value = scrubText(exception.value)
+        if (exception.mechanism?.data) {
+            exception.mechanism.data = scrubDeep(exception.mechanism.data) as typeof exception.mechanism.data
+        }
         for (const frame of exception.stacktrace?.frames ?? []) {
             if (frame.vars) frame.vars = scrubDeep(frame.vars) as typeof frame.vars
         }
