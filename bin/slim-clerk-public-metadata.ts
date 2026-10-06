@@ -28,7 +28,7 @@ async function slimUser(clerk: ClerkClient, user: User, apply: boolean, totals: 
     totals.found++
     const userId = metadata.user?.id
     if (!userId) {
-        // marshalSession() repairs this user at the next sign-in.
+        // marshalSession() repairs this user at their next authenticated request (needsUpdate).
         console.log(`skip ${user.id}: publicMetadata has no user.id`)
         totals.skipped++
         return before
@@ -66,12 +66,17 @@ async function main() {
     const totals: Totals = { found: 0, slimmed: 0, skipped: 0, failed: 0 }
     let largestBefore = 0
     let largestAfter = 0
+    // Skipped pre-v3 users keep their size, so only this value shows whether the run worked.
+    let largestAfterWithUserId = 0
 
     for (let offset = 0; ; offset += PAGE_SIZE) {
-        const { data } = await clerk.users.getUserList({ limit: PAGE_SIZE, offset })
+        // Oldest first, so sign-ups during the run land at the end and do not shift the offset window.
+        const { data } = await clerk.users.getUserList({ limit: PAGE_SIZE, offset, orderBy: '+created_at' })
         for (const user of data) {
             largestBefore = Math.max(largestBefore, byteSize(user.publicMetadata))
-            largestAfter = Math.max(largestAfter, await slimUser(clerk, user, apply, totals))
+            const after = await slimUser(clerk, user, apply, totals)
+            largestAfter = Math.max(largestAfter, after)
+            if (user.publicMetadata.user?.id) largestAfterWithUserId = Math.max(largestAfterWithUserId, after)
         }
         if (data.length < PAGE_SIZE) break
     }
@@ -81,6 +86,7 @@ async function main() {
     console.log(`Skipped (no user.id): ${totals.skipped}`)
     console.log(`Failed: ${totals.failed}`)
     console.log(`Largest publicMetadata: ${largestBefore} bytes before, ${largestAfter} bytes after`)
+    console.log(`Largest publicMetadata after, users with user.id: ${largestAfterWithUserId} bytes`)
 
     if (totals.failed > 0) process.exitCode = 1
 }
