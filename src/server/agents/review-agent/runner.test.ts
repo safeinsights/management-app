@@ -49,14 +49,13 @@ const insertMainCode = (studyJobId: string) =>
         .values({ studyJobId, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
         .execute()
 
-// Zero-padded so the alphabetical order matches the numeric order.
 const insertSupplementalCode = (studyJobId: string, count: number) =>
     db
         .insertInto('studyJobFile')
         .values(
             Array.from({ length: count }, (_, i) => ({
                 studyJobId,
-                name: `helper_${String(i).padStart(2, '0')}.r`,
+                name: `helper_${i}.r`,
                 path: `studies/helper_${i}.r`,
                 fileType: 'SUPPLEMENTAL-CODE' as const,
             })),
