@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { CODER_DISABLED, DEV_ENV, getConfigValue } from '@/server/config'
+import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { fetchFileContents } from '@/server/storage'
 import { latestStudyJobCreatedAt } from '@/server/db/mutations'
@@ -8,14 +8,6 @@ import { writeAgentContext } from '@/server/context-writer'
 import { pathForStarterCode } from '@/lib/paths'
 import { templateFileNameFor } from '@/lib/languages'
 import { db, type DBExecutor } from '@/database'
-
-export async function cleanupCoderDevFiles() {
-    if (!DEV_ENV || !CODER_DISABLED) return
-
-    const coderFilesPath = await getConfigValue('CODER_FILES')
-    await fs.rm(coderFilesPath, { recursive: true, force: true })
-    await fs.mkdir(coderFilesPath, { recursive: true })
-}
 
 async function devDirHasFiles(dir: string): Promise<boolean> {
     try {
@@ -37,7 +29,7 @@ export async function copyStarterCodeIntoDevWorkspace(
 ): Promise<string | null> {
     if (!CODER_DISABLED) return null
 
-    const coderFilesPath = await getConfigValue('CODER_FILES')
+    const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
     const codeEnv = await fetchLatestCodeEnvForStudyIdOrNull(studyId)
     if (!codeEnv || codeEnv.starterCodeFileNames.length === 0) return null
 
@@ -68,7 +60,7 @@ export async function copyStarterCodeIntoDevWorkspace(
 export async function initializeDevWorkspaceFiles(studyId: string) {
     if (!CODER_DISABLED) return
 
-    const coderFilesPath = await getConfigValue('CODER_FILES')
+    const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
 
     await copyStarterCodeIntoDevWorkspace(studyId)
 

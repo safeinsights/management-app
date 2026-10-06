@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import { getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -16,11 +16,7 @@ import {
 } from '@/lib/types'
 
 async function getStudyFilesPath(studyId: string) {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
-    return coderFilesPath
+    return path.join(await getConfigValue('CODER_FILES'), studyId)
 }
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })

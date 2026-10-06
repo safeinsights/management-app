@@ -940,8 +940,7 @@ export const writeWorkspaceFiles = async (
     studyId: string,
     files: Record<string, string | Uint8Array>,
 ) => {
-    const { CODER_DISABLED } = await import('@/server/config')
-    const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
+    const workspaceDir = path.join(root, studyId)
     await fs.promises.mkdir(workspaceDir, { recursive: true })
     await Promise.all(
         Object.entries(files).map(([fileName, content]) =>

@@ -22,10 +22,7 @@ import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-co
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
+    const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
 
     let entries: string[]
     try {
@@ -60,10 +57,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
             ]),
         )
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
 
         let entries: string[] = []
         try {
