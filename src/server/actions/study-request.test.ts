@@ -1496,7 +1496,9 @@ describe('Request Study Actions', () => {
                 resubmissionNote: 'my copy of the fix',
             })
 
-            expect(result).toEqual({ error: { submission: 'This code can no longer be resubmitted' } })
+            expect(result).toEqual({
+                error: { code: 'has already been submitted for review and can no longer be changed' },
+            })
             expect(aws.deleteFolderContents).not.toHaveBeenCalled()
             expect(await codeFilesFor(study.id)).toEqual(filesBefore)
             expect((await resubmissionNotesFor(job.id)).map((n) => n.text)).toEqual(['addressed the feedback'])

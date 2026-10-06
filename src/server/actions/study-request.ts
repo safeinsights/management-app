@@ -13,7 +13,6 @@ import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/co
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -36,9 +35,8 @@ import {
     resubmissionNoteCharacterCount,
     resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { requireStudyAgreement } from '@/server/study-agreement'
-import { requireUnsubmittedCodeRound } from '@/server/study-code-gate'
+import { requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -726,17 +724,13 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
+    // study.status stays APPROVED during code resubmission; the decision lives on the job, so
+    // eligibility comes from the same projected state the resubmit page renders from.
+    .middleware(requireResubmittableCode(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, note }, session }) => {
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
-
-        // study.status stays APPROVED during code resubmission; the decision lives on the job, so
-        // eligibility comes from the same projected state the resubmit page renders from.
-        const raw = await rawStudyStateForStudy(studyId, db)
-        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
-            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
-        }
 
         // The 0-row check turns a cross-lab attempt into a hard failure instead of letting the
         // client's autosave indicator report "saved" when nothing persisted.
@@ -795,16 +789,11 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
+    // Also locks the study row, so a co-author's concurrent resubmit of the same round stops here
+    // instead of replacing the first one's files in S3.
+    .middleware(requireResubmittableCode(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
-
-        // Serializes co-authors on the study row: the second resubmit waits, then reads the state
-        // the first one committed and stops here, before it replaces the first one's files in S3.
-        await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().executeTakeFirstOrThrow()
-        const raw = await rawStudyStateForStudy(studyId, db)
-        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
-            throw new ActionFailure({ submission: 'This code can no longer be resubmitted' })
-        }
 
         if (fileNames.length === 0) throw new Error('No files provided')
         if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
