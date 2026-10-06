@@ -38,7 +38,7 @@ import {
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { requireStudyAgreement } from '@/server/study-agreement'
-import { requireUnsubmittedCodeRound } from '@/server/study-code-gate'
+import { requireOpenedCodeRound, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -529,6 +529,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     // enforced here rather than left to markCodeSubmitted, which swallowed a second one (OTTER-693).
     // A resubmission goes through resubmitStudyCodeAction, which requires a resubmission note.
     .middleware(requireUnsubmittedCodeRound(({ params }) => params.studyId))
+    .middleware(requireOpenedCodeRound(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')

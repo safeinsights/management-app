@@ -167,13 +167,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     })
 
 /**
- * OTTER-693: puts the Data Partner's template in the workspace before anyone launches an IDE, so
- * the Submit code page opens on a starred Main.{x} row rather than the empty state.
- *
- * Copies only into an empty workspace, which is what keeps it from resurrecting a template the
- * researcher replaced, and they cannot empty it by deleting the template, since a main file cannot
- * be deleted. It opens no round job: a job is what reads as "Code draft", and spec rows 8 and 9 tie
- * that to the first launch or upload, not to a page view (OTTER-698).
+ * OTTER-693: copies the Data Partner's template into an empty workspace and stars it, so /code
+ * opens on Main.{x}. Empty-only, so a replaced template never comes back. Opens no round job: a job
+ * reads as "Code draft", which only a launch or upload may start (OTTER-698).
  */
 export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePreloadAction', {
     performsMutations: true,
@@ -182,8 +178,7 @@ export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePrelo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
-        // Skipped rather than refused: the page calls this on every load, including view-only visits
-        // to a submitted round, whose workspace and main file must stay as submitted.
+        // Skipped, not refused: the page calls this on every load, view-only visits included.
         const state = await studyCodeStateFor(db, studyId)
         if (!state || !canResearcherChangeCodeFiles(state)) return { preloaded: false }
 
