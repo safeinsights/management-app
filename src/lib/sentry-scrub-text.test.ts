@@ -88,6 +88,17 @@ describe('scrubText, JWTs after URL-encoded chars', () => {
     })
 })
 
+describe('scrubText, stack traces', () => {
+    it.each([
+        'at verify (/app/src/server/auth.ts:12:5)',
+        'at load (src/lib/session.ts:40:3)',
+        'at render (/app/.next/server/token.mjs:7:1)',
+        'at parse (/app/config/secrets.json:2:9)',
+    ])('keeps line and column after a source file whose name is a sensitive term: %s', (input) => {
+        expect(scrubText(input)).toBe(input)
+    })
+})
+
 describe('scrubText, auth schemes and package versions', () => {
     it.each([
         ['Basic', 'sent Basic dXNlcm5hbWU6cGFzc3dvcmQ= upstream', 'sent Basic [Filtered] upstream'],

@@ -19,6 +19,8 @@ const EMAIL_PATTERN = /[\w.+%-]{1,64}(?:@|%40)[\w-]{1,63}(?:\.[\w-]{1,63}){0,8}\
 // `key=`, `key:`, `"key":` or `\"key\":` (escaped JSON). The leading non-key character means
 // matching only starts at the head of a key, which keeps the scan linear.
 const PAIR_KEY_PATTERN = /(?:^|[^\w.-])(\\?["']|)([\w.-]{1,128})\1\s{0,8}[:=]/g
+// Stack frames read `auth.ts:12:5`; the file name is not a key and the line number is no secret.
+const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|json)$/
 // The value after a sensitive key: a quoted or escaped-quoted string, a one-level array or
 // object, or a bare word with an optional auth scheme. Closing marks are optional, as Sentry
 // may have truncated the string.
@@ -68,7 +70,7 @@ function scrubPairs(text: string): string {
         const valueStart = PAIR_KEY_PATTERN.lastIndex
         // Rescan from the separator, so it can be the boundary before the next key.
         PAIR_KEY_PATTERN.lastIndex = valueStart - 1
-        if (!isSensitiveKey(key[2])) continue
+        if (SOURCE_FILE_PATTERN.test(key[2]) || !isSensitiveKey(key[2])) continue
         PAIR_VALUE_PATTERN.lastIndex = valueStart
         const value = PAIR_VALUE_PATTERN.exec(text)
         if (!value) continue
