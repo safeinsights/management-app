@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
-import type { Breadcrumb, ErrorEvent, Event, EventHint } from '@sentry/nextjs'
+import type { Breadcrumb, ErrorEvent, Event, EventHint, Log } from '@sentry/nextjs'
 import { UserSession } from './types'
 
 export function setSentryFromSession(session: UserSession) {
@@ -155,4 +155,27 @@ export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEve
         }
     }
     return scrubCommon(event)
+}
+
+export function scrubSentryTransaction<T extends Event>(event: T): T {
+    for (const span of event.spans ?? []) {
+        if (span.description) span.description = scrubText(span.description)
+        if (span.data) span.data = scrubDeep(span.data) as typeof span.data
+    }
+    return scrubCommon(event)
+}
+
+export function scrubSentryLog(log: Log): Log {
+    return {
+        ...log,
+        message: scrubText(String(log.message)),
+        attributes: log.attributes && (scrubDeep(log.attributes) as Log['attributes']),
+    }
+}
+
+// Spread into every Sentry.init, so each runtime gets every hook.
+export const sentryScrubOptions = {
+    beforeSend: scrubSentryEvent,
+    beforeSendTransaction: scrubSentryTransaction,
+    beforeSendLog: scrubSentryLog,
 }

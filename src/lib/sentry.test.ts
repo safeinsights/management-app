@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { ErrorEvent } from '@sentry/nextjs'
-import { scrubSentryEvent, scrubText } from './sentry'
+import type { ErrorEvent, Event, Log } from '@sentry/nextjs'
+import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, scrubText } from './sentry'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
     return { type: undefined, ...overrides } as ErrorEvent
@@ -253,5 +253,48 @@ describe('key and text matching', () => {
         const result = scrubSentryEvent(event)
 
         expect(result.extra).toEqual({ sessionId: '[Filtered]' })
+    })
+})
+
+describe('scrubSentryTransaction', () => {
+    it('scrubs span descriptions, span data and breadcrumbs', () => {
+        const event = {
+            type: 'transaction',
+            spans: [
+                {
+                    span_id: '1',
+                    trace_id: 't',
+                    start_timestamp: 0,
+                    description: 'GET /api/x?token=abc',
+                    data: { 'http.query': '?api_key=k&page=1', authorization: 'Bearer z' },
+                },
+            ],
+            breadcrumbs: [{ message: 'pat@example.org' }],
+        } as unknown as Event
+
+        const result = scrubSentryTransaction(event)
+
+        expect(result.spans![0].description).toBe('GET /api/x?token=[Filtered]')
+        expect(result.spans![0].data).toEqual({
+            'http.query': '?api_key=[Filtered]&page=1',
+            authorization: '[Filtered]',
+        })
+        expect(result.breadcrumbs![0].message).toBe('[Filtered]')
+    })
+})
+
+describe('scrubSentryLog', () => {
+    it('scrubs the log message and attributes', () => {
+        const log: Log = {
+            level: 'error',
+            message: 'login failed for pat@example.org',
+            attributes: { 'sentry.message.parameter.0': 'Bearer abc', token: 't', route: '/x' },
+        }
+
+        expect(scrubSentryLog(log)).toEqual({
+            level: 'error',
+            message: 'login failed for [Filtered]',
+            attributes: { 'sentry.message.parameter.0': 'Bearer [Filtered]', token: '[Filtered]', route: '/x' },
+        })
     })
 })
