@@ -252,6 +252,8 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             .select([
                 'user.id',
                 'user.fullName',
+                'user.firstName',
+                'user.lastName',
                 'user.createdAt',
                 'user.email',
                 'orgUser.id as orgUserId',

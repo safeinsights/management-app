@@ -221,8 +221,6 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 
     const submitButton = page.getByRole('button', { name: /Submit code/i })
     await expect(submitButton).toBeEnabled()
-    // The fixed AppShell footer intercepts pointer events on Submit; scroll it clear.
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await submitButton.click()
 
     // Exact and dialog-scoped: Playwright matches names as substrings, and the page's own button is behind it.

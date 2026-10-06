@@ -16,13 +16,25 @@ describe('SideNavView', () => {
         expect(links[1]).toHaveAttribute('aria-current', 'page')
 
         const partnerRow = within(nav).getByRole('link', { name: /Open Data Partner/ })
-        expect(within(partnerRow).getByRole('img', { name: 'Data partner' })).toHaveTextContent('D')
+        expect(within(partnerRow).getByRole('img', { name: 'Data partner' })).toBeInTheDocument()
         expect(partnerRow).toHaveTextContent('Admin')
         expect(partnerRow).toHaveAttribute('href', Routes.orgDashboard({ orgSlug: 'partner' }))
 
         const labRow = within(nav).getByRole('link', { name: /Rice Lab/ })
-        expect(within(labRow).getByRole('img', { name: 'Research lab' })).toHaveTextContent('R')
+        expect(within(labRow).getByRole('img', { name: 'Research lab' })).toBeInTheDocument()
         expect(labRow).not.toHaveTextContent('Admin')
+    })
+
+    // The design fills the D square and only outlines the R one, so the two icons must not share a shape.
+    it('draws a different icon for each org type', () => {
+        renderWithProviders(<SideNavView orgs={[partner, lab]} focusedOrgSlug={null} pathname={Routes.dashboard} />)
+
+        const iconPath = (name: string) =>
+            screen.getByRole('img', { name }).querySelector('svg path')?.getAttribute('d') ?? ''
+
+        expect(iconPath('Data partner')).not.toBe('')
+        expect(iconPath('Research lab')).not.toBe('')
+        expect(iconPath('Data partner')).not.toBe(iconPath('Research lab'))
     })
 
     it('opens only the org in the path and marks its dashboard current on a study page', () => {

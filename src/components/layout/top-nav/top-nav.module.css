@@ -40,6 +40,14 @@
     text-overflow: ellipsis;
 }
 
+.avatar {
+    background: var(--si-color-surface-sidenav);
+    color: var(--si-color-text-white);
+    font-size: var(--si-font-size-12);
+    font-weight: var(--si-font-weight-semibold);
+    line-height: var(--si-line-height-tight);
+}
+
 .caret {
     display: inline-flex;
     margin-left: calc(var(--mantine-spacing-xxs) - var(--mantine-spacing-xs));
