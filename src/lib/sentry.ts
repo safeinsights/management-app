@@ -18,10 +18,43 @@ const SENSITIVE_HEADER_NAMES = [
     'x-clerk-auth-token',
 ]
 
+// Tested against snake_case, so camelCase keys such as `userEmail` match too. Final list agreed
+// with InfoSec (OTTER-707).
 const SENSITIVE_KEY_PATTERN =
-    /(^|[_-])(authorization|auth|password|passwd|secret|token|api[_-]?key|session|cookie|credential|private[_-]?key|access[_-]?key)([_-]|$)/i
+    /(^|[_-])(authorization|auth|bearer|jwt|password|passwd|secret|token|api[_-]?key|session|cookie|credential|private[_-]?key|access[_-]?key|e[_-]?mail|ssn|phone|dob|birth[_-]?date)([_-]|$)/i
 
 const REDACTED = '[Filtered]'
+
+const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g
+const BEARER_PATTERN = /\b(Bearer\s+)[\w.~+/-]+=*/gi
+const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g
+// The key excludes `?` and `/`, or a whole URL at the start of a string reads as one key.
+const QUERY_PARAM_PATTERN = /(^|[?&;])([^=&#?/\s]+)=([^&#\s]*)/g
+
+function isSensitiveKey(key: string): boolean {
+    return SENSITIVE_KEY_PATTERN.test(key.replace(/([a-z0-9])([A-Z])/g, '$1_$2'))
+}
+
+export function scrubText(text: string): string {
+    return text
+        .replace(JWT_PATTERN, REDACTED)
+        .replace(BEARER_PATTERN, `$1${REDACTED}`)
+        .replace(EMAIL_PATTERN, REDACTED)
+        .replace(QUERY_PARAM_PATTERN, (match, sep: string, key: string) =>
+            isSensitiveKey(key) ? `${sep}${key}=${REDACTED}` : match,
+        )
+}
+
+function scrubDeep(value: unknown): unknown {
+    if (typeof value === 'string') return scrubText(value)
+    if (value === null || typeof value !== 'object') return value
+    if (Array.isArray(value)) return value.map(scrubDeep)
+    const out: Record<string, unknown> = {}
+    for (const [key, inner] of Object.entries(value)) {
+        out[key] = isSensitiveKey(key) ? REDACTED : scrubDeep(inner)
+    }
+    return out
+}
 
 function scrubHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
     if (!headers) return headers
@@ -36,21 +69,6 @@ function scrubHeaders(headers: Record<string, string> | undefined): Record<strin
     return out
 }
 
-function scrubObjectKeys(obj: unknown): unknown {
-    if (obj === null || obj === undefined) return obj
-    if (Array.isArray(obj)) return obj.map(scrubObjectKeys)
-    if (typeof obj !== 'object') return obj
-    const out: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-        if (SENSITIVE_KEY_PATTERN.test(key)) {
-            out[key] = REDACTED
-        } else {
-            out[key] = scrubObjectKeys(value)
-        }
-    }
-    return out
-}
-
 function scrubQueryString(qs: unknown): unknown {
     if (!qs) return qs
     if (typeof qs === 'string') {
@@ -58,7 +76,7 @@ function scrubQueryString(qs: unknown): unknown {
             const params = new URLSearchParams(qs)
             let mutated = false
             for (const key of Array.from(params.keys())) {
-                if (SENSITIVE_KEY_PATTERN.test(key)) {
+                if (isSensitiveKey(key)) {
                     params.set(key, REDACTED)
                     mutated = true
                 }
@@ -70,13 +88,13 @@ function scrubQueryString(qs: unknown): unknown {
     }
     if (Array.isArray(qs)) {
         return qs.map((entry) => {
-            if (Array.isArray(entry) && entry.length === 2 && SENSITIVE_KEY_PATTERN.test(String(entry[0]))) {
+            if (Array.isArray(entry) && entry.length === 2 && isSensitiveKey(String(entry[0]))) {
                 return [entry[0], REDACTED]
             }
             return entry
         })
     }
-    return scrubObjectKeys(qs)
+    return scrubDeep(qs)
 }
 
 function scrubCookies(cookies: Record<string, string> | undefined): Record<string, string> | undefined {
@@ -93,13 +111,13 @@ export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEve
         event.request.headers = scrubHeaders(event.request.headers)
         event.request.cookies = scrubCookies(event.request.cookies)
         event.request.query_string = scrubQueryString(event.request.query_string) as typeof event.request.query_string
-        event.request.data = scrubObjectKeys(event.request.data)
+        event.request.data = scrubDeep(event.request.data)
     }
     if (event.extra) {
-        event.extra = scrubObjectKeys(event.extra) as Record<string, unknown>
+        event.extra = scrubDeep(event.extra) as Record<string, unknown>
     }
     if (event.contexts) {
-        event.contexts = scrubObjectKeys(event.contexts) as typeof event.contexts
+        event.contexts = scrubDeep(event.contexts) as typeof event.contexts
     }
     return event
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ErrorEvent } from '@sentry/nextjs'
-import { scrubSentryEvent } from './sentry'
+import { scrubSentryEvent, scrubText } from './sentry'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
     return { type: undefined, ...overrides } as ErrorEvent
@@ -61,7 +61,7 @@ describe('scrubSentryEvent', () => {
         const result = scrubSentryEvent(event)
 
         expect(result.request?.data).toEqual({
-            email: 'user@example.com',
+            email: '[Filtered]',
             password: '[Filtered]',
             nested: { api_key: '[Filtered]', safe: 'ok' },
             list: [{ access_token: '[Filtered]', other: 'fine' }],
@@ -119,5 +119,37 @@ describe('scrubSentryEvent', () => {
         const result = scrubSentryEvent(event)
         expect(result).toBe(event)
         expect(result.request).toBeUndefined()
+    })
+})
+
+describe('key and text matching', () => {
+    it('redacts camelCase keys and the newly listed terms', () => {
+        const event = makeEvent({
+            extra: {
+                userEmail: 'pat@example.org',
+                bearerValue: 'x',
+                jwt: 'x',
+                ssn: '123',
+                phoneNumber: '555',
+                componentStack: 'stack',
+            },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.extra).toEqual({
+            userEmail: '[Filtered]',
+            bearerValue: '[Filtered]',
+            jwt: '[Filtered]',
+            ssn: '[Filtered]',
+            phoneNumber: '[Filtered]',
+            componentStack: 'stack',
+        })
+    })
+
+    it('redacts emails, bearer tokens, JWTs and sensitive query params inside free text', () => {
+        expect(
+            scrubText('sent to pat@example.org with Bearer abc.def and eyJa.eyJb.sig, see /x?token=abc&page=2'),
+        ).toBe('sent to [Filtered] with Bearer [Filtered] and [Filtered], see /x?token=[Filtered]&page=2')
     })
 })
