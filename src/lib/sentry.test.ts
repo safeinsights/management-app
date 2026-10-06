@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ErrorEvent, Event, Log } from '@sentry/nextjs'
-import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, scrubText } from './sentry'
+import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, scrubText, sentryScrubOptions } from './sentry'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
     return { type: undefined, ...overrides } as ErrorEvent
@@ -296,5 +296,15 @@ describe('scrubSentryLog', () => {
             message: 'login failed for [Filtered]',
             attributes: { 'sentry.message.parameter.0': 'Bearer [Filtered]', token: '[Filtered]', route: '/x' },
         })
+    })
+})
+
+describe('sentryScrubOptions', () => {
+    // Guards the wiring: every runtime's Sentry.init spreads this object, so a hook
+    // pointing at the wrong function silently stops scrubbing for that event type.
+    it('wires each hook to its scrubber', () => {
+        expect(sentryScrubOptions.beforeSend).toBe(scrubSentryEvent)
+        expect(sentryScrubOptions.beforeSendTransaction).toBe(scrubSentryTransaction)
+        expect(sentryScrubOptions.beforeSendLog).toBe(scrubSentryLog)
     })
 })
