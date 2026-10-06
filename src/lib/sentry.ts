@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
-import type { ErrorEvent, EventHint } from '@sentry/nextjs'
+import type { Breadcrumb, ErrorEvent, Event, EventHint } from '@sentry/nextjs'
 import { UserSession } from './types'
 
 export function setSentryFromSession(session: UserSession) {
@@ -122,18 +122,37 @@ function scrubCookies(cookies: Record<string, string> | undefined): Record<strin
     return out
 }
 
-export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent {
+function scrubBreadcrumb(crumb: Breadcrumb): Breadcrumb {
+    return {
+        ...crumb,
+        message: crumb.message === undefined ? undefined : scrubText(crumb.message),
+        data: crumb.data && (scrubDeep(crumb.data) as Breadcrumb['data']),
+    }
+}
+
+// Paths that error and transaction events share.
+function scrubCommon<T extends Event>(event: T): T {
     if (event.request) {
+        if (event.request.url) event.request.url = scrubText(event.request.url)
         event.request.headers = scrubHeaders(event.request.headers)
         event.request.cookies = scrubCookies(event.request.cookies)
         event.request.query_string = scrubQueryString(event.request.query_string) as typeof event.request.query_string
         event.request.data = scrubDeep(event.request.data)
     }
-    if (event.extra) {
-        event.extra = scrubDeep(event.extra) as Record<string, unknown>
-    }
-    if (event.contexts) {
-        event.contexts = scrubDeep(event.contexts) as typeof event.contexts
-    }
+    if (event.extra) event.extra = scrubDeep(event.extra) as Record<string, unknown>
+    if (event.contexts) event.contexts = scrubDeep(event.contexts) as typeof event.contexts
+    if (event.breadcrumbs) event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb)
+    if (event.message) event.message = scrubText(event.message)
+    if (event.user) event.user = event.user.id === undefined ? {} : { id: event.user.id }
     return event
+}
+
+export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent {
+    for (const exception of event.exception?.values ?? []) {
+        if (exception.value) exception.value = scrubText(exception.value)
+        for (const frame of exception.stacktrace?.frames ?? []) {
+            if (frame.vars) frame.vars = scrubDeep(frame.vars) as typeof frame.vars
+        }
+    }
+    return scrubCommon(event)
 }

@@ -122,6 +122,58 @@ describe('scrubSentryEvent', () => {
     })
 })
 
+describe('scrubSentryEvent, paths outside request', () => {
+    it('scrubs breadcrumb messages and data', () => {
+        const event = makeEvent({
+            breadcrumbs: [
+                {
+                    category: 'fetch',
+                    message: 'mailed pat@example.org',
+                    data: { url: 'https://x.test/api?token=abc', authorization: 'Bearer q' },
+                },
+            ],
+        })
+
+        const [crumb] = scrubSentryEvent(event).breadcrumbs!
+
+        expect(crumb.message).toBe('mailed [Filtered]')
+        expect(crumb.data).toEqual({ url: 'https://x.test/api?token=[Filtered]', authorization: '[Filtered]' })
+    })
+
+    it('scrubs exception values and stack-frame variables', () => {
+        const event = makeEvent({
+            exception: {
+                values: [
+                    {
+                        type: 'Error',
+                        value: 'no user pat@example.org',
+                        stacktrace: { frames: [{ function: 'f', vars: { password: 'p', count: 2 } }] },
+                    },
+                ],
+            },
+        })
+
+        const [exception] = scrubSentryEvent(event).exception!.values!
+
+        expect(exception.value).toBe('no user [Filtered]')
+        expect(exception.stacktrace!.frames![0].vars).toEqual({ password: '[Filtered]', count: 2 })
+    })
+
+    it('scrubs the message and the request url, and keeps only the user id', () => {
+        const event = makeEvent({
+            message: 'failed for pat@example.org',
+            request: { url: 'https://x.test/a?token=abc' },
+            user: { id: 'u1', email: 'pat@example.org', ip_address: '1.2.3.4' },
+        })
+
+        const result = scrubSentryEvent(event)
+
+        expect(result.message).toBe('failed for [Filtered]')
+        expect(result.request?.url).toBe('https://x.test/a?token=[Filtered]')
+        expect(result.user).toEqual({ id: 'u1' })
+    })
+})
+
 describe('key and text matching', () => {
     it('redacts camelCase keys and the newly listed terms', () => {
         const event = makeEvent({
