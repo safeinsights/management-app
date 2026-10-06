@@ -404,6 +404,65 @@ describe('scrubSentryLog, console log bodies', () => {
     })
 })
 
+describe('scrubSentryLog, raw console arguments', () => {
+    function scrubParam(param: unknown): unknown {
+        const log: Log = { level: 'error', message: 'm', attributes: { 'sentry.message.parameter.0': param } }
+        return scrubSentryLog(log).attributes?.['sentry.message.parameter.0']
+    }
+
+    it('marks cycles instead of overflowing the stack', () => {
+        const cyclic: Record<string, unknown> = { note: 'pat@example.org' }
+        cyclic.self = cyclic
+
+        expect(scrubParam(cyclic)).toEqual({ note: '[Filtered]', self: '[Circular]' })
+    })
+
+    it('keeps an object referenced twice without a cycle', () => {
+        const shared = { page: 2 }
+
+        expect(scrubParam({ a: shared, b: shared })).toEqual({ a: { page: 2 }, b: { page: 2 } })
+    })
+
+    it('stops at a maximum depth', () => {
+        let deep: Record<string, unknown> = { leaf: 'pat@example.org' }
+        for (let i = 0; i < 10_000; i++) deep = { next: deep }
+
+        expect(JSON.stringify(scrubParam(deep))).toContain('[Truncated]')
+    })
+
+    it('scrubs a deeply nested JSON string without throwing', () => {
+        const nested = `${'['.repeat(50_000)}"pat@example.org"${']'.repeat(50_000)}`
+
+        expect(scrubParam(nested)).not.toContain('pat@example.org')
+    })
+
+    it('turns dates into ISO strings and binary data into a marker', () => {
+        expect(scrubParam({ at: new Date(0), bytes: new Uint8Array([1, 2]) })).toEqual({
+            at: '1970-01-01T00:00:00.000Z',
+            bytes: '[binary]',
+        })
+    })
+
+    it('keeps the name, message and stack of an error, scrubbed', () => {
+        const scrubbed = scrubParam(new Error('no user pat@example.org')) as Record<string, string>
+
+        expect(scrubbed.name).toBe('Error')
+        expect(scrubbed.message).toBe('no user [Filtered]')
+        expect(scrubbed.stack).toContain('no user [Filtered]')
+    })
+
+    it('redacts an object whose getter throws', () => {
+        const hostile = Object.defineProperty({}, 'x', {
+            enumerable: true,
+            get() {
+                throw new Error('no')
+            },
+        })
+
+        expect(scrubParam(hostile)).toBe('[Filtered]')
+    })
+})
+
 describe('sentryScrubOptions', () => {
     // Guards the wiring: every runtime's Sentry.init spreads this object, so a hook
     // pointing at the wrong function silently stops scrubbing for that event type.

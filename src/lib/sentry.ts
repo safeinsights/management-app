@@ -23,6 +23,8 @@ const SENSITIVE_HEADER_NAMES = [
     'x-amzn-oidc-data',
 ]
 
+const MAX_DEPTH = 20
+
 function parseJsonContainer(text: string): object | undefined {
     const first = text.trimStart().charAt(0)
     if (first !== '{' && first !== '[') return undefined
@@ -36,20 +38,42 @@ function parseJsonContainer(text: string): object | undefined {
 
 // Raw request bodies and logged payloads are often serialized JSON; parsing them lets key
 // matching redact whole nested values, which text matching cannot.
-function scrubString(text: string): string {
+function scrubString(text: string, ancestors: Set<object>): string {
     const parsed = parseJsonContainer(text)
-    return parsed === undefined ? scrubText(text) : JSON.stringify(scrubDeep(parsed))
+    return parsed === undefined ? scrubText(text) : JSON.stringify(scrubDeep(parsed, ancestors))
 }
 
-function scrubDeep(value: unknown): unknown {
-    if (typeof value === 'string') return scrubString(value)
-    if (value === null || typeof value !== 'object') return value
-    if (Array.isArray(value)) return value.map(scrubDeep)
-    const out: Record<string, unknown> = {}
-    for (const [key, inner] of Object.entries(value)) {
-        out[key] = isSensitiveKey(key) ? REDACTED : scrubDeep(inner)
+function scrubError(error: Error): Record<string, string> {
+    return { name: error.name, message: scrubText(error.message), stack: scrubText(error.stack ?? '') }
+}
+
+// Log attributes hold raw console arguments that the SDK does not normalize, so this must
+// survive cycles, deep nesting, class instances and throwing getters.
+function scrubObject(value: object, ancestors: Set<object>): unknown {
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? String(value) : value.toISOString()
+    if (value instanceof Error) return scrubError(value)
+    if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return '[binary]'
+    if (ancestors.has(value)) return '[Circular]'
+    if (ancestors.size >= MAX_DEPTH) return '[Truncated]'
+    ancestors.add(value)
+    try {
+        if (Array.isArray(value)) return value.map((item) => scrubDeep(item, ancestors))
+        const out: Record<string, unknown> = {}
+        for (const [key, inner] of Object.entries(value)) {
+            out[key] = isSensitiveKey(key) ? REDACTED : scrubDeep(inner, ancestors)
+        }
+        return out
+    } catch {
+        return REDACTED
+    } finally {
+        ancestors.delete(value)
     }
-    return out
+}
+
+function scrubDeep(value: unknown, ancestors = new Set<object>()): unknown {
+    if (typeof value === 'string') return scrubString(value, ancestors)
+    if (value === null || typeof value !== 'object') return value
+    return scrubObject(value, ancestors)
 }
 
 function scrubHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
