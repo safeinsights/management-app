@@ -100,12 +100,13 @@ export function orgInitialsTitle(orgName: string, type: string) {
     return firstThree + ORG_SUFFIX_LONG[type]
 }
 
-export function getInitials(fullName: string): string {
-    const words = fullName.trim().split(/\s+/)
-    if (words.length === 0 || words[0] === '') return ''
-    if (words.length === 1) return words[0][0].toUpperCase()
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase()
-}
+// From the name fields, not a split full name: a multi-word surname gives its first letter ("Van Dyke"
+// -> V). Array.from keeps a character outside the BMP (𠮷) whole.
+export const initialsFromNames = (firstName?: string | null, lastName?: string | null) =>
+    [firstName, lastName]
+        .map((name) => Array.from(name?.trim() ?? '')[0] ?? '')
+        .join('')
+        .toUpperCase()
 
 export function displayOrgName(orgName: string): string {
     if (!orgName) return ''

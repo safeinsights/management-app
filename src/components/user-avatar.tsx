@@ -2,12 +2,13 @@
 
 import { useUser } from '@clerk/nextjs'
 import { Avatar, type AvatarProps } from '@mantine/core'
-import { getInitials } from '@/lib/string'
+import { initialsFromNames } from '@/lib/string'
 
 type Props = Pick<AvatarProps, 'size' | 'bg' | 'color'> & {
-    user?: { fullName: string; imageUrl?: string }
+    user?: { firstName: string | null; lastName: string | null; imageUrl?: string }
 }
 
+// Initials go in as children: Avatar's `name` prop re-derives them and splits a character such as 𠮷.
 export function UserAvatar({ user: providedUser, size, bg = 'purple.3', color = 'gray.1' }: Props) {
     const { user: currentUser } = useUser()
     const user = providedUser || currentUser
@@ -15,15 +16,11 @@ export function UserAvatar({ user: providedUser, size, bg = 'purple.3', color = 
         return null
     }
 
+    const initials = initialsFromNames(user.firstName, user.lastName)
+
     return (
-        <Avatar
-            src={user.imageUrl}
-            size={size}
-            bg={bg}
-            color={color}
-            key={user.fullName}
-            name={user.fullName ? getInitials(user.fullName) : ''}
-            alt="User profile"
-        />
+        <Avatar src={user.imageUrl} size={size} bg={bg} color={color} alt="User profile">
+            {initials}
+        </Avatar>
     )
 }

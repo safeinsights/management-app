@@ -611,12 +611,29 @@ export const insertTestOrgStudyJobUsers = async () => {
     return { ...result, org }
 }
 
+// A Data Partner's decision on the proposal, as submitProposalReviewAction records it.
+export const insertTestProposalDecision = ({ studyId, authorId }: { studyId: string; authorId: string }) =>
+    db
+        .insertInto('studyProposalComment')
+        .values({
+            studyId,
+            authorId,
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.stringify({ text: 'please clarify the methodology' }),
+            version: 1,
+        })
+        .execute()
+
 type MockSession = {
     clerkUserId: string
     userId: string
     orgSlug: string
     email?: string
     imageUrl?: string
+    firstName?: string
+    lastName?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
     orgType?: 'enclave' | 'lab'
@@ -689,6 +706,8 @@ export const mockClerkSession = (values: MockSession | null) => {
         banned: false,
         twoFactorEnabled: values.twoFactorEnabled ?? true,
         imageUrl: values.imageUrl,
+        firstName: values.firstName,
+        lastName: values.lastName,
         organizationMemberships: [],
         unsafeMetadata,
         publicMetadata,
