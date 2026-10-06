@@ -165,10 +165,11 @@ export const onStudyProposalSubmitted = deferred(
     },
 )
 
-// Its own handler: this path has never written CREATED/STUDY or sent the submission emails.
+// Its own handler: the CREATED/STUDY row and the agreement request are for the first submission only.
 export const onStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
     await captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
+    await email.sendStudyProposalEmails(studyId)
 })
 
 export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
@@ -241,6 +242,7 @@ export const onStudyNeedsClarification = deferred(async ({ studyId, userId }: St
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
     await captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
+    await email.sendStudyProposalNeedsRevisionEmail(studyId)
 })
 
 export const onStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
@@ -254,21 +256,46 @@ export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId, st
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
     await captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
+    await email.sendStudyCodeNeedsRevisionEmail(studyId)
 })
 
-export const onStudyResultsApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
-    await email.sendStudyResultsApprovedEmail(studyId)
+export const onJobErrored = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendDataPartnerCodeErroredEmail(studyId)
 })
 
-export const onStudyResultsRejected = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_results_outputs_not_shared', { studyId, userId, side: 'data-partner', studyJobId })
-    await email.sendStudyResultsRejectedEmail(studyId)
+export const onRunCompleted = deferred(async ({ studyId }: { studyId: string }) => {
+    await email.sendDataPartnerOutputsNeedReviewEmail(studyId)
 })
+
+type OutputsDecisionEvent = StudyJobEvent & { errored?: boolean }
+
+// The lab gets the same email whether the Data Partner shared the outputs or only feedback: code errored
+// when the run errored, otherwise outputs need review.
+const emailLabOutputsDecision = (studyId: string, errored = false) =>
+    errored ? email.sendLabCodeErroredEmail(studyId) : email.sendLabOutputsNeedReviewEmail(studyId)
+
+export const onStudyResultsApproved = deferred(
+    async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
+        revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+        await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+        await captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
+        await emailLabOutputsDecision(studyId, errored)
+    },
+)
+
+export const onStudyResultsRejected = deferred(
+    async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
+        revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
+        await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
+        await captureStudyEvent('study_results_outputs_not_shared', {
+            studyId,
+            userId,
+            side: 'data-partner',
+            studyJobId,
+        })
+        await emailLabOutputsDecision(studyId, errored)
+    },
+)
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
     await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId })

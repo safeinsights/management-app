@@ -13,9 +13,12 @@ import {
     mockSessionWithTestData,
     insertTestStudyData,
 } from '@/tests/unit.helpers'
+import type { ReactNode } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { $getRoot, $getSelection, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
+import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
+import { Routes } from '@/lib/routes'
 import { displayOrgName } from '@/lib/string'
 import { SingleUserEditor } from './single-user-editor'
 
@@ -71,12 +74,20 @@ function CaptureEditor({ onReady }: { onReady: (editor: LexicalEditor) => void }
     return null
 }
 
-async function renderLinkedEditor(id: string, target: string | null = '_blank', url: string = URL) {
+async function renderLinkedEditor(
+    id: string,
+    target: string | null = '_blank',
+    url: string = URL,
+    sibling?: ReactNode,
+) {
     let editor: LexicalEditor | null = null
     const { container } = renderWithProviders(
-        <SingleUserEditor id={id} initialValue={linkedJson({ target, url })} ariaLabel="Feedback">
-            <CaptureEditor onReady={(e) => (editor = e)} />
-        </SingleUserEditor>,
+        <>
+            <SingleUserEditor id={id} initialValue={linkedJson({ target, url })} ariaLabel="Feedback">
+                <CaptureEditor onReady={(e) => (editor = e)} />
+            </SingleUserEditor>
+            {sibling}
+        </>,
     )
 
     await waitFor(() => expect(container.querySelector('a')).not.toBeNull())
@@ -280,6 +291,29 @@ describe('LinkHoverCardPlugin', () => {
             expect(updated.getAttribute('rel')).toContain('noopener')
             expect(updated.textContent).toBe('newer writeup')
         })
+    })
+
+    it('keeps an edit form and its unsaved text when the pointer passes over a plain link', async () => {
+        await mockSessionWithTestData()
+        const user = userEvent.setup()
+        const plainLink = (
+            <LinkWithHoverCard href={Routes.legal} icon={null}>
+                Study Agreement
+            </LinkWithHoverCard>
+        )
+        const { anchor } = await renderLinkedEditor('card-edit-hover', '_blank', URL, plainLink)
+        openCard(anchor)
+        const card = await findCard()
+        await user.click(screen.getByRole('button', { name: LINK_CARD_LABELS.edit }))
+        const text = await within(card).findByLabelText('Text')
+        await user.clear(text)
+        await user.type(text, 'unsaved')
+
+        fireEvent.pointerEnter(screen.getByRole('link', { name: 'Study Agreement' }), { pointerType: 'mouse' })
+
+        expect(within(card).getByLabelText('Text')).toHaveValue('unsaved')
+        expect(document.activeElement).toBe(text)
+        expect(screen.queryByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })).toBeNull()
     })
 
     it('names the destination of a link into the app', async () => {

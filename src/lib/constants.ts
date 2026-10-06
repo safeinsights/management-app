@@ -23,7 +23,6 @@ export const APP_SHELL = {
     layout: 'alt',
     navbarWidth: 240,
     headerHeight: 64,
-    footerHeight: 56,
     navbarBreakpoint: 'sm',
     padding: 'md',
     mainMaxWidth: 1600,

@@ -30,7 +30,6 @@ export const PENDING_RAW_STYLE_FILES = [
     'src/app/[orgSlug]/study/[studyId]/review/submitted-code-section.tsx',
     'src/app/[orgSlug]/study/[studyId]/view/code-post-submission-view.tsx',
     'src/app/about/page.tsx',
-    'src/app/account/invitation/[inviteId]/signup/setup-account-form.tsx',
     'src/app/account/keys/generate-keys.tsx',
     'src/app/account/mfa/app/add-app-mfa.tsx',
     'src/app/account/mfa/app/backup-codes.tsx',

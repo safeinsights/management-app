@@ -187,10 +187,12 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         // connected tab recreating the row.
         await db.deleteFrom('yjsDocument').where('name', '=', outputsReviewFeedbackDocName(studyJobId)).execute()
 
+        // Any JOB-ERRORED on the job, the same check that shows the reviewer the errored-outputs screen.
+        const errored = jobStatuses.includes('JOB-ERRORED')
         if (shareOutputs) {
-            onStudyResultsApproved({ studyId, userId, studyJobId })
+            onStudyResultsApproved({ studyId, userId, studyJobId, errored })
         } else {
-            onStudyResultsRejected({ studyId, userId, studyJobId })
+            onStudyResultsRejected({ studyId, userId, studyJobId, errored })
         }
 
         const submitterFullName = await fetchUserFullName(userId, db)

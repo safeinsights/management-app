@@ -2,13 +2,17 @@ import { act, afterEach, describe, expect, it, renderWithProviders, screen, wait
 import { vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HOVER_CLOSE_DELAY_MS, LostKeyPopover } from './lost-key-popover'
+import { HOVER_CLOSE_DELAY_MS } from '@/hooks/use-hover-intent'
+import { LostKeyPopover } from './lost-key-popover'
 
 const trigger = () => screen.getByRole('button', { name: /lost your key/i })
 
 const isOpen = () => trigger().getAttribute('aria-expanded') === 'true'
 
 const keyLink = () => screen.getByRole('link', { name: /manage your security key/i, hidden: true })
+
+// happy-dom leaves pointerType empty unless the event says otherwise.
+const mouse = { pointerType: 'mouse' }
 
 const passHoverCloseDelay = () => act(() => vi.advanceTimersByTime(HOVER_CLOSE_DELAY_MS + 1))
 
@@ -89,6 +93,14 @@ describe('LostKeyPopover', () => {
         expect(screen.getByText(/another member of your organization/i)).toBeInTheDocument()
     })
 
+    it('ignores a touch pointer entering the info icon', () => {
+        renderWithProviders(<LostKeyPopover />)
+
+        fireEvent.pointerEnter(trigger(), { pointerType: 'touch' })
+
+        expect(isOpen()).toBe(false)
+    })
+
     it('closes again once the pointer leaves without a click', async () => {
         renderWithProviders(<LostKeyPopover />)
 
@@ -107,8 +119,8 @@ describe('LostKeyPopover', () => {
         await waitFor(() => expect(isOpen()).toBe(true))
 
         vi.useFakeTimers()
-        fireEvent.mouseLeave(trigger())
-        fireEvent.mouseEnter(keyLink())
+        fireEvent.pointerLeave(trigger(), mouse)
+        fireEvent.pointerEnter(keyLink(), mouse)
         passHoverCloseDelay()
 
         expect(isOpen()).toBe(true)
@@ -129,7 +141,7 @@ describe('LostKeyPopover', () => {
         await waitFor(() => expect(isOpen()).toBe(true))
 
         vi.useFakeTimers()
-        fireEvent.mouseLeave(trigger())
+        fireEvent.pointerLeave(trigger(), mouse)
         passHoverCloseDelay()
 
         expect(isOpen()).toBe(true)

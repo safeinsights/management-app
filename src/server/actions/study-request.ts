@@ -692,8 +692,6 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             })
             .execute()
 
-        onStudyProposalResubmitted({ studyId, userId })
-
         // The new round orphans the closed round's review-feedback rows; delete in-tx so a still
         // connected tab cannot re-create them via Hocuspocus persistence.
         await db
@@ -721,6 +719,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
+        onStudyProposalResubmitted({ studyId, userId })
 
         return {
             studyId,

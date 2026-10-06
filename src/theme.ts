@@ -2,13 +2,16 @@ import {
     Badge,
     type ButtonProps,
     type ButtonVariant,
+    Checkbox,
     createTheme,
     CSSVariablesResolver,
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
     Input,
+    type InputProps,
     MantineColorsTuple,
+    Radio,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -209,6 +212,18 @@ export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<
     },
 })
 
+// Only the default variant takes the focus border: unstyled inputs, which Mantine also uses inside
+// its own components, are meant to show none.
+export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record<string, string> } => ({
+    wrapper: {
+        '--input-disabled-bg': semanticColor('surface.disabled.medium'),
+        '--input-disabled-color': semanticColor('text.disabled'),
+        ...(!props.variant || props.variant === 'default'
+            ? { '--input-bd-focus': semanticColor('surface.selected') }
+            : {}),
+    },
+})
+
 export const theme = createTheme({
     fontFamily: fontFamilySans,
     fontFamilyMonospace: fontFamilyMono,
@@ -261,6 +276,19 @@ export const theme = createTheme({
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         InputWrapper: Input.Wrapper.extend({
             styles: { required: { color: red[7] } },
+        }),
+        // Mantine fades disabled inputs to 0.6 opacity, which would wash the disabled tokens out.
+        Input: Input.extend({
+            vars: inputVars,
+            styles: { input: { opacity: 1 } },
+        }),
+        // One default for every checkbox, so the signup consent box and the acknowledgement modals match.
+        Checkbox: Checkbox.extend({
+            defaultProps: { radius: 'xs', color: semanticColor('surface.selected') },
+        }),
+        // Same blue as the checkboxes, which share forms with radios (code-env-form).
+        Radio: Radio.extend({
+            defaultProps: { color: semanticColor('surface.selected') },
         }),
         Table: {
             styles: () => ({
