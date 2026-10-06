@@ -5,7 +5,8 @@ import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
-import { calculateUserPublicMetadata, updateClerkUserMetadata } from './clerk'
+import { headers } from 'next/headers'
+import { calculateUserPublicMetadata, sessionFromClerk, updateClerkUserMetadata } from './clerk'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -87,4 +88,13 @@ export async function marshalSession(
 export function clientUserInfo(session: UserSession | null): UserInfo | null {
     if (!session) return null
     return { format: 'v3', user: { id: session.user.id }, teams: null, orgs: session.orgs }
+}
+
+// The header that Clerk's auth() checks for its middleware. The proxy skips /api and asset paths,
+// yet a 404 there still renders the root layout, where auth() would throw.
+const CLERK_AUTH_STATUS_HEADER = 'x-clerk-auth-status'
+
+export async function clientUserInfoForRequest(): Promise<UserInfo | null> {
+    if (!(await headers()).get(CLERK_AUTH_STATUS_HEADER)) return null
+    return clientUserInfo(await sessionFromClerk())
 }

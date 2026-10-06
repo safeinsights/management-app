@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { JwtPayload } from 'jsonwebtoken'
-import { db, insertTestOrg, insertTestUser } from '@/tests/unit.helpers'
-import { clientUserInfo, marshalSession } from './session'
+import { headers } from 'next/headers'
+import { db, insertTestOrg, insertTestUser, mockClerkSession } from '@/tests/unit.helpers'
+import { clientUserInfo, clientUserInfoForRequest, marshalSession } from './session'
 
 const claimsWithoutOrgs = (userId: string) =>
     ({ userMetadata: { format: 'v3', user: { id: userId }, teams: null } }) as unknown as JwtPayload
@@ -47,5 +48,24 @@ describe('clientUserInfo', () => {
 
     it('returns null without a session', () => {
         expect(clientUserInfo(null)).toBeNull()
+    })
+})
+
+describe('clientUserInfoForRequest', () => {
+    it('returns null without calling Clerk when the proxy did not run', async () => {
+        const { auth } = await import('@clerk/nextjs/server')
+
+        expect(await clientUserInfoForRequest()).toBeNull()
+        expect(auth).not.toHaveBeenCalled()
+    })
+
+    it('lets a session error through when the proxy ran', async () => {
+        const { auth } = mockClerkSession({ clerkUserId: 'c1', userId: 'u1', orgSlug: 'any-org' })!
+        auth.mockImplementation(() => {
+            throw new Error('database is down')
+        })
+        ;(await headers()).set('x-clerk-auth-status', 'signed-in')
+
+        await expect(clientUserInfoForRequest()).rejects.toThrow('database is down')
     })
 })

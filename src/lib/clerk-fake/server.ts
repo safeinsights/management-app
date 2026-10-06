@@ -140,8 +140,23 @@ export function clerkMiddleware(handler: MiddlewareHandler) {
         const result = buildAuthResult(fixture, fixture?.clerkId ?? null)
         const authFn: MiddlewareAuth = async () => result
         const out = await handler(authFn, req)
-        return out instanceof NextResponse ? out : NextResponse.next()
+        const res = out instanceof NextResponse ? out : NextResponse.next()
+        return forwardAuthStatus(req, res, fixture ? 'signed-in' : 'signed-out')
     }
+}
+
+// Real clerkMiddleware forwards this request header the same way, and the root layout reads the
+// session only when it is present.
+function forwardAuthStatus(req: NextRequest, res: NextResponse, status: string): NextResponse {
+    if (res.headers.get('x-middleware-next') !== '1') return res
+    const override = 'x-middleware-override-headers'
+    if (!res.headers.get(override)) {
+        res.headers.set(override, [...req.headers.keys()].join(','))
+        req.headers.forEach((value, key) => res.headers.set(`x-middleware-request-${key}`, value))
+    }
+    res.headers.set(override, `${res.headers.get(override)},x-clerk-auth-status`)
+    res.headers.set('x-middleware-request-x-clerk-auth-status', status)
+    return res
 }
 
 export function createRouteMatcher(patterns: string[]) {

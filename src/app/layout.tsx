@@ -18,22 +18,9 @@ import { GlobalLoading } from '@/components/layout/global-loading'
 import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
-import { unstable_rethrow } from 'next/navigation'
-import { sessionFromClerk } from '@/server/clerk'
-import { clientUserInfo } from '@/server/session'
+import { clientUserInfoForRequest } from '@/server/session'
 
 const APP_TITLE = 'SafeInsights'
-
-// The proxy skips /api and asset paths, yet a 404 there still renders this layout, and Clerk's auth()
-// throws without the proxy. A page that needs the session reads the same cached call and still sees the error.
-async function layoutUserInfo() {
-    try {
-        return clientUserInfo(await sessionFromClerk())
-    } catch (error) {
-        unstable_rethrow(error)
-        return null
-    }
-}
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -57,7 +44,7 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     await connection()
-    const userInfo = await layoutUserInfo()
+    const userInfo = await clientUserInfoForRequest()
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
