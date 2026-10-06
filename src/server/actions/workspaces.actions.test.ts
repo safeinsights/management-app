@@ -309,7 +309,7 @@ describe('Workspace Actions', () => {
             mockCoder()
             const { study } = await approvedStudyWithoutJob()
 
-            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            const { ensureWorkspaceAction } = await import('@/server/actions/workspaces.actions')
             actionResult(await ensureWorkspaceAction({ studyId: study.id }))
 
             expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
@@ -319,7 +319,7 @@ describe('Workspace Actions', () => {
             process.env.CODER_FILES = TEST_CODER_FILES
             const { study } = await approvedStudyWithoutJob()
 
-            const { uploadWorkspaceFileAction } = await import('./workspace-files.actions')
+            const { uploadWorkspaceFileAction } = await import('@/server/actions/workspace-files.actions')
             actionResult(
                 await uploadWorkspaceFileAction({
                     studyId: study.id,

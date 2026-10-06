@@ -1587,8 +1587,7 @@ describe('StudyCode component', () => {
          * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
          * renames the first starter file after the code env's language, and the badge matches that
          * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
-         * the file's mtime sitting at or before the baseline job, which is how the copy backdates it,
-         * and with no job at all nobody has launched or uploaded yet.
+         * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
         const renderWithTemplate = async ({
             baseline,
