@@ -5,7 +5,7 @@ import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
-import { updateClerkUserMetadata } from './clerk'
+import { calculateUserPublicMetadata, updateClerkUserMetadata } from './clerk'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -70,6 +70,10 @@ export async function marshalSession(
             logger.warn(`clerk user ${clerkUserId} metadata sync failed`)
             return null
         }
+    } else if (info && !info.orgs) {
+        // The token leaves orgs out, because each org added ~320 bytes to every request and a user
+        // in many orgs went over the origin's header limit (OTTER-752).
+        sessionClaims.userMetadata = await calculateUserPublicMetadata(info.user.id)
     }
 
     return sessionFromMetadata({
