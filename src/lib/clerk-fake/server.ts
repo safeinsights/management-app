@@ -13,7 +13,7 @@ import { buildRouteMatcher } from './route-matcher'
 export type User = FakeUser
 
 type SessionClaims = {
-    userMetadata: UserInfo
+    userMetadata: UserPublicMetadata
     unsafeMetadata: { currentOrgSlug?: string }
 }
 

@@ -11,7 +11,7 @@ import { sql } from 'kysely'
 import { db } from '@/database'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
-import type { UserInfo } from '@/lib/types'
+import { slimPublicMetadata } from '@/lib/clerk'
 import { testingDataAllowed } from './lib/testing-data-gate'
 
 const STARTER_CODE_BODY: Record<string, string> = {
@@ -238,33 +238,9 @@ async function ensurePublicKey(userId: string) {
 }
 
 async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string, siUserId: string) {
-    const orgs = await db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
-        .where('userId', '=', siUserId)
-        .execute()
-
-    const metadata: UserInfo = {
-        format: 'v3',
-        user: { id: siUserId },
-        teams: null,
-        orgs: orgs.reduce(
-            (acc, org) => {
-                acc[org.slug] = {
-                    ...org,
-                    isAdmin: org.isAdmin || false,
-                }
-                return acc
-            },
-            {} as UserInfo['orgs'],
-        ),
-    }
-
-    await clerk.users.updateUserMetadata(clerkUserId, {
-        publicMetadata: metadata,
-    })
-    console.log(`📝 Updated Clerk publicMetadata with ${orgs.length} org(s)`)
+    // updateUser, not updateUserMetadata: a deep merge would keep an old `orgs` key (OTTER-752).
+    await clerk.users.updateUser(clerkUserId, { publicMetadata: slimPublicMetadata({ user: { id: siUserId } }) })
+    console.log('📝 Updated Clerk publicMetadata')
 }
 
 async function setupOrgMemberships(role: TestUserRole, siUserId: string) {

@@ -6,10 +6,11 @@ import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
+import { slimPublicMetadata } from '@/lib/clerk'
 
 export { type UserSessionWithAbility } from './session'
 
-export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
+export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser, slimPublicMetadata } from '@/lib/clerk'
 
 type ClerkOrganizationProps = {
     adminUserId?: string
@@ -61,19 +62,18 @@ export async function calculateUserPublicMetadata(userId: string): Promise<UserI
     return metadata
 }
 
+// Returns the full info with orgs: callers build the session from it.
 export const updateClerkUserMetadata = async (userId: string) => {
     const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
     const client = await clerkClient()
 
     const metadata = await calculateUserPublicMetadata(userId)
 
-    logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
+    logger.info(`Updating user metadata for clerkId: ${clerkId}, user id: ${userId}`)
 
-    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which left a
-    // revoked org's slug key granting access through the JWT claim forever.
-    await client.users.updateUser(clerkId, {
-        publicMetadata: metadata as unknown as UserPublicMetadata,
-    })
+    // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which would keep
+    // an old `orgs` key.
+    await client.users.updateUser(clerkId, { publicMetadata: slimPublicMetadata(metadata) })
 
     return metadata
 }
