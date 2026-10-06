@@ -90,11 +90,20 @@ describe('scrubText, JWTs after URL-encoded chars', () => {
 
 describe('scrubText, auth schemes and package versions', () => {
     it.each([
-        ['Basic', 'sent Basic YXBpOmtleS0xMjM= upstream', 'sent Basic [Filtered] upstream'],
-        ['Token', 'sent Token abc123 upstream', 'sent Token [Filtered] upstream'],
+        ['Basic', 'sent Basic dXNlcm5hbWU6cGFzc3dvcmQ= upstream', 'sent Basic [Filtered] upstream'],
+        ['Token', 'sent Token abc123def456ghi789 upstream', 'sent Token [Filtered] upstream'],
+        ['short Basic after an Authorization key', 'Authorization: Basic YTpi', 'Authorization: [Filtered]'],
+        ['lower-case basic after an authorization key', 'authorization: basic YTpi', 'authorization: [Filtered]'],
     ])('redacts %s credentials', (_label, input, expected) => {
         expect(scrubText(input)).toBe(expected)
     })
+
+    it.each(['upgraded to basic plan; token expired; Invalid token for user', 'Invalid Token\n    at verify'])(
+        'keeps prose that only mentions a scheme: %s',
+        (input) => {
+            expect(scrubText(input)).toBe(input)
+        },
+    )
 
     it.each([
         'at f (/app/node_modules/.pnpm/next@15.3.1_react@19.1.0/node_modules/next/dist/x.js:1:2)',
@@ -127,6 +136,9 @@ const ADVERSARIAL: Array<[string, string]> = [
     ['jwt: two segments only', `eyJ${'a'.repeat(SIZE / 2)}.${'b'.repeat(SIZE / 2)}`],
     ['bearer: repeated scheme', 'Bearer '.repeat(SIZE / 7)],
     ['bearer: scheme then whitespace', `Bearer${' '.repeat(SIZE)}`],
+    ['basic: scheme then whitespace', `Basic${' '.repeat(SIZE)}`],
+    ['token: repeated scheme with short values', `Token ${'a'.repeat(15)} `.repeat(SIZE / 22)],
+    ['pair: repeated scheme values', 'authorization: Basic '.repeat(SIZE / 21)],
     ['pair: long key with no separator', `?${'a'.repeat(SIZE)}`],
     ['pair: repeated short keys', '&a'.repeat(SIZE / 2)],
     ['pair: repeated quoted keys', '"a"'.repeat(SIZE / 3)],

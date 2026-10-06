@@ -11,17 +11,20 @@ const SENSITIVE_KEY_PATTERN =
 // A JWT is only matched at the start of a base64url run, so a run of `eyJ` is scanned once.
 // A URL-encoded char such as `%3D` also starts a run, though its hex digits are word chars.
 const JWT_PATTERN = /(^|[^\w-]|%[\dA-Fa-f]{2})eyJ[\w-]{1,8192}\.[\w-]{1,8192}\.[\w-]{1,8192}/g
-const AUTH_SCHEME_PATTERN = /\b((?:Bearer|Basic|Token)\s{1,16})[\w.~+/-]{1,8192}={0,2}/gi
+const BEARER_PATTERN = /\b(Bearer\s{1,16})[\w.~+/-]{1,8192}={0,2}/gi
+// `Basic` and `Token` are common words, so they need a credential-length value on the same line.
+const BASIC_TOKEN_PATTERN = /\b((?:Basic|Token)[ \t]{1,16})[\w.~+/-]{16,8192}={0,2}/gi
 // Also matches URL-encoded `@`. The alphabetic TLD keeps `next@15.3.1` style versions.
 const EMAIL_PATTERN = /[\w.+%-]{1,64}(?:@|%40)[\w-]{1,63}(?:\.[\w-]{1,63}){0,8}\.[a-z]{2,24}\b/gi
 // `key=`, `key:`, `"key":` or `\"key\":` (escaped JSON). The leading non-key character means
 // matching only starts at the head of a key, which keeps the scan linear.
 const PAIR_KEY_PATTERN = /(?:^|[^\w.-])(\\?["']|)([\w.-]{1,128})\1\s{0,8}[:=]/g
 // The value after a sensitive key: a quoted or escaped-quoted string, a one-level array or
-// object, or a bare word. Closing marks are optional, as Sentry may have truncated the string.
+// object, or a bare word with an optional auth scheme. Closing marks are optional, as Sentry
+// may have truncated the string.
 // Unbounded, so long secrets go whole: the sticky match runs once per key, without overlap.
 const PAIR_VALUE_PATTERN =
-    /(\s{0,8})(?:"[^"\\]*(?:\\.[^"\\]*)*"?|'[^'\\]*(?:\\.[^'\\]*)*'?|\\"[^"\\]*(?:\\[^"][^"\\]*)*(?:\\")?|\[[^\]]*\]?|\{[^}]*\}?|[^\s"'\\,;&#{}()[\]]+)/y
+    /(\s{0,8})(?:"[^"\\]*(?:\\.[^"\\]*)*"?|'[^'\\]*(?:\\.[^'\\]*)*'?|\\"[^"\\]*(?:\\[^"][^"\\]*)*(?:\\")?|\[[^\]]*\]?|\{[^}]*\}?|(?:(?:Bearer|Basic|Token)[ \t]{1,16})?[^\s"'\\,;&#{}()[\]]+)/iy
 
 // Flags and counts whose names only match SENSITIVE_KEY_PATTERN by coincidence. Values still
 // go through scrubDeep/scrubText, so an email or token inside them is still redacted. List
@@ -46,7 +49,8 @@ export function isSensitiveKey(key: string): boolean {
 export function scrubText(text: string): string {
     const masked = text
         .replace(JWT_PATTERN, `$1${REDACTED}`)
-        .replace(AUTH_SCHEME_PATTERN, `$1${REDACTED}`)
+        .replace(BEARER_PATTERN, `$1${REDACTED}`)
+        .replace(BASIC_TOKEN_PATTERN, `$1${REDACTED}`)
         .replace(EMAIL_PATTERN, REDACTED)
     return scrubPairs(masked)
 }
