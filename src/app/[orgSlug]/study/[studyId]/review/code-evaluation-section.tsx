@@ -83,7 +83,8 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
             {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
-            <Text id={labelId} component="div" fz={14} w={320}>
+            {/* Figma label column; at 320 the test-study info icon wrapped alone onto a second line. */}
+            <Text id={labelId} component="div" fz={14} w={346}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
@@ -120,7 +121,12 @@ function AgreementNote({ note }: { note: string | undefined }) {
     if (!note) return null
     return (
         <InfoTooltip label={note}>
-            <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+            <InfoIcon
+                size={14}
+                weight="fill"
+                aria-label={note}
+                style={{ marginLeft: 4, verticalAlign: 'text-bottom' }}
+            />
         </InfoTooltip>
     )
 }
