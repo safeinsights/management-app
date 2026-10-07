@@ -44,6 +44,9 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .select(['id'])
             .where('email', '=', invite.email)
             .where('orgId', '=', orgId)
+            // A claimed invite now resumes email linking for its claimer only (OTTER-788), so
+            // re-sending it would hand a different owner of this address a dead link.
+            .where('claimedByUserId', 'is', null)
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
