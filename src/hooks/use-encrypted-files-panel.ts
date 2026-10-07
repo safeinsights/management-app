@@ -1,10 +1,10 @@
 import { useQuery } from '@/common'
+import { showToast } from '@/components/toast-notifications'
 import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import { isEncryptedArtifact, logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction, fetchSharedFileIdsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
 import { useEffect, useMemo, useState } from 'react'
 import type { FileType } from '@/database/types'
@@ -120,7 +120,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved, isReviewer }: Opt
         (values) => decrypt(values.privateKey),
         (errors) => {
             if (errors.privateKey) {
-                notifications.show({ message: 'Invalid private key', color: 'red' })
+                showToast({ category: 'error', title: 'Invalid private key' })
             }
         },
     )

@@ -42,7 +42,6 @@ describe('study page header across personas', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: labOrg.slug, studyId: study.id })
         const researcherPage = await StudyViewPage({
             params: Promise.resolve({ orgSlug: labOrg.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
         const researcherView = renderWithProviders(researcherPage)
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, type FC } from 'react'
-import { Divider, Group, Paper, Skeleton, Stack, Title } from '@mantine/core'
+import { useRef, type FC, type ReactNode } from 'react'
+import { Divider, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { AlreadyHaveCodeSection } from './already-have-code-section'
@@ -11,8 +11,8 @@ import { IdeLaunchProgressModal } from './ide-launch-progress-modal'
 import { ReplaceFileModal } from './replace-file-modal'
 import { SubmitCodeError } from './submit-code-error'
 import { StudyCodeEmptyView } from './study-code-empty-view'
-import { isFilesReviewState } from './study-code-files'
-import { LaunchIdeControl } from './launch-ide-control'
+import { showsLaunchIdeControl } from './study-code-files'
+import { IdeLaunchAction } from './launch-ide-control'
 import { YourFilesTable } from './your-files-table'
 import { semanticColor } from '@/theme/tokens'
 
@@ -28,11 +28,16 @@ type FilesBodyProps = {
 }
 
 const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showLaunchIde, submitError, openRef }) => {
+    // View-only has to reach the dropzone itself, not just the link that opens it: a drag-and-drop
+    // onto the table bypasses "Already have code?" entirely.
+    const isDropDisabled = !isEditable || ide.isUploading
+
     if (ide.isLoadingFiles) return <Skeleton height={240} radius="md" />
 
     if (ide.showEmptyState) {
         return (
             <StudyCodeEmptyView
+                isEditable={isEditable}
                 launchWorkspace={ide.launchWorkspace}
                 isLaunching={ide.isLaunching}
                 launchLastUpdatedAt={ide.launchLastUpdatedAt}
@@ -54,7 +59,7 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
             {/* Wraps the table so a drop and the "Already have code?" link take one path. */}
             <FileDropOverlay
                 onDrop={ide.uploadFiles}
-                disabled={ide.isUploading}
+                disabled={isDropDisabled}
                 showHelperText={false}
                 openRef={openRef}
             >
@@ -79,6 +84,58 @@ const FilesBody: FC<FilesBodyProps> = ({ ide, dataPartnerName, isEditable, showL
     )
 }
 
+const SectionDescription: FC<{ text?: string }> = ({ text }) => {
+    if (!text) return null
+
+    return (
+        <Text size="sm" c={semanticColor('text.primary')}>
+            {text}
+        </Text>
+    )
+}
+
+const SectionHeading: FC<{ description?: string }> = ({ description }) => (
+    <Stack gap="xxs">
+        <Title order={3} fz="lg" c={semanticColor('text.primary')}>
+            {SECTION_TITLE}
+        </Title>
+        <SectionDescription text={description} />
+    </Stack>
+)
+
+type SectionLayoutProps = {
+    isNested: boolean
+    description?: string
+    launchControl: ReactNode
+    body: ReactNode
+}
+
+/**
+ * Nested inside another panel (/resubmit puts it under the step header) the card chrome and the
+ * Launch IDE button belong to that panel, so this renders the heading and the files alone.
+ */
+const SectionLayout: FC<SectionLayoutProps> = ({ isNested, description, launchControl, body }) => {
+    if (isNested) {
+        return (
+            <Stack gap="lg" data-testid="your-files-section">
+                <SectionHeading description={description} />
+                {body}
+            </Stack>
+        )
+    }
+
+    return (
+        <Paper p="xxl" data-testid="your-files-section">
+            <Group justify="space-between" wrap="nowrap" align="flex-start">
+                <SectionHeading description={description} />
+                {launchControl}
+            </Group>
+            <Divider my="lg" color={semanticColor('border.default')} data-testid="your-files-divider" />
+            {body}
+        </Paper>
+    )
+}
+
 type YourFilesSectionProps = {
     ide: StudyCodeIDE
     dataPartnerName: string
@@ -87,6 +144,10 @@ type YourFilesSectionProps = {
     /** False puts the table in view-only mode: the star and the row actions go disabled. */
     isEditable?: boolean
     showLaunchIde?: boolean
+    /** Sits under the section title; only /resubmit asks for one (OTTER-778). */
+    description?: string
+    /** True when a caller renders this inside its own panel, which then owns the card and Launch IDE. */
+    isNested?: boolean
 }
 
 /**
@@ -103,41 +164,33 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
     submitError = null,
     isEditable = true,
     showLaunchIde = true,
+    description,
+    isNested = false,
 }) => {
     // The dropzone and everything that opens it have to sit under one component.
     const openRef = useRef<() => void>(null)
-    const isReviewState = isFilesReviewState(ide)
+
+    // Launch IDE alone: per the design the header has no upload control, and uploading is reached
+    // through "Already have code?" or a drop onto the table. Nested, the enclosing panel owns the
+    // header row and renders its own, so building one here would risk a second on screen.
+    const launchControl = isNested ? null : (
+        <IdeLaunchAction ide={ide} isVisible={showsLaunchIdeControl({ ide, isEditable, showLaunchIde })} />
+    )
+
+    const body = (
+        <FilesBody
+            ide={ide}
+            dataPartnerName={dataPartnerName}
+            isEditable={isEditable}
+            showLaunchIde={showLaunchIde}
+            submitError={submitError}
+            openRef={openRef}
+        />
+    )
 
     return (
         <>
-            <Paper p="xxl" data-testid="your-files-section">
-                <Group justify="space-between" wrap="nowrap" align="flex-start">
-                    <Title order={3} fz="lg" c={semanticColor('text.primary')}>
-                        {SECTION_TITLE}
-                    </Title>
-                    {/* Launch IDE alone: per the design the card header has no upload control, and
-                        uploading is reached through "Already have code?" or a drop onto the table. */}
-                    <LaunchIdeControl
-                        // isReviewState keeps exactly one Launch IDE on screen; see the pre-load
-                        // note above.
-                        isVisible={isEditable && showLaunchIde && isReviewState}
-                        isClaimed={ide.isIdeClaimed}
-                        canLaunch={ide.canEditInIde}
-                        ideOwnerName={ide.ideOwnerName}
-                        isLaunching={ide.isLaunching}
-                        onLaunch={ide.launchWorkspace}
-                    />
-                </Group>
-                <Divider my="lg" color={semanticColor('border.default')} data-testid="your-files-divider" />
-                <FilesBody
-                    ide={ide}
-                    dataPartnerName={dataPartnerName}
-                    isEditable={isEditable}
-                    showLaunchIde={showLaunchIde}
-                    submitError={submitError}
-                    openRef={openRef}
-                />
-            </Paper>
+            <SectionLayout isNested={isNested} description={description} launchControl={launchControl} body={body} />
 
             <FileOrImagePreviewModal file={ide.viewingFile} onClose={ide.closeFileViewer} />
 

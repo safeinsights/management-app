@@ -53,7 +53,7 @@ describe('EditCodeResubmitProvider', () => {
         const onSaveResult = vi.fn()
 
         const { unmount } = renderWithProviders(
-            <EditCodeResubmitProvider studyId={STUDY_ID} initialNote="">
+            <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditCodeResubmitProvider>,
         )
@@ -78,7 +78,7 @@ describe('EditCodeResubmitProvider', () => {
         const onSaveResult = vi.fn()
 
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={STUDY_ID} initialNote="">
+            <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditCodeResubmitProvider>,
         )

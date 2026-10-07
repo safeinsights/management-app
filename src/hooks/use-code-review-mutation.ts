@@ -4,9 +4,9 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
-import { DECISION_NOTICES } from '@/lib/review-decision'
+import { DECISION_NOTICES, type CodeDecision } from '@/lib/review-decision'
 import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -16,7 +16,7 @@ import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {
-    decision: 'approve' | 'needs-clarification' | 'reject'
+    decision: CodeDecision
     feedback: string
     criteria: CodeReviewCriteria
 }
@@ -46,11 +46,11 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: (err) => {
             captureException(err)
-            notifications.show(DECISION_NOTICES.failed)
+            showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            notifications.show(DECISION_NOTICES.submitted)
+            showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (broadcastProvider && submittedByClerkId) {

@@ -21,7 +21,7 @@ import { SUBMIT_FAILURE_TITLE, SUBMIT_FAILURE_UNSAVED_MESSAGE } from '@/contexts
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
-import { PROPOSAL_REQUIRED_NOTE_ERROR } from './schema'
+import { REQUIRED_NOTE_ERROR } from './schema'
 import { EditResubmitFooter } from './footer'
 
 const ORG_NAME = 'Rice University'
@@ -79,7 +79,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
     })
 
     it('stays enabled when a required proposal field is empty', () => {
-        renderFooter({ draft: { ...VALID_PROPOSAL_DRAFT, researchQuestions: '' } })
+        renderFooter({ draft: { ...VALID_PROPOSAL_DRAFT, datasets: [] } })
         expect(resubmitButton()).toBeEnabled()
     })
 
@@ -100,7 +100,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
     it('does not open the confirmation modal while a required proposal field is empty', async () => {
         const user = userEvent.setup()
-        renderFooter({ draft: { ...VALID_PROPOSAL_DRAFT, researchQuestions: '' } })
+        renderFooter({ draft: { ...VALID_PROPOSAL_DRAFT, datasets: [] } })
 
         await user.click(resubmitButton())
 
@@ -114,7 +114,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        expect(await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(resubmitButton()).toBeEnabled()
     })
@@ -125,7 +125,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        expect(await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
@@ -135,7 +135,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)
+        await screen.findByText(REQUIRED_NOTE_ERROR)
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
     })
 })
@@ -192,7 +192,7 @@ describe('EditResubmitFooter — confirmation modal (OTTER-762)', () => {
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === SUBMIT_FAILURE_TITLE,
         )
-        expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        expect(errorCall?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
     })
 })
 
@@ -230,7 +230,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         await user.type(screen.getByLabelText('Study Title Probe'), ' edited')
     }
 
-    it('flushes edited fields to the study row and leaves the title and datasets alone, then steps back to the read-only Step 1 record', async () => {
+    it('flushes edited fields to the study row and leaves the title alone, then steps back to the read-only Step 1 record', async () => {
         const user = userEvent.setup()
         const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
@@ -252,8 +252,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         expect(after.title).toBe('Original title')
         expect(after.status).toBe('CHANGE-REQUESTED')
         expect(after.piName).toBe('PI Name')
-        // The form's seeded datasets never reach the row: Step 1 owns them (OTTER-803).
-        expect(after.datasets).toBeNull()
+        expect(after.datasets).toEqual(['some-dataset'])
     })
 
     // The server only serves PI profiles the persisted study row names, so opening the modal on

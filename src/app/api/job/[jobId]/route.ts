@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { apiRequestingOrg } from '@/server/api-context'
+import { recordJobStatus } from '@/server/job-status'
+import { roundIsClosed } from '@/server/storage'
+import logger from '@/lib/logger'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -12,7 +15,6 @@ const schema = z.object({
         'JOB-ERRORED',
         'FILES-REJECTED',
         'FILES-APPROVED',
-        'CODE-REJECTED',
         'RUN-COMPLETE',
     ]),
 })
@@ -35,7 +37,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
         .where('studyJob.id', '=', jobId)
-        .select('studyJob.id')
+        .select(['studyJob.id', 'studyJob.studyId'])
         .executeTakeFirst()
 
     if (!job) {
@@ -45,18 +47,13 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     const json = await req.json()
     const change = schema.parse(json)
 
-    const insert = await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: job.id,
-            status: change.status,
-            message: change.message,
-        })
-        .execute()
-
-    if (!insert) {
-        return new NextResponse('Failed to record update', { status: 500 })
+    // A failure reported after the Data Partner has decided the outputs would reopen a closed round.
+    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id))) {
+        logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
+        return new NextResponse('ok', { status: 200 })
     }
+
+    await recordJobStatus(job, { status: change.status, message: change.message })
 
     return new NextResponse('ok', { status: 200 })
 }

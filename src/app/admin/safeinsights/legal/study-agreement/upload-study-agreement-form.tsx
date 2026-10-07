@@ -176,7 +176,7 @@ export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreem
             <StudySelect isVisible={!agreement} candidates={candidates} />
             <ChosenStudyFields details={agreement} />
             <VersionNote agreement={agreement} />
-            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
+            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} error={upload.signedAtError} />
             <PdfDropzone label={`Signed ${legalDocumentTypeLabels.SLA}`} file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>

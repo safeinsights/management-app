@@ -4,12 +4,9 @@ import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 
 export const RESUBMIT_NOTE_FIELD_TITLE = 'Resubmission note'
 export const RESUBMIT_NOTE_MAX_CHARACTERS = 1800
-// DOM id of the editor surface; the page-level Resubmit click jumps to it by this id (OTTER-762).
 export const RESUBMISSION_NOTE_FIELD_ID = 'resubmissionNote'
-
-const REQUIRED_NOTE_ERROR = 'A resubmission note is required.'
-// Names the field because Resubmit raises it alongside the proposal fields' errors (OTTER-762).
-export const PROPOSAL_REQUIRED_NOTE_ERROR = 'Enter your resubmission note before continuing.'
+export const RESUBMIT_CODE_BUTTON_ID = 'resubmit-code'
+export const REQUIRED_NOTE_ERROR = 'Enter your resubmission note before continuing.'
 export const NOTE_MAX_ERROR = overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS)
 
 // The proposal flow submits Lexical JSON while the code flow submits plain text, so every helper
@@ -33,24 +30,20 @@ export function resubmissionNoteToLexicalJson(value: string): string {
     return normalizeFeedbackToLexical(value)
 }
 
-// The required copy is the only thing the two flows disagree on: the proposal page names the field
-// the way its sibling errors do (OTTER-762), the code page keeps its own until its card lands.
-const buildResubmitNoteSchema = (requiredError: string) =>
-    z.object({
-        // superRefine rather than chained refines so a blank note reports only that it is blank.
-        resubmissionNote: z.string().superRefine((val, ctx) => {
-            if (resubmissionNoteIsBlank(val)) {
-                ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
-                return
-            }
-            if (resubmissionNoteIsOverLimit(val)) {
-                ctx.addIssue({ code: z.ZodIssueCode.custom, message: NOTE_MAX_ERROR })
-            }
-        }),
-    })
+const noteSchema = z.object({
+    // superRefine rather than chained refines so a blank note reports only that it is blank.
+    resubmissionNote: z.string().superRefine((val, ctx) => {
+        if (resubmissionNoteIsBlank(val)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: REQUIRED_NOTE_ERROR })
+            return
+        }
+        if (resubmissionNoteIsOverLimit(val)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: NOTE_MAX_ERROR })
+        }
+    }),
+})
 
-export const resubmitNoteSchema = buildResubmitNoteSchema(REQUIRED_NOTE_ERROR)
-export const proposalResubmitNoteSchema = buildResubmitNoteSchema(PROPOSAL_REQUIRED_NOTE_ERROR)
+export const resubmitNoteSchema = noteSchema
 
 export type ResubmitNoteValue = z.infer<typeof resubmitNoteSchema>
 

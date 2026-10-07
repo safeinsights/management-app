@@ -3,6 +3,7 @@ import {
     describe,
     expect,
     faker,
+    insertTestCodeResubmissionNote,
     insertTestOrg,
     insertTestStudyJobData,
     it,
@@ -36,8 +37,6 @@ const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 
 const DATA_PARTNER = 'Riverside University'
-const DASHBOARD_HREF = '/dashboard'
-
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
 // would still match.
 const givenDataPartner = async (studyId: string) => {
@@ -50,12 +49,7 @@ const copyFor = (runErrored: boolean, dataPartner = 'Any Data Partner') =>
     researcherOutputsFeedbackBanner({ runErrored }, { dataPartner })
 
 // The screen records the lab's view on mount; that write has to land before the teardown check.
-const renderScreen = async (
-    study: ScreenComponentProps['study'],
-    raw: RawStudyState,
-    orgSlug: string,
-    returnTo?: 'org',
-) => {
+const renderScreen = async (study: ScreenComponentProps['study'], raw: RawStudyState, orgSlug: string) => {
     const rendered = renderWithProviders(
         await OutputsFeedbackScreen({
             study,
@@ -63,8 +57,6 @@ const renderScreen = async (
             ...screenNavProps('researcher', 'outputs-feedback', raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
-                returnTo,
             }),
         }),
     )
@@ -110,11 +102,13 @@ const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = 
         })
         .execute()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Adjusted the aggregation query.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Adjusted the aggregation query.',
+        })
     }
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
@@ -167,11 +161,13 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
         .returning('id')
         .executeTakeFirstOrThrow()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Raised the timeout to 60s.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Raised the timeout to 60s.',
+        })
     }
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
@@ -219,13 +215,17 @@ const setupTwoOutputsRounds = async () => {
     // Created second, so its v7 id sorts above the first and latestJob picks it.
     const secondJob = await db
         .insertInto('studyJob')
-        .values({
-            studyId: dbStudy.id,
-            resubmissionNote: JSON.parse(lexicalJson('Aggregated the counts as asked.')),
-            resubmissionRound: 3,
-        })
+        .values({ studyId: dbStudy.id })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await insertTestCodeResubmissionNote({
+        studyId: dbStudy.id,
+        studyJobId: secondJob.id,
+        authorId: user.id,
+        round: 3,
+        text: 'Aggregated the counts as asked.',
+        createdAt: SUBMITTED_AT,
+    })
     await db
         .insertInto('jobStatusChange')
         .values([
@@ -537,16 +537,6 @@ describe('OutputsFeedbackScreen', () => {
                 expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
             },
         )
-
-        it('passes returnTo through to the Previous step link', async () => {
-            const { org, study, raw } = await setupFeedbackOnly()
-            await renderScreen(study, raw, org.slug, 'org')
-
-            expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-                'href',
-                Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id, returnTo: 'org' }),
-            )
-        })
     })
 
     describe('guards', () => {

@@ -18,7 +18,6 @@ const renderSetupForm = ({ initialTitle, formTitle = '' }: { initialTitle?: stri
             isTitleLocked: false,
             isOrgLocked: false,
             isLanguageLocked: false,
-            isDatasetsLocked: false,
             requiresConfirmation: false,
             onProceed: () => {},
         })

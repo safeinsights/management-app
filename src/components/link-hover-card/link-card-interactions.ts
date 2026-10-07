@@ -26,7 +26,7 @@ const PRIMARY_BUTTON = 0
 type ModifierKeys = { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }
 
 // Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
-export const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
 
 export const wantsBrowserDefault = (event: ModifierKeys & { button: number }) =>
     event.button !== PRIMARY_BUTTON || hasModifier(event)
@@ -39,15 +39,17 @@ export function openLinkInNewTab(url: string) {
  * Moves focus into the card without scrolling, since the first pass runs before the popover is positioned.
  * A second pass on the next frame outlasts Lexical re-applying its selection after the opening click.
  */
-export function useFocusOnOpen(target: RefObject<HTMLElement | null>) {
+export function useFocusOnOpen(target: RefObject<HTMLElement | null>, enabled = true) {
     useEffect(() => {
+        if (!enabled) return
+
         const focusTarget = () => target.current?.focus({ preventScroll: true })
 
         focusTarget()
         const frame = requestAnimationFrame(focusTarget)
 
         return () => cancelAnimationFrame(frame)
-    }, [target])
+    }, [target, enabled])
 }
 
 /**
@@ -73,23 +75,32 @@ export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
     }, [isOpen, onEscape])
 }
 
-let closeOpenCard: (() => void) | null = null
+type OpenLinkCard = { close: () => void; dropdownId: string }
+
+let openCard: OpenLinkCard | null = null
 
 /**
  * One link card at a time across the page, so opening one elsewhere closes this one. `close` has to
  * keep a stable identity.
  */
-export function useExclusiveLinkCard(close: () => void) {
+export function useExclusiveLinkCard(close: () => void, dropdownId: string) {
     const release = useCallback(() => {
-        if (closeOpenCard === close) closeOpenCard = null
+        if (openCard?.close === close) openCard = null
     }, [close])
 
     const claim = useCallback(() => {
-        if (closeOpenCard && closeOpenCard !== close) closeOpenCard()
-        closeOpenCard = close
+        if (openCard && openCard.close !== close) openCard.close()
+        openCard = { close, dropdownId }
+    }, [close, dropdownId])
+
+    // A card holding focus is in use, an edit form with unsaved changes above all, so a passing
+    // pointer must not take it over.
+    const isAnotherCardFocused = useCallback(() => {
+        if (!openCard || openCard.close === close) return false
+        return Boolean(document.getElementById(openCard.dropdownId)?.contains(document.activeElement))
     }, [close])
 
     useEffect(() => release, [release])
 
-    return { claim }
+    return { claim, isAnotherCardFocused }
 }

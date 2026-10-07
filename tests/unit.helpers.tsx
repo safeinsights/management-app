@@ -10,6 +10,7 @@ import { findOrCreateOrgMembership } from '@/server/mutations'
 import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
+import { lexicalJson } from '@/lib/lexical'
 import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -490,6 +491,39 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         .execute()
 }
 
+type InsertTestCodeResubmissionNoteOptions = {
+    studyId: string
+    studyJobId: string
+    authorId: string
+    round: number
+    text?: string
+    createdAt?: Date
+}
+
+// The row resubmitStudyCodeAction writes for a round's note (OTTER-802).
+export const insertTestCodeResubmissionNote = async ({
+    studyId,
+    studyJobId,
+    authorId,
+    round,
+    text = 'addressed the feedback',
+    createdAt,
+}: InsertTestCodeResubmissionNoteOptions) =>
+    db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId,
+            studyJobId,
+            authorId,
+            reviewKind: 'CODE',
+            entryType: 'RESUBMISSION-NOTE',
+            body: JSON.parse(lexicalJson(text)),
+            round,
+            ...(createdAt ? { createdAt } : {}),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
 // Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
 // Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
 export const insertTestStudyOnly = async ({
@@ -501,7 +535,6 @@ export const insertTestStudyOnly = async ({
     isTestStudy = false,
     // False for a test about agreements themselves — those files publish and acknowledge their own.
     withStudyAgreement = true,
-    datasets = null,
 }: {
     org?: MinimalTestOrg
     submittedByOrg?: MinimalTestOrg
@@ -510,7 +543,6 @@ export const insertTestStudyOnly = async ({
     status?: StudyStatus
     isTestStudy?: boolean
     withStudyAgreement?: boolean
-    datasets?: string[] | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -534,7 +566,6 @@ export const insertTestStudyOnly = async ({
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: 'R',
-            datasets,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -614,12 +645,29 @@ export const insertTestOrgStudyJobUsers = async () => {
     return { ...result, org }
 }
 
+// A Data Partner's decision on the proposal, as submitProposalReviewAction records it.
+export const insertTestProposalDecision = ({ studyId, authorId }: { studyId: string; authorId: string }) =>
+    db
+        .insertInto('studyProposalComment')
+        .values({
+            studyId,
+            authorId,
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.stringify({ text: 'please clarify the methodology' }),
+            version: 1,
+        })
+        .execute()
+
 type MockSession = {
     clerkUserId: string
     userId: string
     orgSlug: string
     email?: string
     imageUrl?: string
+    firstName?: string
+    lastName?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
     orgType?: 'enclave' | 'lab'
@@ -692,6 +740,8 @@ export const mockClerkSession = (values: MockSession | null) => {
         banned: false,
         twoFactorEnabled: values.twoFactorEnabled ?? true,
         imageUrl: values.imageUrl,
+        firstName: values.firstName,
+        lastName: values.lastName,
         organizationMemberships: [],
         unsafeMetadata,
         publicMetadata,
@@ -882,7 +932,6 @@ type CreateTestProposalDraftOptions = {
         title?: string
         piName?: string
         language?: Language
-        datasets?: string[]
     }
 }
 
@@ -896,8 +945,7 @@ export async function createTestProposalDraft({ enclaveSlug, studyInfo = {} }: C
     const draft = actionResult(
         await onSaveDraftStudyAction({
             orgSlug: enclave.slug,
-            // Step 1 always saves datasets now (OTTER-803), and a draft without any cannot be submitted.
-            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', datasets: ['test-dataset'], ...studyInfo },
+            studyInfo: { title: 'Test draft', piName: 'PI', language: 'R', ...studyInfo },
             submittingOrgSlug: lab.slug,
         }),
     )
@@ -1197,6 +1245,7 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
+    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,

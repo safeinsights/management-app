@@ -107,11 +107,11 @@ export function FileDropOverlay({
         const accepted = files.filter((f) => hasAcceptedExtension(f.name) && f.size <= MAX_UPLOAD_FILE_BYTES)
 
         if (wrongType.length > 0) {
-            showToast(
-                'error',
-                'Unsupported file type',
-                `${wrongType.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
-            )
+            showToast({
+                category: 'error',
+                title: 'Unsupported file type',
+                message: `${wrongType.map((f) => f.name).join(', ')} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
+            })
         }
 
         // One toast per file rather than a combined one: OTTER-693 names the file in the title, so
@@ -126,6 +126,7 @@ export function FileDropOverlay({
     return (
         <Box pos="relative" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDragDrop}>
             <Dropzone
+                data-testid="file-drop-zone"
                 openRef={openRef}
                 onDrop={handleDrop}
                 accept={ACCEPTED_FILE_TYPES}

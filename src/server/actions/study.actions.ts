@@ -30,7 +30,6 @@ import {
     onStudyApproved,
     onStudyCodeApproved,
     onStudyCodeChangesRequested,
-    onStudyCodeRejected,
     onStudyNeedsClarification,
     onStudyRejected,
 } from '@/server/events'
@@ -426,27 +425,6 @@ async function performStudyProposalRejection({
     onStudyRejected({ studyId, userId })
 }
 
-async function performStudyCodeRejection({ db, studyId, userId }: { db: DBExecutor; studyId: string; userId: string }) {
-    await markStudyRejected({ db, studyId, userId })
-
-    const latestJob = await db
-        .selectFrom('studyJob')
-        .select('id')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .executeTakeFirst()
-
-    if (latestJob) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ userId, status: 'CODE-REJECTED', studyJobId: latestJob.id })
-            .executeTakeFirstOrThrow()
-        onStudyCodeRejected({ studyId, userId })
-    } else {
-        onStudyRejected({ studyId, userId })
-    }
-}
-
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
@@ -475,26 +453,6 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             useTestImage,
             sharedFiles,
         })
-    })
-
-export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })
-    .params(
-        z.object({
-            studyId: z.string(),
-            orgSlug: z.string(),
-        }),
-    )
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId }
-    })
-    .requireAbilityTo('reject', 'Study')
-    .handler(async ({ params: { studyId }, session, db }) => {
-        await performStudyCodeRejection({ db, studyId, userId: session.user.id })
     })
 
 async function claimInitialProposalReviewStudy({
@@ -684,7 +642,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             studyId: z.string().uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
-            decision: z.enum(['approve', 'needs-clarification', 'reject']),
+            decision: z.enum(['approve', 'needs-clarification']),
             criteria: codeReviewCriteriaSchema,
         }),
     )
@@ -750,18 +708,6 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
                 .where('id', '=', studyId)
                 .execute()
             onStudyCodeApproved({ studyId, userId })
-        } else if (decision === 'reject') {
-            // Rejecting code fails the job, not the proposal; the study stays APPROVED (OTTER-603).
-            await db
-                .insertInto('jobStatusChange')
-                .values({ userId, status: 'CODE-REJECTED', studyJobId: claimedJob.id })
-                .executeTakeFirstOrThrow()
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-                .where('id', '=', studyId)
-                .execute()
-            onStudyCodeRejected({ studyId, userId })
         } else {
             await db
                 .insertInto('jobStatusChange')
@@ -784,46 +730,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 // The outputs phase deliberately carries neither the notes nor this version scheme (OTTER-766), so
 // it reads its decisions through getOutputsDecisionFeedbackAction instead.
 async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
-    // Versioned by the study-wide round so a same-job resubmit keeps the same label. Lateral join
-    // because a same-job resubmit appends several CODE-SUBMITTED rows and a direct join would duplicate.
-    const codeJobs = await db
-        .selectFrom('studyJob')
-        .leftJoinLateral(
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange as cs')
-                    .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
-                    .select([
-                        'cs.userId as authorId',
-                        'submitter.fullName as authorName',
-                        'cs.createdAt as submittedAt',
-                    ])
-                    .whereRef('cs.studyJobId', '=', 'studyJob.id')
-                    .where('cs.status', '=', 'CODE-SUBMITTED')
-                    .orderBy('cs.createdAt', 'desc')
-                    .orderBy('cs.id', 'desc')
-                    .limit(1)
-                    .as('latestSubmission'),
-            (join) => join.onTrue(),
-        )
-        .select([
-            'studyJob.id as studyJobId',
-            'studyJob.resubmissionNote',
-            'studyJob.resubmissionRound',
-            'studyJob.createdAt',
-            'latestSubmission.authorId',
-            'latestSubmission.authorName',
-            'latestSubmission.submittedAt',
-        ])
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('studyJob.createdAt', 'asc')
-        // Jobs inserted in one transaction share now(), and an unstable order renumbers the versions.
-        .orderBy('studyJob.id', 'asc')
-        .execute()
-
-    const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
-
-    const reviewerRows = await db
+    const rows = await db
         .selectFrom('studyReviewComment')
         .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
         .select([
@@ -839,48 +746,25 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
         ])
         .where('studyReviewComment.studyId', '=', studyId)
         .where('studyReviewComment.reviewKind', '=', 'CODE')
-        .where('studyReviewComment.entryType', '=', 'DECISION')
+        .where('studyReviewComment.entryType', 'in', ['DECISION', 'RESUBMISSION-NOTE'])
+        .orderBy('studyReviewComment.createdAt', 'desc')
+        .orderBy('studyReviewComment.round', 'desc')
+        // Enum order lists DECISION before RESUBMISSION-NOTE: on a round, the decision is the newer.
+        .orderBy('studyReviewComment.entryType', 'asc')
+        .orderBy('studyReviewComment.id', 'desc')
         .execute()
 
-    const reviewerEntries = reviewerRows.map((row) => ({
+    return rows.map((row) => ({
         id: row.id,
         authorId: row.authorId,
-        entryType: 'REVIEWER-FEEDBACK' as const,
+        entryType: row.entryType === 'DECISION' ? ('REVIEWER-FEEDBACK' as const) : ('RESUBMISSION-NOTE' as const),
         decision: row.decision,
         body: row.body,
         criteria: row.criteria,
         createdAt: row.createdAt,
         authorName: row.authorName,
-        version: row.round ?? null,
+        version: row.round,
     }))
-
-    const noteEntries = codeJobs
-        .filter((j) => j.resubmissionNote != null)
-        .map((j) => ({
-            id: `job-note-${j.studyJobId}`,
-            authorId: j.authorId ?? '',
-            entryType: 'RESUBMISSION-NOTE' as const,
-            decision: null,
-            body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
-            criteria: null,
-            // Written at resubmit time, so the latest CODE-SUBMITTED timestamp positions it.
-            createdAt: j.submittedAt ?? j.createdAt,
-            authorName: j.authorName ?? '',
-            version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
-        }))
-
-    return [...reviewerEntries, ...noteEntries].sort((a, b) => {
-        const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        if (createdAtDiff !== 0) return createdAtDiff
-
-        const versionDiff = (b.version ?? 0) - (a.version ?? 0)
-        if (versionDiff !== 0) return versionDiff
-
-        const entryTypeDiff = a.entryType.localeCompare(b.entryType)
-        if (entryTypeDiff !== 0) return entryTypeDiff
-
-        return a.id.localeCompare(b.id)
-    })
 }
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')

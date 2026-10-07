@@ -199,7 +199,12 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() =>
                 expect(notifications.show).toHaveBeenCalledWith(
-                    expect.objectContaining({ title: 'Popup blocked', color: 'yellow', autoClose: false }),
+                    expect.objectContaining({
+                        title: 'Popup blocked',
+                        color: 'yellow',
+                        autoClose: false,
+                        withCloseButton: true,
+                    }),
                 ),
             )
             expect(result.current.error).toBeNull()
@@ -217,7 +222,7 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() =>
                 expect(notifications.show).toHaveBeenCalledWith(
-                    expect.objectContaining({ title: 'Popup blocked', color: 'yellow' }),
+                    expect.objectContaining({ title: 'Popup blocked', color: 'yellow', autoClose: false }),
                 ),
             )
             expect(result.current.error).toBeNull()

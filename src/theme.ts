@@ -2,13 +2,17 @@ import {
     Badge,
     type ButtonProps,
     type ButtonVariant,
+    Checkbox,
     createTheme,
     CSSVariablesResolver,
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
     Input,
+    type InputProps,
     MantineColorsTuple,
+    Notification,
+    Radio,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -192,11 +196,32 @@ const DISABLED_VARS: Record<string, string> = {
     '--mantine-color-disabled-color': charcoal[6],
 }
 
+// A disabled ActionIcon is a pale glyph with no tile. Mantine's disabled rule reads these two
+// variables, so the tile stays off and the glyph takes surface/Disabled medium.
+export const actionIconVars = (): { root: Record<string, string> } => ({
+    root: {
+        '--mantine-color-disabled': 'transparent',
+        '--mantine-color-disabled-color': grey[1],
+    },
+})
+
 export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<string, string> } => ({
     root: {
         ...DISABLED_VARS,
         ...buttonSizeVars(props.size),
         ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+    },
+})
+
+// Only the default variant takes the focus border: unstyled inputs, which Mantine also uses inside
+// its own components, are meant to show none.
+export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record<string, string> } => ({
+    wrapper: {
+        '--input-disabled-bg': semanticColor('surface.disabled.medium'),
+        '--input-disabled-color': semanticColor('text.disabled'),
+        ...(!props.variant || props.variant === 'default'
+            ? { '--input-bd-focus': semanticColor('surface.selected') }
+            : {}),
     },
 })
 
@@ -253,12 +278,28 @@ export const theme = createTheme({
         InputWrapper: Input.Wrapper.extend({
             styles: { required: { color: red[7] } },
         }),
+        // Mantine fades disabled inputs to 0.6 opacity, which would wash the disabled tokens out.
+        Input: Input.extend({
+            vars: inputVars,
+            styles: { input: { opacity: 1 } },
+        }),
+        // One default for every checkbox, so the signup consent box and the acknowledgement modals match.
+        Checkbox: Checkbox.extend({
+            defaultProps: { radius: 'xs', color: semanticColor('surface.selected') },
+        }),
+        // Same blue as the checkboxes, which share forms with radios (code-env-form).
+        Radio: Radio.extend({
+            defaultProps: { color: semanticColor('surface.selected') },
+        }),
         Table: {
             styles: () => ({
                 th: {
                     backgroundColor: semanticColor('surface.tableheader'),
                 },
             }),
+        },
+        ActionIcon: {
+            vars: actionIconVars,
         },
         // Button geometry comes from buttonSizeVars, its colours from OTTER-761's buttonVars — one
         // `vars` function, because Mantine only calls one per component.
@@ -268,10 +309,37 @@ export const theme = createTheme({
             },
             vars: buttonVars,
         },
+        Notification: Notification.extend({
+            // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
+            // toast would otherwise present an unlabelled dismiss control. Matches how the modals in
+            // this repo already label theirs.
+            defaultProps: { closeButtonProps: { 'aria-label': 'Close' } },
+            styles: {
+                root: {
+                    borderRadius: 4,
+                    padding: '12px 16px',
+                    gap: 16,
+                    backgroundColor: semanticColor('surface.popover'),
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                },
+                title: { color: semanticColor('text.primary'), fontWeight: 700 },
+                description: { color: semanticColor('text.secondary') },
+                closeButton: { color: semanticColor('icon.dark') },
+            },
+        }),
+        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
+        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        Notifications: {
+            styles: {
+                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
+                notification: { marginTop: 0 },
+            },
+        },
     },
     // brand/default is navy/5 and brand/hover navy/6, so primaryShade 5 makes Mantine resolve the
     // filled variant and its hover straight off the brand ramp.
     primaryShade: 5,
+    respectReducedMotion: true,
     primaryColor: 'navy',
     // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {

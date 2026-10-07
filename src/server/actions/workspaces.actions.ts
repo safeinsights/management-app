@@ -16,6 +16,8 @@ import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
 import { templateFileNameFor } from '@/lib/languages'
+import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
+import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-code-gate'
 
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
@@ -132,6 +134,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     )
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
+    // A middleware, not an in-handler check: the claim below is irreversible, so a closed round has
+    // to be refused before ideOwnerId is written.
+    .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
 
@@ -177,6 +182,11 @@ export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePrelo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
+        // Skipped rather than refused: the page calls this on every load, and getOrCreateCurrentRoundJob
+        // would otherwise mint a round job for a closed round as a side effect of merely looking.
+        const state = await studyCodeStateFor(db, studyId)
+        if (!state || !canResearcherChangeCodeFiles(state)) return { preloaded: false }
+
         await getOrCreateCurrentRoundJob(db, studyId)
 
         const templateName = CODER_DISABLED

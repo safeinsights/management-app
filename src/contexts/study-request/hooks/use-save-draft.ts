@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
-import { notifications } from '@mantine/notifications'
+import { reportMutationError } from '@/components/errors'
 import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
-import { errorToString } from '@/lib/errors'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
 
@@ -28,8 +27,6 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             const draftInfo = {
                 piName: formValues.piName || undefined,
                 language: formValues.language || undefined,
-                // `undefined` rather than `[]`, so a save never clears stored datasets.
-                datasets: formValues.datasets.length > 0 ? formValues.datasets : undefined,
             }
 
             let result
@@ -69,13 +66,7 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
         },
-        onError: (error) => {
-            notifications.show({
-                color: 'red',
-                title: 'Failed to save draft',
-                message: `${errorToString(error)}\nPlease contact support.`,
-            })
-        },
+        onError: reportMutationError('Failed to save draft'),
     })
 
     const saveDraft = useCallback(

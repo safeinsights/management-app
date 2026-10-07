@@ -150,7 +150,7 @@ export function useLinkInviteEmail(inviteId: string) {
             } catch (error) {
                 form.setErrors({
                     code: errorToString(error, {
-                        form_code_incorrect: 'Invalid verification code. Please try again.',
+                        clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
                     }),
                 })
                 setStatus('awaiting-code')
