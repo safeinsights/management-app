@@ -18,7 +18,6 @@ import {
     ACTIVE_PROPOSAL_STATUSES,
     Audience,
     FINAL_STATUS,
-    REVIEWER_ACTION_STATUSES,
     Scope,
     StudiesTableProps,
     StudyRow as StudyRowType,
@@ -32,19 +31,6 @@ function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?:
         return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.org, orgSlug] : ['org-studies', orgSlug]
     }
     return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.user] : ['user-reviewer-studies', userId || '']
-}
-
-function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userId: string): StudyRowType[] {
-    if (audience === 'researcher') {
-        return studies.filter((study) => study.researcherId === userId)
-    }
-    return studies.filter(
-        (study) =>
-            study.reviewerId === userId ||
-            study.jobStatusChanges.some(
-                (change) => change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
-            ),
-    )
 }
 
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
@@ -109,10 +95,7 @@ export function StudiesTable({
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    const displayedStudies =
-        scope === 'user' && userId
-            ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
-            : (studies as StudyRowType[])
+    const displayedStudies = studies as StudyRowType[]
 
     const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies, audience)
 

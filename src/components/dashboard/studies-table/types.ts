@@ -16,7 +16,8 @@ export type StudyRow = {
     researcherId: string
     reviewerId: string | null
     createdBy: string | null // researcher.fullName
-    jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null }>
+    // createdAt arrives as an ISO string: the history is built with jsonArrayFrom.
+    jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null; createdAt?: Date | string }>
     researcherAgreementsAckedAt: Date | null
     // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null
@@ -32,6 +33,20 @@ export type StudyRow = {
     orgName?: string
     orgSlug?: string
     submittedByOrgSlug?: string
+    // Dashboard-only fields (OTTER-617), filled by the three dashboard actions.
+    ownEditsAt?: Date | null
+    proposalAuditName?: string | null
+    proposalAuditAt?: Date | null
+    proposalResubmitterName?: string | null
+    proposalResubmittedAt?: Date | null
+    codeSubmitterName?: string | null
+    codeSubmittedAt?: Date | null
+    proposalReviewerName?: string | null
+    proposalReviewedAt?: Date | null
+    codeReviewerName?: string | null
+    codeReviewedAt?: Date | null
+    outputsReviewerName?: string | null
+    outputsReviewedAt?: Date | null
 }
 
 export type StudiesTableProps = {
@@ -49,10 +64,3 @@ export type StudiesTableProps = {
 export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const ACTIVE_PROPOSAL_STATUSES: StudyStatus[] = ['PENDING-REVIEW']
-
-export const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [
-    'CODE-APPROVED',
-    'CODE-REJECTED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-]

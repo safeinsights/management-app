@@ -20,6 +20,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import type { StudyJobStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
 import {
     ackAgreementsAction,
@@ -35,7 +36,7 @@ import {
     submitCodeReviewDecisionAction,
     submitProposalReviewAction,
 } from './study.actions'
-import { finalizeStudySubmissionAction } from './study-request'
+import { finalizeStudySubmissionAction, resubmitProposalAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
@@ -403,11 +404,15 @@ describe('Study Actions', () => {
     // The reviewer's personal dashboard builds its status tooltips from the submitting lab's name,
     // which this query has to carry: the org dashboards get it from their own joins (OTTER-698).
     it('fetchStudiesForCurrentReviewerAction names the submitting lab on each row', async () => {
-        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { org: enclave, user: reviewer } = await mockSessionWithTestData({ orgType: 'enclave' })
         const lab = await insertTestOrg({ slug: 'reviewer-dashboard-lab', type: 'lab', name: 'Genius Lab' })
         const { user: researcher } = await insertTestUser({ org: lab })
         const { studyId } = await insertTestStudyData({ org: enclave, researcherId: researcher.id })
-        await db.updateTable('study').set({ submittedByOrgId: lab.id }).where('id', '=', studyId).execute()
+        await db
+            .updateTable('study')
+            .set({ submittedByOrgId: lab.id, reviewerId: reviewer.id })
+            .where('id', '=', studyId)
+            .execute()
 
         const rows = actionResult(await fetchStudiesForCurrentReviewerAction())
 
@@ -575,6 +580,258 @@ describe('Study Actions', () => {
         expect(row.status).toBe('DRAFT')
         expect(row.submittedAt).toBeNull()
         expect(row.lastUpdatedAt).toEqual(study.createdAt)
+    })
+})
+
+describe('dashboard rows (OTTER-617)', () => {
+    let seq = 0
+
+    // A submitted study from a fresh lab to a fresh enclave, with the lab session active.
+    const submittedStudy = async () => {
+        seq += 1
+        const { enclave, lab, studyId, user } = await createTestProposalDraft({
+            enclaveSlug: `otter-617-${seq}-${Date.now()}`,
+        })
+        const submittedAt = new Date(Date.now() - 60 * 60 * 1000)
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW', submittedAt }).where('id', '=', studyId).execute()
+        return { enclave, lab, studyId, creator: user, submittedAt }
+    }
+
+    const secondsAfter = (date: Date, seconds: number) => new Date(date.getTime() + seconds * 1000)
+
+    const auditCreated = (studyId: string, userId: string, createdAt: Date) =>
+        db
+            .insertInto('audit')
+            .values({ eventType: 'CREATED', recordType: 'STUDY', recordId: studyId, userId, createdAt })
+            .execute()
+
+    const proposalComment = (
+        studyId: string,
+        authorId: string,
+        entryType: 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK',
+        createdAt: Date,
+    ) =>
+        db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                authorId,
+                authorRole: entryType === 'RESUBMISSION-NOTE' ? 'RESEARCHER' : 'REVIEWER',
+                entryType,
+                body: JSON.parse(lexicalJson('note')),
+                version: 1,
+                createdAt,
+            })
+            .execute()
+
+    const jobWithStatuses = async (studyId: string, rows: Array<[StudyJobStatus, string | null, Date]>) => {
+        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        for (const [status, userId, createdAt] of rows) {
+            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status, userId, createdAt }).execute()
+        }
+        return job.id
+    }
+
+    const yjsDoc = (studyId: string, name: string, updatedAt: Date) =>
+        db
+            .insertInto('yjsDocument')
+            .values({ name, studyId, data: Buffer.from('x'), updatedAt })
+            .execute()
+
+    const labRow = async (labSlug: string, studyId: string) => {
+        const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug: labSlug }))
+        return rows.find((row) => row.id === studyId)!
+    }
+
+    const asUser = (
+        user: { id: string; clerkId: string },
+        org: { id: string; slug: string; type: 'lab' | 'enclave' },
+    ) =>
+        mockClerkSession({
+            clerkUserId: user.clerkId,
+            userId: user.id,
+            orgSlug: org.slug,
+            orgId: org.id,
+            orgType: org.type,
+        })
+
+    describe('attribution', () => {
+        it('names the earliest proposal audit at or after submission, skipping code-origin rows', async () => {
+            const { lab, studyId, creator, submittedAt } = await submittedStudy()
+            const { user: early } = await insertTestUser({ org: lab })
+            const { user: late } = await insertTestUser({ org: lab })
+            await auditCreated(studyId, early.id, secondsAfter(submittedAt, -600))
+            await auditCreated(studyId, creator.id, secondsAfter(submittedAt, 1))
+            await auditCreated(studyId, late.id, secondsAfter(submittedAt, 600))
+
+            const row = await labRow(lab.slug, studyId)
+
+            expect(row.proposalAuditName).toBe(creator.fullName)
+        })
+
+        it('carries the newest resubmission note author and the newest code submitter', async () => {
+            const { lab, studyId, creator, submittedAt } = await submittedStudy()
+            const { user: resubmitter } = await insertTestUser({ org: lab })
+            await proposalComment(studyId, creator.id, 'RESUBMISSION-NOTE', secondsAfter(submittedAt, 10))
+            await proposalComment(studyId, resubmitter.id, 'RESUBMISSION-NOTE', secondsAfter(submittedAt, 20))
+            await jobWithStatuses(studyId, [['CODE-SUBMITTED', creator.id, secondsAfter(submittedAt, 30)]])
+            await jobWithStatuses(studyId, [['CODE-SUBMITTED', resubmitter.id, secondsAfter(submittedAt, 40)]])
+
+            const row = await labRow(lab.slug, studyId)
+
+            expect(row.proposalResubmitterName).toBe(resubmitter.fullName)
+            expect(row.codeSubmitterName).toBe(resubmitter.fullName)
+        })
+
+        it('names the decider of each stage from comments and job statuses', async () => {
+            const { enclave, lab, studyId, submittedAt } = await submittedStudy()
+            const { user: proposalReviewer } = await insertTestUser({ org: enclave })
+            const { user: codeReviewer } = await insertTestUser({ org: enclave })
+            const { user: outputsReviewer } = await insertTestUser({ org: enclave })
+            await proposalComment(studyId, proposalReviewer.id, 'REVIEWER-FEEDBACK', secondsAfter(submittedAt, 10))
+            await jobWithStatuses(studyId, [
+                ['CODE-APPROVED', codeReviewer.id, secondsAfter(submittedAt, 20)],
+                ['RUN-COMPLETE', null, secondsAfter(submittedAt, 30)],
+                ['FILES-APPROVED', outputsReviewer.id, secondsAfter(submittedAt, 40)],
+            ])
+
+            const row = await labRow(lab.slug, studyId)
+
+            expect(row.proposalReviewerName).toBe(proposalReviewer.fullName)
+            expect(row.codeReviewerName).toBe(codeReviewer.fullName)
+            expect(row.outputsReviewerName).toBe(outputsReviewer.fullName)
+        })
+
+        it('returns job status history with timestamps, and keeps study pages free of dashboard fields', async () => {
+            const { lab, studyId, creator, submittedAt } = await submittedStudy()
+            await jobWithStatuses(studyId, [['CODE-SUBMITTED', creator.id, secondsAfter(submittedAt, 10)]])
+
+            const row = await labRow(lab.slug, studyId)
+            expect(row.jobStatusChanges[0]).toHaveProperty('createdAt')
+
+            const study = actionResult(await getStudyAction({ studyId }))
+            expect(study).not.toHaveProperty('ownEditsAt')
+        })
+    })
+
+    describe('own edits', () => {
+        it('counts lab edits for the researcher only and feedback drafts for the reviewer only', async () => {
+            const { enclave, lab, studyId, submittedAt } = await submittedStudy()
+            const labEditedAt = secondsAfter(submittedAt, 10)
+            const proposalDocAt = secondsAfter(submittedAt, 20)
+            const feedbackDocAt = secondsAfter(submittedAt, 30)
+            await db.updateTable('study').set({ labEditedAt, reviewerId: null }).where('id', '=', studyId).execute()
+            await yjsDoc(studyId, `proposal-${studyId}-impact`, proposalDocAt)
+            await yjsDoc(studyId, `review-feedback-${studyId}-v1`, feedbackDocAt)
+
+            expect((await labRow(lab.slug, studyId)).ownEditsAt).toEqual(proposalDocAt)
+
+            const { user: reviewer } = await insertTestUser({ org: enclave })
+            asUser(reviewer, enclave)
+            const reviewerRows = actionResult(await fetchStudiesForOrgAction({ orgSlug: enclave.slug }))
+            expect(reviewerRows.find((row) => row.id === studyId)!.ownEditsAt).toEqual(feedbackDocAt)
+        })
+
+        it('does not move backwards when a resubmit deletes the draft documents', async () => {
+            const { lab, studyId, creator } = await submittedStudy()
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await yjsDoc(studyId, `proposal-${studyId}-impact`, new Date())
+            const newest = (row: { lastUpdatedAt: Date; ownEditsAt?: Date | null }) =>
+                Math.max(row.lastUpdatedAt.getTime(), row.ownEditsAt?.getTime() ?? 0)
+            const before = newest(await labRow(lab.slug, studyId))
+
+            asUser(creator, lab)
+            actionResult(
+                await resubmitProposalAction({
+                    studyId,
+                    studyInfo: { title: 'Resubmitted', piName: 'PI', piUserId: creator.id },
+                    resubmissionNote: buildFeedback(20),
+                }),
+            )
+
+            expect(newest(await labRow(lab.slug, studyId))).toBeGreaterThanOrEqual(before)
+        })
+    })
+
+    describe('My studies membership', () => {
+        it('researcher tab lists studies the user created, is PI on, or submitted a version of', async () => {
+            const created = await submittedStudy()
+            const { user: teammate } = await insertTestUser({ org: created.lab })
+
+            const asPi = await submittedStudy()
+            const { user: pi } = await insertTestUser({ org: asPi.lab })
+            await db.updateTable('study').set({ piUserId: pi.id }).where('id', '=', asPi.studyId).execute()
+
+            const resubmitted = await submittedStudy()
+            const { user: resubmitter } = await insertTestUser({ org: resubmitted.lab })
+            await proposalComment(resubmitted.studyId, resubmitter.id, 'RESUBMISSION-NOTE', new Date())
+
+            const codeSubmitted = await submittedStudy()
+            const { user: coder } = await insertTestUser({ org: codeSubmitted.lab })
+            await jobWithStatuses(codeSubmitted.studyId, [['CODE-SUBMITTED', coder.id, new Date()]])
+
+            const audited = await submittedStudy()
+            const { user: submitter } = await insertTestUser({ org: audited.lab })
+            await auditCreated(audited.studyId, submitter.id, new Date())
+
+            type TestOrg = { id: string; slug: string; type: 'lab' | 'enclave' }
+            const idsFor = async (user: { id: string; clerkId: string }, lab: TestOrg) => {
+                asUser(user, lab)
+                return actionResult(await fetchStudiesForCurrentResearcherUserAction()).map((row) => row.id)
+            }
+
+            expect(await idsFor(created.creator, created.lab)).toContain(created.studyId)
+            expect(await idsFor(teammate, created.lab)).not.toContain(created.studyId)
+            expect(await idsFor(pi, asPi.lab)).toContain(asPi.studyId)
+            expect(await idsFor(resubmitter, resubmitted.lab)).toContain(resubmitted.studyId)
+            expect(await idsFor(coder, codeSubmitted.lab)).toContain(codeSubmitted.studyId)
+            expect(await idsFor(submitter, audited.lab)).toContain(audited.studyId)
+            expect(await idsFor(created.creator, created.lab)).not.toContain(asPi.studyId)
+        })
+
+        it('researcher tab hides a teammate draft unless the user is its PI', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: `otter-617-draft-${Date.now()}` })
+            const { user: teammate } = await insertTestUser({ org: lab })
+
+            asUser(teammate, lab)
+            expect(actionResult(await fetchStudiesForCurrentResearcherUserAction()).map((r) => r.id)).not.toContain(
+                studyId,
+            )
+
+            await db.updateTable('study').set({ piUserId: teammate.id }).where('id', '=', studyId).execute()
+            expect(actionResult(await fetchStudiesForCurrentResearcherUserAction()).map((r) => r.id)).toContain(studyId)
+        })
+
+        it('reviewer tab lists only studies the user decided on, at any stage or round', async () => {
+            const proposalDecided = await submittedStudy()
+            const { user: reviewer } = await insertTestUser({ org: proposalDecided.enclave })
+            await proposalComment(proposalDecided.studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
+
+            const earlierRound = await submittedStudy()
+            await db
+                .updateTable('study')
+                .set({ orgId: proposalDecided.enclave.id })
+                .where('id', '=', earlierRound.studyId)
+                .execute()
+            await jobWithStatuses(earlierRound.studyId, [['CODE-CHANGES-REQUESTED', reviewer.id, new Date()]])
+            await jobWithStatuses(earlierRound.studyId, [['CODE-SUBMITTED', earlierRound.creator.id, new Date()]])
+
+            const colleagueOnly = await submittedStudy()
+            const { user: colleague } = await insertTestUser({ org: proposalDecided.enclave })
+            await db
+                .updateTable('study')
+                .set({ orgId: proposalDecided.enclave.id })
+                .where('id', '=', colleagueOnly.studyId)
+                .execute()
+            await proposalComment(colleagueOnly.studyId, colleague.id, 'REVIEWER-FEEDBACK', new Date())
+
+            asUser(reviewer, proposalDecided.enclave)
+            const ids = actionResult(await fetchStudiesForCurrentReviewerAction()).map((row) => row.id)
+
+            expect(ids).toContain(proposalDecided.studyId)
+            expect(ids).toContain(earlierRound.studyId)
+            expect(ids).not.toContain(colleagueOnly.studyId)
+        })
     })
 })
 
