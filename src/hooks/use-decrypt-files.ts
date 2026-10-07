@@ -41,14 +41,14 @@ async function readArchive(
         { jobId },
     )
     try {
-        await proveKey(reader, privateKey, fingerprint)
+        await proveKey(reader, privateKey, fingerprint, artifact.recipientKeys)
         // Captured so approval can re-wrap each key per researcher.
         return await reader.extractFilesWithKeys()
     } catch (err) {
         if (err instanceof WrongKeyError) throw err
 
-        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else the unwrap has
-        // already proven the key, so a decrypt rejection is a tampered body, not a wrong key.
+        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else proveKey has already
+        // settled that the key is a recipient, so a decrypt rejection is tampering, not a wrong key.
         const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
 
         if (err instanceof ResultsIntegrityError || authenticated) {
@@ -58,17 +58,29 @@ async function readArchive(
     }
 }
 
-// Unwrapping one file key up front is what proves the key, so the catch above can blame any later
-// failure on the archive rather than on a key that was never a recipient.
-async function proveKey(reader: ResultsReader, privateKey: ArrayBuffer, fingerprint: string) {
+// A reviewer is a manifest recipient, so the fingerprint alone decides; skipping the unwrap keeps a
+// tampered wrap of a listed key an integrity error. A researcher's wraps are spliced in under
+// whatever fingerprint they enter, so only the unwrap can tell their wrong key apart.
+async function proveKey(
+    reader: ResultsReader,
+    privateKey: ArrayBuffer,
+    fingerprint: string,
+    recipientKeys: Record<string, string>,
+) {
     await reader.decode()
     const [file] = Object.values(reader.manifest.files)
     if (!file) return
 
-    const crypt = file.keys[fingerprint]?.crypt
+    const isListed = fingerprint in file.keys
+    const isManifestRecipient = Object.keys(recipientKeys).length === 0
+    if (isManifestRecipient) {
+        if (!isListed) throw new WrongKeyError('Key is not a recipient of these results')
+        return
+    }
+
     try {
-        if (!crypt) throw new Error(`file was not encrypted with key signature ${fingerprint}`)
-        await unwrapAesKey(crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
+        if (!isListed) throw new Error(`no wrapped key for ${fingerprint}`)
+        await unwrapAesKey(file.keys[fingerprint].crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
     } catch (err) {
         throw new WrongKeyError('Key is not a recipient of these results', { cause: err })
     }

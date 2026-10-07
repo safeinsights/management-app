@@ -67,6 +67,13 @@ const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) =
     return writer.generate()
 }
 
+const archiveForAnotherKey = async () => {
+    const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
+    await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+    return { archive: await writer.generate(), fingerprint }
+}
+
 const expectDecryptsToContents = (files: JobFileInfo[]) => {
     expect(files).toHaveLength(1)
     expect(files[0].path).toBe(FILENAME)
@@ -103,14 +110,24 @@ describe('useDecryptFiles', () => {
         await expect(decrypt(await asJobFile(corrupted))).rejects.toThrow(ArchiveIntegrityError)
     })
 
-    describe('a key the archive was not encrypted for', () => {
-        const archiveForAnotherKey = async () => {
-            const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
-            const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
-            await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
-            return { archive: await writer.generate(), fingerprint }
-        }
+    // The key is a listed recipient, so a wrap of it that fails to unwrap was altered in the archive.
+    // Must not read as a wrong key: that would hide the signal and send the user off to replace a
+    // key that is fine.
+    it("reports a recipient's tampered wrapped key as tampering rather than a bad key", async () => {
+        const { fingerprint } = await recipient()
+        const other = await archiveForAnotherKey()
+        const { manifest: otherManifest } = await openArchive(other.archive)
 
+        const archive = await tamper(await currentArchive(), {
+            manifest: (m) => {
+                m.files[FILENAME].keys[fingerprint].crypt = otherManifest.files[FILENAME].keys[other.fingerprint].crypt
+            },
+        })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    describe('a key the archive was not encrypted for', () => {
         it('is rejected as a wrong key, not tampering, when absent from the manifest', async () => {
             const { archive } = await archiveForAnotherKey()
 
