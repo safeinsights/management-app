@@ -176,12 +176,31 @@ describe('invite email linking screen', () => {
 
         renderPage(invite.id)
 
-        expect(await screen.findByText('We could not send your code')).toBeDefined()
-        expect(screen.queryByText(/another SafeInsights account/)).toBeNull()
+        expect(await screen.findByText('We could not link this email address')).toBeDefined()
+        expect(screen.queryByText(/form_identifier_exists/)).toBeNull()
 
         await userEvent.click(screen.getByRole('button', { name: /skip for now/i }))
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
         expect(readJoinedOrg()).toBeNull()
+    })
+
+    it('reuses the created address when the first send fails, and skip can still discard it', async () => {
+        const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        address.prepareVerification.mockRejectedValueOnce(new Error('network down'))
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+
+        renderPage(invite.id)
+
+        await userEvent.click(await screen.findByRole('button', { name: /try again/i }))
+        expect(await screen.findByText(/Enter the code we sent to/)).toBeDefined()
+        expect(createEmailAddress).toHaveBeenCalledTimes(1)
+        expect(address.prepareVerification).toHaveBeenCalledTimes(2)
+
+        await userEvent.click(screen.getByRole('button', { name: /skip for now/i }))
+        await waitFor(() => expect(address.destroy).toHaveBeenCalled())
+        await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
     })
 
     it('finishes the link when the code is accepted but refreshing the Clerk user fails', async () => {
@@ -241,14 +260,39 @@ describe('invite email linking screen', () => {
 
         renderPage(invite.id)
 
-        await screen.findByText(/Enter the code we sent to/)
+        await userEvent.type(await screen.findByLabelText('Digit 1 of 6'), '424242')
         address.prepareVerification.mockRejectedValue(clerkApiError('too_many_requests'))
         vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
         await userEvent.click(screen.getByRole('button', { name: /resend code/i }))
 
         expect(await screen.findByText(/A code was just sent/)).toBeDefined()
         expect(address.prepareVerification).toHaveBeenCalledTimes(2)
-        expect(screen.getByLabelText('Digit 1 of 6')).toBeDefined()
+        // The digits on screen are the ones a submit sends, so a rate limit keeps both.
+        expect(screen.getByLabelText('Digit 6 of 6')).toHaveValue('2')
+        await userEvent.click(screen.getByRole('button', { name: /verify and link/i }))
+        await waitFor(() => expect(address.attemptVerification).toHaveBeenCalledWith({ code: '424242' }))
+    })
+
+    it('keeps the code form and the typed digits on screen while a resend is in flight', async () => {
+        const { user, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+
+        renderPage(invite.id)
+
+        await userEvent.type(await screen.findByLabelText('Digit 1 of 6'), '111111')
+        let finishSend = () => {}
+        address.prepareVerification.mockReturnValue(new Promise<void>((resolve) => (finishSend = resolve)))
+        vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000)
+        await userEvent.click(screen.getByRole('button', { name: /resend code/i }))
+
+        expect(screen.getByLabelText('Digit 6 of 6')).toHaveValue('1')
+        expect(screen.queryByText('Preparing to link your email addresses')).toBeNull()
+
+        finishSend()
+        await waitFor(() => expect(screen.getByRole('button', { name: /resend code/i })).toBeEnabled())
+        expect(screen.getByLabelText('Digit 6 of 6')).toHaveValue('1')
     })
 
     it('shows the invalid-invite panel when the invite is not this account to finish', async () => {

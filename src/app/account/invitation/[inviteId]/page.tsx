@@ -41,11 +41,21 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     const claimedInvite = await db
         .selectFrom('pendingUser')
+        .select('claimedByUserId')
         .where('claimedByUserId', 'is not', null)
         .where('id', '=', inviteId)
         .executeTakeFirst()
 
-    if (claimedInvite || !pendingInvite) {
+    // "Skip for now" on the linking screen leaves the invite claimed, so the link in the email is how
+    // its claimer finishes later. The linking screen itself re-checks the claimer server-side.
+    if (claimedInvite) {
+        const linkEmailUrl = Routes.accountInvitationLinkEmail({ inviteId })
+        if (!session) redirect(`${Routes.accountSignin}?redirect_url=${linkEmailUrl}`, RedirectType.replace)
+        if (claimedInvite.claimedByUserId === session.user.id) redirect(linkEmailUrl, RedirectType.replace)
+        return <InvalidInvitePanel />
+    }
+
+    if (!pendingInvite) {
         if (session) return <InvalidInvitePanel />
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }

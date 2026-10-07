@@ -88,6 +88,7 @@ vi.mock('next/navigation', () => {
     return {
         ...mockRouter,
         notFound: vi.fn(),
+        RedirectType: { push: 'push', replace: 'replace' },
         redirect: vi.fn().mockImplementation((url: string) => {
             mockRouter.memoryRouter.setCurrentUrl(url)
         }),

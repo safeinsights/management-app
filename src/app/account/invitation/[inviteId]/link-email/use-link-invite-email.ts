@@ -8,11 +8,12 @@ import { actionResult } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import type { EmailAddressResource, UserResource } from '@clerk/types'
 import { isNotEmpty } from '@mantine/form'
+import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getClaimedInviteAction } from '../create-account.action'
 
-export type LinkInviteEmailStatus = 'loading' | 'sending' | 'awaiting-code' | 'verifying' | 'failed'
+export type LinkInviteEmailStatus = 'loading' | 'awaiting-code' | 'verifying' | 'failed'
 
 type AddEmailAddress = (owner: UserResource, email: string) => Promise<EmailAddressResource>
 
@@ -29,20 +30,6 @@ const matchingAddress = (user: UserResource, email: string) =>
 
 const isVerified = (address: EmailAddressResource | undefined) => address?.verification?.status === 'verified'
 
-// Reuses an address Clerk kept from an abandoned attempt, so a second visit does not collide with
-// the caller's own pending entry. Returns rather than setting state, so both callers can await it
-// before touching React (the effect below may not update state synchronously).
-async function prepareAddress(
-    user: UserResource,
-    email: string,
-    existing: EmailAddressResource | undefined,
-    addEmailAddress: AddEmailAddress,
-) {
-    const address = existing ?? (await addEmailAddress(user, email))
-    await address.prepareVerification({ strategy: 'email_code' })
-    return address
-}
-
 export function useLinkInviteEmail(inviteId: string) {
     const router = useRouter()
     const { user } = useUser()
@@ -54,7 +41,7 @@ export function useLinkInviteEmail(inviteId: string) {
     )
 
     const [status, setStatus] = useState<LinkInviteEmailStatus>('loading')
-    const [failureMessage, setFailureMessage] = useState<string | null>(null)
+    const [isSending, setIsSending] = useState(false)
     const pendingAddress = useRef<EmailAddressResource | null>(null)
     const lastSentAt = useRef(0)
     const hasStarted = useRef(false)
@@ -78,32 +65,37 @@ export function useLinkInviteEmail(inviteId: string) {
         if (invite) router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
     }, [invite, router])
 
+    // The screen shows one generic message for every failure, so the cause goes to Sentry instead.
     const reportFailure = useCallback((error: unknown) => {
-        setFailureMessage(errorToString(error))
+        captureException(error)
         setStatus('failed')
     }, [])
+
+    // The address is kept as soon as Clerk returns it, so a failed send still leaves "Try again"
+    // an entry to reuse and "Skip for now" an entry to discard. Reusing an entry Clerk kept from an
+    // abandoned visit also stops a second visit colliding with the caller's own pending address.
+    const sendCode = useCallback(
+        async (owner: UserResource, email: string) => {
+            if (!pendingAddress.current) {
+                pendingAddress.current = matchingAddress(owner, email) ?? (await addEmailAddress(owner, email))
+            }
+            await pendingAddress.current.prepareVerification({ strategy: 'email_code' })
+            lastSentAt.current = Date.now()
+        },
+        [addEmailAddress],
+    )
 
     useEffect(() => {
         if (!invite || !user || hasStarted.current) return
         hasStarted.current = true
 
-        const existing = matchingAddress(user, invite.email)
-        if (isVerified(existing)) {
+        if (isVerified(matchingAddress(user, invite.email))) {
             router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
             return
         }
 
-        const start = async () => {
-            try {
-                pendingAddress.current = await prepareAddress(user, invite.email, existing, addEmailAddress)
-                lastSentAt.current = Date.now()
-                setStatus('awaiting-code')
-            } catch (error) {
-                reportFailure(error)
-            }
-        }
-        start().catch(() => {})
-    }, [invite, user, router, addEmailAddress, reportFailure])
+        sendCode(user, invite.email).then(() => setStatus('awaiting-code'), reportFailure)
+    }, [invite, user, router, sendCode, reportFailure])
 
     const resendCode = useCallback(async () => {
         if (!invite || !user) return
@@ -111,28 +103,23 @@ export function useLinkInviteEmail(inviteId: string) {
             form.setFieldError('code', RESEND_THROTTLED_MESSAGE)
             return
         }
-        setFailureMessage(null)
         form.clearFieldError('code')
-        setStatus('sending')
+        setIsSending(true)
         try {
-            pendingAddress.current = await prepareAddress(
-                user,
-                invite.email,
-                pendingAddress.current ?? undefined,
-                addEmailAddress,
-            )
-            lastSentAt.current = Date.now()
+            await sendCode(user, invite.email)
             setStatus('awaiting-code')
         } catch (error) {
             // A code sent earlier is still in the inbox, so keep the person on the code form.
-            if (pendingAddress.current && isRateLimited(error)) {
+            if (lastSentAt.current && isRateLimited(error)) {
                 form.setFieldError('code', RESEND_THROTTLED_MESSAGE)
                 setStatus('awaiting-code')
                 return
             }
             reportFailure(error)
+        } finally {
+            setIsSending(false)
         }
-    }, [invite, user, form, addEmailAddress, reportFailure])
+    }, [invite, user, form, sendCode, reportFailure])
 
     const verify = useCallback(
         async ({ code }: { code: string }) => {
@@ -171,10 +158,10 @@ export function useLinkInviteEmail(inviteId: string) {
 
     return {
         status: isLoading ? ('loading' as const) : status,
+        isSending,
         isInviteInvalid: isError,
         invitedEmail: invite?.email ?? '',
         orgName: invite?.orgName ?? '',
-        failureMessage,
         form,
         verify,
         resendCode,
