@@ -17,7 +17,6 @@ export const SignedOnInput: FC<{ value: string; onChange: (value: string) => voi
         value={value}
         // Honored by the picker only, not manual entry. Stricter than schema (doesn't allow +1 day).
         max={dayjs().format('YYYY-MM-DD')}
-        // Displays the error from the schema
         error={error}
         onChange={(event) => onChange(event.currentTarget.value)}
     />
