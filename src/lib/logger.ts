@@ -71,6 +71,8 @@ const logger = {
     error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
-debug.enable('app:*')
+// Under Vitest the debug stream bypasses console capture and repeats every warn and error, so
+// test output keeps the console copy only. Next.js never runs with NODE_ENV=test.
+if (process.env.NODE_ENV !== 'test') debug.enable('app:*')
 
 export default logger
