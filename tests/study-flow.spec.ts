@@ -1204,13 +1204,13 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await uploadResubmitFilesExpectingInheritedMain(page)
 
         // Filling the note fires the debounced autosave against the real action: the "All changes
-        // saved" indicator must appear and no "not editable" error toast. This guards the page +
+        // saved" indicator must appear and no "can no longer be changed" toast. This guards the page +
         // autosave + resubmit wiring on a Results-ready study, NOT the ordering bug itself: this seed
         // is deterministically ordered (FILES-APPROVED newest), so the old at(0) gate would have
         // passed here too. The ordering-triggered failure is covered by the unit tests.
         await page.getByLabel(/Resubmission Note/i).fill('Reworked code after the results were approved.')
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
-        await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()
+        await expect(page.getByText(/can no longer be changed/i)).toBeHidden()
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
