@@ -1,6 +1,7 @@
 import { describe, expect, it, renderWithProviders, screen, userEvent, vi, within } from '@/tests/unit.helpers'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { YourFilesTable } from './your-files-table'
+import classes from './your-files-table.module.css'
 
 const sampleFiles: WorkspaceFileInfo[] = [
     { name: 'main.R', size: 10, mtime: '2026-04-20T12:00:00Z' },
@@ -40,7 +41,7 @@ describe('YourFilesTable', () => {
         renderWithProviders(<YourFilesTable {...baseProps} isEditable={false} />)
         for (const star of screen.getAllByRole('radio')) {
             expect(star).toBeDisabled()
-            expect(star.getAttribute('style') ?? '').not.toContain('cursor')
+            expect(star).toHaveClass(classes.star)
         }
     })
 
@@ -49,7 +50,7 @@ describe('YourFilesTable', () => {
         const onView = vi.fn()
         renderWithProviders(<YourFilesTable {...baseProps} onView={onView} />)
         const fileName = screen.getByRole('button', { name: 'View main.R' })
-        expect(fileName.getAttribute('style') ?? '').not.toContain('text-decoration')
+        expect(fileName).toHaveClass(classes.fileName)
         await user.click(fileName)
         expect(onView).toHaveBeenCalledWith('main.R')
     })

@@ -83,8 +83,12 @@ type MainFileStarProps = {
     onSelect: (fileName: string) => void
 }
 
+// Greyed rather than hidden: view-only still shows which file is main.
+const starColor = (isEditable: boolean) => semanticColor(isEditable ? 'surface.selected' : 'icon.light')
+
+// No "Set as main file" tooltip on a view-only star: it would invite an action the user cannot take.
 const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onSelect }) => (
-    <Tooltip label={TOOLTIPS.setMain} withArrow>
+    <Tooltip label={TOOLTIPS.setMain} withArrow disabled={!isEditable}>
         <UnstyledButton
             // A radio rather than a toggle: exactly one file is main, and unstarring the current
             // one is not a state the page has.
@@ -96,16 +100,7 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
             display="inline-flex"
             className={classes.star}
         >
-            <StarIcon
-                size={20}
-                weight={isMain ? 'fill' : 'regular'}
-                color={
-                    isEditable
-                        ? 'var(--mantine-color-blue-7)'
-                        : /* greyed rather than hidden: view-only still shows which file is main */
-                          'var(--mantine-color-charcoal-3)'
-                }
-            />
+            <StarIcon size={20} weight={isMain ? 'fill' : 'regular'} color={starColor(isEditable)} />
         </UnstyledButton>
     </Tooltip>
 )
