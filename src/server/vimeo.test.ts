@@ -23,12 +23,14 @@ describe('fetchVideoDurationMinutes', () => {
         expect(String(fetchSpy.mock.calls[0][0])).toBe(
             `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(VIDEO_URL)}`,
         )
+        expect(fetchSpy.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
     })
 
     it.each([
         ['an error status', () => Promise.resolve(new Response('nope', { status: 404 }))],
         ['no duration', () => Promise.resolve(Response.json({ title: 'x' }))],
         ['a network failure', () => Promise.reject(new Error('offline'))],
+        ['a timeout', () => Promise.reject(new DOMException('timed out', 'TimeoutError'))],
     ])('returns null on %s', async (_label, respond) => {
         vi.spyOn(globalThis, 'fetch').mockImplementation(respond)
 
