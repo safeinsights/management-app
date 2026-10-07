@@ -7,8 +7,8 @@ import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import type { OrgType } from '@/database/types'
 import { getLabOrg, type UserSession } from '@/lib/types'
+import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
 import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
@@ -47,12 +47,9 @@ function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     )
 }
 
-const countOrgs = (session: UserSession | null | undefined, type: OrgType) =>
-    session ? Object.values(session.orgs).filter((org) => org.type === type).length : 0
-
 // Belongs to is a My studies column, and only for someone in two or more orgs of the tab's kind.
 const showBelongsTo = (session: UserSession | null | undefined, audience: Audience, scope: Scope) =>
-    scope === 'user' && countOrgs(session, audience === 'researcher' ? 'lab' : 'enclave') >= 2
+    scope === 'user' && !!session && (audience === 'researcher' ? labOrgIds : enclaveOrgIds)(session).length >= 2
 
 function useStudiesTableRows({
     studies,

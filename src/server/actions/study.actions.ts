@@ -24,7 +24,7 @@ import {
     latestCodeChangeIsSubmission,
 } from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
-import { sleep } from '@/lib/utils'
+import { enclaveOrgIds, labOrgIds, sleep } from '@/lib/utils'
 import {
     codeSubmissionVersion,
     currentReviewVersion,
@@ -293,14 +293,12 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
         const userId = session.user.id
-        const labOrgIds = Object.values(session.orgs)
-            .filter((org) => org.type === 'lab')
-            .map((org) => org.id)
-        if (labOrgIds.length === 0) {
+        const labIds = labOrgIds(session)
+        if (labIds.length === 0) {
             return []
         }
         return fetchDashboardStudyQuery(db, 'researcher')
-            .where('study.submittedByOrgId', 'in', labOrgIds)
+            .where('study.submittedByOrgId', 'in', labIds)
             .where((eb) =>
                 eb.or([
                     eb('study.researcherId', '=', userId),
@@ -340,8 +338,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
         const userId = session.user.id
-        const userOrgs = Object.values(session.orgs)
-        const reviewerOrgIds = userOrgs.filter((org) => org.type === 'enclave').map((org) => org.id)
+        const reviewerOrgIds = enclaveOrgIds(session)
         if (reviewerOrgIds.length === 0) {
             return []
         }

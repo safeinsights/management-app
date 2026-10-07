@@ -2,8 +2,8 @@
 
 import type { FC } from 'react'
 import { Group, Stack, TableTd, TableTr, Text, Tooltip } from '@mantine/core'
-import dayjs from 'dayjs'
 import { Link } from '@/components/links'
+import { formatInstant } from '@/lib/dates'
 import { InfoTooltip } from '@/components/tooltip'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { semanticColor } from '@/theme/tokens'
@@ -29,9 +29,7 @@ const TitleCell: FC<CellProps> = ({ row }) => (
     </Tooltip>
 )
 
-const LastUpdatedCell: FC<CellProps> = ({ row }) => (
-    <Text fz="sm">{dayjs(row.lastActivityAt).format('MMM DD, YYYY')}</Text>
-)
+const LastUpdatedCell: FC<CellProps> = ({ row }) => <Text fz="sm">{formatInstant(row.lastActivityAt)}</Text>
 
 // Names truncate to one line; the tooltip carries the full name.
 const NameCell: FC<{ name: string | null; placeholder?: string }> = ({ name, placeholder = '' }) =>

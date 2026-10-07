@@ -1,10 +1,9 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
-import { displayLabName, displayOrgName } from '@/lib/string'
 import type { StatusLabel } from '@/lib/status-labels'
 import { resolveDashboardAction, resolvePillStatus, resolveRowHighlight, type StudyState } from '@/lib/study-screen'
 import { lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
-import { pillOrgNamesFromRow } from './pill-context'
+import { dataPartnerDisplayName, labDisplayName, pillOrgNamesFromRow } from './pill-context'
 import type { Audience, StudyRow } from './types'
 
 export const NOT_SUBMITTED = 'Not submitted'
@@ -82,9 +81,6 @@ const rowLink = (study: StudyRow, state: StudyState, audience: Audience, orgSlug
     }
 }
 
-const labName = (study: StudyRow) => displayLabName(study.submittingLabName, study.submittedByOrgSlug ?? '') || null
-const dataPartnerName = (study: StudyRow) => displayOrgName(study.reviewingEnclaveName || study.orgName || '') || null
-
 // One projection per row, so the sort key, the rendered cell and the title link cannot disagree.
 export function buildRowModel(
     study: StudyRow,
@@ -98,9 +94,9 @@ export function buildRowModel(
         title: study.title,
         href,
         lastActivityAt: newestDate(study.lastUpdatedAt, lastBadgeChangeAt(study, audience), study.ownEditsAt),
-        submittedTo: study.status === 'DRAFT' ? null : dataPartnerName(study),
-        submittedFrom: labName(study),
-        belongsTo: audience === 'researcher' ? labName(study) : dataPartnerName(study),
+        submittedTo: study.status === 'DRAFT' ? null : dataPartnerDisplayName(study),
+        submittedFrom: labDisplayName(study),
+        belongsTo: audience === 'researcher' ? labDisplayName(study) : dataPartnerDisplayName(study),
         submittedBy: attribution(
             [
                 ['Proposal', proposalSubmission(study)],
