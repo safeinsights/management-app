@@ -59,6 +59,25 @@ describe('YourFilesTable', () => {
         }
     })
 
+    // A shaded color such as grey.9 makes Mantine cap the light variant's text at shade 6 (4.21:1);
+    // the bare ramp reads the theme's text/Sub-labels on surface/page pair instead.
+    it('paints the Template badge from the grey light variant pair', () => {
+        renderWithProviders(<YourFilesTable {...baseProps} templateFileNames={['main.R']} />)
+
+        const badges = screen.getAllByText('Template')
+        expect(badges).toHaveLength(1)
+        // text/Sub-labels on surface/page, 9.32:1
+        expect(badges[0].closest('.mantine-Badge-root')).toHaveStyle({
+            '--badge-bg': '#f1f3f5',
+            '--badge-color': '#404040',
+        })
+    })
+
+    it('shows no Template badge when no file is an untouched template', () => {
+        renderWithProviders(<YourFilesTable {...baseProps} />)
+        expect(screen.queryByText('Template')).not.toBeInTheDocument()
+    })
+
     // The main file is the one the enclave runs, so it cannot be deleted out from under a submission.
     it('disables delete on the main file', () => {
         renderWithProviders(<YourFilesTable {...baseProps} mainFile="main.R" />)

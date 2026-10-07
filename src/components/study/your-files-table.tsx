@@ -118,7 +118,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey">
                     Template
                 </Badge>
             </HoverCard.Target>
