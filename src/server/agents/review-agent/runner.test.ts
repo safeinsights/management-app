@@ -149,6 +149,7 @@ describe('generateAndStoreStudyReview', () => {
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
         expect(stored[0].round).toBe(1)
+        expect(stored[0].report?.codeExplanation).toBe('explanation')
     })
 
     it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
@@ -467,5 +468,27 @@ describe('generateAndStoreStudyReview', () => {
         const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
         expect(Object.keys(content.codeFiles)).toHaveLength(10)
         expect(content.codeFiles).toHaveProperty('main.r')
+
+        const [stored] = await storedReviews(job.id)
+        expect(stored.report?.codeExplanation).toBe(
+            '**This summary does not cover 1 submitted file:**\n\n' +
+                '- `helper_9.r`: the review reads at most 10 files\n\nexplanation',
+        )
+    })
+
+    it('names an oversized file in the summary instead of sending it', async () => {
+        const job = await setupJobWithCode()
+        await insertSupplementalCode(job.id, 1)
+        fetchFileContentsMock.mockImplementation(async (path: string) =>
+            path === 'studies/main.r' ? new Blob(['x'.repeat(100_001)]) : new Blob(['print("hi")']),
+        )
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        expect(content.codeFiles).toEqual({ 'helper_0.r': 'print("hi")' })
+
+        const [stored] = await storedReviews(job.id)
+        expect(stored.report?.codeExplanation).toContain('- `main.r`: larger than 100 KB')
     })
 })
