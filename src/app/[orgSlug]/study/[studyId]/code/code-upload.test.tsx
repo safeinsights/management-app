@@ -62,6 +62,7 @@ const renderPage = async (orgSlug = 'openstax') => {
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
             isFirstVisit={false}
+            videoDurationMinutes={null}
             isEditable
             nav={backNav('/test')}
         />,
@@ -165,6 +166,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -214,6 +216,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -249,6 +252,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,

@@ -25,6 +25,8 @@ interface StudyCodeProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
+    /** Null when Vimeo couldn't be reached; the FAQ then omits the duration badge. */
+    videoDurationMinutes: number | null
     /**
      * False once the round has been submitted: the whole page goes view-only (OTTER-693). Required
      * rather than defaulted, so a new mount has to decide rather than silently reopening the defect.
@@ -115,6 +117,7 @@ export const StudyCode = ({
     studyId,
     dataPartnerName,
     isFirstVisit,
+    videoDurationMinutes,
     isEditable,
     nav,
     onSubmitSuccess,
@@ -170,7 +173,11 @@ export const StudyCode = ({
                 <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
                     <Stack gap="lg">
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
-                        <SubmitCodeFaq dataPartnerName={dataPartnerName} isFirstVisit={isFirstVisit} />
+                        <SubmitCodeFaq
+                            dataPartnerName={dataPartnerName}
+                            isFirstVisit={isFirstVisit}
+                            videoDurationMinutes={videoDurationMinutes}
+                        />
                     </Stack>
                 </ProposalStepHeader>
 
