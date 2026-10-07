@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@/common'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
 import { pushDecided } from '@/lib/navigation'
 import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
@@ -47,11 +47,11 @@ export function useProposalReviewMutation({
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
         onError: (err) => {
             captureException(err)
-            notifications.show(DECISION_NOTICES.failed)
+            showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            notifications.show(DECISION_NOTICES.submitted)
+            showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id
             if (editorProvider && submittedByClerkId) {

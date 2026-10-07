@@ -85,7 +85,7 @@ export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
 export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
-export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
+export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE' | 'RESUBMISSION-NOTE'
 
 export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL' | 'RESULTS'
 
@@ -299,8 +299,6 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    resubmissionNote: Json | null
-    resubmissionRound: number | null
     studyId: string
 }
 

@@ -7,8 +7,8 @@ import { WebSocketStatus } from '@hocuspocus/provider'
 import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { ActionFailure, isActionError } from '@/lib/errors'
-import { reportError, showOrReplaceNotification } from '@/components/errors'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { reportError } from '@/components/errors'
+import { showToast } from '@/components/toast-notifications'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
@@ -155,11 +155,7 @@ export function useStudyStatusOnReconnect({
             }
 
             hasRedirectedRef.current = true
-            showOrReplaceNotification({
-                color: 'blue',
-                ...noticeRef.current,
-                autoClose: NOTIFICATION_DISPLAY_MS,
-            })
+            showToast({ category: 'info', ...noticeRef.current })
             pushDecided(
                 router,
                 pathname,

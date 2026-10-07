@@ -23,7 +23,6 @@ export const APP_SHELL = {
     layout: 'alt',
     navbarWidth: 240,
     headerHeight: 64,
-    footerHeight: 56,
     navbarBreakpoint: 'sm',
     padding: 'md',
     mainMaxWidth: 1600,
@@ -33,8 +32,6 @@ export const APP_SHELL = {
 // focus without joining the tab order; the outline rule lives in globals.css.
 export const MAIN_CONTENT_ID = 'main-content'
 export const MAIN_CONTENT_PROPS = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const
-
-export const NOTIFICATION_DISPLAY_MS = 8000
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
 

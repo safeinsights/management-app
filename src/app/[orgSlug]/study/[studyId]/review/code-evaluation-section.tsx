@@ -83,8 +83,7 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
             {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
-            {/* Figma label column; at 320 the test-study info icon wrapped alone onto a second line. */}
-            <Text id={labelId} component="div" fz={14} w={346}>
+            <Text id={labelId} component="div" fz={14} w={320}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
@@ -132,8 +131,7 @@ function AgreementNote({ note }: { note: string | undefined }) {
 }
 
 type CriterionLabelConfig = {
-    build: (proposalHref: string) => ReactNode
-    note?: (isTestStudy: boolean) => string | undefined
+    build: (proposalHref: string, isTestStudy: boolean) => ReactNode
 }
 
 const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
@@ -149,16 +147,18 @@ const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
         ),
     },
     agreementCompliance: {
-        build: () => (
+        build: (_href, isTestStudy) => (
             <>
                 Does code align with the{' '}
                 <CriterionLink href={Routes.legal} testId="criteria-agreement-link">
                     Study Agreement
                 </CriterionLink>
-                ?
+                {/* The inline SVG is a line-break opportunity; keep the icon on the "?" line. */}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                    ?<AgreementNote note={isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined} />
+                </span>
             </>
         ),
-        note: (isTestStudy) => (isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined),
     },
     privacyProtection: {
         build: () => 'Could the outputs expose any PII?',
@@ -185,8 +185,6 @@ export function CodeEvaluationSection({
     }
 
     const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => {
-        const config = CRITERION_LABELS[key]
-        const note = config.note?.(isTestStudy)
         return (
             <CriterionRow
                 key={key}
@@ -196,12 +194,7 @@ export function CodeEvaluationSection({
                 sectionErrorId={sectionErrorId}
                 onChange={handleChange(key)}
                 onBlur={validateOnBlur ? () => form.validateField(`criteria.${key}`) : undefined}
-                label={
-                    <>
-                        {config.build(proposalHref)}
-                        <AgreementNote note={note} />
-                    </>
-                }
+                label={CRITERION_LABELS[key].build(proposalHref, isTestStudy)}
             />
         )
     })

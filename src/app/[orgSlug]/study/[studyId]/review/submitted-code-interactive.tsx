@@ -10,7 +10,6 @@ import {
     Group,
     Loader,
     Menu,
-    Paper,
     Skeleton,
     Stack,
     Text,
@@ -226,12 +225,10 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
-        <Paper withBorder p="md" radius="sm" data-testid="ai-summary-box">
-            <Stack gap="xs">
-                <AiSummaryBody isExpanded={isExpanded} summary={summary} />
-                <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
-            </Stack>
-        </Paper>
+        <Stack gap="xs" p="md" bd={`1px solid ${semanticColor('border.default')}`} bdrs="xs">
+            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
+            <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
+        </Stack>
     )
 }
 

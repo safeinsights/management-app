@@ -46,7 +46,7 @@ type CardView = 'card' | 'edit'
 /** Cmd on a Mac and Ctrl elsewhere, which is what every editor with a link balloon uses. */
 const OPEN_CARD_KEY = 'k'
 
-function useEditorLinkCard(editor: LexicalEditor) {
+function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
     const [view, setView] = useState<CardView>('card')
 
@@ -55,7 +55,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
         setView('card')
     }, [])
 
-    const { claim } = useExclusiveLinkCard(close)
+    const { claim } = useExclusiveLinkCard(close, dropdownId)
 
     const open = useCallback(
         (found: LinkCardTarget) => {
@@ -206,8 +206,8 @@ type EditorLinkCard = ReturnType<typeof useEditorLinkCard>
 
 export function LinkHoverCardPlugin() {
     const [editor] = useLexicalComposerContext()
-    const card = useEditorLinkCard(editor)
     const dropdownId = useId()
+    const card = useEditorLinkCard(editor, dropdownId)
 
     useLinkCardTriggerAria(editor, card.link?.nodeKey ?? null, dropdownId)
     useEscapeOnCard(card.link !== null, card.handleEscape)

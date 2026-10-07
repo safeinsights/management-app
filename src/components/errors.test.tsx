@@ -96,9 +96,8 @@ describe('errorToString', () => {
         expect(errorToString(clerkError)).toBe('The username is invalid.\nThe password is too weak.')
     })
 
-    it('returns the Error instance string if error is an instance of Error', () => {
-        const errorInstance = new Error('Instance error')
-        expect(errorToString(errorInstance)).toBe(errorInstance.toString())
+    it('returns the message of a plain Error', () => {
+        expect(errorToString(new Error('Instance error'))).toBe('Instance error')
     })
 })
 
@@ -108,23 +107,78 @@ describe('reportError', () => {
     it('calls notifications.show with the default title and error message', () => {
         const errorMsg = 'Test error'
         reportError(errorMsg)
-        expect(notificationsShowSpy).toHaveBeenCalledWith({
-            color: 'red',
-            title: 'An error occurred',
-            message: expect.stringMatching(new RegExp(`${errorMsg}\\nReference: [a-f0-9]{32}`)),
-        })
+        expect(notificationsShowSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                'data-toast-kind': 'error',
+                title: 'An error occurred',
+                message: expect.stringMatching(new RegExp(`${errorMsg}\\nReference: [a-f0-9]{32}`)),
+            }),
+        )
     })
 
     it('calls notifications.show with a custom title if provided', () => {
-        const errorInstance = new Error('Custom error')
-        const customTitle = 'Custom Title'
-        reportError(errorInstance, customTitle)
-        const errorString = errorInstance.toString()
-        expect(notificationsShowSpy).toHaveBeenCalledWith({
-            color: 'red',
-            title: customTitle,
-            message: expect.stringMatching(new RegExp(`${errorString}\\nReference: [a-f0-9]{32}`)),
+        reportError(new Error('Custom error'), 'Custom Title')
+        expect(notificationsShowSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                'data-toast-kind': 'error',
+                title: 'Custom Title',
+                message: expect.stringMatching(/Reference: [a-f0-9]{32}/),
+            }),
+        )
+    })
+
+    it('raises an error-category toast, which stays up until the reader acts on it', () => {
+        reportError('Test error')
+
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                autoClose: false,
+                role: 'alert',
+                'aria-live': 'assertive',
+                'data-toast-kind': 'error',
+            }),
+        )
+    })
+
+    // QA saw "TypeError: Failed to fetch" reach a researcher. Framework text explains nothing, so it
+    // gets copy naming the next step instead.
+    it('substitutes copy the reader can act on for a framework TypeError', () => {
+        const eventId = reportError(new TypeError('Failed to fetch'))
+        const { message } = notificationsShowSpy.mock.calls[0][0]
+
+        expect(message).not.toContain('Failed to fetch')
+        expect(message).toBe(`Try again.\nReference: ${eventId}`)
+    })
+
+    it('keeps the text our own code wrote into a plain Error', () => {
+        const eventId = reportError(new Error('An error occurred when uploading a.R, please re-upload it.'))
+
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                message: `An error occurred when uploading a.R, please re-upload it.\nReference: ${eventId}`,
+            }),
+        )
+    })
+
+    // The Sentry reference is per call, so folding it into the id would give every retry its own
+    // notice — and an error toast never auto-closes, so they would pile up.
+    it('reuses one id across retries of the same failure', () => {
+        const eventId = reportError(new Error('boom'), 'Failed to save')
+        reportError(new Error('boom'), 'Failed to save')
+
+        const [first, second] = notificationsShowSpy.mock.calls.map(([arg]) => arg.id)
+        expect(first).toBe(second)
+        expect(first).not.toContain(eventId)
+    })
+
+    it('keeps a Clerk longMessage, which is written for the reader', () => {
+        reportError({
+            errors: [{ code: 'form_param_format_invalid', message: 'is invalid', longMessage: 'Enter a valid email.' }],
         })
+
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({ message: expect.stringContaining('Enter a valid email.') }),
+        )
     })
 
     // The IDE failure modal quotes this id as its support Ref, so it has to be the one the
@@ -185,9 +239,8 @@ describe('ErrorAlert Component', () => {
     })
 
     it('renders error when error is an Error instance', () => {
-        const err = new Error('Instance error')
-        renderWithProviders(<ErrorAlert error={err} />)
-        expect(screen.getByText(err.toString())).toBeDefined()
+        renderWithProviders(<ErrorAlert error={new Error('Instance error')} />)
+        expect(screen.getByText('Instance error')).toBeDefined()
     })
 })
 

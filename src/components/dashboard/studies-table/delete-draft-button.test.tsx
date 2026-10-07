@@ -123,7 +123,7 @@ describe('DeleteDraftButton', () => {
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'green',
+                    'data-toast-kind': 'success',
                     message: 'Proposal draft Doomed was successfully deleted',
                 }),
             )
@@ -155,7 +155,7 @@ describe('DeleteDraftButton', () => {
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'green',
+                    'data-toast-kind': 'success',
                     message: 'Proposal draft Untitled Draft was successfully deleted',
                 }),
             )
@@ -181,7 +181,7 @@ describe('DeleteDraftButton', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Failed to delete proposal draft' }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: 'Failed to delete proposal draft' }),
             )
         })
 

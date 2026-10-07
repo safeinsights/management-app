@@ -7,6 +7,8 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
+import { deliver } from '@/server/mailgun'
 import { describe, expect, it, vi } from 'vitest'
 import {
     onUpdateDraftStudyAction,
@@ -24,6 +26,12 @@ vi.mock('@/server/aws', async () => {
         triggerScanForStudyJob: vi.fn(),
     }
 })
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
 
 const NOTE_50_WORDS = buildFeedback(50)
 
@@ -80,6 +88,28 @@ describe('resubmitProposalAction', () => {
             }),
         )
         expect(JSON.stringify(comments[0].body)).toContain('word1')
+    })
+
+    it('asks the Data Partner to review the revised proposal', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-email', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        actionResult(
+            await resubmitProposalAction({
+                studyId: study.id,
+                studyInfo: { title: 'Revised' },
+                resubmissionNote: NOTE_50_WORDS,
+            }),
+        )
+        await flushDeferred()
+
+        expect(deliver).toHaveBeenCalledWith(
+            expect.objectContaining({ template: 'vb - new research proposal', subject: 'Proposal needs review' }),
+        )
     })
 
     it('deletes stale review-feedback yjs_document rows when resubmitting', async () => {
