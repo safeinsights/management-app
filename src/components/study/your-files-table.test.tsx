@@ -36,6 +36,24 @@ describe('YourFilesTable', () => {
         expect(onSelectMain).toHaveBeenCalledWith('main.R')
     })
 
+    it('disables every star on a view-only table', () => {
+        renderWithProviders(<YourFilesTable {...baseProps} isEditable={false} />)
+        for (const star of screen.getAllByRole('radio')) {
+            expect(star).toBeDisabled()
+            expect(star.getAttribute('style') ?? '').not.toContain('cursor')
+        }
+    })
+
+    it('calls onView when a file name is clicked', async () => {
+        const user = userEvent.setup()
+        const onView = vi.fn()
+        renderWithProviders(<YourFilesTable {...baseProps} onView={onView} />)
+        const fileName = screen.getByRole('button', { name: 'View main.R' })
+        expect(fileName.getAttribute('style') ?? '').not.toContain('text-decoration')
+        await user.click(fileName)
+        expect(onView).toHaveBeenCalledWith('main.R')
+    })
+
     it('confirms before removing a file', async () => {
         const user = userEvent.setup()
         const onDelete = vi.fn()

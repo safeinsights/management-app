@@ -1,0 +1,9 @@
+/* UnstyledButton already supplies the pointer cursor; only the disabled star needs its own. */
+.star:disabled {
+    cursor: not-allowed;
+}
+
+.fileName:hover,
+.fileName:focus-visible {
+    text-decoration: underline;
+}

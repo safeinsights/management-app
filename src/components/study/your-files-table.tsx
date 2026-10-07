@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
+import classes from './your-files-table.module.css'
 import { semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
@@ -92,7 +93,8 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
             aria-label={isMain ? `${fileName} is the main file` : `Set ${fileName} as main file`}
             disabled={!isEditable}
             onClick={() => onSelect(fileName)}
-            style={{ display: 'inline-flex', cursor: isEditable ? 'pointer' : 'not-allowed' }}
+            display="inline-flex"
+            className={classes.star}
         >
             <StarIcon
                 size={20}
@@ -138,28 +140,22 @@ type FileNameCellProps = {
     onView: (fileName: string) => void
 }
 
-const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => {
-    const [isHovered, setIsHovered] = useState(false)
-
-    return (
-        <Group gap="xs" wrap="nowrap">
-            <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
-                <UnstyledButton
-                    onClick={() => onView(fileName)}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    aria-label={`View ${fileName}`}
-                    style={{ cursor: 'pointer', textDecoration: isHovered ? 'underline' : 'none' }}
-                >
-                    <Text component="span" inherit>
-                        {truncateFileName(fileName)}
-                    </Text>
-                </UnstyledButton>
-            </Tooltip>
-            <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
-        </Group>
-    )
-}
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
+    <Group gap="xs" wrap="nowrap">
+        <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
+            <UnstyledButton
+                onClick={() => onView(fileName)}
+                aria-label={`View ${fileName}`}
+                className={classes.fileName}
+            >
+                <Text component="span" inherit>
+                    {truncateFileName(fileName)}
+                </Text>
+            </UnstyledButton>
+        </Tooltip>
+        <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
+    </Group>
+)
 
 type FileActionsProps = {
     fileName: string
