@@ -36,15 +36,9 @@ const DropTestLabButton: React.FC<{ name: string; onConfirmed: () => void }> = (
 
 const TestLabRow: React.FC<{ lab: TestLab; hasActions: boolean; onDrop: OnDrop }> = ({ lab, hasActions, onDrop }) => {
     const onConfirmed = () => onDrop(lab.id)
+    const actions = hasActions ? <DropTestLabButton name={lab.researchLabName} onConfirmed={onConfirmed} /> : undefined
 
-    return (
-        <TestLabRowView
-            name={lab.researchLabName}
-            addedOn={formatInstant(lab.createdAt)}
-            hasActions={hasActions}
-            actions={<DropTestLabButton name={lab.researchLabName} onConfirmed={onConfirmed} />}
-        />
-    )
+    return <TestLabRowView name={lab.researchLabName} addedOn={formatInstant(lab.createdAt)} actions={actions} />
 }
 
 type TestLabsTableProps = { testLabs: TestLab[]; hasActions: boolean; onDrop: OnDrop }

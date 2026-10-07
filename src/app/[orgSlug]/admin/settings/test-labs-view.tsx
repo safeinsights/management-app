@@ -8,8 +8,8 @@ import { SettingsCard } from './settings-card'
 
 // Presentational only, so the section renders without a QueryClient (e.g. Ladle).
 
-// The header and every row take the same flag, so the table never has a header the rows lack or
-// cells the header lacks.
+// The header cannot see its rows, so it takes a flag; a row has an actions cell exactly when it is
+// given actions. The caller derives both from one value, so header and cells cannot misalign.
 function ActionsHeader({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
 
@@ -20,25 +20,18 @@ function ActionsHeader({ isVisible }: { isVisible: boolean }) {
     )
 }
 
-function ActionsCell({ isVisible, children }: { isVisible: boolean; children: ReactNode }) {
-    if (!isVisible) return null
-
-    return <Table.Td>{children}</Table.Td>
-}
-
 export type TestLabRowViewProps = {
     name: string
     addedOn: string
-    hasActions: boolean
     actions?: ReactNode
 }
 
-export function TestLabRowView({ name, addedOn, hasActions, actions }: TestLabRowViewProps) {
+export function TestLabRowView({ name, addedOn, actions }: TestLabRowViewProps) {
     return (
         <Table.Tr>
             <Table.Td>{name}</Table.Td>
             <Table.Td>{addedOn}</Table.Td>
-            <ActionsCell isVisible={hasActions}>{actions}</ActionsCell>
+            {actions != null && <Table.Td>{actions}</Table.Td>}
         </Table.Tr>
     )
 }

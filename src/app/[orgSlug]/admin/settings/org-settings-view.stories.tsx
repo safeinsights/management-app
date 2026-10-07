@@ -111,8 +111,8 @@ const DataSourcesCard = (
 const TestLabsCard = (
     <TestLabsView onAdd={noop}>
         <TestLabsTableView hasActions={false}>
-            <TestLabRowView name="Mars Undergraduate Lab" addedOn="Sep 14, 2026" hasActions={false} />
-            <TestLabRowView name="Phobos Analytics" addedOn="Sep 21, 2026" hasActions={false} />
+            <TestLabRowView name="Mars Undergraduate Lab" addedOn="Sep 14, 2026" />
+            <TestLabRowView name="Phobos Analytics" addedOn="Sep 21, 2026" />
         </TestLabsTableView>
     </TestLabsView>
 )
@@ -196,13 +196,11 @@ export const TestLabsCardSpyMode: Story = () => (
                 <TestLabRowView
                     name="Mars Undergraduate Lab"
                     addedOn="Sep 14, 2026"
-                    hasActions
                     actions={dropAction('Mars Undergraduate Lab')}
                 />
                 <TestLabRowView
                     name="Phobos Analytics"
                     addedOn="Sep 21, 2026"
-                    hasActions
                     actions={dropAction('Phobos Analytics')}
                 />
             </TestLabsTableView>
