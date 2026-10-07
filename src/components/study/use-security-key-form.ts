@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@/common'
-import {
-    ARCHIVE_INTEGRITY_MESSAGE,
-    ArchiveIntegrityError,
-    KeyParseError,
-    useDecryptFiles,
-} from '@/hooks/use-decrypt-files'
+import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, useDecryptFiles } from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import * as Sentry from '@sentry/nextjs'
@@ -13,7 +8,6 @@ import * as Sentry from '@sentry/nextjs'
 const ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
     invalid: 'Invalid key. Check that you copied the full key and enter it again.',
-    priorKey: "These outputs were encrypted with a prior key. Click 'Lost your key' below for next steps.",
     noFiles: 'No encrypted outputs available to decrypt.',
     integrity: ARCHIVE_INTEGRITY_MESSAGE,
 } as const
@@ -39,11 +33,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
-    const {
-        data: encryptedFiles,
-        isLoading: isLoadingFiles,
-        isSuccess: isFileListLoaded,
-    } = useQuery({
+    const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
         // Role is part of the key so a dual-role user is not served the other role's cache.
         queryKey: ['encrypted-files', job.id, type],
         queryFn: async () => {
@@ -58,7 +48,10 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
     const failInvalid = useCallback(() => setError(ERRORS.invalid), [])
 
-    const failDecrypt = useCallback((err: Error) => setError(decryptErrorMessage(err)), [])
+    const failDecrypt = useCallback(
+        (err: Error) => setError(err instanceof ArchiveIntegrityError ? ERRORS.integrity : ERRORS.invalid),
+        [],
+    )
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
@@ -98,13 +91,6 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         // programmatic call.
         if (isLoadingFiles) return
 
-        // A researcher is only served artifacts wrapped for their current key, so an answered-but-empty
-        // list means the outputs were shared to a key they have since replaced.
-        if (type === 'researcher' && isFileListLoaded && !encryptedFiles?.length) {
-            setError(ERRORS.priorKey)
-            return
-        }
-
         // Nothing to test the key against: the query failed, this reviewer has no registered public
         // key, or the job has no encrypted output. None of those is a bad key.
         if (!encryptedFiles?.length) {
@@ -114,7 +100,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
 
         setError(undefined)
         decrypt(trimmed)
-    }, [isPending, isLoadingFiles, isFileListLoaded, type, encryptedFiles, value, decrypt])
+    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
 
     return {
         value,
@@ -125,11 +111,4 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         inputRef,
         handleSubmit,
     }
-}
-
-// A key that parses but opens nothing is a real key, just not one these outputs were encrypted for.
-const decryptErrorMessage = (err: Error) => {
-    if (err instanceof ArchiveIntegrityError) return ERRORS.integrity
-    if (err instanceof KeyParseError) return ERRORS.invalid
-    return ERRORS.priorKey
 }

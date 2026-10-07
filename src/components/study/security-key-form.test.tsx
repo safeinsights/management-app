@@ -72,7 +72,6 @@ async function seedArtifact(
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
 const NO_FILES_ERROR = 'No encrypted outputs available to decrypt.'
-const PRIOR_KEY_ERROR = "These outputs were encrypted with a prior key. Click 'Lost your key' below for next steps."
 const INTEGRITY_ERROR = 'These results failed verification and may have been altered. Contact your administrator.'
 
 const enterKey = (value: string) => {
@@ -216,33 +215,36 @@ describe('SecurityKeyForm', () => {
     })
 
     // With nothing to decrypt the parse step accepts any syntactically valid PEM, so neither
-    // case may hand the caller a decrypted set (OTTER-675).
-    it('shows a no-files error when the fetch returns an empty list', async () => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    // case may hand the caller a decrypted set (OTTER-675). Same for both roles: an empty
+    // answer is not a bad key
+    describe.each(['reviewer', 'researcher'] as const)('as a %s with no files', (type) => {
+        it('shows a no-files error when the fetch returns an empty list', async () => {
+            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 
-        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+            renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
 
-        await screen.findByRole('button', { name: 'View' })
+            await screen.findByRole('button', { name: 'View' })
 
-        enterKey('some-key')
-        clickView()
+            enterKey('some-key')
+            clickView()
 
-        expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-        expect(onDecrypted).not.toHaveBeenCalled()
-    })
+            expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+            expect(onDecrypted).not.toHaveBeenCalled()
+        })
 
-    it('shows a no-files error when the fetch rejects', async () => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
+        it('shows a no-files error when the fetch rejects', async () => {
+            vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
 
-        renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+            renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
 
-        await screen.findByRole('button', { name: 'View' })
+            await screen.findByRole('button', { name: 'View' })
 
-        enterKey('some-key')
-        clickView()
+            enterKey('some-key')
+            clickView()
 
-        expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-        expect(onDecrypted).not.toHaveBeenCalled()
+            expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+            expect(onDecrypted).not.toHaveBeenCalled()
+        })
     })
 
     it('hands the decrypted files to the caller when the key is valid', async () => {
@@ -261,7 +263,8 @@ describe('SecurityKeyForm', () => {
         expect(screen.getByRole('button', { name: 'View' })).toBeEnabled()
     })
 
-    it('tells a reviewer whose well-formed key is not a recipient that the outputs used a prior key', async () => {
+    // A well-formed key the archive was not encrypted for is a wrong key, not a tampered archive.
+    it('reports a key that is not a recipient as invalid', async () => {
         const { privateKeyString } = await generateKeyPair()
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
@@ -270,8 +273,8 @@ describe('SecurityKeyForm', () => {
         enterKey(privateKeyString)
         clickView()
 
-        expect(await screen.findByText(PRIOR_KEY_ERROR)).toBeInTheDocument()
-        expect(screen.queryByText(INVALID_ERROR)).toBeNull()
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(screen.queryByText(INTEGRITY_ERROR)).toBeNull()
         expect(onDecrypted).not.toHaveBeenCalled()
     })
 
@@ -312,39 +315,5 @@ describe('SecurityKeyForm', () => {
         expect(await screen.findByText(INTEGRITY_ERROR)).toBeInTheDocument()
         expect(screen.queryByText(INVALID_ERROR)).toBeNull()
         expect(onDecrypted).not.toHaveBeenCalled()
-    })
-
-    // The action only serves a researcher artifacts wrapped for their current key, so an empty
-    // answer means the outputs were shared to a key they have since replaced.
-    describe('researcher with no wrapped key', () => {
-        it('keeps the form and reports the prior key on submit', async () => {
-            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-
-            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
-
-            await screen.findByRole('button', { name: 'View' })
-            expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
-
-            enterKey(await readTestSupportFile('private_key.pem'))
-            clickView()
-
-            expect(await screen.findByText(PRIOR_KEY_ERROR)).toBeInTheDocument()
-            expect(screen.queryByText(NO_FILES_ERROR)).toBeNull()
-            expect(onDecrypted).not.toHaveBeenCalled()
-        })
-
-        // A failed fetch also yields no files, but the cause is an outage, not the user's key.
-        it('does not blame the key when the fetch itself failed', async () => {
-            vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
-
-            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
-
-            await screen.findByRole('button', { name: 'View' })
-
-            enterKey('some-key')
-            clickView()
-            expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
-            expect(screen.queryByText(PRIOR_KEY_ERROR)).toBeNull()
-        })
     })
 })
