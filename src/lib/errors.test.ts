@@ -155,6 +155,10 @@ describe('errorToString with a fallback', () => {
         expect(errorToString(new Error(''), { fallback: 'Try again.' })).toBe('Try again.')
     })
 
+    it('uses the fallback for an unrecognised rejection value', () => {
+        expect(errorToString({ some: 'object' }, { fallback: 'Try again.' })).toBe('Try again.')
+    })
+
     it('ignores the fallback when the error carries copy written for a reader', () => {
         const fallback = 'Try again.'
         expect(errorToString(new Error('Upload failed, please re-upload it.'), { fallback })).toBe(

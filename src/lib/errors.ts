@@ -162,7 +162,7 @@ export const errorToString = (error: unknown, { clerkOverrides, fallback }: Erro
         return error.message || (fallback ?? String(error))
     }
 
-    return 'Unknown error occurred'
+    return fallback ?? 'Unknown error occurred'
 }
 
 class RecordError extends ActionFailure {
