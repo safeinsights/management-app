@@ -207,15 +207,7 @@ function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
             (join) => join.onTrue(),
         )
         .leftJoinLateral(
-            (eb) => latestJobStatusActor(eb, ['CODE-SUBMITTED']).as('codeSubmission'),
-            (join) => join.onTrue(),
-        )
-        .leftJoinLateral(
-            (eb) => latestJobStatusActor(eb, CODE_DECISION_JOB_STATUSES).as('codeReview'),
-            (join) => join.onTrue(),
-        )
-        .leftJoinLateral(
-            (eb) => latestJobStatusActor(eb, ROUND_CLOSING_JOB_STATUSES).as('outputsReview'),
+            (eb) => jobStageActors(eb).as('jobStages'),
             (join) => join.onTrue(),
         )
         .select([
@@ -223,14 +215,14 @@ function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
             'proposalAudit.at as proposalAuditAt',
             'proposalResubmission.name as proposalResubmitterName',
             'proposalResubmission.at as proposalResubmittedAt',
-            'codeSubmission.name as codeSubmitterName',
-            'codeSubmission.at as codeSubmittedAt',
+            'jobStages.codeSubmitterName',
+            'jobStages.codeSubmittedAt',
             'proposalReview.name as proposalReviewerName',
             'proposalReview.at as proposalReviewedAt',
-            'codeReview.name as codeReviewerName',
-            'codeReview.at as codeReviewedAt',
-            'outputsReview.name as outputsReviewerName',
-            'outputsReview.at as outputsReviewedAt',
+            'jobStages.codeReviewerName',
+            'jobStages.codeReviewedAt',
+            'jobStages.outputsReviewerName',
+            'jobStages.outputsReviewedAt',
         ])
         .select(ownEditsAtSql(audience).as('ownEditsAt'))
 }
@@ -246,18 +238,36 @@ function jobStatusByUser(eb: ExpressionBuilder<DB, 'study'>, statuses: readonly 
         .where('jobStatusChange.userId', '=', userId)
 }
 
-// The newest job status in `statuses` across all of the study's jobs, with the user who wrote it.
-function latestJobStatusActor(eb: ExpressionBuilder<DB, 'study'>, statuses: readonly StudyJobStatus[]) {
+const CODE_SUBMISSION_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED']
+
+// Who wrote the newest job status of each stage, and when, in one pass over the study's job history.
+function jobStageActors(eb: ExpressionBuilder<DB, 'study'>) {
+    const inStatuses = (statuses: readonly StudyJobStatus[]) =>
+        sql`"job_status_change"."status" in (${sql.join(statuses)})`
+    const newestActor = (statuses: readonly StudyJobStatus[]) =>
+        sql<
+            string | null
+        >`(array_agg("actor"."full_name" order by "job_status_change"."created_at" desc, "job_status_change"."id" desc) filter (where ${inStatuses(statuses)}))[1]`
+    const newestAt = (statuses: readonly StudyJobStatus[]) =>
+        sql<Date | null>`max("job_status_change"."created_at") filter (where ${inStatuses(statuses)})`
     return eb
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('user as actor', 'actor.id', 'jobStatusChange.userId')
-        .select(['actor.fullName as name', 'jobStatusChange.createdAt as at'])
         .whereRef('studyJob.studyId', '=', 'study.id')
-        .where('jobStatusChange.status', 'in', statuses)
-        .orderBy('jobStatusChange.createdAt', 'desc')
-        .orderBy('jobStatusChange.id', 'desc')
-        .limit(1)
+        .where('jobStatusChange.status', 'in', [
+            ...CODE_SUBMISSION_JOB_STATUSES,
+            ...CODE_DECISION_JOB_STATUSES,
+            ...ROUND_CLOSING_JOB_STATUSES,
+        ])
+        .select([
+            newestActor(CODE_SUBMISSION_JOB_STATUSES).as('codeSubmitterName'),
+            newestAt(CODE_SUBMISSION_JOB_STATUSES).as('codeSubmittedAt'),
+            newestActor(CODE_DECISION_JOB_STATUSES).as('codeReviewerName'),
+            newestAt(CODE_DECISION_JOB_STATUSES).as('codeReviewedAt'),
+            newestActor(ROUND_CLOSING_JOB_STATUSES).as('outputsReviewerName'),
+            newestAt(ROUND_CLOSING_JOB_STATUSES).as('outputsReviewedAt'),
+        ])
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
