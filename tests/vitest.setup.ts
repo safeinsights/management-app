@@ -317,7 +317,8 @@ afterEach(async () => {
         try {
             // Unmount first, so nothing can start a mutation between the check and the rollback.
             cleanup()
-            const { pendingTestMutationCount, pendingTestMutationDescriptions } = await import('@/tests/unit.helpers')
+            const { pendingTestMutationCount, pendingTestMutationDescriptions, settlePendingTestQueries } =
+                await import('@/tests/unit.helpers')
             const pending = pendingTestMutationCount()
             if (pending) {
                 // Named here rather than left to the reporter: this throws from a hook, which the
@@ -329,6 +330,7 @@ afterEach(async () => {
                     `${pending} mutation(s) still pending at teardown in "${testName}" [${details}]; await the outcome in the test.`,
                 )
             }
+            await settlePendingTestQueries()
             await flushDeferred()
         } finally {
             // The check can throw; the transaction still has to go, or its rows outlive the test.

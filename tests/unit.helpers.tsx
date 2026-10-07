@@ -97,8 +97,8 @@ export const createTestQueryClient = () => {
     return client
 }
 
-// Mutations only: a read action opens no transaction and issues plain SELECTs, so a late one
-// cannot commit anything. A pending mutation can, see the teardown check in vitest.setup.ts.
+// Mutations only: a pending mutation fails the teardown check in vitest.setup.ts, while a late read
+// is waited for instead, see settlePendingTestQueries.
 export const pendingTestMutationCount = () =>
     [...liveTestQueryClients].reduce((count, client) => count + client.isMutating(), 0)
 
@@ -128,6 +128,34 @@ export const waitForPendingQueries = () =>
     waitForRtl(() => {
         expect(pendingTestQueryCount()).toBe(0)
     })
+
+// Captured at import, so a test that leaves fake timers on cannot stall the teardown wait.
+const realSetTimeout = globalThis.setTimeout
+const realClearTimeout = globalThis.clearTimeout
+const QUERY_SETTLE_BUDGET_MS = 1_000
+
+// A read outlives unmount, and its session marshal writes a user row when the user is missing. Past
+// the rollback it writes into the next test, or hits a closed pool after the file's last test.
+// Bounded, because some tests hold a read open on purpose.
+export const settlePendingTestQueries = async () => {
+    const inFlight = [...liveTestQueryClients].flatMap((client) =>
+        client
+            .getQueryCache()
+            .getAll()
+            .filter((query) => query.state.fetchStatus === 'fetching')
+            .map((query) => query.promise),
+    )
+    if (!inFlight.length) return
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+    await Promise.race([
+        Promise.allSettled(inFlight),
+        new Promise((resolve) => {
+            timer = realSetTimeout(resolve, QUERY_SETTLE_BUDGET_MS)
+        }),
+    ])
+    realClearTimeout(timer)
+}
 
 // The teardown check in vitest.setup.ts fails a test that leaves a write in flight. Use this when
 // the mutation is a side effect the test does not otherwise assert on — a first-visit record, an
