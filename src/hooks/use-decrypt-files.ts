@@ -73,13 +73,15 @@ async function proveKey(
 
     const isListed = fingerprint in file.keys
     const isManifestRecipient = Object.keys(recipientKeys).length === 0
-    if (isManifestRecipient) {
-        if (!isListed) throw new WrongKeyError('Key is not a recipient of these results')
-        return
+    if (!isListed) {
+        if (isManifestRecipient) throw new WrongKeyError('Key is not a recipient of these results')
+        // The server sent wraps for this artifact but none for this file: a manifest/row mismatch,
+        // not the user's key, so leave it to the catch above to classify.
+        throw new Error(`no wrapped key for ${fingerprint}`)
     }
+    if (isManifestRecipient) return
 
     try {
-        if (!isListed) throw new Error(`no wrapped key for ${fingerprint}`)
         await unwrapAesKey(file.keys[fingerprint].crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
     } catch (err) {
         throw new WrongKeyError('Key is not a recipient of these results', { cause: err })

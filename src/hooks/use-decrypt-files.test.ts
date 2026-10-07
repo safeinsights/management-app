@@ -97,6 +97,28 @@ describe('useDecryptFiles', () => {
         expectDecryptsToContents(await decrypt(await asJobFile(await currentArchive())))
     })
 
+    // A researcher is not in the manifest; the server hands over wraps made for their key at
+    // share time, mirroring what fetchEncryptedJobFilesAction returns.
+    it('reads a current archive as a researcher with wraps served alongside it', async () => {
+        const me = await recipient()
+        const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+        const writer = new ResultsWriter([{ publicKey, fingerprint }, me], { jobId: JOB_ID })
+        await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+
+        const zip = await writer.generate()
+        const { manifest } = await openArchive(zip)
+        const myWrap = manifest.files[FILENAME].keys[me.fingerprint].crypt
+        const archive = await tamper(zip, {
+            manifest: (m) => {
+                delete m.files[FILENAME].keys[me.fingerprint]
+            },
+        })
+        const file = await asJobFile(archive)
+        file.recipientKeys = { [FILENAME]: myWrap }
+
+        expectDecryptsToContents(await decrypt(file))
+    })
+
     it('reports a dropped file as tampering rather than a bad key', async () => {
         const archive = await tamper(await currentArchive(), { drop: [FILENAME] })
 
@@ -146,6 +168,17 @@ describe('useDecryptFiles', () => {
             const failure = await decrypt(file).catch((err: Error) => err)
             expect(failure).toBeInstanceOf(Error)
             expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // Wraps were served for the artifact but none names this file: the server's rows and the
+        // manifest disagree, which no key of the user's can fix.
+        it('is not blamed on the key when the wraps served do not cover the file', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { 'some-other-file.csv': manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            await expect(decrypt(file)).rejects.toThrow(ArchiveIntegrityError)
         })
     })
 
