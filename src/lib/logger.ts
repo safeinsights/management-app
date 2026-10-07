@@ -74,6 +74,7 @@ const logger = {
 // Under Vitest the stream goes through console, so each line is captured with the test that wrote
 // it. warn and error already reach the console, so their debug copies would only repeat them.
 if (process.env.NODE_ENV === 'test') {
+    // eslint-disable-next-line no-console
     debug.log = (...args: unknown[]) => console.info(...args)
     debug.enable('app:*,-app:warn,-app:error')
 } else {
