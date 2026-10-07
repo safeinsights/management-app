@@ -1,13 +1,12 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
-import classes from './your-files-table.module.css'
 import { semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
@@ -84,7 +83,7 @@ type MainFileStarProps = {
 }
 
 // Greyed rather than hidden: view-only still shows which file is main.
-const starColor = (isEditable: boolean) => semanticColor(isEditable ? 'surface.selected' : 'icon.light')
+const starColor = (isEditable: boolean) => semanticColor(isEditable ? 'surface.selected' : 'surface.disabled.medium')
 
 // No "Set as main file" tooltip on a view-only star: it would invite an action the user cannot take.
 const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onSelect }) => (
@@ -98,7 +97,6 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
             disabled={!isEditable}
             onClick={() => onSelect(fileName)}
             display="inline-flex"
-            className={classes.star}
         >
             <StarIcon size={20} weight={isMain ? 'fill' : 'regular'} color={starColor(isEditable)} />
         </UnstyledButton>
@@ -138,15 +136,17 @@ type FileNameCellProps = {
 const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
     <Group gap="xs" wrap="nowrap">
         <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
-            <UnstyledButton
-                onClick={() => onView(fileName)}
+            <Anchor
+                component="button"
+                type="button"
+                underline="hover"
+                c={semanticColor('text.primary')}
+                inherit
                 aria-label={`View ${fileName}`}
-                className={classes.fileName}
+                onClick={() => onView(fileName)}
             >
-                <Text component="span" inherit>
-                    {truncateFileName(fileName)}
-                </Text>
-            </UnstyledButton>
+                {truncateFileName(fileName)}
+            </Anchor>
         </Tooltip>
         <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
     </Group>

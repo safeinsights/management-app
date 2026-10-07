@@ -3,6 +3,7 @@ import { ActionIcon, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
 import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { studyCodeURL } from '@/lib/paths'
+import { semanticColor } from '@/theme/tokens'
 import { CollapseToggleLink } from './collapse-toggle-link'
 
 // Free of data fetching and the preview modal so it can render in isolation.
@@ -18,7 +19,7 @@ const formatUpdatedAt = (date: Date | string) =>
     })
 
 // Post-submission the main file is locked in, so the star renders grey but still filled.
-const STAR_COLOR = 'var(--mantine-color-gray-5)'
+const STAR_COLOR = semanticColor('surface.disabled.medium')
 
 const SubmittedCodeRow: FC<{
     file: SubmittedFile
