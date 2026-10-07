@@ -248,7 +248,7 @@ describe('SecurityKeyForm', () => {
     it('hands the decrypted files to the caller when the key is valid', async () => {
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey(await readTestSupportFile('private_key.pem'))
         clickView()
@@ -265,7 +265,7 @@ describe('SecurityKeyForm', () => {
         const { privateKeyString } = await generateKeyPair()
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey(privateKeyString)
         clickView()
@@ -283,7 +283,7 @@ describe('SecurityKeyForm', () => {
 
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey(await readTestSupportFile('private_key.pem'))
         clickView()
@@ -304,7 +304,7 @@ describe('SecurityKeyForm', () => {
 
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         enterKey(await readTestSupportFile('private_key.pem'))
         clickView()
