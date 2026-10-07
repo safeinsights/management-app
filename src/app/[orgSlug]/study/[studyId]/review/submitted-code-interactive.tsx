@@ -228,9 +228,6 @@ function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentPro
     return (
         <Paper withBorder p="md" radius="sm" data-testid="ai-summary-box">
             <Stack gap="xs">
-                <Text fw={fontWeight.semibold} size="sm">
-                    Overview
-                </Text>
                 <AiSummaryBody isExpanded={isExpanded} summary={summary} />
                 <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
             </Stack>

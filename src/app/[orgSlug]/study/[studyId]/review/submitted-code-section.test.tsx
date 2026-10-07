@@ -214,10 +214,10 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertStudyReview(fixture.job.id, SUMMARY_TEXT)
     })
 
-    it('renders section title "AI Summary of submitted code files" and the "Overview" subtitle', async () => {
+    it('renders the section title and boxes the summary', async () => {
         await renderSection(fixture)
         expect(screen.getByText('AI Summary of submitted code files')).toBeInTheDocument()
-        expect(screen.getByText('Overview')).toBeInTheDocument()
+        expect(screen.getByTestId('ai-summary-box')).toBeInTheDocument()
         expect(screen.getByText(/AI-generated summary, which may contain errors/)).toBeInTheDocument()
     })
 
@@ -258,7 +258,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
-        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-box')).not.toBeInTheDocument()
     })
 
     it('keeps loading for a complex resubmission on a reused job', async () => {
@@ -337,7 +337,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(error).toHaveTextContent('The AI summary failed to generate.')
         expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
-        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-box')).not.toBeInTheDocument()
     })
 
     it('retrying a failed summary clears the failure row and drops back to pending', async () => {
@@ -548,7 +548,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         await new Promise((resolve) => setTimeout(resolve, 60))
         expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
-        expect(screen.queryByText('Overview')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('ai-summary-box')).not.toBeInTheDocument()
     })
 
     it('falls back to an empty-state when a review row exists but the summary is blank', async () => {
