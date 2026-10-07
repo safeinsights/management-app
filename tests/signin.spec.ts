@@ -25,8 +25,10 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            // Keyless roles land on the security-key page instead of the dashboard.
-            await expect(page.getByText(/dashboard|security key/i).first()).toBeVisible({ timeout: E2E_TIMEOUT })
+            // Keyless roles land on the security-key page instead of My studies.
+            await expect(page.getByRole('heading', { name: /my studies|security key/i }).first()).toBeVisible({
+                timeout: E2E_TIMEOUT,
+            })
         })
     }
 })
