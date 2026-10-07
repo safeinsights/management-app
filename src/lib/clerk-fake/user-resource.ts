@@ -44,6 +44,9 @@ export function buildFakeUser(fixture: FakeFixture) {
             id: `fake-email-${email}`,
             emailAddress: email,
             verification: { status: 'unverified' },
+            reload: async function () {
+                return this
+            },
             prepareVerification: async () => {},
             attemptVerification: async () => {
                 linkedEmails.set(fixture.clerkId, [...(linkedEmails.get(fixture.clerkId) ?? []), email])

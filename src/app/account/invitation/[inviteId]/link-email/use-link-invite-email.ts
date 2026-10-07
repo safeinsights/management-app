@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getClaimedInviteAction } from '../create-account.action'
 
-export type LinkInviteEmailStatus = 'loading' | 'sending' | 'awaiting-code' | 'verifying' | 'unavailable' | 'failed'
+export type LinkInviteEmailStatus = 'loading' | 'sending' | 'awaiting-code' | 'verifying' | 'failed'
 
 type AddEmailAddress = (owner: UserResource, email: string) => Promise<EmailAddressResource>
 
@@ -79,12 +79,6 @@ export function useLinkInviteEmail(inviteId: string) {
     }, [invite, router])
 
     const reportFailure = useCallback((error: unknown) => {
-        // Clerk refuses an address that already belongs to somebody else. Nothing the person can do
-        // about it, and the membership they just accepted still stands.
-        if (isClerkApiError(error) && extractClerkCodeAndMessage(error).code === 'form_identifier_exists') {
-            setStatus('unavailable')
-            return
-        }
         setFailureMessage(errorToString(error))
         setStatus('failed')
     }, [])
@@ -147,7 +141,8 @@ export function useLinkInviteEmail(inviteId: string) {
             setStatus('verifying')
             try {
                 await address.attemptVerification({ code })
-                await user.reload()
+                // The link is done once Clerk accepts the code; a failed refresh must not hold them here.
+                await user.reload().catch(() => {})
                 // Overwrites the flag the accept step set, so the dashboard banner names the
                 // address that was linked rather than the plain "added to" copy.
                 markOrgJoined(invite.orgName, invite.email)
@@ -165,9 +160,9 @@ export function useLinkInviteEmail(inviteId: string) {
     )
 
     const skip = useCallback(async () => {
-        const address = pendingAddress.current
-        // Hygiene rather than a security measure: Clerk's user lookup matches verified addresses
-        // only, so an entry left unverified cannot stand in for anybody.
+        // Another tab may have verified the address since this one loaded, so ask Clerk before
+        // discarding it. Discarding is hygiene only: Clerk's user lookup ignores unverified entries.
+        const address = await pendingAddress.current?.reload().catch(() => null)
         if (address && !isVerified(address)) {
             await address.destroy().catch(() => {})
         }
@@ -184,6 +179,5 @@ export function useLinkInviteEmail(inviteId: string) {
         verify,
         resendCode,
         skip,
-        continueToOrg: leave,
     }
 }

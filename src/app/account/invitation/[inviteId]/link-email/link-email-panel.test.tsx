@@ -19,19 +19,25 @@ type FakeAddress = {
     id: string
     emailAddress: string
     verification: { status: string }
+    reload: Mock
     prepareVerification: Mock
     attemptVerification: Mock
     destroy: Mock
 }
 
-const fakeAddress = (emailAddress: string, status = 'unverified'): FakeAddress => ({
-    id: `addr-${emailAddress}`,
-    emailAddress,
-    verification: { status },
-    prepareVerification: vi.fn().mockResolvedValue(undefined),
-    attemptVerification: vi.fn().mockResolvedValue(undefined),
-    destroy: vi.fn().mockResolvedValue(undefined),
-})
+const fakeAddress = (emailAddress: string, status = 'unverified'): FakeAddress => {
+    const address: FakeAddress = {
+        id: `addr-${emailAddress}`,
+        emailAddress,
+        verification: { status },
+        reload: vi.fn(),
+        prepareVerification: vi.fn().mockResolvedValue(undefined),
+        attemptVerification: vi.fn().mockResolvedValue(undefined),
+        destroy: vi.fn().mockResolvedValue(undefined),
+    }
+    address.reload.mockResolvedValue(address)
+    return address
+}
 
 const clerkApiError = (code: string) => ({ errors: [{ code, message: code, longMessage: code }] })
 
@@ -147,19 +153,51 @@ describe('invite email linking screen', () => {
         expect(readJoinedOrg()).toBeNull()
     })
 
-    it('explains and moves on when the address belongs to another SafeInsights account', async () => {
+    it('keeps a verified address when another tab linked it before the person skips', async () => {
         const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+
+        renderPage(invite.id)
+
+        await screen.findByText(/Enter the code we sent to/)
+        address.reload.mockResolvedValue({ ...address, verification: { status: 'verified' } })
+        await userEvent.click(screen.getByRole('button', { name: /skip for now/i }))
+
+        await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
+        expect(address.destroy).not.toHaveBeenCalled()
+    })
+
+    it('shows the generic failure when Clerk refuses the address, and skipping still lands on the dashboard', async () => {
+        const { user, invitingOrg, invite } = await setupClaimedInvite()
         const { createEmailAddress } = mockClerkUser(user.email!, [])
         createEmailAddress.mockRejectedValue(clerkApiError('form_identifier_exists'))
 
         renderPage(invite.id)
 
-        expect(await screen.findByText(new RegExp(`already belongs to another SafeInsights account`))).toBeDefined()
-        expect(screen.getByText(new RegExp(invitedEmail))).toBeDefined()
+        expect(await screen.findByText('We could not send your code')).toBeDefined()
+        expect(screen.queryByText(/another SafeInsights account/)).toBeNull()
 
-        await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+        await userEvent.click(screen.getByRole('button', { name: /skip for now/i }))
         await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
         expect(readJoinedOrg()).toBeNull()
+    })
+
+    it('finishes the link when the code is accepted but refreshing the Clerk user fails', async () => {
+        const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { user: clerkUser, createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+        clerkUser.reload.mockRejectedValue(new Error('network down'))
+
+        renderPage(invite.id)
+
+        await userEvent.type(await screen.findByLabelText('Digit 1 of 6'), '424242')
+        await userEvent.click(screen.getByRole('button', { name: /verify and link/i }))
+
+        await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
+        expect(readJoinedOrg()).toEqual({ orgName: invitingOrg.name, linkedEmail: invitedEmail })
     })
 
     it('reports a wrong code without leaving the screen', async () => {

@@ -20,7 +20,6 @@ type LinkEmailViewProps = {
     onVerify: (values: { code: string }) => void
     onResend: () => void
     onSkip: () => void
-    onContinue: () => void
 }
 
 const PreparingPanel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -71,30 +70,6 @@ const CodePanel: FC<{
     )
 }
 
-const UnavailablePanel: FC<{
-    isVisible: boolean
-    invitedEmail: string
-    orgName: string
-    onContinue: () => void
-}> = ({ isVisible, invitedEmail, orgName, onContinue }) => {
-    if (!isVisible) return null
-
-    return (
-        <Stack gap="xs">
-            <Title order={3} ta="center" mb="md">
-                We could not link this email address
-            </Title>
-            <Text size="md">
-                We could not add {invitedEmail} to your account because it already belongs to another SafeInsights
-                account. You have still been added to {orgName}.
-            </Text>
-            <Button variant="filled" size="lg" onClick={onContinue}>
-                Continue
-            </Button>
-        </Stack>
-    )
-}
-
 const FailedPanel: FC<{
     isVisible: boolean
     failureMessage: string | null
@@ -130,7 +105,6 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
     onVerify,
     onResend,
     onSkip,
-    onContinue,
 }) => {
     const isPreparing = status === 'loading' || status === 'sending'
     const isAwaitingCode = status === 'awaiting-code' || status === 'verifying'
@@ -148,12 +122,6 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
                     onVerify={onVerify}
                     onResend={onResend}
                     onSkip={onSkip}
-                />
-                <UnavailablePanel
-                    isVisible={status === 'unavailable'}
-                    invitedEmail={invitedEmail}
-                    orgName={orgName}
-                    onContinue={onContinue}
                 />
                 <FailedPanel
                     isVisible={status === 'failed'}
