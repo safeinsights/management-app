@@ -2,6 +2,7 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import type { DBExecutor } from '@/database'
 import { Action, z } from './action'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId } from '@/server/db/queries'
@@ -22,6 +23,10 @@ async function getStudyFilesPath(studyId: string) {
     }
     return coderFilesPath
 }
+
+// OTTER-617: the researcher's Last updated reads this; the data partner's does not.
+const stampLabEdit = (db: DBExecutor, studyId: string) =>
+    db.updateTable('study').set({ labEditedAt: new Date() }).where('id', '=', studyId).execute()
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })
     // Both are card rules, so they belong where every caller passes rather than only in the
@@ -55,6 +60,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
             .insertInto('workspaceFileActivity')
             .values({ studyId, fileName, userId: session.user.id, action: 'UPLOADED' })
             .execute()
+        await stampLabEdit(db, studyId)
 
         return { fileName }
     })
@@ -91,7 +97,7 @@ export const setMainCodeFileAction = new Action('setMainCodeFileAction', { perfo
     .handler(async ({ db, params: { studyId, fileName } }) => {
         await db
             .updateTable('study')
-            .set({ mainCodeFileName: sanitizeFileName(fileName) })
+            .set({ mainCodeFileName: sanitizeFileName(fileName), labEditedAt: new Date() })
             .where('id', '=', studyId)
             .execute()
     })
@@ -153,6 +159,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
                 throw e
             }
         }
+        await stampLabEdit(db, studyId)
 
         return { success: true }
     })

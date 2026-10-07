@@ -353,6 +353,44 @@ describe('Workspace Actions', () => {
             await expect(fs.readFile(path.join(studyDir, 'helper.r'), 'utf8')).rejects.toThrow()
         })
 
+        test('stamps the lab edit time on upload, set-main and delete without touching last_updated_at', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'helper.r'), 'print(2)')
+
+            const stamps = () =>
+                db
+                    .selectFrom('study')
+                    .select(['labEditedAt', 'lastUpdatedAt'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+            const clearStamp = () =>
+                db.updateTable('study').set({ labEditedAt: null }).where('id', '=', study.id).execute()
+            const before = await stamps()
+
+            const { uploadWorkspaceFileAction, setMainCodeFileAction, deleteWorkspaceFileAction } = await import(
+                './workspace-files.actions'
+            )
+            const saves = [
+                () =>
+                    uploadWorkspaceFileAction({
+                        studyId: study.id,
+                        file: new File(['print(1)'], 'main.r', { type: 'text/plain' }),
+                    }),
+                () => setMainCodeFileAction({ studyId: study.id, fileName: 'main.r' }),
+                () => deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }),
+            ]
+            for (const save of saves) {
+                await clearStamp()
+                actionResult(await save())
+                const after = await stamps()
+                expect(after.labEditedAt).not.toBeNull()
+                expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
+            }
+        })
+
         // The card says IDE access cannot be shared or transferred, and 'load IDE' is granted to
         // the whole lab, so the claim has to be enforced where it is made.
         test('refuses a launch when another researcher in the same lab holds the IDE', async () => {
