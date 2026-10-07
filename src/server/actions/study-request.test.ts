@@ -1641,7 +1641,7 @@ describe('Request Study Actions', () => {
             expect(row.codeResubmissionNoteDraft).toBe('A draft note')
         })
 
-        it('rejects payloads larger than 10kb', async () => {
+        it('rejects payloads larger than 100kb', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -1650,7 +1650,7 @@ describe('Request Study Actions', () => {
                 jobStatus: 'CODE-CHANGES-REQUESTED',
             })
 
-            const tooLong = 'x'.repeat(10_001)
+            const tooLong = 'x'.repeat(100_001)
             const result = await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: tooLong })
             expect(result).toHaveProperty('error')
         })

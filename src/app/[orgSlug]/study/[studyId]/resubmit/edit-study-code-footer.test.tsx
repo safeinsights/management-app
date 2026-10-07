@@ -99,7 +99,7 @@ describe('EditStudyCodeFooter — Resubmit button', () => {
         await user.click(screen.getByRole('button', { name: 'Resubmit code for review' }))
 
         await screen.findByText(REQUIRED_NOTE_ERROR)
-        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+        expect(document.activeElement).toBe(screen.getByLabelText('Resubmission note'))
     })
 
     // OTTER-778: the click used to return silently when files or the main file were missing. It
@@ -156,7 +156,7 @@ describe('EditStudyCodeFooter — Resubmit button', () => {
 
         expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(document.activeElement).toBe(document.getElementById(SUBMIT_CODE_ERROR_ID))
-        expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+        expect(document.activeElement).not.toBe(screen.getByLabelText('Resubmission note'))
     })
 
     it('does not open the modal when files are present but the note is empty', async () => {
@@ -267,7 +267,8 @@ describe('EditStudyCodeFooter — Previous step', () => {
         vi.mocked(saveCodeResubmissionNoteDraftAction).mockClear()
         renderFooter({ initialNote: wordsString(3), withNoteInput: true })
 
-        await user.type(screen.getByRole('textbox', { name: 'Resubmission Note' }), ' more')
+        await user.click(screen.getByLabelText('Resubmission note'))
+        await user.paste(' more')
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))

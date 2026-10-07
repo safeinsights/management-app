@@ -18,22 +18,17 @@ import {
     RESUBMISSION_NOTE_FIELD_ID,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteCharacterCount,
-    resubmissionNoteIsBlank,
     resubmissionNoteIsOverLimit,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { noteSaveStatus, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
-
-const EDITOR_MIN_HEIGHT = 140
-
-const contentStyle = {
-    minHeight: EDITOR_MIN_HEIGHT,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '1rem',
-    lineHeight: 1.6,
-} as const
+import {
+    noteSaveStatus,
+    RESUBMISSION_NOTE_EDITOR_MIN_HEIGHT,
+    resubmissionNoteChangeHandler,
+    resubmissionNoteContentStyle,
+    type ResubmissionNoteAutosaveStatus,
+} from './resubmission-note-section'
 
 interface CollaborativeResubmissionNoteSectionProps {
     studyId: string
@@ -74,14 +69,6 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
     const characterCount = resubmissionNoteCharacterCount(value)
     const editorInitialValue = resubmissionNoteToLexicalJson(initialNote) || undefined
 
-    const onNoteChange = (json: string) => {
-        // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
-        // Neither is an edit, and both would clear an error Resubmit has just raised (OTTER-762).
-        if (json === noteForm.getValues().resubmissionNote) return
-        if (resubmissionNoteIsBlank(json) && resubmissionNoteIsBlank(value)) return
-        noteForm.setFieldValue(RESUBMISSION_NOTE_FIELD_ID, json)
-    }
-
     // The error takes exactly the slot 'All changes saved' vacates, so the two can never co-exist (OTTER-674).
     const footerLeft = (
         <>
@@ -109,9 +96,9 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                         studyId={studyId}
                         initialValue={editorInitialValue}
                         websocketProvider={websocketProvider}
-                        contentStyle={contentStyle}
+                        contentStyle={resubmissionNoteContentStyle}
                         ariaLabel="Resubmission note"
-                        onChange={onNoteChange}
+                        onChange={resubmissionNoteChangeHandler(noteForm)}
                         onBlur={() => noteForm.validateField(RESUBMISSION_NOTE_FIELD_ID)}
                         error={error}
                         ariaRequired
@@ -128,7 +115,7 @@ export const CollaborativeResubmissionNoteSection: FC<CollaborativeResubmissionN
                                 maxCharacters={RESUBMIT_NOTE_MAX_CHARACTERS}
                             />
                         }
-                        skeletonHeight={EDITOR_MIN_HEIGHT}
+                        skeletonHeight={RESUBMISSION_NOTE_EDITOR_MIN_HEIGHT}
                         isResizable
                     />
                 </Box>

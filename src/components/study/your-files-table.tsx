@@ -2,39 +2,15 @@
 
 import { useState, type FC } from 'react'
 import { ActionIcon, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
-import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
-import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import { DownloadSimpleIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
+import { LastActivityCell, MAIN_FILE_COLUMN_WIDTH, MainFileColumnHeader } from './code-files-table-parts'
 import { semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
-
-const MAIN_FILE_HOVER_CARD =
-    'It is the file that runs first in the secure enclave. It can call other files in your study. Select your main file before submitting.'
-
-const NO_ACTIVITY = 'No activity yet'
-
-const ACTION_LABELS: Record<WorkspaceFileActivitySummary['action'], string> = {
-    UPLOADED: 'Uploaded',
-    EDITED_IN_IDE: 'Edited in IDE',
-}
-
-/** `{researcherName} · {action} · {MMM DD, YYYY}, {hh:mm am/pm}` per the card. */
-const formatActivity = (activity: WorkspaceFileActivitySummary) =>
-    [
-        activity.actorName,
-        ACTION_LABELS[activity.action],
-        dayjs(activity.createdAt).format('MMM DD, YYYY, hh:mm a'),
-    ].join(' · ')
-
-const LastActivityCell: FC<{ activity: WorkspaceFileActivitySummary | null | undefined }> = ({ activity }) => (
-    <Text size="sm" c={semanticColor('text.secondary')}>
-        {activity ? formatActivity(activity) : NO_ACTIVITY}
-    </Text>
-)
 
 const TOOLTIPS = {
     setMain: 'Set as main file',
@@ -48,7 +24,7 @@ const editLockedTooltip = (ideOwnerName: string | null) =>
     `Only ${ideOwnerName ?? 'the assigned researcher'} can edit this study files in the IDE`
 
 const COLUMN_WIDTHS = {
-    mainFile: 108,
+    mainFile: MAIN_FILE_COLUMN_WIDTH,
     fileName: 220,
     lastActivity: 180,
     actions: 140,
@@ -56,24 +32,6 @@ const COLUMN_WIDTHS = {
 
 const truncateFileName = (name: string) =>
     name.length > FILE_NAME_MAX_CHARS ? `${name.slice(0, FILE_NAME_MAX_CHARS)}…` : name
-
-const MainFileColumnHeader: FC = () => (
-    <Group gap="xxs" wrap="nowrap" align="center">
-        <Text component="span" inherit>
-            Main file
-        </Text>
-        <HoverCard width={280} withArrow shadow="md" position="top">
-            <HoverCard.Target>
-                <Text component="span" display="inline-flex" aria-label="Main file info">
-                    <InfoIcon size={14} aria-hidden />
-                </Text>
-            </HoverCard.Target>
-            <HoverCard.Dropdown>
-                <Text size="sm">{MAIN_FILE_HOVER_CARD}</Text>
-            </HoverCard.Dropdown>
-        </HoverCard>
-    </Group>
-)
 
 type MainFileStarProps = {
     fileName: string

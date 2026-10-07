@@ -69,7 +69,7 @@ export function CodePostDecisionView({
             <Stack gap="xxl">
                 <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
 
-                <SubmittedCodeFilesSection jobId={job.id} files={codeFiles} />
+                <SubmittedCodeFilesSection studyId={study.id} jobId={job.id} files={codeFiles} />
 
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />

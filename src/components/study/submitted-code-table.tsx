@@ -3,11 +3,13 @@
 import { useState, type FC } from 'react'
 import { useQuery } from '@/common'
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
+import { listWorkspaceFileActivityAction } from '@/server/actions/workspaces.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { SubmittedCodeTableView } from './submitted-code-table-view'
 
 interface SubmittedCodeTableProps {
+    studyId: string
     jobId: string
     files: LatestJobForStudy['files']
     maxVisibleFiles?: number
@@ -16,6 +18,7 @@ interface SubmittedCodeTableProps {
 }
 
 export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
+    studyId,
     jobId,
     files,
     maxVisibleFiles,
@@ -31,6 +34,11 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
         staleTime: Infinity,
     })
 
+    const { data: activityByName } = useQuery({
+        queryKey: ['workspace-file-activity', studyId],
+        queryFn: () => listWorkspaceFileActivityAction({ studyId }),
+    })
+
     const previewFile = previewFileName
         ? { name: previewFileName, contents: data?.fileName === previewFileName ? data.contents : null }
         : null
@@ -40,6 +48,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
             <SubmittedCodeTableView
                 jobId={jobId}
                 files={files}
+                activityByName={activityByName}
                 onPreview={(file) => setPreviewFileName(file.name)}
                 maxVisibleFiles={maxVisibleFiles}
                 expanded={expanded}

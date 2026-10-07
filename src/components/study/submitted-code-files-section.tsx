@@ -12,12 +12,13 @@ const SECTION_TITLE = 'Code files'
 const MAX_VISIBLE_FILES = 1
 
 interface SubmittedCodeFilesSectionProps {
+    studyId: string
     jobId: string
     /** Already filtered and ordered by filterAndOrderCodeFiles. */
     files: LatestJobForStudy['files']
 }
 
-export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({ jobId, files }) => {
+export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({ studyId, jobId, files }) => {
     const { expanded, toggle } = useExpandable()
 
     return (
@@ -28,6 +29,7 @@ export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({ 
                 </Title>
                 <Divider color={semanticColor('border.default')} />
                 <SubmittedCodeTable
+                    studyId={studyId}
                     jobId={jobId}
                     files={files}
                     maxVisibleFiles={MAX_VISIBLE_FILES}

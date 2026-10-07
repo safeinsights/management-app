@@ -1,74 +1,88 @@
 import { type FC } from 'react'
-import { ActionIcon, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
-import { DownloadSimpleIcon, EyeIcon, StarIcon } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Anchor, Divider, Group, Table, Text, Tooltip } from '@mantine/core'
+import { DownloadSimpleIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import type { WorkspaceFileActivitySummary } from '@/hooks/use-workspace-files'
 import { studyCodeURL } from '@/lib/paths'
+import { semanticColor } from '@/theme/tokens'
 import { CollapseToggleLink } from './collapse-toggle-link'
+import { LastActivityCell, MAIN_FILE_COLUMN_WIDTH, MainFileColumnHeader } from './code-files-table-parts'
 
 // Free of data fetching and the preview modal so it can render in isolation.
 
 export type SubmittedFile = LatestJobForStudy['files'][number]
 
-const formatUpdatedAt = (date: Date | string) =>
-    new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    })
+export type FileActivityByName = Record<string, WorkspaceFileActivitySummary>
 
 // Post-submission the main file is locked in, so the star renders grey but still filled.
 const STAR_COLOR = 'var(--mantine-color-gray-5)'
 
+const FileNameButton: FC<{ file: SubmittedFile; onPreview: (file: SubmittedFile) => void }> = ({ file, onPreview }) => (
+    <Tooltip label={file.name} disabled={file.name.length <= 48}>
+        <Anchor
+            component="button"
+            type="button"
+            underline="hover"
+            c={semanticColor('text.primary')}
+            maw="100%"
+            onClick={() => onPreview(file)}
+            aria-label={`View ${file.name}`}
+        >
+            <Text truncate="end" inherit>
+                {file.name}
+            </Text>
+        </Anchor>
+    </Tooltip>
+)
+
+// Edit and delete stay visible but dead so the columns line up with the Edit code table.
+const SubmittedFileActions: FC<{ fileName: string; jobId: string }> = ({ fileName, jobId }) => (
+    <Group gap="xs" justify="center" wrap="nowrap">
+        <ActionIcon variant="transparent" color="grey" disabled aria-label={`Edit ${fileName} in IDE`}>
+            <PencilSimpleIcon size={20} weight="bold" />
+        </ActionIcon>
+        <ActionIcon
+            component="a"
+            href={studyCodeURL(jobId, fileName)}
+            download={fileName}
+            variant="transparent"
+            color="grey"
+            aria-label={`Download ${fileName}`}
+        >
+            <DownloadSimpleIcon size={20} weight="bold" color={semanticColor('icon.light')} />
+        </ActionIcon>
+        <ActionIcon variant="transparent" color="grey" disabled aria-label={`Delete ${fileName}`}>
+            <TrashIcon size={20} weight="fill" />
+        </ActionIcon>
+    </Group>
+)
+
 const SubmittedCodeRow: FC<{
     file: SubmittedFile
     jobId: string
+    activity: WorkspaceFileActivitySummary | undefined
     onPreview: (file: SubmittedFile) => void
-}> = ({ file, jobId, onPreview }) => {
+}> = ({ file, jobId, activity, onPreview }) => {
     const isMain = file.fileType === 'MAIN-CODE'
-    const starWeight = isMain ? 'fill' : 'regular'
-    const starLabel = isMain ? 'Main file' : 'Supplemental file'
-    const tooltipDisabled = file.name.length <= 48
-    const lastUpdated = formatUpdatedAt(file.createdAt)
 
     return (
         <Table.Tr>
-            <Table.Td>
-                <StarIcon size={20} weight={starWeight} color={STAR_COLOR} aria-label={starLabel} />
+            <Table.Td ta="center">
+                <StarIcon
+                    size={20}
+                    weight={isMain ? 'fill' : 'regular'}
+                    color={STAR_COLOR}
+                    aria-label={isMain ? 'Main file' : 'Supplemental file'}
+                />
             </Table.Td>
             <Table.Td>
-                <Tooltip label={file.name} disabled={tooltipDisabled}>
-                    <Text truncate="end" maw={380}>
-                        {file.name}
-                    </Text>
-                </Tooltip>
+                <FileNameButton file={file} onPreview={onPreview} />
             </Table.Td>
             <Table.Td>
-                <Text size="sm" c="dimmed">
-                    {lastUpdated}
-                </Text>
+                <LastActivityCell activity={activity} />
             </Table.Td>
             <Table.Td>
-                <Group gap="xs">
-                    <ActionIcon
-                        onClick={() => onPreview(file)}
-                        variant="subtle"
-                        color="grey"
-                        aria-label={`View ${file.name}`}
-                    >
-                        <EyeIcon weight="fill" />
-                    </ActionIcon>
-                    <ActionIcon
-                        component="a"
-                        href={studyCodeURL(jobId, file.name)}
-                        download={file.name}
-                        variant="subtle"
-                        color="grey"
-                        aria-label={`Download ${file.name}`}
-                    >
-                        <DownloadSimpleIcon weight="fill" />
-                    </ActionIcon>
-                </Group>
+                <SubmittedFileActions fileName={file.name} jobId={jobId} />
             </Table.Td>
         </Table.Tr>
     )
@@ -77,6 +91,7 @@ const SubmittedCodeRow: FC<{
 export interface SubmittedCodeTableViewProps {
     jobId: string
     files: LatestJobForStudy['files']
+    activityByName?: FileActivityByName
     onPreview: (file: SubmittedFile) => void
     maxVisibleFiles?: number
     expanded?: boolean
@@ -86,6 +101,7 @@ export interface SubmittedCodeTableViewProps {
 export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({
     jobId,
     files,
+    activityByName = {},
     onPreview,
     maxVisibleFiles,
     expanded = false,
@@ -103,18 +119,26 @@ export const SubmittedCodeTableView: FC<SubmittedCodeTableViewProps> = ({
     const visibleFiles = isTruncated && !expanded ? files.slice(0, maxVisibleFiles) : files
 
     const rowElements = visibleFiles.map((file) => (
-        <SubmittedCodeRow key={file.name} file={file} jobId={jobId} onPreview={onPreview} />
+        <SubmittedCodeRow
+            key={file.name}
+            file={file}
+            jobId={jobId}
+            activity={activityByName[file.name]}
+            onPreview={onPreview}
+        />
     ))
 
     return (
         <>
-            <Table highlightOnHover verticalSpacing="md" data-testid="submitted-code-table">
+            <Table verticalSpacing="md" layout="fixed" w="100%" data-testid="submitted-code-table">
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={100}>Main file</Table.Th>
+                        <Table.Th w={MAIN_FILE_COLUMN_WIDTH}>
+                            <MainFileColumnHeader />
+                        </Table.Th>
                         <Table.Th>File name</Table.Th>
-                        <Table.Th w={200}>Last updated</Table.Th>
-                        <Table.Th w={80}>Actions</Table.Th>
+                        <Table.Th>Last activity</Table.Th>
+                        <Table.Th w={140}>Actions</Table.Th>
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{rowElements}</Table.Tbody>
