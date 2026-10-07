@@ -126,9 +126,10 @@ vi.mock('@mantine/notifications', () => ({
     notifications: {
         show: vi.fn(),
         hide: vi.fn(),
-        // Paired with `show` by showOrReplaceNotification, so a spied run has to answer it too.
+        // Paired with `show` by showToast and showSystemNotification, so a spied run has to answer it too.
         update: vi.fn(),
     },
+    notificationsStore: { getState: vi.fn(() => ({ notifications: [], queue: [] })) },
     showNotification: vi.fn(),
     Notifications: () => null,
 }))

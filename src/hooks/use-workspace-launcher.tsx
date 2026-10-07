@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@/common'
 import { reportError } from '@/components/errors'
+import { showSystemNotification } from '@/components/system-notifications'
 import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
-import { notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 
@@ -25,15 +25,17 @@ const openWorkspace = (url: string, studyId: string, sameWindow: boolean): { blo
 }
 
 const notifyPopupBlocked = (url: string) => {
-    notifications.show({
+    // Keyed by url so a second blocked launch cannot replace a link the researcher has not used.
+    showSystemNotification({
+        id: `popup-blocked:${url}`,
+        // The launch itself succeeded, so this is a caution rather than a failure.
+        color: 'yellow',
         title: 'Popup blocked',
         message: (
             <a href={url} target="_blank" rel="noopener noreferrer">
                 Click here to open your workspace
             </a>
         ),
-        color: 'yellow',
-        autoClose: false,
     })
 }
 

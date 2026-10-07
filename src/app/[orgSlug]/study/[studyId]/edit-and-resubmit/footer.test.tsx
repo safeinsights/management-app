@@ -192,7 +192,7 @@ describe('EditResubmitFooter — confirmation modal (OTTER-762)', () => {
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === SUBMIT_FAILURE_TITLE,
         )
-        expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        expect(errorCall?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
     })
 })
 

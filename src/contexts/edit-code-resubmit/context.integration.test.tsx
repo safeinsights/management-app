@@ -131,7 +131,7 @@ describe('EditCodeResubmitProvider (real action + DB)', () => {
         await waitFor(() =>
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'red',
+                    'data-toast-kind': 'error',
                     title: 'Code could not be submitted',
                     message: 'Your work is saved. Try again.',
                 }),

@@ -18,7 +18,7 @@ import { CodeEnvHistoryEmpty, CodeEnvHistoryError, CodeEnvHistoryTable } from '.
 import { useCodeEnvHistory } from './use-code-env-history'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { Refresher } from '@/components/refresher'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
@@ -148,7 +148,7 @@ const CodeEnvRow: React.FC<{
             queryClient.invalidateQueries({
                 queryKey: ['orgCodeEnvs', orgSlug],
             })
-            reportSuccess('Code environment was deleted successfully')
+            showToast({ category: 'success', title: 'Success', message: 'Code environment was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete code environment'),
     })

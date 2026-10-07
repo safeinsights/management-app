@@ -2,7 +2,7 @@
 
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { useParams } from 'next/navigation'
 import { createOrgDataSourceAction, fetchOrgDataSourcesAction, updateOrgDataSourceAction } from './data-sources.actions'
 import { dataSourceFormSchema, createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
@@ -84,7 +84,11 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
             return createOrgDataSourceAction({ orgSlug, ...values })
         },
         onSuccess: () => {
-            reportSuccess(isEditMode ? 'Data source updated successfully' : 'Data source added successfully')
+            showToast({
+                category: 'success',
+                title: 'Success',
+                message: isEditMode ? 'Data source updated successfully' : 'Data source added successfully',
+            })
             onCompleteAction()
         },
         onError: reportMutationError(isEditMode ? 'Failed to update data source' : 'Failed to add data source'),

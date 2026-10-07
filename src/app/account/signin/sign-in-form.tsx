@@ -84,7 +84,7 @@ export const SignInForm: FC<{
                 await onComplete({ signIn: attempt, usingSMS: false })
             }
         } catch (err: unknown) {
-            const errorMessage = errorToString(err, clerkErrorOverrides)
+            const errorMessage = errorToString(err, { clerkOverrides: clerkErrorOverrides })
 
             // A session was restored in another tab between mount and submit.
             if (errorMessage === ALREADY_SIGNED_IN_MESSAGE) {
