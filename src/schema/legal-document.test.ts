@@ -10,8 +10,6 @@ import {
 const publishWith = (signedAt: string) =>
     publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version', signedAt })
 
-// Frozen dates to test schema tolerance: Schema allows +1 future day to go through,
-// but no more than that. Reason: timezone differences.
 const TODAY = '2026-09-28'
 const TOMORROW = '2026-09-29'
 const TOO_FAR = '2026-09-30'
