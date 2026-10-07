@@ -79,6 +79,15 @@ describe('JoinedOrgBanner', () => {
         )
     })
 
+    it('reads a legacy bare org name even when it parses as JSON', async () => {
+        await mockSessionWithTestData({ orgType: KEYED })
+        sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, '2024')
+        const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
+
+        await waitFor(() => expect(getByTestId('joined-org-banner')).toHaveTextContent('You have been added to 2024.'))
+        expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBeNull()
+    })
+
     it('dismisses when the close button is clicked', async () => {
         await mockSessionWithTestData({ orgType: KEYED })
         sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, 'ASU Research Lab')

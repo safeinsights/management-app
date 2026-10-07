@@ -61,8 +61,9 @@ export function useLinkInviteEmail(inviteId: string) {
         retry: false,
     })
 
+    // replace, not push: Back from the dashboard would otherwise reopen this screen and send a code.
     const leave = useCallback(() => {
-        if (invite) router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
+        if (invite) router.replace(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
     }, [invite, router])
 
     // The screen shows one generic message for every failure, so the cause goes to Sentry instead.
@@ -90,12 +91,12 @@ export function useLinkInviteEmail(inviteId: string) {
         hasStarted.current = true
 
         if (isVerified(matchingAddress(user, invite.email))) {
-            router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
+            leave()
             return
         }
 
         sendCode(user, invite.email).then(() => setStatus('awaiting-code'), reportFailure)
-    }, [invite, user, router, sendCode, reportFailure])
+    }, [invite, user, leave, sendCode, reportFailure])
 
     const resendCode = useCallback(async () => {
         if (!invite || !user) return
@@ -133,7 +134,7 @@ export function useLinkInviteEmail(inviteId: string) {
                 // Overwrites the flag the accept step set, so the dashboard banner names the
                 // address that was linked rather than the plain "added to" copy.
                 markOrgJoined(invite.orgName, invite.email)
-                router.push(Routes.orgDashboard({ orgSlug: invite.orgSlug }))
+                leave()
             } catch (error) {
                 form.setErrors({
                     code: errorToString(error, {
@@ -143,7 +144,7 @@ export function useLinkInviteEmail(inviteId: string) {
                 setStatus('awaiting-code')
             }
         },
-        [invite, user, router, form],
+        [invite, user, leave, form],
     )
 
     const skip = useCallback(async () => {
@@ -159,7 +160,8 @@ export function useLinkInviteEmail(inviteId: string) {
     return {
         status: isLoading ? ('loading' as const) : status,
         isSending,
-        isInviteInvalid: isError,
+        // A failed background refetch also sets isError; only an invite that never loaded is invalid.
+        isInviteInvalid: isError && !invite,
         invitedEmail: invite?.email ?? '',
         orgName: invite?.orgName ?? '',
         form,

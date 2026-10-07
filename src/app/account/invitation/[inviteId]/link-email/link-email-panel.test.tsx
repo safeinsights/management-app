@@ -1,4 +1,6 @@
 import {
+    act,
+    createTestQueryClient,
     db,
     insertTestOrg,
     mockSessionWithTestData,
@@ -153,6 +155,23 @@ describe('invite email linking screen', () => {
         expect(readJoinedOrg()).toBeNull()
     })
 
+    it('leaves with a history replace, so Back from the dashboard does not reopen the screen and resend', async () => {
+        const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+        const replace = vi.spyOn(router, 'replace')
+        const push = vi.spyOn(router, 'push')
+
+        renderPage(invite.id)
+
+        await screen.findByText(/Enter the code we sent to/)
+        await userEvent.click(screen.getByRole('button', { name: /skip for now/i }))
+
+        await waitFor(() => expect(replace).toHaveBeenCalledWith(`/${invitingOrg.slug}/dashboard`))
+        expect(push).not.toHaveBeenCalled()
+    })
+
     it('keeps a verified address when another tab linked it before the person skips', async () => {
         const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
         const address = fakeAddress(invitedEmail)
@@ -293,6 +312,25 @@ describe('invite email linking screen', () => {
         finishSend()
         await waitFor(() => expect(screen.getByRole('button', { name: /resend code/i })).toBeEnabled())
         expect(screen.getByLabelText('Digit 6 of 6')).toHaveValue('1')
+    })
+
+    it('keeps the code form when a background refetch of the invite fails', async () => {
+        const { user, invitedEmail, invite } = await setupClaimedInvite()
+        const address = fakeAddress(invitedEmail)
+        const { createEmailAddress } = mockClerkUser(user.email!, [])
+        createEmailAddress.mockResolvedValue(address)
+        const queryClient = createTestQueryClient()
+
+        renderWithProviders(<LinkEmailPanel inviteId={invite.id} />, { queryClient })
+
+        await screen.findByText(/Enter the code we sent to/)
+        await db.deleteFrom('pendingUser').where('id', '=', invite.id).execute()
+        await act(() => queryClient.refetchQueries({ queryKey: ['claimedInvite', invite.id] }))
+        // React Query hands the result to its observers on a timer tick, after the refetch settles.
+        await act(() => new Promise((resolve) => setTimeout(resolve)))
+
+        expect(screen.getByText(/Enter the code we sent to/)).toBeDefined()
+        expect(screen.queryByText('This invitation is no longer valid')).toBeNull()
     })
 
     it('shows the invalid-invite panel when the invite is not this account to finish', async () => {

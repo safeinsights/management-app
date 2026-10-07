@@ -13,17 +13,19 @@ export function markOrgJoined(orgName: string, linkedEmail?: string) {
     sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName, linkedEmail }))
 }
 
-// A session that started before this key held JSON still has a bare org name in it.
+// A session that started before this key held JSON still has a bare org name in it, which may
+// itself parse as JSON (an org named "2024"), so only an object counts as the new format.
 export function readJoinedOrg(): JoinedOrg | null {
     if (typeof window === 'undefined') return null
 
     const stored = sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)
     if (!stored) return null
+    if (!stored.startsWith('{')) return { orgName: stored }
 
     try {
         const parsed = JSON.parse(stored)
         return typeof parsed?.orgName === 'string' ? parsed : null
     } catch {
-        return { orgName: stored }
+        return null
     }
 }
