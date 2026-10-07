@@ -1,4 +1,4 @@
-import { Popover, UnstyledButton } from '@mantine/core'
+import { Avatar, Popover, UnstyledButton } from '@mantine/core'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import Link from 'next/link'
@@ -6,6 +6,7 @@ import type { FocusEvent, KeyboardEvent, ReactNode, RefObject } from 'react'
 import { navIcon } from '../nav-icon'
 import styles from './top-nav.module.css'
 
+const AVATAR_SIZE = 32
 const CARET_SIZE = 12
 const MENU_OFFSET = 4
 const MENU_TRANSITION_MS = 200
@@ -25,9 +26,16 @@ export type AccountMenuViewProps = {
     onClose: () => void
     triggerRef: RefObject<HTMLButtonElement | null>
     firstName: string
-    avatar: ReactNode
+    initials: string
     sections: AccountMenuItem[][]
 }
+
+// The spec asks for initials always. Clerk's imageUrl is its default silhouette unless a photo was uploaded.
+const AccountAvatar: React.FC<{ initials: string }> = ({ initials }) => (
+    <Avatar size={AVATAR_SIZE} alt="User profile" classNames={{ placeholder: styles.avatar }}>
+        {initials}
+    </Avatar>
+)
 
 const Caret: React.FC<{ opened: boolean }> = ({ opened }) => (
     <span className={styles.caret}>{navIcon(opened ? CaretUpIcon : CaretDownIcon, CARET_SIZE)}</span>
@@ -84,7 +92,7 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
     onClose,
     triggerRef,
     firstName,
-    avatar,
+    initials,
     sections,
 }) => {
     const closeWhenFocusLeaves = (event: FocusEvent<HTMLDivElement>) => {
@@ -124,7 +132,7 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
                     aria-haspopup="dialog"
                     aria-label="Toggle profile menu"
                 >
-                    {avatar}
+                    <AccountAvatar initials={initials} />
                     <span className={styles.name}>{firstName}</span>
                     <Caret opened={opened} />
                 </UnstyledButton>

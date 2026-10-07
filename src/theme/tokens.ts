@@ -103,8 +103,9 @@ export const semanticShades = {
 export type SemanticToken = keyof typeof semanticShades
 
 // Tokens whose value is not a ramp position: Figma's two base colours, its `light blue`, the
-// two alpha entries (`surface/tableheader` = #DADEE1 50%, `brand/accentalpha` = alpha/Blue30,
-// itself #E7F1FE 30%), and `status/highlight/*`, a magenta no ramp holds.
+// three alpha entries (`surface/tableheader` = #DADEE1 50%, `brand/accentalpha` = alpha/Blue30,
+// itself #E7F1FE 30%, `border/SideNav` = navy/0 30%), and `status/highlight/*`, a magenta no ramp
+// holds — none of which can live in a MantineColorsTuple.
 const NON_RAMP = {
     'text.white': '#ffffff',
     'text.black': '#000000',
@@ -113,6 +114,7 @@ const NON_RAMP = {
     'surface.topnav': LIGHT_BLUE,
     'surface.tableheader': '#dadee180',
     'brand.accentalpha': '#e7f1fe4d',
+    'border.sidenav': '#e6e9ef4d',
     'highlight.bg.light': '#f7e9fa',
     'highlight.text': '#5e1169',
 } as const
