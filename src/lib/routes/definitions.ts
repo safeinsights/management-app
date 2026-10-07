@@ -136,6 +136,9 @@ export const Routes = {
 export const ExternalLinks = {
     dataCatalog: 'https://dev-docs.sandbox.safeinsights.org/data-catalog/',
     resourceCenter: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
+    // Empty-state links on the study tables (OTTER-617); reviewProcess shares resourceCenter's page today.
+    studyLifecycle: 'https://dev-docs.sandbox.safeinsights.org/researchers/start-here/study-lifecycle/',
+    reviewProcess: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
     // TODO(OTTER-692): Support hub URL still owed by Micaela; the KB root stands in until then.
     support: 'https://dev-docs.sandbox.safeinsights.org/',
 } as const

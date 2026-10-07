@@ -370,9 +370,8 @@ describe('Workspace Actions', () => {
                 db.updateTable('study').set({ labEditedAt: null }).where('id', '=', study.id).execute()
             const before = await stamps()
 
-            const { uploadWorkspaceFileAction, setMainCodeFileAction, deleteWorkspaceFileAction } = await import(
-                './workspace-files.actions'
-            )
+            const { uploadWorkspaceFileAction, setMainCodeFileAction, deleteWorkspaceFileAction } =
+                await import('./workspace-files.actions')
             const saves = [
                 () =>
                     uploadWorkspaceFileAction({

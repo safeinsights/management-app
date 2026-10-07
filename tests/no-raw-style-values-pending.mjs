@@ -55,7 +55,6 @@ export const PENDING_RAW_STYLE_FILES = [
     'src/components/copying-input.tsx',
     'src/components/dashboard/joined-org-banner.tsx',
     'src/components/dashboard/studies-table/delete-draft-button.tsx',
-    'src/components/dashboard/studies-table/study-row-view.tsx',
     'src/components/download-blob-link.tsx',
     'src/components/editable-text.tsx',
     'src/components/editable-text/editor-surface.tsx',

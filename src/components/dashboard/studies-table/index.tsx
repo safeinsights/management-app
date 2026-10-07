@@ -1,18 +1,22 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useQuery } from '@/common'
 import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { getLabOrg } from '@/lib/types'
+import type { OrgType } from '@/database/types'
+import { getLabOrg, type UserSession } from '@/lib/types'
 import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
 } from '@/server/actions/study.actions'
-import { StudyRow } from './study-row'
+import { getColumns } from './columns'
+import { buildRowModel } from './row-model'
+import { useStudiesTableSort } from './sort'
 import { StudiesTableView } from './studies-table-view'
 import {
     ACTIVE_PROPOSAL_STATUSES,
@@ -43,6 +47,40 @@ function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     )
 }
 
+const countOrgs = (session: UserSession | null | undefined, type: OrgType) =>
+    session ? Object.values(session.orgs).filter((org) => org.type === type).length : 0
+
+// Belongs to is a My studies column, and only for someone in two or more orgs of the tab's kind.
+const showBelongsTo = (session: UserSession | null | undefined, audience: Audience, scope: Scope) =>
+    scope === 'user' && countOrgs(session, audience === 'researcher' ? 'lab' : 'enclave') >= 2
+
+function useStudiesTableRows({
+    studies,
+    audience,
+    scope,
+    orgSlug,
+    session,
+}: {
+    studies: StudyRowType[]
+    audience: Audience
+    scope: Scope
+    orgSlug: string
+    session: UserSession | null | undefined
+}) {
+    const userId = session?.user.id
+    const rows = useMemo(
+        () => studies.map((study) => buildRowModel(study, audience, { orgSlug, userId })),
+        [studies, audience, orgSlug, userId],
+    )
+    const sorted = useStudiesTableSort(rows)
+    return {
+        ...sorted,
+        columns: getColumns(audience, scope, showBelongsTo(session, audience, scope)),
+        // The intro needs at least one study past draft (OTTER-617 D7).
+        showDescription: studies.some((study) => study.status !== 'DRAFT'),
+    }
+}
+
 export function StudiesTable({
     audience,
     scope,
@@ -52,7 +90,6 @@ export function StudiesTable({
     showNewStudyButton = false,
     showRefresher = false,
     paperWrapper = false,
-    headerActions,
 }: StudiesTableProps) {
     const { session } = useSession()
     const userId = session?.user.id
@@ -73,7 +110,7 @@ export function StudiesTable({
     }
 
     const {
-        data: studies = [],
+        data = [],
         refetch,
         isError,
         error,
@@ -86,6 +123,9 @@ export function StudiesTable({
         enabled: scope === 'org' || (scope === 'user' && !!userId),
         refetchOnWindowFocus: false,
     })
+    const studies = data as StudyRowType[]
+
+    const table = useStudiesTableRows({ studies, audience, scope, orgSlug: effectiveOrgSlug, session })
 
     if (scope === 'user' && audience === 'researcher' && !labOrg) {
         return null
@@ -95,19 +135,15 @@ export function StudiesTable({
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    const displayedStudies = studies as StudyRowType[]
-
-    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies, audience)
+    const shouldShowRefresher = showRefresher && needsRefresh(studies, audience)
 
     return (
         <StudiesTableView
-            studies={displayedStudies}
+            {...table}
             audience={audience}
-            scope={scope}
             title={title}
             description={description}
             newStudyHref={showNewStudyButton ? Routes.studyRequest({ orgSlug: effectiveOrgSlug }) : undefined}
-            headerActions={headerActions}
             refresher={
                 showRefresher ? (
                     <Refresher
@@ -120,9 +156,6 @@ export function StudiesTable({
             isError={isError}
             errorMessage={errorToString(error)}
             paperWrapper={paperWrapper}
-            renderRow={(study) => (
-                <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={effectiveOrgSlug} />
-            )}
         />
     )
 }

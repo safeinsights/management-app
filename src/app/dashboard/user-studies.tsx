@@ -6,7 +6,8 @@ import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skel
 import { PageHeader } from '@/components/page-header'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
-import { Paper, SegmentedControl, Stack, Text } from '@mantine/core'
+import type { UserSession } from '@/lib/types'
+import { Paper, SegmentedControl, Stack } from '@mantine/core'
 import type { Route } from 'next'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
@@ -17,18 +18,21 @@ function getAudienceFromQuery(audience: string | null): Audience | null {
     return null
 }
 
-export default function UserStudiesDashboard() {
+const hasMultipleOrgTypes = (session: UserSession | null | undefined) =>
+    session ? new Set(Object.values(session.orgs).map((o) => o.type)).size > 1 : false
+
+// A fresh visit opens on Reviewer (the card); a switch writes ?audience= so Back and refresh return
+// to the tab the user chose.
+function useMyStudiesAudience() {
     const { session } = useSession()
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
-    useInvitationNotices()
 
-    const hasMultipleOrgTypes = session ? new Set(Object.values(session.orgs).map((o) => o.type)).size > 1 : false
-    const showTabs = hasMultipleOrgTypes
-    const defaultTab: Audience = !hasMultipleOrgTypes && session?.belongsToEnclave ? 'reviewer' : 'researcher'
-    const audienceFromQuery = getAudienceFromQuery(searchParams.get('audience'))
-    const activeTab = audienceFromQuery ?? defaultTab
+    const showToggle = hasMultipleOrgTypes(session)
+    const singleRole: Audience = session?.belongsToEnclave ? 'reviewer' : 'researcher'
+    const defaultAudience: Audience = showToggle ? 'reviewer' : singleRole
+    const audience = showToggle ? (getAudienceFromQuery(searchParams.get('audience')) ?? defaultAudience) : singleRole
 
     const onAudienceChange = (value: string) => {
         const nextAudience = getAudienceFromQuery(value)
@@ -39,46 +43,75 @@ export default function UserStudiesDashboard() {
         router.replace(`${pathname}?${params.toString()}` as Route)
     }
 
+    return { session, audience, onAudienceChange, showToggle }
+}
+
+const RoleSwitcher = ({
+    isVisible,
+    audience,
+    onChange,
+}: {
+    isVisible: boolean
+    audience: Audience
+    onChange: (value: string) => void
+}) => {
+    if (!isVisible) return null
+    return (
+        <SegmentedControl
+            value={audience}
+            onChange={onChange}
+            radius="xs"
+            p="xxs"
+            color="navy"
+            w="fit-content"
+            data={[
+                { label: 'Reviewer', value: 'reviewer' },
+                { label: 'Researcher', value: 'researcher' },
+            ]}
+        />
+    )
+}
+
+export default function UserStudiesDashboard() {
+    const { session, audience, onAudienceChange, showToggle } = useMyStudiesAudience()
+    useInvitationNotices()
+
     if (!session) {
         return (
             <Stack p="xxl" gap="xxl">
                 <DashboardHeaderSkeleton />
-                <Paper shadow="xs" p="xl">
+                <Paper shadow="xs" p="xxl">
                     <TableSkeleton paperWrapper={false} />
                 </Paper>
             </Stack>
         )
     }
 
-    const audience = showTabs ? activeTab : defaultTab
+    const isReviewer = audience === 'reviewer'
 
     return (
         <Stack p="xxl" gap="xxl">
             <PageHeader title="My studies" />
             <JoinedOrgBanner />
-            <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
-
-            <Paper shadow="xs" p="xl">
-                <StudiesTable
-                    audience={audience}
-                    scope="user"
-                    orgSlug=""
-                    title="My studies"
-                    showRefresher
-                    headerActions={
-                        showTabs ? (
-                            <SegmentedControl
-                                value={activeTab}
-                                onChange={onAudienceChange}
-                                data={[
-                                    { label: 'Reviewer', value: 'reviewer' },
-                                    { label: 'Researcher', value: 'researcher' },
-                                ]}
-                            />
-                        ) : undefined
-                    }
-                />
-            </Paper>
+            <Stack gap="md">
+                <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
+                <Paper shadow="xs" p="xxl">
+                    <StudiesTable
+                        key={audience}
+                        audience={audience}
+                        scope="user"
+                        orgSlug=""
+                        title={isReviewer ? 'Studies for review' : 'All studies'}
+                        description={
+                            isReviewer
+                                ? 'Studies you are reviewing, across every organization you belong to. Open a study to view its details, review submitted materials, and submit your decision.'
+                                : 'Studies you have taken part in, across every organization you belong to. Open a study to check its status, view details, or take your next step.'
+                        }
+                        showNewStudyButton={!isReviewer}
+                        showRefresher
+                    />
+                </Paper>
+            </Stack>
         </Stack>
     )
 }

@@ -7,8 +7,7 @@ const recordActivity = (studyId: string, userId: string, action: WorkspaceFileAc
     db.insertInto('workspaceFileActivity').values({ studyId, userId, action, fileName: 'main.r', createdAt }).execute()
 
 const labEditedAtOf = async (studyId: string) =>
-    (await db.selectFrom('study').select('labEditedAt').where('id', '=', studyId).executeTakeFirstOrThrow())
-        .labEditedAt
+    (await db.selectFrom('study').select('labEditedAt').where('id', '=', studyId).executeTakeFirstOrThrow()).labEditedAt
 
 describe('study_lab_edited_at migration', () => {
     it('backfills the newest upload and ignores IDE edit clicks', async () => {

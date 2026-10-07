@@ -1,4 +1,3 @@
-import type React from 'react'
 import { Json, StudyJobStatus, StudyStatus } from '@/database/types'
 import type { StudyRole } from '@/lib/study-screen/state.types'
 
@@ -58,7 +57,6 @@ export type StudiesTableProps = {
     showNewStudyButton?: boolean
     showRefresher?: boolean
     paperWrapper?: boolean
-    headerActions?: React.ReactNode
 }
 
 export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
