@@ -357,6 +357,17 @@ export const getUserById = async (userId: string) => {
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
+// A claimed invite resumes email linking for its claimer only (OTTER-788), so re-sending it would
+// hand a different owner of this address a dead link. Callers create a fresh invite instead.
+export const findOpenInvite = async (db: DBExecutor, orgId: string, email: string) =>
+    await db
+        .selectFrom('pendingUser')
+        .select(['id', 'isAdmin'])
+        .where('email', '=', email)
+        .where('orgId', '=', orgId)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
 // The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
 // actions were asking for it the same way.
 export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {

@@ -4,6 +4,7 @@ import { ActionFailure } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
+import { findOpenInvite } from '@/server/db/queries'
 import { inviteUserSchema, z } from './invite-user.schema'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -39,15 +40,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             }
         }
 
-        const existingPendingUser = await db
-            .selectFrom('pendingUser')
-            .select(['id'])
-            .where('email', '=', invite.email)
-            .where('orgId', '=', orgId)
-            // A claimed invite now resumes email linking for its claimer only (OTTER-788), so
-            // re-sending it would hand a different owner of this address a dead link.
-            .where('claimedByUserId', 'is', null)
-            .executeTakeFirst()
+        const existingPendingUser = await findOpenInvite(db, orgId, invite.email)
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return { alreadyInvited: true }
