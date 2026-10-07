@@ -358,8 +358,10 @@ the route carries an entry marker (OTTER-805).
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 
 `resolveDashboardAction(role, state, ctx)` is the same first-match pattern, returning the
-`{ label, href, secondaryAction? }` for the dashboard cell. It is faithful to the old
-`useStudyHref`: the label stays `"View"` for every non-draft destination.
+`{ label, href, secondaryAction? }` for a researcher row. Since OTTER-617 the dashboard has no action
+column: `href` is the study title link, `secondaryAction: 'delete-draft'` puts the draft bin beside the
+status badge for the draft's author, and `label` is no longer rendered. A reviewer row's title links to
+`studyReview`. The table is faithful to the old `useStudyHref`.
 
 | #   | When                                                                                       | Link             | Label                     |
 | --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
