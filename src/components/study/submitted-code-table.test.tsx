@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import {
     BLANK_UUID,
     db,
-    insertTestStudyOnly,
+    insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -54,7 +54,9 @@ describe('SubmittedCodeTable', () => {
         )
 
         const files = [buildFile({ name: 'main.py' })]
-        renderWithProviders(<SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+        )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View main.py' }))
@@ -69,26 +71,31 @@ describe('SubmittedCodeTable', () => {
         expect(screen.getByText(/print/)).toBeInTheDocument()
     })
 
-    it('renders a download anchor per row pointing at the /dl/study-code route', () => {
+    it('downloads each file through the /dl/study-code route', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
         const files = [
             buildFile({ name: 'main.py', fileType: 'MAIN-CODE' }),
             buildFile({ name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
         ]
-        renderWithProviders(<SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={files} dataPartnerName="OpenStax" />,
+        )
 
-        const main = screen.getByRole('link', { name: 'Download main.py' })
-        expect(main).toHaveAttribute('href', '/dl/study-code/job-1/main.py')
-        expect(main).toHaveAttribute('download', 'main.py')
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Download main.py' }))
+        await user.click(screen.getByRole('button', { name: 'Download helper.py' }))
 
-        const helper = screen.getByRole('link', { name: 'Download helper.py' })
-        expect(helper).toHaveAttribute('href', '/dl/study-code/job-1/helper.py')
+        expect(open).toHaveBeenCalledWith('/dl/study-code/job-1/main.py')
+        expect(open).toHaveBeenCalledWith('/dl/study-code/job-1/helper.py')
     })
 
     it('opens an image preview for a png file (OTTER-516)', async () => {
         mockFetch.mockResolvedValue({ fileName: 'plot.png', contents: bytes('fake-png-bytes') })
 
         const files = [buildFile({ name: 'plot.png', fileType: 'SUPPLEMENTAL-CODE' })]
-        renderWithProviders(<SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+        )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View plot.png' }))
@@ -100,7 +107,12 @@ describe('SubmittedCodeTable', () => {
         mockFetch.mockResolvedValue({ fileName: 'main.py', contents: bytes('x = 1') })
 
         renderWithProviders(
-            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={[buildFile({ name: 'main.py' })]} />,
+            <SubmittedCodeTable
+                studyId={BLANK_UUID}
+                jobId="job-1"
+                dataPartnerName="OpenStax"
+                files={[buildFile({ name: 'main.py' })]}
+            />,
         )
 
         const interact = userEvent.setup()
@@ -114,39 +126,32 @@ describe('SubmittedCodeTable', () => {
         })
     })
 
-    it('shows the main file info, and edit and delete disabled (OTTER-778)', () => {
-        renderWithProviders(
-            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={[buildFile({ name: 'main.py' })]} />,
-        )
-
-        expect(screen.getByLabelText('Main file info')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Edit main.py in IDE' })).toBeDisabled()
-        expect(screen.getByRole('button', { name: 'Delete main.py' })).toBeDisabled()
-    })
-
-    it('shows the last activity recorded while the code was edited (OTTER-778)', async () => {
+    it('shows the activity from before the submission, not edits made since (OTTER-778)', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db
-            .insertInto('workspaceFileActivity')
-            .values({
-                studyId: study.id,
-                fileName: 'main.py',
-                action: 'EDITED_IN_IDE',
-                userId: user.id,
-                createdAt: new Date('2026-07-21T16:10:00Z'),
-            })
-            .execute()
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const recordActivity = (action: 'UPLOADED' | 'EDITED_IN_IDE', createdAt: Date) =>
+            db
+                .insertInto('workspaceFileActivity')
+                .values({ studyId: study.id, fileName: 'main.py', action, userId: user.id, createdAt })
+                .execute()
+        await recordActivity('UPLOADED', new Date(Date.now() - 86_400_000))
+        await recordActivity('EDITED_IN_IDE', new Date(Date.now() + 86_400_000))
 
         const files = [
             buildFile({ name: 'main.py' }),
             buildFile({ id: 'file-2', name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
         ]
-        renderWithProviders(<SubmittedCodeTable studyId={study.id} jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable studyId={study.id} jobId={job.id} files={files} dataPartnerName="OpenStax" />,
+        )
 
-        expect(
-            await screen.findByText(new RegExp(`${user.fullName} · Edited in IDE · Jul 21, 2026,`)),
-        ).toBeInTheDocument()
+        expect(await screen.findByText(new RegExp(`${user.fullName} · Uploaded ·`))).toBeInTheDocument()
+        expect(screen.queryByText(/Edited in IDE/)).not.toBeInTheDocument()
         expect(screen.getByText('No activity yet')).toBeInTheDocument()
     })
 })

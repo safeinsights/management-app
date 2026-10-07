@@ -12,6 +12,7 @@ interface SubmittedCodeTableProps {
     studyId: string
     jobId: string
     files: LatestJobForStudy['files']
+    dataPartnerName: string
     maxVisibleFiles?: number
     expanded?: boolean
     onToggleExpand?: () => void
@@ -21,6 +22,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
     studyId,
     jobId,
     files,
+    dataPartnerName,
     maxVisibleFiles,
     expanded,
     onToggleExpand,
@@ -35,8 +37,8 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
     })
 
     const { data: activityByName } = useQuery({
-        queryKey: ['workspace-file-activity', studyId],
-        queryFn: () => listWorkspaceFileActivityAction({ studyId }),
+        queryKey: ['workspace-file-activity', studyId, jobId],
+        queryFn: () => listWorkspaceFileActivityAction({ studyId, jobId }),
     })
 
     const previewFile = previewFileName
@@ -48,8 +50,9 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
             <SubmittedCodeTableView
                 jobId={jobId}
                 files={files}
+                dataPartnerName={dataPartnerName}
                 activityByName={activityByName}
-                onPreview={(file) => setPreviewFileName(file.name)}
+                onPreview={setPreviewFileName}
                 maxVisibleFiles={maxVisibleFiles}
                 expanded={expanded}
                 onToggleExpand={onToggleExpand}

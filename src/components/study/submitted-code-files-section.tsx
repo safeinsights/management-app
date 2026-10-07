@@ -16,9 +16,15 @@ interface SubmittedCodeFilesSectionProps {
     jobId: string
     /** Already filtered and ordered by filterAndOrderCodeFiles. */
     files: LatestJobForStudy['files']
+    dataPartnerName: string
 }
 
-export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({ studyId, jobId, files }) => {
+export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({
+    studyId,
+    jobId,
+    files,
+    dataPartnerName,
+}) => {
     const { expanded, toggle } = useExpandable()
 
     return (
@@ -32,6 +38,7 @@ export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({ 
                     studyId={studyId}
                     jobId={jobId}
                     files={files}
+                    dataPartnerName={dataPartnerName}
                     maxVisibleFiles={MAX_VISIBLE_FILES}
                     expanded={expanded}
                     onToggleExpand={toggle}

@@ -10,7 +10,12 @@ import {
     type WorkspaceLaunchStatus,
 } from '../coder'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId, latestActivityPerWorkspaceFile, latestSubmittedJobForStudy } from '@/server/db/queries'
+import {
+    getInfoForStudyId,
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { ensureRoundJobForLaunch, getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -48,20 +53,26 @@ async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
     return false
 }
 
-async function workspaceFileActivityEntries(studyId: string) {
-    return (await latestActivityPerWorkspaceFile(studyId)).map((row): [string, WorkspaceFileActivitySummary] => [
-        row.fileName,
-        { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
-    ])
+async function workspaceFileActivityEntries(studyId: string, before?: Date) {
+    return (await latestActivityPerWorkspaceFile(studyId, { before })).map(
+        (row): [string, WorkspaceFileActivitySummary] => [
+            row.fileName,
+            { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
+        ],
+    )
 }
 
 // Read by the post-submission table, which lists the job's files from S3 rather than the
-// workspace, so it needs the activity without the directory scan.
+// workspace. Bounded by the job's submission so it describes the files the table shows.
 export const listWorkspaceFileActivityAction = new Action('listWorkspaceFileActivityAction', {})
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), jobId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId } }) => Object.fromEntries(await workspaceFileActivityEntries(studyId)))
+    .handler(async ({ params: { studyId, jobId } }) => {
+        const submittedAt = await latestCodeSubmissionAt(studyId, jobId)
+        if (!submittedAt) return {}
+        return Object.fromEntries(await workspaceFileActivityEntries(studyId, submittedAt))
+    })
 
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))

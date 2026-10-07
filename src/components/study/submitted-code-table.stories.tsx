@@ -16,6 +16,7 @@ export const Default: Story = () => (
     <div style={{ padding: 24, maxWidth: 820 }}>
         <SubmittedCodeTableView
             jobId="job-1"
+            dataPartnerName="OpenStax"
             files={[
                 file({ name: 'main.r', fileType: 'MAIN-CODE' }),
                 file({ name: 'helpers.r', fileType: 'SUPPLEMENTAL-CODE' }),
@@ -28,7 +29,12 @@ export const Default: Story = () => (
 
 export const SingleMainFile: Story = () => (
     <div style={{ padding: 24, maxWidth: 820 }}>
-        <SubmittedCodeTableView jobId="job-1" files={[file({ name: 'analysis.r' })]} onPreview={noop} />
+        <SubmittedCodeTableView
+            jobId="job-1"
+            dataPartnerName="OpenStax"
+            files={[file({ name: 'analysis.r' })]}
+            onPreview={noop}
+        />
     </div>
 )
 
@@ -36,6 +42,7 @@ export const LongFilenameTruncated: Story = () => (
     <div style={{ padding: 24, maxWidth: 820 }}>
         <SubmittedCodeTableView
             jobId="job-1"
+            dataPartnerName="OpenStax"
             files={[
                 file({
                     name: 'a-very-long-supplemental-code-filename-that-should-truncate-with-a-tooltip-on-hover.r',
@@ -49,6 +56,6 @@ export const LongFilenameTruncated: Story = () => (
 
 export const Empty: Story = () => (
     <div style={{ padding: 24, maxWidth: 820 }}>
-        <SubmittedCodeTableView jobId="job-1" files={[]} onPreview={noop} />
+        <SubmittedCodeTableView jobId="job-1" dataPartnerName="OpenStax" files={[]} onPreview={noop} />
     </div>
 )

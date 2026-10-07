@@ -8,7 +8,8 @@ import {
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { ResubmissionNoteSection, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
+import { ResubmissionNoteSection } from './resubmission-note-section'
+import type { ResubmissionNoteAutosaveStatus } from './resubmission-note-card'
 import { overCharacterLimitError } from '@/lib/field-limits'
 
 const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
