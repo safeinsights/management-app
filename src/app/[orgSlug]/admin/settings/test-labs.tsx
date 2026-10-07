@@ -26,12 +26,14 @@ type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
 const NO_LABS: TestLab[] = []
 const NO_ELIGIBLE: EligibleLab[] = []
 
-const DROP_MESSAGE = 'Drop this test lab? Studies it already submitted stay test studies.'
-
 type OnDrop = (testLabId: string) => void
 
 const DropTestLabButton: React.FC<{ name: string; onConfirmed: () => void }> = ({ name, onConfirmed }) => (
-    <SuretyGuard label={`Drop ${name}`} message={DROP_MESSAGE} onConfirmed={onConfirmed} />
+    <SuretyGuard
+        label={`Drop ${name}`}
+        message="Drop this test lab? Studies it already started, including drafts, stay test studies."
+        onConfirmed={onConfirmed}
+    />
 )
 
 const TestLabRow: React.FC<{ lab: TestLab; hasActions: boolean; onDrop: OnDrop }> = ({ lab, hasActions, onDrop }) => {
