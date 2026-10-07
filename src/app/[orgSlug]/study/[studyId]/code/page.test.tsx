@@ -23,7 +23,7 @@ import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 const mockRedirect = vi.mocked(redirect)
 
 const stubVimeoDuration = (seconds: number) =>
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ duration: seconds }))
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ duration: seconds }))
 
 beforeEach(() => {
     memoryRouter.setCurrentUrl('/')

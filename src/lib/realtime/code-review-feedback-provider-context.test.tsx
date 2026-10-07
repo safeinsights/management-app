@@ -1,5 +1,6 @@
 import { describe, expect, it, render } from '@/tests/unit.helpers'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
+import { useEffect } from 'react'
 
 import {
     CodeReviewFeedbackProviderShare,
@@ -13,9 +14,11 @@ const Subscriber = ({ onProvider }: { onProvider: (p: HocuspocusProvider | null)
     return null
 }
 
+// Publishes from an effect, as the editor's onProviderReady does; publishing during render would
+// set the subscriber's state while React is still rendering the publisher.
 const Publisher = ({ value }: { value: HocuspocusProvider | null }) => {
     const publish = usePublishCodeReviewFeedbackProvider()
-    publish(value)
+    useEffect(() => publish(value), [publish, value])
     return null
 }
 

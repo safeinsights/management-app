@@ -20,7 +20,7 @@ import { fetchJobFileActivityAction } from '@/server/actions/study-job-file-acti
 // branches: a real action resolves or returns an error envelope, it never throws at the transport.
 // These tests exist to prove a failed request is reported, so the failure is injected here (OTTER-726).
 vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(),
+    fetchJobFileActivityAction: vi.fn(async () => []),
     recordJobFileActivityAction: vi.fn(),
 }))
 
