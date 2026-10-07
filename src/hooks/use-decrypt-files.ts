@@ -4,7 +4,8 @@ import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty } from '@mantine/form'
 import { useForm, useMutation } from '@/common'
 import { ResultsReader, ResultsIntegrityError, type DecryptedEntry } from 'si-encryption/job-results/reader'
-import { LEGACY_CIPHER } from 'si-encryption/job-results/crypto'
+import { CURRENT_CIPHER, unwrapAesKey } from 'si-encryption/job-results/crypto'
+import type { ResultsManifest } from 'si-encryption/job-results/types'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
@@ -26,6 +27,19 @@ export class ArchiveIntegrityError extends Error {}
 export const ARCHIVE_INTEGRITY_MESSAGE =
     'These results failed verification and may have been altered. Contact your administrator.'
 
+async function keyOpensArchive(manifest: ResultsManifest, privateKey: ArrayBuffer, fingerprint: string) {
+    const crypts = Object.values(manifest.files).flatMap((file) => file.keys[fingerprint]?.crypt ?? [])
+    const unwrapped = await Promise.all(
+        crypts.map((crypt) =>
+            unwrapAesKey(crypt, privateKey, CURRENT_CIPHER).then(
+                () => true,
+                () => false,
+            ),
+        ),
+    )
+    return unwrapped.includes(true)
+}
+
 async function readArchive(
     artifact: EncryptedJobFile,
     privateKey: ArrayBuffer,
@@ -37,17 +51,14 @@ async function readArchive(
         privateKey,
         fingerprint,
         artifact.recipientKeys,
-        { jobId },
+        { jobId, requireAuthenticatedCipher: true },
     )
     try {
         // Captured so approval can re-wrap each key per researcher.
         return await reader.extractFilesWithKeys()
     } catch (err) {
-        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else the unwrap has
-        // already proven the key, so a decrypt rejection is a tampered body, not a wrong key.
-        const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
-
-        if (err instanceof ResultsIntegrityError || authenticated) {
+        // Every body is authenticated, so once the key is proven a failed read is tampering.
+        if (err instanceof ResultsIntegrityError || (await keyOpensArchive(reader.manifest, privateKey, fingerprint))) {
             throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
         }
         throw err
