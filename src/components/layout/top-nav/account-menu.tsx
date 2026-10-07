@@ -1,10 +1,9 @@
 'use client'
 
-import { UserAvatar } from '@/components/user-avatar'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
-import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
+import { initialsFromNames } from '@/lib/string'
 import { getLabOrg } from '@/lib/types'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { useDisclosure, useWindowEvent } from '@mantine/hooks'
@@ -21,8 +20,6 @@ import { usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { navIcon } from '../nav-icon'
 import { AccountMenuView, type AccountMenuItem } from './account-menu-view'
-
-const AVATAR_SIZE = 32
 
 type MenuLinks = {
     isResearcher: boolean
@@ -104,13 +101,7 @@ export const AccountMenu: React.FC = () => {
             onClose={close}
             triggerRef={triggerRef}
             firstName={user?.firstName ?? ''}
-            avatar={
-                <UserAvatar
-                    size={AVATAR_SIZE}
-                    bg={semanticColor('surface.sidenav')}
-                    color={semanticColor('text.white')}
-                />
-            }
+            initials={initialsFromNames(user?.firstName, user?.lastName)}
             sections={sections}
         />
     )

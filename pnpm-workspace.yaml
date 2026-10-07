@@ -40,9 +40,10 @@ overrides:
     # the lockfile previously resolved so Node 22.0–22.17 stay supported.
     '@vitest/coverage-istanbul>@babel/core': 7.29.7
     # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
-    # attacker-controlled string blocks the event loop (DoS). Dev-only transitive (concurrently),
-    # but Trivy scans dev deps.
-    'shell-quote@<1.8.5': '>=1.8.5'
+    # attacker-controlled string blocks the event loop (DoS), then GHSA-pqg4-j6r4-53mv (CRITICAL)
+    # against <1.11.0 — quote() command injection via a line terminator after a `{ comment }` token.
+    # Dev-only transitive (concurrently), but Trivy scans dev deps.
+    'shell-quote@<1.11.0': '>=1.11.0 <2'
     # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
     # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
     # the bump stays a patch/minor, never a breaking major.
@@ -64,8 +65,12 @@ overrides:
     # advisory's fix version moved to 3.3.18, so the range is widened past the 3.3.17 the earlier
     # pin landed on.
     'nanoid@>=3.0.0 <3.3.18': '>=3.3.18 <4'
-    # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs.
-    'sharp@>=0.34.0 <0.35.0': '>=0.35.0 <0.36'
+    # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs, then GHSA-wq5f-xc86-pv6w against
+    # <0.35.5 — inherited librsvg CVE-2026-96889.
+    'sharp@>=0.34.0 <0.35.5': '>=0.35.5 <0.36'
+    # source-map-js <1.2.2: GHSA-68fv-2mgg-jv7q — event-loop DoS via indexed source-map section
+    # offsets. Transitive via postcss.
+    'source-map-js@>=1.0.0 <1.2.2': '>=1.2.2 <2'
     # decode-uri-component <=0.4.2: GHSA-vcc3-ghjq-m6fr — exponential decoding of malformed
     # percent-encoded input (DoS). Dev-only transitive via @ladle/react>query-string, which asks
     # for ^0.4.1; 0.5.0 is the advisory's first patched version, so the pin crosses a minor.

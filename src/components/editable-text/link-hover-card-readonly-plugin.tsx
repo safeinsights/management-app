@@ -25,7 +25,7 @@ const MIDDLE_BUTTON = 1
 
 const closestAnchor = (target: EventTarget | null) => (target instanceof Element ? target.closest('a') : null)
 
-function useReadOnlyLinkCard(editor: LexicalEditor) {
+function useReadOnlyLinkCard(editor: LexicalEditor, dropdownId: string) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
     const triggerRef = useRef<HTMLAnchorElement | null>(null)
 
@@ -34,7 +34,7 @@ function useReadOnlyLinkCard(editor: LexicalEditor) {
         triggerRef.current = null
     }, [])
 
-    const { claim } = useExclusiveLinkCard(close)
+    const { claim } = useExclusiveLinkCard(close, dropdownId)
 
     const closeAndReturnFocus = useCallback(() => {
         const trigger = triggerRef.current
@@ -120,8 +120,8 @@ function useReadOnlyLinkCard(editor: LexicalEditor) {
  */
 export function LinkHoverCardReadOnlyPlugin() {
     const [editor] = useLexicalComposerContext()
-    const card = useReadOnlyLinkCard(editor)
     const dropdownId = useId()
+    const card = useReadOnlyLinkCard(editor, dropdownId)
 
     useLinkCardTriggerAria(editor, card.link?.nodeKey ?? null, dropdownId)
     useEscapeOnCard(card.link !== null, card.closeAndReturnFocus)

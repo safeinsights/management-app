@@ -3,6 +3,7 @@ import logger from '@/lib/logger'
 import { getConfigValue, CI_ENV, APP_BASE_URL, PROD_BUILD } from './config'
 
 export const SI_EMAIL = 'SafeInsights <no-reply@safeinsights.org>'
+export const SI_AGREEMENTS_EMAIL = 'agreements@safeinsights.org'
 
 let _mg: null | ReturnType<Mailgun['client']> = null
 let _domain = ''

@@ -5,6 +5,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS } from '@/lib/constants'
 import { ReactNode } from 'react'
 import { AppFooter } from './app-footer'
+import styles from './shell.module.css'
 
 import { RequireLegalAcknowledgement } from '../legal/modal-acknowledgement/require-acknowledgement'
 import { RequireMFA } from '../require-mfa'
@@ -22,10 +23,10 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
+            className={styles.shell}
             bg={APP_MAIN_BG}
             layout={APP_SHELL.layout}
             header={{ height: APP_SHELL.headerHeight }}
-            footer={{ height: APP_SHELL.footerHeight }}
             navbar={{
                 width: APP_SHELL.navbarWidth,
                 breakpoint: APP_SHELL.navbarBreakpoint,
@@ -47,6 +48,7 @@ export function AppShell({ children }: Props) {
 
             <AppShellMain
                 {...MAIN_CONTENT_PROPS}
+                className={styles.main}
                 bg={APP_MAIN_BG}
                 style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
             >

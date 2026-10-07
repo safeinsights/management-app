@@ -2,6 +2,7 @@ import {
     afterEach,
     beforeEach,
     cleanupWorkspaceDirs,
+    createTestQueryClient,
     createWorkspaceDir,
     db,
     describe,
@@ -1858,6 +1859,95 @@ describe('StudyCode component', () => {
                     'data-toast-kind': 'success',
                 }),
             )
+        })
+    })
+
+    // OTTER-824: in the browser one query client outlives client-side navigation, so the second
+    // mount shares the first one's client exactly as a return visit from the dashboard does.
+    describe('Returning to the page (OTTER-824)', () => {
+        const launchButton = () => screen.getByRole('button', { name: /launch ide/i })
+
+        const setupReturnVisits = async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)' })
+
+            const queryClient = createTestQueryClient()
+            const mount = async () => {
+                const rendered = renderWithProviders(
+                    <StudyCode
+                        studyId={study.id}
+                        dataPartnerName={DATA_PARTNER}
+                        isFirstVisit={false}
+                        isEditable
+                        nav={backNav('/test')}
+                    />,
+                    { queryClient },
+                )
+                await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+                return rendered
+            }
+            return { mount }
+        }
+
+        const spyOnWindowOpen = () => vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window)
+
+        it('does not reopen the IDE when the researcher comes back after launching it', async () => {
+            const openSpy = spyOnWindowOpen()
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1))
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            expect(openSpy).toHaveBeenCalledTimes(1)
+            expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalledTimes(1)
+            openSpy.mockRestore()
+        })
+
+        it('opens the IDE again when the researcher launches it after coming back', async () => {
+            const openSpy = spyOnWindowOpen()
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1))
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(2))
+            await waitForPendingMutations()
+            openSpy.mockRestore()
+        })
+
+        // Only the polled build status is cached; a rejected launch lives in per-mount mutation state.
+        it('does not show an earlier launch failure when the researcher comes back', async () => {
+            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
+                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
+                >,
+            )
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await screen.findByText('IDE failed to launch')
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            expect(screen.queryByText('IDE failed to launch')).not.toBeInTheDocument()
         })
     })
 })

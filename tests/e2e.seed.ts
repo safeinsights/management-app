@@ -222,7 +222,11 @@ function buildReviewReport() {
 async function insertSubmittedJob(
     studyId: string,
     statuses: StudyJobStatus[],
-    { withMainCode = true, withReview = true }: { withMainCode?: boolean; withReview?: boolean } = {},
+    {
+        withMainCode = true,
+        withReview = true,
+        reviewRound = 1,
+    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number } = {},
 ) {
     const userId = await resolveUserId('researcher')
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
@@ -242,7 +246,11 @@ async function insertSubmittedJob(
     if (withReview) {
         await db
             .insertInto('studyReview')
-            .values({ studyJobId: job.id, report: sql`${JSON.stringify(buildReviewReport())}::jsonb` })
+            .values({
+                studyJobId: job.id,
+                report: sql`${JSON.stringify(buildReviewReport())}::jsonb`,
+                round: reviewRound,
+            })
             .execute()
     }
 
@@ -340,6 +348,50 @@ export async function seedCodeChangeRequested(title: string): Promise<SeedResult
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])
     return { studyId: study.id }
+}
+
+export const SEEDED_RESUBMISSION_NOTE = 'Aggregated the counts as the reviewer asked.'
+
+// One change request answered: the round-1 decision and the round-2 note sit on the same job,
+// the way resubmitStudyCodeAction leaves them (OTTER-802). The AI summary is the second round's, or
+// the reviewer page keeps polling for one.
+export async function seedCodeResubmitted(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], {
+        reviewRound: 2,
+    })
+
+    // Between the seeded statuses, which insertSubmittedJob spaced a second apart.
+    const now = Date.now()
+    await db
+        .insertInto('studyReviewComment')
+        .values([
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('reviewer'),
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: lexical('Requesting revisions to submitted code — please address criteria.'),
+                criteria: { proposalAlignment: 'no', agreementCompliance: 'no', privacyProtection: 'no' },
+                round: 1,
+                createdAt: new Date(now - 2500),
+            },
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('researcher'),
+                reviewKind: 'CODE',
+                entryType: 'RESUBMISSION-NOTE',
+                body: lexical(SEEDED_RESUBMISSION_NOTE),
+                round: 2,
+                createdAt: new Date(now - 500),
+            },
+        ])
+        .execute()
+
+    return { studyId: study.id, jobId: job.id }
 }
 
 // The history deliberately ends on FILES-APPROVED with CODE-SCANNED earlier: the resubmit save

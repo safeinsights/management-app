@@ -1,8 +1,7 @@
 import type { Story } from '@ladle/react'
 import { useRef, useState } from 'react'
-import { Avatar, Text } from '@mantine/core'
+import { Text } from '@mantine/core'
 import { FileTextIcon, GearSixIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
-import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
 import { WithAppShell } from '~ladle/decorators/with-app-shell'
 import { navIcon } from '../nav-icon'
@@ -34,9 +33,7 @@ function AccountMenuFixture({ defaultOpened = false }: { defaultOpened?: boolean
             onClose={() => setOpened(false)}
             triggerRef={triggerRef}
             firstName="Devika"
-            avatar={
-                <Avatar size={32} bg={semanticColor('surface.sidenav')} color={semanticColor('text.white')} name="DK" />
-            }
+            initials="DK"
             sections={SECTIONS}
         />
     )

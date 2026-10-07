@@ -7,6 +7,7 @@ import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
+import { recordJobStatus } from '@/server/job-status'
 
 const schema = z.object({
     jobId: z.string(),
@@ -84,24 +85,9 @@ export const POST = createWebhookHandler({
         // append-only submission log.
         if (body.status === 'CODE-SUBMITTED') return
 
-        const last = await db
-            .selectFrom('jobStatusChange')
-            .select(['status'])
-            .where('studyJobId', '=', job.jobId)
-            .orderBy('createdAt', 'desc')
-            .orderBy('id', 'desc')
-            .limit(1)
-            .executeTakeFirst()
-
-        if (!last || last.status !== body.status) {
-            await db
-                .insertInto('jobStatusChange')
-                .values({
-                    userId: job.researcherId,
-                    studyJobId: job.jobId,
-                    status: body.status,
-                })
-                .execute()
-        }
+        await recordJobStatus(
+            { id: job.jobId, studyId: job.studyId },
+            { status: body.status, userId: job.researcherId },
+        )
     },
 })
