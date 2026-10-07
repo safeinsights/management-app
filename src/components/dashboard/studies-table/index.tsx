@@ -73,8 +73,9 @@ function useStudiesTableRows({
     return {
         ...sorted,
         columns: getColumns(audience, scope, showBelongsTo(session, audience, scope)),
-        // The intro needs at least one study past draft (OTTER-617 D7).
-        showDescription: studies.some((study) => study.status !== 'DRAFT'),
+        // OTTER-617 shows the Data Partner dashboard intro always; every other table waits for a submitted study.
+        showDescription:
+            (audience === 'reviewer' && scope === 'org') || studies.some((study) => study.status !== 'DRAFT'),
     }
 }
 
@@ -118,6 +119,9 @@ export function StudiesTable({
         queryKey,
         queryFn: fetchStudies,
         enabled: scope === 'org' || (scope === 'user' && !!userId),
+        // Saves and decisions made on a study page change Last updated and row membership, and no
+        // single mutation can invalidate collaborative saves, so coming back always refetches.
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false,
     })
     const studies = data as StudyRowType[]

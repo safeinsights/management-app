@@ -6,10 +6,12 @@ export type Scope = 'org' | 'user'
 
 export type StudyRow = {
     id: string
-    title: string
+    title: string | null
     status: StudyStatus
     createdAt: Date
     submittedAt: Date | null
+    approvedAt?: Date | null
+    rejectedAt?: Date | null
     lastUpdatedAt: Date
     reviewerName: string | null
     researcherId: string

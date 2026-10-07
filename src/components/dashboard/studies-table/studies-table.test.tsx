@@ -129,7 +129,7 @@ beforeEach(() => {
 })
 
 describe('Studies Table', () => {
-    it('keeps the header and shows the data partner empty state with its docs link', async () => {
+    it('keeps the header, intro and data partner empty state with its docs link', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
         renderWithProviders(
             <StudiesTable
@@ -148,7 +148,7 @@ describe('Studies Table', () => {
         const link = screen.getByRole('link', { name: /Learn more about the review process/ })
         expect(link).toHaveAttribute('href', ExternalLinks.reviewProcess)
         expect(link).toHaveAttribute('target', '_blank')
-        expect(screen.queryByText('Intro text')).toBeNull()
+        expect(screen.getByText('Intro text')).toBeDefined()
     })
 
     it('shows the research lab empty state with its docs link', async () => {
@@ -194,6 +194,16 @@ describe('Studies Table', () => {
             />,
         )
         expect(await screen.findByText('Intro text')).toBeDefined()
+    })
+
+    it('links an untitled draft by a visible name', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({ status: 'DRAFT' as StudyStatus, title: null as unknown as string }),
+        )
+        renderWithProviders(<StudiesTable audience="researcher" scope="org" orgSlug="test-org" paperWrapper />)
+
+        const link = await screen.findByRole('link', { name: 'Untitled study' })
+        expect(link).toHaveAttribute('href', '/test-org/study/11111111-1111-4111-8111-111111111111/edit')
     })
 
     it('does not duplicate the new study button on an empty lab org dashboard', async () => {

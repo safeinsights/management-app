@@ -65,6 +65,10 @@ describe('buildRowModel', () => {
         })
     })
 
+    it.each([null, '', '   '])('titles an untitled draft (%j) so its link has a name', (title) => {
+        expect(model({ status: 'DRAFT', title }).title).toBe('Untitled study')
+    })
+
     describe('draft bin', () => {
         it('shows only to the draft author', () => {
             expect(model({ status: 'DRAFT' }).canDeleteDraft).toBe(true)
@@ -122,6 +126,34 @@ describe('buildRowModel', () => {
             )
             expect(row.reviewedBy.name).toBe('Eli')
             expect(row.reviewedBy.lines).toEqual(['Proposal: Dana', 'Code: Eli', 'Outputs: Not reviewed'])
+        })
+
+        it('names the recorded reviewer of a proposal decided before per-stage decision records', () => {
+            const row = model(
+                { status: 'APPROVED', reviewerName: 'Fran', approvedAt: new Date('2026-08-01') },
+                'reviewer',
+            )
+            expect(row.reviewedBy.name).toBe('Fran')
+            expect(row.reviewedBy.lines).toEqual(['Proposal: Fran', 'Code: Not reviewed', 'Outputs: Not reviewed'])
+        })
+
+        it('does not credit the proposal to the recorded reviewer once a later decision overwrote it', () => {
+            const row = model(
+                {
+                    reviewerName: 'Eli',
+                    approvedAt: new Date('2026-08-01'),
+                    codeReviewerName: 'Eli',
+                    codeReviewedAt: new Date('2026-09-04'),
+                },
+                'reviewer',
+            )
+            expect(row.reviewedBy.name).toBe('Eli')
+            expect(row.reviewedBy.lines[0]).toBe('Proposal: Not reviewed')
+        })
+
+        it('does not name a reviewer for an undecided proposal', () => {
+            const row = model({ status: 'PENDING-REVIEW', reviewerName: 'Fran' }, 'reviewer')
+            expect(row.reviewedBy.name).toBeNull()
         })
 
         it('reads Belongs to as the lab for researchers and the data partner for reviewers', () => {

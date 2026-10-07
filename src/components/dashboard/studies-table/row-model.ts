@@ -1,5 +1,6 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
+import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { StatusLabel } from '@/lib/status-labels'
 import { resolveDashboardAction, resolvePillStatus, resolveRowHighlight, type StudyState } from '@/lib/study-screen'
 import { lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
@@ -43,7 +44,7 @@ const newestStage = (stages: Stage[]): Stage | null =>
     }, null)
 
 // The finalize audit row and resubmission notes are the only record of who submitted the proposal;
-// a submitted study with neither falls back to its creator (OTTER-617 D4).
+// a submitted study with neither falls back to its creator.
 const proposalSubmission = (study: StudyRow): Stage => {
     const recorded = newestStage([
         { name: study.proposalAuditName, at: study.proposalAuditAt },
@@ -52,6 +53,15 @@ const proposalSubmission = (study: StudyRow): Stage => {
     if (recorded) return recorded
     if (study.status === 'DRAFT') return { name: null, at: null }
     return { name: study.createdBy, at: study.submittedAt ?? study.createdAt }
+}
+
+// Proposal decisions made before REVIEWER-FEEDBACK rows existed left only study.reviewer_id, and every
+// later code or outputs decision overwrites it, so it names the proposal reviewer only when neither exists.
+const proposalReview = (study: StudyRow): Stage => {
+    if (study.proposalReviewerName) return { name: study.proposalReviewerName, at: study.proposalReviewedAt }
+    const decidedAt = study.approvedAt ?? study.rejectedAt
+    if (!decidedAt || study.codeReviewerName || study.outputsReviewerName) return { name: null, at: null }
+    return { name: study.reviewerName, at: decidedAt }
 }
 
 const attribution = (stages: Array<[label: string, stage: Stage]>, placeholder: string): Attribution => ({
@@ -91,7 +101,7 @@ export function buildRowModel(
     const { href, canDeleteDraft } = rowLink(study, state, audience, orgSlug, userId)
     return {
         id: study.id,
-        title: study.title,
+        title: study.title?.trim() || UNTITLED_STUDY_TITLE,
         href,
         lastActivityAt: newestDate(study.lastUpdatedAt, lastBadgeChangeAt(study, audience), study.ownEditsAt),
         submittedTo: study.status === 'DRAFT' ? null : dataPartnerDisplayName(study),
@@ -106,7 +116,7 @@ export function buildRowModel(
         ),
         reviewedBy: attribution(
             [
-                ['Proposal', { name: study.proposalReviewerName, at: study.proposalReviewedAt }],
+                ['Proposal', proposalReview(study)],
                 ['Code', { name: study.codeReviewerName, at: study.codeReviewedAt }],
                 ['Outputs', { name: study.outputsReviewerName, at: study.outputsReviewedAt }],
             ],
