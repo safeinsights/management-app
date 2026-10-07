@@ -1,4 +1,4 @@
-import { CLERK_MFA_CODE, E2E_TIMEOUT, e2eSignOut, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
+import { CLERK_MFA_CODE, e2eSignOut, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
@@ -26,9 +26,10 @@ test.describe('user sign in', async () => {
             await verifyBtn.click()
 
             // Keyless roles land on the security-key page instead of My studies.
-            await expect(page.getByRole('heading', { name: /my studies|security key/i }).first()).toBeVisible({
-                timeout: E2E_TIMEOUT,
-            })
+            await page
+                .getByRole('heading', { name: /my studies|security key/i })
+                .first()
+                .waitFor({ state: 'visible' })
         })
     }
 })

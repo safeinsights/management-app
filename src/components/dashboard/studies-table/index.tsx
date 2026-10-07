@@ -73,7 +73,8 @@ function useStudiesTableRows({
     return {
         ...sorted,
         columns: getColumns(audience, scope, showBelongsTo(session, audience, scope)),
-        // OTTER-617 shows the Data Partner dashboard intro always; every other table waits for a submitted study.
+        // OTTER-617 always shows the Data Partner dashboard intro; every other table waits for a
+        // submitted study.
         showDescription:
             (audience === 'reviewer' && scope === 'org') || studies.some((study) => study.status !== 'DRAFT'),
     }

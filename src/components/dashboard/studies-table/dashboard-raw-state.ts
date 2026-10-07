@@ -43,10 +43,9 @@ type TimedChange = StudyRow['jobStatusChanges'][number]
 const badgeAfter = (study: StudyRow, changes: TimedChange[], audience: StudyRole): PillId =>
     resolvePillId(audience, projectStudyState(dashboardRawStateFromRow({ ...study, jobStatusChanges: changes })))
 
-// When the viewer's badge last changed, found by replaying the latest job's history through the
-// badge rules, so each role's Last updated moves exactly when what it sees moves (OTTER-617).
-// Rows written in one transaction share a timestamp and their ids are not ordered, so a shared
-// timestamp is one step.
+// Replays the latest job's history through the badge rules, so each role's Last updated moves only
+// when its own badge does (OTTER-617). Rows from one transaction share a timestamp and have no
+// reliable order, so each timestamp is one step.
 export function lastBadgeChangeAt(study: StudyRow, audience: StudyRole): Date | null {
     const timed = study.jobStatusChanges.map((change) => ({
         change,
