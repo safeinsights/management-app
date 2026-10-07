@@ -8,6 +8,8 @@ import {
     db,
     expectStudyJobRecords,
     getAuditEntries,
+    insertTestCodeEnv,
+    type InsertTestCodeEnvOptions,
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
@@ -43,7 +45,7 @@ import {
 } from '@/server/actions/study-request'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
+import { fetchLatestCodeEnvForStudyId, getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
@@ -140,6 +142,117 @@ describe('Request Study Actions', () => {
             .where('submittedByOrgId', '=', victimLab.id)
             .executeTakeFirst()
         expect(smuggled).toBeUndefined()
+    })
+
+    describe('code env environment snapshot', () => {
+        const studySnapshot = async (studyId: string) =>
+            (
+                await db
+                    .selectFrom('study')
+                    .select('codeEnvEnvironment')
+                    .where('id', '=', studyId)
+                    .executeTakeFirstOrThrow()
+            ).codeEnvEnvironment
+
+        // Every insert in a test shares one transaction and so one now(); backdating gives an order.
+        const insertOlderCodeEnv = async (options: InsertTestCodeEnvOptions) => {
+            const codeEnv = await insertTestCodeEnv(options)
+            await db
+                .updateTable('orgCodeEnv')
+                .set({ createdAt: new Date(Date.now() - 60_000) })
+                .where('id', '=', codeEnv.id)
+                .execute()
+            return codeEnv
+        }
+
+        const saveDraft = async (enclaveSlug: string, labSlug: string, language: 'R' | 'PYTHON') =>
+            actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclaveSlug,
+                    studyInfo: { title: 'Snapshot Study', piName: 'PI', language },
+                    submittingOrgSlug: labSlug,
+                }),
+            ).studyId
+
+        it('freezes the newest non-testing code env for the language when the study is created', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-create' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            await insertOlderCodeEnv({ orgId: enclave.id, language: 'R', environment: [{ name: 'K', value: 'old' }] })
+            const latest = await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'R',
+                environment: [{ name: 'K', value: 'latest' }],
+            })
+            await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'R',
+                isTesting: true,
+                environment: [{ name: 'K', value: 'testing' }],
+            })
+            await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'PYTHON',
+                environment: [{ name: 'K', value: 'python' }],
+            })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            expect(await studySnapshot(studyId)).toEqual([{ name: 'K', value: 'latest' }])
+
+            await db
+                .updateTable('orgCodeEnv')
+                .set({ settings: { environment: [{ name: 'K', value: 'edited' }] } })
+                .where('id', '=', latest.id)
+                .execute()
+
+            const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+            expect(codeEnv.settings.environment).toEqual([{ name: 'K', value: 'edited' }])
+            expect(codeEnv.codeEnvEnvironment).toEqual([{ name: 'K', value: 'latest' }])
+        })
+
+        it('stores null when the data partner has no code env for the language', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-none' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R', environment: [{ name: 'K', value: 'r' }] })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'PYTHON')
+
+            expect(await studySnapshot(studyId)).toBeNull()
+        })
+
+        it('re-snapshots only when a draft changes language', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-language' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const rEnv = await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'R',
+                environment: [{ name: 'K', value: 'r' }],
+            })
+            await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'PYTHON',
+                environment: [{ name: 'K', value: 'python' }],
+            })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            await db
+                .updateTable('orgCodeEnv')
+                .set({ settings: { environment: [{ name: 'K', value: 'r-edited' }] } })
+                .where('id', '=', rEnv.id)
+                .execute()
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: 'Renamed', language: 'R' } }))
+            expect(await studySnapshot(studyId)).toEqual([{ name: 'K', value: 'r' }])
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { language: 'PYTHON' } }))
+            expect(await studySnapshot(studyId)).toEqual([{ name: 'K', value: 'python' }])
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { language: 'R' } }))
+            expect(await studySnapshot(studyId)).toEqual([{ name: 'K', value: 'r-edited' }])
+        })
     })
 
     it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {

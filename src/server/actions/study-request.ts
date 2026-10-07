@@ -150,6 +150,25 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
     return Number(counts.submitted) > Number(counts.requested)
 }
 
+// Frozen so a Data Partner editing a code env later cannot change a study's variables (SHRMP-271).
+// Picks the code env by the same rule as fetchLatestCodeEnvForStudyId, against the stored language.
+async function snapshotCodeEnvEnvironment(db: Kysely<DB>, studyId: string) {
+    await db
+        .updateTable('study')
+        .set((eb) => ({
+            codeEnvEnvironment: eb
+                .selectFrom('orgCodeEnv')
+                .select((sub) => sub.ref('orgCodeEnv.settings', '->').key('environment').as('environment'))
+                .whereRef('orgCodeEnv.orgId', '=', 'study.orgId')
+                .whereRef('orgCodeEnv.language', '=', 'study.language')
+                .where('orgCodeEnv.isTesting', '=', false)
+                .orderBy('orgCodeEnv.createdAt', 'desc')
+                .limit(1),
+        }))
+        .where('id', '=', studyId)
+        .execute()
+}
+
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
@@ -212,6 +231,8 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
+        await snapshotCodeEnvEnvironment(db, studyId)
+
         return { studyId }
     })
 
@@ -262,6 +283,8 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
+        const before = await db.selectFrom('study').select('language').where('id', '=', studyId).executeTakeFirst()
+
         const verified =
             Object.keys(updateValues).length > 0
                 ? await db
@@ -282,6 +305,11 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
 
         if (!verified) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+
+        // Autosave resends the language every time, so only an actual change may replace the snapshot.
+        if (studyInfo.language !== undefined && studyInfo.language !== before?.language) {
+            await snapshotCodeEnvEnvironment(db, studyId)
         }
 
         return { studyId }

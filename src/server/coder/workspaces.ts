@@ -182,7 +182,8 @@ async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
 }
 
 async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
-    const environment = [...(codeEnv.settings?.environment || [])]
+    // The study's copy is frozen at creation (SHRMP-271); null means the study predates that.
+    const environment = [...(codeEnv.codeEnvEnvironment ?? codeEnv.settings?.environment ?? [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
         codeEnvId: codeEnv.id,
