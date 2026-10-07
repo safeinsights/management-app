@@ -10,6 +10,7 @@ import type { UserSession } from '@/lib/types'
 import { Paper, SegmentedControl, Stack } from '@mantine/core'
 import type { Route } from 'next'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import classes from './user-studies.module.css'
 
 type Audience = 'researcher' | 'reviewer'
 
@@ -64,6 +65,7 @@ const RoleSwitcher = ({
             p="xxs"
             color="navy"
             w="fit-content"
+            classNames={{ root: classes.switcher, label: classes.switcherLabel }}
             data={[
                 { label: 'Reviewer', value: 'reviewer' },
                 { label: 'Researcher', value: 'researcher' },

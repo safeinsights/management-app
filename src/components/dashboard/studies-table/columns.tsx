@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { Group, TableTh, TableThead, TableTr, Text, UnstyledButton } from '@mantine/core'
 import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { fontWeight } from '@/theme/tokens'
+import classes from './columns.module.css'
 import type { ColumnId, SortState } from './sort'
 import type { Audience, Scope } from './types'
 
@@ -52,7 +53,7 @@ const SortableHeader: FC<SortableHeaderProps> = ({ column, sort, onSort }) => {
         <TableTh w={column.width} aria-sort={ariaSort(column.id, sort)}>
             <UnstyledButton onClick={() => onSort(column.id)}>
                 <Group gap="xxs" wrap="nowrap">
-                    <Text fz="sm" fw={fontWeight.semibold}>
+                    <Text fz="sm" fw={fontWeight.semibold} className={classes.label}>
                         {column.header}
                     </Text>
                     <SortIcon id={column.id} sort={sort} />

@@ -23,7 +23,7 @@ const Placeholder: FC<{ text: string }> = ({ text }) => (
 
 const TitleCell: FC<CellProps> = ({ row }) => (
     <Tooltip label={row.title} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
-        <Link href={row.href} className={classes.title} c={semanticColor('text.primary')} underline="hover">
+        <Link href={row.href} className={classes.title} fz="sm" c={semanticColor('text.primary')} underline="hover">
             {row.title}
         </Link>
     </Tooltip>
