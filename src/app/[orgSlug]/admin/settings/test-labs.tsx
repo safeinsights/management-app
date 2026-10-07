@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { ActionSuccessType } from '@/lib/types'
 import { formatInstant } from '@/lib/dates'
 import { AddTestLabModal, type EligibleLab } from './add-test-lab-modal'
@@ -57,7 +57,7 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['orgTestLabs', orgSlug] })
             await queryClient.invalidateQueries({ queryKey: ['eligibleTestLabs', orgSlug] })
-            reportSuccess('Test labs were added successfully')
+            showToast({ category: 'success', title: 'Success', message: 'Test labs were added successfully' })
             closeModal()
         },
         onError: reportMutationError('Failed to add test labs'),

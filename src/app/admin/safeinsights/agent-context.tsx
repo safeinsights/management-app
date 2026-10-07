@@ -2,12 +2,12 @@
 
 import { useForm, useMutation, useQuery, useQueryClient } from '@/common'
 import { CONTEXT_LABELS, CONTEXT_NAMES, ContextName } from '@/lib/agent-context'
-import { errorToString } from '@/lib/errors'
+import { reportMutationError } from '@/components/errors'
 import { getAgentContextAction, writeAgentContextAction } from '@/server/actions/agent-context.actions'
 import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 
 type ContextProps = { name: ContextName; orgId: string | null }
 
@@ -25,20 +25,13 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
             queryClient.invalidateQueries({ queryKey: ['agentContext', name, orgId] })
-            notifications.show({
-                color: 'green',
+            showToast({
+                category: 'success',
                 title: 'Context saved',
                 message: `Updated ${CONTEXT_LABELS[name].label}.`,
             })
         },
-        onError: (error) => {
-            notifications.show({
-                color: 'red',
-                title: 'Context save failed',
-                message: errorToString(error),
-                autoClose: false,
-            })
-        },
+        onError: reportMutationError('Context save failed'),
     })
 
     const onSubmit = form.onSubmit(({ content }) => {
