@@ -84,10 +84,12 @@ export const JobReviewButtons = ({
         return null
     }
 
+    const isSubmitting = isPending || isSuccess
+
     return (
         <Group>
             <Button
-                disabled={isPending || isSuccess}
+                disabled={isSubmitting}
                 loading={isPending && pendingStatus == 'FILES-REJECTED'}
                 onClick={() => updateStudyJob({ status: 'FILES-REJECTED' })}
                 variant="outline"
@@ -95,7 +97,7 @@ export const JobReviewButtons = ({
                 Reject
             </Button>
             <Button
-                disabled={isPending || isSuccess || !decryptedResults?.length}
+                disabled={isSubmitting || !decryptedResults?.length}
                 loading={isPending && pendingStatus == 'FILES-APPROVED'}
                 onClick={() => updateStudyJob({ status: 'FILES-APPROVED' })}
             >

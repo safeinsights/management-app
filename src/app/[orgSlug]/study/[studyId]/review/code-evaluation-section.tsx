@@ -7,7 +7,7 @@ import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
-import { LinkWithIcon } from '@/components/links'
+import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import {
@@ -18,6 +18,7 @@ import {
     useCodeReviewEvaluationMap,
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
+import { Routes } from '@/lib/routes'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -81,7 +82,8 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
-            <Text id={labelId} fz={14} w={320}>
+            {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
+            <Text id={labelId} component="div" fz={14} w={320}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
@@ -101,46 +103,62 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
     )
 }
 
-function ProposalLink({ href, children }: { href: string; children: ReactNode }) {
+function CriterionLink({ href, testId, children }: { href: string; testId: string; children: ReactNode }) {
     return (
-        <LinkWithIcon
+        <LinkWithHoverCard
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
             underline="always"
             icon={<ArrowSquareOutIcon size={14} weight="bold" />}
-            data-testid="criteria-proposal-link"
+            data-testid={testId}
         >
             {children}
-        </LinkWithIcon>
+        </LinkWithHoverCard>
     )
 }
 
 function AgreementNote({ note }: { note: string | undefined }) {
     if (!note) return null
     return (
-        <InfoTooltip label={note} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-            <InfoIcon size={14} weight="fill" aria-label={note} style={{ marginLeft: 4 }} />
+        <InfoTooltip label={note}>
+            <InfoIcon
+                size={14}
+                weight="fill"
+                aria-label={note}
+                style={{ marginLeft: 4, verticalAlign: 'text-bottom' }}
+            />
         </InfoTooltip>
     )
 }
 
 type CriterionLabelConfig = {
-    build: (proposalHref: string) => ReactNode
-    note?: (isTestStudy: boolean) => string | undefined
+    build: (proposalHref: string, isTestStudy: boolean) => ReactNode
 }
 
 const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
     proposalAlignment: {
         build: (href) => (
             <>
-                Does code align with the approved <ProposalLink href={href}>proposal</ProposalLink>?
+                Does code align with the approved{' '}
+                <CriterionLink href={href} testId="criteria-proposal-link">
+                    proposal
+                </CriterionLink>
+                ?
             </>
         ),
     },
     agreementCompliance: {
-        build: () => 'Does code align with the Study Agreement?',
-        note: (isTestStudy) => (isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined),
+        build: (_href, isTestStudy) => (
+            <>
+                Does code align with the{' '}
+                <CriterionLink href={Routes.legal} testId="criteria-agreement-link">
+                    Study Agreement
+                </CriterionLink>
+                {/* The inline SVG is a line-break opportunity; keep the icon on the "?" line. */}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                    ?<AgreementNote note={isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined} />
+                </span>
+            </>
+        ),
     },
     privacyProtection: {
         build: () => 'Could the outputs expose any PII?',
@@ -167,8 +185,6 @@ export function CodeEvaluationSection({
     }
 
     const criterionRows = CODE_REVIEW_CRITERIA_KEYS.map((key) => {
-        const config = CRITERION_LABELS[key]
-        const note = config.note?.(isTestStudy)
         return (
             <CriterionRow
                 key={key}
@@ -178,12 +194,7 @@ export function CodeEvaluationSection({
                 sectionErrorId={sectionErrorId}
                 onChange={handleChange(key)}
                 onBlur={validateOnBlur ? () => form.validateField(`criteria.${key}`) : undefined}
-                label={
-                    <>
-                        {config.build(proposalHref)}
-                        <AgreementNote note={note} />
-                    </>
-                }
+                label={CRITERION_LABELS[key].build(proposalHref, isTestStudy)}
             />
         )
     })

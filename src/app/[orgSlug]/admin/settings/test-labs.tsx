@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useSpyMode } from '@/components/spy-mode-context'
+import { showToast } from '@/components/toast-notifications'
 import { useSession } from '@/hooks/session'
 import { ActionSuccessType } from '@/lib/types'
 import { formatInstant } from '@/lib/dates'
@@ -93,7 +93,7 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['orgTestLabs', orgSlug] })
             await queryClient.invalidateQueries({ queryKey: ['eligibleTestLabs', orgSlug] })
-            reportSuccess('Test labs were added successfully')
+            showToast({ category: 'success', title: 'Success', message: 'Test labs were added successfully' })
             closeModal()
         },
         onError: reportMutationError('Failed to add test labs'),
@@ -101,7 +101,7 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
 
     const undesignate = useMutation({
         mutationFn: async (testLabId: string) => await undesignateTestLabAction({ orgSlug, testLabId }),
-        onSuccess: () => reportSuccess('Test lab was dropped'),
+        onSuccess: () => showToast({ category: 'success', title: 'Success', message: 'Test lab was dropped' }),
         onError: reportMutationError('Failed to drop test lab'),
         // On failure too, so a row another admin already dropped leaves the table.
         onSettled: async () => {

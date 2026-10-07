@@ -95,14 +95,17 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe('APPROVED')
+        // Status lands only once the action has resolved. isSubmitting is also true while the
+        // request is in flight, so the lock has to still be on after that write.
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('APPROVED')
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
@@ -113,7 +116,7 @@ describe('useProposalReviewMutation', () => {
         expect(payload.submittedByName.length).toBeGreaterThan(0)
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Decision submitted' }),
+            expect.objectContaining({ 'data-toast-kind': 'success', title: 'Decision submitted' }),
         )
 
         await waitFor(() =>
@@ -132,6 +135,10 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
         })
         const provider = createStubProvider()
+        const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
+        memoryRouter.setCurrentUrl(reviewUrl)
+        const refresh = (memoryRouter as unknown as { refresh: Mock }).refresh
+        refresh.mockClear()
 
         const { result } = renderHook(
             () =>
@@ -147,20 +154,23 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision, feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
-        const updated = await db
-            .selectFrom('study')
-            .select('status')
-            .where('id', '=', study.id)
-            .executeTakeFirstOrThrow()
-        expect(updated.status).toBe(expectedStatus)
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe(expectedStatus)
+            expect(result.current.isSubmitting).toBe(true)
+        })
 
         expect(provider.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
         expect(payload.type).toBe('proposal-review-submitted')
         expect(payload.studyId).toBe(study.id)
         expect(payload.submittedByTabId).toBe(tabSessionId)
+        // The editable screen is already this URL, so push alone would leave the locked form mounted.
+        expect(refresh).toHaveBeenCalledTimes(1)
     })
 
     it('no editor provider published: navigates without broadcasting', async () => {
@@ -186,11 +196,10 @@ describe('useProposalReviewMutation', () => {
         await act(async () => {
             result.current.submitReview({ decision: 'approve', feedback: validFeedback })
         })
-        await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
         )
+        expect(result.current.isSubmitting).toBe(true)
     })
 
     it('action error: no navigation, no broadcast', async () => {

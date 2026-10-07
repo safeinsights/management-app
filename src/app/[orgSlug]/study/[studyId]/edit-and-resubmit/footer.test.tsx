@@ -21,7 +21,7 @@ import { SUBMIT_FAILURE_TITLE, SUBMIT_FAILURE_UNSAVED_MESSAGE } from '@/contexts
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
-import { PROPOSAL_REQUIRED_NOTE_ERROR } from './schema'
+import { REQUIRED_NOTE_ERROR } from './schema'
 import { EditResubmitFooter } from './footer'
 
 const ORG_NAME = 'Rice University'
@@ -114,7 +114,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        expect(await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(resubmitButton()).toBeEnabled()
     })
@@ -125,7 +125,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        expect(await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(await screen.findByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
@@ -135,7 +135,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
 
         await user.click(resubmitButton())
 
-        await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)
+        await screen.findByText(REQUIRED_NOTE_ERROR)
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
     })
 })
@@ -192,7 +192,7 @@ describe('EditResubmitFooter — confirmation modal (OTTER-762)', () => {
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === SUBMIT_FAILURE_TITLE,
         )
-        expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+        expect(errorCall?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
     })
 })
 

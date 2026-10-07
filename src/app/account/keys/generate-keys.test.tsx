@@ -88,7 +88,7 @@ describe('Security key generation', () => {
     })
 
     // OTTER-655: the guard entry point passes no redirect_url, which used to land a first key on
-    // "My dashboard" instead of the inviting org.
+    // "My studies" instead of the inviting org.
     it('first-time generation saves the key and uses the resolved landing when no redirect_url is present', async () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: false, firstKeyRedirect: '/openstax-lab/dashboard' as Route })

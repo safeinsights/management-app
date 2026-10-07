@@ -1,0 +1,122 @@
+/* Geometry from the SideNav spec (Devika, Sep 2026): 240 nav, 224 x 48 rows inset 8px, 2px radius,
+   focus ring 2px + 2px offset that must clear the nav's own padding once it scrolls. */
+
+.nav {
+    flex: 1;
+    min-height: 0;
+    color: var(--si-color-text-white);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-inline: var(--mantine-spacing-xs);
+    padding-bottom: var(--mantine-spacing-md);
+}
+
+.logoWrapper {
+    composes: focusRing from '../shell.module.css';
+    --focus-ring-offset: rem(-4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: rem(68px);
+    margin-inline: calc(var(--mantine-spacing-xs) * -1);
+    border-radius: var(--mantine-radius-xs);
+    flex-shrink: 0;
+}
+
+.list {
+    composes: plainList from '../shell.module.css';
+}
+
+.group {
+    position: relative;
+    padding-block: var(--mantine-spacing-md);
+}
+
+/* The separator is 208 wide: inset 8px inside rows that are themselves inset 8px in the nav. */
+.group + .group::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--mantine-spacing-xs);
+    right: var(--mantine-spacing-xs);
+    border-top: rem(1px) solid var(--si-color-border-sidenav);
+}
+
+.row {
+    composes: focusRing from '../shell.module.css';
+    display: flex;
+    align-items: center;
+    gap: var(--mantine-spacing-xs);
+    height: rem(48px);
+    padding-inline: var(--mantine-spacing-xs);
+    border-radius: var(--mantine-radius-xs);
+    color: inherit;
+    text-decoration: none;
+    font-size: var(--si-font-size-14);
+    font-weight: var(--si-font-weight-semibold);
+    line-height: var(--si-line-height-normal);
+    transition:
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.row:hover,
+.row[aria-current='page'] {
+    background-color: var(--si-color-surface-sidenav-hover);
+    color: var(--si-color-surface-sidenav);
+}
+
+.row[aria-current='page'] {
+    box-shadow: inset rem(4px) 0 0 var(--si-color-brand-accent);
+}
+
+.subnav {
+    padding-left: calc(var(--mantine-spacing-xs) + var(--mantine-spacing-lg));
+}
+
+.groupRow {
+    text-transform: uppercase;
+}
+
+.icon {
+    flex-shrink: 0;
+    display: inline-flex;
+}
+
+.label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.externalIcon {
+    flex-shrink: 0;
+    display: inline-flex;
+    margin-left: calc(var(--mantine-spacing-xxs) - var(--mantine-spacing-xs));
+}
+
+.typeIcon {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.adminPill {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0 var(--mantine-spacing-xs);
+    border-radius: var(--mantine-radius-xs);
+    background-color: var(--si-color-brand-accentalpha);
+    font-size: var(--si-font-size-12);
+    font-weight: var(--si-font-weight-regular);
+    line-height: var(--si-line-height-normal);
+    text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .row {
+        transition: none;
+    }
+}

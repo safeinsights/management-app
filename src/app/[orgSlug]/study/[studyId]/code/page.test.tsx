@@ -1,6 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
 import {
+    afterEach,
+    cleanupWorkspaceDirs,
+    createWorkspaceDir,
     db,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -10,18 +13,24 @@ import {
     waitFor,
     waitForPendingMutations,
     within,
+    writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import type { StudyJobStatus } from '@/database/types'
 import { memoryRouter } from 'next-router-mock'
 import StudyCodeUploadRoute from './page'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
 const mockRedirect = vi.mocked(redirect)
 
+const stubVimeoDuration = (seconds: number) =>
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ duration: seconds }))
+
 beforeEach(() => {
     memoryRouter.setCurrentUrl('/')
     mockRedirect.mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
     })
+    stubVimeoDuration(600)
 })
 
 const renderRoute = async (orgSlug: string, studyId: string) => {
@@ -46,6 +55,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         expect(screen.getByText('STEP 3')).toBeInTheDocument()
+        expect(screen.getByTestId('video-duration-badge')).toHaveTextContent('10 min video')
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', expect.stringContaining('/edit'))
@@ -96,6 +106,73 @@ describe('StudyCodeUploadRoute', () => {
         // The submit button stays clickable; OTTER-693 validates on click instead of gating it.
         await waitFor(() => {
             expect(within(screen.getByTestId('submit-row')).getByRole('button', { name: /submit code/i })).toBeEnabled()
+        })
+    })
+
+    // QA rejected OTTER-693 because reopening /code after submitting left the page fully live: the
+    // star persisted a change and Submit completed a second submission.
+    describe('view-only once the round is submitted (OTTER-693)', () => {
+        const workspaceRoots: string[] = []
+        afterEach(() => cleanupWorkspaceDirs(workspaceRoots))
+
+        const seedWithFiles = async (jobStatus: StudyJobStatus) => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus,
+            })
+            const root = await createWorkspaceDir('code-page-view-only')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'analysis.R': 'print(1)' })
+            return { org, study }
+        }
+
+        const submitButton = () => screen.queryByRole('button', { name: /submit code for review/i })
+        const starFor = (fileName: string) => screen.getByRole('radio', { name: new RegExp(fileName, 'i') })
+
+        it('renders the table read-only and drops every way to change the code', async () => {
+            const { org, study } = await seedWithFiles('CODE-SUBMITTED')
+
+            await renderRoute(org.slug, study.id)
+
+            await waitFor(() => expect(starFor('analysis.R')).toBeInTheDocument())
+            expect(starFor('analysis.R')).toBeDisabled()
+            expect(screen.getByRole('button', { name: /delete analysis\.R/i })).toBeDisabled()
+            expect(screen.getByRole('button', { name: /edit analysis\.R in IDE/i })).toBeDisabled()
+            expect(submitButton()).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /launch ide/i })).not.toBeInTheDocument()
+            expect(screen.queryByText(/already have code/i)).not.toBeInTheDocument()
+            // Hiding the link is not enough: a drag onto the table bypasses it entirely.
+            expect(screen.getByTestId('file-drop-zone')).toHaveAttribute('data-disabled')
+
+            // Reading the code back is the point of a view-only page, so these stay live.
+            expect(screen.getByRole('button', { name: /view analysis\.R/i })).toBeEnabled()
+            expect(screen.getByRole('button', { name: /download analysis\.R/i })).toBeEnabled()
+        })
+
+        // The positive half, so the assertions above cannot pass against a page that failed to render.
+        it('leaves all of it live before the first submission', async () => {
+            const { org, study } = await seedWithFiles('INITIATED')
+
+            await renderRoute(org.slug, study.id)
+
+            await waitFor(() => expect(starFor('analysis.R')).toBeInTheDocument())
+            expect(starFor('analysis.R')).toBeEnabled()
+            expect(submitButton()).toBeInTheDocument()
+            expect(screen.getByText(/already have code/i)).toBeInTheDocument()
+        })
+
+        // The preload mints a round job, so a view-only visit must not open one.
+        it('opens no round job on a view-only visit', async () => {
+            const { org, study } = await seedWithFiles('CODE-SUBMITTED')
+            const before = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+
+            await renderRoute(org.slug, study.id)
+
+            const after = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(after).toHaveLength(before.length)
         })
     })
 

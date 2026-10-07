@@ -7,7 +7,7 @@ import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 /** Ellipsis past this many characters; the full name goes in the hover tooltip. */
 const FILE_NAME_MAX_CHARS = 50
@@ -118,7 +118,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" fw={fontWeight.semibold} tt="none" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey.9" style={{ cursor: 'default' }}>
                     Template
                 </Badge>
             </HoverCard.Target>
@@ -172,6 +172,8 @@ type FileActionsProps = {
     onDelete: (fileName: string) => void
 }
 
+const enabledIconColor = (isEnabled: boolean) => (isEnabled ? semanticColor('icon.light') : undefined)
+
 const FileActions: FC<FileActionsProps> = ({
     fileName,
     isMain,
@@ -183,40 +185,41 @@ const FileActions: FC<FileActionsProps> = ({
     onDelete,
 }) => (
     <Group gap="xs" justify="center" wrap="nowrap">
+        {/* Transparent so none of these glyphs sit on a tile, including on hover. */}
         {/* Two reasons the pencil goes dead, and they need different tooltips: the page is
             view-only, or another researcher holds the IDE. */}
-        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline w={240}>
+        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline maw={240}>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 disabled={!isEditable || !canEditInIde}
                 aria-label={`Edit ${fileName} in IDE`}
                 onClick={() => onEdit(fileName)}
             >
-                <PencilSimpleIcon />
+                <PencilSimpleIcon size={20} weight="bold" color={enabledIconColor(isEditable && canEditInIde)} />
             </ActionIcon>
         </Tooltip>
         <Tooltip label={TOOLTIPS.download} withArrow>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 aria-label={`Download ${fileName}`}
                 onClick={() => onDownload(fileName)}
             >
-                <DownloadSimpleIcon />
+                <DownloadSimpleIcon size={20} weight="bold" color={semanticColor('icon.light')} />
             </ActionIcon>
         </Tooltip>
         {/* Wrapped so the tooltip still fires while the control is disabled, which is the whole
             point of the main-file case. */}
-        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline w={240}>
+        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline maw={240}>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 disabled={isMain || !isEditable}
                 aria-label={`Delete ${fileName}`}
                 onClick={() => onDelete(fileName)}
             >
-                <TrashIcon />
+                <TrashIcon size={20} weight="fill" color={enabledIconColor(!isMain && isEditable)} />
             </ActionIcon>
         </Tooltip>
     </Group>

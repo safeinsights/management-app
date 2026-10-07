@@ -111,7 +111,6 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             bg="gray.1"
             c="gray.7"
             style={{ cursor: 'pointer' }}
-            tt="none"
             size="lg"
             radius="xs"
             h={32}

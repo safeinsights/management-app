@@ -23,6 +23,7 @@ import { notifications } from '@mantine/notifications'
 import { storeS3File } from '@/server/aws'
 import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
+import type { StepNav } from '@/lib/study-screen'
 import type { Route } from 'next'
 import { vi } from 'vitest'
 import { s3Available } from '@/tests/s3.helpers'
@@ -42,6 +43,11 @@ const workspaceRoots: string[] = []
 
 const DATA_PARTNER = 'Test Data Partner'
 
+// These tests exercise the submit flow, not the nav table: any back link will do.
+const backNav = (href: string): StepNav => ({
+    back: { label: 'Previous step', href: href as Route, variant: 'subtle', testId: 'cta-previous-step' },
+})
+
 const setupStudy = async (orgSlug = 'openstax') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
@@ -56,7 +62,9 @@ const renderPage = async (orgSlug = 'openstax') => {
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
             isFirstVisit={false}
-            previousHref={'/test' as Route}
+            videoDurationMinutes={null}
+            isEditable
+            nav={backNav('/test')}
         />,
     )
     return { study }
@@ -158,7 +166,9 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
-                previousHref={'/test' as Route}
+                videoDurationMinutes={null}
+                isEditable
+                nav={backNav('/test')}
             />,
         )
 
@@ -206,7 +216,9 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
-                previousHref={'/test' as Route}
+                videoDurationMinutes={null}
+                isEditable
+                nav={backNav('/test')}
             />,
         )
 
@@ -240,7 +252,9 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
-                previousHref={'/test' as Route}
+                videoDurationMinutes={null}
+                isEditable
+                nav={backNav('/test')}
             />,
         )
 
@@ -254,7 +268,7 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Code could not be submitted.' }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: 'Code could not be submitted.' }),
             )
         })
 

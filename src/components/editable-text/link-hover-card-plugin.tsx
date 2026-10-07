@@ -14,16 +14,19 @@ import {
 import { LINK_CARD_DIALOG_LABEL, LINK_EDIT_DIALOG_LABEL } from '@/components/link-hover-card/copy'
 import { LinkEditForm, type LinkEditValues } from '@/components/link-hover-card/link-edit-form'
 import { LinkHoverCard } from '@/components/link-hover-card/link-hover-card'
+import {
+    openLinkInNewTab,
+    useEscapeOnCard,
+    useExclusiveLinkCard,
+    useFocusOnOpen,
+    wantsBrowserDefault,
+} from '@/components/link-hover-card/link-card-interactions'
 import { useLinkPreview } from '@/components/link-hover-card/use-link-preview'
 import { linkAttributes } from './config'
 import {
     AnchoredLinkCard,
     hasPrimaryModifier,
-    openLinkInNewTab,
     useClickWithoutDrag,
-    useEscapeOnCard,
-    useExclusiveLinkCard,
-    useFocusOnOpen,
     useLinkCardTriggerAria,
     useRootDomListeners,
 } from './link-card-popover'
@@ -43,7 +46,7 @@ type CardView = 'card' | 'edit'
 /** Cmd on a Mac and Ctrl elsewhere, which is what every editor with a link balloon uses. */
 const OPEN_CARD_KEY = 'k'
 
-function useEditorLinkCard(editor: LexicalEditor) {
+function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
     const [view, setView] = useState<CardView>('card')
 
@@ -52,7 +55,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
         setView('card')
     }, [])
 
-    const { claim } = useExclusiveLinkCard(close)
+    const { claim } = useExclusiveLinkCard(close, dropdownId)
 
     const open = useCallback(
         (found: LinkCardTarget) => {
@@ -83,7 +86,7 @@ function useEditorLinkCard(editor: LexicalEditor) {
         (event: MouseEvent) => {
             // Modified and middle clicks belong to the browser, and a click that ends a drag is
             // the user selecting text rather than reaching for the link.
-            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+            if (wantsBrowserDefault(event)) return
             if (movedSincePress(event)) return
             if (!isDOMNode(event.target)) return
 
@@ -203,8 +206,8 @@ type EditorLinkCard = ReturnType<typeof useEditorLinkCard>
 
 export function LinkHoverCardPlugin() {
     const [editor] = useLexicalComposerContext()
-    const card = useEditorLinkCard(editor)
     const dropdownId = useId()
+    const card = useEditorLinkCard(editor, dropdownId)
 
     useLinkCardTriggerAria(editor, card.link?.nodeKey ?? null, dropdownId)
     useEscapeOnCard(card.link !== null, card.handleEscape)

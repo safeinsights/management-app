@@ -3,7 +3,7 @@ import { EditResubmitProvider, type EditResubmitDraftData } from '@/contexts/edi
 import { lexicalJson } from '@/lib/lexical'
 import { DRAFT_REQUIRED_ERRORS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { DATASETS_FIELD_ID, PI_SELECT_ID, textFieldInputId } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import { PROPOSAL_REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from './schema'
+import { REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from './schema'
 import { EditResubmitForm } from './form'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
@@ -77,7 +77,7 @@ describe('EditResubmitForm resubmit-click validation (OTTER-762)', () => {
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.projectSummary)).toBeInTheDocument()
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.impact)).toBeInTheDocument()
         expect(screen.getByText(DRAFT_REQUIRED_ERRORS.piName)).toBeInTheDocument()
-        expect(screen.getByText(PROPOSAL_REQUIRED_NOTE_ERROR)).toBeInTheDocument()
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
@@ -134,7 +134,7 @@ describe('EditResubmitForm first-invalid focus (OTTER-762)', () => {
 
         await clickResubmit()
 
-        await screen.findByText(PROPOSAL_REQUIRED_NOTE_ERROR)
+        await screen.findByText(REQUIRED_NOTE_ERROR)
         expect(document.activeElement?.id).toBe(RESUBMISSION_NOTE_FIELD_ID)
     })
 

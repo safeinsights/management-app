@@ -3,6 +3,7 @@ import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { Table, TableTbody } from '@mantine/core'
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { Routes } from '@/lib/routes'
 import { StudyRow } from './study-row'
 import type { Audience, StudyRow as StudyRowType } from './types'
 
@@ -116,5 +117,24 @@ describe('StudyRow reviewer highlight', () => {
             ],
         })
         expect(isHighlighted(rowEl())).toBe(false)
+    })
+})
+
+// "Back to my studies" always lands on My studies, so an org dashboard entry carries no marker (OTTER-805).
+describe('StudyRow researcher link on an org dashboard', () => {
+    it('links to the bare study route', () => {
+        renderRow(
+            {
+                ...baseStudy,
+                status: 'APPROVED',
+                jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus }],
+            },
+            'researcher',
+        )
+
+        expect(screen.getByRole('link', { name: /view details/i })).toHaveAttribute(
+            'href',
+            Routes.studyView({ orgSlug: 'test-org', studyId: baseStudy.id }),
+        )
     })
 })

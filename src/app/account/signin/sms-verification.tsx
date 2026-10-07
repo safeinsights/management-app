@@ -4,7 +4,7 @@ import OtpInput from '@/components/otp-input'
 import { SignInResource } from '@clerk/types'
 import { Anchor, Box, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { useState } from 'react'
 
 interface SmsVerificationProps {
@@ -22,7 +22,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
         try {
             if (canResendCode) {
                 await signIn.prepareSecondFactor({ strategy: 'phone_code' })
-                notifications.show({ message: 'A new code has been sent!', color: 'green' })
+                showToast({ category: 'success', title: 'A new code has been sent!' })
                 setCanResendCode(false)
                 setTimeout(() => setCanResendCode(true), 30000)
             }

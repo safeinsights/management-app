@@ -187,6 +187,31 @@ describe('useStudyStatusOnReconnect', () => {
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' }))
     })
 
+    it('sends a code round to the code step rather than bare /review', async () => {
+        getStudyStatusActionMock.mockResolvedValue({ status: 'APPROVED', latestJobStatus: 'CODE-APPROVED' })
+
+        const CodeRound = () => {
+            useStudyStatusOnReconnect({
+                studyId: STUDY_ID,
+                orgSlug: 'org',
+                editableStatuses: [],
+                isEditable: ({ latestJobStatus }) =>
+                    latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED',
+                redirectTarget: 'studyReviewCode',
+                enabled: true,
+            })
+            return null
+        }
+
+        render(
+            <YjsWebsocketProvider>
+                <CodeRound />
+            </YjsWebsocketProvider>,
+        )
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(`/org/study/${STUDY_ID}/review/code`))
+    })
+
     it('gives a proposal screen and a review screen different default wording', async () => {
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
         mount()
@@ -300,7 +325,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
 
         await waitFor(() => expect(outcome).toBe(false))
         expect(showMock).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+            expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
         )
         expect(memoryRouter.asPath).toBe('/')
     })
@@ -423,7 +448,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
             ),
         )
     })
@@ -434,7 +459,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
             ),
         )
     })

@@ -7,7 +7,7 @@ type InfoTooltipProps = TooltipProps & {
 }
 
 export const InfoTooltip: React.FC<InfoTooltipProps> = ({ children, ...props }) => (
-    <Tooltip {...props}>
+    <Tooltip multiline maw={250} {...props}>
         <span>{children}</span>
     </Tooltip>
 )

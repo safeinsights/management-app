@@ -1,8 +1,8 @@
 ## Hard Rules
 
-- Keep JSX minimal: no logic inside the return statement — no complex ternaries, no calculations, no object or array literals built inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
+- Keep JSX minimal: no complex logic inside the return statement — no nested ternaries or multi-step calculations. Short expressions (`a || b`, `cond ? x : undefined`), simple ternaries and static config objects (`events={{ hover: true }}`) go inline. A bare `.map()` that delegates each item to an extracted row component is fine; a `.map()` whose callback contains logic is not.
 - Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
-- Co-locate, don't embed: If logic is used only in the component, define it just above the JSX, keep the JSX clean of declarations and other logic
+- Co-locate, don't embed: If a helper is used only by one component, define it in the same file next to that component rather than in a shared module
 - Extract: If a sub-section of a function or JSX is complex, break it into separate, smaller parts.
 - Conditional visibility: Instead of hiding/showing large blocks using `{condition && <Component />}`, have the component accept an `isVisible` prop and return null when it shouldn't render.
 - Comments: Reserve comments for genuinely hard-to-understand code. Be brief and to the point — explain **why**, not **how**; the code already shows how. Prefer one or two lines, three at the outside. A comment longer than the code it describes is a smell: if the reasoning truly needs more room, link a ticket instead of restating it. Do not write comments that narrate the code (`// Create profile` before `insertInto('profile')`), banner separators (`// ==== Handlers ====`), or JSDoc that merely repeats the signature (`@param schema - the schema`). If the code is self-explanatory, no comment is needed.
@@ -11,6 +11,7 @@
 - E2E flakiness: ZERO tolerance. Playwright runs with `retries: 0` and full parallelism (`fullyParallel: true`, no fixed worker cap) on every environment including CI. A test that only passes on retry is a bug — fix the root cause (await the right signal, use web-first `expect` assertions/`toPass`, isolate per-test data with `studyFeatures.uniqueTitle`), never add a retry, an inline timeout, or a bare `waitForTimeout` to mask it. Do not raise `retries` above 0 or pin `workers` to 1 to make a suite "pass". A change is not done until the full e2e suite passes repeatedly at `retries: 0` under parallelism.
 - Migrations - UUID primary keys: Always default `uuid` id columns to `v7uuid()` (defined in `1727370622500_uuid_fn.ts`), never `gen_random_uuid()`. v7 UUIDs are time-ordered, which gives better index locality and natural insertion order.
 - Migrations - timestamp columns: Always use `'timestamptz'` (timestamp with time zone), never `'timestamp'`. Pattern: `.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql\`now()\`))`.
+- Migrations - existing studies: a migration that adds a column, enum value or study-keyed table must backfill existing rows in `up()` or carry a `// no backfill: <reason>` comment. Never paper over old rows with app-side `?? default` fallbacks. See `docs/retroactive-changes.md`.
 - Screen rules doc: When modifying `src/lib/study-screen/*-screen-rules.ts`, also update the matching tables in `docs/study-screens-logic.md`.
 
 @CONVENTIONS.md

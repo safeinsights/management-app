@@ -2,6 +2,7 @@ import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 
 export type Decision = 'approve' | 'needs-clarification' | 'reject'
+export type CodeDecision = Exclude<Decision, 'reject'>
 
 const DECISION_TO_REVIEW: Record<Decision, ReviewDecision> = {
     approve: 'APPROVE',
@@ -49,8 +50,8 @@ export function effectiveProposalStatus(study: {
 }
 
 export const DECISION_NOTICES = {
-    submitted: { color: 'green', title: 'Decision submitted', message: '' },
-    failed: { color: 'red', title: 'Decision could not be submitted', message: 'Your work is saved. Try again.' },
+    submitted: { category: 'success', title: 'Decision submitted', message: '' },
+    failed: { category: 'error', title: 'Decision could not be submitted', message: 'Your work is saved. Try again.' },
 } as const
 
 // A code decision can be written without a code-review comment, so the feedback view synthesizes

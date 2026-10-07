@@ -8,7 +8,7 @@ import { SuccessPanel } from '@/components/panel'
 import { useSession } from '@/hooks/session'
 import { Button } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { type FC, useState } from 'react'
 import { orgAdminInviteUserAction } from './admin-users.actions'
@@ -45,7 +45,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data, invite) {
-            studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
             posthog.capture('team_member_invited', {
                 org_slug: orgSlug,
@@ -53,14 +52,13 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 already_invited: data?.alreadyInvited ?? false,
             })
             if (data?.alreadyInvited) {
-                notifications.show({
-                    color: 'green',
+                showToast({
+                    category: 'success',
                     title: 'Invite resent',
                     message: 'This user has already been invited. Resending invite.',
                 })
-            } else {
-                onInvited()
             }
+            onInvited()
         },
     })
 

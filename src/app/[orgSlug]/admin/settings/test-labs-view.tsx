@@ -36,9 +36,7 @@ export type TestLabRowViewProps = {
 export function TestLabRowView({ name, addedOn, hasActions, actions }: TestLabRowViewProps) {
     return (
         <Table.Tr>
-            <Table.Td>
-                <Text fw={fontWeight.semibold}>{name}</Text>
-            </Table.Td>
+            <Table.Td>{name}</Table.Td>
             <Table.Td>{addedOn}</Table.Td>
             <ActionsCell isVisible={hasActions}>{actions}</ActionsCell>
         </Table.Tr>

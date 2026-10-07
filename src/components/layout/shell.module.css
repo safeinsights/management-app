@@ -1,0 +1,41 @@
+/* Shared by the side nav, the top nav and the in-app shell: the accent focus ring on the navy and
+   light surfaces (the theme has no focus/ring token, see OTTER-692), a bare list, and the footer. */
+
+.focusRing:focus-visible {
+    outline: rem(2px) solid var(--si-color-brand-accent);
+    outline-offset: var(--focus-ring-offset, rem(2px));
+}
+
+.plainList {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.shell {
+    --app-footer-height: rem(48px);
+}
+
+/* Main gives up the footer's height so a short page still ends with the footer at the viewport
+   bottom; a long page pushes it below the fold. */
+.main {
+    min-height: calc(100dvh - var(--app-footer-height));
+}
+
+/* Same centered column and nav offset as main, so the stroke and text line up with the page
+   content on screens wider than main's max width. */
+.footer {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline-start: var(--app-shell-navbar-offset, 0rem);
+}
+
+.footerBar {
+    display: flex;
+    align-items: center;
+    height: var(--app-footer-height);
+    padding-inline: var(--mantine-spacing-lg);
+    border-top: rem(1px) solid var(--si-color-border-default);
+}

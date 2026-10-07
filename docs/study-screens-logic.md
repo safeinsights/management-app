@@ -275,7 +275,7 @@ error**, not a runtime throw. Both pages dispatch through the shared `renderStud
 
 ```ts
 // view/page.tsx → role: 'researcher'   |   review/page.tsx → role: 'reviewer'
-return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref, returnTo })
+return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId })
 ```
 
 The `reviewer-*` components are **thin adapters** over the existing reviewer views
@@ -336,9 +336,24 @@ table a pure function of state.
 `proposal-feedback` (`renderScreenById`) rather than going through `resolveScreen`, which would
 forward-jump to a code screen for the same state.
 
-`Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
-for reviewers, and for researchers the org dashboard only when the study was entered with
-`?returnTo=org`.
+`/code` is a form route, not a dispatcher screen, so it has no `ScreenId` and resolves its own nav
+through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous step` is the only
+navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
+before that.
+
+Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
+once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
+`CODE-SUBMITTED`, whatever the reviewer has decided since — because its confirmation modal promises
+no changes after submitting (OTTER-693). `study.status` stays `APPROVED` through submission, so the
+answer comes from the job statuses, not the study row. Post-decision editing lives on `/resubmit`,
+gated by `canResearcherResubmitCode`, which requires a resubmission note. Both rules are enforced
+server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submitStudyCodeAction`, and
+`requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
+pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
+
+`Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
+routes this exit to one fixed destination, never back to the entry point, so neither the page nor
+the route carries an entry marker (OTTER-805).
 
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 
@@ -519,30 +534,30 @@ re-architecting — exactly as the design intended.
 
 ## File map
 
-| File                                   | Responsibility                                                                         |
-| -------------------------------------- | -------------------------------------------------------------------------------------- |
-| `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                           |
-| `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants     |
-| `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`          |
-| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>`, `firstMatch` (shared by every table), plus `Screen*` aliases  |
-| `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                           |
-| `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                               |
-| `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                        |
-| `reviewer-pill-rules.ts`               | `REVIEWER_PILL_RULES` (reviewer pill table)                                            |
-| `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                |
-| `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                 |
-| `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`           |
-| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                  |
-| `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                      |
-| `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav` |
-| `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                 |
-| `index.ts`                             | public barrel                                                                          |
-| `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                             |
-| `_screens/registry.ts`                 | `SCREEN_COMPONENTS` id → component map (both roles)                                    |
-| `_screens/render-screen.tsx`           | `renderStudyScreen` — shared `/view` + `/review` dispatch                              |
-| `_screens/reviewer-*-screen.tsx`       | six reviewer adapters over existing reviewer views                                     |
-| `review/reviewer-page-guard.tsx`       | shared reviewer access preamble                                                        |
-| `lib/review-decision.ts`               | status/`CODE-*` → `ReviewDecision` fallback maps                                       |
+| File                                   | Responsibility                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `state.types.ts`                       | `RawStudyState`, `StudyState`, `DashboardState`, `StudyRole`                                                |
+| `state.ts`                             | `projectStudyState` (incl. `executionStage`, `resultsViewed`) + priority constants                          |
+| `screens.ts`                           | `ScreenId` (researcher + `reviewer-*`), `ScreenDescriptor`, `DashboardAction`                               |
+| `screen-rules.ts`                      | `Rule`, `RuleEntry<Id>`, `firstMatch` (shared by every table), plus `Screen*` aliases                       |
+| `researcher-screen-rules.ts`           | `RESEARCHER_SCREEN_RULES` (researcher table)                                                                |
+| `reviewer-screen-rules.ts`             | `REVIEWER_SCREEN_RULES` (reviewer table)                                                                    |
+| `researcher-pill-rules.ts`             | `RESEARCHER_PILL_RULES` (researcher pill table)                                                             |
+| `reviewer-pill-rules.ts`               | `REVIEWER_PILL_RULES` (reviewer pill table)                                                                 |
+| `dashboard-rules.ts`                   | `DASHBOARD_RULES` table                                                                                     |
+| `resolve.ts`                           | `resolveScreen` (role-keyed), `resolveDashboardAction`                                                      |
+| `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                                |
+| `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
+| `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
+| `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
+| `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
+| `index.ts`                             | public barrel                                                                                               |
+| `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |
+| `_screens/registry.ts`                 | `SCREEN_COMPONENTS` id → component map (both roles)                                                         |
+| `_screens/render-screen.tsx`           | `renderStudyScreen` — shared `/view` + `/review` dispatch                                                   |
+| `_screens/reviewer-*-screen.tsx`       | six reviewer adapters over existing reviewer views                                                          |
+| `review/reviewer-page-guard.tsx`       | shared reviewer access preamble                                                                             |
+| `lib/review-decision.ts`               | status/`CODE-*` → `ReviewDecision` fallback maps                                                            |
 
 Tests sit next to each module; `state.shuffle.test.ts` and `consistency.test.ts` enforce the
 order-independence and cross-resolver-agreement invariants (the latter covers both roles).

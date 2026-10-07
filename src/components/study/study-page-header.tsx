@@ -17,7 +17,7 @@ export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
     const eyebrow = displayLabName(study.submittingLabName, study.submittedByOrgSlug)
     const title = (
         <Group gap="sm" align="center">
-            <Stack gap={0}>
+            <Stack gap="md" align="flex-start">
                 {study.title ?? UNTITLED_STUDY_TITLE}
                 <TestStudyLabel isVisible={study.isTestStudy} />
             </Stack>

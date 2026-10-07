@@ -21,7 +21,7 @@ interface DataPartnerFieldProps {
     lockedOrgName?: string
 }
 
-export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lockedOrgName }) => {
+function useStudyCapableOrgs() {
     const { user, isLoaded } = useUser()
     const isSessionReady = isLoaded && !!user
 
@@ -31,6 +31,14 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
         // The action's ability check needs a resolved Clerk session.
         enabled: isSessionReady,
     })
+
+    const options = orgs.map((o) => ({ value: o.slug, label: o.name }))
+
+    return { options, isLoading, isSessionReady }
+}
+
+export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lockedOrgName }) => {
+    const { options, isLoading, isSessionReady } = useStudyCapableOrgs()
 
     if (isLocked) return <ReadOnlyField label={LABEL} value={lockedOrgName || form.getValues().orgSlug} />
 
@@ -44,7 +52,7 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
                 maw={478}
                 key={form.key('orgSlug')}
                 allowDeselect={false}
-                data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
+                data={options}
                 // Step 1 shows no placeholder text, like Step 2 (OTTER-691).
                 placeholder=""
                 // A query held back by `enabled` reports isLoading false, so the Select would

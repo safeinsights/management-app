@@ -29,7 +29,7 @@ export function StudyRowView({ study, audience, scope, status, isHighlighted, ac
     return (
         <TableTr fz={14} className={classes.row} mod={{ highlighted: isHighlighted }}>
             <TableTd>
-                <InfoTooltip label={study.title} multiline maw={400}>
+                <InfoTooltip label={study.title} maw={400}>
                     <Text lineClamp={2} style={{ cursor: 'pointer', overflowWrap: 'break-word' }} size="sm">
                         {study.title}
                     </Text>

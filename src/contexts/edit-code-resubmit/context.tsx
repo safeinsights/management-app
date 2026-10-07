@@ -3,12 +3,18 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { useForm, useMutation, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
+import {
+    CODE_SUBMIT_FAILURE_TITLE,
+    CODE_SUBMIT_SUCCESS_TITLE,
+    reportSubmissionFailure,
+} from '@/contexts/proposal/hooks/submission-toasts'
 import { Routes } from '@/lib/routes'
 import {
     initialResubmitNoteValue,
+    RESUBMIT_CODE_BUTTON_ID,
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
@@ -16,6 +22,7 @@ import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/
 
 interface EditCodeResubmitContextValue {
     studyId: string
+    orgName: string
     noteForm: UseFormReturnType<ResubmitNoteValue>
     saveDraft: () => Promise<boolean>
     isSaving: boolean
@@ -37,17 +44,17 @@ const AUTOSAVE_DEBOUNCE_MS = 800
 interface EditCodeResubmitProviderProps {
     children: ReactNode
     studyId: string
+    orgName: string
     initialNote: string
 }
 
-export function EditCodeResubmitProvider({ children, studyId, initialNote }: EditCodeResubmitProviderProps) {
+export function EditCodeResubmitProvider({ children, studyId, orgName, initialNote }: EditCodeResubmitProviderProps) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
         initialValues: { ...initialResubmitNoteValue, resubmissionNote: initialNote },
-        validateInputOnChange: true,
     })
 
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
@@ -137,14 +144,14 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
             }),
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
-            notifications.show({
-                title: 'Study Code Resubmitted',
-                message: 'Your updated code has been submitted to the Data Partner.',
-                color: 'green',
-            })
+            showToast({ category: 'success', title: CODE_SUBMIT_SUCCESS_TITLE, message: '' })
             router.push(Routes.studyView({ orgSlug, studyId }))
         },
-        onError: reportMutationError('Unable to resubmit study code'),
+        onError: (error: unknown) =>
+            reportSubmissionFailure(error, [flushSave(pendingValueRef.current)], {
+                title: CODE_SUBMIT_FAILURE_TITLE,
+                buttonId: RESUBMIT_CODE_BUTTON_ID,
+            }),
     })
 
     const resubmit = useCallback(
@@ -159,6 +166,7 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
     const value = useMemo<EditCodeResubmitContextValue>(
         () => ({
             studyId,
+            orgName,
             noteForm,
             saveDraft,
             isSaving: saveMutation.isPending,
@@ -166,7 +174,16 @@ export function EditCodeResubmitProvider({ children, studyId, initialNote }: Edi
             resubmit,
             isSubmitting: submitMutation.isPending,
         }),
-        [studyId, noteForm, saveDraft, saveMutation.isPending, lastSavedAt, resubmit, submitMutation.isPending],
+        [
+            studyId,
+            orgName,
+            noteForm,
+            saveDraft,
+            saveMutation.isPending,
+            lastSavedAt,
+            resubmit,
+            submitMutation.isPending,
+        ],
     )
 
     return <EditCodeResubmitContext.Provider value={value}>{children}</EditCodeResubmitContext.Provider>

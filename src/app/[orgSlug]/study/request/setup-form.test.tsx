@@ -117,7 +117,6 @@ const renderSetup = (
         studyId?: string
         draftData?: DraftStudyData | null
         submittingLabName?: string | null
-        returnTo?: 'org'
     } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
@@ -791,7 +790,7 @@ describe('Next step confirmation modal', () => {
         expect(within(dialog).getByText('Continue to the next step?')).toBeInTheDocument()
         expect(
             within(dialog).getByText(
-                'Make sure your Data Partner and programming language are correct. They cannot be changed after this step. You can still edit your study title.',
+                'Make sure your Data Partner and Programming language selections are correct. They cannot be changed after this step. You can still edit your study title.',
             ),
         ).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
@@ -1050,6 +1049,15 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
 
+    it('keeps the intro copy while the draft is still editable', async () => {
+        const fixtures = await setupFixtures()
+        const { draftData } = await insertRevisitableDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
+        expect(screen.getByText(INTRO)).toBeInTheDocument()
+    })
+
     it('titles the CTA Save and continue, and offers no left action', async () => {
         const fixtures = await setupFixtures()
         const { draftData } = await insertRevisitableDraft(fixtures)
@@ -1183,6 +1191,30 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
 
+    it('omits the intro copy once the proposal is submitted', async () => {
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
+        expect(screen.queryByText(INTRO)).not.toBeInTheDocument()
+        // Guards against the assertion above passing because the whole card is gone.
+        expect(screen.getByRole('heading', { name: 'Set up study', level: 2 })).toBeInTheDocument()
+    })
+
+    it('omits the intro copy for a decided proposal too', async () => {
+        const fixtures = await setupFixtures()
+
+        for (const status of ['CHANGE-REQUESTED', 'APPROVED'] as const) {
+            const draftData = submittedDraft(fixtures, { status })
+            const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+            await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
+            expect(screen.queryByText(INTRO)).not.toBeInTheDocument()
+            unmount()
+        }
+    })
+
     it('titles the CTA Next step, and offers no left action', async () => {
         const fixtures = await setupFixtures()
         const draftData = submittedDraft(fixtures)
@@ -1215,25 +1247,6 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
-    })
-
-    // An org-scoped entry has to survive the round trip. /submitted hands returnTo down to Step 1
-    // and Step 1 hands it back, so the exit there still points at the dashboard the researcher
-    // actually came from rather than the personal one.
-    it('carries an org-scoped entry back to the submitted record', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        const draftData = submittedDraft(fixtures)
-        renderSetup(fixtures, { studyId: draftData.id, draftData, returnTo: 'org' })
-
-        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
-        await user.click(nextStepButton())
-
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id, returnTo: 'org' }),
-            ),
-        )
     })
 
     it('reaches the submitted record for a decided proposal too', async () => {

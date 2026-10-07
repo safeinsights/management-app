@@ -1,13 +1,14 @@
 'use client'
 
 import { createContext, createElement, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { WebSocketStatus } from '@hocuspocus/provider'
 
+import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { ActionFailure, isActionError } from '@/lib/errors'
-import { reportError, showOrReplaceNotification } from '@/components/errors'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { reportError } from '@/components/errors'
+import { showToast } from '@/components/toast-notifications'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
@@ -40,7 +41,15 @@ const REVIEW_DECIDED_NOTICE: KickOutNotice = {
 const DEFAULT_NOTICE: Record<Args['redirectTarget'], KickOutNotice> = {
     studySubmitted: PROPOSAL_SUBMITTED_NOTICE,
     studyReview: REVIEW_DECIDED_NOTICE,
+    studyReviewCode: REVIEW_DECIDED_NOTICE,
 }
+
+// Only a code round needs its own route (REVIEWER_SCREEN_RULES).
+const REDIRECT_ROUTE = {
+    studySubmitted: Routes.studySubmitted,
+    studyReview: Routes.studyReview,
+    studyReviewCode: Routes.studyReviewCode,
+} satisfies Record<Args['redirectTarget'], unknown>
 
 type Args = {
     studyId: string
@@ -54,7 +63,7 @@ type Args = {
     editableStatuses: readonly string[]
     /** Takes precedence over `editableStatuses`, to gate on latest job status as well. */
     isEditable?: (snapshot: EditableSnapshot) => boolean
-    redirectTarget: 'studySubmitted' | 'studyReview'
+    redirectTarget: 'studySubmitted' | 'studyReview' | 'studyReviewCode'
     /** Overrides the default wording for a round that closed without this tab seeing the live event. */
     notice?: KickOutNotice
     enabled?: boolean
@@ -91,6 +100,7 @@ export function useStudyStatusOnReconnect({
     enabled = true,
 }: Args) {
     const router = useRouter()
+    const pathname = usePathname()
     const socket = useYjsWebsocket()
     const hasRedirectedRef = useRef(false)
     // A latch, because `connected` can re-emit without a real disconnect in between.
@@ -145,22 +155,15 @@ export function useStudyStatusOnReconnect({
             }
 
             hasRedirectedRef.current = true
-            showOrReplaceNotification({
-                color: 'blue',
-                ...noticeRef.current,
-                autoClose: NOTIFICATION_DISPLAY_MS,
-            })
-            if (redirectTargetRef.current === 'studySubmitted') {
-                router.push(Routes.studySubmitted({ orgSlug: orgSlugRef.current, studyId }))
-            } else {
-                router.push(Routes.studyReview({ orgSlug: orgSlugRef.current, studyId }))
-            }
-            // An editable screen and the screen that replaces it can answer the same URL, where push
-            // alone is a no-op that leaves the closed form mounted.
-            router.refresh()
+            showToast({ category: 'info', ...noticeRef.current })
+            pushDecided(
+                router,
+                pathname,
+                REDIRECT_ROUTE[redirectTargetRef.current]({ orgSlug: orgSlugRef.current, studyId }),
+            )
             return true
         },
-        [studyId, studyJobId, router],
+        [studyId, studyJobId, router, pathname],
     )
 
     // A tab that stayed connected while it was in the background received no event if it had no
