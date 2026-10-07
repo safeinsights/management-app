@@ -31,6 +31,9 @@ export default defineConfig({
         env: { AWS_PROFILE: '' },
         mockReset: true,
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
+        // A failing test prints everything it logged; a passing one stays quiet. Pass --silent=false
+        // to see the logs of passing tests too.
+        silent: 'passed-only',
         environment: 'happy-dom',
         // Embeds such as the Vimeo player would otherwise fetch the real third-party page mid-test.
         environmentOptions: { happyDOM: { settings: { navigation: { disableChildFrameNavigation: true } } } },

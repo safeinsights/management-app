@@ -71,8 +71,13 @@ const logger = {
     error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
-// Under Vitest the debug stream bypasses console capture and repeats every warn and error, so
-// test output keeps the console copy only. Next.js never runs with NODE_ENV=test.
-if (process.env.NODE_ENV !== 'test') debug.enable('app:*')
+// Under Vitest the stream goes through console, so each line is captured with the test that wrote
+// it. warn and error already reach the console, so their debug copies would only repeat them.
+if (process.env.NODE_ENV === 'test') {
+    debug.log = (...args: unknown[]) => console.info(...args)
+    debug.enable('app:*,-app:warn,-app:error')
+} else {
+    debug.enable('app:*')
+}
 
 export default logger
