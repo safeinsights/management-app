@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useSyncExternalStore, type RefObject } from 'react'
 import type { PopoverProps } from '@mantine/core'
 
 /** The card's look, shared by the editor cards and the plain-link card so the two cannot drift. */
@@ -52,6 +52,31 @@ export function useFocusOnOpen(target: RefObject<HTMLElement | null>, enabled = 
     }, [target, enabled])
 }
 
+let openCardCount = 0
+const openCardListeners = new Set<() => void>()
+
+function changeOpenCardCount(delta: number) {
+    openCardCount += delta
+    openCardListeners.forEach((listener) => listener())
+}
+
+function subscribeToOpenCards(listener: () => void) {
+    openCardListeners.add(listener)
+    return () => {
+        openCardListeners.delete(listener)
+    }
+}
+
+const isAnyLinkCardOpen = () => openCardCount > 0
+
+/**
+ * Mantine's Modal hears Escape on window, ahead of the card's document listener, so a modal
+ * hosting a card has to leave the first Escape to it (OTTER-792).
+ */
+export function useIsLinkCardOpen() {
+    return useSyncExternalStore(subscribeToOpenCards, isAnyLinkCardOpen, () => false)
+}
+
 /**
  * Escape acts on the card wherever focus sits: on one of its actions, or back on the link. A
  * native listener on the document is what makes that reliable. A React handler on the dropdown
@@ -70,8 +95,12 @@ export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
         }
 
         document.addEventListener('keydown', handleEscape, true)
+        changeOpenCardCount(1)
 
-        return () => document.removeEventListener('keydown', handleEscape, true)
+        return () => {
+            document.removeEventListener('keydown', handleEscape, true)
+            changeOpenCardCount(-1)
+        }
     }, [isOpen, onEscape])
 }
 
