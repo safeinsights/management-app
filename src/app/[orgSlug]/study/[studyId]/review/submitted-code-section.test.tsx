@@ -561,21 +561,41 @@ describe('SubmittedCodeSection — AI summary', () => {
     })
 })
 
-describe('SubmittedCodeSection — Security scan log', () => {
-    it('does not render the security scan log section', async () => {
+describe('SubmittedCodeSection — Security scan results', () => {
+    it.each(['PASSED', 'FAILED', 'INDETERMINATE', 'NOT-RUN'] as const)(
+        'renders %s scan results before the summary',
+        async (status) => {
+            const fixture = await setupBaseFixture()
+            await renderSection(fixture, scanResult(status))
+            const scan = screen.getByTestId('security-scan-results')
+            const summary = screen.getByTestId('ai-summary')
+            expect(scan.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            if (status === 'PASSED') expect(within(scan).getByLabelText('Passed')).toBeInTheDocument()
+            if (status === 'FAILED') expect(within(scan).getByLabelText('Failed')).toBeInTheDocument()
+            if (status === 'INDETERMINATE') expect(scan).toHaveTextContent('indeterminate')
+            if (status === 'NOT-RUN') expect(scan).toHaveTextContent('did not run')
+        },
+    )
+
+    it('shows a spinner while the scan is pending', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED'))
-        expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
-        expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
+        await renderSection(fixture, scanInProgress)
+        expect(within(screen.getByTestId('security-scan-results')).getByLabelText('Scan pending')).toBeInTheDocument()
+    })
+
+    it('shows the legacy Trivy result when Semgrep did not run', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, { ...scanResult('NOT-RUN'), trivy: 'FAILED' })
+        expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Trivy: Failed')
     })
 })
 
 describe('SubmittedCodeSection — Analysis polling', () => {
-    it('stops polling once the summary has arrived', async () => {
+    it('stops polling once both the summary and scan have arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('PASSED') }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -589,16 +609,14 @@ describe('SubmittedCodeSection — Analysis polling', () => {
 
         // Sampled after several poll intervals of real time: comparing the count to itself inside
         // waitFor is satisfied on the first attempt, so it passes even against a poll that never
-        // stops — the regression this test is named for. The scan never settles here, which used
-        // to hold the interval open on its own (OTTER-694).
+        // stops — the regression this test is named for.
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
         await new Promise((resolve) => setTimeout(resolve, 200))
 
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 
-    // Nothing renders a scan verdict, so asking for one would buy an S3 read on every tick.
-    it('never asks the server for the scan', async () => {
+    it('asks the server for the scan', async () => {
         const fixture = await setupBaseFixture()
         vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
 
@@ -612,10 +630,31 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         )
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
-        // Exact, not toMatchObject: the point is that no scan flag is sent at all.
         for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
-            expect(args).toEqual({ studyJobId: fixture.job.id })
+            expect(args).toEqual({ studyJobId: fixture.job.id, withScan: true })
         }
+    })
+
+    it('keeps polling after the summary arrives until the scan settles', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            />,
+        )
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        expect(screen.getByLabelText('Scan pending')).toBeInTheDocument()
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('FAILED') }))
+        await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
+        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 
     it('keeps polling until the summary arrives', async () => {

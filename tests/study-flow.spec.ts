@@ -208,6 +208,7 @@ async function uploadCodeFiles(page: Page, files: string[]) {
             .poll(async () => {
                 if (await replacePrompt.isVisible()) {
                     await replacePrompt.getByRole('button', { name: 'Replace', exact: true }).click()
+                    await expect(replacePrompt).toBeHidden()
                 }
                 return successToast.isVisible()
             })

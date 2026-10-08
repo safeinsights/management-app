@@ -772,7 +772,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
 
 export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
 
-// OTTER-694 removed the scan panel. Current callers skip the S3 fetch unless they request a scan.
+// Summary-only callers skip the S3 fetch unless they request a scan.
 export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
     const [review, scan] = await Promise.all([
         getStudyReviewForJob(job),

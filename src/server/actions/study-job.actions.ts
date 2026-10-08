@@ -294,7 +294,7 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
 
 // The summary and the scan describe the same submission, so a caller that wants both gets them in
 // one authorization and one getStudyJobInfo rather than two round-trips. `withScan` is off by
-// default: the scan costs an S3 fetch, and no caller has rendered a verdict since OTTER-694.
+// default so summary-only callers do not pay for an S3 fetch.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
     .params(z.object({ studyJobId: z.string(), withScan: z.boolean().optional() }))
     .middleware(async ({ params: { studyJobId } }) => {
