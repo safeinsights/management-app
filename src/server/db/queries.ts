@@ -657,7 +657,6 @@ export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE' | 'NOT-RUN'
 export type JobScanResult = {
     // null means no readable log. NOT-RUN means the readable log has no header for this tool.
     semgrep: ScanToolStatus | null
-    trivy: ScanToolStatus | null
     // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
@@ -668,45 +667,17 @@ const SEMGREP_VERDICTS = new Map<string, ScanToolStatus>([
     ['no findings', 'PASSED'],
     ['findings found', 'FAILED'],
 ])
-const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
-    ['no vulnerabilities found', 'PASSED'],
-    ['vulnerabilities found', 'FAILED'],
-])
-
 const SEMGREP_STATUS_LINE = /^semgrep scan:/i
-const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
-const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
-
-// Anchored to a whole trimmed line: a scanned path, rule message, or CVE title containing the label
-// would otherwise decide the verdict.
-function statusLineVerdict(
-    lines: string[],
-    label: RegExp,
-    verdicts: Map<string, ScanToolStatus>,
-): ScanToolStatus | undefined {
-    const statusLine = lines.find((line) => line.length > 0)
-    if (!statusLine || !label.test(statusLine)) return undefined
-    const phrase = statusLine.replace(label, '').trim().toLowerCase()
-    return verdicts.get(phrase) ?? 'INDETERMINATE'
-}
 
 const trimmedLines = (log: string | string[]) =>
     typeof log === 'string' ? log.split('\n').map((line) => line.trim()) : log
 
 export function parseSemgrepStatus(log: string | string[]): ScanToolStatus {
-    return statusLineVerdict(trimmedLines(log), SEMGREP_STATUS_LINE, SEMGREP_VERDICTS) ?? 'NOT-RUN'
-}
-
-// Legacy clean phrases lack coverage evidence: R-only logs can say PASSED despite no R analyzer (OTTER-649).
-export function parseTrivyStatus(log: string | string[]): ScanToolStatus {
-    const lines = trimmedLines(log)
-    const verdict = statusLineVerdict(lines, TRIVY_STATUS_LINE, TRIVY_VERDICTS)
-    if (verdict) return verdict
-
-    // Logs predating the status phrase headed findings with this label.
-    const firstLine = lines.find((line) => line.length > 0)
-    if (firstLine && TRIVY_LEGACY_FINDINGS_HEADER.test(firstLine)) return 'FAILED'
-    return 'NOT-RUN'
+    // Only the first non-empty line can supply a verdict; paths and finding details cannot.
+    const statusLine = trimmedLines(log).find((line) => line.length > 0)
+    if (!statusLine || !SEMGREP_STATUS_LINE.test(statusLine)) return 'NOT-RUN'
+    const phrase = statusLine.replace(SEMGREP_STATUS_LINE, '').trim().toLowerCase()
+    return SEMGREP_VERDICTS.get(phrase) ?? 'INDETERMINATE'
 }
 
 // No log row yet, or an unreadable file, is treated as "not reported".
@@ -721,16 +692,16 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { semgrep: null, trivy: null, logFile: null }
+    if (!logFile) return { semgrep: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
         const lines = trimmedLines(await blob.text())
-        return { semgrep: parseSemgrepStatus(lines), trivy: parseTrivyStatus(lines), logFile }
+        return { semgrep: parseSemgrepStatus(lines), logFile }
     } catch {
         // The download route serves the file from the DB row + a signed URL, so keep it available
         // with unknown statuses rather than pretending the scan is pending.
-        return { semgrep: null, trivy: null, logFile }
+        return { semgrep: null, logFile }
     }
 }
 

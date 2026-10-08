@@ -5,23 +5,16 @@ import { semanticColor } from '@/theme/tokens'
 import { AnalysisPanel } from './analysis-panel'
 
 export function isScanPending(scan: JobScanResult | null | undefined) {
-    return scan == null || (scan.semgrep == null && scan.trivy == null)
-}
-
-function scanVerdict(scan: JobScanResult | null) {
-    if (isScanPending(scan)) return { tool: 'Security scan', status: null }
-    if (scan?.semgrep && scan.semgrep !== 'NOT-RUN') return { tool: 'Semgrep', status: scan.semgrep }
-    if (scan?.trivy && scan.trivy !== 'NOT-RUN') return { tool: 'Trivy', status: scan.trivy }
-    return { tool: 'Security scan', status: 'NOT-RUN' }
+    return scan?.semgrep == null
 }
 
 function ScanResult({ scan, hasError }: { scan: JobScanResult | null; hasError: boolean }) {
-    const { tool, status } = scanVerdict(scan)
+    const status = scan?.semgrep ?? null
     if (status === 'PASSED') {
         return (
             <Group gap="xs" c={semanticColor('success.text')} role="status">
                 <CheckCircleIcon size={20} weight="fill" aria-label="Passed" />
-                <Text size="sm">{tool}: Passed</Text>
+                <Text size="sm">Semgrep: Passed</Text>
             </Group>
         )
     }
@@ -29,7 +22,7 @@ function ScanResult({ scan, hasError }: { scan: JobScanResult | null; hasError: 
         return (
             <Group gap="xs" c={semanticColor('error.text')} role="status">
                 <XCircleIcon size={20} weight="fill" aria-label="Failed" />
-                <Text size="sm">{tool}: Failed</Text>
+                <Text size="sm">Semgrep: Failed</Text>
             </Group>
         )
     }

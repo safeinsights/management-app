@@ -44,11 +44,10 @@ const ORG_SLUG = 'test-org-submitted'
 
 const scanResult = (semgrep: JobScanResult['semgrep']): JobScanResult => ({
     semgrep,
-    trivy: 'NOT-RUN',
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 
-const scanInProgress: JobScanResult = { semgrep: null, trivy: null, logFile: null }
+const scanInProgress: JobScanResult = { semgrep: null, logFile: null }
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -581,12 +580,6 @@ describe('SubmittedCodeSection — Security scan results', () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanInProgress)
         expect(within(screen.getByTestId('security-scan-results')).getByLabelText('Scan pending')).toBeInTheDocument()
-    })
-
-    it('shows the legacy Trivy result when Semgrep did not run', async () => {
-        const fixture = await setupBaseFixture()
-        await renderSection(fixture, { ...scanResult('NOT-RUN'), trivy: 'FAILED' })
-        expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Trivy: Failed')
     })
 })
 
