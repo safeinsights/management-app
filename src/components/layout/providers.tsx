@@ -39,6 +39,7 @@ type Props = {
     singleUserEditing?: boolean
     posthogProjectToken?: string
     userInfo?: UserInfo | null
+    userInfoUpdatedAt?: number
 }
 export function getQueryClient() {
     if (isServer) {
@@ -55,13 +56,14 @@ export const Providers: FC<Props> = ({
     singleUserEditing = false,
     posthogProjectToken = '',
     userInfo = null,
+    userInfoUpdatedAt,
 }) => {
     const queryClient = getQueryClient()
     usePostHogInit(posthogProjectToken)
 
     return (
         <QueryClientProvider client={queryClient}>
-            <SessionInfoProvider userInfo={userInfo}>
+            <SessionInfoProvider userInfo={userInfo} updatedAt={userInfoUpdatedAt}>
                 <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
                     <ModalsProvider>
                         <ErrorBoundary>

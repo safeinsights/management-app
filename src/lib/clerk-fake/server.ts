@@ -1,6 +1,5 @@
 // E2E Clerk fake, aliased in for `@clerk/nextjs/server` when E2E_FAKE_CLERK is set.
-// Must stay edge-safe for clerkMiddleware/createRouteMatcher, since proxy.ts runs in the
-// middleware runtime where next/headers is unavailable.
+// The proxy and RSC auth paths resolve the same database Clerk id.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { readRoleCookieFromHeaders } from './cookie.server'
@@ -136,8 +135,7 @@ export function clerkMiddleware(handler: MiddlewareHandler) {
     return async (req: NextRequest): Promise<NextResponse> => {
         const rawCookie = req.cookies.get('__e2e_role')?.value
         const fixture = fixtureForRole(isFakeRole(rawCookie) ? rawCookie : null)
-        // Edge-safe: no DB read here, so the fallback clerkId is only used for proxy logging.
-        const result = buildAuthResult(fixture, fixture?.clerkId ?? null)
+        const result = buildAuthResult(fixture, fixture ? await resolveClerkId(fixture) : null)
         const authFn: MiddlewareAuth = async () => result
         const out = await handler(authFn, req)
         const res = out instanceof NextResponse ? out : NextResponse.next()

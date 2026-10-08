@@ -23,6 +23,7 @@ type QueryMeta = {
     errorMessage?: string
     // For a query whose cached data stays usable when a background refetch fails.
     reportOnlyWithoutData?: boolean
+    reportOnce?: boolean
 }
 
 declare module '@tanstack/react-query' {
@@ -31,11 +32,16 @@ declare module '@tanstack/react-query' {
     }
 }
 
+const reportedQueries = new WeakSet<object>()
+
 // The query cache's error handler, shared with the test client so tests report what the app reports.
 export const reportQueryError = (error: unknown, query: { meta?: QueryMeta; state: { data: unknown } }) => {
     const { meta } = query
     const quiet = !meta?.errorMessage || (meta.reportOnlyWithoutData && query.state.data !== undefined)
-    if (isStaleDeploymentError(error) || !quiet) reportError(error, meta?.errorMessage)
+    if (isStaleDeploymentError(error) || (!quiet && !(meta?.reportOnce && reportedQueries.has(query)))) {
+        reportError(error, meta?.errorMessage)
+        if (meta?.reportOnce) reportedQueries.add(query)
+    }
 }
 
 export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }

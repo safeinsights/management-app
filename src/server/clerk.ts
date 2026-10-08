@@ -6,7 +6,7 @@ import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
-import { publicMetadata } from '@/lib/clerk'
+import { fullUserInfo, publicMetadata } from '@/lib/clerk'
 import { orgsBySlug } from './db/session-user'
 
 export { type UserSessionWithAbility } from './session'
@@ -43,9 +43,9 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
     }
 }
 
-export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo> {
+export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo & UserPublicMetadata> {
     const orgs = await getOrgInfoForUserId(userId)
-    return { format: 'v3', user: { id: userId }, teams: null, orgs: orgsBySlug(orgs) }
+    return fullUserInfo(userId, orgsBySlug(orgs))
 }
 
 // Returns the full info with orgs: callers build the session from it.
@@ -59,6 +59,7 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     // updateUser replaces publicMetadata wholesale; updateUserMetadata deep-merges, which would keep
     // an old `orgs` key.
+    // When upgrading to Clerk BAPI 2026-05-12, use replaceUserMetadata (not the merge API).
     await client.users.updateUser(clerkId, { publicMetadata: publicMetadata(metadata) })
 
     return metadata

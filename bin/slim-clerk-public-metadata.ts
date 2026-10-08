@@ -5,11 +5,12 @@
 // copies publicMetadata, so every org made every request ~320 bytes larger.
 //
 // --restore writes the orgs back from the database. While the new code is live, any metadata write
-// (sign-up, role change, invite accept) strips the orgs again, so restore does not stick until the
-// old code is deployed. Revert/deploy the old code first, then run --restore --apply. It needs the
-// database (DATABASE_URL).
+// (sign-up or user sync) can strip orgs again. Run --restore --apply before deploying the old
+// code, allow tokens to refresh, then run it again after deploying to repair concurrent writes.
+// Restoring large org lists can reintroduce the original 413 error. Requires DATABASE_URL.
 //
 // Usage: pnpm clerk:slim-metadata [--restore] [--apply]   (a dry run, with no writes, unless --apply is given)
+// Repeat --apply and dry-run until both Would slim and Would strip are 0; deletions can shift pages.
 
 import 'dotenv/config'
 import { createClerkClient, type ClerkClient, type User } from '@clerk/backend'
@@ -52,6 +53,7 @@ async function applyPlan(clerk: ClerkClient, user: User, plan: MetadataPlan, app
     if (apply) {
         try {
             // updateUser replaces publicMetadata; updateUserMetadata deep-merges and would keep `orgs`.
+            // When upgrading to Clerk BAPI 2026-05-12, use replaceUserMetadata (not the merge API).
             await clerk.users.updateUser(user.id, { publicMetadata: plan.metadata })
         } catch (error: unknown) {
             console.error(`failed ${user.id}:`, error)
@@ -104,6 +106,10 @@ async function main() {
     }
 
     printTotals(mode, apply, totals)
+    if (mode === 'slim')
+        console.log(
+            'Repeat apply and dry-run until Would slim and Would strip are both 0; concurrent deletions can shift pages.',
+        )
     console.log(`Largest publicMetadata: ${largestBefore} bytes before, ${largestAfter} bytes after`)
 
     if (totals.failed > 0) process.exitCode = 1

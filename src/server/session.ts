@@ -1,3 +1,4 @@
+import { fullUserInfo } from '@/lib/clerk'
 import { UserSession } from '@/lib/types'
 import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
@@ -16,7 +17,7 @@ export interface MarshalSessionOptions {
     forceUpdate?: boolean
 }
 
-async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo | null> {
+async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<(UserInfo & UserPublicMetadata) | null> {
     const client = await clerkClient()
     const clerkUser = await client.users.getUser(clerkUserId)
 
@@ -57,7 +58,7 @@ export async function marshalSession(
     // them, so a membership change takes effect at the next request for every user.
     const orgs = userId ? await sessionUserOrgs(userId, clerkUserId) : null
 
-    let info: UserInfo | null = userId && orgs ? { format: 'v3', user: { id: userId }, teams: null, orgs } : null
+    let info: (UserInfo & UserPublicMetadata) | null = userId && orgs ? fullUserInfo(userId, orgs) : null
     if (!info) {
         logger.info(
             `clerk user ${clerkUserId} needs metadata update (missing: ${!token}, format: ${token?.format}, user id: ${token?.user?.id}, forceUpdate: ${forceUpdate})`,
@@ -68,10 +69,9 @@ export async function marshalSession(
             return null
         }
     }
-    sessionClaims.userMetadata = info
 
     return sessionFromMetadata({
-        metadata: sessionClaims.userMetadata,
+        metadata: info,
         prefs: sessionClaims.unsafeMetadata || {},
         clerkUserId,
     })
@@ -80,7 +80,7 @@ export async function marshalSession(
 // Plain data only: the client rebuilds `can` from it with sessionFromMetadata.
 export function clientUserInfo(session: UserSession | null): UserInfo | null {
     if (!session) return null
-    return { format: 'v3', user: { id: session.user.id }, teams: null, orgs: session.orgs }
+    return fullUserInfo(session.user.id, session.orgs)
 }
 
 // The header that Clerk's auth() checks for its middleware. The proxy skips /api and asset paths,
@@ -91,7 +91,13 @@ const CLERK_AUTH_STATUS_HEADER = 'x-clerk-auth-status'
 // the global error page with no sign-out. With null, the client fetches the list itself and reports
 // a failure there.
 export async function clientUserInfoForRequest(): Promise<UserInfo | null> {
-    if (!(await headers()).get(CLERK_AUTH_STATUS_HEADER)) return null
+    const requestHeaders = await headers()
+    if (!requestHeaders.get(CLERK_AUTH_STATUS_HEADER)) {
+        if (/(?:^|;\s*)__session=/.test(requestHeaders.get('cookie') ?? '')) {
+            logger.warn('Clerk session cookie present without the middleware auth status header')
+        }
+        return null
+    }
     try {
         return clientUserInfo(await sessionFromClerk())
     } catch (error) {
@@ -100,4 +106,9 @@ export async function clientUserInfoForRequest(): Promise<UserInfo | null> {
         logger.error('Failed to load the session for the root layout:', error)
         return null
     }
+}
+
+export async function clientUserInfoSnapshotForRequest() {
+    const userInfo = await clientUserInfoForRequest()
+    return { userInfo, updatedAt: Date.now() }
 }

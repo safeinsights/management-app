@@ -33,7 +33,10 @@ describe('marshalSession', () => {
         const org = await insertTestOrg({ slug: 'otter752-lab', type: 'lab' })
         const { user } = await insertTestUser({ org: { id: org.id, slug: org.slug, type: org.type } })
 
-        const session = await marshalSession(user.clerkId, claimsWithoutOrgs(user.id))
+        const claims = claimsWithoutOrgs(user.id)
+        const originalClaims = structuredClone(claims)
+        const session = await marshalSession(user.clerkId, claims)
+        expect(claims).toEqual(originalClaims)
 
         expect(session?.orgs[org.slug]).toMatchObject({ id: org.id, slug: org.slug, type: 'lab', isAdmin: false })
         expect(session?.belongsToLab).toBe(true)
@@ -125,6 +128,13 @@ describe('clientUserInfoForRequest', () => {
 
         expect(await clientUserInfoForRequest()).toBeNull()
         expect(auth).not.toHaveBeenCalled()
+    })
+
+    it('warns when a session cookie exists without the middleware header', async () => {
+        ;(await headers()).set('cookie', '__session=opaque')
+        const warning = vi.spyOn(logger, 'warn')
+        expect(await clientUserInfoForRequest()).toBeNull()
+        expect(warning).toHaveBeenCalledWith('Clerk session cookie present without the middleware auth status header')
     })
 
     // The root layout renders every page, sign-in included, so a throw here would leave the user on

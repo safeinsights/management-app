@@ -7,7 +7,7 @@ import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 import { useUser } from '@clerk/nextjs'
 import { useQuery, useQueryClient } from '@/common'
 import { currentUserInfoAction } from '@/server/actions/user.actions'
-import { useSessionInfo } from '@/components/layout/session-info-context'
+import { useSessionInfoUpdatedAt, useSessionInfo } from '@/components/layout/session-info-context'
 
 export const CURRENT_USER_INFO_KEY = ['currentUserInfo']
 
@@ -39,14 +39,14 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
         queryFn: fetchSignedInUserInfo,
         enabled: Boolean(clerkUserId),
         initialData: clerkUserId ? (serverInfo ?? undefined) : undefined,
+        initialDataUpdatedAt: useSessionInfoUpdatedAt(),
         // The member's own joins call useReloadOrgList. This picks up changes an admin makes, which
         // the server enforces at the next request, about as soon as a new session token would.
         staleTime: 60_000,
-        // An errored query has no data and so counts as stale; without these, each focus and each new
-        // consumer would ask again and report the same failure again.
-        refetchOnWindowFocus: (query) => query.state.data !== undefined,
-        retryOnMount: false,
-        meta: { errorMessage: 'Failed to load your organizations', reportOnlyWithoutData: true },
+        // Retry on focus or mount after an initial failure; the cache deduplicates notifications.
+        refetchOnWindowFocus: true,
+        retryOnMount: true,
+        meta: { reportOnce: true, errorMessage: 'Failed to load your organizations', reportOnlyWithoutData: true },
     })
 
     // Before Clerk loads, only the layout's list exists, and it is what the server rendered with.
@@ -57,7 +57,10 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
 // Await it before navigating, so the destination renders with the new membership.
 export const useReloadOrgList = (): (() => Promise<void>) => {
     const queryClient = useQueryClient()
-    return useCallback(() => queryClient.invalidateQueries({ queryKey: CURRENT_USER_INFO_KEY }), [queryClient])
+    return useCallback(async () => {
+        await queryClient.cancelQueries({ queryKey: CURRENT_USER_INFO_KEY })
+        await queryClient.invalidateQueries({ queryKey: CURRENT_USER_INFO_KEY })
+    }, [queryClient])
 }
 
 export const useSession = ():

@@ -1,3 +1,4 @@
+import { selectUserOrgRows } from './session-user'
 import { sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
@@ -370,14 +371,8 @@ export const getOrgNameFromId = async (orgId: string) => {
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
-    const orgs = await Action.db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
-        .where('userId', '=', userId)
-        .execute()
-
-    return orgs
+    const rows = await selectUserOrgRows(userId, Action.db).execute()
+    return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {

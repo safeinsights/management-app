@@ -158,8 +158,8 @@ const layoutUserInfo = (options?: SessionInfoOption) =>
     options && 'sessionInfo' in options ? (options.sessionInfo ?? null) : mockedLayoutUserInfo
 
 // For `renderHook(..., { wrapper: createTestQueryWrapper() })`.
-export const createTestQueryWrapper = (options?: SessionInfoOption) => {
-    const client = createTestQueryClient()
+export const createTestQueryWrapper = (options?: SessionInfoOption & { queryClient?: QueryClient }) => {
+    const client = options?.queryClient ?? createTestQueryClient()
     const Wrapper = ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={client}>
             <SessionInfoProvider userInfo={layoutUserInfo(options)}>{children}</SessionInfoProvider>

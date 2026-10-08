@@ -239,6 +239,7 @@ async function ensurePublicKey(userId: string) {
 
 async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string, siUserId: string) {
     // updateUser, not updateUserMetadata: a deep merge would keep an old `orgs` key (OTTER-752).
+    // When upgrading to Clerk BAPI 2026-05-12, use replaceUserMetadata (not the merge API).
     await clerk.users.updateUser(clerkUserId, { publicMetadata: publicMetadata({ user: { id: siUserId } }) })
     console.log('📝 Updated Clerk publicMetadata')
 }

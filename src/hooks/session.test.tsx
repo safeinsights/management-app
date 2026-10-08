@@ -76,6 +76,18 @@ describe('useSession', () => {
     })
 
     // Server and client render the same markup before Clerk loads, so hydration matches.
+    it('refetches when layout data is older than the stale window', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        renderWithProviders(
+            <SessionInfoProvider userInfo={serverInfoFor(user.id)} updatedAt={Date.now() - 61_000}>
+                <SessionOrgSlugs />
+            </SessionInfoProvider>,
+            { queryClient: appLikeQueryClient() },
+        )
+        await waitFor(() => expect(orgList()).toHaveTextContent(org.slug))
+        expect(orgList()).not.toHaveTextContent('from-server')
+    })
+
     it('uses the layout org list while Clerk is still loading', () => {
         ;(useUser as Mock).mockReturnValue({ isLoaded: false, isSignedIn: undefined, user: undefined })
 
@@ -114,6 +126,30 @@ describe('useSession', () => {
         await findOrCreateOrgMembership({ userId: user.id, slug: joined.slug })
         await act(() => result.current.reloadOrgList())
 
+        await waitFor(() => expect(sessionOrgSlugs(result.current.session)).toEqual([org.slug, joined.slug].sort()))
+    })
+
+    it('cancels an initial request before reloading the joined org list', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        const queryClient = appLikeQueryClient()
+        let release!: (info: UserInfo) => void
+        const oldRequest = queryClient
+            .fetchQuery({
+                queryKey: [...CURRENT_USER_INFO_KEY, (useUser as Mock)().user.id],
+                queryFn: () =>
+                    new Promise<UserInfo>((resolve) => {
+                        release = resolve
+                    }),
+            })
+            .catch(() => undefined)
+        const { result } = renderHook(() => ({ session: useSession(), reloadOrgList: useReloadOrgList() }), {
+            wrapper: createTestQueryWrapper({ queryClient, sessionInfo: null }),
+        })
+        const joined = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        await findOrCreateOrgMembership({ userId: user.id, slug: joined.slug })
+        await act(() => result.current.reloadOrgList())
+        release(serverInfoFor(user.id))
+        await oldRequest
         await waitFor(() => expect(sessionOrgSlugs(result.current.session)).toEqual([org.slug, joined.slug].sort()))
     })
 
@@ -160,24 +196,26 @@ describe('useSession', () => {
         expect(lists.map((list) => list.textContent)).toEqual(['loading', 'loading'])
     })
 
-    // An errored query has no data, so it is stale: without opting out, each tab focus and each newly
-    // mounted consumer would ask again and toast again.
-    it('reports a missing server session once across a window focus and a later consumer', async () => {
-        await mockSessionWithTestData()
+    it('recovers on a later consumer after an initial failure without repeating the notification', async () => {
+        const { org } = await mockSessionWithTestData()
+        const workingAuth = (clerkAuth as unknown as Mock).getMockImplementation()!
         ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
         const queryClient = appLikeQueryClient()
 
         renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
         await waitFor(() => expect(notifications.show).toHaveBeenCalledTimes(1))
-
-        window.dispatchEvent(new Event('visibilitychange'))
-        await waitFor(() => expect(queryClient.isFetching()).toBe(0))
-        renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
         await waitFor(() => expect(queryClient.isFetching()).toBe(0))
 
+        // Another failed attempt must remain quiet.
+        await act(() => queryClient.refetchQueries({ queryKey: CURRENT_USER_INFO_KEY }))
         expect(notifications.show).toHaveBeenCalledTimes(1)
-        const lists = screen.getAllByRole('status', { name: 'session orgs' })
-        expect(lists.map((list) => list.textContent)).toEqual(['loading', 'loading'])
+        ;(clerkAuth as unknown as Mock).mockImplementation(workingAuth)
+        renderWithProviders(<SessionOrgSlugs />, { queryClient, sessionInfo: null })
+        await waitFor(() => {
+            const lists = screen.getAllByRole('status', { name: 'session orgs' })
+            expect(lists.map((list) => list.textContent)).toEqual([org.slug, org.slug])
+        })
+        expect(notifications.show).toHaveBeenCalledTimes(1)
     })
 
     // The app refetches every query every 15 minutes; a failure then still leaves a usable list.

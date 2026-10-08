@@ -38,6 +38,10 @@ export function publicMetadata(info: Pick<UserInfo, 'user'>): ClerkPublicMetadat
     return { format: 'v3', user: { id: info.user.id }, teams: null }
 }
 
+export function fullUserInfo(userId: string, orgs: UserInfo['orgs']): UserInfo & UserPublicMetadata {
+    return { format: 'v3', user: { id: userId }, teams: null, orgs }
+}
+
 // One user's change in bin/slim-clerk-public-metadata.ts. `legacy` marks a user with no user.id.
 export type MetadataPlan =
     | { action: 'keep' }
@@ -63,6 +67,6 @@ export function restoreMetadataPlan(metadata: UserPublicMetadata, orgs: UserInfo
     if (!userId) return { action: 'skip', reason: 'publicMetadata has no user.id' }
     if (!orgs) return { action: 'skip', reason: `no user ${userId} with this Clerk id in the database` }
 
-    const full = { ...publicMetadata({ user: { id: userId } }), orgs }
+    const full = fullUserInfo(userId, orgs)
     return isDeepEqual(metadata, full) ? { action: 'keep' } : { action: 'write', metadata: full }
 }
