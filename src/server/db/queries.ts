@@ -318,16 +318,17 @@ function jobStatusUserIds(db: DBExecutor, studyId: StudyIdOperand, statuses: rea
 export function studyLabMemberIds(db: DBExecutor, studyId: StudyIdOperand, { withCodeSubmitters = true } = {}) {
     // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
     // by onStudyCreated's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
+    // Aliased so a correlated `study.id` still names the outer row, not this one.
     const proposalMembers = db
-        .selectFrom('study')
-        .select('researcherId as userId')
-        .where('id', '=', studyId)
+        .selectFrom('study as memberStudy')
+        .select('memberStudy.researcherId as userId')
+        .where('memberStudy.id', '=', studyId)
         .union(
             db
-                .selectFrom('study')
-                .select((eb) => eb.ref('piUserId').$notNull().as('userId'))
-                .where('id', '=', studyId)
-                .where('piUserId', 'is not', null),
+                .selectFrom('study as memberStudy')
+                .select((eb) => eb.ref('memberStudy.piUserId').$notNull().as('userId'))
+                .where('memberStudy.id', '=', studyId)
+                .where('memberStudy.piUserId', 'is not', null),
         )
         .union(
             db

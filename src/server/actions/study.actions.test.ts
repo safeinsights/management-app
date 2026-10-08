@@ -12,6 +12,7 @@ import {
     insertTestCodeResubmissionNote,
     insertTestStudyData,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     seedAcknowledgedStudyAgreement,
     insertTestUser,
     mockClerkSession,
@@ -788,6 +789,22 @@ describe('dashboard rows (OTTER-617)', () => {
             expect(await idsFor(coder, codeSubmitted.lab)).toContain(codeSubmitted.studyId)
             expect(await idsFor(submitter, audited.lab)).toContain(audited.studyId)
             expect(await idsFor(created.creator, created.lab)).not.toContain(asPi.studyId)
+        })
+
+        it('researcher tab leaves out a same-lab study the user has no part in', async () => {
+            const own = await submittedStudy()
+            const { user: teammate } = await insertTestUser({ org: own.lab })
+            const { study: teammateStudy } = await insertTestStudyOnly({
+                org: own.enclave,
+                submittedByOrg: own.lab,
+                researcherId: teammate.id,
+            })
+
+            asUser(own.creator, own.lab)
+            const ids = actionResult(await fetchStudiesForCurrentResearcherUserAction()).map((row) => row.id)
+
+            expect(ids).toContain(own.studyId)
+            expect(ids).not.toContain(teammateStudy.id)
         })
 
         it('researcher tab hides a teammate draft unless the user is its PI', async () => {
