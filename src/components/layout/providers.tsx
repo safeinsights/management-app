@@ -24,6 +24,7 @@ function makeQueryClient() {
         // page of background polls cannot stack one toast per query (OTTER-726).
         queryCache: new QueryCache({
             onError: (error, query) => {
+                if (query.meta?.reportsOwnErrors) return
                 if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
                     reportError(error, query.meta?.errorMessage)
                 }

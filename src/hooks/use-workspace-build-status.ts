@@ -52,6 +52,8 @@ export function useWorkspaceBuildStatus({
     const query = useQuery({
         queryKey: ['workspace-build-status', studyId],
         enabled,
+        // The launcher captures a failed poll itself, for the failure modal's Ref.
+        meta: { reportsOwnErrors: true },
         // A fresh reference every poll, so the relative-time hints re-render even when no new log
         // lines arrived.
         structuralSharing: false,
