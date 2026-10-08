@@ -232,8 +232,6 @@ async function insertSubmittedJob(
             .insertInto('studyJobFile')
             .values({
                 studyJobId: job.id,
-                // Not main.r: the starter template lands as Main.R, and on a case-insensitive
-                // filesystem (macOS) an uploaded main.r overwrites it and keeps the name Main.R.
                 name: 'analysis.r',
                 path: `studies/${studyId}/${job.id}/analysis.r`,
                 fileType: 'MAIN-CODE',

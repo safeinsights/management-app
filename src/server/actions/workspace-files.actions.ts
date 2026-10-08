@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
-import { getConfigValue } from '@/server/config'
+import { getStudyFilesPath } from '@/server/workspace-files'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -14,10 +14,6 @@ import {
     MAX_UPLOAD_FILE_BYTES,
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
-
-async function getStudyFilesPath(studyId: string) {
-    return path.join(await getConfigValue('CODER_FILES'), studyId)
-}
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })
     // Both are card rules, so they belong where every caller passes rather than only in the

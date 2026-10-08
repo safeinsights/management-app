@@ -1,4 +1,6 @@
 'use server'
+
+import { getStudyFilesPath } from '@/server/workspace-files'
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
@@ -9,7 +11,7 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
-import { getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
@@ -557,7 +559,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
@@ -823,7 +825,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        const coderFilesPath = path.join(await getConfigValue('CODER_FILES'), studyId)
+        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
