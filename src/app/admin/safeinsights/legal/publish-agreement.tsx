@@ -13,6 +13,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import type { ReactNode } from 'react'
 import { formatDayString } from '@/lib/dates'
+import { signedAtErrorFor } from '@/schema/legal-document'
 import { ReadOnlyField } from '@/components/read-only-field'
 
 type DraftScope = { type: LegalDocumentType; orgId?: string; studyId?: string }
@@ -58,14 +59,17 @@ export const useAgreementUpload = <Subject,>({
     const [confirming, { open: askForConfirmation, close: stopConfirming }] = useDisclosure(false)
     const { mutate, isPending, isSuccess } = usePublishAgreement({ invalidateKeys, onComplete })
 
+    const signedAtError = signedAtErrorFor(signedAt)
+
     const publish = () => {
-        if (!subject || !file) return
+        if (!subject || !file || signedAtError) return
         mutate({ scope: scopeFor(subject), signedAt, file })
     }
 
     return {
         signedAt,
         setSignedAt,
+        signedAtError,
         file,
         setFile,
         publish,
@@ -73,7 +77,7 @@ export const useAgreementUpload = <Subject,>({
         stopConfirming,
         isPending,
         isSettled: isSuccess,
-        canPublish: Boolean(subject && signedAt && file) && !isPending && !isSuccess,
+        canPublish: Boolean(subject && signedAt && !signedAtError && file) && !isPending && !isSuccess,
         isConfirming: confirming && Boolean(subject),
     }
 }

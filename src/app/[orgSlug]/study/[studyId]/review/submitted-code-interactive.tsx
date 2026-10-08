@@ -227,15 +227,10 @@ type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: (
 
 function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
     return (
-        <>
-            <Stack gap="xs">
-                <Text fw={fontWeight.semibold} size="sm">
-                    Overview
-                </Text>
-                <AiSummaryBody isExpanded={isExpanded} summary={summary} />
-            </Stack>
+        <Stack gap="xs" p="md" bd={`1px solid ${semanticColor('border.default')}`} bdrs="xs">
+            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
             <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
-        </>
+        </Stack>
     )
 }
 

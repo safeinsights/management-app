@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import type { NextConfig } from 'next'
 import path from 'node:path'
 import { OBJECT_SRC_DIRECTIVE } from './src/lib/csp'
@@ -49,8 +49,8 @@ if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev && !isTypegen) {
 
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
-    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN
-    // and we have no in-app frame usage.
+    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN.
+    // It only governs framing *of* this app, so the embedded Vimeo player is unaffected.
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
     // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
@@ -160,6 +160,10 @@ const configWithSentry = withSentryConfig(nextConfig, {
     sourcemaps: {
         deleteSourcemapsAfterUpload: false,
     },
+    // Under Turbopack this hook does all Sentry build work: release, commits, source map upload.
+    // E2E builds (E2E_FAKE_CLERK) never deploy, and a local one would otherwise use the
+    // SENTRY_AUTH_TOKEN from .env to make a production release.
+    useRunAfterProductionCompileHook: !fakeClerk,
     // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
     // This can increase your server load as well as your hosting bill.
     // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of

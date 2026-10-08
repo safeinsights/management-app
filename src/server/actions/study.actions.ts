@@ -1,17 +1,30 @@
 'use server'
 
 import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
-import { sql } from 'kysely'
+import { sql, type ExpressionBuilder } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType, sharedFileSchema, type SharedFile } from '@/lib/types'
-import type { StudyStatus } from '@/database/types'
+import type { DB, StudyJobStatus, StudyStatus } from '@/database/types'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
-import { codeReviewFeedbackDocName, reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
-import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
+import {
+    CODE_REVIEW_FEEDBACK_PREFIX,
+    OUTPUTS_REVIEW_FEEDBACK_PREFIX,
+    PROPOSAL_PREFIX,
+    REVIEW_FEEDBACK_PREFIX,
+    codeReviewFeedbackDocName,
+    reviewFeedbackDocNameForVersion,
+} from '@/lib/collaboration-documents'
+import type { StudyRole } from '@/lib/study-screen/state.types'
+import {
+    CODE_DECISION_JOB_STATUSES,
+    ROUND_CLOSING_JOB_STATUSES,
+    isCodeUnderReviewStatus,
+    latestCodeChangeIsSubmission,
+} from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
-import { sleep } from '@/lib/utils'
+import { enclaveOrgIds, labOrgIds, sleep } from '@/lib/utils'
 import {
     codeSubmissionVersion,
     currentReviewVersion,
@@ -21,6 +34,8 @@ import {
     latestJobForStudyOrNull,
     type LatestJobForStudy,
     fetchUserFullName,
+    studyDeciderIds,
+    studyLabMemberIds,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
@@ -73,7 +88,7 @@ function fetchStudyQuery(db: DBExecutor) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status', 'jobStatusChange.userId'])
+                    .select(['jobStatusChange.status', 'jobStatusChange.userId', 'jobStatusChange.createdAt'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc')
@@ -125,6 +140,127 @@ function fetchStudyQuery(db: DBExecutor) {
         .orderBy('study.lastUpdatedAt', 'desc')
 }
 
+// Newest saved Yjs edit among the documents whose names start with one of `prefixes`.
+const yjsEditedAtSql = (prefixes: string[]) =>
+    sql<Date | null>`(
+        select max("yjs_document"."updated_at") from "yjs_document"
+        where "yjs_document"."study_id" = "study"."id"
+          and "yjs_document"."name" like any(${prefixes.map((prefix) => `${prefix}%`)}::text[])
+    )`
+
+// Each side's Last updated counts only its own unshared edits (OTTER-617); status changes are
+// added on the client from the badge history.
+const ownEditsAtSql = (audience: StudyRole) =>
+    audience === 'researcher'
+        ? sql<Date | null>`greatest("study"."lab_edited_at", ${yjsEditedAtSql([PROPOSAL_PREFIX])})`
+        : yjsEditedAtSql([REVIEW_FEEDBACK_PREFIX, CODE_REVIEW_FEEDBACK_PREFIX, OUTPUTS_REVIEW_FEEDBACK_PREFIX])
+
+// The proposal submitter is not stored; the audit row finalize writes is the only trace. It is
+// deferred, so it lands just after submitted_at; the slack absorbs app/DB clock skew, and taking
+// the earliest skips CREATED rows that code submission writes later.
+const PROPOSAL_AUDIT_SKEW = sql`interval '5 seconds'`
+
+function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
+    return fetchStudyQuery(db)
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('audit')
+                    .innerJoin('user as auditUser', 'auditUser.id', 'audit.userId')
+                    .select(['auditUser.fullName as name', 'audit.createdAt as at'])
+                    .where('audit.recordType', '=', 'STUDY')
+                    .where('audit.eventType', '=', 'CREATED')
+                    .whereRef('audit.recordId', '=', 'study.id')
+                    .where(
+                        sql<boolean>`("study"."submitted_at" is null or "audit"."created_at" >= "study"."submitted_at" - ${PROPOSAL_AUDIT_SKEW})`,
+                    )
+                    .orderBy('audit.createdAt')
+                    .orderBy('audit.id')
+                    .limit(1)
+                    .as('proposalAudit'),
+            (join) => join.onTrue(),
+        )
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('studyProposalComment')
+                    .innerJoin('user as noteAuthor', 'noteAuthor.id', 'studyProposalComment.authorId')
+                    .select(['noteAuthor.fullName as name', 'studyProposalComment.createdAt as at'])
+                    .whereRef('studyProposalComment.studyId', '=', 'study.id')
+                    .where('studyProposalComment.entryType', '=', 'RESUBMISSION-NOTE')
+                    .orderBy('studyProposalComment.createdAt', 'desc')
+                    .orderBy('studyProposalComment.id', 'desc')
+                    .limit(1)
+                    .as('proposalResubmission'),
+            (join) => join.onTrue(),
+        )
+        .leftJoinLateral(
+            (eb) =>
+                eb
+                    .selectFrom('studyProposalComment')
+                    .innerJoin('user as proposalDecider', 'proposalDecider.id', 'studyProposalComment.authorId')
+                    .select(['proposalDecider.fullName as name', 'studyProposalComment.createdAt as at'])
+                    .whereRef('studyProposalComment.studyId', '=', 'study.id')
+                    .where('studyProposalComment.entryType', '=', 'REVIEWER-FEEDBACK')
+                    .orderBy('studyProposalComment.createdAt', 'desc')
+                    .orderBy('studyProposalComment.id', 'desc')
+                    .limit(1)
+                    .as('proposalReview'),
+            (join) => join.onTrue(),
+        )
+        .leftJoinLateral(
+            (eb) => jobStageActors(eb).as('jobStages'),
+            (join) => join.onTrue(),
+        )
+        .select([
+            'proposalAudit.name as proposalAuditName',
+            'proposalAudit.at as proposalAuditAt',
+            'proposalResubmission.name as proposalResubmitterName',
+            'proposalResubmission.at as proposalResubmittedAt',
+            'jobStages.codeSubmitterName',
+            'jobStages.codeSubmittedAt',
+            'proposalReview.name as proposalReviewerName',
+            'proposalReview.at as proposalReviewedAt',
+            'jobStages.codeReviewerName',
+            'jobStages.codeReviewedAt',
+            'jobStages.outputsReviewerName',
+            'jobStages.outputsReviewedAt',
+        ])
+        .select(ownEditsAtSql(audience).as('ownEditsAt'))
+}
+
+const CODE_SUBMISSION_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED']
+
+// Who wrote the newest job status of each stage, and when, in one pass over the study's job history.
+function jobStageActors(eb: ExpressionBuilder<DB, 'study'>) {
+    const inStatuses = (statuses: readonly StudyJobStatus[]) =>
+        sql`"job_status_change"."status" in (${sql.join(statuses)})`
+    const newestActor = (statuses: readonly StudyJobStatus[]) =>
+        sql<
+            string | null
+        >`(array_agg("actor"."full_name" order by "job_status_change"."created_at" desc, "job_status_change"."id" desc) filter (where ${inStatuses(statuses)}))[1]`
+    const newestAt = (statuses: readonly StudyJobStatus[]) =>
+        sql<Date | null>`max("job_status_change"."created_at") filter (where ${inStatuses(statuses)})`
+    return eb
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .innerJoin('user as actor', 'actor.id', 'jobStatusChange.userId')
+        .whereRef('studyJob.studyId', '=', 'study.id')
+        .where('jobStatusChange.status', 'in', [
+            ...CODE_SUBMISSION_JOB_STATUSES,
+            ...CODE_DECISION_JOB_STATUSES,
+            ...ROUND_CLOSING_JOB_STATUSES,
+        ])
+        .select([
+            newestActor(CODE_SUBMISSION_JOB_STATUSES).as('codeSubmitterName'),
+            newestAt(CODE_SUBMISSION_JOB_STATUSES).as('codeSubmittedAt'),
+            newestActor(CODE_DECISION_JOB_STATUSES).as('codeReviewerName'),
+            newestAt(CODE_DECISION_JOB_STATUSES).as('codeReviewedAt'),
+            newestActor(ROUND_CLOSING_JOB_STATUSES).as('outputsReviewerName'),
+            newestAt(ROUND_CLOSING_JOB_STATUSES).as('outputsReviewedAt'),
+        ])
+}
+
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(
@@ -137,7 +273,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     )
     .requireAbilityTo('view', 'OrgStudies')
     .handler(async ({ db, orgId, orgType }) => {
-        let query = fetchStudyQuery(db)
+        let query = fetchDashboardStudyQuery(db, orgType === 'enclave' ? 'reviewer' : 'researcher')
         if (orgType === 'enclave') {
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
@@ -152,29 +288,49 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
             .execute()
     })
 
+// My studies is a personal record: studies the user is named on (creator, PI) or submitted a
+// version of, within their own labs.
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
         const userId = session.user.id
-        return fetchStudyQuery(db)
-            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
+        const labIds = labOrgIds(session)
+        if (labIds.length === 0) {
+            return []
+        }
+        return fetchDashboardStudyQuery(db, 'researcher')
+            .where('study.submittedByOrgId', 'in', labIds)
+            .where((eb) => eb(eb.val(userId), 'in', studyLabMemberIds(db, eb.ref('study.id'))))
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug', 'submittingOrg.slug as submittedByOrgSlug'])
+            .select([
+                'org.name as orgName',
+                'org.slug as orgSlug',
+                'submittingOrg.name as submittingLabName',
+                'submittingOrg.slug as submittedByOrgSlug',
+            ])
             .execute()
     })
 
 export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
-        const userOrgs = Object.values(session.orgs)
-        const reviewerOrgIds = userOrgs.filter((org) => org.type === 'enclave').map((org) => org.id)
+        const userId = session.user.id
+        const reviewerOrgIds = enclaveOrgIds(session)
         if (reviewerOrgIds.length === 0) {
             return []
         }
-        return fetchStudyQuery(db)
+        // Only studies the user decided on, at any stage of any round; reviewerId covers decisions
+        // made before decisions were recorded per stage.
+        return fetchDashboardStudyQuery(db, 'reviewer')
             .where('study.orgId', 'in', reviewerOrgIds)
             .where('study.status', '!=', 'DRAFT')
+            .where((eb) =>
+                eb.or([
+                    eb('study.reviewerId', '=', userId),
+                    eb(eb.val(userId), 'in', studyDeciderIds(db, eb.ref('study.id'))),
+                ]),
+            )
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select([
@@ -730,46 +886,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 // The outputs phase deliberately carries neither the notes nor this version scheme (OTTER-766), so
 // it reads its decisions through getOutputsDecisionFeedbackAction instead.
 async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
-    // Versioned by the study-wide round so a same-job resubmit keeps the same label. Lateral join
-    // because a same-job resubmit appends several CODE-SUBMITTED rows and a direct join would duplicate.
-    const codeJobs = await db
-        .selectFrom('studyJob')
-        .leftJoinLateral(
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange as cs')
-                    .leftJoin('user as submitter', 'submitter.id', 'cs.userId')
-                    .select([
-                        'cs.userId as authorId',
-                        'submitter.fullName as authorName',
-                        'cs.createdAt as submittedAt',
-                    ])
-                    .whereRef('cs.studyJobId', '=', 'studyJob.id')
-                    .where('cs.status', '=', 'CODE-SUBMITTED')
-                    .orderBy('cs.createdAt', 'desc')
-                    .orderBy('cs.id', 'desc')
-                    .limit(1)
-                    .as('latestSubmission'),
-            (join) => join.onTrue(),
-        )
-        .select([
-            'studyJob.id as studyJobId',
-            'studyJob.resubmissionNote',
-            'studyJob.resubmissionRound',
-            'studyJob.createdAt',
-            'latestSubmission.authorId',
-            'latestSubmission.authorName',
-            'latestSubmission.submittedAt',
-        ])
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('studyJob.createdAt', 'asc')
-        // Jobs inserted in one transaction share now(), and an unstable order renumbers the versions.
-        .orderBy('studyJob.id', 'asc')
-        .execute()
-
-    const jobVersion = new Map(codeJobs.map((j, i) => [j.studyJobId, i + 1]))
-
-    const reviewerRows = await db
+    const rows = await db
         .selectFrom('studyReviewComment')
         .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
         .select([
@@ -785,48 +902,25 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
         ])
         .where('studyReviewComment.studyId', '=', studyId)
         .where('studyReviewComment.reviewKind', '=', 'CODE')
-        .where('studyReviewComment.entryType', '=', 'DECISION')
+        .where('studyReviewComment.entryType', 'in', ['DECISION', 'RESUBMISSION-NOTE'])
+        .orderBy('studyReviewComment.createdAt', 'desc')
+        .orderBy('studyReviewComment.round', 'desc')
+        // Enum order lists DECISION before RESUBMISSION-NOTE: on a round, the decision is the newer.
+        .orderBy('studyReviewComment.entryType', 'asc')
+        .orderBy('studyReviewComment.id', 'desc')
         .execute()
 
-    const reviewerEntries = reviewerRows.map((row) => ({
+    return rows.map((row) => ({
         id: row.id,
         authorId: row.authorId,
-        entryType: 'REVIEWER-FEEDBACK' as const,
+        entryType: row.entryType === 'DECISION' ? ('REVIEWER-FEEDBACK' as const) : ('RESUBMISSION-NOTE' as const),
         decision: row.decision,
         body: row.body,
         criteria: row.criteria,
         createdAt: row.createdAt,
         authorName: row.authorName,
-        version: row.round ?? null,
+        version: row.round,
     }))
-
-    const noteEntries = codeJobs
-        .filter((j) => j.resubmissionNote != null)
-        .map((j) => ({
-            id: `job-note-${j.studyJobId}`,
-            authorId: j.authorId ?? '',
-            entryType: 'RESUBMISSION-NOTE' as const,
-            decision: null,
-            body: j.resubmissionNote as NonNullable<typeof j.resubmissionNote>,
-            criteria: null,
-            // Written at resubmit time, so the latest CODE-SUBMITTED timestamp positions it.
-            createdAt: j.submittedAt ?? j.createdAt,
-            authorName: j.authorName ?? '',
-            version: j.resubmissionRound ?? jobVersion.get(j.studyJobId) ?? null,
-        }))
-
-    return [...reviewerEntries, ...noteEntries].sort((a, b) => {
-        const createdAtDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        if (createdAtDiff !== 0) return createdAtDiff
-
-        const versionDiff = (b.version ?? 0) - (a.version ?? 0)
-        if (versionDiff !== 0) return versionDiff
-
-        const entryTypeDiff = a.entryType.localeCompare(b.entryType)
-        if (entryTypeDiff !== 0) return entryTypeDiff
-
-        return a.id.localeCompare(b.id)
-    })
 }
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')

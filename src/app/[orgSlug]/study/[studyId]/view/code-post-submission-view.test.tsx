@@ -83,6 +83,7 @@ function renderView(
         <CodePostSubmissionView
             study={study}
             job={job}
+            activityByName={{}}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             nav={overrides.nav ?? NAV}
             submissionVersion={overrides.submissionVersion ?? 1}

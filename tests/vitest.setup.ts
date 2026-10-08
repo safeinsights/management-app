@@ -74,7 +74,8 @@ vi.mock('next/server', async (importOriginal) => ({
 }))
 
 // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
-vi.mock('next/navigation', () => {
+vi.mock('next/navigation', async (importOriginal) => {
+    const { unstable_rethrow } = await importOriginal<typeof import('next/navigation')>()
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mockRouter = require('next-router-mock')
     const useRouter = mockRouter.useRouter
@@ -87,7 +88,10 @@ vi.mock('next/navigation', () => {
 
     return {
         ...mockRouter,
+        // Real, so code that lets Next.js control-flow errors through keeps doing so in tests.
+        unstable_rethrow,
         notFound: vi.fn(),
+        RedirectType: { push: 'push', replace: 'replace' },
         redirect: vi.fn().mockImplementation((url: string) => {
             mockRouter.memoryRouter.setCurrentUrl(url)
         }),
@@ -126,9 +130,10 @@ vi.mock('@mantine/notifications', () => ({
     notifications: {
         show: vi.fn(),
         hide: vi.fn(),
-        // Paired with `show` by showOrReplaceNotification, so a spied run has to answer it too.
+        // Paired with `show` by showToast and showSystemNotification, so a spied run has to answer it too.
         update: vi.fn(),
     },
+    notificationsStore: { getState: vi.fn(() => ({ notifications: [], queue: [] })) },
     showNotification: vi.fn(),
     Notifications: () => null,
 }))

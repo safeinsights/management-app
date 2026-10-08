@@ -120,9 +120,16 @@ const renderIDE = async (
     {
         dataPartnerName = DATA_PARTNER,
         isFirstVisit = false,
+        videoDurationMinutes = 15,
         strictMode = false,
         acknowledged = true,
-    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean; acknowledged?: boolean } = {},
+    }: {
+        dataPartnerName?: string
+        isFirstVisit?: boolean
+        videoDurationMinutes?: number | null
+        strictMode?: boolean
+        acknowledged?: boolean
+    } = {},
 ) => {
     const { study, user } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
@@ -141,6 +148,7 @@ const renderIDE = async (
             studyId={study.id}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
+            videoDurationMinutes={videoDurationMinutes}
             isEditable
             nav={nav}
         />
@@ -321,7 +329,10 @@ describe('StudyCode component', () => {
         ])
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+            expect.objectContaining({
+                title: 'Code submitted.',
+                'data-toast-kind': 'success',
+            }),
         )
     })
 
@@ -572,6 +583,76 @@ describe('StudyCode component', () => {
             // The card words this one generically, so it must NOT pick up the partner name.
             expect(faq).toHaveTextContent('It is an example dataset from a Data Partner that mirrors')
         })
+
+        it('announces the video duration as part of the accordion title', async () => {
+            await renderIDE()
+
+            expect(
+                screen.getByRole('button', { name: /New to SafeInsights IDE\? Start here\.\s*15 min video/ }),
+            ).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^15 min video$/ })).not.toBeInTheDocument()
+        })
+
+        it('omits the duration badge when the video length is unavailable', async () => {
+            await renderIDE('openstax-lab', undefined, { videoDurationMinutes: null })
+
+            expect(faqControl()).toBeInTheDocument()
+            expect(screen.queryByTestId('video-duration-badge')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('onboarding video (OTTER-827)', () => {
+        const PLAY_LABEL = 'Play video: Watch: Getting started with the SafeInsights IDE'
+        const playButton = () => screen.getByRole('button', { name: PLAY_LABEL })
+
+        it('only renders the teaser while the accordion is expanded', async () => {
+            await renderIDE()
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            const teaser = await screen.findByTestId('onboarding-video-teaser')
+            expect(teaser).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(teaser).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument())
+        })
+
+        it('opens expanded with the teaser on a first visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            await waitForPendingMutations()
+
+            expect(playButton()).toBeInTheDocument()
+        })
+
+        it('swaps the teaser for the player, keeping the title above it, when Play is pressed', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+
+            const player = await screen.findByTestId('onboarding-video-player')
+            expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+        })
+
+        it('goes back to the teaser after the accordion is collapsed and reopened', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+            await screen.findByTestId('onboarding-video-player')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument())
+            await user.click(faqControl())
+
+            expect(await screen.findByTestId('onboarding-video-teaser')).toBeInTheDocument()
+            expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument()
+        })
     })
 
     describe('Your files section (OTTER-693)', () => {
@@ -747,6 +828,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -778,6 +860,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -827,6 +910,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -921,7 +1005,6 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'Code could not be submitted.',
                         message: 'Your work is saved. Try again.',
-                        color: 'red',
                         'data-toast-kind': 'error',
                     }),
                 )
@@ -947,7 +1030,7 @@ describe('StudyCode component', () => {
                         title: 'Code could not be submitted.',
                         message:
                             'Study Agreement must be acknowledged before you can continue with this study. Your work is saved.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1006,6 +1089,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1109,6 +1193,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1173,9 +1258,7 @@ describe('StudyCode component', () => {
          * duplicate either.
          */
         const blockUploadOf = async (studyId: string, fileName: string) => {
-            const { CODER_DISABLED } = await import('@/server/config')
-            const root = process.env.CODER_FILES as string
-            const dir = CODER_DISABLED ? root : path.join(root, studyId)
+            const dir = path.join(process.env.CODER_FILES as string, studyId)
             await fs.mkdir(path.join(dir, fileName), { recursive: true })
         }
 
@@ -1202,7 +1285,7 @@ describe('StudyCode component', () => {
                 expect(await workspaceNames(study.id)).toEqual(['extra.R', 'main.R'])
             })
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'extra.R is uploaded.', color: 'green' }),
+                expect.objectContaining({ title: 'extra.R is uploaded.', 'data-toast-kind': 'success' }),
             )
         })
 
@@ -1217,7 +1300,7 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'huge.R failed to upload.',
                         message: 'Maximum file size is 3 MB.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1509,6 +1592,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1537,6 +1621,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1621,6 +1706,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1691,6 +1777,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1767,6 +1854,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1817,6 +1905,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1833,6 +1922,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1859,7 +1949,10 @@ describe('StudyCode component', () => {
             ])
 
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+                expect.objectContaining({
+                    title: 'Code submitted.',
+                    'data-toast-kind': 'success',
+                }),
             )
         })
     })
@@ -1884,6 +1977,7 @@ describe('StudyCode component', () => {
                         studyId={study.id}
                         dataPartnerName={DATA_PARTNER}
                         isFirstVisit={false}
+                        videoDurationMinutes={null}
                         isEditable
                         nav={backNav('/test')}
                     />,

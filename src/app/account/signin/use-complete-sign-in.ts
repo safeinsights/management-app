@@ -1,6 +1,8 @@
 'use client'
 
 import { reportError } from '@/components/errors'
+import { useReloadOrgList } from '@/hooks/session'
+import { inviteLandingUrl } from '@/lib/invite-landing'
 import { markOrgJoined } from '@/lib/joined-org'
 import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
@@ -15,11 +17,11 @@ import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitatio
 
 // A stale token matters far less than losing the invite or the key detour that follow it, so a
 // refresh failure is logged rather than thrown.
-async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invite-accepted') {
+async function refreshSessionToken(getToken: GetToken) {
     try {
         await getToken({ skipCache: true })
     } catch (error) {
-        console.error(`session token refresh failed after ${caller}:`, error)
+        console.error('session token refresh failed after sign-in:', error)
     }
 }
 
@@ -28,7 +30,7 @@ async function refreshSessionToken(getToken: GetToken, caller: 'sign-in' | 'invi
 async function completeServerSignIn(getToken: GetToken) {
     try {
         const result = actionResult(await onUserSignInAction())
-        await refreshSessionToken(getToken, 'sign-in')
+        await refreshSessionToken(getToken)
         return result
     } catch (error) {
         console.error('onUserSignInAction failed:', error)
@@ -37,10 +39,10 @@ async function completeServerSignIn(getToken: GetToken) {
 }
 
 // Always resolves to a destination rather than throwing, so the key detour still runs on top.
-async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToken): Promise<Route> {
+async function acceptInviteAndResolveLanding(inviteId: string): Promise<Route> {
     const joinTeamPage = Routes.accountInvitationJoinTeam({ inviteId }) as Route
 
-    let org: { slug: string; name: string }
+    let org: { slug: string; name: string; email: string }
     try {
         // Read the org first: accepting marks the invite claimed, and the lookup only resolves unclaimed ones.
         org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
@@ -51,9 +53,9 @@ async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToke
         return joinTeamPage
     }
 
+    let joined: { email: string | null }
     try {
-        // actionResult despite the discarded value: it is what turns a failure into a throw for the catch.
-        actionResult(await onJoinTeamAccountAction({ inviteId }))
+        joined = actionResult(await onJoinTeamAccountAction({ inviteId }))
     } catch (error) {
         // A failed join rolls its claim back, leaving the invite live, so land where Accept can be retried.
         reportError(error, 'Failed to accept your invitation. Please try again.')
@@ -62,11 +64,8 @@ async function acceptInviteAndResolveLanding(inviteId: string, getToken: GetToke
 
     // Same one-shot flag the join-team page sets, so this path lands on the dashboard banner.
     markOrgJoined(org.name)
-    // After the landing is settled: nothing running once the membership exists may turn a successful
-    // join into a retry prompt.
-    await refreshSessionToken(getToken, 'invite-accepted')
 
-    return Routes.orgDashboard({ orgSlug: org.slug }) as Route
+    return inviteLandingUrl(inviteId, org.slug, org.email, joined.email)
 }
 
 // Everything that happens after Clerk hands back a session. Four screens establish one, and each
@@ -76,6 +75,7 @@ export const useCompleteSignIn = () => {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { getToken } = useAuth()
+    const reloadOrgList = useReloadOrgList()
 
     return useCallback(async () => {
         try {
@@ -88,7 +88,9 @@ export const useCompleteSignIn = () => {
             // An invite outranks redirect_url: its landing is the only one that reflects the new
             // membership, and a deep link captured before the join may not even be reachable yet.
             if (inviteId) {
-                redirectUrl = await acceptInviteAndResolveLanding(inviteId, getToken)
+                redirectUrl = await acceptInviteAndResolveLanding(inviteId)
+                // The list loaded when Clerk signed the user in, which can be before the join.
+                await reloadOrgList()
             }
 
             // Key generation last, so a keyless user still accepts the invite and resumes afterwards.
@@ -101,5 +103,5 @@ export const useCompleteSignIn = () => {
             console.error('post sign-in navigation failed:', error)
             router.push(safeRedirectUrl(searchParams.get('redirect_url'), Routes.dashboard))
         }
-    }, [router, searchParams, getToken])
+    }, [router, searchParams, getToken, reloadOrgList])
 }

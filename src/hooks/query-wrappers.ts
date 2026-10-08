@@ -11,18 +11,36 @@ import {
     keepPreviousData,
 } from '@tanstack/react-query'
 
-import { type ActionResponse, isActionError, ActionFailure } from '@/lib/errors'
+import { type ActionResponse, isActionError, ActionFailure, isStaleDeploymentError } from '@/lib/errors'
+import { reportError } from '@/components/errors'
 
 /**
- * Read by the shared QueryCache handler in `providers.tsx`. A query opts in to having its failure
+ * Read by `reportQueryError`, the shared QueryCache handler. A query opts in to having its failure
  * told to the reader by naming the title to show; without it the failure is reported nowhere, which
  * is what left a failed poll silent until the next submit (OTTER-726).
  */
-type QueryMeta = { errorMessage?: string }
+type QueryMeta = {
+    errorMessage?: string
+    // For a query whose cached data stays usable when a background refetch fails.
+    reportOnlyWithoutData?: boolean
+    reportOnce?: boolean
+}
 
 declare module '@tanstack/react-query' {
     interface Register {
         queryMeta: QueryMeta
+    }
+}
+
+const reportedQueries = new WeakSet<object>()
+
+// The query cache's error handler, shared with the test client so tests report what the app reports.
+export const reportQueryError = (error: unknown, query: { meta?: QueryMeta; state: { data: unknown } }) => {
+    const { meta } = query
+    const quiet = !meta?.errorMessage || (meta.reportOnlyWithoutData && query.state.data !== undefined)
+    if (isStaleDeploymentError(error) || (!quiet && !(meta?.reportOnce && reportedQueries.has(query)))) {
+        reportError(error, meta?.errorMessage)
+        if (meta?.reportOnce) reportedQueries.add(query)
     }
 }
 

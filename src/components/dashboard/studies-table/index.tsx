@@ -1,24 +1,27 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useQuery } from '@/common'
 import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { getLabOrg } from '@/lib/types'
+import { getLabOrg, type UserSession } from '@/lib/types'
+import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
 import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
 } from '@/server/actions/study.actions'
-import { StudyRow } from './study-row'
+import { getColumns } from './columns'
+import { buildRowModel } from './row-model'
+import { useStudiesTableSort } from './sort'
 import { StudiesTableView } from './studies-table-view'
 import {
     ACTIVE_PROPOSAL_STATUSES,
     Audience,
     FINAL_STATUS,
-    REVIEWER_ACTION_STATUSES,
     Scope,
     StudiesTableProps,
     StudyRow as StudyRowType,
@@ -34,19 +37,6 @@ function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?:
     return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.user] : ['user-reviewer-studies', userId || '']
 }
 
-function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userId: string): StudyRowType[] {
-    if (audience === 'researcher') {
-        return studies.filter((study) => study.researcherId === userId)
-    }
-    return studies.filter(
-        (study) =>
-            study.reviewerId === userId ||
-            study.jobStatusChanges.some(
-                (change) => change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
-            ),
-    )
-}
-
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     // PENDING-REVIEW usually has no job yet, so the job check alone misses a researcher awaiting
     // a decision; reviewers are excluded because it is their own next action.
@@ -55,6 +45,39 @@ function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
             (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
             study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
+}
+
+// Belongs to is a My studies column, and only for someone in two or more orgs of the tab's kind.
+const showBelongsTo = (session: UserSession | null | undefined, audience: Audience, scope: Scope) =>
+    scope === 'user' && !!session && (audience === 'researcher' ? labOrgIds : enclaveOrgIds)(session).length >= 2
+
+function useStudiesTableRows({
+    studies,
+    audience,
+    scope,
+    orgSlug,
+    session,
+}: {
+    studies: StudyRowType[]
+    audience: Audience
+    scope: Scope
+    orgSlug: string
+    session: UserSession | null | undefined
+}) {
+    const userId = session?.user.id
+    const rows = useMemo(
+        () => studies.map((study) => buildRowModel(study, audience, { orgSlug, userId })),
+        [studies, audience, orgSlug, userId],
+    )
+    const sorted = useStudiesTableSort(rows)
+    return {
+        ...sorted,
+        columns: getColumns(audience, scope, showBelongsTo(session, audience, scope)),
+        // OTTER-617 always shows the Data Partner dashboard intro; every other table waits for a
+        // submitted study.
+        showDescription:
+            (audience === 'reviewer' && scope === 'org') || studies.some((study) => study.status !== 'DRAFT'),
+    }
 }
 
 export function StudiesTable({
@@ -66,7 +89,6 @@ export function StudiesTable({
     showNewStudyButton = false,
     showRefresher = false,
     paperWrapper = false,
-    headerActions,
 }: StudiesTableProps) {
     const { session } = useSession()
     const userId = session?.user.id
@@ -87,7 +109,7 @@ export function StudiesTable({
     }
 
     const {
-        data: studies = [],
+        data = [],
         refetch,
         isError,
         error,
@@ -98,8 +120,14 @@ export function StudiesTable({
         queryKey,
         queryFn: fetchStudies,
         enabled: scope === 'org' || (scope === 'user' && !!userId),
+        // Saves and decisions made on a study page change Last updated and row membership, and no
+        // single mutation can invalidate collaborative saves, so coming back always refetches.
+        refetchOnMount: 'always',
         refetchOnWindowFocus: false,
     })
+    const studies = data as StudyRowType[]
+
+    const table = useStudiesTableRows({ studies, audience, scope, orgSlug: effectiveOrgSlug, session })
 
     if (scope === 'user' && audience === 'researcher' && !labOrg) {
         return null
@@ -109,22 +137,15 @@ export function StudiesTable({
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 
-    const displayedStudies =
-        scope === 'user' && userId
-            ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
-            : (studies as StudyRowType[])
-
-    const shouldShowRefresher = showRefresher && needsRefresh(displayedStudies, audience)
+    const shouldShowRefresher = showRefresher && needsRefresh(studies, audience)
 
     return (
         <StudiesTableView
-            studies={displayedStudies}
+            {...table}
             audience={audience}
-            scope={scope}
             title={title}
             description={description}
             newStudyHref={showNewStudyButton ? Routes.studyRequest({ orgSlug: effectiveOrgSlug }) : undefined}
-            headerActions={headerActions}
             refresher={
                 showRefresher ? (
                     <Refresher
@@ -137,9 +158,6 @@ export function StudiesTable({
             isError={isError}
             errorMessage={errorToString(error)}
             paperWrapper={paperWrapper}
-            renderRow={(study) => (
-                <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={effectiveOrgSlug} />
-            )}
         />
     )
 }
