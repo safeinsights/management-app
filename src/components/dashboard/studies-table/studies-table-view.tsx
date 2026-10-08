@@ -2,79 +2,94 @@
 
 import type { ReactNode } from 'react'
 import type { Route } from 'next'
-import { Divider, Flex, Group, Paper, Stack, Table, TableTbody, Text, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Table, TableTbody, Text, Title } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { ErrorAlert } from '@/components/errors'
 import { RefresherSlot } from '@/components/refresher'
-import { TableHeader } from './columns'
-import { EmptyState } from './empty-state'
-import { Audience, Scope, StudyRow as StudyRowType } from './types'
 import { semanticColor } from '@/theme/tokens'
+import { TableHeader, tableMinWidth, type ColumnDef } from './columns'
+import { EmptyState } from './empty-state'
+import type { RowModel } from './row-model'
+import type { ColumnId, SortState } from './sort'
+import { StudyRowView } from './study-row-view'
+import type { Audience } from './types'
 
-// Rows come via `renderRow` so the session-dependent action link stays in the container.
+// Presentational: the container builds the row models and owns the sort state.
 export type StudiesTableViewProps = {
-    studies: StudyRowType[]
+    rows: RowModel[]
+    columns: ColumnDef[]
+    sort: SortState
+    onSort: (column: ColumnId) => void
     audience: Audience
-    scope: Scope
     title?: string
     description?: string
+    showDescription?: boolean
     newStudyHref?: Route
-    headerActions?: ReactNode
     refresher?: ReactNode
     isError?: boolean
     errorMessage?: string
     paperWrapper?: boolean
-    renderRow: (study: StudyRowType) => ReactNode
+}
+
+type StudiesTableBodyProps = Pick<
+    StudiesTableViewProps,
+    'rows' | 'columns' | 'sort' | 'onSort' | 'audience' | 'isError' | 'errorMessage'
+>
+
+function StudiesTableBody({ rows, columns, sort, onSort, audience, isError, errorMessage }: StudiesTableBodyProps) {
+    if (isError) {
+        return <ErrorAlert error={`Failed to load studies: ${errorMessage}`} />
+    }
+
+    // The header stays when there are no rows; the empty state sits under it (Figma 3531-6217).
+    return (
+        <>
+            <Table
+                layout="fixed"
+                verticalSpacing="md"
+                horizontalSpacing="md"
+                highlightOnHover
+                stickyHeader
+                miw={tableMinWidth(columns)}
+            >
+                <TableHeader columns={columns} sort={sort} onSort={onSort} />
+                <TableTbody>
+                    {rows.map((row) => (
+                        <StudyRowView key={row.id} row={row} columns={columns} />
+                    ))}
+                </TableTbody>
+            </Table>
+            <EmptyState audience={audience} isVisible={rows.length === 0} />
+        </>
+    )
 }
 
 export function StudiesTableView({
-    studies,
-    audience,
-    scope,
     title,
     description,
+    showDescription = false,
     newStudyHref,
-    headerActions,
     refresher,
     isError = false,
     errorMessage = '',
     paperWrapper = false,
-    renderRow,
+    ...table
 }: StudiesTableViewProps) {
-    let body: ReactNode
-    if (isError) {
-        body = <ErrorAlert error={`Failed to load studies: ${errorMessage}`} />
-    } else if (studies.length === 0) {
-        body = <EmptyState audience={audience} scope={scope} />
-    } else {
-        body = (
-            <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
-                <TableHeader audience={audience} scope={scope} />
-                <TableTbody>{studies.map(renderRow)}</TableTbody>
-            </Table>
-        )
-    }
-
-    // The header always renders so dual-role users keep their audience toggle when the selected
-    // role has no studies.
     const content = (
         <Stack>
             <Group justify="space-between" align="center">
                 {title && <Title order={3}>{title}</Title>}
-                <Flex justify="flex-end" align="center" gap="md">
-                    {headerActions}
-                    {newStudyHref && (
-                        <ButtonLink leftSection={<PlusIcon />} data-testid="new-study" href={newStudyHref}>
-                            Propose New Study
-                        </ButtonLink>
-                    )}
-                </Flex>
+                {newStudyHref && (
+                    <ButtonLink leftSection={<PlusIcon />} data-testid="new-study" href={newStudyHref}>
+                        New study
+                    </ButtonLink>
+                )}
             </Group>
             <Divider c={semanticColor('border.default')} />
-            {description && <Text mb="md">{description}</Text>}
+            {description && showDescription && <Text>{description}</Text>}
             <RefresherSlot>{refresher}</RefresherSlot>
-            {body}
+            <StudiesTableBody {...table} isError={isError} errorMessage={errorMessage} />
         </Stack>
     )
 
