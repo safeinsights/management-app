@@ -77,7 +77,10 @@ test.describe('Organization Admin', () => {
         const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
 
         await visitAsRole(page, '/dashboard')
-        await page.evaluate(([key, name]) => sessionStorage.setItem(key, name), [JOINED_ORG_STORAGE_KEY, orgName])
+        await page.evaluate(
+            ([key, value]) => sessionStorage.setItem(key, value),
+            [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName })],
+        )
 
         await goto(page, '/dashboard')
         const banner = page.getByTestId('joined-org-banner')
@@ -86,6 +89,24 @@ test.describe('Organization Admin', () => {
 
         await goto(page, '/dashboard')
         await expect(page.getByTestId('joined-org-banner')).toBeHidden()
+    })
+
+    test('names the linked address in the dashboard banner after an email link', async ({ page }) => {
+        const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
+        const linkedEmail = 'invited@example.com'
+
+        await visitAsRole(page, '/dashboard')
+        await page.evaluate(
+            ([key, value]) => sessionStorage.setItem(key, value),
+            [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName, linkedEmail })],
+        )
+
+        await goto(page, '/dashboard')
+        const banner = page.getByTestId('joined-org-banner')
+        await expect(banner).toBeVisible()
+        await expect(banner).toContainText(
+            `You have been added to ${orgName} and ${linkedEmail} is now linked to your account.`,
+        )
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {

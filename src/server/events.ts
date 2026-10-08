@@ -8,7 +8,6 @@ import { UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
-import { updateClerkUserMetadata } from './clerk'
 import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
 import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { siUser } from './db/queries'
@@ -241,7 +240,6 @@ export const onUserRoleUpdate = deferred(
             recordId: userId,
             metadata: { roles: { before, after } },
         })
-        await updateClerkUserMetadata(userId)
     },
 )
 

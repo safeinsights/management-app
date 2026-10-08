@@ -1,5 +1,7 @@
 'use server'
 
+import { getStudyFilesPath } from '@/server/workspace-files'
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
@@ -9,11 +11,16 @@ import {
     getCoderWorkspaceLaunchStatus,
     type WorkspaceLaunchStatus,
 } from '../coder'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId, latestActivityPerWorkspaceFile, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { CODER_DISABLED } from '@/server/config'
+import {
+    getInfoForStudyId,
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
-import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
 import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
@@ -22,10 +29,7 @@ import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-co
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
+    const coderFilesPath = await getStudyFilesPath(studyId)
 
     let entries: string[]
     try {
@@ -48,22 +52,35 @@ async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
     return false
 }
 
+async function workspaceFileActivityEntries(studyId: string, before?: Date) {
+    return (await latestActivityPerWorkspaceFile(studyId, { before })).map(
+        (row): [string, WorkspaceFileActivitySummary] => [
+            row.fileName,
+            { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
+        ],
+    )
+}
+
+// Read by the post-submission table, which lists the job's files from S3 rather than the
+// workspace. Bounded by the job's submission so it describes the files the table shows.
+export const listWorkspaceFileActivityAction = new Action('listWorkspaceFileActivityAction', {})
+    .params(z.object({ studyId: z.string(), jobId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ params: { studyId, jobId } }) => {
+        const submittedAt = await latestCodeSubmissionAt(studyId, jobId)
+        if (!submittedAt) return {}
+        return Object.fromEntries(await workspaceFileActivityEntries(studyId, submittedAt))
+    })
+
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
-        const activityByFile = new Map(
-            (await latestActivityPerWorkspaceFile(studyId)).map((row) => [
-                row.fileName,
-                { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
-            ]),
-        )
+        const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         let entries: string[] = []
         try {

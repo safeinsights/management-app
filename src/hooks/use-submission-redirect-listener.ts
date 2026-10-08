@@ -2,13 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { notifications } from '@mantine/notifications'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 
 import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
-import { showOrReplaceNotification } from '@/components/errors'
-import { NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
+import { showToast } from '@/components/toast-notifications'
 import { OUTPUTS_DECIDED_NOTIFICATION_ID } from '@/lib/outputs-review'
 
 // The three decision rounds carry an identical payload and differ only in which round closed, so
@@ -114,24 +112,22 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
             hasFiredRef.current = true
 
             if (event.type === 'proposal-submitted') {
-                notifications.show({
-                    color: 'blue',
+                showToast({
+                    category: 'info',
                     title: 'Proposal submitted',
                     message: `${event.submittedByName} has proceeded to submit this study proposal to ${event.orgName}. No further edits are allowed at this point.`,
-                    autoClose: NOTIFICATION_DISPLAY_MS,
                 })
                 router.push(Routes.studySubmitted({ orgSlug, studyId }))
                 return
             }
 
-            showOrReplaceNotification({
+            showToast({
+                category: 'info',
                 // Only the outputs round shares an id, with the status backstop that may reach the
                 // same conclusion a moment later through this tab's own failed submit.
                 id: event.type === 'outputs-review-submitted' ? OUTPUTS_DECIDED_NOTIFICATION_ID : undefined,
-                color: 'blue',
                 title: 'Decision submitted',
                 message: `${event.submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[event.type]}. No further edits are allowed at this point.`,
-                autoClose: NOTIFICATION_DISPLAY_MS,
             })
             pushDecided(router, pathname, DECISION_ROUTE[event.type]({ orgSlug, studyId }))
         }

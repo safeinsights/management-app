@@ -48,13 +48,13 @@ const backNav = (href: string): StepNav => ({
     back: { label: 'Previous step', href: href as Route, variant: 'subtle', testId: 'cta-previous-step' },
 })
 
-const setupStudy = async (orgSlug = 'openstax') => {
+const setupStudy = async (orgSlug = 'openstax-lab') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
     return { study }
 }
 
-const renderPage = async (orgSlug = 'openstax') => {
+const renderPage = async (orgSlug = 'openstax-lab') => {
     const { study } = await setupStudy(orgSlug)
     renderWithProviders(
         <CodeUploadPage
@@ -62,6 +62,7 @@ const renderPage = async (orgSlug = 'openstax') => {
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
             isFirstVisit={false}
+            videoDurationMinutes={null}
             isEditable
             nav={backNav('/test')}
         />,
@@ -161,10 +162,11 @@ describe('CodeUploadPage', () => {
 
         renderWithProviders(
             <CodeUploadPage
-                orgSlug="openstax"
+                orgSlug="openstax-lab"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -199,7 +201,7 @@ describe('CodeUploadPage', () => {
     })
 
     it.skipIf(!s3Available)('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
-        const orgSlug = 'openstax'
+        const orgSlug = 'openstax-lab'
         const { study } = await setupStudy(orgSlug)
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
@@ -214,6 +216,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -228,7 +231,7 @@ describe('CodeUploadPage', () => {
         })
 
         await waitFor(() => {
-            expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
+            expect(memoryRouter.asPath).toBe(`/openstax-lab/study/${study.id}/view`)
         })
     })
 
@@ -245,10 +248,11 @@ describe('CodeUploadPage', () => {
 
         renderWithProviders(
             <CodeUploadPage
-                orgSlug="openstax"
+                orgSlug="openstax-lab"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -264,7 +268,7 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Code could not be submitted.' }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: 'Code could not be submitted.' }),
             )
         })
 

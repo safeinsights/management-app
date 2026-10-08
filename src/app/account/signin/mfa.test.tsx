@@ -5,11 +5,12 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    testEmail,
     userEvent,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
-import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
+import { readJoinedOrg } from '@/lib/joined-org'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import router from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
@@ -65,7 +66,32 @@ describe('RequestMFA', () => {
 
         // The banner is deferred until the user is keyed (OTTER-639), so the flag must survive the
         // key detour.
-        expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBe(invitingOrg.name)
+        expect(readJoinedOrg()).toEqual({ orgName: invitingOrg.name })
+    })
+
+    // OTTER-788. The linking screen derives its own continuation from the claimed invite, so the
+    // key detour forwards to a bare path and nothing has to survive a nested redirect_url.
+    it('sends an invite addressed to another email through the linking screen', async () => {
+        const { user, invitingOrg, invite } = await insertKeylessInvitedUser({ invitedEmail: testEmail() })
+        router.setCurrentUrl(`/account/signin?invite_id=${invite.id}`)
+
+        await submitTotpCode(mockSecondFactor())
+
+        await waitFor(async () => {
+            const membership = await db
+                .selectFrom('orgUser')
+                .select('id')
+                .where('userId', '=', user.id)
+                .where('orgId', '=', invitingOrg.id)
+                .executeTakeFirst()
+            expect(membership).toBeDefined()
+        })
+
+        await waitFor(() =>
+            expect(router.asPath).toBe(
+                `/account/keys?redirect_url=${encodeURIComponent(`/account/invitation/${invite.id}/link-email`)}`,
+            ),
+        )
     })
 
     // Without the actionResult wrapper a spent invite would look like a successful join.

@@ -57,14 +57,9 @@ describe('ensureStarterCodePreloadAction', () => {
         return { study, result: await ensureStarterCodePreloadAction({ studyId: study.id }) }
     }
 
-    // CODER_DISABLED shares one workspace path across studies; otherwise each study gets its own
-    // directory. Derived rather than hard-coded, because CI and a local run differ on it.
-    const workspaceDir = async (studyId: string) => {
-        const { CODER_DISABLED } = await import('@/server/config')
-        return CODER_DISABLED ? coderFiles : path.join(coderFiles, studyId)
-    }
+    const workspaceDir = (studyId: string) => path.join(coderFiles, studyId)
 
-    const templatePath = async (studyId: string, fileName: string) => path.join(await workspaceDir(studyId), fileName)
+    const templatePath = (studyId: string, fileName: string) => path.join(workspaceDir(studyId), fileName)
 
     const mainCodeFileName = async (studyId: string) =>
         (await db.selectFrom('study').select('mainCodeFileName').where('id', '=', studyId).executeTakeFirstOrThrow())
@@ -77,7 +72,7 @@ describe('ensureStarterCodePreloadAction', () => {
     it.skipIf(!s3Available)('copies the first starter file in as Main.{x} and stars it', async () => {
         const { study } = await preloadFor('R', ['main.r'])
 
-        await expect(fs.readFile(await templatePath(study.id, 'Main.R'), 'utf8')).resolves.toContain('main.r')
+        await expect(fs.readFile(templatePath(study.id, 'Main.R'), 'utf8')).resolves.toContain('main.r')
         expect(await mainCodeFileName(study.id)).toBe('Main.R')
         // A round job reads as "Code draft"; only a launch or an upload may open one (OTTER-698).
         expect(await roundJobCount(study.id)).toBe(0)
@@ -86,13 +81,13 @@ describe('ensureStarterCodePreloadAction', () => {
     it.skipIf(!s3Available)('takes the extension from the code env language', async () => {
         const { study } = await preloadFor('PYTHON', ['main.py'])
 
-        await expect(fs.readFile(await templatePath(study.id, 'Main.py'), 'utf8')).resolves.toBeTruthy()
+        await expect(fs.readFile(templatePath(study.id, 'Main.py'), 'utf8')).resolves.toBeTruthy()
         expect(await mainCodeFileName(study.id)).toBe('Main.py')
     })
 
     it.skipIf(!s3Available)('leaves any further starter files under their own names', async () => {
         const { study } = await preloadFor('R', ['main.r', 'helper.r'])
-        const dir = await workspaceDir(study.id)
+        const dir = workspaceDir(study.id)
 
         await expect(fs.readFile(path.join(dir, 'Main.R'), 'utf8')).resolves.toBeTruthy()
         await expect(fs.readFile(path.join(dir, 'helper.r'), 'utf8')).resolves.toBeTruthy()
@@ -101,7 +96,7 @@ describe('ensureStarterCodePreloadAction', () => {
     // Repeat page loads must not clobber what is already in the workspace.
     it.skipIf(!s3Available)('does not copy over a workspace that already has files', async () => {
         const { study } = await preloadFor('R', ['main.r'])
-        const template = await templatePath(study.id, 'Main.R')
+        const template = templatePath(study.id, 'Main.R')
         await fs.writeFile(template, 'researcher edits')
 
         expect(actionResult(await ensureStarterCodePreloadAction({ studyId: study.id }))).toEqual({ preloaded: false })

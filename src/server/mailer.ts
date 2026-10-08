@@ -1,11 +1,11 @@
 import { db } from '@/database'
-import { getStudyAndOrgDisplayInfo } from '@/server/db/queries'
+import { getStudyAndOrgDisplayInfo, studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
 import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { pathForInvitation } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
-import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_AGREEMENTS_EMAIL } from './mailgun'
@@ -94,85 +94,22 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
     }
 }
 
-// Everyone who decided on any version of the proposal, plus the code when withCodeDeciders is set.
 // People who have since left the Data Partner are still included.
 async function getStudyDeciders(studyId: string, { withCodeDeciders = false } = {}) {
-    const proposalDeciders = db
-        .selectFrom('studyProposalComment')
-        .select('authorId')
-        .where('studyId', '=', studyId)
-        .where('entryType', '=', 'REVIEWER-FEEDBACK')
-        .where('decision', 'is not', null)
-
-    const codeDeciders = db
-        .selectFrom('studyReviewComment')
-        .select('authorId')
-        .where('studyId', '=', studyId)
-        .where('reviewKind', '=', 'CODE')
-        .where('entryType', '=', 'DECISION')
-        .where('decision', 'is not', null)
-
     return db
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', withCodeDeciders ? proposalDeciders.union(codeDeciders) : proposalDeciders)
+        .where('id', 'in', studyDeciderIds(db, studyId, { withCodeDeciders, withOutputsDeciders: false }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
 }
 
-// Every version of the code is recorded by markCodeSubmitted as a CODE-SUBMITTED row naming its submitter.
-async function getCodeSubmitterIds(studyId: string) {
-    const rows = await db
-        .selectFrom('jobStatusChange')
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .select('jobStatusChange.userId')
-        .distinct()
-        .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
-        .execute()
-
-    return rows.map((row) => row.userId)
-}
-
-// The researcher, the PI, and any lab member who submitted a version of the proposal, plus code
-// submitters when withCodeSubmitters is set. A PI without an account is left out.
-async function getStudyLabAudience(studyId: string, study: StudyInfo, { withCodeSubmitters = false } = {}) {
-    // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
-    // by onStudyCreated's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
-    const submitters = await db
-        .selectFrom('audit')
-        .select('userId')
-        .distinct()
-        .where('recordType', '=', 'STUDY')
-        .where('recordId', '=', studyId)
-        .where('eventType', '=', 'CREATED')
-        .execute()
-
-    const resubmitters = await db
-        .selectFrom('studyProposalComment')
-        .select('authorId')
-        .distinct()
-        .where('studyId', '=', studyId)
-        .where('entryType', '=', 'RESUBMISSION-NOTE')
-        .execute()
-
-    const codeSubmitters = withCodeSubmitters ? await getCodeSubmitterIds(studyId) : []
-
-    const userIds = [
-        ...new Set([
-            study.researcherId,
-            study.piUserId,
-            ...submitters.map((s) => s.userId),
-            ...resubmitters.map((r) => r.authorId),
-            ...codeSubmitters,
-        ]),
-    ].filter((id): id is string => Boolean(id))
-
+async function getStudyLabAudience(studyId: string, { withCodeSubmitters = false } = {}) {
     return db
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', userIds)
+        .where('id', 'in', studyLabMemberIds(db, studyId, { withCodeSubmitters }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
@@ -247,12 +184,11 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     await deliver({
         to: SI_AGREEMENTS_EMAIL,
         bcc: emails.join(', '),
-        subject: `New ${legalDocumentTypeLabels.SLA} required`,
+        subject: `New ${legalDocumentTypeLabels.SLA} Required`,
         template: 'vb - sla notice',
         vars: {
             ...baseStudyVars(study),
             actionURL: `${APP_BASE_URL}${Routes.studyReview({ orgSlug: study.orgSlug, studyId })}`,
-            legalURL: `${APP_BASE_URL}${Routes.adminSafeinsightsLegal}`,
         },
     })
 }
@@ -272,7 +208,7 @@ export const sendStudyCodeSubmittedEmail = async (studyId: string) => {
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId), {
         subject: 'Proposal approved',
         template: 'vb - research proposal approved',
         vars: await labDecisionVars(studyId, study),
@@ -283,7 +219,7 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId), {
         subject: 'Proposal declined',
         template: 'vb - research proposal rejected',
         vars: await labDecisionVars(studyId, study),
@@ -294,7 +230,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
 export const sendStudyProposalNeedsRevisionEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId), {
         subject: 'Proposal needs revision',
         template: 'vb - research proposal needs revision',
         vars: await labDecisionVars(studyId, study),
@@ -318,7 +254,7 @@ export const sendDataPartnerOutputsNeedReviewEmail = async (studyId: string) => 
 export const sendStudyCodeApprovedEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, { withCodeSubmitters: true }), {
         subject: 'Study code approved',
         template: 'vb - code approved',
         vars: await labDecisionVars(studyId, study),
@@ -330,7 +266,7 @@ export const sendStudyCodeApprovedEmail = async (studyId: string) => {
 export const sendStudyCodeNeedsRevisionEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, { withCodeSubmitters: true }), {
         subject: 'Code needs revision',
         template: 'vb - code needs revision',
         vars: await labDecisionVars(studyId, study),
@@ -353,7 +289,7 @@ export const sendDataPartnerCodeErroredEmail = async (studyId: string) => {
 export const sendLabCodeErroredEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, { withCodeSubmitters: true }), {
         subject: 'Code errored',
         template: 'vb - rl - code errored',
         vars: await labDecisionVars(studyId, study),
@@ -365,7 +301,7 @@ export const sendLabCodeErroredEmail = async (studyId: string) => {
 export const sendLabOutputsNeedReviewEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study, { withCodeSubmitters: true }), {
+    await deliverToEach(studyId, await getStudyLabAudience(studyId, { withCodeSubmitters: true }), {
         subject: 'Outputs need review',
         template: 'vb - rl - outputs need review',
         vars: await labDecisionVars(studyId, study),
@@ -376,12 +312,12 @@ export const sendLabOutputsNeedReviewEmail = async (studyId: string) => {
 export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    await deliverToEach(studyId, await getStudyLabAudience(studyId, study), {
-        subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
+    await deliverToEach(studyId, await getStudyLabAudience(studyId), {
+        subject: `Acknowledge ${legalDocumentCollectionLabels.SLA}`,
         template: 'vb - sla ready for acknowledgment',
         vars: {
             ...baseStudyVars(study),
-            actionURL: `${APP_BASE_URL}${Routes.studySubmitted({ orgSlug: study.labSlug, studyId })}`,
+            actionURL: `${APP_BASE_URL}${Routes.studyView({ orgSlug: study.labSlug, studyId })}`,
         },
     })
 }

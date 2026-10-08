@@ -2,6 +2,7 @@ import { type DBExecutor } from '@/database'
 import { ActionFailure } from '@/lib/errors'
 import {
     canResearcherChangeCodeFiles,
+    canResearcherResubmitCode,
     canResearcherSubmitCodeForReview,
     projectStudyState,
     type StudyState,
@@ -24,8 +25,12 @@ const guard =
     <Ctx extends { db: DBExecutor }>(getStudyId: (ctx: Ctx) => string) =>
     async (ctx: Ctx) => {
         // The handler's own executor, so a performsMutations action gates on the snapshot it is
-        // about to write against.
-        const state = await studyCodeStateFor(ctx.db, getStudyId(ctx))
+        // about to write against. The study row lock serializes co-authors for the rest of that
+        // transaction: the second submit waits, then reads the state the first one committed and
+        // stops here, before it touches the first one's files in S3.
+        const studyId = getStudyId(ctx)
+        await ctx.db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
+        const state = await studyCodeStateFor(ctx.db, studyId)
         if (!state) throw new ActionFailure({ study: 'was not found' })
         if (!allows(state)) throw new ActionFailure(failure)
         return {}
@@ -39,3 +44,6 @@ export const requireUnsubmittedCodeRound = guard(canResearcherSubmitCodeForRevie
 
 /** /code only: spec rows 8 and 9 let only a launch or an upload open the round, not Submit (OTTER-698). */
 export const requireOpenedCodeRound = guard((s) => s.hasAnyJob, CODE_NOT_STARTED)
+
+/** /resubmit only: the reviewer asked for changes and no resubmission has landed on this round. */
+export const requireResubmittableCode = guard(canResearcherResubmitCode)

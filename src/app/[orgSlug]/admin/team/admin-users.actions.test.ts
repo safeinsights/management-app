@@ -98,6 +98,58 @@ describe('Admin Users Actions', () => {
         expect(pendingUser?.isAdmin).toBe(false)
     })
 
+    it('orgAdminInviteUserAction re-sends the existing link while the invite is unclaimed', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        mockClerkClient.mockResolvedValue({
+            users: { getUserList: vi.fn().mockResolvedValue({ data: [], totalCount: 0 }) },
+        })
+        const existing = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: 'unclaimed-reinvite@test.com', isAdmin: false })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(
+            await orgAdminInviteUserAction({
+                orgSlug: org.slug,
+                invite: { email: 'unclaimed-reinvite@test.com', permission: 'contributor' },
+            }),
+        )
+
+        expect(result).toEqual({ alreadyInvited: true })
+        expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'unclaimed-reinvite@test.com', inviteId: existing.id })
+    })
+
+    it('orgAdminInviteUserAction creates a fresh invite when the earlier one was claimed by another account', async () => {
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true })
+        mockClerkClient.mockResolvedValue({
+            users: { getUserList: vi.fn().mockResolvedValue({ data: [], totalCount: 0 }) },
+        })
+        const claimed = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: 'claimed-reinvite@test.com', isAdmin: false, claimedByUserId: user.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(
+            await orgAdminInviteUserAction({
+                orgSlug: org.slug,
+                invite: { email: 'claimed-reinvite@test.com', permission: 'contributor' },
+            }),
+        )
+
+        expect(result).toEqual({ alreadyInvited: false })
+        const fresh = await db
+            .selectFrom('pendingUser')
+            .select(['id', 'claimedByUserId'])
+            .where('email', '=', 'claimed-reinvite@test.com')
+            .where('id', '!=', claimed.id)
+            .executeTakeFirstOrThrow()
+        expect(fresh.claimedByUserId).toBeNull()
+        expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'claimed-reinvite@test.com', inviteId: fresh.id })
+        expect(sendInviteEmail).not.toHaveBeenCalledWith(expect.objectContaining({ inviteId: claimed.id }))
+    })
+
     it('getPendingUsersAction returns pending users', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const result = actionResult(await getPendingUsersAction({ orgSlug: org.slug }))

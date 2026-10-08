@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
@@ -15,6 +14,8 @@ import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.actions'
 import logger from '@/lib/logger'
+import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
+import { fetchVideoDurationMinutes } from '@/server/vimeo'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study code' }
@@ -22,8 +23,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
-
-    await cleanupCoderDevFiles()
 
     const result = await getDraftStudyAction({ studyId })
 
@@ -53,7 +52,11 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     // open after hydration. getDraftStudyAction has already authorised the view; this only ever
     // reads the caller's own history.
     const session = await sessionFromClerk()
-    const isFirstVisit = session ? !(await hasViewedSubmitCodeFaq(session.user.id)) : false
+    const [hasViewedFaq, videoDurationMinutes] = await Promise.all([
+        session ? hasViewedSubmitCodeFaq(session.user.id) : true,
+        fetchVideoDurationMinutes(IDE_ONBOARDING_VIDEO_URL),
+    ])
+    const isFirstVisit = !hasViewedFaq
 
     return (
         <Stack p="xl" gap="xl">
@@ -65,6 +68,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 // against — not the submitting lab. Same source /resubmit reads.
                 dataPartnerName={displayOrgName(result.orgName)}
                 isFirstVisit={isFirstVisit}
+                videoDurationMinutes={videoDurationMinutes}
                 isEditable={isEditable}
                 nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />

@@ -1,19 +1,20 @@
 'use server'
+
+import { getStudyFilesPath } from '@/server/workspace-files'
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
-import { throwNotFound } from '@/lib/errors'
+import { isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
-import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import {
     deferred,
@@ -42,9 +43,8 @@ import {
     resubmissionNoteCharacterCount,
     resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { requireStudyAgreement } from '@/server/study-agreement'
-import { requireOpenedCodeRound, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
+import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -268,7 +268,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set(updateValues)
+                      .set({ ...updateValues, labEditedAt: new Date() })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -558,10 +558,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
@@ -604,7 +601,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -731,26 +728,23 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
+    // study.status stays APPROVED during code resubmission; the decision lives on the job, so
+    // eligibility comes from the same projected state the resubmit page renders from.
+    .middleware(requireResubmittableCode(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, note }, session }) => {
         const userLabOrgIds = Object.values(session.orgs)
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
-        // study.status stays APPROVED during code resubmission; the decision lives on the job, so
-        // eligibility comes from the same projected state the resubmit page renders from.
-        const raw = await rawStudyStateForStudy(studyId, db)
-        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
-            throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
-        }
-
         // The 0-row check turns a cross-lab attempt into a hard failure instead of letting the
         // client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -777,7 +771,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -803,13 +797,11 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
+    // Also locks the study row, so a co-author's concurrent resubmit of the same round stops here
+    // instead of replacing the first one's files in S3.
+    .middleware(requireResubmittableCode(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
-
-        const raw = await rawStudyStateForStudy(studyId, db)
-        if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) {
-            throw new Error('Cannot resubmit study code: study is not in a resubmittable state')
-        }
 
         if (fileNames.length === 0) throw new Error('No files provided')
         if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
@@ -827,8 +819,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
@@ -848,11 +839,27 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         // written against, so a summary or a scan is never filed under a round the job is not on.
         const round = await codeRoundForJob(studyJobId, db)
 
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)), resubmissionRound })
-            .where('id', '=', studyJobId)
-            .execute()
+        // One row per round (OTTER-802); the key on (job, kind, round, entry type) is the backstop
+        // behind the study-row lock above.
+        try {
+            await db
+                .insertInto('studyReviewComment')
+                .values({
+                    studyId,
+                    studyJobId,
+                    authorId: userId,
+                    reviewKind: 'CODE',
+                    entryType: 'RESUBMISSION-NOTE',
+                    body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
+                    round: resubmissionRound,
+                })
+                .execute()
+        } catch (err) {
+            if (isPgUniqueViolation(err)) {
+                throw new ActionFailure({ submission: 'This code has already been resubmitted' })
+            }
+            throw err
+        }
 
         await db
             .updateTable('study')
