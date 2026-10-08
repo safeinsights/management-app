@@ -29,8 +29,18 @@ declare global {
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges with Clerk's UserPublicMetadata interface
-    interface UserPublicMetadata extends UserInfo {}
+    // A type, not an interface: only a type alias satisfies the index signature on Clerk's own
+    // UserPublicMetadata, which updateUser takes.
+    type ClerkPublicMetadata = {
+        format: 'v3'
+        user: { id: string }
+        teams: null
+    }
+
+    // `orgs` stays optional only for users that the OTTER-752 script has not slimmed yet.
+    interface UserPublicMetadata extends ClerkPublicMetadata {
+        orgs?: UserInfo['orgs']
+    }
 
     interface UserPreferences {
         currentOrgSlug?: string
@@ -41,7 +51,7 @@ declare global {
     interface CustomJwtSessionClaims {
         hasMFA?: boolean
         unsafeMetadata?: UserPreferences
-        userMetadata?: UserInfo
+        userMetadata?: UserPublicMetadata
     }
 
     interface Window {

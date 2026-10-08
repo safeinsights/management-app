@@ -1,5 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
-import { act } from 'react'
+import { act, describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { useTextareaResizeFloor } from './use-textarea-resize-floor'
 
 // jsdom does not lay out, so scrollHeight is always 0 and a real pixel floor cannot be produced
