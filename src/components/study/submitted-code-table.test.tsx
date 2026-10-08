@@ -1,14 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import {
-    BLANK_UUID,
-    db,
-    insertTestStudyJobData,
-    mockSessionWithTestData,
-    renderWithProviders,
-    screen,
-    userEvent,
-    waitFor,
-} from '@/tests/unit.helpers'
+import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeTable } from './submitted-code-table'
 
@@ -55,7 +46,7 @@ describe('SubmittedCodeTable', () => {
 
         const files = [buildFile({ name: 'main.py' })]
         renderWithProviders(
-            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
         )
 
         const interact = userEvent.setup()
@@ -78,7 +69,7 @@ describe('SubmittedCodeTable', () => {
             buildFile({ name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
         ]
         renderWithProviders(
-            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" files={files} dataPartnerName="OpenStax" />,
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" files={files} dataPartnerName="OpenStax" />,
         )
 
         const user = userEvent.setup()
@@ -94,7 +85,7 @@ describe('SubmittedCodeTable', () => {
 
         const files = [buildFile({ name: 'plot.png', fileType: 'SUPPLEMENTAL-CODE' })]
         renderWithProviders(
-            <SubmittedCodeTable studyId={BLANK_UUID} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
         )
 
         const interact = userEvent.setup()
@@ -108,7 +99,7 @@ describe('SubmittedCodeTable', () => {
 
         renderWithProviders(
             <SubmittedCodeTable
-                studyId={BLANK_UUID}
+                activityByName={{}}
                 jobId="job-1"
                 dataPartnerName="OpenStax"
                 files={[buildFile({ name: 'main.py' })]}
@@ -124,34 +115,5 @@ describe('SubmittedCodeTable', () => {
         await waitFor(() => {
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         })
-    })
-
-    it('shows the activity from before the submission, not edits made since (OTTER-778)', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'APPROVED',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        const recordActivity = (action: 'UPLOADED' | 'EDITED_IN_IDE', createdAt: Date) =>
-            db
-                .insertInto('workspaceFileActivity')
-                .values({ studyId: study.id, fileName: 'main.py', action, userId: user.id, createdAt })
-                .execute()
-        await recordActivity('UPLOADED', new Date(Date.now() - 86_400_000))
-        await recordActivity('EDITED_IN_IDE', new Date(Date.now() + 86_400_000))
-
-        const files = [
-            buildFile({ name: 'main.py' }),
-            buildFile({ id: 'file-2', name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
-        ]
-        renderWithProviders(
-            <SubmittedCodeTable studyId={study.id} jobId={job.id} files={files} dataPartnerName="OpenStax" />,
-        )
-
-        expect(await screen.findByText(new RegExp(`${user.fullName} · Uploaded ·`))).toBeInTheDocument()
-        expect(screen.queryByText(/Edited in IDE/)).not.toBeInTheDocument()
-        expect(screen.getByText('No activity yet')).toBeInTheDocument()
     })
 })

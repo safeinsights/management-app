@@ -10,6 +10,7 @@ import type { StepNav } from '@/lib/study-screen'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import type { FileActivityByName } from '@/components/study/submitted-code-table-view'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
@@ -19,6 +20,7 @@ import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 interface CodePostSubmissionViewProps {
     study: SelectedStudy
     job: LatestJobForStudy
+    activityByName: FileActivityByName
     reviewingOrgName: string
     nav: StepNav
     /** 1 = first submission, >=2 = resubmission round. */
@@ -62,6 +64,7 @@ const FeedbackSection: FC<{ isVisible: boolean; entries: CodeReviewFeedbackEntry
 export function CodePostSubmissionView({
     study,
     job,
+    activityByName,
     reviewingOrgName,
     nav,
     submissionVersion = 1,
@@ -89,9 +92,9 @@ export function CodePostSubmissionView({
                 <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
 
                 <SubmittedCodeFilesSection
-                    studyId={study.id}
                     jobId={job.id}
                     files={codeFiles}
+                    activityByName={activityByName}
                     dataPartnerName={displayOrgName(reviewingOrgName)}
                 />
 

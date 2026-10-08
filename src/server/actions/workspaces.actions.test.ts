@@ -102,6 +102,53 @@ describe('Workspace Actions', () => {
         expect(result.files[0]).toHaveProperty('mtime')
     })
 
+    describe('listWorkspaceFileActivityAction (OTTER-778)', () => {
+        const recordActivity = (
+            studyId: string,
+            userId: string,
+            action: 'UPLOADED' | 'EDITED_IN_IDE',
+            createdAt: Date,
+        ) =>
+            db
+                .insertInto('workspaceFileActivity')
+                .values({ studyId, fileName: 'main.py', action, userId, createdAt })
+                .execute()
+
+        test('returns the activity from before the submission, not edits made since', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+            await recordActivity(study.id, user.id, 'EDITED_IN_IDE', new Date(Date.now() + 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
+
+            expect(result).toEqual({ 'main.py': expect.objectContaining({ action: 'UPLOADED' }) })
+        })
+
+        test('returns nothing for a job from another study', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+            const { job: otherJob } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(
+                await listWorkspaceFileActivityAction({ studyId: study.id, jobId: otherJob.id }),
+            )
+
+            expect(result).toEqual({})
+        })
+    })
+
     describe('getStarterCodeInfoAction', () => {
         test('signs the full starter-code key, not the bare file name', async () => {
             const { org, user } = await mockSessionWithTestData()
