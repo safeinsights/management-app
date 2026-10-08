@@ -1,79 +1,82 @@
 packages:
-    - services/editor
+  - services/editor
 allowBuilds:
-    '@clerk/shared': true
-    '@sentry/cli': true
-    '@swc/core': false
-    core-js: false
-    esbuild: true
-    fsevents: true
-    msw: false
-    sharp: true
-    unrs-resolver: true
+  '@clerk/shared': true
+  '@sentry/cli': true
+  '@swc/core': false
+  core-js: false
+  esbuild: true
+  fsevents: true
+  msw: false
+  sharp: true
+  unrs-resolver: true
 minimumReleaseAge: 2880
+minimumReleaseAgeExclude:
+  - braces@3.0.4
+  - next@16.3.8
 overrides:
-    # One AWS SDK tree. A client added later resolves these shared packages to their newest release
-    # while the clients already here stay on the locked one, and aws-sdk-client-mock then types its
-    # mocks against a different copy than the client under test (src/server/config.test.ts).
-    '@aws-sdk/types': 3.973.8
-    '@smithy/core': 3.24.3
-    '@smithy/types': 4.14.2
-    '@types/react': 19.2.14
-    esbuild: ^0.28.1
-    form-data: ^4.0.6
-    minimatch: ^10.2.1
-    picomatch: ^4.0.4
-    # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
-    # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
-    # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
-    postcss: ^8.5.23
-    vite: ^8.0.16
-    ws: ^8.21.0
-    # js-yaml <4.3.2: CVE-2026-59869, then CVE-2026-59870 (GHSA-5p4m-2wfm-xmqj) against 4.3.0, now
-    # CVE-2026-84375 against 4.3.1 — DoS resolving YAML anchors. Range widened past the version the
-    # earlier pin landed on. Bounded to <5 to avoid a surprise major bump.
-    'js-yaml@>=4.0.0 <4.3.2': '>=4.3.2 <5'
-    '@opentelemetry/core@<2.8.0': '>=2.8.0'
-    '@babel/core@<=7.29.0': '>=7.29.1'
-    # Keep @vitest/coverage-istanbul on Babel 7: @babel/core@8 declares node '^22.18.0 || >=24.11.0',
-    # narrower than this repo's engines.node '>=22'. Pin the coverage path back to the compatible 7.x
-    # the lockfile previously resolved so Node 22.0–22.17 stay supported.
-    '@vitest/coverage-istanbul>@babel/core': 7.29.7
-    # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
-    # attacker-controlled string blocks the event loop (DoS), then GHSA-pqg4-j6r4-53mv (CRITICAL)
-    # against <1.11.0 — quote() command injection via a line terminator after a `{ comment }` token.
-    # Dev-only transitive (concurrently), but Trivy scans dev deps.
-    'shell-quote@<1.11.0': '>=1.11.0 <2'
-    # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
-    # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
-    # the bump stays a patch/minor, never a breaking major.
-    # axios <1.20.0: GHSA-gcfj-64vw-6mp9 (inherited proxy reuse after config clone), then a batch of
-    # advisories against 1.19.x incl. GHSA-4hqw-qxg8-jxx2 and GHSA-44g4-m2mj-wpvx (NO_PROXY bypass).
-    'axios@>=1.0.0 <1.20.0': '>=1.20.0 <2'
-    # brace-expansion <5.0.12: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, CVE-2026-69152
-    # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation),
-    # now GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 and GHSA-q2hr-2g5m-vwhr against 5.0.9 (stack
-    # exhaustion on nested groups and quadratic `{a},b}` expansion). Fixed in 5.0.12.
-    'brace-expansion@>=5.0.0 <5.0.12': '>=5.0.12 <6'
-    # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
-    # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4, now CVE-2026-84292 + CVE-2026-84394 against
-    # 3.1.6 — authority injection via an unvalidated port and host confusion via unbalanced
-    # brackets, both parsing a crafted URI to an unintended host.
-    'fast-uri@>=3.0.0 <3.1.7': '>=3.1.7 <4'
-    # nanoid <3.3.18: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
-    # size. Transitive via postcss (itself pinned above), reached from both next and vite. The
-    # advisory's fix version moved to 3.3.18, so the range is widened past the 3.3.17 the earlier
-    # pin landed on.
-    'nanoid@>=3.0.0 <3.3.18': '>=3.3.18 <4'
-    # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs, then GHSA-wq5f-xc86-pv6w against
-    # <0.35.5 — inherited librsvg CVE-2026-96889.
-    'sharp@>=0.34.0 <0.35.5': '>=0.35.5 <0.36'
-    # source-map-js <1.2.2: GHSA-68fv-2mgg-jv7q — event-loop DoS via indexed source-map section
-    # offsets. Transitive via postcss.
-    'source-map-js@>=1.0.0 <1.2.2': '>=1.2.2 <2'
-    # decode-uri-component <=0.4.2: GHSA-vcc3-ghjq-m6fr — exponential decoding of malformed
-    # percent-encoded input (DoS). Dev-only transitive via @ladle/react>query-string, which asks
-    # for ^0.4.1; 0.5.0 is the advisory's first patched version, so the pin crosses a minor.
-    'decode-uri-component@<0.5.0': '>=0.5.0 <0.6'
-    # dompurify 3.4.13–3.4.15: GHSA-p98j-92pf-mc4p — DOM XSS via IN_PLACE afterSanitize hook. Via posthog-js.
-    'dompurify@>=3.4.13 <3.4.16': '>=3.4.16 <4'
+  # One AWS SDK tree. A client added later resolves these shared packages to their newest release
+  # while the clients already here stay on the locked one, and aws-sdk-client-mock then types its
+  # mocks against a different copy than the client under test (src/server/config.test.ts).
+  '@aws-sdk/types': 3.973.8
+  '@smithy/core': 3.24.3
+  '@smithy/types': 4.14.2
+  '@types/react': 19.2.14
+  esbuild: ^0.28.1
+  form-data: ^4.0.6
+  minimatch: ^10.2.1
+  picomatch: ^4.0.4
+  # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
+  # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
+  # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
+  postcss: ^8.5.23
+  vite: ^8.0.16
+  ws: ^8.21.0
+  # js-yaml <4.3.2: CVE-2026-59869, then CVE-2026-59870 (GHSA-5p4m-2wfm-xmqj) against 4.3.0, now
+  # CVE-2026-84375 against 4.3.1 — DoS resolving YAML anchors. Range widened past the version the
+  # earlier pin landed on. Bounded to <5 to avoid a surprise major bump.
+  'js-yaml@>=4.0.0 <4.3.2': '>=4.3.2 <5'
+  '@opentelemetry/core@<2.8.0': '>=2.8.0'
+  '@babel/core@<=7.29.0': '>=7.29.1'
+  # Keep @vitest/coverage-istanbul on Babel 7: @babel/core@8 declares node '^22.18.0 || >=24.11.0',
+  # narrower than this repo's engines.node '>=22'. Pin the coverage path back to the compatible 7.x
+  # the lockfile previously resolved so Node 22.0–22.17 stay supported.
+  '@vitest/coverage-istanbul>@babel/core': 7.29.7
+  # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
+  # attacker-controlled string blocks the event loop (DoS), then GHSA-pqg4-j6r4-53mv (CRITICAL)
+  # against <1.11.0 — quote() command injection via a line terminator after a `{ comment }` token.
+  # Dev-only transitive (concurrently), but Trivy scans dev deps.
+  'shell-quote@<1.11.0': '>=1.11.0 <2'
+  # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
+  # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
+  # the bump stays a patch/minor, never a breaking major.
+  # axios <1.20.0: GHSA-gcfj-64vw-6mp9 (inherited proxy reuse after config clone), then a batch of
+  # advisories against 1.19.x incl. GHSA-4hqw-qxg8-jxx2 and GHSA-44g4-m2mj-wpvx (NO_PROXY bypass).
+  'axios@>=1.0.0 <1.20.0': '>=1.20.0 <2'
+  # brace-expansion <5.0.12: CVE-2026-13149, then CVE-2026-14257 against 5.0.7, CVE-2026-69152
+  # against 5.0.8 (DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation),
+  # now GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 and GHSA-q2hr-2g5m-vwhr against 5.0.9 (stack
+  # exhaustion on nested groups and quadratic `{a},b}` expansion). Fixed in 5.0.12.
+  'brace-expansion@>=5.0.0 <5.0.12': '>=5.0.12 <6'
+  # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
+  # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4, now CVE-2026-84292 + CVE-2026-84394 against
+  # 3.1.6 — authority injection via an unvalidated port and host confusion via unbalanced
+  # brackets, both parsing a crafted URI to an unintended host.
+  'fast-uri@>=3.0.0 <3.1.7': '>=3.1.7 <4'
+  # nanoid <3.3.18: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
+  # size. Transitive via postcss (itself pinned above), reached from both next and vite. The
+  # advisory's fix version moved to 3.3.18, so the range is widened past the 3.3.17 the earlier
+  # pin landed on.
+  'nanoid@>=3.0.0 <3.3.18': '>=3.3.18 <4'
+  # sharp <0.35.0: GHSA-f88m-g3jw-g9cj — inherited libvips CVEs, then GHSA-wq5f-xc86-pv6w against
+  # <0.35.5 — inherited librsvg CVE-2026-96889.
+  'sharp@>=0.34.0 <0.35.5': '>=0.35.5 <0.36'
+  # source-map-js <1.2.2: GHSA-68fv-2mgg-jv7q — event-loop DoS via indexed source-map section
+  # offsets. Transitive via postcss.
+  'source-map-js@>=1.0.0 <1.2.2': '>=1.2.2 <2'
+  # decode-uri-component <=0.4.2: GHSA-vcc3-ghjq-m6fr — exponential decoding of malformed
+  # percent-encoded input (DoS). Dev-only transitive via @ladle/react>query-string, which asks
+  # for ^0.4.1; 0.5.0 is the advisory's first patched version, so the pin crosses a minor.
+  'decode-uri-component@<0.5.0': '>=0.5.0 <0.6'
+  # dompurify 3.4.13–3.4.15: GHSA-p98j-92pf-mc4p — DOM XSS via IN_PLACE afterSanitize hook. Via posthog-js.
+  'dompurify@>=3.4.13 <3.4.16': '>=3.4.16 <4'
