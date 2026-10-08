@@ -10,6 +10,7 @@ import {
     faker,
     renderWithProviders,
     insertTestCodeEnv,
+    insertTestDataSource,
 } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { Selectable } from 'kysely'
@@ -277,6 +278,39 @@ describe('CodeEnvs', async () => {
 
         expect(screen.queryByRole('button', { name: 'Delete Passed R' })).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Delete Failed R' })).toBeInTheDocument()
+    })
+
+    it('disables delete with an explanation when the environment has linked data sources', async () => {
+        const linked = await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestCodeEnv({ orgId: org.id, name: 'Unlinked R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [linked.id] })
+
+        renderWithProviders(<CodeEnvs />)
+
+        const deleteLinked = await screen.findByRole('button', { name: 'Delete Linked R' })
+        expect(deleteLinked).toHaveAttribute('data-disabled')
+        expect(screen.getByRole('button', { name: 'Delete Unlinked R' })).not.toHaveAttribute('data-disabled')
+
+        await userEvent.hover(deleteLinked)
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(
+            'A code environment with linked data sources cannot be deleted. Remove or re-assign them first.',
+        )
+
+        await userEvent.click(deleteLinked)
+        expect(screen.queryByText(/are you sure you want to delete/i)).not.toBeInTheDocument()
+    })
+
+    it('hides delete on the only non-testing environment for a language even when it has linked data sources', async () => {
+        const only = await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [only.id] })
+
+        renderWithProviders(<CodeEnvs />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Only R')).toBeInTheDocument()
+        })
+
+        expect(screen.queryByRole('button', { name: 'Delete Only R' })).not.toBeInTheDocument()
     })
 
     it('displays env vars as KEY=VALUE in table', async () => {
