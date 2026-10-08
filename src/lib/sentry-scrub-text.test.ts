@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
-import { scrubText } from './sentry-scrub-text'
+import { isSensitiveKey, scrubText } from './sentry-scrub-text'
 
 describe('scrubText', () => {
     it('redacts URL-encoded emails', () => {
@@ -128,48 +128,133 @@ describe('scrubText, auth schemes and package versions', () => {
     })
 })
 
-const SIZE = 100_000
 // Each input targets one pattern's worst case. Unbounded or overlapping quantifiers took
 // seconds on inputs like these, and scrubText runs synchronously on the server event loop.
-const ADVERSARIAL: Array<[string, string]> = [
-    ['email: word chars, no @', 'a'.repeat(SIZE)],
-    ['email: dotted local part, no @', 'a.'.repeat(SIZE / 2)],
-    ['email: @ with no dot', `${'a'.repeat(SIZE / 2)}@${'b'.repeat(SIZE / 2)}`],
-    ['email: repeated @', 'a@'.repeat(SIZE / 2)],
-    ['email: repeated %40', 'a%40'.repeat(SIZE / 4)],
-    ['email: many numeric labels', `a@${'1.'.repeat(SIZE / 2)}`],
-    ['email: repeated short addresses without a TLD', 'a@b.1 '.repeat(SIZE / 6)],
-    ['jwt: repeated eyJ', 'eyJ'.repeat(SIZE / 3)],
-    ['jwt: eyJ split by dashes', '-eyJ'.repeat(SIZE / 4)],
-    ['jwt: eyJ split by dots', '.eyJa'.repeat(SIZE / 5)],
-    ['jwt: repeated encoded prefix', '%3DeyJ'.repeat(SIZE / 6)],
-    ['jwt: repeated percent signs', '%'.repeat(SIZE)],
-    ['jwt: two segments only', `eyJ${'a'.repeat(SIZE / 2)}.${'b'.repeat(SIZE / 2)}`],
-    ['bearer: repeated scheme', 'Bearer '.repeat(SIZE / 7)],
-    ['bearer: scheme then whitespace', `Bearer${' '.repeat(SIZE)}`],
-    ['basic: scheme then whitespace', `Basic${' '.repeat(SIZE)}`],
-    ['token: repeated scheme with short values', `Token ${'a'.repeat(15)} `.repeat(SIZE / 22)],
-    ['pair: repeated scheme values', 'authorization: Basic '.repeat(SIZE / 21)],
-    ['pair: long key with no separator', `?${'a'.repeat(SIZE)}`],
-    ['pair: repeated short keys', '&a'.repeat(SIZE / 2)],
-    ['pair: repeated quoted keys', '"a"'.repeat(SIZE / 3)],
-    ['pair: repeated separators', 'a:'.repeat(SIZE / 2)],
-    ['pair: repeated sensitive keys', 'token:'.repeat(SIZE / 6)],
-    ['pair: unterminated quoted value', `password:"${'a'.repeat(SIZE)}`],
-    ['pair: escaped quotes in a value', `"password":"${'\\"'.repeat(SIZE / 2)}`],
-    ['pair: repeated escaped keys', '\\"token\\":'.repeat(SIZE / 10)],
-    ['pair: whitespace runs', `token${' '.repeat(SIZE)}`],
-    ['pair: long bare value', `token=${'a'.repeat(SIZE)}`],
-    ['pair: backslash escapes in a value', `password:"${'\\a'.repeat(SIZE / 2)}`],
-    ['pair: unterminated array value', `password:[${'a'.repeat(SIZE)}`],
-    ['pair: unterminated object value', `password:{${'a'.repeat(SIZE)}`],
-    ['pair: repeated array values', 'token:['.repeat(SIZE / 7)],
+const ADVERSARIAL: Array<[string, (size: number) => string]> = [
+    ['email: word chars, no @', (size) => 'a'.repeat(size)],
+    ['email: dotted local part, no @', (size) => 'a.'.repeat(size / 2)],
+    ['email: @ with no dot', (size) => `${'a'.repeat(size / 2)}@${'b'.repeat(size / 2)}`],
+    ['email: repeated @', (size) => 'a@'.repeat(size / 2)],
+    ['email: repeated %40', (size) => 'a%40'.repeat(size / 4)],
+    ['email: many numeric labels', (size) => `a@${'1.'.repeat(size / 2)}`],
+    ['email: repeated short addresses without a TLD', (size) => 'a@b.1 '.repeat(size / 6)],
+    ['jwt: repeated eyJ', (size) => 'eyJ'.repeat(size / 3)],
+    ['jwt: eyJ split by dashes', (size) => '-eyJ'.repeat(size / 4)],
+    ['jwt: eyJ split by dots', (size) => '.eyJa'.repeat(size / 5)],
+    ['jwt: repeated encoded prefix', (size) => '%3DeyJ'.repeat(size / 6)],
+    ['jwt: repeated percent signs', (size) => '%'.repeat(size)],
+    ['jwt: two segments only', (size) => `eyJ${'a'.repeat(size / 2)}.${'b'.repeat(size / 2)}`],
+    ['bearer: repeated scheme', (size) => 'Bearer '.repeat(size / 7)],
+    ['bearer: scheme then whitespace', (size) => `Bearer${' '.repeat(size)}`],
+    ['basic: scheme then whitespace', (size) => `Basic${' '.repeat(size)}`],
+    ['token: repeated scheme with short values', (size) => `Token ${'a'.repeat(15)} `.repeat(size / 22)],
+    ['pair: repeated scheme values', (size) => 'authorization: Basic '.repeat(size / 21)],
+    ['pair: long key with no separator', (size) => `?${'a'.repeat(size)}`],
+    ['pair: repeated short keys', (size) => '&a'.repeat(size / 2)],
+    ['pair: repeated quoted keys', (size) => '"a"'.repeat(size / 3)],
+    ['pair: repeated separators', (size) => 'a:'.repeat(size / 2)],
+    ['pair: repeated sensitive keys', (size) => 'token:'.repeat(size / 6)],
+    ['pair: unterminated quoted value', (size) => `password:"${'a'.repeat(size)}`],
+    ['pair: escaped quotes in a value', (size) => `"password":"${'\\"'.repeat(size / 2)}`],
+    ['pair: repeated escaped keys', (size) => '\\"token\\":'.repeat(size / 10)],
+    ['pair: whitespace runs', (size) => `token${' '.repeat(size)}`],
+    ['pair: long bare value', (size) => `token=${'a'.repeat(size)}`],
+    ['pair: backslash escapes in a value', (size) => `password:"${'\\a'.repeat(size / 2)}`],
+    ['pair: unterminated array value', (size) => `password:[${'a'.repeat(size)}`],
+    ['pair: unterminated object value', (size) => `password:{${'a'.repeat(size)}`],
+    ['pair: repeated array values', (size) => 'token:['.repeat(size / 7)],
 ]
 
 describe('scrubText, adversarial input', () => {
-    it.each(ADVERSARIAL)('scrubs 100KB of %s in linear time', (_label, input) => {
-        const start = performance.now()
+    const medianTime = (input: string) => {
         scrubText(input)
-        expect(performance.now() - start).toBeLessThan(200)
+        const samples = Array.from({ length: 5 }, () => {
+            const start = performance.now()
+            for (let i = 0; i < 3; i++) scrubText(input)
+            return performance.now() - start
+        }).sort((a, b) => a - b)
+        return samples[2]
+    }
+    it.each(ADVERSARIAL)('scales linearly for %s', (_label, makeInput) => {
+        const small = medianTime(makeInput(10_000))
+        const large = medianTime(makeInput(100_000))
+        // A 10x input allows 40x time for noise; a quadratic scan grows about 100x.
+        expect(large / Math.max(small, 0.05)).toBeLessThan(40)
+    })
+})
+
+describe('scrubText, review regressions', () => {
+    it.each([
+        'accesstoken',
+        'authtoken',
+        'refreshtoken',
+        'clientsecret',
+        'userpassword',
+        'invite_id',
+        'inviteId',
+        'dateOfBirth',
+        'date_of_birth',
+        'socialSecurityNumber',
+        'firstName',
+        'lastName',
+        'otp',
+        'verificationCode',
+    ])('redacts %s', (key) => {
+        expect(isSensitiveKey(key)).toBe(true)
+        expect(scrubText(`GET /cb?${key}=opaque-secret&x=1`)).not.toContain('opaque-secret')
+    })
+
+    it.each([
+        'failed {"credentials":{"primary":{"value":"secret-one"},"backup":"secret-two"}}',
+        'failed {"credentials":[["secret-one"],["secret-two"]]}',
+        'failed {"credentials":{"value":"secret-one}quoted","backup":"secret-two"}}',
+        'failed {"credentials":{"value":"secret-one", "backup":"secret-two"',
+    ])('removes the entire structured sensitive value in %s', (input) => {
+        const result = scrubText(input)
+        expect(result).not.toContain('secret-one')
+        expect(result).not.toContain('secret-two')
+        expect(result).toContain('[Filtered]')
+    })
+
+    it.each([
+        '/account/signin?redirect_url=%2Fcb%3Ftoken%3Dopaque-secret',
+        'https://x.test/cb?%74oken=opaque-secret',
+        '%2Fcb%3Ftoken%3Dopaque-secret',
+        '/signin?redirect_url=%2Fcb%3Ftoken%3Dopaque-secret%ZZ',
+        '/signin?redirect_url=%2Fsignin%3Fredirect_url%3D%252Fcb%253Faccesstoken%253Dopaque-secret',
+    ])('scrubs encoded URL secrets in %s', (input) => {
+        expect(scrubText(input)).not.toContain('opaque-secret')
+    })
+
+    it('redacts a nested structure with escaped quotes', () => {
+        const input = 'failed ' + JSON.stringify({ credentials: { value: 'secret-one"}', backup: 'secret-two' } })
+        expect(scrubText(input)).toBe('failed {"credentials":[Filtered]}')
+    })
+
+    it('preserves safe query encoding and its leading question mark', () => {
+        const query = '?q=hello%20world&redirect_url=%2Fsafe%3Fpage%3D2'
+        expect(scrubText(query)).toBe(query)
+    })
+
+    it('redacts invitation path credentials', () => {
+        expect(scrubText('/account/invitation/00000000-0000-4000-8000-000000000001/signup')).toBe(
+            '/account/invitation/[Filtered]/signup',
+        )
+    })
+
+    it.each(['YTpi', 'dGVzdDoxMjPCow=='])('redacts short or padded Basic credentials %s', (value) => {
+        expect(scrubText(`upstream used Basic ${value}`)).toBe('upstream used Basic [Filtered]')
+    })
+
+    it.each(['Cookie', 'Set-Cookie'])('removes the whole %s line', (header) => {
+        expect(scrubText(`${header}: _ga=1; __session=abcdef; __client_uat=zzz; other_sid=s3cr3t\nnext line`)).toBe(
+            `${header}: [Filtered]\nnext line`,
+        )
+    })
+
+    it('allows only boolean and numeric flag or count values', () => {
+        expect(scrubText('tokenCount=3 passwordSet=true')).toBe('tokenCount=3 passwordSet=true')
+        expect(scrubText('passwordSet=hunter2')).toBe('passwordSet=[Filtered]')
+        expect(scrubText('sessionStorage={resumeCode:"A1B2C3"}')).toBe('sessionStorage=[Filtered]')
     })
 })

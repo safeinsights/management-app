@@ -10,7 +10,7 @@ Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
     integrations: [
-        // send console.error and console.warn logs to Sentry; enableLogs below is what actually ships them
+        // Log export stays disabled until the additional server data flow receives InfoSec approval.
         consoleLoggingIntegration({ levels: ['error', 'warn'] }),
     ],
 
@@ -19,8 +19,8 @@ Sentry.init({
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
 
-    // Enable logs to be sent to Sentry
-    enableLogs: true,
+    // Keep server log export disabled; OTTER-707 only changes scrubbing.
+    enableLogs: false,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,

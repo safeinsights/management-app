@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
 import type { ErrorEvent, Event, Log } from '@sentry/nextjs'
-import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, scrubText, sentryScrubOptions } from './sentry'
+import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, sentryScrubOptions } from './sentry'
+import { scrubText } from './sentry-scrub-text'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
     return { type: undefined, ...overrides } as ErrorEvent
@@ -348,25 +349,25 @@ describe('key and text matching', () => {
 
         expect(result.extra).toEqual({
             tokenCount: 3,
-            tokenType: 'bearer',
-            sessionStorage: 'local',
+            tokenType: '[Filtered]',
+            sessionStorage: '[Filtered]',
             emailConflictResolved: true,
             emailMatches: false,
             passwordSet: true,
             passwordTouched: false,
-            authFailureCode: 'mfa_required',
+            authFailureCode: '[Filtered]',
             phoneVerifyAttempt: 1,
         })
     })
 
-    it('still scrubs an email inside an allow-listed key value', () => {
+    it('redacts string values under an allow-listed key', () => {
         const event = makeEvent({
             extra: { authFailureCode: 'no user pat@example.org' },
         })
 
         const result = scrubSentryEvent(event)
 
-        expect(result.extra).toEqual({ authFailureCode: 'no user [Filtered]' })
+        expect(result.extra).toEqual({ authFailureCode: '[Filtered]' })
     })
 
     it('still redacts a camelCase key not on the allow-list', () => {
@@ -514,5 +515,73 @@ describe('sentryScrubOptions', () => {
         expect(sentryScrubOptions.beforeSend).toBe(scrubSentryEvent)
         expect(sentryScrubOptions.beforeSendTransaction).toBe(scrubSentryTransaction)
         expect(sentryScrubOptions.beforeSendLog).toBe(scrubSentryLog)
+    })
+})
+
+describe('Sentry scrubbing review regressions', () => {
+    const header = 'x-amzn-oidc-accesstoken'
+    it('scrubs sensitive headers in breadcrumb data', () => {
+        const event = makeEvent({ breadcrumbs: [{ data: { headers: { [header]: 'opaque-secret' } } }] })
+        expect(scrubSentryEvent(event).breadcrumbs?.[0].data?.headers).toEqual({ [header]: '[Filtered]' })
+    })
+    it('scrubs dotted sensitive header span attributes', () => {
+        const event = {
+            spans: [
+                {
+                    data: {
+                        [`http.request.header.${header}`]: 'opaque-secret',
+                        'http.request.header.x-amzn-oidc-data': 'opaque-data',
+                    },
+                },
+            ],
+        } as unknown as Event
+        const attrs = scrubSentryTransaction(event).spans?.[0].data
+        expect(attrs?.[`http.request.header.${header}`]).toBe('[Filtered]')
+        expect(attrs?.['http.request.header.x-amzn-oidc-data']).toBe('[Filtered]')
+    })
+    it('scrubs nested and dotted sensitive header log attributes', () => {
+        const log = {
+            message: 'request',
+            attributes: {
+                headers: { [header]: 'opaque-secret' },
+                'http.request.header.x-amzn-oidc-data': 'opaque-data',
+            },
+        } as unknown as Log
+        expect(scrubSentryLog(log).attributes).toEqual({
+            headers: { [header]: '[Filtered]' },
+            'http.request.header.x-amzn-oidc-data': '[Filtered]',
+        })
+    })
+    it('scrubs encoded redirect values in tuple query strings', () => {
+        const event = makeEvent({ request: { query_string: [['redirect_url', '%2Fcb%3Ftoken%3Dopaque-secret']] } })
+        expect(JSON.stringify(scrubSentryEvent(event).request?.query_string)).not.toContain('opaque-secret')
+    })
+    it('redacts containers and strings under allow-listed keys', () => {
+        const event = makeEvent({
+            extra: { sessionStorage: { resumeCode: 'A1B2C3' }, passwordSet: 'hunter2', tokenCount: 4 },
+        })
+        expect(scrubSentryEvent(event).extra).toEqual({
+            sessionStorage: '[Filtered]',
+            passwordSet: '[Filtered]',
+            tokenCount: 4,
+        })
+    })
+    it('keeps sibling debug fields when an Error has non-string properties', () => {
+        const error = new Error('original')
+        Object.assign(error, { message: undefined, name: { invalid: true }, stack: undefined })
+        const event = makeEvent({ extra: { error, stage: 'upload' } })
+        expect(scrubSentryEvent(event).extra).toEqual({
+            error: { name: '[object Object]', message: '', stack: '' },
+            stage: 'upload',
+        })
+    })
+    it('scrubs encoded redirect credentials on error, breadcrumb, span and log paths', () => {
+        const url = '/signin?redirect_url=%2Fcb%3Faccesstoken%3Dopaque-secret'
+        const event = makeEvent({ request: { url }, breadcrumbs: [{ data: { url } }], message: url })
+        expect(JSON.stringify(scrubSentryEvent(event))).not.toContain('opaque-secret')
+        expect(JSON.stringify(scrubSentryTransaction({ spans: [{ description: url }] } as Event))).not.toContain(
+            'opaque-secret',
+        )
+        expect(scrubSentryLog({ message: url } as Log).message).not.toContain('opaque-secret')
     })
 })

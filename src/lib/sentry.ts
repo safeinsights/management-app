@@ -1,27 +1,12 @@
 import * as Sentry from '@sentry/nextjs'
 import type { Breadcrumb, ErrorEvent, Event, EventHint, Log } from '@sentry/nextjs'
 import { UserSession } from './types'
-import { isSensitiveKey, REDACTED, scrubText } from './sentry-scrub-text'
-
-export { scrubText }
+import { isSensitiveHeader, isSensitiveKey, REDACTED, scrubText } from './sentry-scrub-text'
 
 export function setSentryFromSession(session: UserSession) {
     Sentry.setUser({ id: session.user.id })
     Sentry.setTag('orgs', Object.keys(session.orgs).join(','))
 }
-
-const SENSITIVE_HEADER_NAMES = [
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'proxy-authorization',
-    'x-api-key',
-    'x-auth-token',
-    'x-csrf-token',
-    'x-clerk-auth-token',
-    'x-amzn-oidc-accesstoken',
-    'x-amzn-oidc-data',
-]
 
 const MAX_DEPTH = 20
 
@@ -44,7 +29,11 @@ function scrubString(text: string, ancestors: Set<object>): string {
 }
 
 function scrubError(error: Error): Record<string, string> {
-    return { name: error.name, message: scrubText(error.message), stack: scrubText(error.stack ?? '') }
+    return {
+        name: scrubText(String(error.name ?? '')),
+        message: scrubText(String(error.message ?? '')),
+        stack: scrubText(String(error.stack ?? '')),
+    }
 }
 
 // Log attributes hold raw console arguments that the SDK does not normalize, so this must
@@ -60,7 +49,7 @@ function scrubObject(value: object, ancestors: Set<object>): unknown {
         if (Array.isArray(value)) return value.map((item) => scrubDeep(item, ancestors))
         const out: Record<string, unknown> = {}
         for (const [key, inner] of Object.entries(value)) {
-            out[key] = isSensitiveKey(key) ? REDACTED : scrubDeep(inner, ancestors)
+            out[key] = isSensitiveKey(key, inner) ? REDACTED : scrubDeep(inner, ancestors)
         }
         return out
     } catch {
@@ -81,31 +70,19 @@ function scrubHeaders(headers: Record<string, string> | undefined): Record<strin
     const out: Record<string, string> = {}
     for (const [name, value] of Object.entries(headers)) {
         const lower = name.toLowerCase()
-        out[name] = SENSITIVE_HEADER_NAMES.includes(lower) || isSensitiveKey(lower) ? REDACTED : scrubText(value)
+        out[name] = isSensitiveHeader(lower) || isSensitiveKey(lower, value) ? REDACTED : scrubText(value)
     }
     return out
 }
 
-function redactSensitiveParams(qs: string): string {
-    const params = new URLSearchParams(qs)
-    let mutated = false
-    for (const key of Array.from(params.keys())) {
-        if (isSensitiveKey(key)) {
-            params.set(key, REDACTED)
-            mutated = true
-        }
-    }
-    return mutated ? params.toString() : qs
-}
-
 function scrubQueryEntry(entry: unknown): unknown {
     if (!Array.isArray(entry) || entry.length !== 2) return scrubDeep(entry)
-    return [entry[0], isSensitiveKey(String(entry[0])) ? REDACTED : scrubDeep(entry[1])]
+    return [entry[0], isSensitiveKey(String(entry[0]), entry[1]) ? REDACTED : scrubDeep(entry[1])]
 }
 
 function scrubQueryString(qs: unknown): unknown {
     if (!qs) return qs
-    if (typeof qs === 'string') return scrubText(redactSensitiveParams(qs))
+    if (typeof qs === 'string') return scrubText(qs)
     if (Array.isArray(qs)) return qs.map(scrubQueryEntry)
     return scrubDeep(qs)
 }
@@ -168,6 +145,8 @@ export function scrubSentryTransaction<T extends Event>(event: T): T {
     return scrubCommon(event)
 }
 
+// The SDK attaches scope-level attributes after beforeSendLog. Do not put sensitive data in
+// Sentry.setAttribute or scope.setAttributes; these hooks cannot scrub those attributes.
 export function scrubSentryLog(log: Log): Log {
     return {
         ...log,
