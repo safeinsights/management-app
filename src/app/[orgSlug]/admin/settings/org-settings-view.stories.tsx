@@ -110,7 +110,7 @@ const DataSourcesCard = (
 
 const TestLabsCard = (
     <TestLabsView onAdd={noop}>
-        <TestLabsTableView>
+        <TestLabsTableView hasActions={false}>
             <TestLabRowView name="Mars Undergraduate Lab" addedOn="Sep 14, 2026" />
             <TestLabRowView name="Phobos Analytics" addedOn="Sep 21, 2026" />
         </TestLabsTableView>
@@ -179,5 +179,31 @@ export const DataSourcesCardOnly: Story = () => (
                 />
             </Stack>
         </DataSourcesView>
+    </Box>
+)
+
+const dropAction = (name: string) => (
+    <ActionIcon size="sm" variant="subtle" color="red" onClick={noop} aria-label={`Drop ${name}`}>
+        <TrashIcon />
+    </ActionIcon>
+)
+
+// The trailing actions column exists only in spy mode, for SI admins.
+export const TestLabsCardSpyMode: Story = () => (
+    <Box style={{ maxWidth: 960, margin: '24px auto' }}>
+        <TestLabsView onAdd={noop}>
+            <TestLabsTableView hasActions>
+                <TestLabRowView
+                    name="Mars Undergraduate Lab"
+                    addedOn="Sep 14, 2026"
+                    actions={dropAction('Mars Undergraduate Lab')}
+                />
+                <TestLabRowView
+                    name="Phobos Analytics"
+                    addedOn="Sep 21, 2026"
+                    actions={dropAction('Phobos Analytics')}
+                />
+            </TestLabsTableView>
+        </TestLabsView>
     </Box>
 )

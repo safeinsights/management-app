@@ -46,8 +46,6 @@ export const labsEligibleAsTestLabs = (db: DBExecutor, dataPartnerId: string) =>
         .orderBy('org.name')
         .execute()
 
-// No undesignate yet: stamped studies would stay exempt forever, and unstamping would unenforce an
-// agreement a study may carry. The modal also promises permanence.
 export const designateTestLabs = async (
     db: DBExecutor,
     {
@@ -62,3 +60,17 @@ export const designateTestLabs = async (
         .onConflict((oc) => oc.constraint('org_test_lab_pair_unique').doNothing())
         .execute()
 }
+
+// Leaves study.is_test_study alone: it is stamped at creation, not derived, and unstamping would
+// unenforce an agreement a study may already carry. Only studies created from now on go unstamped.
+// Scoped by dataPartnerId, so a row id belonging to another data partner deletes nothing.
+export const undesignateTestLab = (
+    db: DBExecutor,
+    { dataPartnerId, testLabId }: { dataPartnerId: string; testLabId: string },
+) =>
+    db
+        .deleteFrom('orgTestLab')
+        .where('id', '=', testLabId)
+        .where('dataPartnerId', '=', dataPartnerId)
+        .returning('id')
+        .executeTakeFirst()

@@ -1,24 +1,42 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Stack, Table, Text, Title } from '@mantine/core'
+import { Stack, Table, Text, Title, VisuallyHidden } from '@mantine/core'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { fontWeight } from '@/theme/tokens'
 import { SettingsCard } from './settings-card'
 
 // Presentational only, so the section renders without a QueryClient (e.g. Ladle).
 
-// No actions column: a test lab cannot be removed yet. designateTestLabs states what removal needs.
-export function TestLabRowView({ name, addedOn }: { name: string; addedOn: string }) {
+// The header cannot see its rows, so it takes a flag; a row has an actions cell exactly when it is
+// given actions. The caller derives both from one value, so header and cells cannot misalign.
+function ActionsHeader({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+
+    return (
+        <Table.Th>
+            <VisuallyHidden>Actions</VisuallyHidden>
+        </Table.Th>
+    )
+}
+
+export type TestLabRowViewProps = {
+    name: string
+    addedOn: string
+    actions?: ReactNode
+}
+
+export function TestLabRowView({ name, addedOn, actions }: TestLabRowViewProps) {
     return (
         <Table.Tr>
             <Table.Td>{name}</Table.Td>
             <Table.Td>{addedOn}</Table.Td>
+            {actions != null && <Table.Td>{actions}</Table.Td>}
         </Table.Tr>
     )
 }
 
-export function TestLabsTableView({ children }: { children: ReactNode }) {
+export function TestLabsTableView({ hasActions, children }: { hasActions: boolean; children: ReactNode }) {
     return (
         <Stack gap="sm">
             <Title order={4} size="md">
@@ -29,6 +47,7 @@ export function TestLabsTableView({ children }: { children: ReactNode }) {
                     <Table.Tr>
                         <Table.Th>Organization</Table.Th>
                         <Table.Th>Added on</Table.Th>
+                        <ActionsHeader isVisible={hasActions} />
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{children}</Table.Tbody>
