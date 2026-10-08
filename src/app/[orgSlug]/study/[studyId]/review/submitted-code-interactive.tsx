@@ -17,6 +17,8 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { AnalysisPanel } from './analysis-panel'
+import { SecurityScanPanel, isScanPending } from './security-scan-panel'
 import { ToggleChevron } from '@/components/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
@@ -126,7 +128,7 @@ function useElapsedSince(since: Date | string, ms: number) {
 const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
     ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
 
-type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
+type JobAnalysisUpdate = JobAnalysis
 
 // The server drops a review belonging to a previous round, so a null review here means
 // "generating", never "last round's" (OTTER-775).
@@ -137,26 +139,26 @@ type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
 function useJobAnalysisPoll(
     studyJobId: string,
     submittedAt: Date | string,
-    initialReview: StudyReviewWithMeta | null,
+    initialAnalysis: JobAnalysis,
     intervalMs: number,
 ) {
     return useQuery({
         queryKey: jobAnalysisKey(studyJobId, submittedAt),
-        // No `withScan`: this page stopped rendering a scan verdict in OTTER-694, and asking for
-        // one would buy an S3 read on every tick.
         queryFn: async (): Promise<JobAnalysisUpdate> => {
             const response = await getJobAnalysisAction({ studyJobId })
-            if (isActionError(response)) return { review: null }
-            return { review: response.review }
+            if (isActionError(response)) throw new Error('Unable to load analysis')
+            return response
         },
-        initialData: { review: initialReview },
+        initialData: initialAnalysis,
         // The server render is already stale by the time it reaches the browser; without this the
         // seeded value counts as fresh and the first interval tick is skipped.
         initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
             const review = query.state.data?.review
-            return review == null || studyReviewState(review) === 'pending' ? intervalMs : false
+            return review == null || studyReviewState(review) === 'pending' || isScanPending(query.state.data?.scan)
+                ? intervalMs
+                : false
         },
     })
 }
@@ -289,16 +291,13 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
     }
 
     return (
-        <Stack gap="lg" data-testid="ai-summary">
-            <Stack gap={4}>
-                <Text fw={fontWeight.bold}>AI Summary of submitted code files</Text>
-                <Text size="xs" c="dimmed">
-                    AI-generated summary, which may contain errors. Review the submitted code before making your
-                    decision.
-                </Text>
-            </Stack>
+        <AnalysisPanel
+            title="AI Summary of submitted code files"
+            description="AI-generated summary, which may contain errors. Review the submitted code before making your decision."
+            testId="ai-summary"
+        >
             {renderBody()}
-        </Stack>
+        </AnalysisPanel>
     )
 }
 
@@ -347,7 +346,7 @@ export function JobAnalysisPanels({
     children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
-    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis.review, pollIntervalMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
     const review = data?.review ?? null
     // The server judges a row it has; the submission clock only covers a run that never wrote one.
     const summaryGaveUp = review ? review.isStale : summaryTimeout.elapsed
@@ -355,6 +354,7 @@ export function JobAnalysisPanels({
     return (
         <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
             <Stack gap="xl">
+                <SecurityScanPanel scan={data?.scan ?? null} hasError={error != null} />
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}

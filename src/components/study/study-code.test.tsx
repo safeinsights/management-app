@@ -131,7 +131,7 @@ const renderIDE = async (
         acknowledged?: boolean
     } = {},
 ) => {
-    const { study } = await setupStudy(studyOrgSlug, { acknowledged })
+    const { study, user } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
@@ -155,7 +155,7 @@ const renderIDE = async (
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
-    return { study, previousHref, dataPartnerName }
+    return { study, user, previousHref, dataPartnerName }
 }
 
 /**
@@ -519,24 +519,31 @@ describe('StudyCode component', () => {
         })
 
         it('records the visit on mount, without waiting for the reader to touch it', async () => {
-            const { study } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            const { study, user } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
 
             await waitFor(async () => {
                 const rows = await db
                     .selectFrom('audit')
                     .select('id')
                     .where('recordType', '=', 'USER')
+                    .where('recordId', '=', user.id)
                     .where('eventType', '=', 'VIEWED')
                     .execute()
                 expect(rows).toHaveLength(1)
             })
+            await waitForPendingMutations()
             expect(study).toBeDefined()
         })
 
         it('records nothing on a return visit', async () => {
-            await renderIDE()
+            const { user } = await renderIDE()
 
-            const rows = await db.selectFrom('audit').select('id').where('eventType', '=', 'VIEWED').execute()
+            const rows = await db
+                .selectFrom('audit')
+                .select('id')
+                .where('recordId', '=', user.id)
+                .where('eventType', '=', 'VIEWED')
+                .execute()
             expect(rows).toHaveLength(0)
         })
 

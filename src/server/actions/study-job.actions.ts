@@ -292,17 +292,15 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => studyJob)
 
-// The summary and the scan describe the same submission, so a caller that wants both gets them in
-// one authorization and one getStudyJobInfo rather than two round-trips. `withScan` is off by
-// default: the scan costs an S3 fetch, and no caller has rendered a verdict since OTTER-694.
+// The summary and scan share one authorization and submission lookup.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
-    .params(z.object({ studyJobId: z.string(), withScan: z.boolean().optional() }))
+    .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
     })
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob, params: { withScan } }) => await jobAnalysisForJob(studyJob, { withScan }))
+    .handler(async ({ studyJob }) => await jobAnalysisForJob(studyJob))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
