@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -82,8 +82,12 @@ type MainFileStarProps = {
     onSelect: (fileName: string) => void
 }
 
+// Greyed rather than hidden: view-only still shows which file is main.
+const starColor = (isEditable: boolean) => semanticColor(isEditable ? 'surface.selected' : 'surface.disabled.medium')
+
+// No "Set as main file" tooltip on a view-only star: it would invite an action the user cannot take.
 const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onSelect }) => (
-    <Tooltip label={TOOLTIPS.setMain} withArrow>
+    <Tooltip label={TOOLTIPS.setMain} withArrow disabled={!isEditable}>
         <UnstyledButton
             // A radio rather than a toggle: exactly one file is main, and unstarring the current
             // one is not a state the page has.
@@ -92,18 +96,9 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
             aria-label={isMain ? `${fileName} is the main file` : `Set ${fileName} as main file`}
             disabled={!isEditable}
             onClick={() => onSelect(fileName)}
-            style={{ display: 'inline-flex', cursor: isEditable ? 'pointer' : 'not-allowed' }}
+            display="inline-flex"
         >
-            <StarIcon
-                size={20}
-                weight={isMain ? 'fill' : 'regular'}
-                color={
-                    isEditable
-                        ? 'var(--mantine-color-blue-7)'
-                        : /* greyed rather than hidden: view-only still shows which file is main */
-                          'var(--mantine-color-charcoal-3)'
-                }
-            />
+            <StarIcon size={20} weight={isMain ? 'fill' : 'regular'} color={starColor(isEditable)} />
         </UnstyledButton>
     </Tooltip>
 )
@@ -118,7 +113,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey">
                     Template
                 </Badge>
             </HoverCard.Target>
@@ -138,28 +133,24 @@ type FileNameCellProps = {
     onView: (fileName: string) => void
 }
 
-const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => {
-    const [isHovered, setIsHovered] = useState(false)
-
-    return (
-        <Group gap="xs" wrap="nowrap">
-            <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
-                <UnstyledButton
-                    onClick={() => onView(fileName)}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    aria-label={`View ${fileName}`}
-                    style={{ cursor: 'pointer', textDecoration: isHovered ? 'underline' : 'none' }}
-                >
-                    <Text component="span" inherit>
-                        {truncateFileName(fileName)}
-                    </Text>
-                </UnstyledButton>
-            </Tooltip>
-            <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
-        </Group>
-    )
-}
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
+    <Group gap="xs" wrap="nowrap">
+        <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
+            <Anchor
+                component="button"
+                type="button"
+                underline="hover"
+                c={semanticColor('text.primary')}
+                inherit
+                aria-label={`View ${fileName}`}
+                onClick={() => onView(fileName)}
+            >
+                {truncateFileName(fileName)}
+            </Anchor>
+        </Tooltip>
+        <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
+    </Group>
+)
 
 type FileActionsProps = {
     fileName: string

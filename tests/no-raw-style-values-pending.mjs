@@ -106,7 +106,6 @@ export const PENDING_RAW_STYLE_FILES = [
     'src/components/study/submit-code-error.tsx',
     'src/components/study/submit-code-faq.tsx',
     'src/components/study/test-study-label.tsx',
-    'src/components/study/your-files-table.tsx',
     'src/components/timed-progress-bar.tsx',
     'src/components/user-avatar.tsx',
     'src/lib/status-labels.ts',
