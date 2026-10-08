@@ -204,6 +204,7 @@ async function uploadAndExpectFiles(page: Page, filePaths: string[]) {
 }
 
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
+    // analysis.r avoids colliding with the Main.R template on case-insensitive macOS filesystems.
     await uploadAndExpectFiles(page, [mainCodeFile, 'tests/fixtures/code-samples/code.r'])
     const mainFileName = mainCodeFile.split('/').pop()!
 
@@ -238,6 +239,11 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
     // /resubmit renders the same table as /code, so the same selectors apply.
     await uploadAndExpectFiles(page, ['tests/fixtures/code-samples/analysis.r', 'tests/fixtures/code-samples/code.r'])
+    await page.locator('input[type="file"]').setInputFiles('tests/fixtures/code-samples/analysis.r')
+    const replaceDialog = page.getByRole('dialog', { name: 'Replace existing file?' })
+    await expect(replaceDialog).toContainText('A file named analysis.r already exists')
+    await replaceDialog.getByRole('button', { name: 'Replace', exact: true }).click()
+    await expect(replaceDialog).not.toBeVisible()
     await expect(page.getByRole('radio', { name: 'analysis.r is the main file', exact: true })).toBeVisible()
 }
 
@@ -1142,6 +1148,12 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'researcher', async (page) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
+
+        // Seeded jobs have no local workspace files, so /resubmit exercises the empty view.
+        const starterLink = page.getByRole('link', { name: 'Starter code', exact: true })
+        await expect(starterLink).toBeVisible()
+        await expect(starterLink).toHaveAttribute('href', /X-Amz-Signature=/i)
+        await expect(starterLink).toHaveAttribute('target', '_blank')
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 

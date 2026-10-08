@@ -19,7 +19,7 @@ describe('initializeDevWorkspaceFiles', () => {
         })
         vi.doMock('@/server/storage', () => ({
             fetchFileContents: vi.fn().mockResolvedValue({
-                arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+                arrayBuffer: vi.fn().mockResolvedValue(new TextEncoder().encode('starter content').buffer),
             }),
         }))
     })
@@ -83,7 +83,8 @@ describe('initializeDevWorkspaceFiles', () => {
         await initializeDevWorkspaceFiles(second.id)
 
         expect(await fs.readFile(`${TEST_CODER_FILES}/${first.id}/Main.R`, 'utf-8')).toBe('user edits')
-        expect(await fs.readFile(`${TEST_CODER_FILES}/${second.id}/Main.R`, 'utf-8')).not.toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${second.id}/Main.R`, 'utf-8')).toBe('starter content')
+        await expect(fs.stat(`${TEST_CODER_FILES}/Main.R`)).rejects.toMatchObject({ code: 'ENOENT' })
     })
 
     const seedContext = async (name: 'SYSTEM' | 'PYTHON' | 'R', content: string) => {
