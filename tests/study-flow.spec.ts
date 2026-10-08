@@ -428,6 +428,18 @@ async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string):
     await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
+// Playwright counts the table's opacity-0 empty state as visible until css hides it.
+async function reviewerPreviewsCsvOutput(page: Page): Promise<void> {
+    await page.getByRole('button', { name: 'results-with-pii.csv', exact: true }).click()
+
+    const dialog = page.getByRole('dialog', { name: /results-with-pii\.csv/ })
+    await expect(dialog.getByRole('cell', { name: 'john.doe@example.com' })).toBeVisible()
+    await expect(dialog.getByText('This file has no rows')).toBeHidden()
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+}
+
 // OTTER-667 + OTTER-675: the errored outputs screen, both phases. The key form gives way to
 // the outputs table and Decision section without a navigation, because decryption is client-side, so
 // the swap is a local phase flip on the same URL.
@@ -814,6 +826,7 @@ test('Successful results review', async ({ browser, studyFeatures }) => {
 
     await withRole(browser, 'reviewer', async (page) => {
         await reviewerDecryptsAvailableOutputs(page, studyTitle)
+        await reviewerPreviewsCsvOutput(page)
         await reviewerSeesValidationOnBlankSubmit(page)
         await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
     })

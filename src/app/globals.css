@@ -142,3 +142,9 @@ html {
     scroll-padding-top: var(--app-shell-header-offset, 0px);
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
 }
+
+/* mantine-datatable keeps its empty state mounted over a populated table at opacity 0, which screen
+   readers still announce; visibility takes it out of the accessibility tree. */
+.mantine-datatable-empty-state:not([data-active]) {
+    visibility: hidden;
+}
