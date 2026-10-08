@@ -34,6 +34,12 @@ describe('palette', () => {
         expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
     })
 
+    // The yellow status badges fill with it (OTTER-698).
+    it('fills status/warning/bg-dark with the library value', () => {
+        const [family, shade] = semanticShades['warning.bg.dark'].split('.')
+        expect(theme.colors?.[family]?.[Number(shade)]).toBe('#f0bc62')
+    })
+
     it('publishes border/SideNav as navy/0 at 30 percent', () => {
         const vars = semanticCssVariables(mergeMantineTheme(DEFAULT_THEME, theme))
         expect(vars['--si-color-border-sidenav']).toBe('#e6e9ef4d')

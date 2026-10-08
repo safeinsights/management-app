@@ -46,6 +46,8 @@ import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[or
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
+import { studyCodeStateFor } from '@/server/study-code-gate'
+import { resolvePillId } from '@/lib/study-screen'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
 
@@ -1118,6 +1120,7 @@ describe('Request Study Actions', () => {
         it('creates job files, uploads workspace files, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1154,6 +1157,7 @@ describe('Request Study Actions', () => {
         it('rejects a main file that is not in the workspace file list', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide-reject')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1175,6 +1179,7 @@ describe('Request Study Actions', () => {
         it('refuses a second submission on a round already under review', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide-twice')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
@@ -1192,6 +1197,30 @@ describe('Request Study Actions', () => {
 
             expectCodeLocked(second)
             expect(aws.storeS3File).not.toHaveBeenCalled()
+        })
+
+        // Spec rows 8 and 9: the pre-loaded template sits in the workspace before any round exists,
+        // and only a launch or an upload may open one (OTTER-698).
+        it('refuses to submit before a launch or an upload has opened the round', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-unopened')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'Main.R': 'print("template")' })
+
+            const result = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'Main.R',
+                fileNames: ['Main.R'],
+            })
+
+            expect(result).toMatchObject({ error: { code: expect.stringContaining('has not been started') } })
+            expect(aws.storeS3File).not.toHaveBeenCalled()
+            const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobs).toHaveLength(0)
+            const state = (await studyCodeStateFor(db, study.id))!
+            expect(resolvePillId('researcher', state)).toBe('proposal-approved')
+            expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
     })
 
@@ -2124,6 +2153,7 @@ describe('Request Study Actions', () => {
 
             const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             await seedAcknowledgedStudyAgreement(draft.studyId)
+            await ensureRoundJobForLaunch(db, draft.studyId)
             const root = await createWorkspaceDir('roundtrip-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })

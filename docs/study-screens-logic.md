@@ -437,6 +437,11 @@ The spec names backend states conceptually; none of them is a new stored value e
 | `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
 | `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
 
+The `INITIATED` job behind `code-initiated` is opened by the first IDE launch (Launch IDE or the
+table pencil) or code upload, never by opening `/code`: the starter-code preload copies and stars
+the template without opening a round, and `submitStudyCodeAction` refuses until a round is open
+(OTTER-698).
+
 ### Researcher pill table (`researcher-pill-rules.ts`)
 
 | #   | Condition                                                          | Pill                      |

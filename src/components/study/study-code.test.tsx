@@ -1672,17 +1672,25 @@ describe('StudyCode component', () => {
         /**
          * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
          * renames the first starter file after the code env's language, and the badge matches that
-         * derived name. `pristine` decides whether it still counts as untouched — the badge keys off
+         * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
          * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
-        const renderWithTemplate = async ({ pristine, isMain = false }: { pristine: boolean; isMain?: boolean }) => {
+        const renderWithTemplate = async ({
+            baseline,
+            isMain = false,
+        }: {
+            baseline: 'pristine' | 'edited' | 'none'
+            isMain?: boolean
+        }) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-            await insertTestBaselineJob(study.id, {
-                createdAt: new Date(Date.now() + (pristine ? 60_000 : -60_000)),
-            })
+            if (baseline !== 'none') {
+                await insertTestBaselineJob(study.id, {
+                    createdAt: new Date(Date.now() + (baseline === 'pristine' ? 60_000 : -60_000)),
+                })
+            }
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1711,7 +1719,7 @@ describe('StudyCode component', () => {
         // The card's "star pre-selected by default": the pre-load writes study.mainCodeFileName, so
         // the researcher lands on a starred template without touching anything.
         it('renders the template starred when the pre-load has set it as main', async () => {
-            await renderWithTemplate({ pristine: true, isMain: true })
+            await renderWithTemplate({ baseline: 'pristine', isMain: true })
 
             await waitFor(() => {
                 expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
@@ -1719,23 +1727,27 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
 
-        it('badges the untouched starter file, and only that file', async () => {
-            await renderWithTemplate({ pristine: true })
+        // 'none' is the first visit: the pre-load opens no round job, so there is no baseline (OTTER-698).
+        it.each(['pristine', 'none'] as const)(
+            'badges the untouched starter file, and only that file (baseline: %s)',
+            async (baseline) => {
+                await renderWithTemplate({ baseline })
 
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
+                await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+                expect(screen.getAllByText('Template')).toHaveLength(1)
+                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                expect(templateRow).toHaveTextContent('Template')
+            },
+        )
 
         it('drops the badge once the starter file has been edited or replaced', async () => {
-            await renderWithTemplate({ pristine: false })
+            await renderWithTemplate({ baseline: 'edited' })
 
             expect(screen.queryByText('Template')).not.toBeInTheDocument()
         })
 
         it('explains the template on hover, in the same words as the FAQ', async () => {
-            await renderWithTemplate({ pristine: true })
+            await renderWithTemplate({ baseline: 'pristine' })
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
 
             const copy = () => screen.queryAllByText(/It is a template from Test Data Partner that connects to their/)
