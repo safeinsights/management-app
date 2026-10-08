@@ -97,7 +97,8 @@ export function $unwrapLink(nodeKey: string) {
     if ($isTextNode(last)) last.select(last.getTextContentSize(), last.getTextContentSize())
 }
 
-export function $selectLinkEnd(nodeKey: string) {
+/** The start, because Lexical moves a caret at a link's trailing edge onto the text after it. */
+export function $selectLinkStart(nodeKey: string) {
     const link = $getNodeByKey(nodeKey)
-    if ($isLinkNode(link)) link.selectEnd()
+    if ($isLinkNode(link)) link.selectStart()
 }

@@ -34,7 +34,7 @@ import {
     $linkAtDomNode,
     $linkAtSelection,
     $selectionLeftLink,
-    $selectLinkEnd,
+    $selectLinkStart,
     $unwrapLink,
     $updateLink,
     OPEN_LINK_CARD_COMMAND,
@@ -77,7 +77,7 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         // The field is focused directly because Lexical's own focus() only marks the selection
         // dirty, which moves the caret but not DOM focus.
         editor.getRootElement()?.focus()
-        editor.update(() => $selectLinkEnd(nodeKey))
+        editor.update(() => $selectLinkStart(nodeKey))
     }, [close, editor, link])
 
     const { rememberPress, movedSincePress } = useClickWithoutDrag()
