@@ -143,6 +143,10 @@ export const Toolbar = () => {
     // Unlinking dispatches after the read closes, through runOnEditor; opening the link editor is
     // the one command that should move focus (OTTER-647).
     const toggleLink = () => {
+        // The hover card owns an existing link, and this is the keyboard route into it. It also
+        // knows the caret Lexical moves off a link's end, which the check below cannot see.
+        if (editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)) return
+
         const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()
             if (!$isRangeSelection(selection)) return null
@@ -155,10 +159,8 @@ export const Toolbar = () => {
         if (!selected) return
 
         if (selected.existingUrl) {
-            // The hover card owns an existing link, and this is the keyboard route into it. The
-            // older standalone editor mounts no card, so unlinking stays its fallback.
-            const openedCard = editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)
-            if (!openedCard) runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
+            // The older standalone editor mounts no card, so unlinking stays its fallback.
+            runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
         } else {
             linkEditor.openLinkEditor(null)
         }
