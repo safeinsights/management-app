@@ -41,6 +41,7 @@ type SubmissionEventBase = {
 
 export type SubmissionEvent =
     | ({ type: 'proposal-submitted'; orgName: string } & SubmissionEventBase)
+    | ({ type: 'code-submitted' } & SubmissionEventBase)
     | ({ type: DecisionEventType } & SubmissionEventBase)
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
@@ -65,7 +66,7 @@ const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
     if (obj.type === 'proposal-submitted' && isString(obj.orgName)) {
         return { type: 'proposal-submitted', ...base, orgName: obj.orgName }
     }
-    if (isDecisionEventType(obj.type)) {
+    if (obj.type === 'code-submitted' || isDecisionEventType(obj.type)) {
         return { type: obj.type, ...base }
     }
     return null
@@ -118,6 +119,16 @@ export function useSubmissionRedirectListener({ provider, orgSlug, studyId, curr
                     message: `${event.submittedByName} has proceeded to submit this study proposal to ${event.orgName}. No further edits are allowed at this point.`,
                 })
                 router.push(Routes.studySubmitted({ orgSlug, studyId }))
+                return
+            }
+
+            if (event.type === 'code-submitted') {
+                showToast({
+                    category: 'info',
+                    title: 'Code submitted',
+                    message: `${event.submittedByName} has submitted the code for review. No further edits are allowed at this point.`,
+                })
+                router.push(Routes.studyView({ orgSlug, studyId }))
                 return
             }
 

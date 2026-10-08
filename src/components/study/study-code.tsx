@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type FC } from 'react'
+import { useCallback, useRef, useState, type FC, type ReactNode } from 'react'
 import { type StudyCodeIDE, useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -34,6 +34,8 @@ interface StudyCodeProps {
     isEditable: boolean
     nav: StepNav
     onSubmitSuccess?: () => void
+    /** "Also editing" badges for the step header (OTTER-753). */
+    presence?: ReactNode
 }
 
 const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) => (
@@ -121,6 +123,7 @@ export const StudyCode = ({
     isEditable,
     nav,
     onSubmitSuccess,
+    presence,
 }: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -170,7 +173,7 @@ export const StudyCode = ({
             <Stack gap="xxl">
                 {/* No studyTitle: the card forbids repeating the title as body text here. The
                     header's rule only draws when something follows it, which the children below do. */}
-                <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
+                <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE} action={presence}>
                     <Stack gap="lg">
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
                         <SubmitCodeFaq
