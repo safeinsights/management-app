@@ -696,11 +696,16 @@ export type WorkspaceFileActivityRow = {
     actorName: string
 }
 
-export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+// `before` bounds it to a submission, so edits from a later round never show against older files.
+export async function latestActivityPerWorkspaceFile(
+    studyId: string,
+    { before }: { before?: Date } = {},
+): Promise<WorkspaceFileActivityRow[]> {
     return await Action.db
         .selectFrom('workspaceFileActivity')
         .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
         .where('workspaceFileActivity.studyId', '=', studyId)
+        .$if(before !== undefined, (qb) => qb.where('workspaceFileActivity.createdAt', '<=', before!))
         .select([
             'workspaceFileActivity.fileName',
             'workspaceFileActivity.action',
@@ -712,6 +717,21 @@ export async function latestActivityPerWorkspaceFile(studyId: string): Promise<W
         .orderBy('workspaceFileActivity.createdAt', 'desc')
         .orderBy('workspaceFileActivity.id', 'desc')
         .execute()
+}
+
+// Scoped to the study so a job id from another study yields nothing.
+export async function latestCodeSubmissionAt(studyId: string, jobId: string): Promise<Date | undefined> {
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.id', '=', jobId)
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select('jobStatusChange.createdAt')
+        .orderBy('jobStatusChange.createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt
 }
 
 // Rows can exist while the round is still open, and removing a researcher from the lab never

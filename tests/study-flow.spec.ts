@@ -1115,7 +1115,7 @@ async function researcherResubmitsCode(page: Page, studyId: string, note: string
 
     await uploadResubmitFilesExpectingInheritedMain(page)
 
-    await page.getByLabel(/Resubmission Note/i).fill(note)
+    await fillLexicalField(page, 'Resubmission note', note)
 
     const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
     await expect(page.getByText(/All changes saved/i)).toBeVisible()
@@ -1224,7 +1224,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         // autosave + resubmit wiring on a Results-ready study, NOT the ordering bug itself: this seed
         // is deterministically ordered (FILES-APPROVED newest), so the old at(0) gate would have
         // passed here too. The ordering-triggered failure is covered by the unit tests.
-        await page.getByLabel(/Resubmission Note/i).fill('Reworked code after the results were approved.')
+        await fillLexicalField(page, 'Resubmission note', 'Reworked code after the results were approved.')
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
         await expect(page.getByText(/can no longer be changed/i)).toBeHidden()
 

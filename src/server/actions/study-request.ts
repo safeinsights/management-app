@@ -601,7 +601,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -728,7 +728,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so

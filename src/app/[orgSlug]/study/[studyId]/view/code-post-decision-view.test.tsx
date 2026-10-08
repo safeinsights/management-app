@@ -106,6 +106,7 @@ function renderView(
         <CodePostDecisionView
             study={study}
             job={job}
+            activityByName={{}}
             entries={entries}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             latestJobStatus={latestJobStatus}
