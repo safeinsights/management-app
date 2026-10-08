@@ -1510,10 +1510,14 @@ describe('StudyCode component', () => {
             const heading = await screen.findByText('IDE failed to launch')
             const dialog = heading.closest('[role="dialog"]') as HTMLElement
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
-            // The real Sentry event id, not the design's placeholder: reportError mints one for
+            // The real Sentry event id, not the design's placeholder: captureError mints one for
             // this same failure and the researcher quotes it to support.
             expect(dialog).toHaveTextContent(
                 /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
+            )
+            // OTTER-832: the modal is the only surface, so no toast repeats it.
+            expect(notifications.show).not.toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Failed to launch IDE' }),
             )
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
@@ -1524,8 +1528,8 @@ describe('StudyCode component', () => {
         })
 
         // The mutation path above lands the id in the same React batch. A build Coder reports as
-        // failed reaches reportError from an effect instead, so the modal paints once without a ref
-        // — that frame must read as a whole sentence rather than exposing a blank or a placeholder.
+        // failed reaches captureError from an effect instead, so the modal paints once without a
+        // ref, and that frame must read as a whole sentence rather than a blank or a placeholder.
         it('fills the Ref once a failed build is polled', async () => {
             vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
                 launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
@@ -1543,6 +1547,9 @@ describe('StudyCode component', () => {
                 expect(dialog).toHaveTextContent(
                     /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
                 ),
+            )
+            expect(notifications.show).not.toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Failed to launch IDE' }),
             )
         })
 
