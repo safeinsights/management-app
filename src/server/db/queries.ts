@@ -651,14 +651,11 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-// PASSED only on an explicit clean signal. INDETERMINATE covers "reported, but no verdict": a scan
-// that found nothing it could analyze, or analyzed only part of the code, clears nothing (OTTER-649).
-export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
+// INDETERMINATE means the tool reported without a verdict. NOT-RUN means its header is absent.
+export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE' | 'NOT-RUN'
 
 export type JobScanResult = {
-    // null when the scan hasn't reported yet (no readable plaintext log). Semgrep has scanned study
-    // code since OTTER-774; Trivy is read only from logs stored before then, and a log without a
-    // tool's status line is INDETERMINATE for that tool.
+    // null means no readable log. NOT-RUN means the readable log has no header for this tool.
     semgrep: ScanToolStatus | null
     trivy: ScanToolStatus | null
     // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
@@ -687,26 +684,29 @@ function statusLineVerdict(
     label: RegExp,
     verdicts: Map<string, ScanToolStatus>,
 ): ScanToolStatus | undefined {
-    const statusLine = lines.find((line) => label.test(line))
-    if (!statusLine) return undefined
+    const statusLine = lines.find((line) => line.length > 0)
+    if (!statusLine || !label.test(statusLine)) return undefined
     const phrase = statusLine.replace(label, '').trim().toLowerCase()
     return verdicts.get(phrase) ?? 'INDETERMINATE'
 }
 
-const trimmedLines = (log: string) => log.split('\n').map((line) => line.trim())
+const trimmedLines = (log: string | string[]) =>
+    typeof log === 'string' ? log.split('\n').map((line) => line.trim()) : log
 
-export function parseSemgrepStatus(log: string): ScanToolStatus {
-    return statusLineVerdict(trimmedLines(log), SEMGREP_STATUS_LINE, SEMGREP_VERDICTS) ?? 'INDETERMINATE'
+export function parseSemgrepStatus(log: string | string[]): ScanToolStatus {
+    return statusLineVerdict(trimmedLines(log), SEMGREP_STATUS_LINE, SEMGREP_VERDICTS) ?? 'NOT-RUN'
 }
 
-export function parseTrivyStatus(log: string): ScanToolStatus {
+// Legacy clean phrases lack coverage evidence: R-only logs can say PASSED despite no R analyzer (OTTER-649).
+export function parseTrivyStatus(log: string | string[]): ScanToolStatus {
     const lines = trimmedLines(log)
     const verdict = statusLineVerdict(lines, TRIVY_STATUS_LINE, TRIVY_VERDICTS)
     if (verdict) return verdict
 
     // Logs predating the status phrase headed findings with this label.
-    if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
-    return 'INDETERMINATE'
+    const firstLine = lines.find((line) => line.length > 0)
+    if (firstLine && TRIVY_LEGACY_FINDINGS_HEADER.test(firstLine)) return 'FAILED'
+    return 'NOT-RUN'
 }
 
 // No log row yet, or an unreadable file, is treated as "not reported".
@@ -725,8 +725,8 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
 
     try {
         const blob = await fetchFileContents(logFile.path)
-        const contents = await blob.text()
-        return { semgrep: parseSemgrepStatus(contents), trivy: parseTrivyStatus(contents), logFile }
+        const lines = trimmedLines(await blob.text())
+        return { semgrep: parseSemgrepStatus(lines), trivy: parseTrivyStatus(lines), logFile }
     } catch {
         // The download route serves the file from the DB row + a signed URL, so keep it available
         // with unknown statuses rather than pretending the scan is pending.
@@ -772,10 +772,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
 
 export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
 
-// `withScan` because a scan costs an S3 fetch and two parses, while the summary is one row: a
-// caller that does not render a verdict should not pay for one. No surface renders one today —
-// OTTER-694 took the panel off the review page, and it has not been rebuilt for Semgrep
-// (OTTER-774) — so every current caller leaves it off and `scan` is null.
+// OTTER-694 removed the scan panel. Current callers skip the S3 fetch unless they request a scan.
 export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
     const [review, scan] = await Promise.all([
         getStudyReviewForJob(job),

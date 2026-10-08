@@ -44,7 +44,7 @@ const ORG_SLUG = 'test-org-submitted'
 
 const scanResult = (semgrep: JobScanResult['semgrep']): JobScanResult => ({
     semgrep,
-    trivy: null,
+    trivy: 'NOT-RUN',
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 

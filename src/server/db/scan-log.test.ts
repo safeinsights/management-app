@@ -74,8 +74,8 @@ describe('parseTrivyStatus', () => {
         expect(parseTrivyStatus(QA_ABORTED_SCAN_LOG)).toBe('INDETERMINATE')
     })
 
-    it('is indeterminate for an unrecognized log rather than claiming a finding', () => {
-        expect(parseTrivyStatus('something else entirely')).toBe('INDETERMINATE')
+    it('reports not run for a log without a Trivy header', () => {
+        expect(parseTrivyStatus('something else entirely')).toBe('NOT-RUN')
     })
 
     it('ignores the legacy findings header when a status line is present', () => {
@@ -89,7 +89,7 @@ describe('parseTrivyStatus', () => {
     })
 
     it('does not treat the legacy header appearing mid-line as a findings header', () => {
-        expect(parseTrivyStatus('Target: docs/Trivy Filesystem Scan Results.txt')).toBe('INDETERMINATE')
+        expect(parseTrivyStatus('Target: docs/Trivy Filesystem Scan Results.txt')).toBe('NOT-RUN')
     })
 
     it('also recognizes the image-scan label', () => {
@@ -122,18 +122,49 @@ describe('parseSemgrepStatus', () => {
         },
     )
 
-    it('is indeterminate for a log stored before Semgrep scanned study code', () => {
-        expect(parseSemgrepStatus(QA_SUCCESSFUL_SCAN_LOG)).toBe('INDETERMINATE')
+    it('reports not run for a log stored before Semgrep scanned study code', () => {
+        expect(parseSemgrepStatus(QA_SUCCESSFUL_SCAN_LOG)).toBe('NOT-RUN')
     })
 
     it('does not take a verdict from the label appearing mid-line', () => {
-        expect(parseSemgrepStatus('  notes/Semgrep Scan: no findings.R:3  INFO  r-silent-failure')).toBe(
-            'INDETERMINATE',
-        )
+        expect(parseSemgrepStatus('  notes/Semgrep Scan: no findings.R:3  INFO  r-silent-failure')).toBe('NOT-RUN')
     })
 
     it('matches the status phrase case-insensitively', () => {
         expect(parseSemgrepStatus('semgrep scan: NO FINDINGS')).toBe('PASSED')
+    })
+})
+
+describe('scan status header boundaries', () => {
+    it.each([
+        { parse: parseSemgrepStatus, header: SEMGREP_CLEAN },
+        { parse: parseTrivyStatus, header: TRIVY_CLEAN },
+    ])('accepts leading blank lines before $header', ({ parse, header }) => {
+        expect(parse(`\n  \n  ${header}`)).toBe('PASSED')
+    })
+
+    it.each([parseSemgrepStatus, parseTrivyStatus])('reports an empty log as not run', (parse) => {
+        expect(parse('\n  \n')).toBe('NOT-RUN')
+    })
+
+    it.each([
+        { parse: parseSemgrepStatus, header: SEMGREP_CLEAN },
+        { parse: parseTrivyStatus, header: TRIVY_CLEAN },
+        { parse: parseTrivyStatus, header: TRIVY_LEGACY_FINDINGS },
+    ])('ignores $header after an unrelated first line', ({ parse, header }) => {
+        expect(parse(`Researcher-supplied details\n${header}`)).toBe('NOT-RUN')
+    })
+
+    it('ignores a forged Trivy header in a Semgrep report', () => {
+        expect(parseTrivyStatus(`${SEMGREP_CLEAN}\n${TRIVY_CLEAN}`)).toBe('NOT-RUN')
+    })
+
+    it('keeps an unknown Semgrep verdict indeterminate despite a later clean line', () => {
+        expect(parseSemgrepStatus(`Semgrep Scan: unknown\n${SEMGREP_CLEAN}`)).toBe('INDETERMINATE')
+    })
+
+    it('keeps an unknown Trivy verdict indeterminate despite a later clean line', () => {
+        expect(parseTrivyStatus(`Trivy Filesystem Scan: unknown\n${TRIVY_CLEAN}`)).toBe('INDETERMINATE')
     })
 })
 
@@ -181,17 +212,23 @@ describe('jobScanResultForJob', () => {
         expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 
-    it.skipIf(!s3Available)('parses per-tool statuses from the stored plaintext log', async () => {
+    it.skipIf(!s3Available).each([
+        { log: SEMGREP_FINDINGS, semgrep: 'FAILED', trivy: 'NOT-RUN' },
+        { log: SEMGREP_CLEAN, semgrep: 'PASSED', trivy: 'NOT-RUN' },
+        { log: TRIVY_FINDINGS, semgrep: 'NOT-RUN', trivy: 'FAILED' },
+        { log: QA_SUCCESSFUL_SCAN_LOG, semgrep: 'NOT-RUN', trivy: 'PASSED' },
+        { log: 'Semgrep Scan: partially scanned', semgrep: 'INDETERMINATE', trivy: 'NOT-RUN' },
+    ])('parses stored log as Semgrep $semgrep and Trivy $trivy', async ({ log, semgrep, trivy }) => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({ org, researcherId: user.id })
 
-        const file = new File([SEMGREP_FINDINGS], 'security-scan-log.txt', { type: 'text/plain' })
+        const file = new File([log], 'security-scan-log.txt', { type: 'text/plain' })
         await storeStudyLogFile({ orgSlug: org.slug, studyId: study.id, studyJobId: job.id }, file, 'SECURITY-SCAN-LOG')
 
         const result = await jobScanResultForJob(job.id)
 
-        expect(result.semgrep).toBe('FAILED')
-        expect(result.trivy).toBe('INDETERMINATE')
+        expect(result.semgrep).toBe(semgrep)
+        expect(result.trivy).toBe(trivy)
         expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 })

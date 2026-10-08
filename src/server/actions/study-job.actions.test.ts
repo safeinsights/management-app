@@ -907,8 +907,7 @@ describe('Study Job Actions', () => {
             expect(analysis.scan).toBeNull()
         })
 
-        // The panel is parked until it is rebuilt for Semgrep (OTTER-774), not gone: the pair must
-        // still come back in one round-trip for whoever rebuilds it.
+        // OTTER-694 removed the scan panel. Explicit callers can still request the scan with the review.
         test('returns the scan alongside the review when asked', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
