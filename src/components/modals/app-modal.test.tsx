@@ -6,31 +6,15 @@ import { AppModal } from './app-modal'
 const linkState = JSON.stringify({
     root: {
         type: 'root',
-        version: 1,
-        direction: 'ltr',
-        format: '',
-        indent: 0,
         children: [
             {
                 type: 'paragraph',
-                version: 1,
-                direction: 'ltr',
-                format: '',
-                indent: 0,
                 children: [
                     {
                         type: 'link',
-                        version: 1,
-                        direction: 'ltr',
-                        format: '',
-                        indent: 0,
-                        rel: 'noopener noreferrer',
-                        target: '_blank',
-                        title: null,
                         url: 'https://example.com',
-                        children: [
-                            { type: 'text', version: 1, detail: 0, format: 0, mode: 'normal', style: '', text: 'example' },
-                        ],
+                        target: '_blank',
+                        children: [{ type: 'text', text: 'example' }],
                     },
                 ],
             },
