@@ -9,7 +9,6 @@ import * as Sentry from '@sentry/nextjs'
 import dayjs from 'dayjs'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
-import { updateClerkUserMetadata } from './clerk'
 import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
 import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { getOrgInfoForUserId, siUser } from './db/queries'
@@ -406,7 +405,6 @@ export const onUserRoleUpdate = deferred(async ({ userId, actorId, orgId, before
             ...(await actorRoleProps(actorId, orgId)),
         }),
     })
-    await updateClerkUserMetadata(userId)
 })
 
 export const onUserPublicKeyCreated = deferred(async ({ userId }: { userId: string }) => {

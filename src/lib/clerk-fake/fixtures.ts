@@ -1,3 +1,5 @@
+import { publicMetadata } from '@/lib/clerk'
+
 // Mirrors the DB seed in src/database/seeds/1743608138837_test_users.ts; update this table
 // when that seed changes.
 
@@ -118,6 +120,11 @@ export function buildV3Metadata(fixture: FakeFixture): UserInfo {
             ]),
         ),
     }
+}
+
+// Mirrors production, where publicMetadata (and so the session token) leaves orgs out (OTTER-752).
+export function buildSessionClaimsMetadata(fixture: FakeFixture): UserPublicMetadata {
+    return publicMetadata({ user: { id: fixture.userId } })
 }
 
 export function defaultOrgSlug(fixture: FakeFixture): string {

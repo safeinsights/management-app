@@ -1,4 +1,6 @@
 'use server'
+
+import { getStudyFilesPath } from '@/server/workspace-files'
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
@@ -9,7 +11,7 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
@@ -269,7 +271,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set(updateValues)
+                      .set({ ...updateValues, labEditedAt: new Date() })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -558,10 +560,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
@@ -604,7 +603,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -731,7 +730,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
@@ -746,7 +746,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         // client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -773,7 +773,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -821,8 +821,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)

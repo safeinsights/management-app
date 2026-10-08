@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
 import {
+    REQUIRED_NOTE_ERROR,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     initialResubmitNoteValue,
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { ResubmissionNoteSection, type ResubmissionNoteAutosaveStatus } from './resubmission-note-section'
+import { ResubmissionNoteSection } from './resubmission-note-section'
+import type { ResubmissionNoteAutosaveStatus } from './resubmission-note-card'
 import { overCharacterLimitError } from '@/lib/field-limits'
 
 const OVER_LIMIT_ERROR = overCharacterLimitError('Resubmission note', RESUBMIT_NOTE_MAX_CHARACTERS)
@@ -28,6 +30,8 @@ function Harness({
             <ResubmissionNoteSection noteForm={noteForm} orgName="Rice University" autosaveStatus={autosaveStatus} />
             {/* Stands in for the footer's Resubmit, which validates the whole form on click. */}
             <button onClick={() => noteForm.validate()}>Resubmit probe</button>
+            {/* The editor reports a blur only when focus lands outside the whole widget. */}
+            <button type="button">Elsewhere</button>
         </>
     )
 }
@@ -35,19 +39,24 @@ function Harness({
 const clickResubmit = (user: ReturnType<typeof userEvent.setup>) =>
     user.click(screen.getByRole('button', { name: 'Resubmit probe' }))
 
+const blur = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Elsewhere' }))
+
 const renderSection = (props: Partial<React.ComponentProps<typeof Harness>> = {}) =>
     renderWithProviders(<Harness {...props} />)
 
+const findEditor = () => screen.findByLabelText('Resubmission note')
+
 describe('ResubmissionNoteSection', () => {
-    it('renders the section title and the data partner name in the secondary text', () => {
+    it('renders the section title in sentence case and the data partner name (OTTER-778)', () => {
         renderSection()
-        expect(screen.getByRole('heading', { name: /Resubmission Note/ })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^Resubmission note/ })).toBeInTheDocument()
         expect(screen.getByText(/Rice University/)).toBeInTheDocument()
     })
 
-    it('renders the resubmission note title only once (no duplicate field label)', () => {
+    it('renders the rich-text toolbar (OTTER-778)', async () => {
         renderSection()
-        expect(screen.getAllByRole('heading', { name: /Resubmission Note/ })).toHaveLength(1)
+        await findEditor()
+        expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument()
     })
 
     it('renders a 0/1800 character counter when empty', () => {
@@ -57,155 +66,82 @@ describe('ResubmissionNoteSection', () => {
 
     it('does not surface a validation error on first paint, before the user interacts', () => {
         renderSection()
-        expect(screen.queryByText(/required/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(/character limit/i)).not.toBeInTheDocument()
     })
 
     it('updates the character counter live as the user types', async () => {
         const user = userEvent.setup()
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.type(textarea, 'one two three')
-        expect(screen.getByText(`13/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+        await user.click(await findEditor())
+        await user.paste('one two three')
+        expect(await screen.findByText(`13/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
     })
 
-    // Only a Resubmit click raises the required error (OTTER-778); blurring an untouched empty
-    // note must leave it clean.
+    // Only a Resubmit click raises the required error; blurring an empty note must leave it clean.
     it('does not raise the required error when an empty note is blurred', async () => {
         const user = userEvent.setup()
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.tab()
-        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
+        await user.click(await findEditor())
+        await blur(user)
+        expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument()
     })
 
-    it('still raises the over-limit error on blur, which the AC keeps on this trigger', async () => {
+    it('raises the required error on a Resubmit click and clears it once the researcher types', async () => {
         const user = userEvent.setup()
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
-        await user.tab()
-
-        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
-    })
-
-    it('clears a click-raised error on input and leaves it clear until the next click', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
 
         await clickResubmit(user)
-        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
 
-        await user.click(textarea)
-        await user.paste(' ')
-        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
+        await user.click(await findEditor())
+        // Focusing the empty root is not an edit, so the error must survive it (OTTER-762).
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
 
-        await clickResubmit(user)
-        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+        await user.paste('Addressed the feedback.')
+        await waitFor(() => expect(screen.queryByText(REQUIRED_NOTE_ERROR)).not.toBeInTheDocument())
     })
 
-    it('does not re-raise the required error when a note emptied by the user is blurred', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-
-        await user.type(textarea, 'some draft text')
-        await user.clear(textarea)
-        await user.tab()
-
-        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
-    })
-
-    it('accepts a single character without surfacing a range error', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.paste('x')
-        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
-        expect(screen.queryByText(/character limit/i)).not.toBeInTheDocument()
-    })
-
-    it('counts characters beside the field and turns the counter red past the cap', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
-
-        // Mantine's `c` prop resolves to an inline color, not a class name.
-        const counter = screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS + 1}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
-        expect(counter.style.color).toContain('--mantine-color-error')
-    })
-
-    it('raises the over-limit error naming the field and the cap', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
-        await user.tab()
-
-        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
-    })
-
-    // The form validates on change, so the message arrives with the caret still in the field
-    // and nothing else would say so (OTTER-737).
     it('raises the over-limit error while typing and announces it politely', async () => {
         const user = userEvent.setup()
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
+        await user.click(await findEditor())
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
 
-        const message = screen.getByText(OVER_LIMIT_ERROR)
+        const message = await screen.findByText(OVER_LIMIT_ERROR)
         expect(message.closest('[aria-live="polite"]')).not.toBeNull()
     })
 
-    it('clears the over-limit error as soon as the note is back within the cap', async () => {
+    it('keeps the over-limit error after blur', async () => {
         const user = userEvent.setup()
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
+        await user.click(await findEditor())
         await user.paste('x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS + 1))
-        expect(screen.getByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
+        await blur(user)
 
-        await user.type(textarea, '{backspace}')
-
-        expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
-        expect(screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
+        expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
     })
 
     it('excludes whitespace at either end from the counter and from validation', async () => {
-        const user = userEvent.setup()
-        renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-        await user.click(textarea)
-        await user.paste(`  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  `)
+        renderSection({ initialNote: `  ${'x'.repeat(RESUBMIT_NOTE_MAX_CHARACTERS)}  ` })
+        await findEditor()
 
         expect(screen.getByText(`${RESUBMIT_NOTE_MAX_CHARACTERS}/${RESUBMIT_NOTE_MAX_CHARACTERS}`)).toBeInTheDocument()
         expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
     })
 
-    it('names the counter in the textarea aria-describedby', () => {
+    it('names the counter in the editor aria-describedby', async () => {
         renderSection()
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
+        const editor = await findEditor()
         const counter = screen.getByText(`0/${RESUBMIT_NOTE_MAX_CHARACTERS}`)
 
-        expect(textarea.getAttribute('aria-describedby')).toContain(counter.id)
+        expect(editor.getAttribute('aria-describedby')).toContain(counter.id)
     })
 
-    it('initialises the textarea with the supplied initial note', () => {
+    // Drafts saved before the editor became rich text are plain strings.
+    it('seeds the editor from a plain-text draft', async () => {
         renderSection({ initialNote: 'a pre-existing draft note' })
-        expect(screen.getByRole('textbox', { name: 'Resubmission Note' })).toHaveValue('a pre-existing draft note')
-    })
-
-    it('does not render the autosave indicator when no autosaveStatus is provided', () => {
-        renderSection()
-        expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
+        expect(await screen.findByText('a pre-existing draft note')).toBeInTheDocument()
     })
 
     it('renders "Saving…" while autosave is in flight', () => {
@@ -220,30 +156,17 @@ describe('ResubmissionNoteSection', () => {
         expect(status).not.toHaveTextContent(/\d/)
     })
 
-    it('renders exactly one check icon in the saved state (OTTER-658)', () => {
-        renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
-        const section = screen.getByTestId('resubmission-note-section')
-        expect(section.querySelectorAll('svg')).toHaveLength(1)
-    })
-
-    it('keeps "All changes saved" when the note is emptied, and yields to the error on a Resubmit click', async () => {
+    it('yields "All changes saved" to the error on a Resubmit click (OTTER-674)', async () => {
         const user = userEvent.setup()
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })
-        const textarea = screen.getByRole('textbox', { name: 'Resubmission Note' })
-
-        await user.type(textarea, 'some draft text')
-        expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
-
-        await user.clear(textarea)
-        expect(screen.queryByText(/resubmission note before continuing/i)).not.toBeInTheDocument()
         expect(screen.getByTestId('autosave-status')).toHaveTextContent('All changes saved')
 
         await clickResubmit(user)
-        expect(screen.getByText(/resubmission note before continuing/i)).toBeInTheDocument()
+        expect(screen.getByText(REQUIRED_NOTE_ERROR)).toBeInTheDocument()
         expect(screen.queryByTestId('autosave-status')).not.toBeInTheDocument()
     })
 
-    it('keeps the live region out of the textarea description (OTTER-675)', () => {
+    it('keeps the live region out of the editor description (OTTER-675)', () => {
         // A live region inside the error node would fold "All changes saved" into the field's
         // description and re-read it on every refocus.
         renderSection({ autosaveStatus: { isSaving: false, lastSavedAt: new Date('2026-05-20T10:15:00Z') } })

@@ -1,3 +1,4 @@
+import { getStudyFilesPath } from '@/server/workspace-files'
 import {
     coderWorkspaceAgentLogsPath,
     coderWorkspaceBuildByIdPath,
@@ -346,8 +347,7 @@ export const copyStarterCodeIntoWorkspace = async (
     const starterFiles = codeEnv.starterCodeFileNames ?? []
     if (starterFiles.length === 0) return null
 
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     // The card names the first starter file Main.{x} after the language; any others keep their own
     // name and carry no badge.
@@ -397,10 +397,9 @@ export const copyStarterCodeIntoWorkspace = async (
     return templateName
 }
 
-const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
+export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     await copyStarterCodeIntoWorkspace(studyId)
 

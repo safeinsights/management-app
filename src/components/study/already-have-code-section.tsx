@@ -33,7 +33,14 @@ export const AlreadyHaveCodeSection: FC<AlreadyHaveCodeSectionProps> = ({ isVisi
             <Text size="sm" c={semanticColor('text.primary')}>
                 Download the template file from the table above. Add your code, then edit and test it in the
                 SafeInsights IDE against example data.{' '}
-                <Anchor component="button" type="button" size="sm" onClick={() => openRef.current?.()}>
+                <Anchor
+                    component="button"
+                    type="button"
+                    size="sm"
+                    c={semanticColor('link.default')}
+                    underline="always"
+                    onClick={() => openRef.current?.()}
+                >
                     {UPLOAD_LINK_TEXT}
                 </Anchor>{' '}
                 when you are ready. {LIMITS_TEXT}

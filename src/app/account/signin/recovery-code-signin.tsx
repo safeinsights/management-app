@@ -6,7 +6,7 @@ import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Step } from './mfa'
 import { useCompleteSignIn } from './use-complete-sign-in'
@@ -38,9 +38,9 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             await setActive?.({ session: result.createdSessionId })
         },
         onSuccess: async () => {
-            notifications.show({
-                message: 'You have signed in using a recovery code.',
-                color: 'green',
+            showToast({
+                category: 'success',
+                title: 'You have signed in using a recovery code.',
             })
             await completeSignIn()
         },
@@ -48,7 +48,7 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             form.setFieldError(
                 'code',
                 errorToString(err, {
-                    form_code_incorrect: 'Code is incorrect or already in use. Please try another.',
+                    clerkOverrides: { form_code_incorrect: 'Code is incorrect or already in use. Please try another.' },
                 }),
             )
         },

@@ -41,6 +41,13 @@ describe('LaunchIdeControl', () => {
         expect(screen.queryByText(/launching locks the ide to you/i)).not.toBeInTheDocument()
     })
 
+    it('omits the lock warning when the caller turns it off (OTTER-778)', () => {
+        renderWithProviders(<LaunchIdeControl {...baseProps} showLockHelper={false} />)
+
+        expect(screen.getByRole('button', { name: /launch ide/i })).toBeInTheDocument()
+        expect(screen.queryByText(/launching locks the ide to you/i)).not.toBeInTheDocument()
+    })
+
     it('disables and names the holder when someone else has it', () => {
         renderWithProviders(<LaunchIdeControl {...baseProps} isClaimed canLaunch={false} ideOwnerName="Ada Lovelace" />)
 

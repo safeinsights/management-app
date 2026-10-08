@@ -9,11 +9,12 @@ import { type FC, type ReactNode } from 'react'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { SpyModeProvider } from '@/components/spy-mode-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { SessionInfoProvider } from '@/components/layout/session-info-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
-import { reportError } from '@/components/errors'
-import { isStaleDeploymentError } from '@/lib/errors'
+import { reportQueryError } from '@/hooks/query-wrappers'
+import { ToastProvider } from './toast-provider'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -22,11 +23,7 @@ function makeQueryClient() {
         // the only measure of how often that happens; everything else is opt-in through `meta`, so a
         // page of background polls cannot stack one toast per query (OTTER-726).
         queryCache: new QueryCache({
-            onError: (error, query) => {
-                if (isStaleDeploymentError(error) || query.meta?.errorMessage) {
-                    reportError(error, query.meta?.errorMessage)
-                }
-            },
+            onError: reportQueryError,
         }),
         defaultOptions: {
             queries: {
@@ -42,6 +39,8 @@ type Props = {
     children: ReactNode
     singleUserEditing?: boolean
     posthogProjectToken?: string
+    userInfo?: UserInfo | null
+    userInfoUpdatedAt?: number
 }
 export function getQueryClient() {
     if (isServer) {
@@ -53,23 +52,32 @@ export function getQueryClient() {
     }
 }
 
-export const Providers: FC<Props> = ({ children, singleUserEditing = false, posthogProjectToken = '' }) => {
+export const Providers: FC<Props> = ({
+    children,
+    singleUserEditing = false,
+    posthogProjectToken = '',
+    userInfo = null,
+    userInfoUpdatedAt,
+}) => {
     const queryClient = getQueryClient()
     usePostHogInit(posthogProjectToken)
 
     return (
         <QueryClientProvider client={queryClient}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-                <ModalsProvider>
-                    <ErrorBoundary>
-                        <SpyModeProvider>
-                            <YjsWebsocketProvider singleUserEditing={singleUserEditing}>
-                                {children}
-                            </YjsWebsocketProvider>
-                        </SpyModeProvider>
-                    </ErrorBoundary>
-                </ModalsProvider>
-            </MantineProvider>
+            <SessionInfoProvider userInfo={userInfo} updatedAt={userInfoUpdatedAt}>
+                <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                    <ToastProvider />
+                    <ModalsProvider>
+                        <ErrorBoundary>
+                            <SpyModeProvider>
+                                <YjsWebsocketProvider singleUserEditing={singleUserEditing}>
+                                    {children}
+                                </YjsWebsocketProvider>
+                            </SpyModeProvider>
+                        </ErrorBoundary>
+                    </ModalsProvider>
+                </MantineProvider>
+            </SessionInfoProvider>
         </QueryClientProvider>
     )
 }

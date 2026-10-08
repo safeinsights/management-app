@@ -1,4 +1,5 @@
-import { sql, Selectable } from 'kysely'
+import { selectUserOrgRows } from './session-user'
+import { type Expression, sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
@@ -6,15 +7,22 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import {
+    CODE_DECISION_JOB_STATUSES,
+    CODE_ROUND_CLOSING_JOB_STATUSES,
+    ROUND_CLOSING_JOB_STATUSES,
+} from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
+
+// A study id, or a reference to the outer query's study.id for a correlated subquery.
+type StudyIdOperand = string | Expression<string>
 
 export type SiUser = ClerkUser & {
     id: string
@@ -295,6 +303,77 @@ export const getUsersForOrgId = async (orgId: string) => {
         .execute()
 }
 
+// Users who wrote one of `statuses` on any job of the study; enclave run statuses have no user.
+function jobStatusUserIds(db: DBExecutor, studyId: StudyIdOperand, statuses: readonly StudyJobStatus[]) {
+    return db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .select((eb) => eb.ref('jobStatusChange.userId').$notNull().as('userId'))
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', 'in', statuses)
+        .where('jobStatusChange.userId', 'is not', null)
+}
+
+// The lab members on a study, shared by My studies and the lab emails: the creator, the PI, and anyone who
+// submitted a version of the proposal or, with withCodeSubmitters, the code. A PI without an account is left out.
+export function studyLabMemberIds(db: DBExecutor, studyId: StudyIdOperand, { withCodeSubmitters = true } = {}) {
+    // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
+    // by onStudyProposalSubmitted's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
+    // Aliased so a correlated `study.id` still names the outer row, not this one.
+    const proposalMembers = db
+        .selectFrom('study as memberStudy')
+        .select('memberStudy.researcherId as userId')
+        .where('memberStudy.id', '=', studyId)
+        .union(
+            db
+                .selectFrom('study as memberStudy')
+                .select((eb) => eb.ref('memberStudy.piUserId').$notNull().as('userId'))
+                .where('memberStudy.id', '=', studyId)
+                .where('memberStudy.piUserId', 'is not', null),
+        )
+        .union(
+            db
+                .selectFrom('audit')
+                .select('userId')
+                .where('recordType', '=', 'STUDY')
+                .where('recordId', '=', studyId)
+                .where('eventType', '=', 'CREATED'),
+        )
+        .union(
+            db
+                .selectFrom('studyProposalComment')
+                .select('authorId as userId')
+                .where('studyId', '=', studyId)
+                .where('entryType', '=', 'RESUBMISSION-NOTE'),
+        )
+    return withCodeSubmitters
+        ? proposalMembers.union(jobStatusUserIds(db, studyId, ['CODE-SUBMITTED']))
+        : proposalMembers
+}
+
+// Everyone who decided on a version of the proposal, plus the code and outputs deciders when asked,
+// shared by My studies and the Data Partner emails. Code decisions come from job statuses because
+// studyReviewComment has no rows for decisions made before it existed.
+export function studyDeciderIds(
+    db: DBExecutor,
+    studyId: StudyIdOperand,
+    { withCodeDeciders = true, withOutputsDeciders = true } = {},
+) {
+    let deciders = db
+        .selectFrom('studyProposalComment')
+        .select('authorId as userId')
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'REVIEWER-FEEDBACK')
+        .where('decision', 'is not', null)
+    if (withCodeDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, CODE_DECISION_JOB_STATUSES))
+    }
+    if (withOutputsDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, ROUND_CLOSING_JOB_STATUSES))
+    }
+    return deciders
+}
+
 // Some callers come from the API, which lacks a user; do not use siUser inside this.
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await Action.db
@@ -357,6 +436,17 @@ export const getUserById = async (userId: string) => {
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
+// A claimed invite resumes email linking for its claimer only (OTTER-788), so re-sending it would
+// hand a different owner of this address a dead link. Callers create a fresh invite instead.
+export const findOpenInvite = async (db: DBExecutor, orgId: string, email: string) =>
+    await db
+        .selectFrom('pendingUser')
+        .select(['id', 'isAdmin'])
+        .where('email', '=', email)
+        .where('orgId', '=', orgId)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
 // The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
 // actions were asking for it the same way.
 export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
@@ -370,14 +460,8 @@ export const getOrgNameFromId = async (orgId: string) => {
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
-    const orgs = await Action.db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
-        .where('userId', '=', userId)
-        .execute()
-
-    return orgs
+    const rows = await selectUserOrgRows(userId, Action.db).execute()
+    return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {
@@ -607,11 +691,16 @@ export type WorkspaceFileActivityRow = {
     actorName: string
 }
 
-export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+// `before` bounds it to a submission, so edits from a later round never show against older files.
+export async function latestActivityPerWorkspaceFile(
+    studyId: string,
+    { before }: { before?: Date } = {},
+): Promise<WorkspaceFileActivityRow[]> {
     return await Action.db
         .selectFrom('workspaceFileActivity')
         .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
         .where('workspaceFileActivity.studyId', '=', studyId)
+        .$if(before !== undefined, (qb) => qb.where('workspaceFileActivity.createdAt', '<=', before!))
         .select([
             'workspaceFileActivity.fileName',
             'workspaceFileActivity.action',
@@ -623,6 +712,21 @@ export async function latestActivityPerWorkspaceFile(studyId: string): Promise<W
         .orderBy('workspaceFileActivity.createdAt', 'desc')
         .orderBy('workspaceFileActivity.id', 'desc')
         .execute()
+}
+
+// Scoped to the study so a job id from another study yields nothing.
+export async function latestCodeSubmissionAt(studyId: string, jobId: string): Promise<Date | undefined> {
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.id', '=', jobId)
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select('jobStatusChange.createdAt')
+        .orderBy('jobStatusChange.createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt
 }
 
 // Rows can exist while the round is still open, and removing a researcher from the lab never
