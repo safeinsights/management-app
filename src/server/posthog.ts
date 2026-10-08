@@ -1,6 +1,7 @@
 import { ENVIRONMENT_ID, getConfigValue } from './config'
 import { PostHog } from 'posthog-node'
 import * as Sentry from '@sentry/nextjs'
+import { after } from 'next/server'
 import { POSTHOG_HOST } from '@/lib/constants'
 import logger from '@/lib/logger'
 
@@ -9,15 +10,7 @@ async function createPostHogClient(): Promise<PostHog | null> {
     if (!postHogProjectToken) return null
 
     // flushAt/flushInterval follow PostHog's serverless guidance; captureImmediate makes them moot.
-    // Tight timeout and one quick retry: captures run before emails, and the defaults can stall ~50s.
-    return new PostHog(postHogProjectToken, {
-        host: POSTHOG_HOST,
-        flushAt: 1,
-        flushInterval: 0,
-        requestTimeout: 3_000,
-        fetchRetryCount: 1,
-        fetchRetryDelay: 500,
-    })
+    return new PostHog(postHogProjectToken, { host: POSTHOG_HOST, flushAt: 1, flushInterval: 0 })
 }
 
 let client: Promise<PostHog | null> | undefined
@@ -57,8 +50,10 @@ type PostHogEvent = {
     properties?: PostHogProperties | (() => Promise<PostHogProperties>)
 }
 
-// Never throws: callers capture next to emails and audit rows, and analytics must not block either.
-export async function capturePostHogEvent({ properties, ...event }: PostHogEvent): Promise<void> {
+// Its own after(), so emails and audit rows never wait on PostHog or fail with it.
+export const capturePostHogEvent = (event: PostHogEvent) => after(() => sendPostHogEvent(event))
+
+async function sendPostHogEvent({ properties, ...event }: PostHogEvent): Promise<void> {
     try {
         const posthog = await getPostHogClient()
         if (!posthog) return

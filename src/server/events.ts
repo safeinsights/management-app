@@ -147,7 +147,7 @@ const captureStudyEvent = (
     })
 
 export const onStudyDraftCreated = deferred(async ({ studyId, userId }: StudyEvent) => {
-    await captureStudyEvent('study_created', {
+    captureStudyEvent('study_created', {
         studyId,
         userId,
         side: 'lab',
@@ -158,7 +158,7 @@ export const onStudyDraftCreated = deferred(async ({ studyId, userId }: StudyEve
 export const onStudyProposalSubmitted = deferred(
     async ({ studyId, userId, isResubmission }: StudyEvent & { isResubmission: boolean }) => {
         await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
+        captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
         await email.sendStudyProposalEmails(studyId)
         await email.sendStudyAgreementPreparationEmail(studyId)
     },
@@ -167,7 +167,7 @@ export const onStudyProposalSubmitted = deferred(
 // Its own handler: the CREATED/STUDY row and the agreement request are for the first submission only.
 export const onStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
+    captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
     await email.sendStudyProposalEmails(studyId)
 })
 
@@ -195,7 +195,7 @@ export const onStudyCodeSubmitted = deferred(
     async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
+        captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
         await email.sendStudyCodeSubmittedEmail(studyId)
     },
 )
@@ -203,7 +203,7 @@ export const onStudyCodeSubmitted = deferred(
 export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_proposal_approved', {
+    captureStudyEvent('study_proposal_approved', {
         studyId,
         userId,
         side: 'data-partner',
@@ -233,28 +233,28 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_proposal_declined', { studyId, userId, side: 'data-partner' })
+    captureStudyEvent('study_proposal_declined', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalRejectedEmail(studyId)
 })
 
 export const onStudyNeedsClarification = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
+    captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalNeedsRevisionEmail(studyId)
 })
 
 export const onStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_code_approved', { studyId, userId, side: 'data-partner', studyJobId })
+    captureStudyEvent('study_code_approved', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeApprovedEmail(studyId)
 })
 
 export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
-    await captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
+    captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeNeedsRevisionEmail(studyId)
 })
 
@@ -277,7 +277,7 @@ export const onStudyResultsApproved = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
+        captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
         await emailLabOutputsDecision(studyId, errored)
     },
 )
@@ -286,7 +286,7 @@ export const onStudyResultsRejected = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
-        await captureStudyEvent('study_results_outputs_not_shared', {
+        captureStudyEvent('study_results_outputs_not_shared', {
             studyId,
             userId,
             side: 'data-partner',
@@ -298,7 +298,7 @@ export const onStudyResultsRejected = deferred(
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
     await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId })
-    await capturePostHogEvent({ distinctId: userId, event: 'user_logged_in' })
+    capturePostHogEvent({ distinctId: userId, event: 'user_logged_in' })
 })
 
 /**
@@ -342,7 +342,7 @@ export const onUserInvited = deferred(async ({ pendingId, isResend }: Invite) =>
         recordId: pendingId,
         metadata: { invitedEmail: invite.email, isResend },
     })
-    await capturePostHogEvent({
+    capturePostHogEvent({
         distinctId: user.id,
         event: 'invited',
         properties: async () => ({
@@ -358,7 +358,7 @@ type AcceptedInvite = { userId: string; inviteId: string; isNewAccount: boolean 
 
 export const onUserAcceptInvite = deferred(async ({ userId, inviteId, isNewAccount }: AcceptedInvite) => {
     await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId, metadata: { inviteId } })
-    await capturePostHogEvent({
+    capturePostHogEvent({
         distinctId: userId,
         event: 'accepted_invite',
         properties: async () => {
@@ -394,7 +394,7 @@ export const onUserRoleUpdate = deferred(async ({ userId, actorId, orgId, before
         recordId: userId,
         metadata: { roles: { before, after } },
     })
-    await capturePostHogEvent({
+    capturePostHogEvent({
         distinctId: actorId,
         event: 'role_updated',
         properties: async () => ({
