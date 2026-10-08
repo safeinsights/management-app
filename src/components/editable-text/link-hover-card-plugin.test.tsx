@@ -12,6 +12,7 @@ import {
     within,
     mockSessionWithTestData,
     insertTestStudyData,
+    lexicalLinkState,
 } from '@/tests/unit.helpers'
 import type { ReactNode } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
@@ -26,46 +27,9 @@ const URL = 'https://example.com/prior-study'
 const LINK_TEXT = 'prior study writeup'
 const TAIL_TEXT = ' and more'
 
-function textNode(text: string) {
-    return { detail: 0, format: 0, mode: 'normal', style: '', text, type: 'text', version: 1 }
-}
-
 /** A paragraph holding one link plus trailing plain text, so the caret has somewhere else to go. */
-function linkedJson({ target, url }: { target: string | null; url: string }) {
-    return JSON.stringify({
-        root: {
-            children: [
-                {
-                    children: [
-                        {
-                            children: [textNode(LINK_TEXT)],
-                            direction: 'ltr',
-                            format: '',
-                            indent: 0,
-                            type: 'link',
-                            version: 1,
-                            rel: target ? 'noopener noreferrer' : null,
-                            target,
-                            title: null,
-                            url,
-                        },
-                        textNode(TAIL_TEXT),
-                    ],
-                    direction: 'ltr',
-                    format: '',
-                    indent: 0,
-                    type: 'paragraph',
-                    version: 1,
-                },
-            ],
-            direction: 'ltr',
-            format: '',
-            indent: 0,
-            type: 'root',
-            version: 1,
-        },
-    })
-}
+const linkedJson = ({ target, url }: { target: string | null; url: string }) =>
+    lexicalLinkState({ url, target, text: LINK_TEXT, tail: TAIL_TEXT })
 
 // jsdom cannot dispatch the beforeinput events Lexical relies on, so edits go through its API.
 function CaptureEditor({ onReady }: { onReady: (editor: LexicalEditor) => void }) {
