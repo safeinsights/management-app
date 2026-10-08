@@ -134,19 +134,20 @@ const caretAt = (editor: LexicalEditor) =>
 const textIn = (element: Element) => element.querySelector('[data-lexical-text]')!.firstChild!
 
 // A real click moves the DOM caret on mousedown, before the click opens the card.
-function clickWithCaret(anchor: HTMLElement, node: Node, offset: number) {
+function clickWithCaret(anchor: HTMLElement, offset: number, node: Node = textIn(anchor)) {
     act(() => {
         window.getSelection()!.collapse(node, offset)
     })
     fireEvent.click(anchor)
 }
 
-async function closeWithEscape(user: ReturnType<typeof userEvent.setup>) {
+async function closeWithEscape(user: ReturnType<typeof userEvent.setup>, editor: LexicalEditor) {
     await waitFor(() =>
         expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
     )
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    rereadDomSelection(editor)
 }
 
 const openCard = (anchor: HTMLElement) => fireEvent.click(anchor)
@@ -207,24 +208,22 @@ describe('LinkHoverCardPlugin', () => {
     it('closes on Escape and puts the caret back where the click left it', async () => {
         const user = userEvent.setup()
         const { anchor, container, editor } = await renderLinkedEditor('card-escape')
-        clickWithCaret(anchor, textIn(anchor), 3)
+        clickWithCaret(anchor, 3)
         await findCard()
 
-        await closeWithEscape(user)
+        await closeWithEscape(user, editor)
 
         await waitFor(() => expect(document.activeElement).toBe(container.querySelector('[contenteditable="true"]')))
-        rereadDomSelection(editor)
         expect(caretAt(editor)).toEqual({ inLink: true, offset: 3 })
     })
 
     it('puts a caret from the left edge back at the start of the link', async () => {
         const user = userEvent.setup()
         const { anchor, container, editor } = await renderLinkedEditor('card-escape-left')
-        clickWithCaret(anchor, textIn(container), LEAD_TEXT.length)
+        clickWithCaret(anchor, LEAD_TEXT.length, textIn(container))
         await findCard()
 
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
+        await closeWithEscape(user, editor)
 
         expect(caretAt(editor)).toEqual({ inLink: true, offset: 0 })
     })
@@ -233,11 +232,10 @@ describe('LinkHoverCardPlugin', () => {
     it('steps a caret from the right edge one character into the link', async () => {
         const user = userEvent.setup()
         const { anchor, editor } = await renderLinkedEditor('card-escape-right')
-        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
+        clickWithCaret(anchor, LINK_TEXT.length)
         await findCard()
 
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
+        await closeWithEscape(user, editor)
 
         expect(caretAt(editor)).toEqual({ inLink: true, offset: LINK_TEXT.length - 1 })
     })
@@ -249,8 +247,7 @@ describe('LinkHoverCardPlugin', () => {
         await user.click(screen.getByLabelText('Link'))
         await findCard()
 
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
+        await closeWithEscape(user, editor)
 
         expect(caretAt(editor)).toEqual({ inLink: true, offset: 1 })
     })
@@ -270,10 +267,9 @@ describe('LinkHoverCardPlugin', () => {
         const user = userEvent.setup()
         const { anchor, container, editor } = await renderLinkedEditor('card-shortcut-after-escape')
 
-        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
+        clickWithCaret(anchor, LINK_TEXT.length)
         await findCard()
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
+        await closeWithEscape(user, editor)
 
         fireEvent.keyDown(container.querySelector('[contenteditable="true"]')!, { key: 'k', ctrlKey: true })
 
@@ -284,10 +280,9 @@ describe('LinkHoverCardPlugin', () => {
         const user = userEvent.setup()
         const { anchor, editor } = await renderLinkedEditor('card-toolbar-after-escape')
 
-        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
+        clickWithCaret(anchor, LINK_TEXT.length)
         await findCard()
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
+        await closeWithEscape(user, editor)
 
         await user.click(screen.getByLabelText('Link'))
 
@@ -297,11 +292,11 @@ describe('LinkHoverCardPlugin', () => {
 
     it('leaves the key alone without the modifier', async () => {
         const user = userEvent.setup()
-        const { anchor, container } = await renderLinkedEditor('card-shortcut-bare')
+        const { anchor, container, editor } = await renderLinkedEditor('card-shortcut-bare')
 
         openCard(anchor)
         await findCard()
-        await closeWithEscape(user)
+        await closeWithEscape(user, editor)
 
         const contentEditable = container.querySelector('[contenteditable="true"]')!
         expect(fireEvent.keyDown(contentEditable, { key: 'k' })).toBe(true)
