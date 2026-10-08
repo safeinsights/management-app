@@ -188,6 +188,22 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
 }
 
+async function uploadCodeFiles(page: Page, files: string[]) {
+    await page.locator('input[type="file"]').setInputFiles(files)
+    const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
+
+    // The local editor can already contain these files. Each upload must finish before the table is used.
+    for (const file of files) {
+        const name = file.split('/').pop()!
+        await expect(async () => {
+            if (await replacePrompt.isVisible()) {
+                await replacePrompt.getByRole('button', { name: 'Replace', exact: true }).click()
+            }
+            await expect(page.getByRole('alert').filter({ hasText: `${name} is uploaded.` })).toBeVisible()
+        }).toPass()
+    }
+}
+
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     // The empty view shows a starter-code download link when the org configures a code
     // env with starter files (the openstax seed does). Shared CODER_FILES state in CI can
@@ -200,8 +216,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
         await expect(starterLink).toHaveAttribute('target', '_blank')
     }
 
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
+    await uploadCodeFiles(page, [mainCodeFile, 'tests/fixtures/code-samples/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
     // By the view button, not the cell: this table makes the file name the control that opens the
@@ -240,22 +255,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 // asserting that star is already selected is what proves inheritance. Clicking it would
 // set an override and hide a broken inheritance rule.
 async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
-
-    // OTTER-693 asks before overwriting a name the workspace already has, one file at a time — and a
-    // resubmission re-uploads the previous round's names, so this is the ordinary case here. Replace
-    // is what a resubmission means. Retried as a block because the prompt can arrive after the
-    // upload settles, and conditional for the same reason the upload-card check above is: whether
-    // the previous files are on disk depends on shared CODER_FILES state.
-    const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
-    await expect(async () => {
-        if (await replacePrompt.isVisible()) {
-            await replacePrompt.getByRole('button', { name: 'Replace' }).click()
-        }
-        await expect(replacePrompt).toBeHidden()
-        await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
-    }).toPass()
+    await uploadCodeFiles(page, ['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
 
     // /resubmit now renders the same table as /code, so the file name is the view button and the
     // star is a radio — the same selectors the upload helper above uses.
