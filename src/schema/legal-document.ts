@@ -156,15 +156,21 @@ const isRealCalendarDay = (value: string) => {
 // a zone ahead of UTC signs same-day on what is still tomorrow here.
 const latestSignableDay = () => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
+// A plain string so it never hits a timezone conversion on the way to a `date` column. Exported so
+// the upload form rejects a bad day before a draft and its file are created.
+export const signedAtSchema = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Signed date must be YYYY-MM-DD')
+    .refine(isRealCalendarDay, 'Signed date is not a real calendar date')
+    .refine((value) => value <= latestSignableDay(), 'Signed date cannot be in the future')
+
+// Shortcut to access errors on non-empty values against signedAtSchema. Used in form UI.
+export const signedAtErrorFor = (value: string) =>
+    value ? signedAtSchema.safeParse(value).error?.issues[0].message : undefined
+
 export const publishLegalDocumentVersionSchema = z.object({
     versionId: z.string(),
-    // A plain string so it never hits a timezone conversion on the way to a `date` column.
-    signedAt: z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Signed date must be YYYY-MM-DD')
-        .refine(isRealCalendarDay, 'Signed date is not a real calendar date')
-        .refine((value) => value <= latestSignableDay(), 'Signed date cannot be in the future')
-        .optional(),
+    signedAt: signedAtSchema.optional(),
 })
 
 export const legalDocumentVersionParams = z.object({

@@ -3,6 +3,7 @@ import { within } from '@testing-library/react'
 import {
     describe,
     expect,
+    fireEvent,
     it,
     mockSessionWithTestData,
     renderWithProviders,
@@ -101,16 +102,19 @@ describe('CodeEvaluationSection', () => {
         expect(link.querySelector('svg')).toBeInTheDocument()
     })
 
-    it('shows the link card for both criterion links instead of leaving the page', async () => {
+    it('shows the link card on hover for both criterion links and leaves a click to the browser', async () => {
         await mockSessionWithTestData()
         const user = userEvent.setup()
         renderSection()
 
         for (const testId of ['criteria-proposal-link', 'criteria-agreement-link']) {
-            await user.click(screen.getByTestId(testId))
+            const link = screen.getByTestId(testId)
+            await user.hover(link)
             expect(await screen.findByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })).toBeInTheDocument()
-            await user.keyboard('{Escape}')
+
+            expect(fireEvent.click(link)).toBe(true)
             await waitForCardToClose()
+            await user.unhover(link)
         }
     })
 

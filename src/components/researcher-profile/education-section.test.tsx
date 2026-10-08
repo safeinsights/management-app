@@ -142,7 +142,9 @@ describe('EducationSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Saved', 'data-toast-kind': 'success' }),
+            )
             expect(refetch).toHaveBeenCalled()
         })
 

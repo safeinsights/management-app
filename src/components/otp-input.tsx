@@ -8,7 +8,15 @@ const CODE_LENGTH = 6
 
 // `PinInput`'s six inputs blur as the user moves between digits, so validation waits for focus to
 // leave the group (OTTER-647). `withAria: false` stops `Input` overwriting `aria-describedby`.
-const OtpInput = ({ form, errorId }: { form: UseFormReturnType<{ code: string }>; errorId?: string }) => {
+const OtpInput = ({
+    form,
+    errorId,
+    testId = 'sms-pin-input',
+}: {
+    form: UseFormReturnType<{ code: string }>
+    errorId?: string
+    testId?: string
+}) => {
     const hasError = Boolean(form.errors.code)
     const widgetBlur = useWidgetBlur(revalidateOnBlur(form, 'code'))
 
@@ -22,7 +30,7 @@ const OtpInput = ({ form, errorId }: { form: UseFormReturnType<{ code: string }>
                 onChange={(value) => form.setFieldValue('code', value)}
                 error={hasError}
                 placeholder="0"
-                data-testid="sms-pin-input"
+                data-testid={testId}
                 aria-label="One time code"
                 getInputProps={(index) => ({
                     withAria: false,
