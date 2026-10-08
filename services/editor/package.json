@@ -4,7 +4,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "@aws-sdk/client-secrets-manager": "^3.893.0",
+        "@aws-sdk/client-secrets-manager": "^3.1049.0",
         "@clerk/backend": "^2.33.4",
         "@hocuspocus/extension-database": "^3.4.4",
         "@hocuspocus/server": "^3.4.4",
@@ -13,7 +13,7 @@
         "@lexical/list": "^0.41.0",
         "@lexical/yjs": "^0.41.0",
         "lexical": "^0.41.0",
-        "pg": "^8.20.0",
-        "yjs": "^13.6.8"
+        "pg": "^8.21.0",
+        "yjs": "^13.6.30"
     }
 }
