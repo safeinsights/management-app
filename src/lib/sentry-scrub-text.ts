@@ -81,7 +81,9 @@ export function scrubText(text: string): string {
 }
 
 function scrubTextAtDepth(text: string, depth: number): string {
-    const masked = text
+    // Redact whole keyed values before masking embedded credentials, so an auth scheme and
+    // its credential are consumed together.
+    const masked = scrubPairs(text)
         .replace(
             /\b(?:Set-Cookie|Cookie)[ \t]*:[^\r\n]*/gi,
             (line) => `${line.slice(0, line.indexOf(':') + 1)} ${REDACTED}`,
@@ -98,7 +100,7 @@ function scrubTextAtDepth(text: string, depth: number): string {
             }
         })
         .replace(EMAIL_PATTERN, REDACTED)
-    return scrubEncodedValue(scrubEncodedParams(scrubPairs(masked), depth), depth)
+    return scrubEncodedValue(scrubEncodedParams(masked, depth), depth)
 }
 
 // Preserve untouched URL bytes (including %20 and a leading ?). Only changed encoded values
