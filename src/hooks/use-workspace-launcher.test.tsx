@@ -9,6 +9,7 @@ import {
     act,
     faker,
     createTestQueryWrapper,
+    staleActionError,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
@@ -19,11 +20,6 @@ vi.mock('@/server/actions/workspaces.actions', () => ({
     getWorkspaceLaunchStatusAction: vi.fn(),
 }))
 
-vi.mock('@/components/errors', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/components/errors')>()),
-    reportError: vi.fn(),
-}))
-
 const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {
     value: mockWindowOpen,
@@ -31,7 +27,7 @@ Object.defineProperty(window, 'open', {
 })
 
 import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
-import { reportError } from '@/components/errors'
+import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { notifications } from '@mantine/notifications'
 
 const studyId = faker.string.uuid()
@@ -287,8 +283,13 @@ describe('useWorkspaceLauncher', () => {
             })
         })
 
-        it('should report ensure failures to Sentry/notifications', async () => {
-            ensureMock.mockResolvedValue({ error: 'boom' })
+        // OTTER-832: the failure modal is the only surface, so each path captures without a toast.
+        it.each([
+            ['an ensure failure', () => ensureMock.mockResolvedValue({ error: 'boom' })],
+            ['a status polling error', () => statusMock.mockResolvedValue({ error: 'workspace not found' })],
+            ['a failed build', () => statusMock.mockResolvedValue(failedStatus())],
+        ])('reports %s to Sentry without a toast', async (_label, arrange) => {
+            arrange()
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -296,11 +297,13 @@ describe('useWorkspaceLauncher', () => {
 
             act(() => result.current.launchWorkspace())
 
-            await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE'))
+            await waitFor(() => expect(result.current.errorEventId).toMatch(/^[a-f0-9]{32}$/))
+            expect(result.current.error).not.toBeNull()
+            expect(notifications.show).not.toHaveBeenCalled()
         })
 
-        it('should report a failed build to Sentry/notifications', async () => {
-            statusMock.mockResolvedValue(failedStatus())
+        it('still offers a reload when a deploy left the launch action stale', async () => {
+            ensureMock.mockRejectedValue(staleActionError())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -308,7 +311,11 @@ describe('useWorkspaceLauncher', () => {
 
             act(() => result.current.launchWorkspace())
 
-            await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'Failed to launch IDE'))
+            await waitFor(() =>
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({ id: STALE_DEPLOYMENT_NOTIFICATION_ID }),
+                ),
+            )
         })
     })
 
