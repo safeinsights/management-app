@@ -214,11 +214,14 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByText(EMPTY_ERROR)).toBeNull()
     })
 
-    // With nothing to decrypt the parse step accepts any syntactically valid PEM, so neither
-    // case may hand the caller a decrypted set (OTTER-675). Same for both roles: an empty
-    // answer is not a bad key
-    describe.each(['reviewer', 'researcher'] as const)('as a %s with no files', (type) => {
-        it('shows a no-files error when the fetch returns an empty list', async () => {
+    // With nothing to decrypt the parse step accepts any syntactically valid PEM, so neither case
+    // may hand the caller a decrypted set. A researcher is only sent outputs wrapped for their key,
+    // so their empty list means the key opens nothing.
+    describe.each([
+        { type: 'reviewer', emptyListError: NO_FILES_ERROR },
+        { type: 'researcher', emptyListError: INVALID_ERROR },
+    ] as const)('as a $type with no files', ({ type, emptyListError }) => {
+        it('shows an error without decrypting when the fetch returns an empty list', async () => {
             vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
 
             renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
@@ -228,7 +231,7 @@ describe('SecurityKeyForm', () => {
             enterKey('some-key')
             clickView()
 
-            expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
+            expect(await screen.findByText(emptyListError)).toBeInTheDocument()
             expect(onDecrypted).not.toHaveBeenCalled()
         })
 

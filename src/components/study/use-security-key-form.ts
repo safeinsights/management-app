@@ -33,7 +33,11 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
-    const { data: encryptedFiles, isLoading: isLoadingFiles } = useQuery({
+    const {
+        data: encryptedFiles,
+        isLoading: isLoadingFiles,
+        isSuccess,
+    } = useQuery({
         // Role is part of the key so a dual-role user is not served the other role's cache.
         queryKey: ['encrypted-files', job.id, type],
         queryFn: async () => {
@@ -91,16 +95,16 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
         // programmatic call.
         if (isLoadingFiles) return
 
-        // Nothing to test the key against: the query failed, this reviewer has no registered public
-        // key, or the job has no encrypted output. None of those is a bad key.
+        // A researcher is only sent outputs wrapped for their registered key, so an empty answer
+        // means no key they hold opens them. A failed fetch, or a reviewer's empty answer, is not a bad key.
         if (!encryptedFiles?.length) {
-            setError(ERRORS.noFiles)
+            setError(type === 'researcher' && isSuccess ? ERRORS.invalid : ERRORS.noFiles)
             return
         }
 
         setError(undefined)
         decrypt(trimmed)
-    }, [isPending, isLoadingFiles, encryptedFiles, value, decrypt])
+    }, [isPending, isLoadingFiles, encryptedFiles, isSuccess, type, value, decrypt])
 
     return {
         value,
