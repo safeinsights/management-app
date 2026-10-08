@@ -1,4 +1,11 @@
-import { projectStudyState, type RawStudyState, type StudyState } from '@/lib/study-screen'
+import {
+    projectStudyState,
+    resolvePillId,
+    type RawStudyState,
+    type StudyRole,
+    type StudyState,
+} from '@/lib/study-screen'
+import type { PillId } from '@/lib/status-labels'
 import type { StudyRow } from './types'
 
 // Diverging from /view's latest-*submitted*-job projection is deliberate: the dashboard tracks
@@ -30,3 +37,33 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
 // One projection per row, so the badge, the row highlight and the action link cannot disagree about
 // what the row is.
 export const rowStudyState = (study: StudyRow): StudyState => projectStudyState(dashboardRawStateFromRow(study))
+
+type TimedChange = StudyRow['jobStatusChanges'][number]
+
+const badgeAfter = (study: StudyRow, changes: TimedChange[], audience: StudyRole): PillId =>
+    resolvePillId(audience, projectStudyState(dashboardRawStateFromRow({ ...study, jobStatusChanges: changes })))
+
+// Replays the latest job's history through the badge rules, so each role's Last updated moves only
+// when its own badge does (OTTER-617). Rows from one transaction share a timestamp and have no
+// reliable order, so each timestamp is one step.
+export function lastBadgeChangeAt(study: StudyRow, audience: StudyRole): Date | null {
+    const timed = study.jobStatusChanges.map((change) => ({
+        change,
+        at: change.createdAt ? new Date(change.createdAt).getTime() : NaN,
+    }))
+    if (timed.length === 0 || timed.some(({ at }) => Number.isNaN(at))) return null
+
+    const steps = [...new Set(timed.map(({ at }) => at))].sort((a, b) => a - b)
+    let previous = badgeAfter(study, [], audience)
+    let changedAt: number | null = null
+    for (const step of steps) {
+        const badge = badgeAfter(
+            study,
+            timed.filter(({ at }) => at <= step).map(({ change }) => change),
+            audience,
+        )
+        if (badge !== previous) changedAt = step
+        previous = badge
+    }
+    return changedAt === null ? null : new Date(changedAt)
+}

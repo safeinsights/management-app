@@ -14,6 +14,7 @@ import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstac
 import { usePostHogInit } from '@/hooks/use-posthog-init'
 import { reportError } from '@/components/errors'
 import { isStaleDeploymentError } from '@/lib/errors'
+import { ToastProvider } from './toast-provider'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -60,6 +61,8 @@ export const Providers: FC<Props> = ({ children, singleUserEditing = false, post
     return (
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                {/* Outside ErrorBoundary so a tripped boundary cannot take the toasts with it. */}
+                <ToastProvider />
                 <ModalsProvider>
                     <ErrorBoundary>
                         <SpyModeProvider>

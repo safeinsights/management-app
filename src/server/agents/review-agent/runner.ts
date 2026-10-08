@@ -36,7 +36,8 @@ async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string
         .select(['name', 'path'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
-        .orderBy('fileType', 'desc')
+        // Main code sorts first so MAX_FILE_COUNT only ever truncates supplemental files.
+        .orderBy((eb) => eb.case().when('fileType', '=', 'MAIN-CODE').then(eb.lit(0)).else(eb.lit(1)).end())
         .orderBy('name', 'asc')
         .limit(MAX_FILE_COUNT)
         .execute()

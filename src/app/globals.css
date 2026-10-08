@@ -100,6 +100,12 @@ textarea:disabled {
     resize: none;
 }
 
+/* UnstyledButton and Anchor-as-button leave the pointer cursor on a disabled button; Mantine's
+   own Button, ActionIcon, Tabs and Menu items already use not-allowed. */
+button:disabled {
+    cursor: not-allowed;
+}
+
 /* Collaborative editor focus border */
 .collaborative-editor-container {
     border: 1px solid var(--mantine-color-gray-4);

@@ -16,10 +16,12 @@ import {
     seedCodeApprovedJobReady,
     seedCodeResultsReady,
     seedCodeRejected,
+    seedCodeChangeRequested,
     seedCodeResubmitted,
     seedCodeSubmitted,
     seedProposalPendingReview,
     SEEDED_RESUBMISSION_NOTE,
+    seededFullName,
 } from './e2e.seed'
 import { execSync } from 'child_process'
 
@@ -271,11 +273,12 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
 // Shared row / navigation helpers
 // ============================================================================
 
+// The study title is the row's only link (OTTER-617).
 async function clickViewLink(page: Page, studyRow: ReturnType<Page['getByRole']>) {
     await expect(studyRow).toBeVisible()
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
     await expect(async () => {
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
     }).toPass()
 }
 
@@ -296,7 +299,7 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
 
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     // The badge states the reviewer's own situation, which is the whole point of the two tables
     // (OTTER-698): the same study reads "Proposal submitted" to the lab that sent it.
     await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Proposal needs review')).toBeVisible()
@@ -333,7 +336,7 @@ const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacy
 // the reviewer hadn't acked, so there is no longer a conditional hop to handle here.
 async function openCodeReviewEditor(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     // Reached only with a decision outstanding, on a first submission or a resubmission alike.
     await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Code needs review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
@@ -408,7 +411,7 @@ function uploadResults(jobId: string): void {
 // decryption is client-side, so the swap is a local phase flip, not a navigation.
 async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
@@ -433,7 +436,7 @@ async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string):
 // the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
@@ -746,7 +749,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(draftRow).toBeVisible()
-        await draftRow.getByRole('link', { name: /Edit draft study/i }).click()
+        await draftRow.getByRole('link', { name: studyTitle }).click()
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
         await page.waitForURL(/\/proposal$/)
@@ -942,7 +945,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(studyRow).toBeVisible()
         await expect(studyRow.getByText('Proposal declined')).toBeVisible()
 
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
@@ -1013,7 +1016,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
@@ -1154,13 +1157,28 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
         await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         await researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
+    })
+})
+
+// Seeded decisions carry the reviewer, as real ones do, so both dashboards attribute them (OTTER-617).
+test('Dashboards name the reviewer who decided on the code', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('reviewed-by')
+    await seedCodeChangeRequested(studyTitle)
+    const reviewerName = await seededFullName('reviewer')
+
+    await withRole(browser, 'reviewer', async (page) => {
+        await visitAsRole(page, REVIEWER_DASHBOARD)
+        await expect(page.getByRole('row').filter({ hasText: studyTitle })).toContainText(reviewerName)
+
+        await visitAsRole(page, '/dashboard')
+        await expect(page.getByRole('row').filter({ hasText: studyTitle })).toBeVisible()
     })
 })
 
@@ -1241,7 +1259,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         // CODE-REJECTED is terminal: rejected banner + the elevated exit only (no resubmit CTA).
         await expect(page.getByTestId('status-alert')).toContainText('Code declined')

@@ -45,7 +45,6 @@ export type ScreenDescriptor = {
 }
 
 export type DashboardAction = {
-    label: string
     href: Route
     secondaryAction?: 'delete-draft'
 }

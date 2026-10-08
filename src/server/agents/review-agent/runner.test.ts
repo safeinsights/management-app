@@ -138,6 +138,30 @@ describe('generateAndStoreStudyReview', () => {
         expect(stored[0].round).toBe(1)
     })
 
+    it('keeps main code when supplemental files exceed the file limit', async () => {
+        const job = await setupJob()
+        // Named to sort last alphabetically so only the file-type ordering can keep it under the limit.
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                { studyJobId: job.id, name: 'zmain.r', path: 'studies/zmain.r', fileType: 'MAIN-CODE' as const },
+                ...Array.from({ length: 12 }, (_, index) => ({
+                    studyJobId: job.id,
+                    name: `supplemental-${index}.r`,
+                    path: `studies/supplemental-${index}.r`,
+                    fileType: 'SUPPLEMENTAL-CODE' as const,
+                })),
+            ])
+            .execute()
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        const names = Object.keys(content.codeFiles)
+        expect(names[0]).toBe('zmain.r')
+        expect(names).toHaveLength(10)
+    })
+
     it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
         const job = await setupJobWithCode({ language: 'R' })
         await db

@@ -260,6 +260,26 @@ describe('createQaInvite', () => {
         expect(all).toHaveLength(1)
     })
 
+    it('creates a fresh invite when the earlier one was claimed by another account', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        const { client } = await mockSessionWithTestData({ isSiAdmin: true })
+        if (!client) throw new Error('expected a mocked clerk client')
+        ;(client.users.getUserList as Mock).mockResolvedValue({ data: [], totalCount: 0 })
+        const email = qaEmail().toLowerCase()
+        const claimed = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email, isAdmin: false, claimedByUserId: user.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = await createQaInvite(db, { email, orgSlug: org.slug }, null)
+
+        expect(result.alreadyInvited).toBe(false)
+        expect(result.inviteId).not.toBe(claimed.id)
+        expect(result.inviteUrl).toContain(`/account/invitation/${result.inviteId}`)
+    })
+
     it('rejects an email that already belongs to a member of the org', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org, email: qaEmail() })

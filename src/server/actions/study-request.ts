@@ -266,7 +266,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set(updateValues)
+                      .set({ ...updateValues, labEditedAt: new Date() })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -744,7 +744,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         // client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -771,7 +771,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])

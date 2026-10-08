@@ -16,7 +16,7 @@ const openStudy = async (page: Page, studyTitle: string, dashboard = RESEARCHER_
     await expect(studyRow).toBeVisible()
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
     await expect(async () => {
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
     }).toPass()
     await page.waitForURL(/\/study\//)
 }

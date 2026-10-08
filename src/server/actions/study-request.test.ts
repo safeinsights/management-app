@@ -39,6 +39,7 @@ import {
     resubmitProposalAction,
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
+    saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
@@ -1615,6 +1616,61 @@ describe('Request Study Actions', () => {
             expect(await resubmit('changed my mind about the code')).toHaveProperty('error')
             expect(await jobCount(study.id)).toBe(1)
             expect(await submittedStatusCount(study.id)).toBe(2)
+        })
+    })
+
+    describe('lab edit stamp (OTTER-617)', () => {
+        const stamps = (studyId: string) =>
+            db
+                .selectFrom('study')
+                .select(['labEditedAt', 'lastUpdatedAt'])
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+
+        it.each(['DRAFT', 'CHANGE-REQUESTED'] as const)(
+            'a %s field save stamps lab_edited_at and leaves last_updated_at alone',
+            async (status) => {
+                const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: `test-otter-617-${status}` })
+                await setTestStudyStatus(studyId, status)
+                await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+                const before = await stamps(studyId)
+
+                actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { piName: 'PI' } }))
+
+                const after = await stamps(studyId)
+                expect(after.labEditedAt).not.toBeNull()
+                expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
+            },
+        )
+
+        it('a code resubmission note draft stamps lab_edited_at only', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+            const before = await stamps(study.id)
+
+            actionResult(await saveCodeResubmissionNoteDraftAction({ studyId: study.id, note: 'A draft note' }))
+
+            const after = await stamps(study.id)
+            expect(after.labEditedAt).not.toBeNull()
+            expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
+        })
+
+        it('a proposal resubmission note draft stamps lab_edited_at only', async () => {
+            const { lab, studyId } = await createTestProposalDraft({ enclaveSlug: 'test-otter-617-note' })
+            await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const before = await stamps(studyId)
+
+            actionResult(await saveProposalResubmissionNoteDraftAction({ studyId, note: lexicalJson('draft') }))
+
+            const after = await stamps(studyId)
+            expect(after.labEditedAt).not.toBeNull()
+            expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
         })
     })
 

@@ -9,6 +9,9 @@ import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
+// The layered build only: the plain stylesheet sits outside the cascade layer and would outrank the
+// theme's Notification override.
+import '@mantine/notifications/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
 import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'

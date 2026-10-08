@@ -38,10 +38,10 @@ describe('Tier-1 ↔ Tier-2 consistency', () => {
     ]
 
     for (const s of viewStates) {
-        it(`status=${s.status} code=${s.codeDecision} → 'View' route resolves to a real screen`, () => {
+        it(`status=${s.status} code=${s.codeDecision} → non-draft link resolves to a real screen`, () => {
             const action = resolveDashboardAction('researcher', s as DashboardState, ctx)
             // Asserted so a future Tier-1 rule change cannot make this invariant vacuous.
-            expect(action.label).toBe('View')
+            expect(action.secondaryAction).toBeUndefined()
             expect(resolveScreen('researcher', s).screen).not.toBe('study-overview')
         })
     }

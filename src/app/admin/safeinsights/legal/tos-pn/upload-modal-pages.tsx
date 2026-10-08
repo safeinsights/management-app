@@ -12,7 +12,7 @@ import {
 import { createLegalDocumentDraftAction } from '@/server/actions/legal-document.actions'
 import { Paper, Title, Button, Flex, Group, Text, Stack, ActionIcon } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
 import { ReadOnlyField } from '@/components/read-only-field'
@@ -53,8 +53,8 @@ export function DraftForm({
     }
 
     const handleReject = () => {
-        notifications.show({
-            color: 'red',
+        showToast({
+            category: 'error',
             title: 'Unsupported file',
             message: `Please upload a single Markdown (.md) file smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}.`,
         })

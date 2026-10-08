@@ -45,7 +45,7 @@ describe('the shared query client', () => {
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Failed to load file activity' }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: 'Failed to load file activity' }),
             ),
         )
     })
