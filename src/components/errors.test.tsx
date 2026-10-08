@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import React from 'react'
 
-import { reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound, STALE_DEPLOYMENT_NOTIFICATION_ID } from './errors'
+import { captureError, reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound, STALE_DEPLOYMENT_NOTIFICATION_ID } from './errors'
 import { isClerkApiError, isServerActionError, errorToString, STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
 
 describe('isClerkApiError', () => {
@@ -181,8 +181,7 @@ describe('reportError', () => {
         )
     })
 
-    // The IDE failure modal quotes this id as its support Ref, so it has to be the one the
-    // researcher can also read off the toast.
+    // A caller can quote this id elsewhere, so it has to be the one the toast shows.
     it('returns the same event id it renders in the notification', () => {
         const eventId = reportError(new Error('Returned id'))
 
@@ -228,6 +227,25 @@ describe('reportError', () => {
             await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
             expect(reload).toHaveBeenCalled()
         })
+    })
+})
+
+describe('captureError', () => {
+    // OTTER-832: the IDE launch failure modal is the only surface for that failure.
+    it('returns the Sentry event id without raising a toast', () => {
+        const eventId = captureError(new Error('boom'))
+
+        expect(eventId).toMatch(/^[a-f0-9]{32}$/)
+        expect(notifications.show).not.toHaveBeenCalled()
+    })
+
+    it('still offers a reload for a stale action id, which no retry can fix', () => {
+        captureError(staleActionError())
+
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ id: STALE_DEPLOYMENT_NOTIFICATION_ID, title: STALE_DEPLOYMENT_TITLE }),
+        )
     })
 })
 

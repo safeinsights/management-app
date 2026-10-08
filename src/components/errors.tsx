@@ -43,17 +43,21 @@ const reportStaleDeployment = () =>
         message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
-// Returns the Sentry event id so a caller can quote the same reference the toast shows.
-export const reportError = (error: unknown, title = 'An error occurred') => {
+// For a caller that shows the failure itself, so no toast. A stale deployment still gets its reload
+// notice, because nothing on the page can fix that.
+export const captureError = (error: unknown) => {
     // Captured on purpose for a stale action id too: these events are the only client-side measure
     // of how often a deploy lands under an open tab. Only the reference id is withheld from the
     // notice, because the copy already says the one thing the reader can do.
     const eventId = captureException(error)
+    if (isStaleDeploymentError(error)) reportStaleDeployment()
+    return eventId
+}
 
-    if (isStaleDeploymentError(error)) {
-        reportStaleDeployment()
-        return eventId
-    }
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
+export const reportError = (error: unknown, title = 'An error occurred') => {
+    const eventId = captureError(error)
+    if (isStaleDeploymentError(error)) return eventId
 
     const detail = errorToString(error, { fallback: 'Try again.' })
 
