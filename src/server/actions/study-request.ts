@@ -18,10 +18,11 @@ import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFr
 import { db as database } from '@/database'
 import {
     deferred,
-    onStudyReviewRequested,
     onStudyCodeSubmitted,
-    onStudyCreated,
+    onStudyDraftCreated,
     onStudyProposalResubmitted,
+    onStudyProposalSubmitted,
+    onStudyReviewRequested,
 } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
@@ -214,6 +215,8 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
+        onStudyDraftCreated({ studyId, userId })
+
         return { studyId }
     })
 
@@ -347,7 +350,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -442,7 +445,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
-        onStudyCreated({ userId, studyId })
+        onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
@@ -574,9 +577,9 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
         if (status === 'APPROVED') {
-            onStudyCodeSubmitted({ userId, studyId })
+            onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
         } else {
-            onStudyCreated({ userId, studyId })
+            onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
         }
 
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
@@ -713,7 +716,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
-        onStudyProposalResubmitted({ studyId })
+        onStudyProposalResubmitted({ studyId, userId })
 
         return {
             studyId,
@@ -866,7 +869,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyId)
             .execute()
 
-        onStudyCodeSubmitted({ userId, studyId })
+        onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
         revalidatePath('/dashboard')

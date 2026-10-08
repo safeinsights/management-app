@@ -101,7 +101,6 @@ export function defineAbilityFor(session: UserSession) {
     permit('update', 'UserKey')
 
     permit('approve', 'Study', { orgId: { $in: usersReviewerOrgIds } })
-    permit('reject', 'Study', { orgId: { $in: usersReviewerOrgIds } })
     permit('review', 'Study', { orgId: { $in: usersReviewerOrgIds } })
 
     permit('update', 'User', { orgId: { $in: usersAdminOrgIds } })

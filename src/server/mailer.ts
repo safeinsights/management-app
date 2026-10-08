@@ -143,7 +143,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// onStudyCreated is the only writer of CREATED/STUDY and audits before it mails, so the row for
+// onStudyProposalSubmitted is the only writer of CREATED/STUDY and audits before it mails, so the row for
 // this submission is already there: a second one means the lab has submitted before.
 const isResubmission = async (studyId: string) => {
     const { submissions } = await db
