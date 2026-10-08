@@ -1,4 +1,4 @@
-import { sql, Selectable } from 'kysely'
+import { type Expression, sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
@@ -6,15 +6,22 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import {
+    CODE_DECISION_JOB_STATUSES,
+    CODE_ROUND_CLOSING_JOB_STATUSES,
+    ROUND_CLOSING_JOB_STATUSES,
+} from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
+
+// A study id, or a reference to the outer query's study.id for a correlated subquery.
+type StudyIdOperand = string | Expression<string>
 
 export type SiUser = ClerkUser & {
     id: string
@@ -293,6 +300,76 @@ export const getUsersForOrgId = async (orgId: string) => {
         .select(['user.id', 'user.email', 'user.fullName'])
         .where('orgUser.orgId', '=', orgId)
         .execute()
+}
+
+// Users who wrote one of `statuses` on any job of the study; enclave run statuses have no user.
+function jobStatusUserIds(db: DBExecutor, studyId: StudyIdOperand, statuses: readonly StudyJobStatus[]) {
+    return db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .select((eb) => eb.ref('jobStatusChange.userId').$notNull().as('userId'))
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', 'in', statuses)
+        .where('jobStatusChange.userId', 'is not', null)
+}
+
+// The lab members on a study, shared by My studies and the lab emails: the creator, the PI, and anyone who
+// submitted a version of the proposal or, with withCodeSubmitters, the code. A PI without an account is left out.
+export function studyLabMemberIds(db: DBExecutor, studyId: StudyIdOperand, { withCodeSubmitters = true } = {}) {
+    // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
+    // by onStudyCreated's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
+    const proposalMembers = db
+        .selectFrom('study')
+        .select('researcherId as userId')
+        .where('id', '=', studyId)
+        .union(
+            db
+                .selectFrom('study')
+                .select((eb) => eb.ref('piUserId').$notNull().as('userId'))
+                .where('id', '=', studyId)
+                .where('piUserId', 'is not', null),
+        )
+        .union(
+            db
+                .selectFrom('audit')
+                .select('userId')
+                .where('recordType', '=', 'STUDY')
+                .where('recordId', '=', studyId)
+                .where('eventType', '=', 'CREATED'),
+        )
+        .union(
+            db
+                .selectFrom('studyProposalComment')
+                .select('authorId as userId')
+                .where('studyId', '=', studyId)
+                .where('entryType', '=', 'RESUBMISSION-NOTE'),
+        )
+    return withCodeSubmitters
+        ? proposalMembers.union(jobStatusUserIds(db, studyId, ['CODE-SUBMITTED']))
+        : proposalMembers
+}
+
+// Everyone who decided on a version of the proposal, plus the code and outputs deciders when asked,
+// shared by My studies and the Data Partner emails. Code decisions come from job statuses because
+// studyReviewComment has no rows for decisions made before it existed.
+export function studyDeciderIds(
+    db: DBExecutor,
+    studyId: StudyIdOperand,
+    { withCodeDeciders = true, withOutputsDeciders = true } = {},
+) {
+    let deciders = db
+        .selectFrom('studyProposalComment')
+        .select('authorId as userId')
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'REVIEWER-FEEDBACK')
+        .where('decision', 'is not', null)
+    if (withCodeDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, CODE_DECISION_JOB_STATUSES))
+    }
+    if (withOutputsDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, ROUND_CLOSING_JOB_STATUSES))
+    }
+    return deciders
 }
 
 // Some callers come from the API, which lacks a user; do not use siUser inside this.

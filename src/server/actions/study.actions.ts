@@ -34,6 +34,8 @@ import {
     latestJobForStudyOrNull,
     type LatestJobForStudy,
     fetchUserFullName,
+    studyDeciderIds,
+    studyLabMemberIds,
 } from '@/server/db/queries'
 import { nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
@@ -227,17 +229,6 @@ function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
         .select(ownEditsAtSql(audience).as('ownEditsAt'))
 }
 
-// A job status in `statuses` that `userId` wrote on any of the study's jobs.
-function jobStatusByUser(eb: ExpressionBuilder<DB, 'study'>, statuses: readonly StudyJobStatus[], userId: string) {
-    return eb
-        .selectFrom('jobStatusChange')
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .select('jobStatusChange.id')
-        .whereRef('studyJob.studyId', '=', 'study.id')
-        .where('jobStatusChange.status', 'in', statuses)
-        .where('jobStatusChange.userId', '=', userId)
-}
-
 const CODE_SUBMISSION_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED']
 
 // Who wrote the newest job status of each stage, and when, in one pass over the study's job history.
@@ -309,30 +300,7 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
         }
         return fetchDashboardStudyQuery(db, 'researcher')
             .where('study.submittedByOrgId', 'in', labIds)
-            .where((eb) =>
-                eb.or([
-                    eb('study.researcherId', '=', userId),
-                    eb('study.piUserId', '=', userId),
-                    eb.exists(
-                        eb
-                            .selectFrom('studyProposalComment')
-                            .select('studyProposalComment.id')
-                            .whereRef('studyProposalComment.studyId', '=', 'study.id')
-                            .where('studyProposalComment.entryType', '=', 'RESUBMISSION-NOTE')
-                            .where('studyProposalComment.authorId', '=', userId),
-                    ),
-                    eb.exists(jobStatusByUser(eb, ['CODE-SUBMITTED'], userId)),
-                    eb.exists(
-                        eb
-                            .selectFrom('audit')
-                            .select('audit.id')
-                            .where('audit.recordType', '=', 'STUDY')
-                            .where('audit.eventType', '=', 'CREATED')
-                            .whereRef('audit.recordId', '=', 'study.id')
-                            .where('audit.userId', '=', userId),
-                    ),
-                ]),
-            )
+            .where((eb) => eb(eb.val(userId), 'in', studyLabMemberIds(db, eb.ref('study.id'))))
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select([
@@ -360,17 +328,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
             .where((eb) =>
                 eb.or([
                     eb('study.reviewerId', '=', userId),
-                    eb.exists(
-                        eb
-                            .selectFrom('studyProposalComment')
-                            .select('studyProposalComment.id')
-                            .whereRef('studyProposalComment.studyId', '=', 'study.id')
-                            .where('studyProposalComment.entryType', '=', 'REVIEWER-FEEDBACK')
-                            .where('studyProposalComment.authorId', '=', userId),
-                    ),
-                    eb.exists(
-                        jobStatusByUser(eb, [...CODE_DECISION_JOB_STATUSES, ...ROUND_CLOSING_JOB_STATUSES], userId),
-                    ),
+                    eb(eb.val(userId), 'in', studyDeciderIds(db, eb.ref('study.id'))),
                 ]),
             )
             .innerJoin('org', 'org.id', 'study.orgId')

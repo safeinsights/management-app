@@ -618,6 +618,7 @@ describe('dashboard rows (OTTER-617)', () => {
                 authorId,
                 authorRole: entryType === 'RESUBMISSION-NOTE' ? 'RESEARCHER' : 'REVIEWER',
                 entryType,
+                decision: entryType === 'REVIEWER-FEEDBACK' ? 'APPROVE' : null,
                 body: JSON.parse(lexicalJson('note')),
                 version: 1,
                 createdAt,

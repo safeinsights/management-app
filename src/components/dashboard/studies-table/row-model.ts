@@ -73,7 +73,7 @@ const newestDate = (...dates: Array<Date | string | null | undefined>): Date =>
     new Date(Math.max(...dates.map((date) => timeOf(date) ?? 0)))
 
 // The researcher link and the draft bin come from the same dashboard rule (docs/study-screens-logic.md,
-// Stage 3); the label it also returns is no longer rendered.
+// Stage 3).
 const rowLink = (study: StudyRow, state: StudyState, audience: Audience, orgSlug: string, userId?: string) => {
     if (audience === 'reviewer') {
         return {
