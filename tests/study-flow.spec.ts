@@ -189,18 +189,29 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
 }
 
 async function uploadCodeFiles(page: Page, files: string[]) {
-    await page.locator('input[type="file"]').setInputFiles(files)
     const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
 
-    // The local editor can already contain these files. Each upload must finish before the table is used.
+    // Success toasts use role=status after OTTER-746. The category marker works with both
+    // toast versions, and one file at a time keeps a later toast from expiring while we wait.
     for (const file of files) {
         const name = file.split('/').pop()!
-        await expect(async () => {
-            if (await replacePrompt.isVisible()) {
-                await replacePrompt.getByRole('button', { name: 'Replace', exact: true }).click()
-            }
-            await expect(page.getByRole('alert').filter({ hasText: `${name} is uploaded.` })).toBeVisible()
-        }).toPass()
+        const successToast = page.locator('[data-toast-kind="success"]').filter({ hasText: `${name} is uploaded.` })
+        // A repeat upload must observe a new completion, not the previous upload's toast.
+        if (await successToast.isVisible()) {
+            await successToast.getByRole('button').click()
+            await expect(successToast).not.toBeVisible()
+        }
+        const fileInput = page.locator('input[type="file"]')
+        await expect(fileInput).toBeEnabled()
+        await fileInput.setInputFiles(file)
+        await expect
+            .poll(async () => {
+                if (await replacePrompt.isVisible()) {
+                    await replacePrompt.getByRole('button', { name: 'Replace', exact: true }).click()
+                }
+                return successToast.isVisible()
+            })
+            .toBe(true)
     }
 }
 
