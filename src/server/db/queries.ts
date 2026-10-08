@@ -437,8 +437,9 @@ export async function getStudyJobFileOfType(
     return file
 }
 
-export async function fetchLatestCodeEnvForStudyId(studyId: string) {
-    return await Action.db
+// The one rule for which code env a study runs: the org's newest non-testing env for its language.
+export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
+    return db
         .selectFrom('study')
         .innerJoin('orgCodeEnv', (join) =>
             join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
@@ -448,6 +449,10 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
+}
+
+export async function fetchLatestCodeEnvForStudyId(studyId: string) {
+    return await latestCodeEnvForStudyQuery(Action.db, studyId)
         .select([
             'orgCodeEnv.id',
             'orgCodeEnv.identifier',

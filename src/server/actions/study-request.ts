@@ -12,7 +12,13 @@ import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanF
 import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import {
+    codeSubmissionVersion,
+    fetchUserFullName,
+    getInfoForStudyId,
+    getOrgIdFromSlug,
+    latestCodeEnvForStudyQuery,
+} from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
 import { deferred, onStudyReviewRequested, onStudyCodeSubmitted, onStudyCreated } from '@/server/events'
@@ -148,20 +154,15 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
 }
 
 // Frozen so a Data Partner editing a code env later cannot change a study's variables (SHRMP-271).
-// Picks the code env by the same rule as fetchLatestCodeEnvForStudyId, against the stored language.
+// Copied in SQL: pg would send a JS array as a Postgres array literal, not jsonb.
 async function snapshotCodeEnvEnvironment(db: Kysely<DB>, studyId: string) {
     await db
         .updateTable('study')
-        .set((eb) => ({
-            codeEnvEnvironment: eb
-                .selectFrom('orgCodeEnv')
-                .select((sub) => sub.ref('orgCodeEnv.settings', '->').key('environment').as('environment'))
-                .whereRef('orgCodeEnv.orgId', '=', 'study.orgId')
-                .whereRef('orgCodeEnv.language', '=', 'study.language')
-                .where('orgCodeEnv.isTesting', '=', false)
-                .orderBy('orgCodeEnv.createdAt', 'desc')
-                .limit(1),
-        }))
+        .set({
+            codeEnvEnvironment: latestCodeEnvForStudyQuery(db, studyId).select((eb) =>
+                eb.ref('orgCodeEnv.settings', '->').key('environment').as('environment'),
+            ),
+        })
         .where('id', '=', studyId)
         .execute()
 }
