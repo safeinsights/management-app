@@ -180,6 +180,54 @@ export function renderWithProviders(
     )
 }
 
+const lexicalTextNode = (text: string) => ({
+    detail: 0,
+    format: 0,
+    mode: 'normal',
+    style: '',
+    text,
+    type: 'text',
+    version: 1,
+})
+
+/** Serialized Lexical state for one paragraph holding a link, plus optional plain text after it. */
+export function lexicalLinkState({
+    url,
+    text = 'example',
+    target = '_blank',
+    tail,
+}: {
+    url: string
+    text?: string
+    target?: string | null
+    tail?: string
+}) {
+    const link = {
+        children: [lexicalTextNode(text)],
+        direction: 'ltr',
+        format: '',
+        indent: 0,
+        type: 'link',
+        version: 1,
+        rel: target ? 'noopener noreferrer' : null,
+        target,
+        title: null,
+        url,
+    }
+    const children = tail === undefined ? [link] : [link, lexicalTextNode(tail)]
+
+    return JSON.stringify({
+        root: {
+            children: [{ children, direction: 'ltr', format: '', indent: 0, type: 'paragraph', version: 1 }],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            type: 'root',
+            version: 1,
+        },
+    })
+}
+
 // The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
 // so there is no role or text to find it by.
 export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow').textContent

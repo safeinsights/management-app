@@ -8,6 +8,7 @@ import {
     describe,
     expect,
     it,
+    lexicalLinkState,
     renderWithProviders,
     screen,
     setTestStudyStatus,
@@ -28,20 +29,6 @@ function lexicalText(text: string): string {
         root: {
             type: 'root',
             children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
-        },
-    })
-}
-
-function lexicalLink(text: string, url: string): string {
-    return JSON.stringify({
-        root: {
-            type: 'root',
-            children: [
-                {
-                    type: 'paragraph',
-                    children: [{ type: 'link', url, target: '_blank', children: [{ type: 'text', text }] }],
-                },
-            ],
         },
     })
 }
@@ -168,7 +155,7 @@ describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
         const user = userEvent.setup()
         renderFooter({
             ...fullyValidExceptTitle,
-            researchQuestions: lexicalLink('example', 'https://example.com'),
+            researchQuestions: lexicalLinkState({ url: 'https://example.com' }),
         })
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
@@ -181,10 +168,9 @@ describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
         await user.keyboard('{Escape}')
 
         await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link details' })).not.toBeInTheDocument())
-        // A closing modal stays mounted through its exit transition, so the preview must outlast it.
-        await expect(
-            waitFor(() => expect(screen.queryByRole('dialog', { name: 'View as reviewer' })).not.toBeInTheDocument()),
-        ).rejects.toThrow()
+        // The card's fade-out outlasts the start of the preview's, so a preview closed by the same
+        // Escape would have faded by now rather than still being mounted and opaque.
+        expect(screen.getByRole('dialog', { name: 'View as reviewer' })).toBeVisible()
 
         await user.keyboard('{Escape}')
 
