@@ -32,6 +32,20 @@ function lexicalText(text: string): string {
     })
 }
 
+function lexicalLink(text: string, url: string): string {
+    return JSON.stringify({
+        root: {
+            type: 'root',
+            children: [
+                {
+                    type: 'paragraph',
+                    children: [{ type: 'link', url, target: '_blank', children: [{ type: 'text', text }] }],
+                },
+            ],
+        },
+    })
+}
+
 const fullyValidExceptTitle: ProposalFormValues = {
     title: '',
     datasets: ['dataset-1'],
@@ -146,6 +160,35 @@ describe('DraftProposalFooter reviewer preview title (OTTER-690)', () => {
         const dialog = await screen.findByRole('dialog')
         expect(within(dialog).getByText('Persisted Step 1 title')).toBeInTheDocument()
         expect(within(dialog).queryByText('stale form copy')).not.toBeInTheDocument()
+    })
+})
+
+describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
+    it('closes only the link card on the first Escape and the preview on the second', async () => {
+        const user = userEvent.setup()
+        renderFooter({
+            ...fullyValidExceptTitle,
+            researchQuestions: lexicalLink('example', 'https://example.com'),
+        })
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+        const preview = await screen.findByRole('dialog', { name: 'View as reviewer' })
+
+        await user.click(await within(preview).findByRole('link', { name: 'example' }))
+        await screen.findByRole('dialog', { name: 'Link details' })
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Copy link' })))
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link details' })).not.toBeInTheDocument())
+        // A closing modal stays mounted through its exit transition, so the preview must outlast it.
+        await expect(
+            waitFor(() => expect(screen.queryByRole('dialog', { name: 'View as reviewer' })).not.toBeInTheDocument()),
+        ).rejects.toThrow()
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'View as reviewer' })).not.toBeInTheDocument())
     })
 })
 
