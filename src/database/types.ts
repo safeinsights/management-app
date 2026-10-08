@@ -3,7 +3,7 @@
  * Please do not edit it manually.
  */
 
-import type { CommandLines, EnvVar, OrgCodeEnvSettings } from './types-manual'
+import type { CodeEnvSnapshot, CommandLines, OrgCodeEnvSettings } from './types-manual'
 import type { ColumnType } from 'kysely'
 
 export type AuditEventType =
@@ -262,7 +262,7 @@ export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
-    codeEnvEnvironment: EnvVar[] | null
+    codeEnvSnapshot: CodeEnvSnapshot | null
     codeResubmissionNoteDraft: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>

@@ -6,7 +6,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
-import { fetchLatestCodeEnvForStudyIdOrNull } from '@/server/db/queries'
+import { fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
@@ -34,7 +34,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
     const orgName = displayOrgName(enclaveOrg?.name ?? '')
 
-    const studyHasCodeEnv = (await fetchLatestCodeEnvForStudyIdOrNull(studyId)) != null
+    const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId)) != null
 
     return (
         <Box bg={semanticColor('surface.page')}>

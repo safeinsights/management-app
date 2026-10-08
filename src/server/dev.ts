@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { CODER_DISABLED, DEV_ENV, getConfigValue } from '@/server/config'
-import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from '@/server/db/queries'
+import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { fetchFileContents } from '@/server/storage'
 import { latestStudyJobCreatedAt } from '@/server/db/mutations'
 import { writeAgentContext } from '@/server/context-writer'
@@ -38,7 +38,7 @@ export async function copyStarterCodeIntoDevWorkspace(
     if (!CODER_DISABLED) return null
 
     const coderFilesPath = await getConfigValue('CODER_FILES')
-    const codeEnv = await fetchLatestCodeEnvForStudyIdOrNull(studyId)
+    const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId)
     if (!codeEnv || codeEnv.starterCodeFileNames.length === 0) return null
 
     await fs.mkdir(coderFilesPath, { recursive: true })
@@ -72,7 +72,7 @@ export async function initializeDevWorkspaceFiles(studyId: string) {
 
     await copyStarterCodeIntoDevWorkspace(studyId)
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId)
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 

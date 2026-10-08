@@ -14,6 +14,7 @@ import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { CodeEnvSnapshot } from '@/database/types-manual'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
 export type SiUser = ClerkUser & {
@@ -444,34 +445,45 @@ export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
         .innerJoin('orgCodeEnv', (join) =>
             join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
         )
-        .innerJoin('org', 'org.id', 'study.orgId')
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
 }
 
-export async function fetchLatestCodeEnvForStudyId(studyId: string) {
-    return await latestCodeEnvForStudyQuery(Action.db, studyId)
-        .select([
-            'orgCodeEnv.id',
-            'orgCodeEnv.identifier',
-            'orgCodeEnv.language',
-            'orgCodeEnv.dataSourceType',
-            'orgCodeEnv.url',
-            'orgCodeEnv.settings',
-            'orgCodeEnv.starterCodeFileNames',
-            'orgCodeEnv.sampleDataPath',
-            'org.slug',
-            'study.orgId',
-            'study.codeEnvEnvironment',
-        ])
-        .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
+// Everything a study takes from its code env, in the shape kept on study.codeEnvSnapshot.
+export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
+    return latestCodeEnvForStudyQuery(db, studyId).select([
+        'orgCodeEnv.id',
+        'orgCodeEnv.identifier',
+        'orgCodeEnv.language',
+        'orgCodeEnv.dataSourceType',
+        'orgCodeEnv.url',
+        'orgCodeEnv.settings',
+        'orgCodeEnv.commandLines',
+        'orgCodeEnv.starterCodeFileNames',
+        'orgCodeEnv.sampleDataPath',
+    ])
 }
 
-export async function fetchLatestCodeEnvForStudyIdOrNull(studyId: string) {
+// The code env a study runs: the copy frozen when its language was chosen (SHRMP-271), or the live
+// one for a study made before studies kept a copy.
+export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
+    const study = await db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['study.codeEnvSnapshot', 'study.orgId', 'org.slug'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow(() => new Error(`no study found for studyId: ${studyId}`))
+    const codeEnv: CodeEnvSnapshot | undefined =
+        study.codeEnvSnapshot ?? (await selectCodeEnvSnapshot(db, studyId).executeTakeFirst())
+    if (!codeEnv) throw new Error(`no code environment found for studyId: ${studyId}`)
+    return { ...codeEnv, slug: study.slug, orgId: study.orgId }
+}
+
+export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {
     try {
-        return await fetchLatestCodeEnvForStudyId(studyId)
+        return await fetchCodeEnvForStudyId(studyId)
     } catch {
         return null
     }

@@ -17,7 +17,7 @@ import {
     fetchUserFullName,
     getInfoForStudyId,
     getOrgIdFromSlug,
-    latestCodeEnvForStudyQuery,
+    selectCodeEnvSnapshot,
 } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { db as database } from '@/database'
@@ -153,16 +153,13 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
     return Number(counts.submitted) > Number(counts.requested)
 }
 
-// Frozen so a Data Partner editing a code env later cannot change a study's variables (SHRMP-271).
-// Copied in SQL: pg would send a JS array as a Postgres array literal, not jsonb.
-async function snapshotCodeEnvEnvironment(db: Kysely<DB>, studyId: string) {
+// Frozen so a Data Partner editing or replacing a code env later cannot change what the study runs:
+// its image, command lines, variables and data paths all come from this copy (SHRMP-271).
+async function snapshotCodeEnv(db: Kysely<DB>, studyId: string) {
+    const codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
     await db
         .updateTable('study')
-        .set({
-            codeEnvEnvironment: latestCodeEnvForStudyQuery(db, studyId).select((eb) =>
-                eb.ref('orgCodeEnv.settings', '->').key('environment').as('environment'),
-            ),
-        })
+        .set({ codeEnvSnapshot: codeEnv ?? null })
         .where('id', '=', studyId)
         .execute()
 }
@@ -230,7 +227,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        await snapshotCodeEnvEnvironment(db, studyId)
+        await snapshotCodeEnv(db, studyId)
 
         return { studyId }
     })
@@ -308,7 +305,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
 
         // Autosave resends the language every time, so only an actual change may replace the snapshot.
         if (studyInfo.language !== undefined && studyInfo.language !== before?.language) {
-            await snapshotCodeEnvEnvironment(db, studyId)
+            await snapshotCodeEnv(db, studyId)
         }
 
         return { studyId }
