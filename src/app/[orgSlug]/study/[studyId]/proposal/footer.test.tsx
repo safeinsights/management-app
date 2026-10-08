@@ -8,6 +8,7 @@ import {
     describe,
     expect,
     it,
+    lexicalLinkState,
     renderWithProviders,
     screen,
     setTestStudyStatus,
@@ -146,6 +147,34 @@ describe('DraftProposalFooter reviewer preview title (OTTER-690)', () => {
         const dialog = await screen.findByRole('dialog')
         expect(within(dialog).getByText('Persisted Step 1 title')).toBeInTheDocument()
         expect(within(dialog).queryByText('stale form copy')).not.toBeInTheDocument()
+    })
+})
+
+describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
+    it('closes only the link card on the first Escape and the preview on the second', async () => {
+        const user = userEvent.setup()
+        renderFooter({
+            ...fullyValidExceptTitle,
+            researchQuestions: lexicalLinkState({ url: 'https://example.com' }),
+        })
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+        const preview = await screen.findByRole('dialog', { name: 'View as reviewer' })
+
+        await user.click(await within(preview).findByRole('link', { name: 'example' }))
+        await screen.findByRole('dialog', { name: 'Link details' })
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Copy link' })))
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link details' })).not.toBeInTheDocument())
+        // The card's fade-out outlasts the start of the preview's, so a preview closed by the same
+        // Escape would have faded by now rather than still being mounted and opaque.
+        expect(screen.getByRole('dialog', { name: 'View as reviewer' })).toBeVisible()
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'View as reviewer' })).not.toBeInTheDocument())
     })
 })
 

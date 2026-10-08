@@ -1,11 +1,24 @@
 import { Modal, ModalProps, useMantineTheme } from '@mantine/core'
-import React from 'react'
+import React, { useEffect } from 'react'
+import { closeOpenLinkCard, useIsLinkCardOpen } from '@/components/link-hover-card/link-card-interactions'
 
 interface AppModalProps extends Omit<ModalProps, 'opened'> {
     isOpen: boolean
     onClose: () => void
     children: React.ReactNode
     title: React.ReactNode
+}
+
+/**
+ * A link card inside the modal takes the first Escape, since Mantine's window listener would close
+ * both. One left open under the overlay is closed instead, so it cannot take the modal's Escape.
+ */
+function useLinkCardTakesEscape(isOpen: boolean) {
+    useEffect(() => {
+        if (isOpen) closeOpenLinkCard()
+    }, [isOpen])
+
+    return useIsLinkCardOpen()
 }
 
 export function AppModal({
@@ -16,12 +29,14 @@ export function AppModal({
     size = 'lg',
     centered = true,
     closeOnClickOutside = true,
+    closeOnEscape = true,
     trapFocus = true,
     styles,
     closeButtonProps,
     ...rest
 }: AppModalProps) {
     const theme = useMantineTheme()
+    const linkCardTakesEscape = useLinkCardTakesEscape(isOpen)
 
     return (
         <Modal
@@ -31,6 +46,7 @@ export function AppModal({
             size={size}
             centered={centered}
             closeOnClickOutside={closeOnClickOutside}
+            closeOnEscape={closeOnEscape && !linkCardTakesEscape}
             trapFocus={trapFocus}
             styles={{
                 header: {
