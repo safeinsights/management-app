@@ -3,6 +3,7 @@ import {
     describe,
     expect,
     fireEvent,
+    insertTestCodeResubmissionNote,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -174,16 +175,16 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
         })
         .execute()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Adjusted the aggregation query.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Adjusted the aggregation query.',
+        })
     }
 
-    // The wrapped-key fetch must answer before the first render: an empty answer latches
-    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
-    // setup so the mock's value cannot leak between tests.
+    // Assigned per setup so the mock's value cannot leak between tests.
     const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
     const artifact = await seedEncryptedArtifact(job.id, {
         fileType: 'ENCRYPTED-RESULT',

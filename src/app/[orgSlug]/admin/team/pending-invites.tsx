@@ -1,7 +1,7 @@
 import { onRevokeInviteAction } from '@/app/account/invitation/[inviteId]/create-account.action'
 import { reportMutationError } from '@/components/errors'
 import { ActionIcon, Button } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { XIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { FC } from 'react'
@@ -21,7 +21,7 @@ const PendingUserActions: React.FC<{ orgSlug: string; pending: { id: string; ema
         mutationFn: () => reInviteUserAction({ orgSlug, pendingUserId: pending.id }),
         onError: reportMutationError('Failed to re-invite user'),
         onSuccess() {
-            notifications.show({ message: `${pending.email} has been re-invited`, color: 'green' })
+            showToast({ category: 'success', title: `${pending.email} has been re-invited` })
         },
     })
 
@@ -29,7 +29,7 @@ const PendingUserActions: React.FC<{ orgSlug: string; pending: { id: string; ema
         mutationFn: () => onRevokeInviteAction({ inviteId: pending.id }),
         onError: reportMutationError('Failed to revoke invite'),
         onSuccess() {
-            notifications.show({ message: `The invite for ${pending.email} has been revoked`, color: 'green' })
+            showToast({ category: 'success', title: `The invite for ${pending.email} has been revoked` })
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
         },
     })

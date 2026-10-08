@@ -10,6 +10,7 @@ import { findOrCreateOrgMembership } from '@/server/mutations'
 import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
+import { lexicalJson } from '@/lib/lexical'
 import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -531,6 +532,39 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         .execute()
 }
 
+type InsertTestCodeResubmissionNoteOptions = {
+    studyId: string
+    studyJobId: string
+    authorId: string
+    round: number
+    text?: string
+    createdAt?: Date
+}
+
+// The row resubmitStudyCodeAction writes for a round's note (OTTER-802).
+export const insertTestCodeResubmissionNote = async ({
+    studyId,
+    studyJobId,
+    authorId,
+    round,
+    text = 'addressed the feedback',
+    createdAt,
+}: InsertTestCodeResubmissionNoteOptions) =>
+    db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId,
+            studyJobId,
+            authorId,
+            reviewKind: 'CODE',
+            entryType: 'RESUBMISSION-NOTE',
+            body: JSON.parse(lexicalJson(text)),
+            round,
+            ...(createdAt ? { createdAt } : {}),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
 // Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
 // Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
 export const insertTestStudyOnly = async ({
@@ -884,19 +918,21 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 }
 
 // A signed-in user holding no key, with a live invite to a second org. Every sign-in screen has to
-// accept the invite before the key detour redirects, or the membership is lost.
-export async function insertKeylessInvitedUser() {
+// accept the invite before the key detour redirects, or the membership is lost. Pass invitedEmail to
+// build the OTTER-788 case, where the invite was addressed to something the account does not own yet.
+export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?: string } = {}) {
     const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
     await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
+    const email = invitedEmail ?? user.email!
     const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
     const invite = await db
         .insertInto('pendingUser')
-        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
+        .values({ email, orgId: invitingOrg.id, isAdmin: false })
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    return { user, org, invitingOrg, invite }
+    return { user, org, invitingOrg, invite, invitedEmail: email }
 }
 
 type MockDualRoleSessionOptions = {

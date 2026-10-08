@@ -9,6 +9,7 @@ import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
+import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
@@ -64,6 +65,16 @@ export async function resolveUserId(role: SeedRole): Promise<string> {
     }
     userIdCache.set(role, row.id)
     return row.id
+}
+
+// The name the dashboards show for a seeded role.
+export async function seededFullName(role: SeedRole): Promise<string> {
+    const user = await db
+        .selectFrom('user')
+        .select('fullName')
+        .where('id', '=', await resolveUserId(role))
+        .executeTakeFirstOrThrow()
+    return user.fullName
 }
 
 // These columns are jsonb holding a Lexical editor state, not plain text.
@@ -218,13 +229,35 @@ function buildReviewReport() {
     }
 }
 
+// Who the app records on each job status, so seeded studies attribute work as real ones do
+// (OTTER-617): the reviewer decides, the enclave job API reports run stages with no user, and the
+// lab's own actions, the scanner and the containerizer record the researcher.
+const NO_USER_STATUSES: readonly StudyJobStatus[] = [
+    'INITIATED',
+    'JOB-PROVISIONING',
+    'JOB-RUNNING',
+    'RUN-COMPLETE',
+    'JOB-ERRORED',
+]
+const REVIEWER_STATUSES: readonly StudyJobStatus[] = [...CODE_DECISION_JOB_STATUSES, ...ROUND_CLOSING_JOB_STATUSES]
+
+const seededStatusActor = (status: StudyJobStatus, ids: { researcherId: string; reviewerId: string }) => {
+    if (REVIEWER_STATUSES.includes(status)) return ids.reviewerId
+    if (NO_USER_STATUSES.includes(status)) return null
+    return ids.researcherId
+}
+
 // `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
     statuses: StudyJobStatus[],
-    { withMainCode = true, withReview = true }: { withMainCode?: boolean; withReview?: boolean } = {},
+    {
+        withMainCode = true,
+        withReview = true,
+        reviewRound = 1,
+    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number } = {},
 ) {
-    const userId = await resolveUserId('researcher')
+    const actors = { researcherId: await resolveUserId('researcher'), reviewerId: await resolveUserId('reviewer') }
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
 
     if (withMainCode) {
@@ -242,7 +275,11 @@ async function insertSubmittedJob(
     if (withReview) {
         await db
             .insertInto('studyReview')
-            .values({ studyJobId: job.id, report: sql`${JSON.stringify(buildReviewReport())}::jsonb` })
+            .values({
+                studyJobId: job.id,
+                report: sql`${JSON.stringify(buildReviewReport())}::jsonb`,
+                round: reviewRound,
+            })
             .execute()
     }
 
@@ -254,7 +291,7 @@ async function insertSubmittedJob(
             statuses.map((status, i) => ({
                 studyJobId: job.id,
                 status,
-                userId,
+                userId: seededStatusActor(status, actors),
                 createdAt: new Date(now - (statuses.length - i) * 1000),
             })),
         )
@@ -340,6 +377,50 @@ export async function seedCodeChangeRequested(title: string): Promise<SeedResult
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED'])
     return { studyId: study.id }
+}
+
+export const SEEDED_RESUBMISSION_NOTE = 'Aggregated the counts as the reviewer asked.'
+
+// One change request answered: the round-1 decision and the round-2 note sit on the same job,
+// the way resubmitStudyCodeAction leaves them (OTTER-802). The AI summary is the second round's, or
+// the reviewer page keeps polling for one.
+export async function seedCodeResubmitted(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], {
+        reviewRound: 2,
+    })
+
+    // Between the seeded statuses, which insertSubmittedJob spaced a second apart.
+    const now = Date.now()
+    await db
+        .insertInto('studyReviewComment')
+        .values([
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('reviewer'),
+                reviewKind: 'CODE',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: lexical('Requesting revisions to submitted code — please address criteria.'),
+                criteria: { proposalAlignment: 'no', agreementCompliance: 'no', privacyProtection: 'no' },
+                round: 1,
+                createdAt: new Date(now - 2500),
+            },
+            {
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: await resolveUserId('researcher'),
+                reviewKind: 'CODE',
+                entryType: 'RESUBMISSION-NOTE',
+                body: lexical(SEEDED_RESUBMISSION_NOTE),
+                round: 2,
+                createdAt: new Date(now - 500),
+            },
+        ])
+        .execute()
+
+    return { studyId: study.id, jobId: job.id }
 }
 
 // The history deliberately ends on FILES-APPROVED with CODE-SCANNED earlier: the resubmit save

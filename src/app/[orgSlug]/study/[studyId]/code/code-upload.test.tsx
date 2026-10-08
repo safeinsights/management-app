@@ -62,6 +62,7 @@ const renderPage = async (orgSlug = 'openstax-lab') => {
             studyId={study.id}
             dataPartnerName={DATA_PARTNER}
             isFirstVisit={false}
+            videoDurationMinutes={null}
             isEditable
             nav={backNav('/test')}
         />,
@@ -165,6 +166,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -214,6 +216,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -249,6 +252,7 @@ describe('CodeUploadPage', () => {
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
+                videoDurationMinutes={null}
                 isEditable
                 nav={backNav('/test')}
             />,
@@ -264,7 +268,7 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: 'Code could not be submitted.' }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: 'Code could not be submitted.' }),
             )
         })
 

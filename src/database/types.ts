@@ -85,7 +85,7 @@ export type StudyProposalCommentAuthorRole = 'RESEARCHER' | 'REVIEWER'
 
 export type StudyProposalCommentEntryType = 'RESUBMISSION-NOTE' | 'REVIEWER-FEEDBACK'
 
-export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE'
+export type StudyReviewCommentEntryType = 'DECISION' | 'NOTE' | 'RESUBMISSION-NOTE'
 
 export type StudyReviewCommentKind = 'CODE' | 'PROPOSAL' | 'RESULTS'
 
@@ -275,6 +275,7 @@ export interface Study {
     irbDocPath: string | null
     irbProtocols: string | null
     isTestStudy: Generated<boolean>
+    labEditedAt: Timestamp | null
     language: Generated<Language>
     lastUpdatedAt: Generated<Timestamp>
     mainCodeFileName: string | null
@@ -299,8 +300,6 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    resubmissionNote: Json | null
-    resubmissionRound: number | null
     studyId: string
 }
 

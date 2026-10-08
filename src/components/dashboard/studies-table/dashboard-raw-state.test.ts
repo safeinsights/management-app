@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import type { Audience, StudyRow } from './types'
-import { dashboardRawStateFromRow, rowStudyState } from './dashboard-raw-state'
+import { dashboardRawStateFromRow, lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
 import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
 
 const row = (overrides: Partial<StudyRow>): StudyRow => ({
@@ -90,5 +90,77 @@ describe('row pill', () => {
         ]
         expect(pill('APPROVED', 'researcher', decided).id).toBe('outputs-need-review')
         expect(pill('APPROVED', 'researcher', [...decided, { status: 'RESULTS-VIEWED' }]).id).toBe('outputs-reviewed')
+    })
+})
+
+describe('lastBadgeChangeAt', () => {
+    const at = (minute: number) => new Date(Date.UTC(2026, 9, 1, 12, minute))
+    const history = (...statuses: StudyJobStatus[]) =>
+        statuses.map((status, i) => ({ status, createdAt: at(i + 1).toISOString() }))
+    const changedAt = (audience: Audience, jobStatusChanges: StudyRow['jobStatusChanges']) =>
+        lastBadgeChangeAt(row({ status: 'APPROVED', jobStatusChanges }), audience)
+
+    it('moves both dates when the lab opens a code round', () => {
+        const opened = history('INITIATED')
+        expect(changedAt('researcher', opened)).toEqual(at(1))
+        expect(changedAt('reviewer', opened)).toEqual(at(1))
+    })
+
+    it('counts the run start for the researcher and every run stage for the reviewer', () => {
+        const running = history('CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-PACKAGING', 'JOB-RUNNING')
+        expect(changedAt('researcher', running)).toEqual(at(3))
+        expect(changedAt('reviewer', running)).toEqual(at(4))
+    })
+
+    it('counts a completed run for both audiences', () => {
+        const complete = history('CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-PACKAGING', 'JOB-RUNNING', 'RUN-COMPLETE')
+        expect(changedAt('researcher', complete)).toEqual(at(5))
+        expect(changedAt('reviewer', complete)).toEqual(at(5))
+    })
+
+    it('counts an errored run, and then its released decision, for both audiences', () => {
+        const errored = history('CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-PACKAGING', 'JOB-RUNNING', 'JOB-ERRORED')
+        expect(changedAt('researcher', errored)).toEqual(at(5))
+        expect(changedAt('reviewer', errored)).toEqual(at(5))
+
+        const decided = [...errored, { status: 'FILES-REJECTED' as const, createdAt: at(6).toISOString() }]
+        expect(changedAt('researcher', decided)).toEqual(at(6))
+        expect(changedAt('reviewer', decided)).toEqual(at(6))
+    })
+
+    it('counts the lab opening released outputs for the researcher only', () => {
+        const viewed = history(
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'JOB-RUNNING',
+            'RUN-COMPLETE',
+            'FILES-APPROVED',
+            'RESULTS-VIEWED',
+        )
+        expect(changedAt('researcher', viewed)).toEqual(at(6))
+        expect(changedAt('reviewer', viewed)).toEqual(at(5))
+    })
+
+    it('ignores a row that leaves the badge as it was', () => {
+        const queued = history('CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING')
+        expect(changedAt('reviewer', queued)).toEqual(at(4))
+
+        const scanned = history('CODE-SUBMITTED', 'CODE-SCANNED')
+        expect(changedAt('researcher', scanned)).toEqual(at(1))
+        expect(changedAt('reviewer', scanned)).toEqual(at(1))
+    })
+
+    it('treats rows written together as one step', () => {
+        const together = [
+            { status: 'CODE-SUBMITTED' as const, createdAt: at(1).toISOString() },
+            { status: 'CODE-APPROVED' as const, createdAt: at(2).toISOString() },
+            { status: 'JOB-READY' as const, createdAt: at(2).toISOString() },
+        ]
+        expect(changedAt('reviewer', together)).toEqual(at(2))
+    })
+
+    it('returns null without a timed history', () => {
+        expect(changedAt('researcher', [])).toBeNull()
+        expect(changedAt('researcher', [{ status: 'CODE-SUBMITTED' }])).toBeNull()
     })
 })

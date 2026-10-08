@@ -91,6 +91,7 @@ vi.mock('next/navigation', async (importOriginal) => {
         // Real, so code that lets Next.js control-flow errors through keeps doing so in tests.
         unstable_rethrow,
         notFound: vi.fn(),
+        RedirectType: { push: 'push', replace: 'replace' },
         redirect: vi.fn().mockImplementation((url: string) => {
             mockRouter.memoryRouter.setCurrentUrl(url)
         }),
@@ -129,9 +130,10 @@ vi.mock('@mantine/notifications', () => ({
     notifications: {
         show: vi.fn(),
         hide: vi.fn(),
-        // Paired with `show` by showOrReplaceNotification, so a spied run has to answer it too.
+        // Paired with `show` by showToast and showSystemNotification, so a spied run has to answer it too.
         update: vi.fn(),
     },
+    notificationsStore: { getState: vi.fn(() => ({ notifications: [], queue: [] })) },
     showNotification: vi.fn(),
     Notifications: () => null,
 }))

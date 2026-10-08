@@ -16,8 +16,12 @@ import {
     seedCodeApprovedJobReady,
     seedCodeResultsReady,
     seedCodeRejected,
+    seedCodeChangeRequested,
+    seedCodeResubmitted,
     seedCodeSubmitted,
     seedProposalPendingReview,
+    SEEDED_RESUBMISSION_NOTE,
+    seededFullName,
 } from './e2e.seed'
 import { execSync } from 'child_process'
 
@@ -251,11 +255,12 @@ async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
 // Shared row / navigation helpers
 // ============================================================================
 
+// The study title is the row's only link (OTTER-617).
 async function clickViewLink(page: Page, studyRow: ReturnType<Page['getByRole']>) {
     await expect(studyRow).toBeVisible()
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
     await expect(async () => {
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
     }).toPass()
 }
 
@@ -276,7 +281,7 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
 
 async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     // The badge states the reviewer's own situation, which is the whole point of the two tables
     // (OTTER-698): the same study reads "Proposal submitted" to the lab that sent it.
     await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Proposal needs review')).toBeVisible()
@@ -313,7 +318,7 @@ const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacy
 // the reviewer hadn't acked, so there is no longer a conditional hop to handle here.
 async function openCodeReviewEditor(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     // Reached only with a decision outstanding, on a first submission or a resubmission alike.
     await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Code needs review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
@@ -388,7 +393,7 @@ function uploadResults(jobId: string): void {
 // decryption is client-side, so the swap is a local phase flip, not a navigation.
 async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
@@ -413,7 +418,7 @@ async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: string):
 // the swap is a local phase flip on the same URL.
 async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string): Promise<void> {
     await visitAsRole(page, REVIEWER_DASHBOARD)
-    await expect(page.getByText('Review Studies')).toBeVisible()
+    await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(/\/review$/)
 
@@ -726,7 +731,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
         const draftRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(draftRow).toBeVisible()
-        await draftRow.getByRole('link', { name: /Edit draft study/i }).click()
+        await draftRow.getByRole('link', { name: studyTitle }).click()
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
         await page.waitForURL(/\/proposal$/)
@@ -922,7 +927,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         await expect(studyRow).toBeVisible()
         await expect(studyRow.getByText('Proposal declined')).toBeVisible()
 
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
@@ -993,7 +998,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         await page.waitForURL(/\/submitted(\?.*)?$/)
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
@@ -1067,6 +1072,44 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
     })
 })
 
+// From the open code review editor: "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable),
+// standard confirm modal.
+async function reviewerRequestsCodeRevision(page: Page, feedback: string) {
+    await fillCodeCriteria(page, 'no')
+    await page.getByTestId('code-review-decision-needs-clarification').click()
+    const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
+    await expect(feedbackEditor).toBeVisible()
+    await typeIntoLexical(feedbackEditor, feedback)
+
+    await page.getByTestId('code-review-submit').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('Request revision?')).toBeVisible()
+    await dialog.getByRole('button', { name: /^Request revision$/i }).click()
+    await expect(dialog).toBeHidden()
+
+    await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+}
+
+async function researcherResubmitsCode(page: Page, studyId: string, note: string) {
+    await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
+    await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
+
+    await uploadResubmitFilesExpectingInheritedMain(page)
+
+    await fillLexicalField(page, 'Resubmission note', note)
+
+    const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
+    await expect(page.getByText(/All changes saved/i)).toBeVisible()
+    await resubmitButton.click()
+    await page
+        .getByRole('dialog')
+        .getByRole('button', { name: /^Resubmit code$/i })
+        .click()
+
+    await page.waitForURL('**/view')
+}
+
 // Owns the reviewer request-code-changes surface AND the researcher code resubmit
 // surface. Seeds CODE-SUBMITTED, drives request-changes; then seeds the resulting
 // CODE-CHANGES-REQUESTED state implicitly via the live decision and drives resubmit.
@@ -1086,21 +1129,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await page.waitForURL(/\/review\/code$/)
         await expect(page.getByTestId('code-review-section')).toBeVisible()
 
-        await fillCodeCriteria(page, 'no')
-        // "Request revision" -> CODE-CHANGES-REQUESTED (resubmittable), standard confirm modal.
-        await page.getByTestId('code-review-decision-needs-clarification').click()
-        const feedbackEditor = page.getByTestId('code-review-section').locator('[contenteditable="true"]').first()
-        await expect(feedbackEditor).toBeVisible()
-        await typeIntoLexical(feedbackEditor, 'Requesting revisions to submitted code — please address criteria.')
-
-        await page.getByTestId('code-review-submit').click()
-        const dialog = page.getByRole('dialog')
-        await expect(dialog).toBeVisible()
-        await expect(dialog.getByText('Request revision?')).toBeVisible()
-        await dialog.getByRole('button', { name: /^Request revision$/i }).click()
-        await expect(dialog).toBeHidden()
-
-        await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
+        await reviewerRequestsCodeRevision(page, 'Requesting revisions to submitted code — please address criteria.')
         await page.getByTestId('cta-back-to-my-studies').click()
         await page.waitForURL('/dashboard')
     })
@@ -1110,28 +1139,49 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
         await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
-        await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
-        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
+        await researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
+    })
+})
 
-        await uploadResubmitFilesExpectingInheritedMain(page)
+// Seeded decisions carry the reviewer, as real ones do, so both dashboards attribute them (OTTER-617).
+test('Dashboards name the reviewer who decided on the code', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('reviewed-by')
+    await seedCodeChangeRequested(studyTitle)
+    const reviewerName = await seededFullName('reviewer')
 
-        await page.getByLabel(/Resubmission Note/i).fill('Updated code per reviewer feedback.')
+    await withRole(browser, 'reviewer', async (page) => {
+        await visitAsRole(page, REVIEWER_DASHBOARD)
+        await expect(page.getByRole('row').filter({ hasText: studyTitle })).toContainText(reviewerName)
 
-        const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
-        await expect(page.getByText(/All changes saved/i)).toBeVisible()
-        await resubmitButton.click()
-        await page
-            .getByRole('dialog')
-            .getByRole('button', { name: /^Resubmit code$/i })
-            .click()
+        await visitAsRole(page, '/dashboard')
+        await expect(page.getByRole('row').filter({ hasText: studyTitle })).toBeVisible()
+    })
+})
 
-        await page.waitForURL('**/view')
+// A change-requested resubmit reuses the job, and the next round used to cost the previous one its
+// note (OTTER-802). Seeds the state after the first resubmit and drives one more round.
+test('Second code resubmission keeps the earlier round note', async ({ browser, studyFeatures }) => {
+    const studyTitle = studyFeatures.uniqueTitle('code-resubmit-again')
+    const { studyId } = await seedCodeResubmitted(studyTitle)
+
+    await withRole(browser, 'reviewer', async (page) => {
+        await openCodeReviewEditor(page, studyTitle)
+        await reviewerRequestsCodeRevision(page, 'The agreements criterion is still not met.')
+    })
+
+    await withRole(browser, 'researcher', async (page) => {
+        await researcherResubmitsCode(page, studyId, 'Addressed the agreements criterion.')
+
+        const thread = page.getByTestId('feedback-and-notes-section')
+        await expect(thread.getByText('Resubmission note (v3.0)')).toBeVisible()
+        await expect(thread.getByText('Resubmission note (v2.0)')).toBeVisible()
+        await expect(thread).toContainText(SEEDED_RESUBMISSION_NOTE)
     })
 })
 
@@ -1158,13 +1208,13 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
         await uploadResubmitFilesExpectingInheritedMain(page)
 
         // Filling the note fires the debounced autosave against the real action: the "All changes
-        // saved" indicator must appear and no "not editable" error toast. This guards the page +
+        // saved" indicator must appear and no "can no longer be changed" toast. This guards the page +
         // autosave + resubmit wiring on a Results-ready study, NOT the ordering bug itself: this seed
         // is deterministically ordered (FILES-APPROVED newest), so the old at(0) gate would have
         // passed here too. The ordering-triggered failure is covered by the unit tests.
-        await page.getByLabel(/Resubmission Note/i).fill('Reworked code after the results were approved.')
+        await fillLexicalField(page, 'Resubmission note', 'Reworked code after the results were approved.')
         await expect(page.getByText(/All changes saved/i)).toBeVisible()
-        await expect(page.getByText(/Study is not editable or you do not have access/i)).toBeHidden()
+        await expect(page.getByText(/can no longer be changed/i)).toBeHidden()
 
         const resubmitButton = page.getByRole('button', { name: /^Resubmit code for review$/i })
         await expect(resubmitButton).toBeEnabled()
@@ -1197,7 +1247,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await expect(studyRow).toBeVisible()
-        await studyRow.getByRole('link', { name: 'View' }).first().click()
+        await studyRow.getByRole('link').first().click()
 
         // CODE-REJECTED is terminal: rejected banner + the elevated exit only (no resubmit CTA).
         await expect(page.getByTestId('status-alert')).toContainText('Code declined')

@@ -49,8 +49,8 @@ if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && !isDev && !isTypegen) {
 
 const securityHeaders = [
     // Clickjacking protection (SIINFOSEC-470, ZAP-10020).
-    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN
-    // and we have no in-app frame usage.
+    // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN.
+    // It only governs framing *of* this app, so the embedded Vimeo player is unaffected.
     { key: 'X-Frame-Options', value: 'DENY' },
     // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
     // frame-ancestors/form-action/base-uri have no fallback to default-src, so they

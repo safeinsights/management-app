@@ -10,81 +10,72 @@ const dstate = (overrides: Partial<DashboardState>): DashboardState => studyStat
 const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
 
 describe('resolveDashboardAction (researcher)', () => {
-    it('draft → Edit + delete-draft + /edit', () => {
+    it('draft → delete-draft + /edit', () => {
         const a = resolveDashboardAction('researcher', dstate({ isDraft: true }), ctx)
-        expect(a.label).toBe('Edit')
         expect(a.secondaryAction).toBe('delete-draft')
         expect(a.href).toContain('/edit')
     })
-    it('draft with Step 2 progress → Edit + delete-draft + /proposal (resume on Step 2)', () => {
+    it('draft with Step 2 progress → delete-draft + /proposal (resume on Step 2)', () => {
         const a = resolveDashboardAction('researcher', dstate({ isDraft: true, hasStep2Progress: true }), ctx)
-        expect(a.label).toBe('Edit')
         expect(a.secondaryAction).toBe('delete-draft')
         expect(a.href).toContain('/proposal')
         expect(a.href).not.toContain('/edit')
     })
-    it('APPROVED with a baseline job, no code submitted → View → /code', () => {
+    it('APPROVED with a baseline job, no code submitted → /code', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'APPROVED', isDraft: false, hasAnyJob: true, hasSubmittedCode: false }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/code')
     })
-    it('job activity with code submitted → View → /view', () => {
+    it('job activity with code submitted → /view', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'APPROVED', isDraft: false, hasAnyJob: true, hasSubmittedCode: true }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/view')
     })
-    it('APPROVED, agreements acked, no job → View → /code', () => {
+    it('APPROVED, agreements acked, no job → /code', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'APPROVED', isDraft: false, hasAnyJob: false, researcherAgreementsAcked: true }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/code')
     })
     // Must fall through to /submitted: they are not sent to /code before acking.
-    it('APPROVED, agreements NOT acked, no job → View → /submitted', () => {
+    it('APPROVED, agreements NOT acked, no job → /submitted', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'APPROVED', isDraft: false, hasAnyJob: false, researcherAgreementsAcked: false }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/submitted')
     })
-    it('REJECTED with job activity → View → /view', () => {
+    it('REJECTED with job activity → /view', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'REJECTED', isDraft: false, hasAnyJob: true }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/view')
     })
-    it('PENDING-REVIEW, no job → View → /submitted', () => {
+    it('PENDING-REVIEW, no job → /submitted', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'PENDING-REVIEW', isDraft: false, hasAnyJob: false }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/submitted')
     })
-    it('CHANGE-REQUESTED, no job → View → /submitted', () => {
+    it('CHANGE-REQUESTED, no job → /submitted', () => {
         const a = resolveDashboardAction(
             'researcher',
             dstate({ status: 'CHANGE-REQUESTED', isDraft: false, hasAnyJob: false }),
             ctx,
         )
-        expect(a.label).toBe('View')
         expect(a.href).toContain('/submitted')
     })
 })

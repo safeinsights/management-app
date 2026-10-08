@@ -83,7 +83,7 @@ export const SignInForm: FC<{
                 await onComplete({ signIn: attempt, usingSMS: false })
             }
         } catch (err: unknown) {
-            const errorMessage = errorToString(err, clerkErrorOverrides)
+            const errorMessage = errorToString(err, { clerkOverrides: clerkErrorOverrides })
 
             // A session was restored in another tab between mount and submit. A full load, because
             // the root layout rendered for a signed-out visitor and carries no org list.

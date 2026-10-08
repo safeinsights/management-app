@@ -2,6 +2,7 @@
 
 import { reportError } from '@/components/errors'
 import { useReloadOrgList } from '@/hooks/session'
+import { inviteLandingUrl } from '@/lib/invite-landing'
 import { markOrgJoined } from '@/lib/joined-org'
 import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
@@ -41,7 +42,7 @@ async function completeServerSignIn(getToken: GetToken) {
 async function acceptInviteAndResolveLanding(inviteId: string): Promise<Route> {
     const joinTeamPage = Routes.accountInvitationJoinTeam({ inviteId }) as Route
 
-    let org: { slug: string; name: string }
+    let org: { slug: string; name: string; email: string }
     try {
         // Read the org first: accepting marks the invite claimed, and the lookup only resolves unclaimed ones.
         org = actionResult(await getOrgInfoForInviteAction({ inviteId }))
@@ -52,9 +53,9 @@ async function acceptInviteAndResolveLanding(inviteId: string): Promise<Route> {
         return joinTeamPage
     }
 
+    let joined: { email: string | null }
     try {
-        // actionResult despite the discarded value: it is what turns a failure into a throw for the catch.
-        actionResult(await onJoinTeamAccountAction({ inviteId }))
+        joined = actionResult(await onJoinTeamAccountAction({ inviteId }))
     } catch (error) {
         // A failed join rolls its claim back, leaving the invite live, so land where Accept can be retried.
         reportError(error, 'Failed to accept your invitation. Please try again.')
@@ -64,7 +65,7 @@ async function acceptInviteAndResolveLanding(inviteId: string): Promise<Route> {
     // Same one-shot flag the join-team page sets, so this path lands on the dashboard banner.
     markOrgJoined(org.name)
 
-    return Routes.orgDashboard({ orgSlug: org.slug }) as Route
+    return inviteLandingUrl(inviteId, org.slug, org.email, joined.email)
 }
 
 // Everything that happens after Clerk hands back a session. Four screens establish one, and each

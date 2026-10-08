@@ -7,6 +7,7 @@ import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { pathForInvitation } from '@/lib/paths'
 import { APP_BASE_URL } from '@/server/config'
+import { findOpenInvite } from '@/server/db/queries'
 import { findQaUser, withTransaction, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
 
 export class QaConflictError extends Error {}
@@ -181,12 +182,7 @@ export async function createQaInvite(
         }
     }
 
-    const existingInvite = await db
-        .selectFrom('pendingUser')
-        .select(['id', 'isAdmin'])
-        .where('email', '=', invitedEmail)
-        .where('orgId', '=', org.id)
-        .executeTakeFirst()
+    const existingInvite = await findOpenInvite(db, org.id, invitedEmail)
 
     if (existingInvite) {
         return {

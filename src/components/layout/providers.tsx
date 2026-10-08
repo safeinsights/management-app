@@ -14,6 +14,7 @@ import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
 import { reportQueryError } from '@/hooks/query-wrappers'
+import { ToastProvider } from './toast-provider'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -65,6 +66,7 @@ export const Providers: FC<Props> = ({
         <QueryClientProvider client={queryClient}>
             <SessionInfoProvider userInfo={userInfo} updatedAt={userInfoUpdatedAt}>
                 <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                    <ToastProvider />
                     <ModalsProvider>
                         <ErrorBoundary>
                             <SpyModeProvider>
