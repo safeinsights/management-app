@@ -4,8 +4,6 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { mergeRegister } from '@lexical/utils'
 import {
-    $createRangeSelectionFromDom,
-    $getSelection,
     $setSelection,
     COMMAND_PRIORITY_LOW,
     isDOMNode,
@@ -33,14 +31,14 @@ import {
     useRootDomListeners,
 } from './link-card-popover'
 import {
-    $caretInLink,
-    $linkAtDomNode,
-    $linkAtSelection,
+    $openLinkAtDomNode,
+    $openLinkAtSelection,
     $restoreLinkCaret,
     $selectionLeftLink,
     $unwrapLink,
     $updateLink,
     OPEN_LINK_CARD_COMMAND,
+    type LinkCardOpening,
     type LinkCardTarget,
     type LinkCaret,
 } from './link-card-node'
@@ -63,7 +61,7 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
     const { claim } = useExclusiveLinkCard(close, dropdownId)
 
     const open = useCallback(
-        (found: LinkCardTarget, caret: LinkCaret | null) => {
+        ({ link: found, caret }: LinkCardOpening) => {
             claim()
             caretRef.current = caret
             // The card takes focus, so the field holds no caret while it is open. Clearing the
@@ -97,14 +95,8 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
             if (!isDOMNode(event.target)) return
 
             const target = event.target
-            // The DOM caret, because the browser moved it on mousedown and the selectionchange
-            // that tells Lexical may not have run yet.
-            const opened = editor.read(() => {
-                const found = $linkAtDomNode(target)
-                const clicked = $createRangeSelectionFromDom(window.getSelection(), editor)
-                return found && { found, caret: $caretInLink(found.nodeKey, clicked) }
-            })
-            if (opened) open(opened.found, opened.caret)
+            const opened = editor.read(() => $openLinkAtDomNode(target, editor))
+            if (opened) open(opened)
         },
         [editor, movedSincePress, open],
     )
@@ -115,13 +107,10 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         // The committed state, not editor.read. A command dispatched from a keydown runs while
         // Lexical is mid-update, and reading the live editor there both answers with no range
         // selection and settles the pending one, so the caret's link goes missing either way.
-        const opened = editor.getEditorState().read(() => {
-            const found = $linkAtSelection()
-            return found && { found, caret: $caretInLink(found.nodeKey, $getSelection()) }
-        })
+        const opened = editor.getEditorState().read($openLinkAtSelection)
         if (!opened) return false
 
-        open(opened.found, opened.caret)
+        open(opened)
         return true
     }, [editor, open])
 
