@@ -192,28 +192,25 @@ async function navigateToCodeUpload(page: Page, studyTitle: string) {
     await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
 }
 
+// Server actions run one at a time, so the uploads queue behind the page's own data loads and the
+// table settles only after several round trips. Retried as a block until both rows show.
+async function uploadAndExpectFiles(page: Page, filePaths: string[]) {
+    await page.locator('input[type="file"]').setInputFiles(filePaths)
+    await expect(async () => {
+        for (const filePath of filePaths) {
+            // By the view button, not the cell: this table makes the file name the control that opens
+            // the preview. `exact` throughout this file for anything naming a file: Playwright matches
+            // accessible names as case-insensitive substrings by default.
+            const name = `View ${filePath.split('/').pop()}`
+            await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
+        }
+    }).toPass()
+}
+
 async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
-    // The empty view shows a starter-code download link when the org configures a code
-    // env with starter files (the openstax seed does). Shared CODER_FILES state in CI can
-    // land us in the review view (no link), so only assert it when the empty card is shown.
-    const uploadCardHeading = page.getByText('Upload your files')
-    if (await uploadCardHeading.isVisible()) {
-        const starterLink = page.getByRole('link', { name: /Starter code/i })
-        await expect(starterLink).toBeVisible()
-        await expect(starterLink).toHaveAttribute('href', /./)
-        await expect(starterLink).toHaveAttribute('target', '_blank')
-    }
-
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/fixtures/code-samples/code.r'])
-
+    // analysis.r avoids colliding with the Main.R template on case-insensitive macOS filesystems.
+    await uploadAndExpectFiles(page, [mainCodeFile, 'tests/fixtures/code-samples/code.r'])
     const mainFileName = mainCodeFile.split('/').pop()!
-    // By the view button, not the cell: this table makes the file name the control that opens the
-    // preview, so the cell's accessible name is "View {file}".
-    // `exact` throughout this file for anything naming a file: Playwright matches accessible names
-    // case-insensitively by default, so `View main.r` also matches the pre-loaded `View Main.R`.
-    await expect(page.getByRole('button', { name: `View ${mainFileName}`, exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
 
     // main file must be picked explicitly when multiple files are present.
     // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
@@ -240,33 +237,18 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     return mainFileName
 }
 
-// Resubmit upload: two files, no star click. insertSubmittedJob seeds main.r as MAIN-CODE;
+// Resubmit upload: two files, no star click. insertSubmittedJob seeds analysis.r as MAIN-CODE;
 // asserting that star is already selected is what proves inheritance. Clicking it would
 // set an override and hide a broken inheritance rule.
 async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles(['tests/fixtures/code-samples/main.r', 'tests/fixtures/code-samples/code.r'])
-
-    // OTTER-693 asks before overwriting a name the workspace already has, one file at a time — and a
-    // resubmission re-uploads the previous round's names, so this is the ordinary case here. Replace
-    // is what a resubmission means. Retried as a block because the prompt can arrive after the
-    // upload settles, and conditional for the same reason the upload-card check above is: whether
-    // the previous files are on disk depends on shared CODER_FILES state.
-    const replacePrompt = page.getByRole('dialog', { name: 'Replace existing file?' })
-    await expect(async () => {
-        if (await replacePrompt.isVisible()) {
-            await replacePrompt.getByRole('button', { name: 'Replace' }).click()
-        }
-        await expect(replacePrompt).toBeHidden()
-        await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
-    }).toPass()
-
-    // /resubmit now renders the same table as /code, so the file name is the view button and the
-    // star is a radio — the same selectors the upload helper above uses.
-    await expect(page.getByRole('button', { name: 'View main.r', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'View code.r', exact: true })).toBeVisible()
-    // Without `exact` this passes against `Main.R is the main file`, asserting the wrong file.
-    await expect(page.getByRole('radio', { name: 'main.r is the main file', exact: true })).toBeVisible()
+    // /resubmit renders the same table as /code, so the same selectors apply.
+    await uploadAndExpectFiles(page, ['tests/fixtures/code-samples/analysis.r', 'tests/fixtures/code-samples/code.r'])
+    await page.locator('input[type="file"]').setInputFiles('tests/fixtures/code-samples/analysis.r')
+    const replaceDialog = page.getByRole('dialog', { name: 'Replace existing file?' })
+    await expect(replaceDialog).toContainText('A file named analysis.r already exists')
+    await replaceDialog.getByRole('button', { name: 'Replace', exact: true }).click()
+    await expect(replaceDialog).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'analysis.r is the main file', exact: true })).toBeVisible()
 }
 
 // ============================================================================
@@ -774,7 +756,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToCodeUpload(page, studyTitle)
-        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/main.r')
+        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/fixtures/code-samples/analysis.r')
 
         // QA's reproduction (OTTER-693): reopening /code after submitting left it fully live, and
         // both a main-file change and a second submission went through.
@@ -1216,6 +1198,12 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
     await withRole(browser, 'researcher', async (page) => {
         await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
         await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
+
+        // Seeded jobs have no local workspace files, so /resubmit exercises the empty view.
+        const starterLink = page.getByRole('link', { name: 'Starter code', exact: true })
+        await expect(starterLink).toBeVisible()
+        await expect(starterLink).toHaveAttribute('href', /X-Amz-Signature=/i)
+        await expect(starterLink).toHaveAttribute('target', '_blank')
 
         await uploadResubmitFilesExpectingInheritedMain(page)
 

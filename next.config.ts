@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import type { NextConfig } from 'next'
 import path from 'node:path'
 import { OBJECT_SRC_DIRECTIVE } from './src/lib/csp'
@@ -160,6 +160,10 @@ const configWithSentry = withSentryConfig(nextConfig, {
     sourcemaps: {
         deleteSourcemapsAfterUpload: false,
     },
+    // Under Turbopack this hook does all Sentry build work: release, commits, source map upload.
+    // E2E builds (E2E_FAKE_CLERK) never deploy, and a local one would otherwise use the
+    // SENTRY_AUTH_TOKEN from .env to make a production release.
+    useRunAfterProductionCompileHook: !fakeClerk,
     // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
     // This can increase your server load as well as your hosting bill.
     // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of

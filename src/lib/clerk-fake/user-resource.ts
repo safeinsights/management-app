@@ -1,4 +1,4 @@
-import { buildV3Metadata, defaultOrgSlug, type FakeFixture } from './fixtures'
+import { buildSessionClaimsMetadata, defaultOrgSlug, type FakeFixture } from './fixtures'
 
 export type FakeUser = ReturnType<typeof buildFakeUser>
 
@@ -30,7 +30,7 @@ export function buildFakeUser(fixture: FakeFixture) {
             })),
         ],
         phoneNumbers: [] as Array<Record<string, unknown>>,
-        publicMetadata: buildV3Metadata(fixture) as unknown as UserPublicMetadata,
+        publicMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug } as UserUnsafeMetadata,
 
         createTOTP: async () => ({

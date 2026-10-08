@@ -19,9 +19,12 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider } from '@/components/spy-mode-context'
+import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
+import { reportQueryError } from '@/hooks/query-wrappers'
+import { CURRENT_USER_INFO_KEY, useSession as useAppSession } from '@/hooks/session'
 // eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor as waitForRtl } from '@testing-library/react'
 import { getNearestEditorFromDOMNode } from 'lexical'
 import fs from 'fs'
@@ -33,7 +36,7 @@ import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 
-import { ReactElement, ReactNode } from 'react'
+import { FC, ReactElement, ReactNode } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -81,6 +84,7 @@ const liveTestQueryClients = new Set<QueryClient>()
 
 export const createTestQueryClient = () => {
     const client = new QueryClient({
+        queryCache: new QueryCache({ onError: reportQueryError }),
         defaultOptions: {
             queries: {
                 retry: false,
@@ -143,13 +147,24 @@ export const resetTestQueryClients = () => {
         client.clear()
     }
     liveTestQueryClients.clear()
+    mockedLayoutUserInfo = null
 }
 
+// The org list the root layout would pass for the session that mockClerkSession set up.
+let mockedLayoutUserInfo: UserInfo | null = null
+
+// A test of the client fetch passes `sessionInfo: null`, as the layout does when it has no session.
+type SessionInfoOption = { sessionInfo?: UserInfo | null }
+const layoutUserInfo = (options?: SessionInfoOption) =>
+    options && 'sessionInfo' in options ? (options.sessionInfo ?? null) : mockedLayoutUserInfo
+
 // For `renderHook(..., { wrapper: createTestQueryWrapper() })`.
-export const createTestQueryWrapper = () => {
-    const client = createTestQueryClient()
+export const createTestQueryWrapper = (options?: SessionInfoOption & { queryClient?: QueryClient }) => {
+    const client = options?.queryClient ?? createTestQueryClient()
     const Wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        <QueryClientProvider client={client}>
+            <SessionInfoProvider userInfo={layoutUserInfo(options)}>{children}</SessionInfoProvider>
+        </QueryClientProvider>
     )
     Wrapper.displayName = 'QueryClientWrapper'
     return Wrapper
@@ -161,20 +176,23 @@ export const createTestQueryWrapper = () => {
  */
 export function renderWithProviders(
     ui: ReactElement,
-    options?: Parameters<typeof render>[1] & { singleUserEditing?: boolean; queryClient?: QueryClient },
+    options?: Parameters<typeof render>[1] &
+        SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient },
 ) {
     // A caller-supplied client lets a test prime a query before the first render.
     const testQueryClient = options?.queryClient ?? createTestQueryClient()
 
     return render(
         <QueryClientProvider client={testQueryClient}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-                <SpyModeProvider>
-                    <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
-                        <ModalsProvider>{ui}</ModalsProvider>
-                    </YjsWebsocketProvider>
-                </SpyModeProvider>
-            </MantineProvider>
+            <SessionInfoProvider userInfo={layoutUserInfo(options)}>
+                <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                    <SpyModeProvider>
+                        <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
+                            <ModalsProvider>{ui}</ModalsProvider>
+                        </YjsWebsocketProvider>
+                    </SpyModeProvider>
+                </MantineProvider>
+            </SessionInfoProvider>
         </QueryClientProvider>,
         options,
     )
@@ -226,6 +244,29 @@ export function lexicalLinkState({
             version: 1,
         },
     })
+}
+
+// Shows the org list that useSession() holds, for tests of the flows that change it.
+export const SessionOrgSlugs: FC = () => {
+    const result = useAppSession()
+    const slugs = result.isLoaded ? Object.keys(result.session.orgs).sort().join(',') : 'loading'
+    return <output aria-label="session orgs">{slugs}</output>
+}
+
+// Records the cached org list each time the app calls router.push, so a test can show that a flow
+// reloaded the list before it navigated, not after.
+export const recordOrgListAtPush = (client: QueryClient) => {
+    const listsAtPush: string[][] = []
+    const push = RouterMock.memoryRouter.push.bind(RouterMock.memoryRouter)
+    vi.spyOn(RouterMock.memoryRouter, 'push').mockImplementation((...args) => {
+        listsAtPush.push(
+            client
+                .getQueriesData<UserInfo>({ queryKey: CURRENT_USER_INFO_KEY })
+                .flatMap(([, info]) => Object.keys(info?.orgs ?? {})),
+        )
+        return push(...args)
+    })
+    return listsAtPush
 }
 
 // The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
@@ -735,6 +776,9 @@ export const mockClerkSession = (values: MockSession | null) => {
             isLoaded: true,
             isSignedIn: false,
         })
+        ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false, user: null })
+        ;(clerkAuth as unknown as Mock).mockImplementation(() => ({ userId: null, sessionClaims: null }))
+        mockedLayoutUserInfo = null
         ;(useClerk as Mock).mockReturnValue({
             signOut: vi.fn(),
         } as unknown as ReturnType<typeof useClerk>)
@@ -774,14 +818,9 @@ export const mockClerkSession = (values: MockSession | null) => {
             isAdmin: extra.isAdmin ?? false,
         }
     }
-    const publicMetadata = {
-        format: 'v3',
-        user: {
-            id: values.userId,
-        },
-        teams: null,
-        orgs,
-    }
+    // As in production: the token and Clerk hold no orgs, and the root layout passes them.
+    const publicMetadata = { format: 'v3', user: { id: values.userId }, teams: null }
+    mockedLayoutUserInfo = { ...publicMetadata, orgs } as UserInfo
     const mockEmail = values.email || testEmail()
     const userProperties = {
         id: values.clerkUserId,
@@ -1024,8 +1063,7 @@ export const writeWorkspaceFiles = async (
     studyId: string,
     files: Record<string, string | Uint8Array>,
 ) => {
-    const { CODER_DISABLED } = await import('@/server/config')
-    const workspaceDir = CODER_DISABLED ? root : path.join(root, studyId)
+    const workspaceDir = path.join(root, studyId)
     await fs.promises.mkdir(workspaceDir, { recursive: true })
     await Promise.all(
         Object.entries(files).map(([fileName, content]) =>

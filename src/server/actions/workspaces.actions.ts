@@ -1,5 +1,7 @@
 'use server'
 
+import { getStudyFilesPath } from '@/server/workspace-files'
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
@@ -9,7 +11,7 @@ import {
     getCoderWorkspaceLaunchStatus,
     type WorkspaceLaunchStatus,
 } from '../coder'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import { CODER_DISABLED } from '@/server/config'
 import {
     getInfoForStudyId,
     latestActivityPerWorkspaceFile,
@@ -27,10 +29,7 @@ import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-co
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
+    const coderFilesPath = await getStudyFilesPath(studyId)
 
     let entries: string[]
     try {
@@ -81,10 +80,7 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .handler(async ({ params: { studyId } }) => {
         const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         let entries: string[] = []
         try {
