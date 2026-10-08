@@ -20,6 +20,12 @@ vi.mock('@/server/actions/workspaces.actions', () => ({
     getWorkspaceLaunchStatusAction: vi.fn(),
 }))
 
+// Spied rather than stubbed, so the launcher still gets a real event id for the modal's Ref.
+vi.mock('@sentry/nextjs', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@sentry/nextjs')>()
+    return { ...actual, captureException: vi.fn(actual.captureException) }
+})
+
 const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {
     value: mockWindowOpen,
@@ -29,6 +35,7 @@ Object.defineProperty(window, 'open', {
 import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { notifications } from '@mantine/notifications'
+import { captureException } from '@sentry/nextjs'
 
 const studyId = faker.string.uuid()
 
@@ -285,10 +292,14 @@ describe('useWorkspaceLauncher', () => {
 
         // OTTER-832: the failure modal is the only surface, so each path captures without a toast.
         it.each([
-            ['an ensure failure', () => ensureMock.mockResolvedValue({ error: 'boom' })],
-            ['a status polling error', () => statusMock.mockResolvedValue({ error: 'workspace not found' })],
-            ['a failed build', () => statusMock.mockResolvedValue(failedStatus())],
-        ])('reports %s to Sentry without a toast', async (_label, arrange) => {
+            ['an ensure failure', 'boom', () => ensureMock.mockResolvedValue({ error: 'boom' })],
+            [
+                'a status polling error',
+                'workspace not found',
+                () => statusMock.mockResolvedValue({ error: 'workspace not found' }),
+            ],
+            ['a failed build', 'terraform exploded', () => statusMock.mockResolvedValue(failedStatus())],
+        ])('reports %s to Sentry without a toast', async (_label, message, arrange) => {
             arrange()
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
@@ -299,6 +310,8 @@ describe('useWorkspaceLauncher', () => {
 
             await waitFor(() => expect(result.current.errorEventId).toMatch(/^[a-f0-9]{32}$/))
             expect(result.current.error).not.toBeNull()
+            expect(captureException).toHaveBeenCalledTimes(1)
+            expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message }))
             expect(notifications.show).not.toHaveBeenCalled()
         })
 

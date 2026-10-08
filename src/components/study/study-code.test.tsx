@@ -1495,6 +1495,8 @@ describe('StudyCode component', () => {
 
     describe('IDE launch failure modal (OTTER-693)', () => {
         const FILES = { 'main.R': 'print(1)' }
+        const expectNoErrorToast = () =>
+            expect(notifications.show).not.toHaveBeenCalledWith(expect.objectContaining({ 'data-toast-kind': 'error' }))
 
         it('replaces the launch with a failure modal, and retries on Try again', async () => {
             vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
@@ -1515,27 +1517,46 @@ describe('StudyCode component', () => {
             expect(dialog).toHaveTextContent(
                 /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
             )
+            const firstRef = dialog.textContent?.match(/Ref: ([a-f0-9]{32})/)?.[1] ?? ''
             // OTTER-832: the modal is the only surface, so no toast repeats it.
-            expect(notifications.show).not.toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'Failed to launch IDE' }),
-            )
+            expectNoErrorToast()
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
             // through the launch mutation rather than firing on the click itself.
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+
+            // The retry fails the same way, and still only the modal reports it. Waiting on a fresh
+            // Ref proves the second failure was captured, not that the first modal is still fading.
+            await screen.findByText((text) => /Ref: [a-f0-9]{32}\./.test(text) && !text.includes(firstRef))
+            expectNoErrorToast()
         })
 
-        // The mutation path above lands the id in the same React batch. A build Coder reports as
-        // failed reaches captureError from an effect instead, so the modal paints once without a
-        // ref, and that frame must read as a whole sentence rather than a blank or a placeholder.
-        it('fills the Ref once a failed build is polled', async () => {
-            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
-                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
-                >,
-            )
+        // The mutation path above lands the id in the same React batch. A failed build or a failed
+        // poll reaches captureError from an effect instead, so the modal paints once without a ref,
+        // and that frame must read as a whole sentence rather than a blank or a placeholder.
+        it.each([
+            [
+                'a failed build',
+                () =>
+                    vi
+                        .mocked(getCoderWorkspaceLaunchStatus)
+                        .mockResolvedValue(
+                            launchStatus({
+                                ready: false,
+                                failed: true,
+                                url: undefined,
+                                reason: 'build failed',
+                            }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                        ),
+            ],
+            [
+                'a status polling error',
+                () => vi.mocked(getCoderWorkspaceLaunchStatus).mockRejectedValue(new Error('workspace not found')),
+            ],
+        ])('fills the Ref once %s is polled', async (_label, arrange) => {
+            arrange()
             await renderIDE('openstax-lab', FILES)
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
 
@@ -1548,9 +1569,7 @@ describe('StudyCode component', () => {
                     /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
                 ),
             )
-            expect(notifications.show).not.toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'Failed to launch IDE' }),
-            )
+            expectNoErrorToast()
         })
 
         it('closes without retrying when dismissed', async () => {
