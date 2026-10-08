@@ -1540,16 +1540,14 @@ describe('StudyCode component', () => {
             [
                 'a failed build',
                 () =>
-                    vi
-                        .mocked(getCoderWorkspaceLaunchStatus)
-                        .mockResolvedValue(
-                            launchStatus({
-                                ready: false,
-                                failed: true,
-                                url: undefined,
-                                reason: 'build failed',
-                            }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
-                        ),
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'build failed',
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
             ],
             [
                 'a status polling error',
