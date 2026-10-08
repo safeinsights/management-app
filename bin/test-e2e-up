@@ -26,6 +26,10 @@ if [ -f .env.test ]; then
     set +a
 fi
 export E2E_FAKE_CLERK=1
+# .env.test sets AWS_PROFILE, which makes the AWS SDK prefer (expired) SSO over the static SeaweedFS
+# credentials. Both the migrate seed (bin/seed-environment.ts stores starter code) and the
+# Playwright seed (tests/e2e.seed.ts) call S3, so drop it before either runs, as bin/app-test does.
+unset AWS_PROFILE
 
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
@@ -87,11 +91,6 @@ fi
 
 note "Migrating + seeding ${TEST_DB} (faked Clerk — DB users/orgs only)…"
 DATABASE_URL="$TEST_DATABASE_URL" pnpm run db:migrate
-
-# The Playwright process runs the seed (tests/e2e.seed.ts) itself, so it needs the same treatment
-# bin/app-test gives the app: a shell AWS_PROFILE makes the SDK prefer (expired) SSO over the static
-# SeaweedFS credentials in .env.test.
-unset AWS_PROFILE
 
 note "Infra ready. Running e2e against ${TEST_DATABASE_URL}"
 exec pnpm run test:e2e "$@"

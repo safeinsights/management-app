@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { cleanupCoderDevFiles } from '@/server/dev'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
 import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
@@ -24,8 +23,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
-
-    await cleanupCoderDevFiles()
 
     const result = await getDraftStudyAction({ studyId })
 

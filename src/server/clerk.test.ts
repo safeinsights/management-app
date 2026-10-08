@@ -157,7 +157,7 @@ describe('syncCurrentClerkUser', () => {
 describe('updateClerkUserMetadata', () => {
     // updateUserMetadata deep-merges, so a revoked membership's slug key survived every rewrite
     // and kept granting access through the JWT claim. updateUser replaces the object outright.
-    it('replaces publicMetadata rather than merging it', async () => {
+    it('writes publicMetadata without orgs, and returns the orgs from the database', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { user } = await insertTestUser({ org })
 
@@ -169,10 +169,13 @@ describe('updateClerkUserMetadata', () => {
             orgType: 'lab',
         })!
 
-        const metadata = await updateClerkUserMetadata(user.id)
+        const info = await updateClerkUserMetadata(user.id)
 
-        expect(client.users.updateUser).toHaveBeenCalledWith(user.clerkId, { publicMetadata: metadata })
+        expect(client.users.updateUser).toHaveBeenCalledWith(user.clerkId, {
+            publicMetadata: { format: 'v3', user: { id: user.id }, teams: null },
+        })
         expect(client.users.updateUserMetadata).not.toHaveBeenCalled()
+        expect(info.orgs[org.slug]).toMatchObject({ id: org.id, type: 'lab' })
     })
 
     it('omits orgs the user is no longer a member of', async () => {
