@@ -4,6 +4,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { mergeRegister } from '@lexical/utils'
 import {
+    $createRangeSelectionFromDom,
+    $getSelection,
     $setSelection,
     COMMAND_PRIORITY_LOW,
     isDOMNode,
@@ -31,14 +33,16 @@ import {
     useRootDomListeners,
 } from './link-card-popover'
 import {
+    $caretInLink,
     $linkAtDomNode,
     $linkAtSelection,
+    $restoreLinkCaret,
     $selectionLeftLink,
-    $selectLinkStart,
     $unwrapLink,
     $updateLink,
     OPEN_LINK_CARD_COMMAND,
     type LinkCardTarget,
+    type LinkCaret,
 } from './link-card-node'
 
 type CardView = 'card' | 'edit'
@@ -49,6 +53,7 @@ const OPEN_CARD_KEY = 'k'
 function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
     const [link, setLink] = useState<LinkCardTarget | null>(null)
     const [view, setView] = useState<CardView>('card')
+    const caretRef = useRef<LinkCaret | null>(null)
 
     const close = useCallback(() => {
         setLink(null)
@@ -58,8 +63,9 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
     const { claim } = useExclusiveLinkCard(close, dropdownId)
 
     const open = useCallback(
-        (found: LinkCardTarget) => {
+        (found: LinkCardTarget, caret: LinkCaret | null) => {
             claim()
+            caretRef.current = caret
             // The card takes focus, so the field holds no caret while it is open. Clearing the
             // selection is also what keeps it: Lexical re-applies its stored selection on the next
             // selectionchange, which pulls focus straight back out of the card.
@@ -77,7 +83,7 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         // The field is focused directly because Lexical's own focus() only marks the selection
         // dirty, which moves the caret but not DOM focus.
         editor.getRootElement()?.focus()
-        editor.update(() => $selectLinkStart(nodeKey))
+        editor.update(() => $restoreLinkCaret(nodeKey, caretRef.current))
     }, [close, editor, link])
 
     const { rememberPress, movedSincePress } = useClickWithoutDrag()
@@ -91,8 +97,14 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
             if (!isDOMNode(event.target)) return
 
             const target = event.target
-            const found = editor.read(() => $linkAtDomNode(target))
-            if (found) open(found)
+            // The DOM caret, because the browser moved it on mousedown and the selectionchange
+            // that tells Lexical may not have run yet.
+            const opened = editor.read(() => {
+                const found = $linkAtDomNode(target)
+                const clicked = $createRangeSelectionFromDom(window.getSelection(), editor)
+                return found && { found, caret: $caretInLink(found.nodeKey, clicked) }
+            })
+            if (opened) open(opened.found, opened.caret)
         },
         [editor, movedSincePress, open],
     )
@@ -103,10 +115,13 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         // The committed state, not editor.read. A command dispatched from a keydown runs while
         // Lexical is mid-update, and reading the live editor there both answers with no range
         // selection and settles the pending one, so the caret's link goes missing either way.
-        const found = editor.getEditorState().read($linkAtSelection)
-        if (!found) return false
+        const opened = editor.getEditorState().read(() => {
+            const found = $linkAtSelection()
+            return found && { found, caret: $caretInLink(found.nodeKey, $getSelection()) }
+        })
+        if (!opened) return false
 
-        open(found)
+        open(opened.found, opened.caret)
         return true
     }, [editor, open])
 

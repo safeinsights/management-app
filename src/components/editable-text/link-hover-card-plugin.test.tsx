@@ -25,19 +25,21 @@ import { SingleUserEditor } from './single-user-editor'
 
 const URL = 'https://example.com/prior-study'
 const LINK_TEXT = 'prior study writeup'
+const LEAD_TEXT = 'See the '
 const TAIL_TEXT = ' and more'
 
 function textNode(text: string) {
     return { detail: 0, format: 0, mode: 'normal', style: '', text, type: 'text', version: 1 }
 }
 
-/** A paragraph holding one link plus trailing plain text, so the caret has somewhere else to go. */
+/** A link mid-sentence, so a caret on either of its edges has plain text it could move onto. */
 function linkedJson({ target, url }: { target: string | null; url: string }) {
     return JSON.stringify({
         root: {
             children: [
                 {
                     children: [
+                        textNode(LEAD_TEXT),
                         {
                             children: [textNode(LINK_TEXT)],
                             direction: 'ltr',
@@ -103,7 +105,7 @@ function selectInside(editor: LexicalEditor, where: 'link' | 'tail') {
             const paragraph = $getRoot().getFirstChild()
             if (!$isElementNode(paragraph)) return
 
-            const [link, tail] = paragraph.getChildren()
+            const [, link, tail] = paragraph.getChildren()
             const host = where === 'link' ? link : tail
             const target = $isElementNode(host) ? host.getFirstChild() : host
             if (!$isTextNode(target)) return
@@ -121,11 +123,23 @@ function rereadDomSelection(editor: LexicalEditor) {
     })
 }
 
-const caretInLink = (editor: LexicalEditor) =>
+const caretAt = (editor: LexicalEditor) =>
     editor.getEditorState().read(() => {
         const selection = $getSelection()
-        return $isRangeSelection(selection) && $isLinkNode(selection.anchor.getNode().getParent())
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return null
+
+        return { inLink: $isLinkNode(selection.anchor.getNode().getParent()), offset: selection.anchor.offset }
     })
+
+const textIn = (element: Element) => element.querySelector('[data-lexical-text]')!.firstChild!
+
+// A real click moves the DOM caret on mousedown, before the click opens the card.
+function clickWithCaret(anchor: HTMLElement, node: Node, offset: number) {
+    act(() => {
+        window.getSelection()!.collapse(node, offset)
+    })
+    fireEvent.click(anchor)
+}
 
 async function closeWithEscape(user: ReturnType<typeof userEvent.setup>) {
     await waitFor(() =>
@@ -190,19 +204,55 @@ describe('LinkHoverCardPlugin', () => {
     })
 
     // Escape is pressed on the focused action, which is where it lands in a browser.
-    it('closes on Escape and puts the caret back in the link', async () => {
+    it('closes on Escape and puts the caret back where the click left it', async () => {
         const user = userEvent.setup()
-        const { anchor, container } = await renderLinkedEditor('card-escape')
-        openCard(anchor)
+        const { anchor, container, editor } = await renderLinkedEditor('card-escape')
+        clickWithCaret(anchor, textIn(anchor), 3)
         await findCard()
 
-        await waitFor(() =>
-            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
-        )
-        await user.keyboard('{Escape}')
+        await closeWithEscape(user)
 
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         await waitFor(() => expect(document.activeElement).toBe(container.querySelector('[contenteditable="true"]')))
+        rereadDomSelection(editor)
+        expect(caretAt(editor)).toEqual({ inLink: true, offset: 3 })
+    })
+
+    it('puts a caret from the left edge back at the start of the link', async () => {
+        const user = userEvent.setup()
+        const { anchor, container, editor } = await renderLinkedEditor('card-escape-left')
+        clickWithCaret(anchor, textIn(container), LEAD_TEXT.length)
+        await findCard()
+
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
+
+        expect(caretAt(editor)).toEqual({ inLink: true, offset: 0 })
+    })
+
+    // Lexical moves a caret on the trailing edge onto the text after the link, out of reach of Cmd+K.
+    it('steps a caret from the right edge one character into the link', async () => {
+        const user = userEvent.setup()
+        const { anchor, editor } = await renderLinkedEditor('card-escape-right')
+        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
+        await findCard()
+
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
+
+        expect(caretAt(editor)).toEqual({ inLink: true, offset: LINK_TEXT.length - 1 })
+    })
+
+    it('puts the caret back where it was when the toolbar opened the card', async () => {
+        const user = userEvent.setup()
+        const { editor } = await renderLinkedEditor('card-escape-toolbar')
+        selectInside(editor, 'link')
+        await user.click(screen.getByLabelText('Link'))
+        await findCard()
+
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
+
+        expect(caretAt(editor)).toEqual({ inLink: true, offset: 1 })
     })
 
     it('closes once the caret moves out of the link', async () => {
@@ -215,13 +265,12 @@ describe('LinkHoverCardPlugin', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
-    // The caret is placed the way the app places it, by closing the card, because a selection set
-    // straight through the editor API never reaches the committed state the command reads.
+    // From the right edge, the one caret position Lexical would otherwise move out of the link.
     it('reopens the card with the shortcut after Escape put the caret back in the link', async () => {
         const user = userEvent.setup()
         const { anchor, container, editor } = await renderLinkedEditor('card-shortcut-after-escape')
 
-        openCard(anchor)
+        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
         await findCard()
         await closeWithEscape(user)
         rereadDomSelection(editor)
@@ -231,23 +280,11 @@ describe('LinkHoverCardPlugin', () => {
         expect(await findCard()).toHaveTextContent(URL)
     })
 
-    it('keeps the caret in the link after Escape once the browser re-reads it', async () => {
-        const user = userEvent.setup()
-        const { anchor, editor } = await renderLinkedEditor('card-caret-after-escape')
-
-        openCard(anchor)
-        await findCard()
-        await closeWithEscape(user)
-        rereadDomSelection(editor)
-
-        expect(caretInLink(editor)).toBe(true)
-    })
-
     it('reopens the card from the toolbar link button after Escape', async () => {
         const user = userEvent.setup()
         const { anchor, editor } = await renderLinkedEditor('card-toolbar-after-escape')
 
-        openCard(anchor)
+        clickWithCaret(anchor, textIn(anchor), LINK_TEXT.length)
         await findCard()
         await closeWithEscape(user)
         rereadDomSelection(editor)
