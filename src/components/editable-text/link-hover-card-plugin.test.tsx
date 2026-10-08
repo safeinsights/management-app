@@ -15,7 +15,8 @@ import {
 } from '@/tests/unit.helpers'
 import type { ReactNode } from 'react'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { $getRoot, $getSelection, $isElementNode, $isTextNode, type LexicalEditor } from 'lexical'
+import { $isLinkNode } from '@lexical/link'
+import { $getRoot, $getSelection, $isElementNode, $isRangeSelection, $isTextNode, type LexicalEditor } from 'lexical'
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
 import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { Routes } from '@/lib/routes'
@@ -111,6 +112,29 @@ function selectInside(editor: LexicalEditor, where: 'link' | 'tail') {
     })
 }
 
+// A browser re-reads the caret Lexical just wrote, and that is where a caret on a link's edge moves.
+// happy-dom never fires that read on its own, and the empty discrete update commits what it found.
+function rereadDomSelection(editor: LexicalEditor) {
+    act(() => {
+        document.dispatchEvent(new Event('selectionchange'))
+        editor.update(() => {}, { discrete: true })
+    })
+}
+
+const caretInLink = (editor: LexicalEditor) =>
+    editor.getEditorState().read(() => {
+        const selection = $getSelection()
+        return $isRangeSelection(selection) && $isLinkNode(selection.anchor.getNode().getParent())
+    })
+
+async function closeWithEscape(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
+    )
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+}
+
 const openCard = (anchor: HTMLElement) => fireEvent.click(anchor)
 
 const findCard = () => screen.findByRole('dialog', { name: LINK_CARD_DIALOG_LABEL })
@@ -195,19 +219,43 @@ describe('LinkHoverCardPlugin', () => {
     // straight through the editor API never reaches the committed state the command reads.
     it('reopens the card with the shortcut after Escape put the caret back in the link', async () => {
         const user = userEvent.setup()
-        const { anchor, container } = await renderLinkedEditor('card-shortcut-after-escape')
+        const { anchor, container, editor } = await renderLinkedEditor('card-shortcut-after-escape')
 
         openCard(anchor)
         await findCard()
-        await waitFor(() =>
-            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
-        )
-        await user.keyboard('{Escape}')
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
 
         fireEvent.keyDown(container.querySelector('[contenteditable="true"]')!, { key: 'k', ctrlKey: true })
 
         expect(await findCard()).toHaveTextContent(URL)
+    })
+
+    it('keeps the caret in the link after Escape once the browser re-reads it', async () => {
+        const user = userEvent.setup()
+        const { anchor, editor } = await renderLinkedEditor('card-caret-after-escape')
+
+        openCard(anchor)
+        await findCard()
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
+
+        expect(caretInLink(editor)).toBe(true)
+    })
+
+    it('reopens the card from the toolbar link button after Escape', async () => {
+        const user = userEvent.setup()
+        const { anchor, editor } = await renderLinkedEditor('card-toolbar-after-escape')
+
+        openCard(anchor)
+        await findCard()
+        await closeWithEscape(user)
+        rereadDomSelection(editor)
+
+        await user.click(screen.getByLabelText('Link'))
+
+        expect(await findCard()).toHaveTextContent(URL)
+        expect(screen.queryByPlaceholderText('https://')).toBeNull()
     })
 
     it('leaves the key alone without the modifier', async () => {
@@ -216,11 +264,7 @@ describe('LinkHoverCardPlugin', () => {
 
         openCard(anchor)
         await findCard()
-        await waitFor(() =>
-            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
-        )
-        await user.keyboard('{Escape}')
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        await closeWithEscape(user)
 
         const contentEditable = container.querySelector('[contenteditable="true"]')!
         expect(fireEvent.keyDown(contentEditable, { key: 'k' })).toBe(true)
