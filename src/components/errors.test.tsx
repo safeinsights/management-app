@@ -4,7 +4,14 @@ import { screen } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import React from 'react'
 
-import { captureError, reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound, STALE_DEPLOYMENT_NOTIFICATION_ID } from './errors'
+import {
+    captureError,
+    reportError,
+    ErrorAlert,
+    AccessDeniedAlert,
+    AlertNotFound,
+    STALE_DEPLOYMENT_NOTIFICATION_ID,
+} from './errors'
 import { isClerkApiError, isServerActionError, errorToString, STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
 
 describe('isClerkApiError', () => {
