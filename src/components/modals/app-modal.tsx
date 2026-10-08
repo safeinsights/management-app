@@ -1,5 +1,6 @@
 import { Modal, ModalProps, useMantineTheme } from '@mantine/core'
 import React from 'react'
+import { useIsLinkCardOpen } from '@/components/link-hover-card/link-card-interactions'
 
 interface AppModalProps extends Omit<ModalProps, 'opened'> {
     isOpen: boolean
@@ -16,12 +17,14 @@ export function AppModal({
     size = 'lg',
     centered = true,
     closeOnClickOutside = true,
+    closeOnEscape = true,
     trapFocus = true,
     styles,
     closeButtonProps,
     ...rest
 }: AppModalProps) {
     const theme = useMantineTheme()
+    const isLinkCardOpen = useIsLinkCardOpen()
 
     return (
         <Modal
@@ -31,6 +34,8 @@ export function AppModal({
             size={size}
             centered={centered}
             closeOnClickOutside={closeOnClickOutside}
+            // An open link card takes the first Escape; Mantine's window listener would close both.
+            closeOnEscape={closeOnEscape && !isLinkCardOpen}
             trapFocus={trapFocus}
             styles={{
                 header: {
