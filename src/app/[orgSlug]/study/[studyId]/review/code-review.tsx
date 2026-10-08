@@ -44,7 +44,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
         return <AlertNotFound title="No submission found" message="This study has no submitted code to review." />
     }
 
-    const analysis = await jobAnalysisForJob(job, { withScan: true })
+    const analysis = await jobAnalysisForJob(job)
     const latestJobStatus = job.statusChanges.at(0)?.status ?? null
 
     // The round of the code on this job, not codeSubmissionVersion: that counts a change request

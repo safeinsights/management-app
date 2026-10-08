@@ -20,7 +20,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
     const [analysis, entries, reviewVersion] = await Promise.all([
         // The same full "Submitted code" section as active review, so the review and scan rows too
         // (OTTER-613).
-        job ? jobAnalysisForJob(job, { withScan: true }) : null,
+        job ? jobAnalysisForJob(job) : null,
         getCodeReviewFeedbackAction({ studyId: study.id }),
         // Not codeSubmissionVersion: that counts the CODE-CHANGES-REQUESTED just written and would
         // label this page as the next iteration.

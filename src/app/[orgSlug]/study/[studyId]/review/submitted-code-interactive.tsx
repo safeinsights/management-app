@@ -145,7 +145,7 @@ function useJobAnalysisPoll(
     return useQuery({
         queryKey: jobAnalysisKey(studyJobId, submittedAt),
         queryFn: async (): Promise<JobAnalysisUpdate> => {
-            const response = await getJobAnalysisAction({ studyJobId, withScan: true })
+            const response = await getJobAnalysisAction({ studyJobId })
             if (isActionError(response)) throw new Error('Unable to load analysis')
             return response
         },

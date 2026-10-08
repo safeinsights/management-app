@@ -467,7 +467,7 @@ describe('SubmittedCodeSection — AI summary', () => {
     // report that was already in the database until a reload (OTTER-775 review).
     it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -483,7 +483,7 @@ describe('SubmittedCodeSection — AI summary', () => {
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
 
         expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -612,9 +612,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 
-    it('asks the server for the scan', async () => {
+    it('polls analysis for the current job', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -627,7 +627,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
         for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
-            expect(args).toEqual({ studyJobId: fixture.job.id, withScan: true })
+            expect(args).toEqual({ studyJobId: fixture.job.id })
         }
     })
 
@@ -655,7 +655,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
 
     it('keeps polling until the summary arrives', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels

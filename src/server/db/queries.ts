@@ -845,13 +845,9 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
     return row ? { ...row, isStale: isStudyReviewStale(row) } : null
 }
 
-export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
 
-// Summary-only callers skip the S3 fetch unless they request a scan.
-export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
-    const [review, scan] = await Promise.all([
-        getStudyReviewForJob(job),
-        withScan ? jobScanResultForJob(jobRowId(job)) : Promise.resolve(null),
-    ])
+export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
     return { review, scan }
 }

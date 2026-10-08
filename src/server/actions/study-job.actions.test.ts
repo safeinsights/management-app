@@ -894,26 +894,12 @@ describe('Study Job Actions', () => {
                 ])
                 .execute()
 
-        // A scan costs an S3 fetch, and nothing has rendered a verdict since OTTER-694, so the
-        // default must not pay for one.
-        test('returns the review without a scan by default', async () => {
+        test('returns the scan alongside the review', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of this round')
 
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
-
-            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toBeNull()
-        })
-
-        // OTTER-694 removed the scan panel. Explicit callers can still request the scan with the review.
-        test('returns the scan alongside the review when asked', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await insertReview(job.id, 'Summary of this round')
-
-            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
             expect(analysis.scan).toEqual({ semgrep: null, logFile: null })
