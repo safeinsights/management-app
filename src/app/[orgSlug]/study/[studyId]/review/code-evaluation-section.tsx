@@ -81,13 +81,7 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
     return (
         // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
         // focusFirstInvalid targets this wrapper instead.
-        <Group
-            id={fieldId}
-            gap="xl"
-            wrap="nowrap"
-            align="flex-start"
-            data-testid={`criteria-row-${criterionKey}`}
-        >
+        <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
             {/* A div, since a criterion link renders its card inline and the card holds block elements.
                 No fixed label column (Figma): the label takes what the radio group leaves. */}
             <Text id={labelId} component="div" fz={14} flex={1}>
