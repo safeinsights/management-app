@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import {
+    AccessDeniedException,
     GetMicrovmCommand,
     LambdaMicrovmsClient,
     ResourceNotFoundException,
@@ -62,6 +63,12 @@ async function microvmState(microvmId: string): Promise<{ state: MicrovmState; r
         return { state: vm.state!, reason: vm.stateReason }
     } catch (e) {
         if (e instanceof ResourceNotFoundException) return null
+        // Access is granted per image, so a MicroVM from an image since replaced is unreadable. Its
+        // study files are already in S3, and a launch replaces it.
+        if (e instanceof AccessDeniedException) {
+            logger.warn(`[microvm] ${microvmId} is not readable, treating it as gone:`, e)
+            return null
+        }
         throw e
     }
 }
