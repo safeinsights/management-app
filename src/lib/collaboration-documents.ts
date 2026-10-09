@@ -11,6 +11,7 @@ export const REVIEW_FEEDBACK_PREFIX = 'review-feedback-'
 export const CODE_REVIEW_FEEDBACK_PREFIX = 'code-review-feedback-'
 export const OUTPUTS_REVIEW_FEEDBACK_PREFIX = 'outputs-review-feedback-'
 export const PROPOSAL_PREFIX = 'proposal-'
+export const CODE_SUBMISSION_PREFIX = 'code-submission-'
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const PROPOSAL_TEXT_SLUGS = ['research-questions', 'project-summary', 'impact', 'additional-notes'] as const
@@ -56,6 +57,10 @@ const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 export const RESUBMISSION_NOTE_SUFFIX_RE = /^resubmission-note-v([1-9]\d*)$/
 
 export const codeReviewFeedbackDocName = (jobId: string) => `${CODE_REVIEW_FEEDBACK_PREFIX}${jobId}`
+
+// Presence and kick-out only (OTTER-753): the lab's code pages have no shared text, so this doc
+// carries awareness and the `code-submitted` stateless event and is never persisted.
+export const codeSubmissionDocName = (studyId: string) => `${CODE_SUBMISSION_PREFIX}${studyId}`
 
 // Job-keyed rather than study-keyed (OTTER-675) so a later round's editor lands in a
 // different Yjs room.

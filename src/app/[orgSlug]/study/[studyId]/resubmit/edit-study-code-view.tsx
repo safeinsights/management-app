@@ -1,7 +1,7 @@
 'use client'
 
 import { FC, useState } from 'react'
-import { Stack } from '@mantine/core'
+import { Group, Stack } from '@mantine/core'
 import { useIDEFiles, type StudyCodeIDE } from '@/hooks/use-ide-files'
 import { NO_CHANGES_MESSAGE, SELECT_MAIN_FILE_MESSAGE } from '@/components/study/submit-code-error'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
@@ -10,6 +10,7 @@ import { showsLaunchIdeControl } from '@/components/study/study-code-files'
 import { YourFilesSection } from '@/components/study/your-files-section'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
+import { CodeSubmissionPresence } from '@/components/study/code-submission-presence'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/study.actions'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
@@ -41,26 +42,29 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     studyHasCodeEnv,
 }) => {
     const ide = useIDEFiles({ studyId })
-    const { noteForm, isSaving, lastSavedAt } = useEditCodeResubmit()
+    const { noteForm, isSaving, lastSavedAt, presence } = useEditCodeResubmit()
     const [submitAttempted, setSubmitAttempted] = useState(false)
 
     const blockedReason = resubmitBlockedReason(ide)
     // Derived rather than snapshotted at click time, so fixing the problem clears the message.
     const submitError = submitAttempted ? blockedReason : null
 
-    const launchIde = (
-        <IdeLaunchAction
-            ide={ide}
-            isVisible={showsLaunchIdeControl({ ide, showLaunchIde: studyHasCodeEnv })}
-            showLockHelper={false}
-        />
+    const headerAction = (
+        <Group gap="md">
+            <CodeSubmissionPresence {...presence} studyId={studyId} />
+            <IdeLaunchAction
+                ide={ide}
+                isVisible={showsLaunchIdeControl({ ide, showLaunchIde: studyHasCodeEnv })}
+                showLockHelper={false}
+            />
+        </Group>
     )
 
     return (
         <Stack gap="xxl">
             {/* The files sit inside the step header's card, so Launch IDE rides in its header row
                 rather than the one the Submit code page gives the Code files card. */}
-            <ProposalStepHeader stepLabel="STEP 3" heading="Edit code" action={launchIde}>
+            <ProposalStepHeader stepLabel="STEP 3" heading="Edit code" action={headerAction}>
                 <YourFilesSection
                     ide={ide}
                     dataPartnerName={orgName}

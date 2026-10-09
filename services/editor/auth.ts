@@ -5,6 +5,7 @@
 
 import {
     CODE_REVIEW_FEEDBACK_PREFIX,
+    CODE_SUBMISSION_PREFIX,
     OUTPUTS_REVIEW_FEEDBACK_PREFIX,
     PROPOSAL_PREFIX,
     PROPOSAL_TEXT_SLUGS,
@@ -52,6 +53,7 @@ export type ParsedDocumentName =
     | { kind: 'proposal-fields'; studyId: string }
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
     | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
+    | { kind: 'code-submission'; studyId: string }
 
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
@@ -74,6 +76,11 @@ export function parseDocumentName(name: string): ParsedDocumentName | null {
     if (name.startsWith(CODE_REVIEW_FEEDBACK_PREFIX)) {
         const jobId = name.slice(CODE_REVIEW_FEEDBACK_PREFIX.length)
         return UUID_RE.test(jobId) ? { kind: 'code-review-feedback', jobId } : null
+    }
+
+    if (name.startsWith(CODE_SUBMISSION_PREFIX)) {
+        const studyId = name.slice(CODE_SUBMISSION_PREFIX.length)
+        return UUID_RE.test(studyId) ? { kind: 'code-submission', studyId } : null
     }
 
     if (name.startsWith(REVIEW_FEEDBACK_PREFIX)) {
@@ -143,6 +150,8 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
             return snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':
         case 'outputs-review-feedback':
+        // The code actions gate submission (requireResubmittableCode); this doc only carries presence.
+        case 'code-submission':
             return true
     }
 }
@@ -159,6 +168,8 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
 // simply persist it again a moment later, resurrecting feedback for a decision that is final.
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     if (parsed.kind === 'code-review-feedback') return true
+    // Nothing to persist: no Yjs content, only awareness and stateless events.
+    if (parsed.kind === 'code-submission') return false
 
     if (parsed.kind === 'outputs-review-feedback') {
         return !(await hasFilesDecision(parsed.jobId, db))
@@ -188,6 +199,7 @@ export type EventType =
     | 'proposal-review-submitted'
     | 'code-review-submitted'
     | 'outputs-review-submitted'
+    | 'code-submitted'
 
 export type StatelessSubmissionEvent = {
     type: EventType
@@ -223,7 +235,8 @@ export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent 
         type !== 'proposal-submitted' &&
         type !== 'proposal-review-submitted' &&
         type !== 'code-review-submitted' &&
-        type !== 'outputs-review-submitted'
+        type !== 'outputs-review-submitted' &&
+        type !== 'code-submitted'
     ) {
         return null
     }
@@ -250,6 +263,7 @@ export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent
     if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
     if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
     if (event.type === 'outputs-review-submitted') return parsed.kind === 'outputs-review-feedback'
+    if (event.type === 'code-submitted') return parsed.kind === 'code-submission'
     return false
 }
 
@@ -279,7 +293,8 @@ export function assertStatelessEventConsistent(args: {
     if (event.studyId !== documentStudyId) return false
     if (event.submittedByClerkId !== connectionUserClerkId) return false
 
-    if (event.type === 'code-review-submitted') return true
+    // Same reasoning as code-review-submitted: the action layer is the enforcer.
+    if (event.type === 'code-review-submitted' || event.type === 'code-submitted') return true
     // The decision is written before the winner broadcasts, so an event that arrives while the job
     // is still open would close a peer's review with no decision behind it.
     if (event.type === 'outputs-review-submitted') return jobDecided === true

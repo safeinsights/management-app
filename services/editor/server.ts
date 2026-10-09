@@ -239,7 +239,7 @@ const server = new Server({
         let jobDecided: boolean | null = null
         if (parsedDoc.kind === 'outputs-review-feedback') {
             jobDecided = await hasFilesDecision(parsedDoc.jobId, pool)
-        } else if (parsedDoc.kind !== 'code-review-feedback') {
+        } else if (parsedDoc.kind !== 'code-review-feedback' && parsedDoc.kind !== 'code-submission') {
             const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
                 documentStudyId,
             ])

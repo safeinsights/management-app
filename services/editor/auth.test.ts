@@ -42,6 +42,14 @@ describe('parseDocumentName', () => {
         })
     })
 
+    it('parses code-submission documents', () => {
+        expect(parseDocumentName(`code-submission-${STUDY_ID}`)).toEqual({ kind: 'code-submission', studyId: STUDY_ID })
+    })
+
+    it('rejects a code-submission document with a malformed study id', () => {
+        expect(parseDocumentName('code-submission-not-a-uuid')).toBeNull()
+    })
+
     it('parses proposal-fields documents', () => {
         expect(parseDocumentName(`proposal-${STUDY_ID}-fields`)).toEqual({
             kind: 'proposal-fields',
@@ -142,6 +150,11 @@ describe('parseStatelessEvent', () => {
 
     it('accepts a well-formed code-review-submitted event', () => {
         const event = { ...baseEvent, type: 'code-review-submitted' }
+        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
+    })
+
+    it('accepts a well-formed code-submitted event', () => {
+        const event = { ...baseEvent, type: 'code-submitted' }
         expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
     })
 
@@ -248,6 +261,25 @@ describe('isStatelessEventValidForDocument', () => {
                 { kind: 'outputs-review-feedback', jobId: JOB_ID },
             ),
         ).toBe(true)
+    })
+
+    it('accepts code-submitted on code-submission', () => {
+        expect(
+            isStatelessEventValidForDocument(
+                { ...event, type: 'code-submitted' },
+                { kind: 'code-submission', studyId: STUDY_ID },
+            ),
+        ).toBe(true)
+    })
+
+    // Both are lab-owned and study-keyed, so only the kind separates the code page from Step 2.
+    it('rejects code-submitted on proposal-fields', () => {
+        expect(
+            isStatelessEventValidForDocument(
+                { ...event, type: 'code-submitted' },
+                { kind: 'proposal-fields', studyId: STUDY_ID },
+            ),
+        ).toBe(false)
     })
 
     // Both are job-keyed, so only the kind separates the outputs round from the code round.
@@ -670,6 +702,19 @@ describe('assertStatelessEventConsistent', () => {
         ).toBe(true)
     })
 
+    // study.status stays APPROVED across the whole code round, so there is no status to gate on.
+    it('accepts a code-submitted event from the connection user without a study status', () => {
+        expect(
+            assertStatelessEventConsistent({
+                event: { ...baseEvent, type: 'code-submitted' },
+                parsed: { kind: 'code-submission', studyId: STUDY_ID },
+                documentStudyId: STUDY_ID,
+                connectionUserClerkId: 'user_alice',
+                studyStatus: null,
+            }),
+        ).toBe(true)
+    })
+
     it('rejects a proposal-submitted event whose sender does not match the connection user', () => {
         expect(
             assertStatelessEventConsistent({
@@ -861,6 +906,12 @@ describe('hasFilesDecision', () => {
 describe('shouldPersistDocument', () => {
     const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
         query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
+    })
+
+    it('never persists a code-submission document', async () => {
+        await expect(
+            shouldPersistDocument({ kind: 'code-submission', studyId: STUDY_ID }, fakeDb([{ status: 'APPROVED' }])),
+        ).resolves.toBe(false)
     })
 
     it('allows persistence for proposal-fields when study is DRAFT', async () => {
