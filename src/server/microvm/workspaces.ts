@@ -66,12 +66,32 @@ async function microvmState(microvmId: string): Promise<{ state: MicrovmState; r
     }
 }
 
-async function claudeApiKey(config: MicrovmConfig): Promise<string | undefined> {
-    if (!config.claudeApiKeySecret) return undefined
-    const { SecretString } = await new SecretsManagerClient().send(
-        new GetSecretValueCommand({ SecretId: config.claudeApiKeySecret }),
-    )
+let secretsClient: SecretsManagerClient | undefined
+const secretString = async (name: string) => {
+    secretsClient ??= new SecretsManagerClient()
+    const { SecretString } = await secretsClient.send(new GetSecretValueCommand({ SecretId: name }))
     return SecretString
+}
+
+async function claudeApiKey(config: MicrovmConfig): Promise<string | undefined> {
+    return config.claudeApiKeySecret ? secretString(config.claudeApiKeySecret) : undefined
+}
+
+// Each sample-data secret holds one <PARTNER>_<DB>_DB_URL key, which the Coder template exposed as an
+// environment variable of the same name. A database whose secret is missing is skipped rather than
+// failing the launch, as a cluster may not be deployed in every environment.
+async function sampleDataEnvironment(config: MicrovmConfig): Promise<Record<string, string>> {
+    const entries = await Promise.all(
+        config.sampleDataSecrets.map(async (name) => {
+            try {
+                return Object.entries(JSON.parse((await secretString(name)) ?? '{}') as Record<string, string>)
+            } catch (e) {
+                logger.warn(`[microvm] sample data secret ${name} unavailable:`, e)
+                return []
+            }
+        }),
+    )
+    return Object.fromEntries(entries.flat())
 }
 
 async function studyPayload(studyId: string) {
@@ -85,6 +105,12 @@ async function studyPayload(studyId: string) {
     )
     const environment = await buildWorkspaceEnvironment(await fetchLatestCodeEnvForStudyId(studyId))
     return { files, env: Object.fromEntries(environment.map(({ name, value }) => [name, value])) }
+}
+
+// Secrets stay out of the run hook payload, which Lambda logs and keeps with the MicroVM.
+async function launchSecrets(config: MicrovmConfig) {
+    const [apiKey, sampleData] = await Promise.all([claudeApiKey(config), sampleDataEnvironment(config)])
+    return { claudeApiKey: apiKey, env: sampleData }
 }
 
 async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<string> {
@@ -104,7 +130,7 @@ async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<st
     const fitsInline = inline.length <= RUN_HOOK_PAYLOAD_LIMIT
     const launchConfig = {
         study: fitsInline ? undefined : study,
-        claudeApiKey: await claudeApiKey(config),
+        ...(await launchSecrets(config)),
         sync: { url: `${APP_BASE_URL}/api/microvm/files`, token: syncToken, identity: { studyId } },
     }
     await getS3Client().send(
@@ -116,7 +142,8 @@ async function launchMicrovm(config: MicrovmConfig, studyId: string): Promise<st
             imageIdentifier: config.imageArn,
             executionRoleArn: config.executionRoleArn,
             ingressNetworkConnectors: [managedConnector('HTTP_INGRESS')],
-            egressNetworkConnectors: [managedConnector('INTERNET_EGRESS')],
+            // Through the VPC, so the IDE reaches the sample-data databases as Coder workspaces did.
+            egressNetworkConnectors: [config.egressConnectorArn],
             idlePolicy: {
                 maxIdleDurationSeconds: MAX_IDLE_SECONDS,
                 suspendedDurationSeconds: MAX_DURATION_SECONDS,

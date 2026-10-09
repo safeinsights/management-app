@@ -1,8 +1,5 @@
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
-import { CODER_DISABLED, ENVIRONMENT_ID } from '@/server/config'
-
-// Environments whose IDE runs in Lambda MicroVMs instead of Coder. The trial runs in sandbox only.
-const MICROVM_ENVIRONMENTS = ['sandbox']
+import { CODER_DISABLED } from '@/server/config'
 
 // Written by iac's ManagementAppMicrovmStack.
 const CONFIG_PARAMETER = '/safeinsights/microvm-ide'
@@ -10,6 +7,8 @@ const CONFIG_PARAMETER = '/safeinsights/microvm-ide'
 export type MicrovmConfig = {
     imageArn: string
     executionRoleArn: string
+    egressConnectorArn: string
+    sampleDataSecrets: string[]
     workspacesBucket: string
     logGroup: string
     ideDomain: string
@@ -24,7 +23,8 @@ const loadConfig = async (): Promise<MicrovmConfig> => {
 }
 
 export function getMicrovmConfig(): Promise<MicrovmConfig | null> {
-    if (CODER_DISABLED || !MICROVM_ENVIRONMENTS.includes(ENVIRONMENT_ID)) return Promise.resolve(null)
+    // Set by iac's ManagementAppStack where the research IDE runs in Lambda MicroVMs instead of Coder.
+    if (CODER_DISABLED || process.env.IDE_BACKEND !== 'microvm') return Promise.resolve(null)
     // A failed load is not cached, so the next request retries instead of falling back to Coder.
     configPromise ??= loadConfig().catch((e) => {
         configPromise = undefined

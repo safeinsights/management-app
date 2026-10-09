@@ -15,8 +15,8 @@ import { applyMicrovmFileSync, getMicrovmLaunchStatus } from './workspaces'
 vi.mock('@/server/config', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/config')>()),
     CODER_DISABLED: false,
-    ENVIRONMENT_ID: 'sandbox',
 }))
+vi.stubEnv('IDE_BACKEND', 'microvm')
 
 const ssm = mockClient(SSMClient)
 const s3 = mockClient(S3Client)
@@ -25,6 +25,8 @@ const microvms = mockClient(LambdaMicrovmsClient)
 const config = {
     imageArn: 'arn:aws:lambda:us-east-1:123456789012:microvm-image:crate-ide-sandbox',
     executionRoleArn: 'arn:aws:iam::123456789012:role/exec',
+    egressConnectorArn: 'arn:aws:lambda:us-east-1:123456789012:network-connector:abc',
+    sampleDataSecrets: [],
     workspacesBucket: 'workspaces',
     logGroup: '/aws/lambda-microvms/crate-ide-sandbox',
     ideDomain: 'ide.example.cloudfront.net',
