@@ -86,7 +86,6 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
             gap="xl"
             wrap="nowrap"
             align="flex-start"
-            preventGrowOverflow={false}
             data-testid={`criteria-row-${criterionKey}`}
         >
             {/* A div, since a criterion link renders its card inline and the card holds block elements.
