@@ -1,9 +1,6 @@
 'use server'
 
-import { getStudyFilesPath } from '@/server/workspace-files'
-import * as path from 'node:path'
-import { createReadStream } from 'node:fs'
-import { Readable } from 'node:stream'
+import { readStudyFileStream } from '@/server/workspace-files'
 import { DB } from '@/database/types'
 import { isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
@@ -560,15 +557,10 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        const coderFilesPath = await getStudyFilesPath(studyId)
-
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
-            const filePath = path.join(coderFilesPath, sanitizedName)
-            const fileStream = createReadStream(filePath)
-            const webStream = Readable.toWeb(fileStream) as ReadableStream
             const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitizedName)
-            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+            await storeS3File({ orgSlug, studyId }, await readStudyFileStream(studyId, sanitizedName), s3Path)
         }
 
         await markCodeSubmitted(db, { studyJobId, userId })
@@ -821,15 +813,11 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
-            const filePath = path.join(coderFilesPath, sanitized)
-            const fileStream = createReadStream(filePath)
-            const webStream = Readable.toWeb(fileStream) as ReadableStream
             const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitized)
-            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+            await storeS3File({ orgSlug, studyId }, await readStudyFileStream(studyId, sanitized), s3Path)
         }
 
         await markCodeSubmitted(db, { studyJobId, userId })

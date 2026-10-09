@@ -1,9 +1,9 @@
 'use server'
 
-import { getStudyFilesPath } from '@/server/workspace-files'
-
-import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
+import { auth } from '@clerk/nextjs/server'
+import { listStudyFiles } from '@/server/workspace-files'
+import { getMicrovmConfig } from '@/server/microvm/config'
+import { ensureMicrovm, getMicrovmLaunchStatus } from '@/server/microvm/workspaces'
 import { Action, z } from './action'
 import {
     copyStarterCodeIntoWorkspace,
@@ -26,30 +26,8 @@ import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
 import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-code-gate'
 
-// Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
-// what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    const coderFilesPath = await getStudyFilesPath(studyId)
-
-    let entries: string[]
-    try {
-        entries = await fs.readdir(coderFilesPath)
-    } catch (e) {
-        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
-        throw e
-    }
-
-    for (const entry of entries) {
-        if (entry.startsWith('.')) continue
-        try {
-            const stats = await fs.lstat(path.join(coderFilesPath, entry))
-            if (stats.isSymbolicLink() || !stats.isFile() || stats.size === 0) continue
-            return true
-        } catch {
-            continue
-        }
-    }
-    return false
+    return (await listStudyFiles(studyId)).length > 0
 }
 
 async function workspaceFileActivityEntries(studyId: string, before?: Date) {
@@ -80,50 +58,17 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .handler(async ({ params: { studyId } }) => {
         const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
 
-        const coderFilesPath = await getStudyFilesPath(studyId)
-
-        let entries: string[] = []
-        try {
-            entries = await fs.readdir(coderFilesPath)
-        } catch (e) {
-            if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                return {
-                    files: [],
-                    lastModified: null,
-                }
-            }
-            throw e
-        }
-
-        const files: WorkspaceFileInfo[] = []
-        let lastModified: Date | null = null
-
-        for (const entry of entries) {
-            if (entry.startsWith('.')) continue
-
-            const filePath = path.join(coderFilesPath, entry)
-            let stats
-            try {
-                stats = await fs.lstat(filePath)
-            } catch {
-                continue
-            }
-
-            if (stats.isSymbolicLink()) continue
-            if (!stats.isFile()) continue
-            if (stats.size === 0) continue
-
-            files.push({
-                name: entry,
-                size: stats.size,
-                mtime: stats.mtime.toISOString(),
-                lastActivity: activityByFile.get(entry) ?? null,
-            })
-
-            if (!lastModified || stats.mtime > lastModified) {
-                lastModified = stats.mtime
-            }
-        }
+        const studyFiles = await listStudyFiles(studyId)
+        const files: WorkspaceFileInfo[] = studyFiles.map((file) => ({
+            name: file.name,
+            size: file.size,
+            mtime: file.mtime.toISOString(),
+            lastActivity: activityByFile.get(file.name) ?? null,
+        }))
+        const lastModified = studyFiles.reduce<Date | null>(
+            (latest, file) => (!latest || file.mtime > latest ? file.mtime : latest),
+            null,
+        )
 
         return {
             files,
@@ -179,6 +124,10 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
                 success: true,
                 workspace: { id: `dev-workspace-${studyId}` },
             }
+        }
+        if (await getMicrovmConfig()) {
+            const { microvmId } = await ensureMicrovm(studyId)
+            return { success: true, workspace: { id: microvmId } }
         }
         return await createUserAndWorkspace(studyId)
     })
@@ -260,6 +209,11 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
                 cursors: { build: null, agent: null },
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }
+        }
+        if (await getMicrovmConfig()) {
+            const token = await (await auth()).getToken()
+            if (!token) throw new Error('Unauthorized')
+            return await getMicrovmLaunchStatus(studyId, token)
         }
         return await getCoderWorkspaceLaunchStatus(studyId, cursors)
     })
