@@ -52,7 +52,11 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     const headerAction = (
         <Group gap="md">
             <CodeSubmissionPresence {...presence} studyId={studyId} />
-            <IdeLaunchAction ide={ide} isVisible={showsLaunchIdeControl({ ide, showLaunchIde: studyHasCodeEnv })} />
+            <IdeLaunchAction
+                ide={ide}
+                isVisible={showsLaunchIdeControl({ ide, showLaunchIde: studyHasCodeEnv })}
+                showLockHelper={false}
+            />
         </Group>
     )
 

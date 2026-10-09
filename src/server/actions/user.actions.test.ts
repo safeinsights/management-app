@@ -4,12 +4,15 @@ import { findOrCreateSiUserId } from '@/server/db/mutations'
 import {
     insertTestOrg,
     insertTestUser,
+    actionResult,
+    mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
-import { onUserResetPWAction, onUserSignInAction, syncUserMetadataAction, updateUserRoleAction } from './user.actions'
+import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
+import { onUserRoleUpdate } from '@/server/events'
 
 vi.mock('@/server/events')
 
@@ -79,10 +82,16 @@ describe('User Actions', () => {
         expect(result).toEqual({})
     })
 
-    test('syncUserMetadataAction should sync metadata', async () => {
-        await mockSessionWithTestData()
-        const result = await syncUserMetadataAction()
-        expect(result).toBeDefined()
+    test('currentUserInfoAction returns the org list of the signed-in user', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        const result = await currentUserInfoAction()
+        expect(result).toMatchObject({ format: 'v3', user: { id: user.id } })
+        expect(Object.keys(actionResult(result)!.orgs)).toEqual([org.slug])
+    })
+
+    test('currentUserInfoAction returns null when nobody is signed in', async () => {
+        mockClerkSession(null)
+        expect(await currentUserInfoAction()).toBeNull()
     })
 
     test('onUserResetPWAction should run without error', async () => {
@@ -168,7 +177,7 @@ describe('User Actions', () => {
     })
 
     test('updateUserRoleAction should update user roles in the database', async () => {
-        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { org, user: admin } = await mockSessionWithTestData({ isAdmin: true })
         const { user: userToUpdate } = await insertTestUser({ org })
 
         await updateUserRoleAction({
@@ -184,5 +193,12 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
+        expect(onUserRoleUpdate).toHaveBeenCalledWith({
+            userId: userToUpdate.id,
+            actorId: admin.id,
+            orgId: org.id,
+            before: expect.objectContaining({ isAdmin: false }),
+            after: { isAdmin: true },
+        })
     })
 })

@@ -63,7 +63,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                         c={semanticColor('link.default')}
                         fz="sm"
                         underline="always"
-                        style={{ opacity: canResendCode ? 1 : 0.4, cursor: canResendCode ? 'pointer' : 'not-allowed' }}
+                        style={{ opacity: canResendCode ? 1 : 0.4 }}
                         disabled={!canResendCode}
                         onClick={resendCode}
                     >

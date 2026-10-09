@@ -3,3 +3,13 @@
     background-color: var(--si-color-brand-accentalpha);
     font-weight: var(--si-font-weight-semibold);
 }
+
+/* Inline-block, so only the title text is clickable, not the blank cell after a short title. */
+.title {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: bottom;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

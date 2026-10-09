@@ -1,34 +1,41 @@
 import type { Story } from '@ladle/react'
 import { Table } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
-import { TableHeader } from './columns'
+import { getColumns, TableHeader } from './columns'
+import { DEFAULT_SORT } from './sort'
 
 const meta = { title: 'Tables / Studies table header', argTypes: pageBackgroundArgTypes }
 export default meta
 
+const noop = () => undefined
+
 // Inside a real <Table> so the markup is valid.
-export const ResearcherColumns: Story = () => (
+export const ResearchLabColumns: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>
-            <TableHeader audience="researcher" scope="user" />
+            <TableHeader columns={getColumns('researcher', 'org', false)} sort={DEFAULT_SORT} onSort={noop} />
             <Table.Tbody />
         </Table>
     </div>
 )
 
-export const ReviewerOrgColumns: Story = () => (
+export const DataPartnerColumns: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>
-            <TableHeader audience="reviewer" scope="org" />
+            <TableHeader columns={getColumns('reviewer', 'org', false)} sort={DEFAULT_SORT} onSort={noop} />
             <Table.Tbody />
         </Table>
     </div>
 )
 
-export const ReviewerUserColumns: Story = () => (
+export const MyStudiesReviewerWithBelongsTo: Story = () => (
     <div style={{ padding: 24 }}>
         <Table>
-            <TableHeader audience="reviewer" scope="user" />
+            <TableHeader
+                columns={getColumns('reviewer', 'user', true)}
+                sort={{ column: 'title', direction: 'asc' }}
+                onSort={noop}
+            />
             <Table.Tbody />
         </Table>
     </div>

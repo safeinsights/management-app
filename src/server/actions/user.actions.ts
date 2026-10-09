@@ -2,6 +2,7 @@
 
 import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
+import { clientUserInfo } from '../session'
 import { getUserPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, ActionFailure, z } from './action'
@@ -19,18 +20,10 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
     return {}
 })
 
-export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
-    const session = await sessionFromClerk({ forceUpdate: true })
-    if (!session) {
-        throw new Error('Failed to establish session')
-    }
-    return {
-        format: 'v3' as const,
-        user: { id: session.user.id },
-        teams: null,
-        orgs: session.orgs,
-    }
-})
+// Read-only: the client asks for its org list here when the root layout did not pass one.
+export const currentUserInfoAction = new Action('currentUserInfoAction').handler(async ({ session }) =>
+    clientUserInfo(session ?? null),
+)
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .middleware(async ({ session }) => {
@@ -70,6 +63,8 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({
             userId,
+            actorId: session.user.id,
+            orgId: orgUser.orgId,
             before: { ...orgUser },
             after: { isAdmin },
         })

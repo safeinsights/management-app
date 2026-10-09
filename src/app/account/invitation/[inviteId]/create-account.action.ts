@@ -217,7 +217,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: false })
 
         // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
         // stale right after this server-side update.
@@ -352,7 +352,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: true })
 
         return { userId: siUser.id }
     })
