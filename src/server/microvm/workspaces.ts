@@ -203,12 +203,15 @@ const status = (
 
 let launchKey: Promise<string> | undefined
 
+// The name shows on the user's cursor in a shared editing session.
+export type LaunchUser = { id: string; name: string }
+
 /**
  * A token the IDE's CloudFront login function (iac management-app/microvm/login/index.mjs) exchanges
  * for access cookies to this one study. Callers must have checked the user's access to the study:
  * the token is the only proof the login function asks for.
  */
-async function launchToken(config: MicrovmConfig, studyId: string, userId: string) {
+async function launchToken(config: MicrovmConfig, studyId: string, user: LaunchUser) {
     launchKey ??= secretString(config.launchTokenSecret).then(
         (key) => key!,
         (e) => {
@@ -217,7 +220,8 @@ async function launchToken(config: MicrovmConfig, studyId: string, userId: strin
         },
     )
     const exp = Math.floor(Date.now() / 1000) + LAUNCH_TOKEN_SECONDS
-    const payload = Buffer.from(JSON.stringify({ study: studyId, user: userId, exp })).toString('base64url')
+    const claims = { study: studyId, user: user.id, name: user.name, exp }
+    const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
     const signature = createHmac('sha256', await launchKey)
         .update(payload)
         .digest('base64url')
@@ -228,7 +232,7 @@ async function launchToken(config: MicrovmConfig, studyId: string, userId: strin
  * Waits for the study's MicroVM to start, then returns the IDE url. The url carries a short-lived
  * launch token for the study, which the IDE's CloudFront login exchanges for access cookies.
  */
-export async function getMicrovmLaunchStatus(studyId: string, userId: string): Promise<WorkspaceLaunchStatus> {
+export async function getMicrovmLaunchStatus(studyId: string, user: LaunchUser): Promise<WorkspaceLaunchStatus> {
     const config = await requireConfig()
     const record = await readRecord(config.workspacesBucket, studyId)
     if (!record) return status({ failed: true, buildStatus: 'failed', reason: 'no MicroVM has been launched' })
@@ -242,7 +246,7 @@ export async function getMicrovmLaunchStatus(studyId: string, userId: string): P
         }
         // A suspended MicroVM resumes on its first request, so it is as good as running.
         if (vm.state !== 'PENDING') {
-            const token = await launchToken(config, studyId, userId)
+            const token = await launchToken(config, studyId, user)
             const url = `https://${config.ideDomain}/_auth/${studyId}/?t=${token}`
             return status({ ready: true, reason: `MicroVM ${vm.state}`, url })
         }

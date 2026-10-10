@@ -197,7 +197,14 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
         if (!session) throw new Error('Unauthorized')
 
         // Shared by everyone with IDE access; see ensureWorkspaceAction.
-        if (await getMicrovmConfig()) return await getMicrovmLaunchStatus(studyId, session.user.id)
+        if (await getMicrovmConfig()) {
+            const { fullName } = await db
+                .selectFrom('user')
+                .select('fullName')
+                .where('id', '=', session.user.id)
+                .executeTakeFirstOrThrow()
+            return await getMicrovmLaunchStatus(studyId, { id: session.user.id, name: fullName })
+        }
 
         // Defence in depth behind ensureWorkspaceAction: this hands back the workspace url, so it
         // must not answer a researcher the study's IDE is not locked to.

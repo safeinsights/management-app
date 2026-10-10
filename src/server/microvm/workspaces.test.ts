@@ -36,7 +36,7 @@ const config = {
     launchTokenSecret: 'MicrovmLaunchTokenKey',
 }
 const launchKey = 'the-launch-key'
-const userId = 'user-1'
+const user = { id: 'user-1', name: 'Ada Lovelace' }
 const studyId = '01a11e77-c475-76d9-a1c2-765bf7fd232d'
 const microvmId = 'microvm-abc'
 const syncToken = 'the-microvm-token'
@@ -96,7 +96,7 @@ describe('getMicrovmLaunchStatus', () => {
     it('hands back an IDE url carrying a launch token for the study once the MicroVM runs', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'RUNNING' })
 
-        const status = await getMicrovmLaunchStatus(studyId, userId)
+        const status = await getMicrovmLaunchStatus(studyId, user)
 
         expect(status.ready).toBe(true)
         const url = new URL(status.url!)
@@ -104,19 +104,19 @@ describe('getMicrovmLaunchStatus', () => {
         const [payload, signature] = url.searchParams.get('t')!.split('.')
         expect(signature).toBe(createHmac('sha256', launchKey).update(payload).digest('base64url'))
         const claims = JSON.parse(Buffer.from(payload, 'base64url').toString())
-        expect(claims).toMatchObject({ study: studyId, user: userId })
+        expect(claims).toMatchObject({ study: studyId, user: user.id, name: user.name })
         expect(claims.exp).toBeGreaterThan(Date.now() / 1000)
     })
 
     it('treats a suspended MicroVM as ready, since it resumes on the first request', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'SUSPENDED' })
-        expect((await getMicrovmLaunchStatus(studyId, userId)).ready).toBe(true)
+        expect((await getMicrovmLaunchStatus(studyId, user)).ready).toBe(true)
     })
 
     it('fails when the MicroVM has terminated', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'TERMINATED', stateReason: 'max duration' })
 
-        const status = await getMicrovmLaunchStatus(studyId, userId)
+        const status = await getMicrovmLaunchStatus(studyId, user)
 
         expect(status.failed).toBe(true)
         expect(status.url).toBeNull()
