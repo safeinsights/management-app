@@ -305,8 +305,9 @@ export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
 
-        // No one owns a shared MicroVM IDE; see ensureWorkspaceAction.
-        if (await getMicrovmConfig()) return { isClaimed: false, isOwnedByViewer: false, ownerName: null }
+        // Everyone with IDE access shares the study's MicroVM (see ensureWorkspaceAction), so to each
+        // viewer it reads as theirs: the controls enable and the one-owner lock warning stays hidden.
+        if (await getMicrovmConfig()) return { isClaimed: true, isOwnedByViewer: true, ownerName: null, isShared: true }
 
         const study = await db
             .selectFrom('study')
@@ -316,12 +317,13 @@ export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
             .executeTakeFirst()
 
         if (!study?.ideOwnerId) {
-            return { isClaimed: false, isOwnedByViewer: false, ownerName: null }
+            return { isClaimed: false, isOwnedByViewer: false, ownerName: null, isShared: false }
         }
 
         return {
             isClaimed: true,
             isOwnedByViewer: study.ideOwnerId === session.user.id,
             ownerName: study.ownerName,
+            isShared: false,
         }
     })
