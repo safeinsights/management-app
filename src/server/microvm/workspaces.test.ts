@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, createHmac } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockClient } from 'aws-sdk-client-mock'
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
@@ -10,6 +10,7 @@ import {
     S3Client,
 } from '@aws-sdk/client-s3'
 import { GetMicrovmCommand, LambdaMicrovmsClient } from '@aws-sdk/client-lambda-microvms'
+import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { applyMicrovmFileSync, getMicrovmLaunchStatus } from './workspaces'
 
 vi.mock('@/server/config', async (importOriginal) => ({
@@ -21,6 +22,7 @@ vi.stubEnv('IDE_BACKEND', 'microvm')
 const ssm = mockClient(SSMClient)
 const s3 = mockClient(S3Client)
 const microvms = mockClient(LambdaMicrovmsClient)
+const secrets = mockClient(SecretsManagerClient)
 
 const config = {
     imageArn: 'arn:aws:lambda:us-east-1:123456789012:microvm-image:crate-ide-sandbox',
@@ -31,7 +33,10 @@ const config = {
     logGroup: '/aws/lambda-microvms/crate-ide-sandbox',
     ideDomain: 'ide.example.cloudfront.net',
     claudeApiKeySecret: '',
+    launchTokenSecret: 'MicrovmLaunchTokenKey',
 }
+const launchKey = 'the-launch-key'
+const userId = 'user-1'
 const studyId = '01a11e77-c475-76d9-a1c2-765bf7fd232d'
 const microvmId = 'microvm-abc'
 const syncToken = 'the-microvm-token'
@@ -44,6 +49,8 @@ beforeEach(() => {
     ssm.reset()
     s3.reset()
     microvms.reset()
+    secrets.reset()
+    secrets.on(GetSecretValueCommand, { SecretId: config.launchTokenSecret }).resolves({ SecretString: launchKey })
     ssm.on(GetParameterCommand).resolves({ Parameter: { Value: JSON.stringify(config) } })
     s3.on(GetObjectCommand, { Key: `studies/${studyId}/microvm.json` }).resolves({
         Body: recordBody({ microvmId, syncTokenHash: sha256(syncToken) }),
@@ -86,24 +93,30 @@ describe('applyMicrovmFileSync', () => {
 })
 
 describe('getMicrovmLaunchStatus', () => {
-    it('hands back an IDE url carrying the session token once the MicroVM runs', async () => {
+    it('hands back an IDE url carrying a launch token for the study once the MicroVM runs', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'RUNNING' })
 
-        const status = await getMicrovmLaunchStatus(studyId, 'clerk.jwt')
+        const status = await getMicrovmLaunchStatus(studyId, userId)
 
         expect(status.ready).toBe(true)
-        expect(status.url).toBe(`https://${config.ideDomain}/_auth/${microvmId}/?t=clerk.jwt`)
+        const url = new URL(status.url!)
+        expect(`${url.origin}${url.pathname}`).toBe(`https://${config.ideDomain}/_auth/${studyId}/`)
+        const [payload, signature] = url.searchParams.get('t')!.split('.')
+        expect(signature).toBe(createHmac('sha256', launchKey).update(payload).digest('base64url'))
+        const claims = JSON.parse(Buffer.from(payload, 'base64url').toString())
+        expect(claims).toMatchObject({ study: studyId, user: userId })
+        expect(claims.exp).toBeGreaterThan(Date.now() / 1000)
     })
 
     it('treats a suspended MicroVM as ready, since it resumes on the first request', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'SUSPENDED' })
-        expect((await getMicrovmLaunchStatus(studyId, 'clerk.jwt')).ready).toBe(true)
+        expect((await getMicrovmLaunchStatus(studyId, userId)).ready).toBe(true)
     })
 
     it('fails when the MicroVM has terminated', async () => {
         microvms.on(GetMicrovmCommand).resolves({ state: 'TERMINATED', stateReason: 'max duration' })
 
-        const status = await getMicrovmLaunchStatus(studyId, 'clerk.jwt')
+        const status = await getMicrovmLaunchStatus(studyId, userId)
 
         expect(status.failed).toBe(true)
         expect(status.url).toBeNull()

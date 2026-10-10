@@ -1,6 +1,5 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
 import { listStudyFiles } from '@/server/workspace-files'
 import { getMicrovmConfig } from '@/server/microvm/config'
 import { ensureMicrovm, getMicrovmLaunchStatus } from '@/server/microvm/workspaces'
@@ -102,6 +101,15 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
 
+        // Every researcher with IDE access shares the study's one MicroVM and edits in it together,
+        // so the one-owner lock below is Coder's alone.
+        if (await getMicrovmConfig()) {
+            const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
+            await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+            const { microvmId } = await ensureMicrovm(studyId)
+            return { success: true, workspace: { id: microvmId } }
+        }
+
         // OTTER-693: claiming here rather than in the UI covers both entry points the card names,
         // since the Launch IDE button and the table's pencil both land on this action. The `is null`
         // guard is what makes it first-come: a later launch by anyone leaves the owner alone.
@@ -124,10 +132,6 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
                 success: true,
                 workspace: { id: `dev-workspace-${studyId}` },
             }
-        }
-        if (await getMicrovmConfig()) {
-            const { microvmId } = await ensureMicrovm(studyId)
-            return { success: true, workspace: { id: microvmId } }
         }
         return await createUserAndWorkspace(studyId)
     })
@@ -192,6 +196,9 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
     .handler(async ({ db, params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
 
+        // Shared by everyone with IDE access; see ensureWorkspaceAction.
+        if (await getMicrovmConfig()) return await getMicrovmLaunchStatus(studyId, session.user.id)
+
         // Defence in depth behind ensureWorkspaceAction: this hands back the workspace url, so it
         // must not answer a researcher the study's IDE is not locked to.
         await requireIdeOwner(db, studyId, session.user.id)
@@ -209,11 +216,6 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
                 cursors: { build: null, agent: null },
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }
-        }
-        if (await getMicrovmConfig()) {
-            const token = await (await auth()).getToken()
-            if (!token) throw new Error('Unauthorized')
-            return await getMicrovmLaunchStatus(studyId, token)
         }
         return await getCoderWorkspaceLaunchStatus(studyId, cursors)
     })
@@ -295,6 +297,9 @@ export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
+
+        // No one owns a shared MicroVM IDE; see ensureWorkspaceAction.
+        if (await getMicrovmConfig()) return { isClaimed: false, isOwnedByViewer: false, ownerName: null }
 
         const study = await db
             .selectFrom('study')

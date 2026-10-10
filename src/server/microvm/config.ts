@@ -13,6 +13,8 @@ export type MicrovmConfig = {
     logGroup: string
     ideDomain: string
     claudeApiKeySecret: string
+    // HMAC key for launch tokens, which the IDE's CloudFront login function verifies.
+    launchTokenSecret: string
 }
 
 let configPromise: Promise<MicrovmConfig | null> | undefined

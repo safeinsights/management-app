@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import {
     AccessDeniedException,
@@ -28,6 +28,8 @@ const RUN_HOOK_PAYLOAD_LIMIT = 4096
 // Long enough to cover a restore from snapshot, short of the Lambda's 30 s timeout.
 const READY_WAIT_MS = 15_000
 const READY_POLL_MS = 200
+// The browser opens the IDE url as soon as this returns, so the token only has to survive that redirect.
+const LAUNCH_TOKEN_SECONDS = 60
 // A reusable MicroVM still holds the study's files; any other state needs a fresh launch.
 const LIVE_STATES: MicrovmState[] = ['PENDING', 'RUNNING', 'SUSPENDING', 'SUSPENDED']
 
@@ -199,11 +201,34 @@ const status = (
     ...fields,
 })
 
+let launchKey: Promise<string> | undefined
+
 /**
- * Waits for the study's MicroVM to start, then returns the IDE url. The url carries the researcher's
- * short-lived Clerk session token, which the IDE's CloudFront login exchanges for access cookies.
+ * A token the IDE's CloudFront login function (iac management-app/microvm/login/index.mjs) exchanges
+ * for access cookies to this one study. Callers must have checked the user's access to the study:
+ * the token is the only proof the login function asks for.
  */
-export async function getMicrovmLaunchStatus(studyId: string, sessionToken: string): Promise<WorkspaceLaunchStatus> {
+async function launchToken(config: MicrovmConfig, studyId: string, userId: string) {
+    launchKey ??= secretString(config.launchTokenSecret).then(
+        (key) => key!,
+        (e) => {
+            launchKey = undefined
+            throw e
+        },
+    )
+    const exp = Math.floor(Date.now() / 1000) + LAUNCH_TOKEN_SECONDS
+    const payload = Buffer.from(JSON.stringify({ study: studyId, user: userId, exp })).toString('base64url')
+    const signature = createHmac('sha256', await launchKey)
+        .update(payload)
+        .digest('base64url')
+    return `${payload}.${signature}`
+}
+
+/**
+ * Waits for the study's MicroVM to start, then returns the IDE url. The url carries a short-lived
+ * launch token for the study, which the IDE's CloudFront login exchanges for access cookies.
+ */
+export async function getMicrovmLaunchStatus(studyId: string, userId: string): Promise<WorkspaceLaunchStatus> {
     const config = await requireConfig()
     const record = await readRecord(config.workspacesBucket, studyId)
     if (!record) return status({ failed: true, buildStatus: 'failed', reason: 'no MicroVM has been launched' })
@@ -217,7 +242,8 @@ export async function getMicrovmLaunchStatus(studyId: string, sessionToken: stri
         }
         // A suspended MicroVM resumes on its first request, so it is as good as running.
         if (vm.state !== 'PENDING') {
-            const url = `https://${config.ideDomain}/_auth/${record.microvmId}/?t=${encodeURIComponent(sessionToken)}`
+            const token = await launchToken(config, studyId, userId)
+            const url = `https://${config.ideDomain}/_auth/${studyId}/?t=${token}`
             return status({ ready: true, reason: `MicroVM ${vm.state}`, url })
         }
         if (Date.now() > deadline) return status({ reason: 'MicroVM is starting' })

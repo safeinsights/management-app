@@ -20,18 +20,14 @@ type AuthResult = {
     userId: string | null
     sessionClaims: SessionClaims | null
     orgSlug?: string
-    getToken: () => Promise<string | null>
 }
 
-const noToken = async () => null
-
 function buildAuthResult(fixture: FakeFixture | null, userId: string | null): AuthResult {
-    if (!fixture || !userId) return { userId: null, sessionClaims: null, getToken: noToken }
+    if (!fixture || !userId) return { userId: null, sessionClaims: null }
     const orgSlug = defaultOrgSlug(fixture)
     return {
         userId,
         orgSlug,
-        getToken: noToken,
         sessionClaims: {
             userMetadata: buildSessionClaimsMetadata(fixture),
             unsafeMetadata: { currentOrgSlug: orgSlug },
@@ -41,7 +37,7 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
 
 export async function auth(): Promise<AuthResult> {
     const fixture = fixtureForRole(await readRoleCookieFromHeaders())
-    if (!fixture) return { userId: null, sessionClaims: null, getToken: noToken }
+    if (!fixture) return { userId: null, sessionClaims: null }
     return buildAuthResult(fixture, await resolveClerkId(fixture))
 }
 
