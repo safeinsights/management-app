@@ -92,7 +92,8 @@ export const coderWorkspaceAgentLogsPath = (agentId: AgentId, after?: number | n
     withAfter(`/api/v2/workspaceagents/${agentId}/logs`, after)
 
 // '404' is Routes.notFound: without it the proxy's org-membership guard reads `/404` as an org
-// slug and redirects the not-found page to the dashboard for everyone but SI admins.
+// slug and redirects the not-found page to the dashboard for everyone but SI admins. 'ide' is the
+// MicroVM IDE launch route (src/app/ide), whose actions check study access themselves.
 const NON_ORG_PREFIXES = [
     'about',
     'account',
@@ -104,6 +105,7 @@ const NON_ORG_PREFIXES = [
     'legal',
     'admin',
     '404',
+    'ide',
 ]
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)
