@@ -16,6 +16,7 @@ import { vi } from 'vitest'
 import { Selectable } from 'kysely'
 import { db } from '@/database'
 import { CodeEnvs } from './code-envs'
+import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
 
@@ -298,6 +299,28 @@ describe('CodeEnvs', async () => {
 
         await userEvent.click(deleteLinked)
         expect(screen.queryByText(/are you sure you want to delete/i)).not.toBeInTheDocument()
+    })
+
+    it('enables delete once the linked data source is deleted', async () => {
+        const linked = await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestCodeEnv({ orgId: org.id, name: 'Other R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [linked.id] })
+
+        renderWithProviders(
+            <>
+                <CodeEnvs />
+                <DataSources />
+            </>,
+        )
+
+        expect(await screen.findByRole('button', { name: 'Delete Linked R' })).toHaveAttribute('data-disabled')
+
+        await userEvent.click(await screen.findByRole('button', { name: /delete data source/i }))
+        await userEvent.click(await screen.findByRole('button', { name: /yes/i, hidden: true }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'Delete Linked R' })).not.toHaveAttribute('data-disabled')
+        })
     })
 
     it('hides delete on the only non-testing environment for a language even when it has linked data sources', async () => {
