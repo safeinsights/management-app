@@ -171,6 +171,18 @@ button:disabled {
     border-color: var(--mantine-color-error);
 }
 
+/* Absorbs the slack when the frame is dragged taller, so the measured content stays its own size. */
+.editable-text-scroll {
+    position: relative;
+    flex: 1;
+    overflow: auto;
+}
+
+/* The frame shows focus on its border instead. */
+.editable-text-content {
+    outline: none;
+}
+
 /* Yjs collaboration cursor styles */
 .yjs-cursor {
     position: relative;

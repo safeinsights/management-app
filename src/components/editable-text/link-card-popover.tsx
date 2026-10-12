@@ -12,7 +12,6 @@ import { Box, Popover } from '@mantine/core'
 import { useIsomorphicEffect } from '@mantine/hooks'
 import type { LexicalEditor } from 'lexical'
 import { LINK_CARD_POPOVER_PROPS } from '@/components/link-hover-card/link-card-interactions'
-import classes from './link-card-popover.module.css'
 
 const SECONDARY_BUTTON = 2
 const APPLE_PLATFORM = /Mac|iPhone|iPad|iPod/i
@@ -211,7 +210,7 @@ export function AnchoredLinkCard({
                         pos="absolute"
                         top={0}
                         left={0}
-                        className={classes.anchor}
+                        className="click-through"
                     />
                 </Popover.Target>
                 <Popover.Dropdown

@@ -19,7 +19,6 @@ import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './editable-text/config'
-import classes from './editable-text/editor-surface.module.css'
 import { semanticColor } from '@/theme/tokens'
 
 export interface EditableTextProps {
@@ -90,21 +89,21 @@ export const EditableText: FC<EditableTextProps> = ({
             <LexicalComposer initialConfig={initialConfig}>
                 <Stack
                     gap={0}
-                    className={clsx(classes.frame, !borderless && 'collaborative-editor-container')}
+                    className={clsx('clip', !borderless && 'collaborative-editor-container')}
                     data-resizable={(!borderless && resizable) || undefined}
                     data-error={error ? true : undefined}
                     mih={borderless ? undefined : minHeight}
                     mah={maxHeight}
                     bg={disabled ? semanticColor('surface.disabled.medium') : undefined}
                 >
-                    <Box pos="relative" flex={1} className={classes.scrollArea}>
+                    <Box className="editable-text-scroll">
                         <RichTextPlugin
                             contentEditable={
                                 <Box
                                     component={ContentEditable}
                                     id={id}
                                     aria-label={ariaLabel}
-                                    className={classes.editable}
+                                    className="editable-text-content"
                                     p={borderless ? 0 : 'sm'}
                                     mih={borderless ? undefined : minHeight}
                                     onFocus={onFocus}
@@ -117,7 +116,7 @@ export const EditableText: FC<EditableTextProps> = ({
                                     top="var(--mantine-spacing-sm)"
                                     left="var(--mantine-spacing-sm)"
                                     c={semanticColor('text.placeholder')}
-                                    className={classes.placeholder}
+                                    className="click-through"
                                 >
                                     {placeholder}
                                 </Box>

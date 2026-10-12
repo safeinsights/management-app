@@ -18,7 +18,6 @@ import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { LinkHoverCardPlugin } from './link-hover-card-plugin'
 import { Toolbar } from './toolbar'
 import type { WidgetBlurProps } from '@/components/form-field'
-import classes from './editor-surface.module.css'
 
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
@@ -118,15 +117,14 @@ export function EditorSurface({
             data-error={error ? true : undefined}
             {...widgetBlur}
         >
-            {/* Absorbs the slack when the box is dragged taller, so the measured content stays its own size. */}
-            <Box pos="relative" flex={1} className={classes.scrollArea} onMouseDown={focusFromSlack}>
+            <Box className="editable-text-scroll" onMouseDown={focusFromSlack}>
                 <div ref={contentRef}>
                     <RichTextPlugin
                         contentEditable={
                             <Box
                                 component={ContentEditable}
                                 id={inputId}
-                                className={clsx(classes.editable, contentClassName)}
+                                className={clsx('editable-text-content', contentClassName)}
                                 p={contentStyle?.padding}
                                 fz={contentStyle?.fontSize}
                                 lh={contentStyle?.lineHeight}
@@ -169,7 +167,7 @@ const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle
             p={contentStyle?.padding}
             fz={contentStyle?.fontSize}
             lh={contentStyle?.lineHeight}
-            className={classes.placeholder}
+            className="click-through"
         >
             {text}
         </Text>

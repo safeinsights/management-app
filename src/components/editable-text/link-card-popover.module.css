@@ -1,4 +1,0 @@
-/* Laid over the link itself, so presses must still reach the link underneath. */
-.anchor {
-    pointer-events: none;
-}
