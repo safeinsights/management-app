@@ -19,7 +19,7 @@ import { PostHog } from 'posthog-node'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-import { SpyModeProvider } from '@/components/spy-mode-context'
+import { SpyModeProvider, useSpyMode } from '@/components/spy-mode-context'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { reportQueryError } from '@/hooks/query-wrappers'
@@ -37,7 +37,7 @@ import path from 'path'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 
-import { FC, ReactElement, ReactNode } from 'react'
+import { FC, ReactElement, ReactNode, useEffect } from 'react'
 import { expect, Mock, vi } from 'vitest'
 
 import userEvent from '@testing-library/user-event'
@@ -209,6 +209,16 @@ export function renderWithProviders(
         </QueryClientProvider>,
         options,
     )
+}
+
+// Spy mode is otherwise driven by the hidden pi symbol. It switches on in an effect, so the first
+// render is not yet in spy mode: find spy-only elements, do not get them.
+export function SpyMode({ children }: { children: ReactNode }) {
+    const { isSpyMode, toggleSpyMode } = useSpyMode()
+    useEffect(() => {
+        if (!isSpyMode) toggleSpyMode()
+    }, [isSpyMode, toggleSpyMode])
+    return <>{children}</>
 }
 
 const lexicalTextNode = (text: string) => ({
