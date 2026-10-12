@@ -168,9 +168,8 @@ describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
         await user.keyboard('{Escape}')
 
         await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link details' })).not.toBeInTheDocument())
-        // The card's fade-out outlasts the start of the preview's, so a preview closed by the same
-        // Escape would have faded by now rather than still being mounted and opaque.
-        expect(screen.getByRole('dialog', { name: 'View as reviewer' })).toBeVisible()
+        // A preview closed by the same Escape would have returned focus to "View as reviewer" by now.
+        expect(document.activeElement).toBe(within(preview).getByRole('link', { name: 'example' }))
 
         await user.keyboard('{Escape}')
 
