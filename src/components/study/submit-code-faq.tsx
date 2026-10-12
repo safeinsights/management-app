@@ -20,7 +20,6 @@ import { markSubmitCodeFaqSeenAction } from '@/server/actions/submit-code-faq.ac
 import { MainFileTemplateCopy } from './main-file-template-copy'
 import { OnboardingVideo } from './onboarding-video'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import classes from './submit-code-faq.module.css'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
 const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
@@ -156,7 +155,6 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
             disableChevronRotation
             variant="contained"
             radius="md"
-            classNames={{ content: classes.content }}
             data-testid="submit-code-faq"
         >
             <Accordion.Item value={FAQ_ITEM_VALUE} bd={`1px solid ${semanticColor('border.default')}`}>

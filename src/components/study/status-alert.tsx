@@ -3,7 +3,6 @@ import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import classes from './status-alert.module.css'
 
 export const STATUS_ALERT_SEPARATOR = '•'
 
@@ -49,7 +48,6 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             bg={bg}
             c={accent}
             icon={<Icon size={20} weight="fill" />}
-            classNames={{ icon: classes.icon }}
             data-testid="status-alert"
             data-variant={variant}
             {...liveRegion}

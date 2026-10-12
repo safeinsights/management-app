@@ -14,12 +14,11 @@ import {
 import { showUploadFailed } from './upload-notifications'
 import { showToast } from '@/components/toast-notifications'
 import { fontWeight } from '@/theme/tokens'
-import classes from './file-drop-overlay.module.css'
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
     return (
-        <Overlay backgroundOpacity={0.45} radius="md" zIndex={10} center className={classes.overlay}>
+        <Overlay backgroundOpacity={0.45} radius="md" zIndex={10} center className="click-through">
             <Paper p="lg" radius="md" shadow="md">
                 <Stack align="center" gap="xs">
                     <ThemeIcon variant="light" color="blue" size="xl" radius="xl">

@@ -1,4 +1,5 @@
 import {
+    Accordion,
     Badge,
     type BadgeProps,
     type ButtonProps,
@@ -342,6 +343,10 @@ export const theme = createTheme({
                 },
                 title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold },
             },
+        }),
+        // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
+        Accordion: Accordion.extend({
+            styles: { content: { padding: 'var(--mantine-spacing-lg) var(--mantine-spacing-md)' } },
         }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every

@@ -37,7 +37,6 @@ import {
 } from '@/server/actions/study-job.actions'
 import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
 import type { CodeFile } from './study-code-files'
-import classes from './submitted-code-interactive.module.css'
 import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
@@ -369,7 +368,7 @@ function FileTab({
                     component="span"
                     c={isActive ? semanticColor('text.white') : semanticColor('text.secondary')}
                     fw={fontWeight.regular}
-                    className={classes.nowrap}
+                    className="nowrap"
                 >
                     {display}
                 </Text>
@@ -410,7 +409,7 @@ function OverflowFilesMenu({
             <Menu.Target>
                 <UnstyledButton data-testid="study-code-files-overflow" px="md" py="xs">
                     <Group gap="xxs" wrap="nowrap" align="center">
-                        <Text size="sm" c={semanticColor('text.secondary')} component="span" className={classes.nowrap}>
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span" className="nowrap">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />
@@ -458,7 +457,7 @@ function FileTabsRow({
     ))
 
     return (
-        <Group gap="sm" wrap="nowrap" className={classes.fileTabs} data-testid="study-code-file-tabs">
+        <Group gap="sm" wrap="nowrap" className="clip" data-testid="study-code-file-tabs">
             {tabs}
             <OverflowFilesMenu
                 hidden={hidden}
