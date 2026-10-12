@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type FC } from 'react'
+import { useState, type FC } from 'react'
 import dynamic from 'next/dynamic'
 import { ActionIcon, AspectRatio, Center, Group, Stack, Text } from '@mantine/core'
 import { PlayIcon } from '@phosphor-icons/react/dist/ssr'
@@ -61,17 +61,17 @@ const OnboardingVideoTeaser: FC<{ isVisible: boolean; onPlay: () => void }> = ({
 }
 
 // vimeo-video-element builds its iframe inside a shadow root with no title, so screen readers would
-// announce an unnamed frame. Vimeo's own embed snippet titles it, so we add that once it exists.
-function useTitledVimeoIframe() {
-    const ref = useRef<HTMLVideoElement>(null)
-    const onReady = () => {
-        ref.current?.shadowRoot?.querySelector('iframe')?.setAttribute('title', 'SafeInsights IDE Orientation')
-    }
-    return { ref, onReady }
+// announce an unnamed frame. It writes that iframe after react-player's onReady fires and rewrites it
+// on later loads, so the title is reapplied whenever the shadow root changes (OTTER-827 QA).
+export function titleShadowIframe(host: Element | null) {
+    const root = host?.shadowRoot
+    if (!root) return
+    const applyTitle = () => root.querySelector('iframe')?.setAttribute('title', 'SafeInsights IDE Orientation')
+    applyTitle()
+    new MutationObserver(applyTitle).observe(root, { childList: true, subtree: true })
 }
 
 const OnboardingVideoPlayer: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    const { ref, onReady } = useTitledVimeoIframe()
     if (!isVisible) return null
 
     return (
@@ -79,13 +79,12 @@ const OnboardingVideoPlayer: FC<{ isVisible: boolean }> = ({ isVisible }) => {
             <VideoHeading />
             <AspectRatio ratio={16 / 9} w="100%">
                 <ReactPlayer
-                    ref={ref}
+                    ref={titleShadowIframe}
                     src={IDE_ONBOARDING_VIDEO_URL}
                     playing
                     controls
                     width="100%"
                     height="100%"
-                    onReady={onReady}
                     config={{ vimeo: { autopause: false, referrerpolicy: 'strict-origin-when-cross-origin' } }}
                 />
             </AspectRatio>
