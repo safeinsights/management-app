@@ -23,7 +23,6 @@ import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
-import { displayOrgName } from '@/lib/string'
 import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import type { RawStudyState, SharedOutputsScreenId } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -246,7 +245,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        const { locked } = copyFor(variant.screen, displayOrgName(org.name))
+        const { locked } = copyFor(variant.screen, org.name)
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveAttribute('data-variant', locked.variant)
         expect(alert).toHaveTextContent(locked.title)
@@ -257,7 +256,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        const sibling = copyFor(siblingOf(variant).screen, displayOrgName(org.name))
+        const sibling = copyFor(siblingOf(variant).screen, org.name)
         expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
         expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
     })
@@ -267,7 +266,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, raw, org.slug)
         await decrypt()
 
-        const dataPartner = displayOrgName(org.name)
+        const dataPartner = org.name
         const { locked, unlocked } = copyFor(variant.screen, dataPartner)
         const sibling = copyFor(siblingOf(variant).screen, dataPartner)
         const alert = screen.getByTestId('status-alert')
@@ -303,7 +302,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(copyFor(variant.screen, displayOrgName(org.name)).locked.title)
+        expect(alert).toHaveTextContent(copyFor(variant.screen, org.name).locked.title)
         expect(alert).not.toHaveTextContent('•')
     })
 

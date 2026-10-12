@@ -138,7 +138,6 @@ export const ReviewProposal: Story = () => (
                 study={{
                     title: PROPOSAL_STUDY_TITLE,
                     submittingLabName: 'Genius Lab',
-                    submittedByOrgSlug: 'genius',
                     isTestStudy: false,
                 }}
             />

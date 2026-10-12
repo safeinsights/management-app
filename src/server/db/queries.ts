@@ -454,11 +454,6 @@ export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.
     return user.fullName
 }
 
-export const getOrgNameFromId = async (orgId: string) => {
-    const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
-    return result.name
-}
-
 export const getOrgInfoForUserId = async (userId: string) => {
     const rows = await selectUserOrgRows(userId, Action.db).execute()
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))

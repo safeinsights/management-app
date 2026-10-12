@@ -109,6 +109,7 @@ describe('UserStudiesDashboard', () => {
         expect(screen.getByText('All studies')).toBeDefined()
         expect(screen.getByRole('columnheader', { name: /Submitted to/ })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('restores the tab named in the URL', async () => {
@@ -125,6 +126,7 @@ describe('UserStudiesDashboard', () => {
 
         expect(await screen.findByRole('link', { name: 'Researcher Study' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
@@ -146,6 +148,7 @@ describe('UserStudiesDashboard', () => {
         expect(await screen.findByText(/Every study follows four steps/)).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('does not show the toggle for a single-role reviewer', async () => {

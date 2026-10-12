@@ -317,7 +317,7 @@ describe('Studies Table', () => {
             expect(screen.getByRole('columnheader', { name: /Study title/ })).not.toHaveAttribute('aria-sort')
         })
 
-        it('sorts by a header button, flips on a second click, and returns to the default from Last updated', async () => {
+        it('sorts by a header button, flips on a second click, and opens Last updated newest first', async () => {
             const user = userEvent.setup()
             vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(dated())
             renderTable()
@@ -331,6 +331,25 @@ describe('Studies Table', () => {
             expect(titles()).toEqual(['cherry', 'Banana', 'apple'])
 
             await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['apple', 'Banana', 'cherry'])
+            expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute(
+                'aria-sort',
+                'descending',
+            )
+        })
+
+        it('sorts Last updated oldest first on a second click', async () => {
+            const user = userEvent.setup()
+            vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(dated())
+            renderTable()
+            await screen.findByRole('link', { name: 'apple' })
+
+            await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['cherry', 'Banana', 'apple'])
+            expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute('aria-sort', 'ascending')
+
+            await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['apple', 'Banana', 'cherry'])
             expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute(
                 'aria-sort',
                 'descending',
