@@ -167,7 +167,10 @@ describe('resolveStepNav — proposal phase', () => {
     // round is still open, whether a code revision or an outputs decision reopened it.
     it.each([
         ['a code revision request', { codeDecision: 'CODE-CHANGES-REQUESTED' }],
-        ['a feedback-only outputs decision', { codeDecision: 'CODE-APPROVED', hasResults: true, resultsRejected: true }],
+        [
+            'a feedback-only outputs decision',
+            { codeDecision: 'CODE-APPROVED', hasResults: true, resultsRejected: true },
+        ],
     ] as const)('returns to Edit code after %s when the step back came from it', (_label, overrides) => {
         const s = state({ ...submitted, status: 'APPROVED', hasSubmittedCode: true, ...overrides })
         const nav = resolveStepNav('proposal-feedback', s, { ...ctx, from: 'edit-code' })
@@ -328,7 +331,12 @@ describe('codeResubmissionNav', () => {
 describe('setupStepNav', () => {
     it('returns to Edit proposal when the step back came from it', () => {
         expect(setupStepNav('CHANGE-REQUESTED', { ...ctx, from: 'edit-proposal' })).toEqual({
-            forward: { label: 'Next step', href: `${base}/edit-and-resubmit`, variant: 'solid', testId: 'cta-next-step' },
+            forward: {
+                label: 'Next step',
+                href: `${base}/edit-and-resubmit`,
+                variant: 'solid',
+                testId: 'cta-next-step',
+            },
         })
     })
 

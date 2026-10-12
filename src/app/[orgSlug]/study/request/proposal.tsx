@@ -58,7 +58,12 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName, nextStepHref }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({
+    studyId,
+    draftData,
+    submittingLabName,
+    nextStepHref,
+}) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
