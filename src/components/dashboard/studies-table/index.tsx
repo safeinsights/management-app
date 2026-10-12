@@ -15,6 +15,7 @@ import {
     fetchStudiesForOrgAction,
 } from '@/server/actions/study.actions'
 import { getColumns } from './columns'
+import { DeleteDraftButton } from './delete-draft-button'
 import { buildRowModel } from './row-model'
 import { useStudiesTableSort } from './sort'
 import { StudiesTableView } from './studies-table-view'
@@ -158,6 +159,7 @@ export function StudiesTable({
             isError={isError}
             errorMessage={errorToString(error)}
             paperWrapper={paperWrapper}
+            DeleteDraft={DeleteDraftButton}
         />
     )
 }
