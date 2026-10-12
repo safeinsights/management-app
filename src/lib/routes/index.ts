@@ -9,6 +9,8 @@ export {
     DashboardSearchParams,
     RedirectSearchParams,
     InviteSearchParams,
+    NavOriginParam,
+    type NavOrigin,
     type RouteParams,
 } from './definitions'
 export { useTypedParams, useTypedSearchParams } from './hooks'
