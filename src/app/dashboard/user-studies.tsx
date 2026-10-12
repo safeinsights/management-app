@@ -109,7 +109,6 @@ export default function UserStudiesDashboard() {
                                 ? 'Studies you are reviewing, across every organization you belong to. Open a study to view its details, review submitted materials, and submit your decision.'
                                 : 'Studies you have taken part in, across every organization you belong to. Open a study to check its status, view details, or take your next step.'
                         }
-                        showNewStudyButton={!isReviewer}
                         showRefresher
                     />
                 </Paper>
