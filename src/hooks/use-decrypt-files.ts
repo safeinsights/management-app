@@ -4,7 +4,7 @@ import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty } from '@mantine/form'
 import { useForm, useMutation } from '@/common'
 import { ResultsReader, ResultsIntegrityError, type DecryptedEntry } from 'si-encryption/job-results/reader'
-import { LEGACY_CIPHER } from 'si-encryption/job-results/crypto'
+import { LEGACY_CIPHER, unwrapAesKey } from 'si-encryption/job-results/crypto'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
@@ -20,6 +20,7 @@ export type EncryptedJobFile = {
 
 class KeyParseError extends Error {}
 class DecryptionError extends Error {}
+class WrongKeyError extends Error {}
 
 export class ArchiveIntegrityError extends Error {}
 
@@ -40,17 +41,50 @@ async function readArchive(
         { jobId },
     )
     try {
+        await proveKey(reader, privateKey, fingerprint, artifact.recipientKeys)
         // Captured so approval can re-wrap each key per researcher.
         return await reader.extractFilesWithKeys()
     } catch (err) {
-        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else the unwrap has
-        // already proven the key, so a decrypt rejection is a tampered body, not a wrong key.
+        if (err instanceof WrongKeyError) throw err
+
+        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else proveKey has already
+        // settled that the key is a recipient, so a decrypt rejection is tampering, not a wrong key.
         const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
 
         if (err instanceof ResultsIntegrityError || authenticated) {
             throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
         }
         throw err
+    }
+}
+
+// A reviewer is a manifest recipient, so the fingerprint alone decides; skipping the unwrap keeps a
+// tampered wrap of a listed key an integrity error. A researcher's wraps are spliced in under
+// whatever fingerprint they enter, so only the unwrap can tell their wrong key apart.
+async function proveKey(
+    reader: ResultsReader,
+    privateKey: ArrayBuffer,
+    fingerprint: string,
+    recipientKeys: Record<string, string>,
+) {
+    await reader.decode()
+    const [file] = Object.values(reader.manifest.files)
+    if (!file) return
+
+    const isListed = fingerprint in file.keys
+    const isManifestRecipient = Object.keys(recipientKeys).length === 0
+    if (!isListed) {
+        if (isManifestRecipient) throw new WrongKeyError('Key is not a recipient of these results')
+        // The server sent wraps for this artifact but none for this file: a manifest/row mismatch,
+        // not the user's key, so leave it to the catch above to classify.
+        throw new Error(`no wrapped key for ${fingerprint}`)
+    }
+    if (isManifestRecipient) return
+
+    try {
+        await unwrapAesKey(file.keys[fingerprint].crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
+    } catch (err) {
+        throw new WrongKeyError('Key is not a recipient of these results', { cause: err })
     }
 }
 

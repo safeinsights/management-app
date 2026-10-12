@@ -1,6 +1,7 @@
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/lexical'
+import { plural } from '@/lib/string'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
@@ -30,28 +31,43 @@ const MAX_FILE_COUNT = 10
 
 export const PLACEHOLDER = '(none provided)'
 
-async function fetchCodeFiles(studyJobId: string): Promise<Record<string, string>> {
+type SkippedFile = { name: string; reason: string }
+
+async function fetchCodeFiles(studyJobId: string) {
     const files = await db
         .selectFrom('studyJobFile')
         .select(['name', 'path'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
-        // Main code sorts first so MAX_FILE_COUNT only ever truncates supplemental files.
-        .orderBy((eb) => eb.case().when('fileType', '=', 'MAIN-CODE').then(eb.lit(0)).else(eb.lit(1)).end())
+        // Explicit, because sorting the enum column follows its declaration order (OTTER-812).
+        .orderBy((eb) => eb('fileType', '=', 'MAIN-CODE'), 'desc')
         .orderBy('name', 'asc')
-        .limit(MAX_FILE_COUNT)
         .execute()
 
-    const result: Record<string, string> = {}
-    for (const file of files) {
+    const codeFiles: Record<string, string> = {}
+    const skippedFiles: SkippedFile[] = files
+        .slice(MAX_FILE_COUNT)
+        .map((file) => ({ name: file.name, reason: `the review reads at most ${MAX_FILE_COUNT} files` }))
+
+    for (const file of files.slice(0, MAX_FILE_COUNT)) {
         const blob = await fetchFileContents(file.path)
         if (blob.size > MAX_FILE_SIZE_BYTES) {
             logger.warn(`Skipping oversized file for study review`, { name: file.name, size: blob.size, studyJobId })
+            skippedFiles.push({ name: file.name, reason: `larger than ${MAX_FILE_SIZE_BYTES / 1000} KB` })
             continue
         }
-        result[file.name] = await blob.text()
+        codeFiles[file.name] = await blob.text()
     }
-    return result
+    return { codeFiles, skippedFiles }
+}
+
+// Written by us rather than asked of the model, so the reviewer always learns the summary is partial.
+function withSkippedFilesNote(report: AnalysisReport, skippedFiles: SkippedFile[]): AnalysisReport {
+    if (skippedFiles.length === 0) return report
+
+    const list = skippedFiles.map((file) => `- \`${file.name}\`: ${file.reason}`).join('\n')
+    const note = `**This summary does not cover ${plural(skippedFiles.length, 'submitted file')}:**\n\n${list}`
+    return { ...report, codeExplanation: `${note}\n\n${report.codeExplanation}` }
 }
 
 function lexicalFieldToText(value: unknown): string {
@@ -61,7 +77,7 @@ function lexicalFieldToText(value: unknown): string {
 
 async function assembleReviewContent(
     studyJobId: string,
-): Promise<{ content: ReviewContent; agentContext: string } | null> {
+): Promise<{ content: ReviewContent; agentContext: string; skippedFiles: SkippedFile[] } | null> {
     const job = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -89,7 +105,7 @@ async function assembleReviewContent(
         lexicalFieldToText(job.additionalNotes),
     ].filter((part) => part.trim().length > 0)
 
-    const codeFiles = await fetchCodeFiles(studyJobId)
+    const { codeFiles, skippedFiles } = await fetchCodeFiles(studyJobId)
     if (Object.keys(codeFiles).length === 0) {
         logger.warn(`No code files found for study review`, { studyJobId })
         return null
@@ -114,7 +130,7 @@ async function assembleReviewContent(
         // TODO: pass researcherTestResults once test-run output is captured per studyJob.
     }
 
-    return { content, agentContext }
+    return { content, agentContext, skippedFiles }
 }
 
 // Marks the round as being generated and answers with the claim this run owns, or null if another
@@ -195,12 +211,12 @@ async function runStudyReview(studyJobId: string, round: number, claimedAt: Date
         await persistFailure(studyJobId, round, claimedAt)
         return
     }
-    const { content, agentContext } = assembled
+    const { content, agentContext, skippedFiles } = assembled
 
     // TODO(chat): persist `messages` alongside `report` once chat follow-up lands.
     const { report } = await generateAnalysis({ apiKey, additionalContext: agentContext, signal }, content)
 
-    await persistReport(studyJobId, round, report, claimedAt)
+    await persistReport(studyJobId, round, withSkippedFilesNote(report, skippedFiles), claimedAt)
     logger.info(`Study review generated and stored`, {
         studyJobId,
         round,

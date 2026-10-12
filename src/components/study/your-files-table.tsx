@@ -54,6 +54,9 @@ const COLUMN_WIDTHS = {
     actions: 140,
 } as const
 
+// The submitted-code table has no size or mtime for a job's files, only these two.
+type TableFile = Pick<WorkspaceFileInfo, 'name' | 'lastActivity'>
+
 const truncateFileName = (name: string) =>
     name.length > FILE_NAME_MAX_CHARS ? `${name.slice(0, FILE_NAME_MAX_CHARS)}…` : name
 
@@ -217,7 +220,7 @@ const FileActions: FC<FileActionsProps> = ({
 )
 
 type FileRowProps = {
-    file: WorkspaceFileInfo
+    file: TableFile
     isMain: boolean
     isTemplate: boolean
     dataPartnerName: string
@@ -276,7 +279,7 @@ const FileRow: FC<FileRowProps> = ({
 )
 
 type YourFilesTableProps = {
-    files: WorkspaceFileInfo[]
+    files: TableFile[]
     mainFile: string
     templateFileNames?: string[]
     dataPartnerName: string

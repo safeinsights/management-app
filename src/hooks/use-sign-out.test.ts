@@ -1,4 +1,12 @@
-import { renderHook, createTestQueryWrapper, type Mock } from '@/tests/unit.helpers'
+import {
+    renderHook,
+    createTestQueryClient,
+    createTestQueryWrapper,
+    QueryClientProvider,
+    type Mock,
+} from '@/tests/unit.helpers'
+import { createElement } from 'react'
+import { CURRENT_USER_INFO_KEY } from './session'
 import { describe, it, expect, vi } from 'vitest'
 import { useClerk } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
@@ -60,5 +68,19 @@ describe('useSignOut', () => {
 
         expect(resetSpy).toHaveBeenCalledOnce()
         expect(resetSpy.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0])
+    })
+
+    // Signing back in as the same Clerk user would otherwise show the org list cached before.
+    it('drops the cached org list', async () => {
+        mockClerkSignOut(vi.fn().mockResolvedValue(undefined))
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+
+        const { result } = renderHook(() => useSignOut(), {
+            wrapper: ({ children }) => createElement(QueryClientProvider, { client: queryClient }, children),
+        })
+        await result.current()
+
+        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeUndefined()
     })
 })

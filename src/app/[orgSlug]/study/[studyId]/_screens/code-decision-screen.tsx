@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { codeDecisionForScreen, projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, getOrgNameFromId } from '@/server/db/queries'
 import { isSubmittedStudy } from '@/schema/study'
+import { listWorkspaceFileActivityAction } from '@/server/actions/workspaces.actions'
+import { actionResult } from '@/lib/utils'
 import { CodePostDecisionView } from '../view/code-post-decision-view'
 import { loadCodeReviewFeedback } from '../view/load-code-review-feedback'
 import type { ScreenComponentProps } from './types'
@@ -18,11 +20,13 @@ export async function CodeDecisionScreen({ study, raw, descriptor, nav }: Screen
     if (!isSubmittedStudy(study)) notFound()
     const { entries, feedbackLoadError } = await loadCodeReviewFeedback(study.id)
     const reviewingOrgName = await getOrgNameFromId(study.orgId)
+    const activityByName = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
 
     return (
         <CodePostDecisionView
             study={study}
             job={job}
+            activityByName={activityByName}
             entries={entries}
             reviewingOrgName={reviewingOrgName}
             latestJobStatus={decision.status}

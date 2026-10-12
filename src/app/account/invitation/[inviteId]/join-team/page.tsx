@@ -3,6 +3,7 @@
 import { semanticColor } from '@/theme/tokens'
 import { useMutation, useQuery } from '@/common'
 import { reportError, reportMutationError } from '@/components/errors'
+import { useReloadOrgList } from '@/hooks/session'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
@@ -10,7 +11,6 @@ import { inviteLandingUrl } from '@/lib/invite-landing'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
-import { useAuth } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
@@ -33,7 +33,7 @@ type ConfirmationModalProps = {
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
-    const auth = useAuth()
+    const reloadOrgList = useReloadOrgList()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [isSkipping, setIsSkipping] = useState(false)
@@ -52,10 +52,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onSuccess: async (result) => {
             setIsDisabled(true)
 
-            await auth.getToken({ skipCache: true })
-
-            // Give the token time to propagate before navigating.
-            await new Promise((resolve) => setTimeout(resolve, 500))
+            await reloadOrgList()
 
             markOrgJoined(org!.name)
 

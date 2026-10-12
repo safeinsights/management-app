@@ -5,7 +5,7 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { useSignIn } from '@clerk/nextjs'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { type MFAState } from './logic'
@@ -27,7 +27,6 @@ export const SignInForm: FC<{
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
-    const router = useRouter()
     const completeSignIn = useCompleteSignIn()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
@@ -86,9 +85,10 @@ export const SignInForm: FC<{
         } catch (err: unknown) {
             const errorMessage = errorToString(err, { clerkOverrides: clerkErrorOverrides })
 
-            // A session was restored in another tab between mount and submit.
+            // A session was restored in another tab between mount and submit. A full load, because
+            // the root layout rendered for a signed-out visitor and carries no org list.
             if (errorMessage === ALREADY_SIGNED_IN_MESSAGE) {
-                router.push(validatedRedirect)
+                window.location.replace(validatedRedirect)
                 return
             }
 

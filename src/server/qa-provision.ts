@@ -7,9 +7,7 @@ import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { pathForInvitation } from '@/lib/paths'
 import { APP_BASE_URL } from '@/server/config'
-import { updateClerkUserMetadata } from '@/server/clerk'
 import { findOpenInvite } from '@/server/db/queries'
-import logger from '@/lib/logger'
 import { findQaUser, withTransaction, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
 
 export class QaConflictError extends Error {}
@@ -68,17 +66,6 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
     }
 }
 
-// Shaped for applyOrgMemberships, so a failed Clerk sync can be compensated by replaying them.
-async function currentMemberships(db: Kysely<DB>, userId: string) {
-    const rows = await db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['orgUser.orgId', 'org.slug', 'orgUser.isAdmin'])
-        .where('orgUser.userId', '=', userId)
-        .execute()
-    return rows.map(({ orgId, slug, isAdmin }) => ({ orgId, slug, isAdmin }))
-}
-
 // The fingerprint is derived, not accepted from the caller: a mismatched one would make senders
 // wrap to a key the owner cannot open.
 async function applyPublicKey(db: Kysely<DB>, userId: string, pem: string) {
@@ -126,9 +113,6 @@ export async function provisionQaUser(
     const user = await findQaUser(db, idOrEmail)
     const resolvedOrgs = update.orgs ? await resolveOrgs(db, update.orgs) : null
 
-    // Captured before the write so a failed Clerk sync can be rolled back to it.
-    const priorOrgs = resolvedOrgs ? await currentMemberships(db, user.id) : null
-
     let fingerprint: string | null = null
     await withTransaction(db, async (trx) => {
         if (resolvedOrgs) {
@@ -138,23 +122,6 @@ export async function provisionQaUser(
             fingerprint = await applyPublicKey(trx, user.id, update.publicKey)
         }
     })
-
-    // Authorization reads membership from the Clerk JWT, not the DB, so if Clerk is unavailable the
-    // two stores disagree and may still grant the old access; roll back and fail loudly.
-    if (resolvedOrgs && priorOrgs) {
-        try {
-            await updateClerkUserMetadata(user.id)
-        } catch (error) {
-            // Nothing here may replace the original error, which is what tells the caller it failed.
-            try {
-                await withTransaction(db, (trx) => applyOrgMemberships(trx, user.id, priorOrgs))
-                await updateClerkUserMetadata(user.id)
-            } catch (rollbackError) {
-                logger.error('QA provisioning rollback failed; memberships may be out of sync', rollbackError)
-            }
-            throw error
-        }
-    }
 
     if (update.password) {
         const clerk = await clerkClient()

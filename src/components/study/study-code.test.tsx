@@ -1251,9 +1251,7 @@ describe('StudyCode component', () => {
          * duplicate either.
          */
         const blockUploadOf = async (studyId: string, fileName: string) => {
-            const { CODER_DISABLED } = await import('@/server/config')
-            const root = process.env.CODER_FILES as string
-            const dir = CODER_DISABLED ? root : path.join(root, studyId)
+            const dir = path.join(process.env.CODER_FILES as string, studyId)
             await fs.mkdir(path.join(dir, fileName), { recursive: true })
         }
 

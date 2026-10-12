@@ -184,9 +184,7 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
         })
     }
 
-    // The wrapped-key fetch must answer before the first render: an empty answer latches
-    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
-    // setup so the mock's value cannot leak between tests.
+    // Assigned per setup so the mock's value cannot leak between tests.
     const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
     const artifact = await seedEncryptedArtifact(job.id, {
         fileType: 'ENCRYPTED-RESULT',

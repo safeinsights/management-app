@@ -9,7 +9,7 @@ import { displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { PageHeader } from '@/components/page-header'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { Stack, Text } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,24 +27,19 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     const isEnclave = isEnclaveOrg(org)
     const orgName = displayOrgName(org.name)
 
-    const description = isEnclave
-        ? `Welcome to the ${orgName} Data Partner dashboard. Here you can review submitted study proposals, check study statuses and know when tasks are due.`
-        : `Welcome to the ${orgName} Research Lab dashboard. Here you can submit new proposals, view study statuses, and access the details of each study.`
-
     return (
         <Stack p="xxl" gap="xxl">
             <PageHeader eyebrow={orgName} title="Dashboard" />
             <JoinedOrgBanner />
-            <Text mt="-md">{description}</Text>
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
                 scope="org"
                 orgSlug={orgSlug}
-                title={isEnclave ? 'Review Studies' : 'Proposed Studies'}
+                title={isEnclave ? 'Studies for review' : 'All studies'}
                 description={
                     isEnclave
-                        ? "Review all the studies submitted to your organization. Studies that need your attention will be labeled 'Needs review'."
-                        : undefined
+                        ? 'Track and review studies submitted to your organization. Open a study to view its details, review submitted materials, and submit your decision.'
+                        : 'Track every study your organization has created, from draft to completed. Open a study to check its status, view details, or take your next step.'
                 }
                 showNewStudyButton={!isEnclave}
                 showRefresher

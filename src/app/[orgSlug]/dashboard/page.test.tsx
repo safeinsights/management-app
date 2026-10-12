@@ -63,7 +63,7 @@ beforeEach(() => {
 const routeOrg: Org = { ...mockOrg, id: faker.string.uuid(), slug: 'other-org', name: 'Mars University Lab' }
 
 describe('Org Dashboard', () => {
-    it('renders the welcome text', async () => {
+    it('titles the data partner card and drops the welcome text', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
         vi.mocked(getOrgFromSlugAction).mockResolvedValue(mockOrg)
 
@@ -73,7 +73,8 @@ describe('Org Dashboard', () => {
 
         renderWithProviders(await OrgDashboardPage(props))
 
-        expect(screen.getByText(/Welcome to the/i)).toBeDefined()
+        expect(await screen.findByText('Studies for review')).toBeDefined()
+        expect(screen.queryByText(/Welcome to the/i)).toBeNull()
     })
 
     it('heads the page with the route org above "Dashboard", once', async () => {

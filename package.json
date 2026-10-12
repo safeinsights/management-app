@@ -30,6 +30,7 @@
         "db:seed-studies": "ALLOW_TESTING_DATA=TRUE tsx bin/seed-dev-studies.ts",
         "db:seed-legal": "tsx bin/seed-dev-legal.ts",
         "create-admin-user": "tsx bin/create-admin-user.ts",
+        "clerk:slim-metadata": "tsx bin/slim-clerk-public-metadata.ts",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
         "lint": "concurrently 'pnpm:lint:eslint' 'pnpm:lint:prettier'",

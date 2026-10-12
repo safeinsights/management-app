@@ -1,4 +1,6 @@
 'use server'
+
+import { getStudyFilesPath } from '@/server/workspace-files'
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
@@ -9,17 +11,18 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
 import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
 import {
     deferred,
-    onStudyReviewRequested,
     onStudyCodeSubmitted,
-    onStudyCreated,
+    onStudyDraftCreated,
     onStudyProposalResubmitted,
+    onStudyProposalSubmitted,
+    onStudyReviewRequested,
 } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
@@ -212,6 +215,8 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
+        onStudyDraftCreated({ studyId, userId })
+
         return { studyId }
     })
 
@@ -266,7 +271,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set(updateValues)
+                      .set({ ...updateValues, labEditedAt: new Date() })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -345,7 +350,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -440,7 +445,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
-        onStudyCreated({ userId, studyId })
+        onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
@@ -555,10 +560,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
@@ -575,9 +577,9 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
         if (status === 'APPROVED') {
-            onStudyCodeSubmitted({ userId, studyId })
+            onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
         } else {
-            onStudyCreated({ userId, studyId })
+            onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
         }
 
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
@@ -601,7 +603,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -714,7 +716,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
-        onStudyProposalResubmitted({ studyId })
+        onStudyProposalResubmitted({ studyId, userId })
 
         return {
             studyId,
@@ -728,7 +730,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
@@ -743,7 +746,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         // client's autosave indicator report "saved" when nothing persisted.
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -770,7 +773,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: new Date() })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -818,8 +821,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
@@ -867,7 +869,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyId)
             .execute()
 
-        onStudyCodeSubmitted({ userId, studyId })
+        onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
         revalidatePath('/dashboard')

@@ -305,16 +305,8 @@ describe('mailgun email functions', () => {
             const { user: codeDecider } = await insertTestUser({ org })
             await insertTestProposalDecision({ studyId: study.id, authorId: proposalDecider.id })
             await db
-                .insertInto('studyReviewComment')
-                .values({
-                    studyId: study.id,
-                    studyJobId: job.id,
-                    authorId: codeDecider.id,
-                    reviewKind: 'CODE',
-                    entryType: 'DECISION',
-                    decision: 'APPROVE',
-                    body: JSON.stringify({ text: 'looks good' }),
-                })
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, userId: codeDecider.id, status: 'CODE-APPROVED' })
                 .execute()
 
             await mailgun[send](study.id)
