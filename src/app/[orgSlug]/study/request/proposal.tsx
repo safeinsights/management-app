@@ -11,7 +11,7 @@ import { SetupForm } from './setup-form'
 import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
 import { PageHeader } from '@/components/page-header'
-import { UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { labNameOrSlug, UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -117,7 +117,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     // A researcher only creates for their own lab, so the eyebrow names the route org before a row
     // exists and the study's own lab once one does (OTTER-619). The heading mirrors the live field,
     // so it keeps up with the title as it is typed.
-    const eyebrow = (draftData?.submittingLabName ?? submittingLabName) || submittingOrgSlug
+    const eyebrow = labNameOrSlug(draftData?.submittingLabName ?? submittingLabName, submittingOrgSlug)
     const headingTitle = titleValue.trim() || UNTITLED_STUDY_TITLE
 
     const onProceed = navMode === 'submitted' ? goToSubmitted : attemptContinue

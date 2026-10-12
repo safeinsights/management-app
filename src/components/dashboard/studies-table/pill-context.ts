@@ -1,9 +1,11 @@
+import { labNameOrSlug } from '@/lib/string'
 import type { PillOrgNames } from '@/lib/study-screen'
 import type { StudyRow } from './types'
 
 export const dataPartnerDisplayName = (study: StudyRow) => study.reviewingEnclaveName || study.orgName || null
 
-export const labDisplayName = (study: StudyRow) => study.submittingLabName || study.submittedByOrgSlug || null
+export const labDisplayName = (study: StudyRow) =>
+    labNameOrSlug(study.submittingLabName, study.submittedByOrgSlug ?? '') || null
 
 // Tooltips name the other side of the study. Neither name is guaranteed on a dashboard row, so both
 // fall back to the role noun rather than rendering an empty gap mid-sentence.
