@@ -1,9 +1,8 @@
-import { AppShell, AppShellHeader, AppShellMain, Group } from '@mantine/core'
+import { AppShell, AppShellHeader, AppShellMain, Center, Group } from '@mantine/core'
 import { MAIN_CONTENT_PROPS, SIDENAV_BG } from '@/lib/constants'
 import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
-import classes from './focused-layout-shell-view.module.css'
 
 // Session-free so it renders in isolation; ./focused-layout-shell wires up the real hooks.
 export type FocusedLayoutShellViewProps = {
@@ -27,15 +26,15 @@ export function FocusedLayoutShellView({
                 <Group
                     h="100%"
                     p="md"
-                    className={isSignInFlow ? classes.clickable : undefined}
+                    className={isSignInFlow ? 'clickable' : undefined}
                     onClick={() => isSignInFlow && onHeaderClick()}
                 >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
             </AppShellHeader>
 
-            <AppShellMain {...MAIN_CONTENT_PROPS} bg={SIDENAV_BG} className={classes.centered} px="md">
-                {children}
+            <AppShellMain {...MAIN_CONTENT_PROPS} bg={SIDENAV_BG} display="flex" px="md">
+                <Center flex={1}>{children}</Center>
             </AppShellMain>
             <AppFooter isDark />
         </AppShell>

@@ -37,7 +37,6 @@ import 'highlight.js/styles/github.css'
 import { highlightLanguageForFile, type HighlightLanguage } from '@/lib/languages'
 import { formatJson } from '@/lib/file-content-helpers'
 import { semanticColor } from '@/theme/tokens'
-import classes from './file-viewers.module.css'
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('c', c)
@@ -100,7 +99,7 @@ export function CodeViewer({ code, language, fileName, withBorder = false, wrapL
                 bdrs="sm"
                 c={semanticColor('text.primary')}
                 fz="sm"
-                className={wrapLines ? classes.wrapped : undefined}
+                className={wrapLines ? 'pre-wrap' : undefined}
             >
                 <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: highlightedCode }} />
             </Box>

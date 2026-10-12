@@ -27,7 +27,7 @@ describe('FileViewer', () => {
         const code = container.querySelector('code')
         expect(code?.textContent).toContain('\n')
         expect(code?.textContent).toContain('  "alpha": 1')
-        expect(container.querySelector('pre')?.className).toMatch(/wrapped/)
+        expect(container.querySelector('pre')).toHaveClass('pre-wrap')
     })
 
     it('leaves malformed json as-is instead of rendering nothing', () => {
