@@ -4,6 +4,7 @@ import { Routes } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
 import type { StudyRole, StudyState } from './state.types'
 import { canResearcherResubmitCode } from './eligibility'
+import { isOutputsDecided } from './state'
 
 // In-content step navigation (OTTER-673). The spec ("Otter - Front-End Logic" § Navigation) reduces
 // every step page to one of three button patterns, picked by a single question: can the user move
@@ -74,6 +75,13 @@ const editCode = (ctx: NavCtx, variant: NavVariant): NavAction => ({
     testId: 'cta-edit-code',
 })
 
+const viewOutputs = (ctx: NavCtx): NavAction => ({
+    label: 'View outputs',
+    href: Routes.studyView({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
+    variant: 'outline',
+    testId: 'cta-view-outputs',
+})
+
 const editProposal = (ctx: NavCtx): NavAction => ({
     label: 'Edit proposal',
     href: Routes.studyEditAndResubmit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }),
@@ -131,6 +139,12 @@ const proposalFeedbackNav: NavRule = (state, ctx) => {
 export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtx): StepNav => ({
     back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
 })
+
+// /resubmit is a form route like /code: Previous step flushes the note draft and Resubmit opens a
+// modal, so both stay with the form. The table adds only "View outputs", for a round reopened from
+// the outputs step (OTTER-837).
+export const codeResubmissionNav = (state: StudyState, ctx: NavCtx): StepNav =>
+    isOutputsDecided(state) ? { secondary: viewOutputs(ctx) } : {}
 
 const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),

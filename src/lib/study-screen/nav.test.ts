@@ -9,6 +9,7 @@ import {
     resolveScreenNav,
     resolveStepNav,
     codeSubmissionNav,
+    codeResubmissionNav,
     type NavCtx,
     type StepNav,
 } from './nav'
@@ -236,6 +237,44 @@ describe('codeSubmissionNav', () => {
         const nav = codeSubmissionNav('APPROVED', ctx)
         expect(solids(nav)).toBe(0)
         expect(labels(nav)).toEqual(['Previous step', undefined, undefined])
+    })
+})
+
+// /resubmit resolves its own nav too; it only adds "View outputs" when the round reopened from the
+// outputs step (OTTER-837).
+describe('codeResubmissionNav', () => {
+    const decided = { status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED', hasResults: true } as const
+
+    it('offers an outline "View outputs" to the latest outputs page after a feedback-only decision', () => {
+        const nav = codeResubmissionNav(state({ ...decided, resultsRejected: true }), ctx)
+        expect(nav.secondary).toEqual({
+            label: 'View outputs',
+            href: `${base}/view`,
+            variant: 'outline',
+            testId: 'cta-view-outputs',
+        })
+    })
+
+    it.each([
+        ['shared outputs', { resultsApproved: true }],
+        ['an errored run with shared outputs', { resultsApproved: true, resultsErrored: true }],
+    ])('offers "View outputs" after %s', (_label, overrides) => {
+        const nav = codeResubmissionNav(state({ ...decided, ...overrides }), ctx)
+        expect(labels(nav)).toEqual([undefined, 'View outputs', undefined])
+    })
+
+    it('offers nothing when Edit code follows a code revision request', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-CHANGES-REQUESTED',
+        })
+        expect(codeResubmissionNav(s, ctx)).toEqual({})
+    })
+
+    it('never adds a solid action: Resubmit is form-owned', () => {
+        expect(solids(codeResubmissionNav(state({ ...decided, resultsApproved: true }), ctx))).toBe(0)
     })
 })
 
