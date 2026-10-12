@@ -1,9 +1,9 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, useState, type ReactNode } from 'react'
 import type { Route } from 'next'
 import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, type ButtonVariant } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { MANTINE_VARIANT } from '@/components/study/step-navigation'
@@ -35,69 +35,84 @@ const UNSAVED_EDITS_TOOLTIP =
 
 const ORDERED_FIELD_IDS = [SUBMIT_CODE_ERROR_ID, RESUBMISSION_NOTE_FIELD_ID]
 
-// Flush the debounced note draft before navigating, or the last keystrokes are lost.
-const useLeaveEditCode = ({ hasChanges, isBusy }: { hasChanges: boolean; isBusy: boolean }) => {
+type EditCodeExit = 'previous' | 'outputs'
+
+// Always flush, even when the note matches its page-load value: an earlier autosave may have
+// stored something else, and leaving cancels the pending debounce. A no-op when already saved.
+const useLeaveEditCode = ({ isBusy }: { isBusy: boolean }) => {
     const router = useRouter()
     const { saveDraft } = useEditCodeResubmit()
+    const [leavingVia, setLeavingVia] = useState<EditCodeExit | null>(null)
 
-    return async (href: Route) => {
+    const leave = async (exit: EditCodeExit, href: Route) => {
         if (isBusy) return
-        if (hasChanges) {
-            const saved = await saveDraft()
-            if (!saved) return
+        setLeavingVia(exit)
+        const saved = await saveDraft()
+        if (!saved) {
+            setLeavingVia(null)
+            return
         }
         router.push(href)
     }
+
+    return { leave, leavingVia }
 }
 
-type PreviousStepButtonProps = {
+type LeaveEditCodeButtonProps = {
+    label: string
+    variant: ButtonVariant
+    leftSection?: ReactNode
+    testId?: string
     hasChanges: boolean
     isBusy: boolean
-    isSaving: boolean
+    isLeaving: boolean
     onClick: () => void
 }
 
 // Either exit leaves edit mode, so both explain that unsubmitted edits stay private until resubmit.
-const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, isSaving, onClick }) => {
+const LeaveEditCodeButton: FC<LeaveEditCodeButtonProps> = ({
+    label,
+    variant,
+    leftSection,
+    testId,
+    hasChanges,
+    isBusy,
+    isLeaving,
+    onClick,
+}) => {
     return (
         <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320} disabled={!hasChanges}>
             <Button
                 type="button"
-                variant="subtle"
+                variant={variant}
                 size="md"
-                leftSection={<CaretLeftIcon />}
+                leftSection={leftSection}
                 disabled={isBusy}
-                loading={isSaving}
+                loading={isLeaving}
+                data-testid={testId}
                 onClick={onClick}
             >
-                Previous step
+                {label}
             </Button>
         </InfoTooltip>
     )
 }
 
-type ViewOutputsButtonProps = {
+type ViewOutputsButtonProps = Omit<LeaveEditCodeButtonProps, 'label' | 'variant' | 'testId' | 'onClick'> & {
     action?: NavAction
-    hasChanges: boolean
-    isBusy: boolean
     onLeave: (href: Route) => void
 }
 
-const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, hasChanges, isBusy, onLeave }) => {
+const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, onLeave, ...rest }) => {
     if (!action) return null
     return (
-        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320} disabled={!hasChanges}>
-            <Button
-                type="button"
-                variant={MANTINE_VARIANT[action.variant]}
-                size="md"
-                disabled={isBusy}
-                data-testid={action.testId}
-                onClick={() => onLeave(action.href)}
-            >
-                {action.label}
-            </Button>
-        </InfoTooltip>
+        <LeaveEditCodeButton
+            {...rest}
+            label={action.label}
+            variant={MANTINE_VARIANT[action.variant]}
+            testId={action.testId}
+            onClick={() => onLeave(action.href)}
+        />
     )
 }
 
@@ -126,7 +141,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     const isBusy = isSaving || isSubmitting
     const exitTarget = Routes.studyView({ orgSlug, studyId })
     const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
-    const leave = useLeaveEditCode({ hasChanges, isBusy })
+    const { leave, leavingVia } = useLeaveEditCode({ isBusy })
 
     // The files card names the reason, so a blocked click reports rather than doing nothing.
     const handleResubmitClick = () => {
@@ -141,14 +156,23 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     return (
         <>
             <Group justify="space-between" align="flex-start" mt="xs">
-                <PreviousStepButton
+                <LeaveEditCodeButton
+                    label="Previous step"
+                    variant="subtle"
+                    leftSection={<CaretLeftIcon />}
                     hasChanges={hasChanges}
                     isBusy={isBusy}
-                    isSaving={isSaving}
-                    onClick={() => leave(exitTarget)}
+                    isLeaving={isSaving && leavingVia === 'previous'}
+                    onClick={() => leave('previous', exitTarget)}
                 />
                 <Group gap="md" align="flex-start">
-                    <ViewOutputsButton action={viewOutputs} hasChanges={hasChanges} isBusy={isBusy} onLeave={leave} />
+                    <ViewOutputsButton
+                        action={viewOutputs}
+                        hasChanges={hasChanges}
+                        isBusy={isBusy}
+                        isLeaving={isSaving && leavingVia === 'outputs'}
+                        onLeave={(href) => leave('outputs', href)}
+                    />
                     <Button
                         id={RESUBMIT_CODE_BUTTON_ID}
                         size="md"
