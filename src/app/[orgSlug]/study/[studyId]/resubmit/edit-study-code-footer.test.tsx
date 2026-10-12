@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react'
-import type { Route } from 'next'
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { memoryRouter } from 'next-router-mock'
@@ -9,6 +8,7 @@ import { ResubmissionNoteSection } from '@/components/study/resubmission-note-se
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { Routes } from '@/lib/routes'
 import { codeResubmissionNav, type NavAction } from '@/lib/study-screen'
 import { studyState } from '@/lib/study-screen/state.fixture'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
@@ -360,7 +360,7 @@ describe('EditStudyCodeFooter: View outputs', () => {
     it('goes to the href the nav table resolved, not the Previous step target', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
-        const elsewhere = '/lab-1/study/elsewhere/view' as Route
+        const elsewhere = Routes.studyView({ orgSlug: 'lab-1', studyId: '22222222-2222-4222-8222-222222222222' })
         renderFooter({ viewOutputs: { ...VIEW_OUTPUTS, href: elsewhere } })
 
         await user.click(screen.getByRole('button', { name: 'View outputs' }))
