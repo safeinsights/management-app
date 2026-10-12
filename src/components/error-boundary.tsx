@@ -86,7 +86,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             </Stack>
                         </Paper>
                     </AppShellMain>
-                    <AppFooter />
+                    <AppFooter isDark />
                 </AppShell>
             )
         }

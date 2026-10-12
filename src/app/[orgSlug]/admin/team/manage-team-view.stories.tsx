@@ -28,6 +28,8 @@ type StoryUser = OrgUserReturn & { imageUrl?: string }
 const user = (o: Partial<StoryUser> = {}): StoryUser => ({
     id: '11111111-1111-4111-8111-111111111111',
     fullName: 'Ada Lovelace',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
     email: 'ada@mars.example',
     createdAt: new Date('2026-01-04'),
     orgUserId: 'ou-1',
@@ -38,11 +40,28 @@ const user = (o: Partial<StoryUser> = {}): StoryUser => ({
 })
 
 const people: StoryUser[] = [
-    user({ id: 'u1', fullName: 'Ada Lovelace', email: 'ada@mars.example', isAdmin: true, imageUrl: STUB_AVATAR }),
-    user({ id: 'u2', fullName: 'Grace Hopper', email: 'grace@mars.example', isAdmin: false }),
+    user({
+        id: 'u1',
+        fullName: 'Ada Lovelace',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@mars.example',
+        isAdmin: true,
+        imageUrl: STUB_AVATAR,
+    }),
+    user({
+        id: 'u2',
+        fullName: 'Grace Hopper',
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        email: 'grace@mars.example',
+        isAdmin: false,
+    }),
     user({
         id: 'u3',
         fullName: 'Katherine Johnson',
+        firstName: 'Katherine',
+        lastName: 'Johnson',
         email: 'katherine@mars.example',
         isAdmin: false,
         latestActivityAt: null,

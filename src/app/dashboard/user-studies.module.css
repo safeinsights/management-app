@@ -1,0 +1,16 @@
+/* The role switcher's tinted track and segment size come from Figma 4118-7634. */
+.switcher {
+    gap: var(--mantine-spacing-xxs);
+    background-color: var(--si-color-brand-light);
+}
+
+.switcherLabel {
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+    font-size: var(--mantine-font-size-sm);
+    font-weight: var(--si-font-weight-regular);
+    color: var(--si-color-text-primary);
+}
+
+.switcherLabel[data-active] {
+    color: var(--mantine-color-white);
+}

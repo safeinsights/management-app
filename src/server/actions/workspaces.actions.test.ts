@@ -6,6 +6,7 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
+    insertTestStudyOnly,
     insertTestUser,
     mockClerkSession,
     db,
@@ -99,6 +100,53 @@ describe('Workspace Actions', () => {
         expect(result.files).toHaveLength(3)
         expect(result.files[0]).toHaveProperty('size')
         expect(result.files[0]).toHaveProperty('mtime')
+    })
+
+    describe('listWorkspaceFileActivityAction (OTTER-778)', () => {
+        const recordActivity = (
+            studyId: string,
+            userId: string,
+            action: 'UPLOADED' | 'EDITED_IN_IDE',
+            createdAt: Date,
+        ) =>
+            db
+                .insertInto('workspaceFileActivity')
+                .values({ studyId, fileName: 'main.py', action, userId, createdAt })
+                .execute()
+
+        test('returns the activity from before the submission, not edits made since', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+            await recordActivity(study.id, user.id, 'EDITED_IN_IDE', new Date(Date.now() + 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
+
+            expect(result).toEqual({ 'main.py': expect.objectContaining({ action: 'UPLOADED' }) })
+        })
+
+        test('returns nothing for a job from another study', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+            const { job: otherJob } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(
+                await listWorkspaceFileActivityAction({ studyId: study.id, jobId: otherJob.id }),
+            )
+
+            expect(result).toEqual({})
+        })
     })
 
     describe('getStarterCodeInfoAction', () => {
@@ -233,7 +281,6 @@ describe('Workspace Actions', () => {
             vi.doMock('@/server/coder', async (importOriginal) => ({
                 ...(await importOriginal<typeof import('@/server/coder')>()),
                 createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
             }))
 
         const jobCreatedAt = async (jobId: string) =>
@@ -296,7 +343,6 @@ describe('Workspace Actions', () => {
             vi.doMock('@/server/coder', async (importOriginal) => ({
                 ...(await importOriginal<typeof import('@/server/coder')>()),
                 createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-                getCoderWorkspaceUrl: vi.fn(async () => 'https://coder.example/ws-test'),
             }))
 
         const approvedStudy = async () => {
@@ -352,6 +398,43 @@ describe('Workspace Actions', () => {
 
             actionResult(await deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }))
             await expect(fs.readFile(path.join(studyDir, 'helper.r'), 'utf8')).rejects.toThrow()
+        })
+
+        test('stamps the lab edit time on upload, set-main and delete without touching last_updated_at', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'helper.r'), 'print(2)')
+
+            const stamps = () =>
+                db
+                    .selectFrom('study')
+                    .select(['labEditedAt', 'lastUpdatedAt'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+            const clearStamp = () =>
+                db.updateTable('study').set({ labEditedAt: null }).where('id', '=', study.id).execute()
+            const before = await stamps()
+
+            const { uploadWorkspaceFileAction, setMainCodeFileAction, deleteWorkspaceFileAction } =
+                await import('./workspace-files.actions')
+            const saves = [
+                () =>
+                    uploadWorkspaceFileAction({
+                        studyId: study.id,
+                        file: new File(['print(1)'], 'main.r', { type: 'text/plain' }),
+                    }),
+                () => setMainCodeFileAction({ studyId: study.id, fileName: 'main.r' }),
+                () => deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }),
+            ]
+            for (const save of saves) {
+                await clearStamp()
+                actionResult(await save())
+                const after = await stamps()
+                expect(after.labEditedAt).not.toBeNull()
+                expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
+            }
         })
 
         // The card says IDE access cannot be shared or transferred, and 'load IDE' is granted to
@@ -585,6 +668,113 @@ describe('Workspace Actions', () => {
             const { listWorkspaceFilesAction } = await import('./workspaces.actions')
 
             expect(actionResult(await listWorkspaceFilesAction({ studyId }))).toMatchObject({ files: [] })
+        })
+    })
+
+    /**
+     * OTTER-817: the Coder account is keyed on the IDE owner, not the proposal submitter. Unlike the
+     * describes above this must NOT mock @/server/coder — the whole point is to run the real
+     * resolution against the real db, so global.fetch is stubbed at the Coder API boundary instead.
+     */
+    describe('IDE owner provisioning (OTTER-817)', () => {
+        const SUBMITTER_EMAIL = 'otter817-submitter@test.com'
+
+        // The describes above doMock @/server/coder, and a doMock outlives resetModules — without
+        // this the action imports a stubbed createUserAndWorkspace and never reaches the API.
+        beforeEach(() => {
+            vi.doUnmock('@/server/coder')
+        })
+
+        const stubCoderApi = () => {
+            const calls: string[] = []
+            const ok = (json: unknown) => ({ ok: true, json: async () => json })
+
+            global.fetch = vi.fn(async (url: string, init?: { body?: string }) => {
+                calls.push(url)
+                if (url.includes('/api/v2/users?')) return ok({ users: [] })
+                // Echo the posted username back, as Coder does — that is what the workspace path is
+                // then built from, so the assertions below are testing the real chain.
+                if (url.endsWith('/api/v2/users')) return ok(JSON.parse(init?.body ?? '{}'))
+                if (url.includes('/api/v2/organizations') && url.includes('/workspaces')) return ok({ id: 'ws-new' })
+                if (url.includes('/api/v2/organizations')) return ok([{ id: 'org1', name: 'coder' }])
+                if (url.includes('/api/v2/templates')) return ok([{ id: 'tpl1', name: 'test-template' }])
+                // The workspace read 404s, which is what routes the flow into workspace creation.
+                return { ok: false, status: 404, text: async () => 'Not found' }
+            }) as unknown as typeof global.fetch
+
+            return calls
+        }
+
+        // The launcher reaches `load IDE` through the lab arm of the rule (permissions.ts), so the
+        // session org has to be the lab that submitted the study.
+        const studyLaunchedByTeammate = async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            process.env.CODER_API_ENDPOINT = 'https://coder.test'
+            process.env.CODER_TOKEN = 'token'
+            process.env.CODER_TEMPLATE = 'test-template'
+
+            const { org: lab, user: launcher } = await mockSessionWithTestData({ orgType: 'lab' })
+            const enclave = await insertTestOrg({ slug: `otter817-enclave-${Math.random().toString(36).slice(2, 8)}` })
+            const { user: submitter } = await insertTestUser({ org: lab, email: SUBMITTER_EMAIL })
+            const { study } = await insertTestStudyOnly({
+                org: enclave,
+                submittedByOrg: lab,
+                researcherId: submitter.id,
+            })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R' })
+
+            return { study, launcher, submitter }
+        }
+
+        test('queries Coder for the launcher, not the proposal submitter', async () => {
+            const { study, launcher } = await studyLaunchedByTeammate()
+            const calls = stubCoderApi()
+
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            const lookup = calls.find((u) => u.includes('/api/v2/users?'))
+            expect(lookup).toContain(encodeURIComponent(launcher.email!))
+            expect(calls.join(' ')).not.toContain(encodeURIComponent(SUBMITTER_EMAIL))
+        })
+
+        test("creates the workspace under the launcher's Coder account", async () => {
+            const { study, launcher } = await studyLaunchedByTeammate()
+            const calls = stubCoderApi()
+
+            const { generateCoderUsername } = await import('@/server/coder')
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            const create = calls.find((u) => u.includes('/workspaces'))
+            expect(create).toContain(`/members/${generateCoderUsername(launcher.email!)}/workspaces`)
+            expect(create).not.toContain(generateCoderUsername(SUBMITTER_EMAIL))
+        })
+
+        // The other direction: the fix must not break the case that always worked.
+        test('still provisions under the submitter when the submitter launches', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            process.env.CODER_API_ENDPOINT = 'https://coder.test'
+            process.env.CODER_TOKEN = 'token'
+            process.env.CODER_TEMPLATE = 'test-template'
+
+            const { org: lab, user: submitter } = await mockSessionWithTestData({ orgType: 'lab' })
+            const enclave = await insertTestOrg({ slug: `otter817-own-${Math.random().toString(36).slice(2, 8)}` })
+            const { study } = await insertTestStudyOnly({
+                org: enclave,
+                submittedByOrg: lab,
+                researcherId: submitter.id,
+            })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R' })
+            const calls = stubCoderApi()
+
+            const { generateCoderUsername } = await import('@/server/coder')
+            const { ensureWorkspaceAction } = await import('./workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            expect(calls.find((u) => u.includes('/workspaces'))).toContain(
+                `/members/${generateCoderUsername(submitter.email!)}/workspaces`,
+            )
         })
     })
 })

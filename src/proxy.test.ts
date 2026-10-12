@@ -86,6 +86,65 @@ describe('proxy redirect_url sanitization', () => {
     })
 })
 
+describe('proxy signin param sanitization', () => {
+    beforeEach(() => {
+        vi.resetModules()
+        ;(clerkMiddleware as unknown as Mock).mockImplementation((handler) => handler)
+        ;(createRouteMatcher as unknown as Mock).mockReturnValue(() => false)
+    })
+
+    const runProxy = async (url: string) => {
+        const { proxy } = await import('./proxy')
+        const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
+        const res = await (proxy as unknown as ProxyHandler)(auth as Mock, new NextRequest(url))
+        return { res, auth }
+    }
+
+    it('drops the ZAP fullwidth payload from bounce and keeps redirect_url', async () => {
+        const { res, auth } = await runProxy(
+            'https://app.staging.safeinsights.org/account/signin?redirect_url=%2F&bounce=%EF%BC%9Cimgsrc%3Dxonerror%3Dprompt%28%29%EF%BC%9E',
+        )
+
+        expect(res.status).toBe(307)
+        expect(res.headers.get('location')).toBe('https://app.staging.safeinsights.org/account/signin?redirect_url=%2F')
+        expect(auth).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        ['bounce', '<script>alert(1)</script>'],
+        ['restart', '"><img src=x>'],
+        ['invite_not_found', '<svg onload=alert(1)>'],
+        ['error', 'session<script>'],
+        ['invite_id', 'not-a-uuid<b>'],
+    ])('drops an invalid %s value', async (param, value) => {
+        const { res } = await runProxy(`https://app.test/account/signin?${param}=${encodeURIComponent(value)}&keep=1`)
+
+        expect(res.status).toBe(307)
+        expect(res.headers.get('location')).toBe('https://app.test/account/signin?keep=1')
+    })
+
+    it('drops a param repeated with one bad value', async () => {
+        const { res } = await runProxy(`https://app.test/account/signin?bounce=${BOUNCE_VALUE}&bounce=%3Cx%3E`)
+
+        expect(res.headers.get('location')).toBe('https://app.test/account/signin')
+    })
+
+    it('lets the values the app itself writes through', async () => {
+        const { res, auth } = await runProxy(
+            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b`,
+        )
+
+        expect(res.headers.get('location')).toBeNull()
+        expect(auth).toHaveBeenCalled()
+    })
+
+    it('leaves the same params alone on other routes', async () => {
+        const { auth } = await runProxy('https://app.test/account/reset-password?bounce=%3Cx%3E')
+
+        expect(auth).toHaveBeenCalled()
+    })
+})
+
 describe('proxy session marshaling failures', () => {
     beforeEach(() => {
         vi.resetModules()

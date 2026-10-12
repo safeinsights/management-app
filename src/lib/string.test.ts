@@ -2,11 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
     strToAscii,
     slugify,
-    getInitials,
+    initialsFromNames,
     shellQuote,
     substituteEntryPointFile,
     orgInitialsTitle,
-    displayLabName,
     plural,
 } from './string'
 
@@ -20,27 +19,22 @@ describe('orgInitialsTitle', () => {
     })
 })
 
-describe('getInitials', () => {
-    it('returns the uppercased first initial for a single name', () => {
-        expect(getInitials('Ada')).toBe('A')
-        expect(getInitials('ada')).toBe('A')
+describe('initialsFromNames', () => {
+    it('takes the first letter of the first and last name, uppercased', () => {
+        expect(initialsFromNames('ada', 'lovelace')).toBe('AL')
     })
 
-    it('returns first + last initials for a full name', () => {
-        expect(getInitials('Ada Lovelace')).toBe('AL')
+    it('takes the first letter of a multi-word surname', () => {
+        expect(initialsFromNames('Mary', 'Van Dyke')).toBe('MV')
     })
 
-    it('uses the first and last word for three or more names', () => {
-        expect(getInitials('Katherine Coleman Johnson')).toBe('KJ')
+    it('keeps a character that spans two UTF-16 code units whole', () => {
+        expect(initialsFromNames('𠮷田', 'Lee')).toBe('𠮷L')
     })
 
-    it('ignores extra surrounding and internal whitespace', () => {
-        expect(getInitials('  Ada   Lovelace  ')).toBe('AL')
-    })
-
-    it('returns an empty string for empty or whitespace-only input', () => {
-        expect(getInitials('')).toBe('')
-        expect(getInitials('   ')).toBe('')
+    it('ignores surrounding whitespace and a missing name', () => {
+        expect(initialsFromNames('  Ada ', null)).toBe('A')
+        expect(initialsFromNames(undefined, '   ')).toBe('')
     })
 })
 
@@ -145,21 +139,6 @@ describe('substituteEntryPointFile', () => {
 
     it('returns the template unchanged when there is no %f token', () => {
         expect(substituteEntryPointFile('Rscript main.R', 'ignored.r')).toBe('Rscript main.R')
-    })
-})
-
-describe('displayLabName', () => {
-    it('shows a real name in its display form', () => {
-        expect(displayLabName('Genius Lab', 'genius-lab')).toBe('Genius')
-    })
-
-    it('falls back to the slug when there is no name, leaving the slug whole', () => {
-        expect(displayLabName(null, 'genius-lab')).toBe('genius-lab')
-        expect(displayLabName(undefined, 'genius-lab')).toBe('genius-lab')
-    })
-
-    it('falls back to the slug when the name strips to nothing', () => {
-        expect(displayLabName('Lab', 'genius-lab')).toBe('genius-lab')
     })
 })
 

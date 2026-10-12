@@ -67,7 +67,7 @@ const main = async () => {
     console.log(`\nstudy   ${studyId}`)
     console.log(`title   ${title}`)
     console.log(`file    ${filePath}`)
-    console.log(`\nresearcher  http://localhost:4000/${labSlug}/study/${studyId}/submitted?returnTo=org`)
+    console.log(`\nresearcher  http://localhost:4000/${labSlug}/study/${studyId}/submitted`)
     console.log(`reviewer    http://localhost:4000/${enclaveSlug}/study/${studyId}/review`)
     console.log('\nowes the acknowledgement:')
     for (const row of owing) console.log(`  ${row.slug.padEnd(24)} ${row.email}`)

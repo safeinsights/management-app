@@ -11,6 +11,7 @@ import {
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
@@ -66,6 +67,13 @@ const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) =
     return writer.generate()
 }
 
+const archiveForAnotherKey = async () => {
+    const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
+    await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+    return { archive: await writer.generate(), fingerprint }
+}
+
 const expectDecryptsToContents = (files: JobFileInfo[]) => {
     expect(files).toHaveLength(1)
     expect(files[0].path).toBe(FILENAME)
@@ -89,6 +97,28 @@ describe('useDecryptFiles', () => {
         expectDecryptsToContents(await decrypt(await asJobFile(await currentArchive())))
     })
 
+    // A researcher is not in the manifest; the server hands over wraps made for their key at
+    // share time, mirroring what fetchEncryptedJobFilesAction returns.
+    it('reads a current archive as a researcher with wraps served alongside it', async () => {
+        const me = await recipient()
+        const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+        const writer = new ResultsWriter([{ publicKey, fingerprint }, me], { jobId: JOB_ID })
+        await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+
+        const zip = await writer.generate()
+        const { manifest } = await openArchive(zip)
+        const myWrap = manifest.files[FILENAME].keys[me.fingerprint].crypt
+        const archive = await tamper(zip, {
+            manifest: (m) => {
+                delete m.files[FILENAME].keys[me.fingerprint]
+            },
+        })
+        const file = await asJobFile(archive)
+        file.recipientKeys = { [FILENAME]: myWrap }
+
+        expectDecryptsToContents(await decrypt(file))
+    })
+
     it('reports a dropped file as tampering rather than a bad key', async () => {
         const archive = await tamper(await currentArchive(), { drop: [FILENAME] })
 
@@ -100,6 +130,56 @@ describe('useDecryptFiles', () => {
         const corrupted = await packArchive(manifest, [{ ...bodies[0], blob: await flipByte(bodies[0].blob) }])
 
         await expect(decrypt(await asJobFile(corrupted))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    // The key is a listed recipient, so a wrap of it that fails to unwrap was altered in the archive.
+    // Must not read as a wrong key: that would hide the signal and send the user off to replace a
+    // key that is fine.
+    it("reports a recipient's tampered wrapped key as tampering rather than a bad key", async () => {
+        const { fingerprint } = await recipient()
+        const other = await archiveForAnotherKey()
+        const { manifest: otherManifest } = await openArchive(other.archive)
+
+        const archive = await tamper(await currentArchive(), {
+            manifest: (m) => {
+                m.files[FILENAME].keys[fingerprint].crypt = otherManifest.files[FILENAME].keys[other.fingerprint].crypt
+            },
+        })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    describe('a key the archive was not encrypted for', () => {
+        it('is rejected as a wrong key, not tampering, when absent from the manifest', async () => {
+            const { archive } = await archiveForAnotherKey()
+
+            const failure = await decrypt(await asJobFile(archive)).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // A researcher's wrapped keys are spliced in under whatever key they enter, so only the unwrap catches it.
+        it('is rejected as a wrong key, not tampering, when its wrapped key does not unwrap', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { [FILENAME]: manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            const failure = await decrypt(file).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // Wraps were served for the artifact but none names this file: the server's rows and the
+        // manifest disagree, which no key of the user's can fix.
+        it('is not blamed on the key when the wraps served do not cover the file', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { 'some-other-file.csv': manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            await expect(decrypt(file)).rejects.toThrow(ArchiveIntegrityError)
+        })
     })
 
     it('refuses an archive belonging to a different job', async () => {

@@ -2,42 +2,39 @@
 
 import { ActionIcon, Group, Popover, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
-import { useCallback, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
+import { useCallback, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
 import { LinkWithIcon } from '@/components/links'
+import { useHoverIntent } from '@/hooks/use-hover-intent'
 import { semanticColor } from '@/theme/tokens'
 import { Routes } from '@/lib/routes'
-
-// Time for the pointer to cross from the icon into the card (WCAG 2.1 SC 1.4.13, hover content must be hoverable).
-export const HOVER_CLOSE_DELAY_MS = 120
 
 // Takes the trigger ref instead of returning it: a hook result that carries a ref cannot be read during render.
 const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     const [opened, setOpened] = useState(false)
-    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    // Refs, not state: the hover timer and the blur handler need the live value, not the captured one.
+    // A ref, not state: the hover timer and the blur handler need the live value, not the captured one.
     const isPinned = useRef(false)
-    const isPointerInside = useRef(false)
     // Keeps the icon's focus handler from reopening the card that a dismissal just closed.
     const isRestoringFocus = useRef(false)
 
-    const cancelScheduledClose = useCallback(() => {
-        if (closeTimer.current === null) return
-        clearTimeout(closeTimer.current)
-        closeTimer.current = null
+    const show = useCallback(() => setOpened(true), [])
+
+    const closeUnlessPinned = useCallback(() => {
+        if (!isPinned.current) setOpened(false)
     }, [])
 
-    useEffect(() => cancelScheduledClose, [cancelScheduledClose])
+    const hover = useHoverIntent({ onEnter: show, onLeave: closeUnlessPinned })
+    const { cancelLeave, reset: resetHover, isPointerInside } = hover
 
     const open = useCallback(() => {
-        cancelScheduledClose()
-        setOpened(true)
-    }, [cancelScheduledClose])
+        cancelLeave()
+        show()
+    }, [cancelLeave, show])
 
     const dismiss = useCallback(() => {
-        cancelScheduledClose()
+        resetHover()
         isPinned.current = false
         setOpened(false)
-    }, [cancelScheduledClose])
+    }, [resetHover])
 
     const dismissAndRestoreFocus = useCallback(() => {
         dismiss()
@@ -46,21 +43,6 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
         triggerRef.current?.focus()
         isRestoringFocus.current = false
     }, [dismiss, triggerRef])
-
-    const onPointerEnter = useCallback(() => {
-        isPointerInside.current = true
-        open()
-    }, [open])
-
-    const onPointerLeave = useCallback(() => {
-        isPointerInside.current = false
-        if (isPinned.current) return
-        cancelScheduledClose()
-        closeTimer.current = setTimeout(() => {
-            closeTimer.current = null
-            setOpened(false)
-        }, HOVER_CLOSE_DELAY_MS)
-    }, [cancelScheduledClose])
 
     // A click pins the card so it survives the pointer leaving; hover alone leaves it unpinned.
     const onTriggerClick = useCallback(() => {
@@ -81,11 +63,11 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     // either, because the blur fires on the mousedown of a click headed for the link.
     const onGroupBlur = useCallback(
         (event: FocusEvent<HTMLDivElement>) => {
-            if (isPinned.current || isPointerInside.current) return
+            if (isPinned.current || isPointerInside()) return
             if (event.currentTarget.contains(event.relatedTarget)) return
             dismiss()
         },
-        [dismiss],
+        [dismiss, isPointerInside],
     )
 
     // Only while open, so Escape still reaches the surrounding page when the card is closed.
@@ -108,8 +90,8 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     return {
         opened,
         onOpenedChange,
-        onPointerEnter,
-        onPointerLeave,
+        onPointerEnter: hover.onPointerEnter,
+        onPointerLeave: hover.onPointerLeave,
         onTriggerClick,
         onTriggerFocus,
         onGroupBlur,
@@ -146,8 +128,8 @@ export const LostKeyPopover = () => {
                         size={20}
                         onClick={popover.onTriggerClick}
                         onFocus={popover.onTriggerFocus}
-                        onMouseEnter={popover.onPointerEnter}
-                        onMouseLeave={popover.onPointerLeave}
+                        onPointerEnter={popover.onPointerEnter}
+                        onPointerLeave={popover.onPointerLeave}
                         onKeyDown={popover.onEscape}
                         aria-label="Lost your key? Click for help"
                     >
@@ -155,8 +137,8 @@ export const LostKeyPopover = () => {
                     </ActionIcon>
                 </Popover.Target>
                 <Popover.Dropdown
-                    onMouseEnter={popover.onPointerEnter}
-                    onMouseLeave={popover.onPointerLeave}
+                    onPointerEnter={popover.onPointerEnter}
+                    onPointerLeave={popover.onPointerLeave}
                     onKeyDown={popover.onEscape}
                 >
                     <Stack gap="sm">

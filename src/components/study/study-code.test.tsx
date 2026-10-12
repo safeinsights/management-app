@@ -2,6 +2,7 @@ import {
     afterEach,
     beforeEach,
     cleanupWorkspaceDirs,
+    createTestQueryClient,
     createWorkspaceDir,
     db,
     describe,
@@ -119,9 +120,16 @@ const renderIDE = async (
     {
         dataPartnerName = DATA_PARTNER,
         isFirstVisit = false,
+        videoDurationMinutes = 15,
         strictMode = false,
         acknowledged = true,
-    }: { dataPartnerName?: string; isFirstVisit?: boolean; strictMode?: boolean; acknowledged?: boolean } = {},
+    }: {
+        dataPartnerName?: string
+        isFirstVisit?: boolean
+        videoDurationMinutes?: number | null
+        strictMode?: boolean
+        acknowledged?: boolean
+    } = {},
 ) => {
     const { study } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
@@ -140,6 +148,7 @@ const renderIDE = async (
             studyId={study.id}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
+            videoDurationMinutes={videoDurationMinutes}
             isEditable
             nav={nav}
         />
@@ -320,7 +329,10 @@ describe('StudyCode component', () => {
         ])
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+            expect.objectContaining({
+                title: 'Code submitted.',
+                'data-toast-kind': 'success',
+            }),
         )
     })
 
@@ -564,6 +576,76 @@ describe('StudyCode component', () => {
             // The card words this one generically, so it must NOT pick up the partner name.
             expect(faq).toHaveTextContent('It is an example dataset from a Data Partner that mirrors')
         })
+
+        it('announces the video duration as part of the accordion title', async () => {
+            await renderIDE()
+
+            expect(
+                screen.getByRole('button', { name: /New to SafeInsights IDE\? Start here\.\s*15 min video/ }),
+            ).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^15 min video$/ })).not.toBeInTheDocument()
+        })
+
+        it('omits the duration badge when the video length is unavailable', async () => {
+            await renderIDE('openstax-lab', undefined, { videoDurationMinutes: null })
+
+            expect(faqControl()).toBeInTheDocument()
+            expect(screen.queryByTestId('video-duration-badge')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('onboarding video (OTTER-827)', () => {
+        const PLAY_LABEL = 'Play video: Watch: Getting started with the SafeInsights IDE'
+        const playButton = () => screen.getByRole('button', { name: PLAY_LABEL })
+
+        it('only renders the teaser while the accordion is expanded', async () => {
+            await renderIDE()
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            const teaser = await screen.findByTestId('onboarding-video-teaser')
+            expect(teaser).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(teaser).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument())
+        })
+
+        it('opens expanded with the teaser on a first visit', async () => {
+            await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            await waitForPendingMutations()
+
+            expect(playButton()).toBeInTheDocument()
+        })
+
+        it('swaps the teaser for the player, keeping the title above it, when Play is pressed', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+
+            const player = await screen.findByTestId('onboarding-video-player')
+            expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
+            expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
+        })
+
+        it('goes back to the teaser after the accordion is collapsed and reopened', async () => {
+            await renderIDE()
+            const user = userEvent.setup()
+            await user.click(faqControl())
+            await user.click(await screen.findByRole('button', { name: PLAY_LABEL }))
+            await screen.findByTestId('onboarding-video-player')
+
+            await user.click(faqControl())
+            await waitFor(() => expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument())
+            await user.click(faqControl())
+
+            expect(await screen.findByTestId('onboarding-video-teaser')).toBeInTheDocument()
+            expect(screen.queryByTestId('onboarding-video-player')).not.toBeInTheDocument()
+        })
     })
 
     describe('Your files section (OTTER-693)', () => {
@@ -739,6 +821,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -770,6 +853,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -819,6 +903,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -913,7 +998,6 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'Code could not be submitted.',
                         message: 'Your work is saved. Try again.',
-                        color: 'red',
                         'data-toast-kind': 'error',
                     }),
                 )
@@ -939,7 +1023,7 @@ describe('StudyCode component', () => {
                         title: 'Code could not be submitted.',
                         message:
                             'Study Agreement must be acknowledged before you can continue with this study. Your work is saved.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -998,6 +1082,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1101,6 +1186,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1165,9 +1251,7 @@ describe('StudyCode component', () => {
          * duplicate either.
          */
         const blockUploadOf = async (studyId: string, fileName: string) => {
-            const { CODER_DISABLED } = await import('@/server/config')
-            const root = process.env.CODER_FILES as string
-            const dir = CODER_DISABLED ? root : path.join(root, studyId)
+            const dir = path.join(process.env.CODER_FILES as string, studyId)
             await fs.mkdir(path.join(dir, fileName), { recursive: true })
         }
 
@@ -1194,7 +1278,7 @@ describe('StudyCode component', () => {
                 expect(await workspaceNames(study.id)).toEqual(['extra.R', 'main.R'])
             })
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'extra.R is uploaded.', color: 'green' }),
+                expect.objectContaining({ title: 'extra.R is uploaded.', 'data-toast-kind': 'success' }),
             )
         })
 
@@ -1209,7 +1293,7 @@ describe('StudyCode component', () => {
                     expect.objectContaining({
                         title: 'huge.R failed to upload.',
                         message: 'Maximum file size is 3 MB.',
-                        color: 'red',
+                        'data-toast-kind': 'error',
                     }),
                 )
             })
@@ -1409,6 +1493,8 @@ describe('StudyCode component', () => {
 
     describe('IDE launch failure modal (OTTER-693)', () => {
         const FILES = { 'main.R': 'print(1)' }
+        const expectNoErrorToast = () =>
+            expect(notifications.show).not.toHaveBeenCalledWith(expect.objectContaining({ 'data-toast-kind': 'error' }))
 
         it('replaces the launch with a failure modal, and retries on Try again', async () => {
             vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
@@ -1424,28 +1510,49 @@ describe('StudyCode component', () => {
             const heading = await screen.findByText('IDE failed to launch')
             const dialog = heading.closest('[role="dialog"]') as HTMLElement
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
-            // The real Sentry event id, not the design's placeholder: reportError mints one for
+            // The real Sentry event id, not the design's placeholder: captureError mints one for
             // this same failure and the researcher quotes it to support.
             expect(dialog).toHaveTextContent(
                 /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
             )
+            const firstRef = dialog.textContent?.match(/Ref: ([a-f0-9]{32})/)?.[1] ?? ''
+            // OTTER-832: the modal is the only surface, so no toast repeats it.
+            expectNoErrorToast()
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
             // through the launch mutation rather than firing on the click itself.
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+
+            // The retry fails the same way, and still only the modal reports it. Waiting on a fresh
+            // Ref proves the second failure was captured, not that the first modal is still fading.
+            await screen.findByText((text) => /Ref: [a-f0-9]{32}\./.test(text) && !text.includes(firstRef))
+            expectNoErrorToast()
         })
 
-        // The mutation path above lands the id in the same React batch. A build Coder reports as
-        // failed reaches reportError from an effect instead, so the modal paints once without a ref
-        // — that frame must read as a whole sentence rather than exposing a blank or a placeholder.
-        it('fills the Ref once a failed build is polled', async () => {
-            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
-                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
-                >,
-            )
+        // The mutation path above lands the id in the same React batch. A failed build or a failed
+        // poll reaches captureError from an effect instead, so the modal paints once without a ref,
+        // and that frame must read as a whole sentence rather than a blank or a placeholder.
+        it.each([
+            [
+                'a failed build',
+                () =>
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'build failed',
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
+            ],
+            [
+                'a status polling error',
+                () => vi.mocked(getCoderWorkspaceLaunchStatus).mockRejectedValue(new Error('workspace not found')),
+            ],
+        ])('fills the Ref once %s is polled', async (_label, arrange) => {
+            arrange()
             await renderIDE('openstax-lab', FILES)
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
 
@@ -1458,6 +1565,7 @@ describe('StudyCode component', () => {
                     /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
                 ),
             )
+            expectNoErrorToast()
         })
 
         it('closes without retrying when dismissed', async () => {
@@ -1501,6 +1609,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1529,6 +1638,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1613,6 +1723,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav('/test')}
                 />,
@@ -1683,6 +1794,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1759,6 +1871,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1809,6 +1922,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1825,6 +1939,7 @@ describe('StudyCode component', () => {
                     studyId={study.id}
                     dataPartnerName={DATA_PARTNER}
                     isFirstVisit={false}
+                    videoDurationMinutes={null}
                     isEditable
                     nav={backNav(previousHref)}
                 />,
@@ -1851,8 +1966,101 @@ describe('StudyCode component', () => {
             ])
 
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'green', title: 'Code submitted.', 'data-toast-kind': 'success' }),
+                expect.objectContaining({
+                    title: 'Code submitted.',
+                    'data-toast-kind': 'success',
+                }),
             )
+        })
+    })
+
+    // OTTER-824: in the browser one query client outlives client-side navigation, so the second
+    // mount shares the first one's client exactly as a return visit from the dashboard does.
+    describe('Returning to the page (OTTER-824)', () => {
+        const launchButton = () => screen.getByRole('button', { name: /launch ide/i })
+
+        const setupReturnVisits = async () => {
+            const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
+            const root = await createWorkspaceDir('study-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print(1)' })
+
+            const queryClient = createTestQueryClient()
+            const mount = async () => {
+                const rendered = renderWithProviders(
+                    <StudyCode
+                        studyId={study.id}
+                        dataPartnerName={DATA_PARTNER}
+                        isFirstVisit={false}
+                        videoDurationMinutes={null}
+                        isEditable
+                        nav={backNav('/test')}
+                    />,
+                    { queryClient },
+                )
+                await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+                return rendered
+            }
+            return { mount }
+        }
+
+        const spyOnWindowOpen = () => vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window)
+
+        it('does not reopen the IDE when the researcher comes back after launching it', async () => {
+            const openSpy = spyOnWindowOpen()
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1))
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            expect(openSpy).toHaveBeenCalledTimes(1)
+            expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalledTimes(1)
+            openSpy.mockRestore()
+        })
+
+        it('opens the IDE again when the researcher launches it after coming back', async () => {
+            const openSpy = spyOnWindowOpen()
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(1))
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            await userEvent.setup().click(launchButton())
+            await waitFor(() => expect(openSpy).toHaveBeenCalledTimes(2))
+            await waitForPendingMutations()
+            openSpy.mockRestore()
+        })
+
+        // Only the polled build status is cached; a rejected launch lives in per-mount mutation state.
+        it('does not show an earlier launch failure when the researcher comes back', async () => {
+            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
+                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
+                >,
+            )
+            const { mount } = await setupReturnVisits()
+
+            const firstVisit = await mount()
+            await userEvent.setup().click(launchButton())
+            await screen.findByText('IDE failed to launch')
+            await waitForPendingMutations()
+            firstVisit.unmount()
+
+            await mount()
+            await waitForPendingQueries()
+            expect(screen.queryByText('IDE failed to launch')).not.toBeInTheDocument()
         })
     })
 })

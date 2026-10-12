@@ -1,3 +1,4 @@
+import { getStudyFilesPath } from '@/server/workspace-files'
 import {
     coderWorkspaceAgentLogsPath,
     coderWorkspaceBuildByIdPath,
@@ -18,6 +19,7 @@ import type {
     WorkspaceStatus,
     CoderAgent,
     CoderLog,
+    CoderUser,
     CoderUsername,
     CoderWorkspace,
     CoderWorkspaceBuild,
@@ -27,7 +29,7 @@ import type {
     WorkspaceLaunchStatus,
     JobStatus,
 } from './types'
-import { getCoderUser, getOrCreateCoderUser } from './users'
+import { getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
 import { generateWorkspaceName } from './utils'
 import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
@@ -38,15 +40,9 @@ import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
 import { templateFileNameFor } from '@/lib/languages'
 
-async function generateWorkspaceUrl(studyId: string): Promise<string> {
+async function generateWorkspaceUrl(user: CoderUser, studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
-    const workspaceName = generateWorkspaceName(studyId)
-    const user = await getCoderUser(studyId)
-    if (!user) {
-        logger.error(`[coder-launch study=${studyId}] Coder user not found for workspace ${workspaceName}`)
-        throw new Error('Coder user not found')
-    }
-    return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
+    return `${coderApiEndpoint}${coderWorkspacePath(user.username, generateWorkspaceName(studyId))}`
 }
 
 // The reason is logged while polling, so a workspace that never becomes ready leaves a trail of
@@ -70,9 +66,9 @@ function describeReadiness(
     return { ready, reason, agentStatus }
 }
 
-async function finalizeWorkspaceLaunch(studyId: string): Promise<string> {
+async function finalizeWorkspaceLaunch(user: CoderUser, studyId: string): Promise<string> {
     await initializeWorkspaceCodeFiles(studyId)
-    return generateWorkspaceUrl(studyId)
+    return generateWorkspaceUrl(user, studyId)
 }
 
 // Empty on any failure, so a missing log stream never aborts the overall status read.
@@ -100,7 +96,9 @@ export async function getCoderWorkspaceLaunchStatus(
 ): Promise<WorkspaceLaunchStatus> {
     const logCtx = `[coder-status study=${studyId}]`
 
-    const user = await getCoderUser(studyId)
+    // Resolved once and reused for finalizeWorkspaceLaunch below: the poll runs every few seconds,
+    // and re-resolving would mean a second lookup per tick against both the DB and Coder.
+    const user = await getCoderUserFor(await resolveCoderIdentity(studyId))
     if (!user) throw new Error('Coder user not found')
     const workspaceName = generateWorkspaceName(studyId)
 
@@ -157,7 +155,7 @@ export async function getCoderWorkspaceLaunchStatus(
     const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason
     logger.info(`${logCtx} buildStatus=${buildStatus}: ${reason}`)
 
-    const url = readiness.ready ? await finalizeWorkspaceLaunch(studyId) : null
+    const url = readiness.ready ? await finalizeWorkspaceLaunch(user, studyId) : null
 
     return {
         buildStatus,
@@ -231,7 +229,7 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
 }
 
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
-    const user = await getOrCreateCoderUser(studyId)
+    const user = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
     const workspaceName = generateWorkspaceName(studyId)
 
     const codeEnv = await fetchCodeEnvForStudyId(studyId)
@@ -349,8 +347,7 @@ export const copyStarterCodeIntoWorkspace = async (
     const starterFiles = codeEnv.starterCodeFileNames ?? []
     if (starterFiles.length === 0) return null
 
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     // The card names the first starter file Main.{x} after the language; any others keep their own
     // name and carry no badge.
@@ -400,10 +397,9 @@ export const copyStarterCodeIntoWorkspace = async (
     return templateName
 }
 
-const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
+export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     await copyStarterCodeIntoWorkspace(studyId)
 

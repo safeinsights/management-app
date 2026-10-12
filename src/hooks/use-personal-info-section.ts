@@ -1,8 +1,10 @@
 'use client'
 
+import { reportMutationError } from '@/components/errors'
+import { showToast } from '@/components/toast-notifications'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useForm, zodResolver } from '@/common'
-import { notifications } from '@mantine/notifications'
 import { updatePersonalInfoAction } from '@/server/actions/researcher-profile.actions'
 import { personalInfoSchema, type PersonalInfoValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
@@ -44,11 +46,9 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
         onSuccess: async () => {
             await refetch()
             setIsEditing(false)
-            notifications.show({ title: 'Saved', message: 'Personal information updated', color: 'green' })
+            showToast({ category: 'success', title: 'Saved', message: 'Personal information updated' })
         },
-        onError: (error) => {
-            notifications.show({ title: 'Save failed', message: String(error), color: 'red' })
-        },
+        onError: reportMutationError('Save failed'),
     })
 
     const handleSubmit = (values: PersonalInfoValues) => {

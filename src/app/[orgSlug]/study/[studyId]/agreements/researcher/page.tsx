@@ -17,10 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // checked so the redirect cannot be used to probe studies the user cannot see.
 export default async function ResearcherAgreementsRoute(props: {
     params: Promise<{ orgSlug: string; studyId: string }>
-    searchParams: Promise<Record<string, string | undefined>>
 }) {
     const { studyId } = await props.params
-    const searchParams = await props.searchParams
 
     const session = await sessionFromClerk()
     if (!session) {
@@ -36,7 +34,5 @@ export default async function ResearcherAgreementsRoute(props: {
         return <AccessDeniedAlert />
     }
 
-    const returnTo = searchParams.returnTo === 'org' ? 'org' : undefined
-
-    redirect(researcherCodeStepHref(study, { orgSlug: study.submittedByOrgSlug, returnTo }))
+    redirect(researcherCodeStepHref(study, { orgSlug: study.submittedByOrgSlug }))
 }

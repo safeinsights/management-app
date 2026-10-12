@@ -1,12 +1,13 @@
 'use client'
 
-import { ReloadNotice, showOrReplaceNotification } from '@/components/errors'
+import { ReloadNotice } from '@/components/errors'
+import { showSystemNotification } from '@/components/system-notifications'
+import { showToast } from '@/components/toast-notifications'
 import { isStaleDeploymentError } from '@/lib/errors'
 import { OUTPUTS_DECISION_FAILURE } from '@/lib/outputs-review'
 
 // Fixed, so a reviewer who presses Submit twice replaces the notice instead of stacking a second
-// one that never closes. Shown through the replacing helper, because a retry that fails for a new
-// reason has to change what the notice says (OTTER-726).
+// one that never closes, and a retry that fails for a new reason changes what the notice says.
 export const FAILURE_NOTIFICATION_ID = 'outputs-decision-failure'
 
 const retryMessage = (isSaved: boolean) => (isSaved ? OUTPUTS_DECISION_FAILURE.saved : OUTPUTS_DECISION_FAILURE.unsaved)
@@ -22,19 +23,18 @@ export function showOutputsDecisionFailure({ error, isSaved }: { error: unknown;
     // No retry can resolve an action id this build does not hold, and the notice has to stay until
     // the reviewer acts on it.
     if (isStaleDeploymentError(error)) {
-        showOrReplaceNotification({
+        showSystemNotification({
             id: FAILURE_NOTIFICATION_ID,
             color: 'red',
-            autoClose: false,
             title: OUTPUTS_DECISION_FAILURE.title,
             message: <ReloadNotice message={staleMessage(isSaved)} />,
         })
         return
     }
 
-    showOrReplaceNotification({
+    showToast({
+        category: 'error',
         id: FAILURE_NOTIFICATION_ID,
-        color: 'red',
         title: OUTPUTS_DECISION_FAILURE.title,
         message: retryMessage(isSaved),
     })

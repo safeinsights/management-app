@@ -3,6 +3,7 @@ import {
     describe,
     expect,
     fireEvent,
+    insertTestCodeResubmissionNote,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -22,7 +23,6 @@ import type { StudyJobStatus } from '@/database/types'
 import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
-import { displayOrgName } from '@/lib/string'
 import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import type { RawStudyState, SharedOutputsScreenId } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -47,8 +47,6 @@ const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const RUN_AT = new Date('2026-07-02T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
-
-const DASHBOARD_HREF = '/dashboard'
 
 /**
  * One component now serves both share screens, so the wiring below is asserted once per variant
@@ -109,7 +107,6 @@ const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
-    returnTo?: 'org',
 ) =>
     renderWithProviders(
         await SharedOutputsScreen({
@@ -119,8 +116,6 @@ const renderScreen = async (
             ...screenNavProps('researcher', variant.screen, raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
-                returnTo,
             }),
         }),
     )
@@ -179,16 +174,16 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
         })
         .execute()
     if (withNote) {
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('Adjusted the aggregation query.')), resubmissionRound: 1 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: dbStudy.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 1,
+            text: 'Adjusted the aggregation query.',
+        })
     }
 
-    // The wrapped-key fetch must answer before the first render: an empty answer latches
-    // SecurityKeyForm's no-wrapped-key notice (OTTER-688), which has no View button. Assigned per
-    // setup so the mock's value cannot leak between tests.
+    // Assigned per setup so the mock's value cannot leak between tests.
     const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
     const artifact = await seedEncryptedArtifact(job.id, {
         fileType: 'ENCRYPTED-RESULT',
@@ -224,7 +219,6 @@ describe('SharedOutputsScreen — unmapped screen id', () => {
             ...screenNavProps('researcher', 'study-overview', raw, {
                 orgSlug: org.slug,
                 studyId: study.id,
-                dashboardHref: DASHBOARD_HREF,
             }),
         })
 
@@ -251,7 +245,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        const { locked } = copyFor(variant.screen, displayOrgName(org.name))
+        const { locked } = copyFor(variant.screen, org.name)
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveAttribute('data-variant', locked.variant)
         expect(alert).toHaveTextContent(locked.title)
@@ -262,7 +256,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const { org, study, raw } = await setupShared(variant)
         await renderScreen(variant, study, raw, org.slug)
 
-        const sibling = copyFor(siblingOf(variant).screen, displayOrgName(org.name))
+        const sibling = copyFor(siblingOf(variant).screen, org.name)
         expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
         expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
     })
@@ -272,7 +266,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, raw, org.slug)
         await decrypt()
 
-        const dataPartner = displayOrgName(org.name)
+        const dataPartner = org.name
         const { locked, unlocked } = copyFor(variant.screen, dataPartner)
         const sibling = copyFor(siblingOf(variant).screen, dataPartner)
         const alert = screen.getByTestId('status-alert')
@@ -308,7 +302,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, undated, org.slug)
 
         const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent(copyFor(variant.screen, displayOrgName(org.name)).locked.title)
+        expect(alert).toHaveTextContent(copyFor(variant.screen, org.name).locked.title)
         expect(alert).not.toHaveTextContent('•')
     })
 
@@ -400,16 +394,6 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         } else {
             expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
         }
-    })
-
-    it('passes returnTo through to the Previous step link', async () => {
-        const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug, 'org')
-
-        expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
-            'href',
-            `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
-        )
     })
 
     it('short-circuits on the routing guard for a study with no job (no shared outputs to show)', async () => {

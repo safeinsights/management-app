@@ -17,8 +17,6 @@ import StudyReviewPage from './page'
 import { CodePostDecisionView } from './code-post-decision-view'
 import { CodePostSubmissionView } from './code-post-submission-view'
 
-const defaultSearchParams = Promise.resolve({})
-
 describe('StudyViewPage', () => {
     it('renders CodePostSubmissionView when job has CODE-SUBMITTED', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -26,7 +24,6 @@ describe('StudyViewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
         })
 
         expect(page?.type).toBe(CodePostSubmissionView)
@@ -40,7 +37,6 @@ describe('StudyViewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
         })
         renderWithProviders(page!)
 
@@ -59,7 +55,6 @@ describe('StudyViewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
         })
         renderWithProviders(page!)
 
@@ -74,7 +69,6 @@ describe('StudyViewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
         })
         renderWithProviders(page!)
 
@@ -89,7 +83,6 @@ describe('StudyViewPage', () => {
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: defaultSearchParams,
         })
         renderWithProviders(page!)
 
@@ -103,7 +96,6 @@ describe('StudyViewPage', () => {
         await expect(
             StudyReviewPage({
                 params: Promise.resolve({ orgSlug: 'test-org', studyId: faker.string.uuid() }),
-                searchParams: defaultSearchParams,
             }),
         ).rejects.toThrow()
     })
@@ -157,7 +149,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
@@ -175,13 +166,12 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
         })
 
-        it('preserves dashboardHref when ?returnTo=org', async () => {
+        it('exits "Back to my studies" to My studies for a researcher study', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -192,12 +182,10 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
-            // returnTo=org still reaches the view — it now arrives as the nav's exit destination.
-            expect(page?.props.nav.forward.href).toBe(`/${org.slug}/dashboard`)
+            expect(page?.props.nav.forward).toMatchObject({ label: 'Back to my studies', href: Routes.dashboard })
         })
 
         it('renders CodePostSubmissionView when study is APPROVED but latest status is CODE-SUBMITTED (no PENDING-REVIEW gate)', async () => {
@@ -211,7 +199,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
@@ -263,12 +250,11 @@ describe('StudyViewPage', () => {
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
                 })
 
                 expect(page?.type).toBe(CodePostDecisionView)
                 renderWithProviders(page!)
-                expect(screen.getByTestId('study-code-toggle')).toHaveTextContent('View submitted study code')
+                expect(screen.getByTestId('submitted-code-files-section')).toBeInTheDocument()
             },
         )
 
@@ -284,7 +270,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
@@ -304,7 +289,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
@@ -328,7 +312,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -357,7 +340,6 @@ describe('StudyViewPage', () => {
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
                 })
 
                 renderWithProviders(page!)
@@ -386,7 +368,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -410,7 +391,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             // Now the outputs step like any other approved study (OTTER-673); the error stays hidden
@@ -439,7 +419,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -473,7 +452,6 @@ describe('StudyViewPage', () => {
 
                 const page = await StudyReviewPage({
                     params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                    searchParams: defaultSearchParams,
                 })
 
                 expect(page?.type).toBe(CodePostDecisionView)
@@ -494,7 +472,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -514,7 +491,6 @@ describe('StudyViewPage', () => {
             // First open, before the scan webhook arrives: the decision page renders correctly.
             const firstOpen = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
             expect(firstOpen?.type).toBe(CodePostDecisionView)
 
@@ -524,7 +500,6 @@ describe('StudyViewPage', () => {
             // Reopen / refresh: must still land on the decision page, not the under-review page.
             const reopen = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
             expect(reopen?.type).toBe(CodePostDecisionView)
             expect(reopen?.props.latestJobStatus).toBe('CODE-CHANGES-REQUESTED')
@@ -543,7 +518,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
@@ -569,7 +543,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostSubmissionView)
@@ -594,7 +567,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             expect(page?.type).toBe(CodePostDecisionView)
@@ -613,7 +585,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -640,7 +611,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -667,7 +637,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -691,7 +660,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -721,7 +689,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -752,7 +719,6 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: defaultSearchParams,
             })
 
             renderWithProviders(page!)
@@ -762,7 +728,7 @@ describe('StudyViewPage', () => {
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
 
-        it('threads returnTo=org to the awaiting-review screen', async () => {
+        it('wires Previous to the code step on the awaiting-review screen', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyJobData({
                 org,
@@ -774,23 +740,19 @@ describe('StudyViewPage', () => {
 
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ returnTo: 'org' }),
             })
 
             renderWithProviders(page!)
             expect(screen.getByTestId('status-alert')).toHaveTextContent('Code run complete, outputs under review by')
-            // returnTo=org survives the page dispatch: the "Previous" link back to the code
-            // step carries it so org scope survives the hop.
             expect(screen.getByRole('link', { name: /previous/i })).toHaveAttribute(
                 'href',
-                `/${org.slug}/study/${study.id}/view/code?returnTo=org`,
+                `/${org.slug}/study/${study.id}/view/code`,
             )
         })
 
-        // /view resolves purely on state — query params are ignored. A CODE-CHANGES-REQUESTED study
-        // resolves to the code-feedback screen → CodePostDecisionView, even if a stray legacy ?from=
-        // rides along.
-        it('routes a decided study to CodePostDecisionView regardless of query params', async () => {
+        // /view resolves purely on state: a CODE-CHANGES-REQUESTED study resolves to the code-feedback
+        // screen, which renders CodePostDecisionView.
+        it('routes a decided study to CodePostDecisionView', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study, job } = await insertTestStudyJobData({
                 org,
@@ -812,10 +774,8 @@ describe('StudyViewPage', () => {
                 })
                 .execute()
 
-            // Arbitrary leftover query param proves /view ignores the URL and resolves on state.
             const page = await StudyReviewPage({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({ from: 'anything' }),
             })
 
             expect(page?.type).toBe(CodePostDecisionView)

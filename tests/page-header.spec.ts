@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { authFileFor, expect, goto, test } from './e2e.helpers'
 
-// An org page takes its eyebrow from the organization; My dashboard is one of the three pages that
+// An org page takes its eyebrow from the organization; My studies is one of the three pages that
 // has none and therefore renders the reserved empty slot.
 const WITH_EYEBROW = '/openstax/dashboard'
 const WITHOUT_EYEBROW = '/dashboard'

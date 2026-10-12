@@ -87,6 +87,8 @@ export const StudyAgreements: FC = () => {
                 withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
+                minHeight={140}
+                pinLastColumn
                 fetching={isLoading}
                 idAccessor="legalDocumentId"
                 noRecordsText="No study agreements have been uploaded yet"

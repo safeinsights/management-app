@@ -3,6 +3,7 @@
 import type { FC } from 'react'
 import { Button, HoverCard, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
+import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Launch IDE'
@@ -52,6 +53,8 @@ type LaunchIdeControlProps = {
     onLaunch: () => void
     /** Right in a card header, left in the empty state's panel — the caller owns its own layout. */
     align?: 'flex-start' | 'flex-end'
+    /** False on Edit code, whose design omits the lock warning (OTTER-778). */
+    showLockHelper?: boolean
 }
 
 /**
@@ -67,6 +70,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     isLaunching,
     onLaunch,
     align = 'flex-end',
+    showLockHelper = true,
 }) => {
     if (!isVisible) return null
 
@@ -94,10 +98,27 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
                     <LaunchHoverCardBody canLaunch={canLaunch} ideOwnerName={ideOwnerName} />
                 </HoverCard.Dropdown>
             </HoverCard>
-            <UnclaimedHelperText isVisible={!isClaimed} />
+            <UnclaimedHelperText isVisible={showLockHelper && !isClaimed} />
         </Stack>
     )
 }
+
+/** The header Launch IDE, mapped from the hook in one place so its two callers cannot drift. */
+export const IdeLaunchAction: FC<{ ide: StudyCodeIDE; isVisible: boolean; showLockHelper?: boolean }> = ({
+    ide,
+    isVisible,
+    showLockHelper,
+}) => (
+    <LaunchIdeControl
+        isVisible={isVisible}
+        showLockHelper={showLockHelper}
+        isClaimed={ide.isIdeClaimed}
+        canLaunch={ide.canEditInIde}
+        ideOwnerName={ide.ideOwnerName}
+        isLaunching={ide.isLaunching}
+        onLaunch={ide.launchWorkspace}
+    />
+)
 
 const LaunchHoverCardBody: FC<{ canLaunch: boolean; ideOwnerName: string | null }> = ({ canLaunch, ideOwnerName }) => {
     if (canLaunch) return <Text size="sm">{ENABLED_HOVER_CARD}</Text>

@@ -11,11 +11,9 @@ import {
     requireRawState,
     screen,
 } from '@/tests/unit.helpers'
-import type { Route } from 'next'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -23,16 +21,9 @@ import { OutputsAwaitingReviewScreen } from './outputs-awaiting-review-screen'
 import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
-const DASHBOARD_HREF: Route = '/dashboard'
-
-const renderScreen = async (
-    study: ScreenComponentProps['study'],
-    orgSlug: string,
-    dashboardHref = DASHBOARD_HREF,
-    returnTo?: 'org',
-) => {
+const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) => {
     const raw = await requireRawState(study.id)
-    const ctx = { orgSlug, studyId: study.id, dashboardHref, returnTo }
+    const ctx = { orgSlug, studyId: study.id }
     return renderWithProviders(
         await OutputsAwaitingReviewScreen({
             study,
@@ -79,13 +70,14 @@ describe('OutputsAwaitingReviewScreen', () => {
     })
 
     it('names the reviewing data partner in the banner title and body', async () => {
-        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Openstax Data Partner' })
+        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Clinical Lab Network' })
         await renderScreen(study, org.slug)
 
-        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
+        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
         expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })
 

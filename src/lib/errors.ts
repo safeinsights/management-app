@@ -116,8 +116,10 @@ export class ActionFailure extends Error {
     }
 }
 
-export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) => {
-    if (!error) return ''
+type ErrorToStringOptions = { clerkOverrides?: Record<string, string>; fallback?: string }
+
+export const errorToString = (error: unknown, { clerkOverrides, fallback }: ErrorToStringOptions = {}): string => {
+    if (!error) return fallback ?? ''
 
     if (typeof error === 'string') {
         return error
@@ -150,11 +152,17 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
         return STALE_DEPLOYMENT_MESSAGE
     }
 
-    if (error instanceof Error) {
-        return String(error)
+    // The framework's text — "TypeError: Failed to fetch" — names neither the problem nor a remedy.
+    // Without a fallback it is kept as-is, which is what a log line wants.
+    if (error instanceof TypeError) {
+        return fallback ?? String(error)
     }
 
-    return 'Unknown error occurred'
+    if (error instanceof Error) {
+        return error.message || (fallback ?? String(error))
+    }
+
+    return fallback ?? 'Unknown error occurred'
 }
 
 class RecordError extends ActionFailure {

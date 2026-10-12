@@ -5,6 +5,8 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyJobUsers,
+    insertTestStudyOnly,
+    insertTestUser,
     readTestSupportFile,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
@@ -23,6 +25,7 @@ import {
     studyInfoForStudyId,
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
+    getIdeOwnerForStudy,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -578,8 +581,8 @@ describe('outputsDecisionVersion', () => {
         expect(await outputsDecisionVersion(study.id)).toBe(2)
     })
 
-    // rejectStudyJobFilesAction writes the status with no comment; counting it would leave the first
-    // visible entry labeled v2.0 with no v1.0 anywhere.
+    // Older rejections wrote the status with no comment; counting them would leave the first visible
+    // entry labeled v2.0 with no v1.0 anywhere.
     it('ignores a FILES-REJECTED written without a decision comment', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
@@ -607,5 +610,27 @@ describe('outputsDecisionVersion', () => {
         await givenOutputsDecision(other.study.id, other.job.id, other.study.researcherId, 1)
 
         expect(await outputsDecisionVersion(study.id)).toBe(1)
+    })
+})
+
+describe('getIdeOwnerForStudy', () => {
+    it('returns the researcher who claimed the IDE, not the proposal submitter', async () => {
+        const org = await insertTestOrg({ slug: 'otter817-queries-lab', type: 'lab' })
+        const { user: submitter } = await insertTestUser({ org, email: 'otter817-submitter@test.com' })
+        const { user: claimant } = await insertTestUser({ org, email: 'otter817-claimant@test.com' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: submitter.id })
+
+        await db.updateTable('study').set({ ideOwnerId: claimant.id }).where('id', '=', study.id).execute()
+
+        const owner = await getIdeOwnerForStudy(study.id)
+
+        expect(owner).toMatchObject({ userId: claimant.id, email: 'otter817-claimant@test.com' })
+        expect(owner?.userId).not.toBe(submitter.id)
+    })
+
+    it('returns null while the IDE is unclaimed', async () => {
+        const { study } = await insertTestStudyOnly()
+
+        expect(await getIdeOwnerForStudy(study.id)).toBeNull()
     })
 })

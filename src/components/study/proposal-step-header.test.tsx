@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, within } from '@/tests/unit.helpers'
 import { ProposalStepHeader } from './proposal-step-header'
 
 describe('ProposalStepHeader', () => {
@@ -19,6 +19,23 @@ describe('ProposalStepHeader', () => {
 
     it('leaves no rule behind when the banner renders nothing', () => {
         renderWithProviders(<ProposalStepHeader stepLabel="STEP 2" heading="Initial request" banner={null} />)
+
+        expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
+    })
+
+    it('renders an action opposite the heading', () => {
+        renderWithProviders(
+            <ProposalStepHeader stepLabel="STEP 3" heading="Edit code" action={<button>Launch IDE</button>} />,
+        )
+
+        const header = screen.getByTestId('proposal-section-header')
+        expect(within(header).getByRole('button', { name: 'Launch IDE' })).toBeInTheDocument()
+        expect(within(header).getByRole('heading', { name: 'Edit code', level: 2 })).toBeInTheDocument()
+    })
+
+    // The rule separates the header from content below it, and an action sits inside the header row.
+    it('draws no rule for an action alone', () => {
+        renderWithProviders(<ProposalStepHeader stepLabel="STEP 3" heading="Edit code" action={<button>Go</button>} />)
 
         expect(screen.queryByTestId('proposal-header-divider')).not.toBeInTheDocument()
     })

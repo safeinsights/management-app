@@ -93,6 +93,7 @@ export const VersionHistoryModal: FC<{
                 <DataTable
                     horizontalSpacing="md"
                     verticalSpacing="sm"
+                    minHeight={140}
                     fetching={isLoading}
                     idAccessor="id"
                     noRecordsText="No versions have been published yet."

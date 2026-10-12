@@ -1,15 +1,16 @@
 import { notFound } from 'next/navigation'
-import { codeSubmissionVersion, getOrgNameFromId, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { codeSubmissionVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
+import { listWorkspaceFileActivityAction } from '@/server/actions/workspaces.actions'
 import { actionResult } from '@/lib/utils'
 import { CodePostSubmissionView } from '../view/code-post-submission-view'
 import type { ScreenComponentProps } from './types'
 
-export async function CodeUnderReviewScreen({ study, orgSlug, nav }: ScreenComponentProps) {
+export async function CodeUnderReviewScreen({ study, nav }: ScreenComponentProps) {
     const job = await latestSubmittedJobForStudy(study.id)
     if (!job) notFound()
 
-    const reviewingOrgName = await getOrgNameFromId(study.orgId)
+    const activityByName = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
     const submissionVersion = await codeSubmissionVersion(study.id)
     // Feedback is only meaningful on resubmissions, so skip the query on v1.
     const feedbackEntries =
@@ -17,10 +18,10 @@ export async function CodeUnderReviewScreen({ study, orgSlug, nav }: ScreenCompo
 
     return (
         <CodePostSubmissionView
-            orgSlug={orgSlug}
             study={study}
             job={job}
-            reviewingOrgName={reviewingOrgName}
+            activityByName={activityByName}
+            reviewingOrgName={study.orgName}
             nav={nav}
             submissionVersion={submissionVersion}
             feedbackEntries={feedbackEntries}

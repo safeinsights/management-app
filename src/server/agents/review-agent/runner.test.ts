@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
+import { sql } from 'kysely'
 import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
@@ -48,6 +49,19 @@ const insertMainCode = (studyJobId: string) =>
         .values({ studyJobId, name: 'main.r', path: 'studies/main.r', fileType: 'MAIN-CODE' })
         .execute()
 
+const insertSupplementalCode = (studyJobId: string, count: number) =>
+    db
+        .insertInto('studyJobFile')
+        .values(
+            Array.from({ length: count }, (_, i) => ({
+                studyJobId,
+                name: `helper_${i}.r`,
+                path: `studies/helper_${i}.r`,
+                fileType: 'SUPPLEMENTAL-CODE' as const,
+            })),
+        )
+        .execute()
+
 type TestJobOptions = Parameters<typeof insertTestStudyJobData>[0]
 
 const setupJob = async (options?: TestJobOptions) => (await insertTestStudyJobData(options)).job
@@ -72,6 +86,23 @@ const storedReviews = (studyJobId: string) =>
         .orderBy('round')
         .execute()
 
+// Relative to the stored claim, not "now": the runner fences on an exact millisecond match, and "now"
+// can equal the claim it is meant to replace.
+const takeOverClaim = (studyJobId: string) =>
+    db
+        .updateTable('studyReview')
+        .set({ summaryStartedAt: sql<Date>`summary_started_at + interval '1 second'` })
+        .where('studyJobId', '=', studyJobId)
+        .where('round', '=', 1)
+        .execute()
+
+// Pins the case that otherwise only happens by chance: the claim and the takeover in one millisecond.
+const freezeClock = () => {
+    const now = new Date()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(now)
+}
+
 describe('generateAndStoreStudyReview', () => {
     beforeEach(async () => {
         generateAnalysisMock.mockResolvedValue({ report: stubReport, messages: [] })
@@ -83,6 +114,7 @@ describe('generateAndStoreStudyReview', () => {
 
     afterEach(() => {
         vi.resetAllMocks()
+        vi.useRealTimers()
     })
 
     it('assembles proposal, code files, and data docs and persists the report', async () => {
@@ -117,6 +149,31 @@ describe('generateAndStoreStudyReview', () => {
         const stored = await storedReviews(job.id)
         expect(stored).toHaveLength(1)
         expect(stored[0].round).toBe(1)
+        expect(stored[0].report?.codeExplanation).toBe('explanation')
+    })
+
+    it('keeps main code when supplemental files exceed the file limit', async () => {
+        const job = await setupJob()
+        // Named to sort last alphabetically so only the file-type ordering can keep it under the limit.
+        await db
+            .insertInto('studyJobFile')
+            .values([
+                { studyJobId: job.id, name: 'zmain.r', path: 'studies/zmain.r', fileType: 'MAIN-CODE' as const },
+                ...Array.from({ length: 12 }, (_, index) => ({
+                    studyJobId: job.id,
+                    name: `supplemental-${index}.r`,
+                    path: `studies/supplemental-${index}.r`,
+                    fileType: 'SUPPLEMENTAL-CODE' as const,
+                })),
+            ])
+            .execute()
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        const names = Object.keys(content.codeFiles)
+        expect(names[0]).toBe('zmain.r')
+        expect(names).toHaveLength(10)
     })
 
     it('passes the admin-authored SYSTEM + language context as additionalContext', async () => {
@@ -353,15 +410,11 @@ describe('generateAndStoreStudyReview', () => {
     // row, so it can neither publish its stale report nor fail the run that replaced it (OTTER-799).
     it('does not let a superseded run fail the claim that took over from it', async () => {
         const job = await setupJobWithCode()
+        freezeClock()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
             // Stands in for the retry that gave the round to a fresh run while this one was hung.
-            await db
-                .updateTable('studyReview')
-                .set({ summaryStartedAt: new Date() })
-                .where('studyJobId', '=', job.id)
-                .where('round', '=', 1)
-                .execute()
+            await takeOverClaim(job.id)
             throw new Error('model exploded')
         })
 
@@ -375,14 +428,10 @@ describe('generateAndStoreStudyReview', () => {
 
     it('does not let a superseded run publish its report over the claim that replaced it', async () => {
         const job = await setupJobWithCode()
+        freezeClock()
 
         generateAnalysisMock.mockImplementationOnce(async () => {
-            await db
-                .updateTable('studyReview')
-                .set({ summaryStartedAt: new Date() })
-                .where('studyJobId', '=', job.id)
-                .where('round', '=', 1)
-                .execute()
+            await takeOverClaim(job.id)
             return { report: stubReport, messages: [] }
         })
 
@@ -432,5 +481,38 @@ describe('generateAndStoreStudyReview', () => {
         expect(report.complianceCheck.isCompliant).toBe(false)
         expect(report.alignmentCheck.findings.length).toBeGreaterThan(0)
         expect(report.complianceCheck.findings.length).toBeGreaterThan(0)
+    })
+
+    it('sends the main file even when there are 10 or more supplemental files', async () => {
+        const job = await setupJobWithCode()
+        await insertSupplementalCode(job.id, 10)
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        expect(Object.keys(content.codeFiles)).toHaveLength(10)
+        expect(content.codeFiles).toHaveProperty('main.r')
+
+        const [stored] = await storedReviews(job.id)
+        expect(stored.report?.codeExplanation).toBe(
+            '**This summary does not cover 1 submitted file:**\n\n' +
+                '- `helper_9.r`: the review reads at most 10 files\n\nexplanation',
+        )
+    })
+
+    it('names an oversized file in the summary instead of sending it', async () => {
+        const job = await setupJobWithCode()
+        await insertSupplementalCode(job.id, 1)
+        fetchFileContentsMock.mockImplementation(async (path: string) =>
+            path === 'studies/main.r' ? new Blob(['x'.repeat(100_001)]) : new Blob(['print("hi")']),
+        )
+
+        await generateAndStoreStudyReview(job.id, 1)
+
+        const [, content] = generateAnalysisMock.mock.calls[0] as [unknown, ReviewContent]
+        expect(content.codeFiles).toEqual({ 'helper_0.r': 'print("hi")' })
+
+        const [stored] = await storedReviews(job.id)
+        expect(stored.report?.codeExplanation).toContain('- `main.r`: larger than 100 KB')
     })
 })

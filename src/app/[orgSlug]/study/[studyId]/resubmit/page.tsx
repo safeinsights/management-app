@@ -3,8 +3,6 @@ import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
 import { fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -31,19 +29,20 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     if ('error' in feedbackResult) return notFound()
     const feedbackEntries = feedbackResult
 
-    const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
-    const orgName = displayOrgName(enclaveOrg?.name ?? '')
-
     const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId)) != null
 
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
                 <StudyPageHeader study={study} />
-                <EditCodeResubmitProvider studyId={studyId} initialNote={study.codeResubmissionNoteDraft ?? ''}>
+                <EditCodeResubmitProvider
+                    studyId={studyId}
+                    orgName={study.orgName}
+                    initialNote={study.codeResubmissionNoteDraft ?? ''}
+                >
                     <EditStudyCodeView
                         studyId={studyId}
-                        orgName={orgName}
+                        orgName={study.orgName}
                         feedbackEntries={feedbackEntries}
                         studyHasCodeEnv={studyHasCodeEnv}
                     />

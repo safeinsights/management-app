@@ -111,6 +111,14 @@ export interface CoderUserQueryResponse {
 
 export interface CoderUser {
     username: CoderUsername
+    email?: string
+}
+
+/** The SafeInsights researcher a study's Coder account belongs to — its IDE owner (OTTER-817). */
+export interface CoderIdentity {
+    userId: string
+    email: string
+    fullName: string
 }
 
 export interface CoderWorkspace {

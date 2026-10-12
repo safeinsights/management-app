@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
-import { Accordion, Group, Stack, Text } from '@mantine/core'
+import { Accordion, Badge, Divider, Group, Stack, Text } from '@mantine/core'
 import {
     CaretRightIcon,
     CaretUpDownIcon,
@@ -11,12 +11,14 @@ import {
     FloppyDiskIcon,
     HandWithdrawIcon,
     LockIcon,
+    PlayIcon,
     QuestionIcon,
     StarIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@/common'
 import { markSubmitCodeFaqSeenAction } from '@/server/actions/submit-code-faq.actions'
 import { MainFileTemplateCopy } from './main-file-template-copy'
+import { OnboardingVideo } from './onboarding-video'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
@@ -108,6 +110,26 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
     </Stack>
 )
 
+// Static, per Figma: no focus or hover state. Rendered as a span because it sits inside the
+// accordion control's <button>, which makes its text part of the button's accessible name.
+const VideoDurationBadge: FC<{ minutes: number | null }> = ({ minutes }) => {
+    if (minutes === null) return null
+
+    return (
+        <Badge
+            component="span"
+            leftSection={<PlayIcon size={10} weight="fill" aria-hidden />}
+            radius={2}
+            fz={10}
+            bg={semanticColor('highlight.bg.light')}
+            c={semanticColor('highlight.text')}
+            data-testid="video-duration-badge"
+        >
+            {minutes} min video
+        </Badge>
+    )
+}
+
 /**
  * Records that the researcher has now been shown the FAQ, so their next visit gets it collapsed.
  * Fires on mount rather than on interaction, so someone who scrolls straight past still meets it
@@ -129,9 +151,10 @@ type SubmitCodeFaqProps = {
     dataPartnerName: string
     /** True only on a researcher's very first Submit code page, across any study. */
     isFirstVisit: boolean
+    videoDurationMinutes: number | null
 }
 
-export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirstVisit }) => {
+export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirstVisit, videoDurationMinutes }) => {
     const [openValue, setOpenValue] = useState<string | null>(isFirstVisit ? FAQ_ITEM_VALUE : null)
     useMarkFaqSeen(isFirstVisit)
 
@@ -155,12 +178,17 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                 <Accordion.Control
                     icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color="var(--mantine-color-blue-7)" />}
                 >
-                    <Text fw={fontWeight.semibold} c={semanticColor('text.primary')}>
-                        {FAQ_HEADER}
-                    </Text>
+                    <Group gap="md" wrap="nowrap">
+                        <Text component="span" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
+                            {FAQ_HEADER}
+                        </Text>
+                        <VideoDurationBadge minutes={videoDurationMinutes} />
+                    </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
                     <Stack gap="md">
+                        <OnboardingVideo isVisible={openValue !== null} />
+                        <Divider color={semanticColor('border.default')} />
                         {entries.map((entry) => (
                             <FaqSection key={entry.question} {...entry} />
                         ))}

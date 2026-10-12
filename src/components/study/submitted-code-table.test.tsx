@@ -45,7 +45,9 @@ describe('SubmittedCodeTable', () => {
         )
 
         const files = [buildFile({ name: 'main.py' })]
-        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+        )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View main.py' }))
@@ -60,26 +62,31 @@ describe('SubmittedCodeTable', () => {
         expect(screen.getByText(/print/)).toBeInTheDocument()
     })
 
-    it('renders a download anchor per row pointing at the /dl/study-code route', () => {
+    it('downloads each file through the /dl/study-code route', async () => {
+        const open = vi.spyOn(window, 'open').mockReturnValue(null)
         const files = [
             buildFile({ name: 'main.py', fileType: 'MAIN-CODE' }),
             buildFile({ name: 'helper.py', fileType: 'SUPPLEMENTAL-CODE' }),
         ]
-        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" files={files} dataPartnerName="OpenStax" />,
+        )
 
-        const main = screen.getByRole('link', { name: 'Download main.py' })
-        expect(main).toHaveAttribute('href', '/dl/study-code/job-1/main.py')
-        expect(main).toHaveAttribute('download', 'main.py')
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: 'Download main.py' }))
+        await user.click(screen.getByRole('button', { name: 'Download helper.py' }))
 
-        const helper = screen.getByRole('link', { name: 'Download helper.py' })
-        expect(helper).toHaveAttribute('href', '/dl/study-code/job-1/helper.py')
+        expect(open).toHaveBeenCalledWith('/dl/study-code/job-1/main.py')
+        expect(open).toHaveBeenCalledWith('/dl/study-code/job-1/helper.py')
     })
 
     it('opens an image preview for a png file (OTTER-516)', async () => {
         mockFetch.mockResolvedValue({ fileName: 'plot.png', contents: bytes('fake-png-bytes') })
 
         const files = [buildFile({ name: 'plot.png', fileType: 'SUPPLEMENTAL-CODE' })]
-        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={files} />)
+        renderWithProviders(
+            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+        )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View plot.png' }))
@@ -90,7 +97,14 @@ describe('SubmittedCodeTable', () => {
     it('closes the modal when onClose is fired', async () => {
         mockFetch.mockResolvedValue({ fileName: 'main.py', contents: bytes('x = 1') })
 
-        renderWithProviders(<SubmittedCodeTable jobId="job-1" files={[buildFile({ name: 'main.py' })]} />)
+        renderWithProviders(
+            <SubmittedCodeTable
+                activityByName={{}}
+                jobId="job-1"
+                dataPartnerName="OpenStax"
+                files={[buildFile({ name: 'main.py' })]}
+            />,
+        )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View main.py' }))

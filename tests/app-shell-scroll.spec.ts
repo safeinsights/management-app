@@ -1,25 +1,47 @@
 import { authFileFor, expect, goto, test } from './e2e.helpers'
 
-// OTTER-647. globals.css reserves the bar heights via Mantine variables; a Mantine upgrade that
-// renames or rescopes them leaves the rule present but inert, which only a browser can catch.
-test.describe('scroll padding for the fixed app shell bars', () => {
+// OTTER-647. globals.css reserves the fixed header's height via Mantine variables; a Mantine upgrade
+// that renames or rescopes them leaves the rule present but inert, which only a browser can catch.
+// The in-app footer sits in the page flow (OTTER-692), so it needs no reservation.
+test.describe('app shell bars and scrolled-to content', () => {
     test.use({ storageState: authFileFor('reviewer') })
 
-    test('keeps scrolled-to content clear of the fixed footer', async ({ page }) => {
+    test('keeps the footer in the page flow, never over content', async ({ page }) => {
         await goto(page, '/openstax/dashboard')
 
-        const footer = page.locator('[class*="AppShell-footer"]')
-        await expect(footer).toBeVisible()
+        const footer = page.getByRole('contentinfo')
+        await expect(footer).toHaveText(/SafeInsights \| Rice University/)
 
-        // Re-read both inside the retry: the footer mounts on hydration and settles over several
-        // frames, so a single read could catch a part-way height against a final reservation.
+        // Re-read inside the retry: main and the footer settle over several frames after hydration.
         await expect(async () => {
-            const footerHeight = await footer.evaluate((el) => Math.round(el.getBoundingClientRect().height))
-            expect(footerHeight).toBeGreaterThan(0)
-            const scrollPaddingBottom = await page.evaluate(
-                () => getComputedStyle(document.documentElement).scrollPaddingBottom,
-            )
-            expect(scrollPaddingBottom).toBe(`${footerHeight}px`)
+            const layout = await footer.evaluate((footerEl) => ({
+                position: getComputedStyle(footerEl).position,
+                footerTop: Math.round(footerEl.getBoundingClientRect().top),
+                mainBottom: Math.round(document.querySelector('main')!.getBoundingClientRect().bottom),
+                scrollPaddingBottom: getComputedStyle(document.documentElement).scrollPaddingBottom,
+            }))
+            expect(layout.position).toBe('static')
+            expect(layout.footerTop).toBeGreaterThanOrEqual(layout.mainBottom)
+            expect(layout.scrollPaddingBottom).toBe('0px')
+        }).toPass()
+    })
+
+    test('ends a short page with the footer at the viewport bottom, with nothing to scroll', async ({ page }) => {
+        // Taller than the security key page's content, so the page is short.
+        await page.setViewportSize({ width: 1280, height: 2000 })
+        await goto(page, '/user-key')
+
+        const footer = page.getByRole('contentinfo')
+        await expect(footer).toHaveText(/SafeInsights \| Rice University/)
+
+        await expect(async () => {
+            const layout = await footer.evaluate((footerEl) => ({
+                footerBottom: Math.round(footerEl.getBoundingClientRect().bottom),
+                viewportHeight: window.innerHeight,
+                scrollHeight: document.documentElement.scrollHeight,
+            }))
+            expect(layout.footerBottom).toBe(layout.viewportHeight)
+            expect(layout.scrollHeight).toBe(layout.viewportHeight)
         }).toPass()
     })
 

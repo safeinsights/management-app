@@ -32,6 +32,8 @@ export default defineConfig({
         mockReset: true,
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',
+        // Embeds such as the Vimeo player would otherwise fetch the real third-party page mid-test.
+        environmentOptions: { happyDOM: { settings: { navigation: { disableChildFrameNavigation: true } } } },
         setupFiles: ['tests/vitest.setup.ts'],
         include: [
             'src/**/*.(test).{js,jsx,ts,tsx}',

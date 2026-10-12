@@ -18,11 +18,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string, searchParams: Record<string, string | undefined> = {}) =>
-    ResearcherAgreementsRoute({
-        params: Promise.resolve({ orgSlug, studyId }),
-        searchParams: Promise.resolve(searchParams),
-    })
+const renderRoute = (orgSlug: string, studyId: string) =>
+    ResearcherAgreementsRoute({ params: Promise.resolve({ orgSlug, studyId }) })
 
 // OTTER-727 hid the Agreements step; the route exists only to catch stale bookmarks and history.
 describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
@@ -42,15 +39,6 @@ describe('ResearcherAgreementsRoute (hidden — redirects)', () => {
         await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
         expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/view/code`)
-    })
-
-    it('preserves returnTo=org on the redirect so org scope survives the hop', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-
-        await expect(renderRoute(org.slug, study.id, { returnTo: 'org' })).rejects.toThrow('NEXT_REDIRECT')
-
-        expect(mockRedirect).toHaveBeenCalledWith(`/${org.slug}/study/${study.id}/view/code?returnTo=org`)
     })
 
     it('redirects regardless of ack state (the ack no longer gates anything)', async () => {

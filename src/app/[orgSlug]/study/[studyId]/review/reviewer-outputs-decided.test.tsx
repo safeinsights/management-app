@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import {
     actionResult,
     db,
+    insertTestCodeResubmissionNote,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -50,7 +51,6 @@ const renderView = async (study: SelectedStudy, raw: RawStudyState, orgSlug: str
             nav: resolveScreenNav('reviewer', 'reviewer-outputs-decided', projectStudyState(raw), {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: Routes.dashboard,
             }),
         }),
     )
@@ -178,11 +178,13 @@ describe('ReviewerOutputsDecided', () => {
     // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
     it('omits the code resubmission note and keeps the first outputs decision at v1.0', async () => {
         const { org, user, study, job, raw } = await setupDecided()
-        await db
-            .updateTable('studyJob')
-            .set({ resubmissionNote: JSON.parse(lexicalJson('fixed the aggregation')), resubmissionRound: 2 })
-            .where('id', '=', job.id)
-            .execute()
+        await insertTestCodeResubmissionNote({
+            studyId: study.id,
+            studyJobId: job.id,
+            authorId: user.id,
+            round: 2,
+            text: 'fixed the aggregation',
+        })
         await db
             .insertInto('studyReviewComment')
             .values({

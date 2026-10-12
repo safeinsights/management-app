@@ -26,7 +26,7 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
-// Anything ambiguous returns "My dashboard" rather than guessing which org invited the account.
+// Anything ambiguous returns "My studies" rather than guessing which org invited the account.
 export const getKeyPageStateAction = new Action('getKeyPageStateAction')
     .requireAbilityTo('view', 'UserKey')
     .handler(async ({ session }) => {

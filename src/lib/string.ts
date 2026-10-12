@@ -100,27 +100,13 @@ export function orgInitialsTitle(orgName: string, type: string) {
     return firstThree + ORG_SUFFIX_LONG[type]
 }
 
-export function getInitials(fullName: string): string {
-    const words = fullName.trim().split(/\s+/)
-    if (words.length === 0 || words[0] === '') return ''
-    if (words.length === 1) return words[0][0].toUpperCase()
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase()
-}
-
-export function displayOrgName(orgName: string): string {
-    if (!orgName) return ''
-    return orgName
-        .replace(/\bLab\b/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-}
-
-// A slug is not a name: displayOrgName strips the word "Lab", and a hyphen is a word boundary, so
-// "genius-lab" would come back as "genius-". Only a real name goes through it.
-export function displayLabName(labName: string | null | undefined, fallbackSlug: string): string {
-    // An org named only "Lab" strips to nothing, so the slug has to answer for an empty result too.
-    return (labName ? displayOrgName(labName) : '') || fallbackSlug
-}
+// From the name fields, not a split full name: a multi-word surname gives its first letter ("Van Dyke"
+// -> V). Array.from keeps a character outside the BMP (𠮷) whole.
+export const initialsFromNames = (firstName?: string | null, lastName?: string | null) =>
+    [firstName, lastName]
+        .map((name) => Array.from(name?.trim() ?? '')[0] ?? '')
+        .join('')
+        .toUpperCase()
 
 // A study reaches its own page before it has a title, both while it is being set up and once it is
 // saved with the field left empty, so both places head it with these words.

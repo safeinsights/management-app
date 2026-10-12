@@ -172,32 +172,6 @@ describe('useYjsFormMap', () => {
         expect(form.getValues().title).toBe('Owned by Step 1')
     })
 
-    // A draft edited before datasets moved to Step 1 can still hold a `datasets` key, which would
-    // otherwise overwrite the Step 1 selection and reach the row on submit (OTTER-803).
-    it('ignores a remote datasets value on the proposal pages', async () => {
-        const { studyId } = await createDraftStudy('remote-datasets')
-
-        const { result: formResult } = buildProposalForm({ datasets: ['ds-step-1'], piName: 'PI' })
-        const form = formResult.current
-        const websocketProvider = newWebsocketProvider()
-        const hookResult = renderHook(() =>
-            useYjsFormMap({ studyId, form, websocketProvider, collabKeys: PROPOSAL_PAGE_COLLAB_KEYS }),
-        )
-
-        const handle = constructed[0]
-        handle.triggerSync()
-        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
-
-        const document = handle.document!
-        document.transact(() => {
-            document.getMap('fields').set('datasets', ['stale-ds'])
-            document.getMap('fields').set('piName', 'Remote PI')
-        }, Symbol('remote'))
-
-        await waitFor(() => expect(form.getValues().piName).toBe('Remote PI'))
-        expect(form.getValues().datasets).toEqual(['ds-step-1'])
-    })
-
     it('warm load: applies CRDT state pushed before sync to the form when a yjsDocument row exists', async () => {
         const { studyId } = await createDraftStudy('warm', 'OriginalForm')
 
@@ -230,6 +204,37 @@ describe('useYjsFormMap', () => {
         await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
         await waitFor(() => expect(form.getValues().title).toBe('FromCRDT'))
         expect(form.isDirty()).toBe(false)
+    })
+
+    // Drafts saved on Step 1 while it owned the datasets have them only in the row (OTTER-803).
+    it('warm load: keeps row-seeded datasets when the collaborative doc has no datasets key', async () => {
+        const { studyId } = await createDraftStudy('warm-no-datasets')
+        await db
+            .insertInto('yjsDocument')
+            .values({
+                name: proposalFieldsDocName(studyId),
+                studyId,
+                data: Buffer.from([0]),
+            })
+            .execute()
+
+        const { result: formResult } = buildProposalForm({ datasets: ['ds-step-1'], piName: 'PI' })
+        const form = formResult.current
+        const websocketProvider = newWebsocketProvider()
+        const hookResult = renderHook(() =>
+            useYjsFormMap({ studyId, form, websocketProvider, collabKeys: PROPOSAL_PAGE_COLLAB_KEYS }),
+        )
+
+        const handle = constructed[0]
+        const seedDoc = new Y.Doc()
+        seedDoc.getMap('fields').set('piName', 'Remote PI')
+        Y.applyUpdate(handle.document!, Y.encodeStateAsUpdate(seedDoc))
+
+        handle.triggerSync()
+
+        await waitFor(() => expect(hookResult.result.current.isSynced).toBe(true))
+        await waitFor(() => expect(form.getValues().piName).toBe('Remote PI'))
+        expect(form.getValues().datasets).toEqual(['ds-step-1'])
     })
 
     it('remote update applies to local form mid-session', async () => {

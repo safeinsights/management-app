@@ -5,11 +5,13 @@ import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
 import { sql } from 'kysely'
 import { pathForStudyJob } from '@/lib/paths'
-import { sendResultsReadyForReviewEmail } from '@/server/mailer'
+import { sendDataPartnerCodeErroredEmail, sendDataPartnerOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
+import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/mailer', () => ({
-    sendResultsReadyForReviewEmail: vi.fn(),
+    sendDataPartnerOutputsNeedReviewEmail: vi.fn(),
+    sendDataPartnerCodeErroredEmail: vi.fn(),
 }))
 
 vi.mock('@/server/aws', () => ({
@@ -37,7 +39,8 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
-    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
+    await flushDeferred()
+    expect(sendDataPartnerOutputsNeedReviewEmail).toHaveBeenCalled()
 
     const sr = await db
         .selectFrom('studyJobFile')
@@ -52,6 +55,23 @@ test.skipIf(!s3Available)('uploading results', async () => {
 
     const contents = await fetchFileContents(sr.path)
     expect(contents).toBeInstanceOf(Blob)
+})
+
+// RUN-COMPLETE is committed before the email, and a retry reads as already announced, so a failed email
+// must not fail the upload.
+test.skipIf(!s3Available)('answers a results upload even when the outputs email fails', async () => {
+    const { jobInfo } = await insertTestJobInfo()
+    vi.mocked(sendDataPartnerOutputsNeedReviewEmail).mockRejectedValueOnce(new Error('database unavailable'))
+
+    const formData = new FormData()
+    formData.append('result', testUploadFile('r.txt', 'text/plain'))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId: jobInfo.studyJobId }),
+    })
+    await flushDeferred()
+
+    expect(resp.ok).toBe(true)
+    expect(sendDataPartnerOutputsNeedReviewEmail).toHaveBeenCalled()
 })
 
 // Once a job is RUN-COMPLETE its encrypted results are frozen under already-shared keys, so a
@@ -96,10 +116,9 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
         })
     }
 
-    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
-
     expect((await post()).ok).toBe(true)
     expect((await post()).ok).toBe(true)
+    await flushDeferred()
 
     const logRows = await db
         .selectFrom('studyJobFile')
@@ -117,11 +136,12 @@ test.skipIf(!s3Available)('absorbs a repeated log-only (errored) delivery withou
         .execute()
     expect(erroredStatuses).toHaveLength(1)
 
-    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
+    expect(sendDataPartnerCodeErroredEmail).toHaveBeenCalledTimes(1)
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 // The scan and packaging steps also record JOB-ERRORED, and one of those must not block a real
-// delivery.
+// delivery. The earlier error already emailed the Data Partner, so no outputs review is requested.
 test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a results delivery', async () => {
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
@@ -142,6 +162,8 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(1)
+    await flushDeferred()
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 // A delivery can store its run log and still fail before the status insert and the reviewer email.
@@ -199,14 +221,13 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
         })
         .execute()
 
-    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
-
     const formData = new FormData()
     formData.append('log', testUploadFile('log.txt', 'text/plain'))
     const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
         params: Promise.resolve({ jobId }),
     })
     expect(resp.status).toBe(200)
+    await flushDeferred()
 
     const errored = await db
         .selectFrom('jobStatusChange')
@@ -215,7 +236,7 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
         .where('status', '=', 'JOB-ERRORED')
         .execute()
     expect(errored).toHaveLength(1)
-    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore + 1)
+    expect(sendDataPartnerCodeErroredEmail).toHaveBeenCalledTimes(1)
 })
 
 // JOB-ERRORED is shared with the scanner and the containerizer, so a bare status lookup would read
@@ -258,6 +279,26 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
     expect(errored).toHaveLength(2)
 })
 
+// setup-app sends PUT JOB-ERRORED and then this log, and the PUT has already emailed the Data Partner.
+test.skipIf(!s3Available)("does not email again for a log that follows the runner's own JOB-ERRORED", async () => {
+    const { jobInfo } = await insertTestJobInfo()
+    const jobId = jobInfo.studyJobId
+    await db
+        .insertInto('jobStatusChange')
+        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 minute'` })
+        .execute()
+
+    const formData = new FormData()
+    formData.append('log', testUploadFile('log.txt', 'text/plain'))
+    const resp = await apiHandler.POST(new Request('http://localhost', { method: 'POST', body: formData }), {
+        params: Promise.resolve({ jobId }),
+    })
+    expect(resp.ok).toBe(true)
+    await flushDeferred()
+
+    expect(sendDataPartnerCodeErroredEmail).not.toHaveBeenCalled()
+})
+
 // The row lock is deliberately not unit-tested: pg-transactional-tests runs every test on one
 // connection inside one transaction, so two requests cannot contend.
 
@@ -270,8 +311,6 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
 
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
     await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'FILES-APPROVED' }).execute()
-
-    const emailsBefore = vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length
 
     const formData = new FormData()
     formData.append('log', testUploadFile('log.txt', 'text/plain'))
@@ -291,7 +330,8 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
         .where('status', '=', 'RUN-COMPLETE')
         .execute()
     expect(runComplete).toHaveLength(0)
-    expect(vi.mocked(sendResultsReadyForReviewEmail).mock.calls.length).toBe(emailsBefore)
+    await flushDeferred()
+    expect(sendDataPartnerOutputsNeedReviewEmail).not.toHaveBeenCalled()
 })
 
 test.skipIf(!s3Available)('uploading logs', async () => {
@@ -311,7 +351,8 @@ test.skipIf(!s3Available)('uploading logs', async () => {
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: studyJobId }) })
     expect(resp.ok).toBe(true)
-    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
+    await flushDeferred()
+    expect(sendDataPartnerCodeErroredEmail).toHaveBeenCalled()
 
     const sr = await db
         .selectFrom('studyJobFile')

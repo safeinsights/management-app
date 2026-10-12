@@ -116,6 +116,28 @@ describe('StudyAgreements', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
     })
 
+    it('blocks publishing a signed date in the future and says why', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const title = `Study agreement ${faker.string.alpha(6)}`
+        await seedSignedSla({ signedAt: '2026-07-27', title })
+
+        renderWithProviders(<StudyAgreements />)
+
+        await openNewVersionFor(title)
+        // Well past the day of slack the server allows for its UTC clock.
+        const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: future } })
+        chooseFile('signed-study-agreement.pdf')
+
+        expect(await screen.findByText('Signed date cannot be in the future')).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
+        expect(screen.queryByText('Signed date cannot be in the future')).toBeNull()
+    })
+
     it('lists the study, orgs, date and file in the publish confirmation', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const title = `Study agreement ${faker.string.alpha(6)}`

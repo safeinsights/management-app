@@ -1,5 +1,7 @@
 'use client'
 
+import { showSystemNotification } from '@/components/system-notifications'
+import { derivedToastId, showToast } from '@/components/toast-notifications'
 import {
     errorToString,
     extractActionFailure,
@@ -8,7 +10,6 @@ import {
     STALE_DEPLOYMENT_TITLE,
 } from '@/lib/errors'
 import { Alert, AlertProps, Button, Group, Stack, Text } from '@mantine/core'
-import { notifications, type NotificationData } from '@mantine/notifications'
 import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
@@ -30,43 +31,46 @@ export const ReloadNotice: FC<{ message: string }> = ({ message }) => (
     </Stack>
 )
 
-// Mantine's `show` is add-if-absent: it keeps the store unchanged when the id is already on screen,
-// so a later notice under a shared id would never replace the first. `update` is a no-op for an
-// absent id, which makes the pair replace-or-add without reading the store (OTTER-726).
-export const showOrReplaceNotification = (notification: NotificationData) => {
-    notifications.update(notification)
-    notifications.show(notification)
-}
-
 // An action id is hashed with the pinned Server Actions key, so it survives an ordinary deploy. It
 // stops resolving when the key rotates or the action moved, renamed or was removed between builds,
 // and then no request from the open tab can succeed. Answered once here rather than at each call
 // site (OTTER-726).
 const reportStaleDeployment = () =>
-    showOrReplaceNotification({
+    showSystemNotification({
         id: STALE_DEPLOYMENT_NOTIFICATION_ID,
         color: 'blue',
-        autoClose: false,
         title: STALE_DEPLOYMENT_TITLE,
         message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
-// Returns the Sentry event id so a caller can quote the same reference the toast shows.
-export const reportError = (error: unknown, title = 'An error occurred') => {
+const capture = (error: unknown) => {
     // Captured on purpose for a stale action id too: these events are the only client-side measure
     // of how often a deploy lands under an open tab. Only the reference id is withheld from the
     // notice, because the copy already says the one thing the reader can do.
     const eventId = captureException(error)
+    const isStale = isStaleDeploymentError(error)
+    if (isStale) reportStaleDeployment()
+    return { eventId, isStale }
+}
 
-    if (isStaleDeploymentError(error)) {
-        reportStaleDeployment()
-        return eventId
-    }
+// For a caller that shows the failure itself, so no toast. A stale deployment still gets its reload
+// notice, because nothing on the page can fix that.
+export const captureError = (error: unknown) => capture(error).eventId
 
-    notifications.show({
-        color: 'red',
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
+export const reportError = (error: unknown, title = 'An error occurred') => {
+    const { eventId, isStale } = capture(error)
+    if (isStale) return eventId
+
+    const detail = errorToString(error, { fallback: 'Try again.' })
+
+    // The id is derived without the reference: it changes per call, and an error toast never
+    // auto-closes, so folding it in would let a retried failure stack permanent notices.
+    showToast({
+        category: 'error',
+        id: derivedToastId({ category: 'error', title, message: detail }),
         title,
-        message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
+        message: eventId ? `${detail}\nReference: ${eventId}` : detail,
     })
     return eventId
 }

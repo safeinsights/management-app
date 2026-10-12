@@ -1,7 +1,7 @@
 import { type FC } from 'react'
 import { Popover, Anchor, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // Stand-ins for the period before the first Terms of Service and Privacy Notice are published. Once
 // they exist the real documents render below and the acknowledgement is recorded against them.
@@ -17,7 +17,15 @@ const PopoverLink: FC<{ label: string; content: string }> = ({ label, content })
     return (
         <Popover width={300} withArrow shadow="md" opened={opened} onChange={close}>
             <Popover.Target>
-                <Anchor component="button" type="button" onClick={toggle} fw={fontWeight.bold} fz="sm">
+                <Anchor
+                    component="button"
+                    type="button"
+                    onClick={toggle}
+                    c={semanticColor('link.default')}
+                    fw={fontWeight.semibold}
+                    underline="always"
+                    fz="sm"
+                >
                     {label}
                 </Anchor>
             </Popover.Target>

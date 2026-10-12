@@ -49,7 +49,7 @@ export function NotFoundView() {
                     </Stack>
                 </Paper>
             </AppShellMain>
-            <AppFooter />
+            <AppFooter isDark />
         </AppShell>
     )
 }

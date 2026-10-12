@@ -28,7 +28,7 @@ const requireRawState = async (studyId: string) => {
 
 const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: string) => {
     const raw = await requireRawState(study.id)
-    const ctx = { orgSlug, studyId: study.id, dashboardHref: Routes.dashboard }
+    const ctx = { orgSlug, studyId: study.id }
     return renderWithProviders(
         await ReviewerOutputsPendingScreen({
             study,

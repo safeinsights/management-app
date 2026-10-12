@@ -5,7 +5,6 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
-    userEvent,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
@@ -59,7 +58,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
@@ -71,17 +69,6 @@ describe('StudyViewCode (/view/code)', () => {
         expect(screen.queryByTestId('cta-back-to-my-studies')).not.toBeInTheDocument()
     })
 
-    it('threads returnTo=org onto the forward link and dashboardHref', async () => {
-        const { org, study } = await seedResultsStudy()
-
-        const page = await StudyViewCode({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({ returnTo: 'org' }),
-        })
-
-        expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view?returnTo=org`)
-    })
-
     // /view/code stays on this screen while the job runs, but plain /view resolves to the
     // outputs-pending screen (OTTER-686), so there is a step to move forward to.
     it('forwards to /view once the enclave is running the job', async () => {
@@ -89,7 +76,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
@@ -107,7 +93,6 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.props.nav.forward.href).toBe(`/${org.slug}/study/${study.id}/view`)
@@ -129,21 +114,18 @@ describe('StudyViewCode (/view/code)', () => {
             ['JOB-RUNNING', 'JOB-ERRORED'],
         ],
         ['the run errored before any enclave execution, before a files decision', ['JOB-ERRORED']],
-    ] as const)('shows the submitted-code control when %s', async (_description, statuses) => {
+    ] as const)('shows the Code files section when %s', async (_description, statuses) => {
         const { org, study } = await seedCodeStudy([...statuses])
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         expect(page?.type).toBe(CodePostDecisionView)
 
         renderWithProviders(page!)
-        const toggle = screen.getByTestId('study-code-toggle')
-        expect(toggle).toHaveTextContent('View submitted study code')
-        await userEvent.setup().click(toggle)
-        expect(await screen.findByTestId('submitted-code-table')).toBeInTheDocument()
+        expect(screen.getByTestId('submitted-code-files-section')).toBeInTheDocument()
+        expect(screen.getByTestId('submitted-code-table')).toBeInTheDocument()
         expect(screen.getByText('main.R')).toBeInTheDocument()
     })
 
@@ -153,14 +135,11 @@ describe('StudyViewCode (/view/code)', () => {
 
         const page = await StudyViewCode({
             params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-            searchParams: Promise.resolve({}),
         })
 
         renderWithProviders(page!)
-        await userEvent.setup().click(screen.getByTestId('study-code-toggle'))
-        expect(await screen.findByText('No code files were uploaded.')).toBeInTheDocument()
+        expect(screen.getByText('No code files were uploaded.')).toBeInTheDocument()
         expect(screen.queryByTestId('submitted-code-table')).not.toBeInTheDocument()
-        expect(screen.getByTestId('study-code-toggle-collapse')).toHaveTextContent('Hide submitted study code')
     })
 
     it('404s for an APPROVED study that has not submitted code (cannot jump ahead)', async () => {
@@ -170,7 +149,6 @@ describe('StudyViewCode (/view/code)', () => {
         await expect(
             StudyViewCode({
                 params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-                searchParams: Promise.resolve({}),
             }),
         ).rejects.toThrow()
     })

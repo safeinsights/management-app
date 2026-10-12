@@ -17,10 +17,10 @@ export function studyHasJobStatus(study: StudyWithJobStatuses, status: StudyJobS
 // an advanced study straight to results (OTTER-727).
 export function researcherCodeStepHref(
     study: StudyWithJobStatuses & { id: string },
-    { orgSlug, returnTo }: { orgSlug: string; returnTo?: string },
+    { orgSlug }: { orgSlug: string },
 ): Route {
     if (studyHasJobStatus(study, 'CODE-SUBMITTED')) {
-        return Routes.studyViewCode({ orgSlug, studyId: study.id, returnTo })
+        return Routes.studyViewCode({ orgSlug, studyId: study.id })
     }
     return Routes.studyCode({ orgSlug, studyId: study.id })
 }
@@ -34,17 +34,12 @@ export function deriveStudyVersion(entries: { version: number }[]): number {
 // researcher reached it.
 export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
     if (study.piUserId) return true
+    if (study.datasets && study.datasets.length > 0) return true
     if (study.researchQuestions != null) return true
     if (study.projectSummary != null) return true
     if (study.impact != null) return true
     if (study.additionalNotes != null) return true
     return false
-}
-
-// Falls back to the id for a data source the org no longer lists, which is still worth showing.
-export function datasetDisplayNames(datasetIds: string[], orgDataSources: Array<{ id: string; name: string }>) {
-    const nameById = new Map(orgDataSources.map((ds) => [ds.id, ds.name]))
-    return datasetIds.map((id) => nameById.get(id) || id)
 }
 
 export function decisionTimestampForProposalHeader(study: SelectedStudy, entries: ProposalFeedbackEntry[]): Date {

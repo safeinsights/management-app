@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect } from 'react'
+import { showSystemNotification } from '@/components/system-notifications'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { useSession } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
@@ -47,12 +48,10 @@ export const ActivityContext = () => {
         }
 
         if (inactivityDuration >= INACTIVITY_TIMEOUT_MS) {
-            notifications.show({
+            showSystemNotification({
                 title: 'Session Expired',
                 id: 'session-expired',
                 message: "You've been logged out due to inactivity. Log back in to resume your work.",
-                withCloseButton: true,
-                autoClose: false,
             })
             notifications.hide('inactivity-warning')
             signOut()
@@ -66,11 +65,10 @@ export const ActivityContext = () => {
                 }
             }
 
-            notifications.show({
+            showSystemNotification({
                 title: 'Session Expiration Warning',
                 id: 'inactivity-warning',
                 withCloseButton: false,
-                autoClose: false,
                 message: (
                     <InactivityWarningMessage remainingMinutes={remainingMinutes} onStaySignedIn={handleStaySignedIn} />
                 ),

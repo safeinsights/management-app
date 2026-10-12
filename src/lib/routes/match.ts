@@ -26,7 +26,7 @@ export type InternalRouteMatch =
  * may open each one is not stored: `appPageAccess` derives it from the path.
  */
 const APP_PAGES: Record<string, { title: string; category: string | null }> = {
-    [Routes.dashboard]: { title: 'My dashboard', category: null },
+    [Routes.dashboard]: { title: 'My studies', category: null },
     [Routes.userKey]: { title: 'Security key', category: 'Account' },
     [Routes.accountKeys]: { title: 'Security key', category: 'Account' },
     [Routes.researcherProfile]: { title: 'Researcher profile', category: null },

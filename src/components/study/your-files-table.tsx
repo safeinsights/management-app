@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import { ActionIcon, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -54,6 +54,9 @@ const COLUMN_WIDTHS = {
     actions: 140,
 } as const
 
+// The submitted-code table has no size or mtime for a job's files, only these two.
+type TableFile = Pick<WorkspaceFileInfo, 'name' | 'lastActivity'>
+
 const truncateFileName = (name: string) =>
     name.length > FILE_NAME_MAX_CHARS ? `${name.slice(0, FILE_NAME_MAX_CHARS)}…` : name
 
@@ -82,8 +85,12 @@ type MainFileStarProps = {
     onSelect: (fileName: string) => void
 }
 
+// Greyed rather than hidden: view-only still shows which file is main.
+const starColor = (isEditable: boolean) => semanticColor(isEditable ? 'surface.selected' : 'surface.disabled.medium')
+
+// No "Set as main file" tooltip on a view-only star: it would invite an action the user cannot take.
 const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onSelect }) => (
-    <Tooltip label={TOOLTIPS.setMain} withArrow>
+    <Tooltip label={TOOLTIPS.setMain} withArrow disabled={!isEditable}>
         <UnstyledButton
             // A radio rather than a toggle: exactly one file is main, and unstarring the current
             // one is not a state the page has.
@@ -92,18 +99,9 @@ const MainFileStar: FC<MainFileStarProps> = ({ fileName, isMain, isEditable, onS
             aria-label={isMain ? `${fileName} is the main file` : `Set ${fileName} as main file`}
             disabled={!isEditable}
             onClick={() => onSelect(fileName)}
-            style={{ display: 'inline-flex', cursor: isEditable ? 'pointer' : 'not-allowed' }}
+            display="inline-flex"
         >
-            <StarIcon
-                size={20}
-                weight={isMain ? 'fill' : 'regular'}
-                color={
-                    isEditable
-                        ? 'var(--mantine-color-blue-7)'
-                        : /* greyed rather than hidden: view-only still shows which file is main */
-                          'var(--mantine-color-charcoal-3)'
-                }
-            />
+            <StarIcon size={20} weight={isMain ? 'fill' : 'regular'} color={starColor(isEditable)} />
         </UnstyledButton>
     </Tooltip>
 )
@@ -118,7 +116,7 @@ const TemplateBadge: FC<{ isVisible: boolean; dataPartnerName: string }> = ({ is
     return (
         <HoverCard width={340} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="light" color="grey.9" style={{ cursor: 'default' }}>
+                <Badge variant="light" color="grey">
                     Template
                 </Badge>
             </HoverCard.Target>
@@ -138,28 +136,24 @@ type FileNameCellProps = {
     onView: (fileName: string) => void
 }
 
-const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => {
-    const [isHovered, setIsHovered] = useState(false)
-
-    return (
-        <Group gap="xs" wrap="nowrap">
-            <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
-                <UnstyledButton
-                    onClick={() => onView(fileName)}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    aria-label={`View ${fileName}`}
-                    style={{ cursor: 'pointer', textDecoration: isHovered ? 'underline' : 'none' }}
-                >
-                    <Text component="span" inherit>
-                        {truncateFileName(fileName)}
-                    </Text>
-                </UnstyledButton>
-            </Tooltip>
-            <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
-        </Group>
-    )
-}
+const FileNameCell: FC<FileNameCellProps> = ({ fileName, isTemplate, dataPartnerName, onView }) => (
+    <Group gap="xs" wrap="nowrap">
+        <Tooltip label={fileName} withArrow disabled={fileName.length <= FILE_NAME_MAX_CHARS}>
+            <Anchor
+                component="button"
+                type="button"
+                underline="hover"
+                c={semanticColor('text.primary')}
+                inherit
+                aria-label={`View ${fileName}`}
+                onClick={() => onView(fileName)}
+            >
+                {truncateFileName(fileName)}
+            </Anchor>
+        </Tooltip>
+        <TemplateBadge isVisible={isTemplate} dataPartnerName={dataPartnerName} />
+    </Group>
+)
 
 type FileActionsProps = {
     fileName: string
@@ -172,6 +166,8 @@ type FileActionsProps = {
     onDelete: (fileName: string) => void
 }
 
+const enabledIconColor = (isEnabled: boolean) => (isEnabled ? semanticColor('icon.light') : undefined)
+
 const FileActions: FC<FileActionsProps> = ({
     fileName,
     isMain,
@@ -183,47 +179,48 @@ const FileActions: FC<FileActionsProps> = ({
     onDelete,
 }) => (
     <Group gap="xs" justify="center" wrap="nowrap">
+        {/* Transparent so none of these glyphs sit on a tile, including on hover. */}
         {/* Two reasons the pencil goes dead, and they need different tooltips: the page is
             view-only, or another researcher holds the IDE. */}
-        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline w={240}>
+        <Tooltip label={canEditInIde ? TOOLTIPS.edit : editLockedTooltip(ideOwnerName)} withArrow multiline maw={240}>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 disabled={!isEditable || !canEditInIde}
                 aria-label={`Edit ${fileName} in IDE`}
                 onClick={() => onEdit(fileName)}
             >
-                <PencilSimpleIcon />
+                <PencilSimpleIcon size={20} weight="bold" color={enabledIconColor(isEditable && canEditInIde)} />
             </ActionIcon>
         </Tooltip>
         <Tooltip label={TOOLTIPS.download} withArrow>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 aria-label={`Download ${fileName}`}
                 onClick={() => onDownload(fileName)}
             >
-                <DownloadSimpleIcon />
+                <DownloadSimpleIcon size={20} weight="bold" color={semanticColor('icon.light')} />
             </ActionIcon>
         </Tooltip>
         {/* Wrapped so the tooltip still fires while the control is disabled, which is the whole
             point of the main-file case. */}
-        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline w={240}>
+        <Tooltip label={isMain ? TOOLTIPS.deleteMain : TOOLTIPS.delete} withArrow multiline maw={240}>
             <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="grey"
                 disabled={isMain || !isEditable}
                 aria-label={`Delete ${fileName}`}
                 onClick={() => onDelete(fileName)}
             >
-                <TrashIcon />
+                <TrashIcon size={20} weight="fill" color={enabledIconColor(!isMain && isEditable)} />
             </ActionIcon>
         </Tooltip>
     </Group>
 )
 
 type FileRowProps = {
-    file: WorkspaceFileInfo
+    file: TableFile
     isMain: boolean
     isTemplate: boolean
     dataPartnerName: string
@@ -282,7 +279,7 @@ const FileRow: FC<FileRowProps> = ({
 )
 
 type YourFilesTableProps = {
-    files: WorkspaceFileInfo[]
+    files: TableFile[]
     mainFile: string
     templateFileNames?: string[]
     dataPartnerName: string

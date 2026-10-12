@@ -7,6 +7,7 @@ severity:
     - HIGH
     - CRITICAL
 timeout: 5m
+ignorefile: .trivyignore.yaml
 scan:
     scanners:
         - vuln

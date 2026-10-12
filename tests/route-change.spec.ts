@@ -10,9 +10,9 @@ test.describe('client-side navigation', () => {
         await goto(page, '/openstax/dashboard')
         await expect(page).toHaveTitle('Dashboard - SafeInsights')
 
-        await page.getByRole('link', { name: 'Home', exact: true }).click()
+        await page.getByRole('link', { name: 'My studies', exact: true }).click()
 
-        await expect(page).toHaveTitle('My dashboard - SafeInsights')
+        await expect(page).toHaveTitle('My studies - SafeInsights')
         await expect(page.locator('#main-content')).toBeFocused()
 
         // Parked on a shell control that survives the navigation, so only the hook can move it.

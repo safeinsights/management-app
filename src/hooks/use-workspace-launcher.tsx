@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@/common'
-import { reportError } from '@/components/errors'
+import { captureError } from '@/components/errors'
+import { showSystemNotification } from '@/components/system-notifications'
 import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
-import { notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 
@@ -25,15 +25,17 @@ const openWorkspace = (url: string, studyId: string, sameWindow: boolean): { blo
 }
 
 const notifyPopupBlocked = (url: string) => {
-    notifications.show({
+    // Keyed by url so a second blocked launch cannot replace a link the researcher has not used.
+    showSystemNotification({
+        id: `popup-blocked:${url}`,
+        // The launch itself succeeded, so this is a caution rather than a failure.
+        color: 'yellow',
         title: 'Popup blocked',
         message: (
             <a href={url} target="_blank" rel="noopener noreferrer">
                 Click here to open your workspace
             </a>
         ),
-        color: 'yellow',
-        autoClose: false,
     })
 }
 
@@ -71,7 +73,8 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
 
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
-        onError: (err) => setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null),
+        // The failure modal is the only surface for a failed launch (OTTER-832), so no toast.
+        onError: (err) => setErrorEventId(captureError(err) || null),
     })
 
     const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
@@ -100,7 +103,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     useEffect(() => {
         if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
             reportedErrorRef.current = buildStatus.error
-            setErrorEventId(reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(buildStatus.error) || null)
         }
     }, [buildStatus.error])
 
@@ -109,7 +112,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         if (buildStatus.failed && !reportedFailureRef.current) {
             reportedFailureRef.current = true
             const err = new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE)
-            setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(err) || null)
         }
     }, [buildStatus.failed, buildStatus.reason])
 

@@ -11,6 +11,7 @@ interface CodeUploadPageProps {
     studyId: string
     dataPartnerName: string
     isFirstVisit: boolean
+    videoDurationMinutes: number | null
     isEditable: boolean
     nav: StepNav
 }
@@ -20,6 +21,7 @@ export function CodeUploadPage({
     studyId,
     dataPartnerName,
     isFirstVisit,
+    videoDurationMinutes,
     isEditable,
     nav,
 }: CodeUploadPageProps) {
@@ -34,6 +36,7 @@ export function CodeUploadPage({
             studyId={studyId}
             dataPartnerName={dataPartnerName}
             isFirstVisit={isFirstVisit}
+            videoDurationMinutes={videoDurationMinutes}
             isEditable={isEditable}
             nav={nav}
             onSubmitSuccess={onSubmitSuccess}

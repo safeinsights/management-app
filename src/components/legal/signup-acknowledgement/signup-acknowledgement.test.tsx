@@ -31,6 +31,14 @@ describe('Placeholders', () => {
             screen.getByText(/Once implemented, SafeInsights Privacy Notice will detail the ways/),
         ).toBeInTheDocument()
     })
+
+    it.each(['Terms of Service', 'Privacy Notice'])('paints the %s link in the link color', (name) => {
+        renderWithProviders(
+            <AcknowledgementCheckbox label={globalDocAgreementLabel([])} checked={false} onChange={vi.fn()} />,
+        )
+
+        expect(screen.getByText(name).style.color).toBe('var(--si-color-link-default)')
+    })
 })
 
 describe('AcknowledgementCheckbox', () => {
@@ -46,6 +54,14 @@ describe('AcknowledgementCheckbox', () => {
 
         await user.click(screen.getByRole('checkbox'))
         expect(onChange).toHaveBeenCalledWith(true)
+    })
+
+    it('takes the selected blue and the small radius from the theme', () => {
+        renderWithProviders(<AcknowledgementCheckbox label="I agree" checked={true} onChange={vi.fn()} />)
+
+        const root = screen.getByRole('checkbox').closest<HTMLElement>('.mantine-Checkbox-root')
+        expect(root?.style.getPropertyValue('--checkbox-color')).toBe('var(--si-color-surface-selected)')
+        expect(root?.style.getPropertyValue('--checkbox-radius')).toBe('var(--mantine-radius-xs)')
     })
 
     // No label means there is nothing to agree to — an org with no participation agreement, say — so

@@ -48,13 +48,22 @@ beforeEach(() => {
 })
 
 describe('UserStudiesDashboard', () => {
-    it('keeps the toggle visible when the default researcher tab is empty and reviewer has rows', async () => {
-        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        const { user: otherResearcher } = await insertTestUser({ org: { ...labOrg, type: 'lab' } })
+    // My studies lists the reviewer's own decisions, so the fixture records one.
+    const decidedStudy = async ({
+        reviewerId,
+        labOrgId,
+        enclaveOrgId,
+        researcherId,
+    }: {
+        reviewerId: string
+        labOrgId: string
+        enclaveOrgId: string
+        researcherId: string
+    }) => {
         const study = await insertStudy({
-            orgId: enclaveOrg.id,
-            submittedByOrgId: labOrg.id,
-            researcherId: otherResearcher.id,
+            orgId: enclaveOrgId,
+            submittedByOrgId: labOrgId,
+            researcherId,
             title: 'Reviewer Study',
         })
         const job = await db
@@ -64,22 +73,60 @@ describe('UserStudiesDashboard', () => {
             .executeTakeFirstOrThrow()
         await db
             .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: user.id, status: 'CODE-APPROVED' })
+            .values({ studyJobId: job.id, userId: reviewerId, status: 'CODE-APPROVED' })
             .execute()
+    }
+
+    it('opens on the Reviewer tab for a dual-role user, with the switcher outside the card', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const { user: otherResearcher } = await insertTestUser({ org: { ...labOrg, type: 'lab' } })
+        await decidedStudy({
+            reviewerId: user.id,
+            labOrgId: labOrg.id,
+            enclaveOrgId: enclaveOrg.id,
+            researcherId: otherResearcher.id,
+        })
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText('My dashboard')).toBeDefined()
-        expect(await screen.findByText("You haven't yet participated in a study")).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
+        expect(await screen.findByRole('link', { name: 'Reviewer Study' })).toBeDefined()
+        expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeChecked()
+        expect(screen.getByText('Studies for review')).toBeDefined()
+        const card = screen.getByText('Studies for review').closest('.mantine-Paper-root') as HTMLElement
+        expect(card.contains(screen.getByRole('radio', { name: 'Reviewer' }))).toBe(false)
+    })
 
-        await userEvent.click(screen.getByRole('radio', { name: 'Reviewer' }))
+    it('swaps the title, columns and empty copy when switching to Researcher', async () => {
+        await mockDualRoleSessionWithTestData()
 
-        expect(await screen.findByText('Reviewer Study')).toBeDefined()
-        expect(screen.queryByText(/Review all the studies submitted to your organizations/i)).toBeNull()
-        expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
+        renderWithProviders(<UserStudiesDashboard />)
+
+        expect(await screen.findByText(/Studies require your review at three stages/)).toBeDefined()
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Researcher' }))
+
+        expect(await screen.findByText(/Every study follows four steps/)).toBeDefined()
+        expect(screen.getByText('All studies')).toBeDefined()
+        expect(screen.getByRole('columnheader', { name: /Submitted to/ })).toBeDefined()
+        expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
+    })
+
+    it('restores the tab named in the URL', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        await insertStudy({
+            orgId: enclaveOrg.id,
+            submittedByOrgId: labOrg.id,
+            researcherId: user.id,
+            title: 'Researcher Study',
+        })
+        mockPathname('/dashboard?audience=researcher')
+
+        renderWithProviders(<UserStudiesDashboard />)
+
+        expect(await screen.findByRole('link', { name: 'Researcher Study' })).toBeDefined()
+        expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
@@ -88,30 +135,9 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByRole('heading', { level: 1, name: 'My dashboard' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { level: 1, name: 'My studies' })).toBeInTheDocument()
         expect(pageHeaderEyebrow()).toBe('')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-    })
-
-    it('keeps the toggle visible after switching from a populated researcher tab to an empty reviewer tab', async () => {
-        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        await insertStudy({
-            orgId: enclaveOrg.id,
-            submittedByOrgId: labOrg.id,
-            researcherId: user.id,
-            title: 'Researcher Study',
-        })
-
-        renderWithProviders(<UserStudiesDashboard />)
-
-        expect(await screen.findByText('Researcher Study')).toBeDefined()
-
-        await userEvent.click(screen.getByRole('radio', { name: 'Reviewer' }))
-
-        expect(await screen.findByText("You haven't yet participated in reviewing a study")).toBeDefined()
-        expect(screen.queryByText(/Review all the studies submitted to your organizations/i)).toBeNull()
-        expect(screen.getByRole('radio', { name: 'Reviewer' })).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Researcher' })).toBeDefined()
     })
 
     it('does not show the toggle for a single-role researcher', async () => {
@@ -119,9 +145,10 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText("You haven't yet participated in a study")).toBeDefined()
+        expect(await screen.findByText(/Every study follows four steps/)).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('does not show the toggle for a single-role reviewer', async () => {
@@ -129,7 +156,7 @@ describe('UserStudiesDashboard', () => {
 
         renderWithProviders(<UserStudiesDashboard />)
 
-        expect(await screen.findByText("You haven't yet participated in reviewing a study")).toBeDefined()
+        expect(await screen.findByText(/Studies require your review at three stages/)).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
     })

@@ -1,7 +1,15 @@
 import { describe, expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData, readTestSupportFile, BLANK_UUID } from '@/tests/unit.helpers'
+import {
+    insertTestProposalDecision,
+    insertTestStudyData,
+    mockSessionWithTestData,
+    readTestSupportFile,
+    BLANK_UUID,
+} from '@/tests/unit.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
+import { deliver } from '@/server/mailgun'
 import { s3Available } from '@/tests/s3.helpers'
 import { fetchFileContents } from '@/server/storage'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -19,6 +27,12 @@ vi.mock('@/lib/logger', () => ({
         warn: vi.fn(),
         error: vi.fn(),
     },
+}))
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
 }))
 
 vi.mock('@/server/aws', () => ({
@@ -117,6 +131,19 @@ test('inserts JOB-ERRORED status', async () => {
 
     const rows = await getJobStatusRows(jobId)
     expect(rows.some((r) => r.status === 'JOB-ERRORED')).toBe(true)
+})
+
+test('tells the Data Partner when the scan reports JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestProposalDecision({ studyId, authorId: user.id })
+
+    expect((await apiHandler.POST(authedRequest({ jobId: jobIds[0], status: 'JOB-ERRORED' }))).ok).toBe(true)
+    await flushDeferred()
+
+    expect(deliver).toHaveBeenCalledWith(
+        expect.objectContaining({ to: user.email, template: 'vb - dp - code errored' }),
+    )
 })
 
 // Real S3, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.

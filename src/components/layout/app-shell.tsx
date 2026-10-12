@@ -1,22 +1,11 @@
 'use client'
 
-import {
-    AppShellHeader,
-    AppShellMain,
-    Burger,
-    Group,
-    AppShell as MantineAppShell,
-    useMantineTheme,
-} from '@mantine/core'
-
-import { useDisclosure, useMediaQuery } from '@mantine/hooks'
-import { Notifications } from '@mantine/notifications'
-import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
-import '@mantine/notifications/styles.css'
-import Link from 'next/link'
+import { AppShellHeader, AppShellMain, AppShell as MantineAppShell } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS } from '@/lib/constants'
 import { ReactNode } from 'react'
 import { AppFooter } from './app-footer'
-import { SafeInsightsLogo } from './svg/si-logo'
+import styles from './shell.module.css'
 
 import { RequireLegalAcknowledgement } from '../legal/modal-acknowledgement/require-acknowledgement'
 import { RequireMFA } from '../require-mfa'
@@ -25,26 +14,19 @@ import { RequireUser } from '../require-user'
 import { ActivityContext } from '../activity-context'
 import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
-import { Routes } from '@/lib/routes'
-import { semanticColor } from '@/theme/tokens'
+import { TopNav } from './top-nav/top-nav'
 
 type Props = { children: ReactNode }
 
 export function AppShell({ children }: Props) {
-    const theme = useMantineTheme()
-
-    const isDesktop = useMediaQuery(
-        `(min-width: ${theme.breakpoints.sm})`,
-        true, // initialValue to prevent hydration error
-        { getInitialValueInEffect: true },
-    )
     const [opened, { toggle }] = useDisclosure(false)
 
     return (
         <MantineAppShell
+            className={styles.shell}
             bg={APP_MAIN_BG}
-            header={{ height: APP_SHELL.headerHeight, collapsed: isDesktop }}
-            footer={{ height: APP_SHELL.footerHeight }}
+            layout={APP_SHELL.layout}
+            header={{ height: APP_SHELL.headerHeight }}
             navbar={{
                 width: APP_SHELL.navbarWidth,
                 breakpoint: APP_SHELL.navbarBreakpoint,
@@ -56,28 +38,17 @@ export function AppShell({ children }: Props) {
             <RequireMFA />
             <RequireUserKey />
             <RequireLegalAcknowledgement />
-            <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
-            <AppShellHeader bg={APP_SHELL.headerBg} w="100%">
-                <Group h="100%" px="md">
-                    <Burger
-                        opened={opened}
-                        onClick={toggle}
-                        hiddenFrom="sm"
-                        size="sm"
-                        color={semanticColor('text.white')}
-                    />
-                    <Link href={Routes.home}>
-                        <SafeInsightsLogo />
-                    </Link>
-                </Group>
+            <AppShellHeader withBorder={false}>
+                <TopNav isNavOpened={opened} onToggleNav={toggle} />
             </AppShellHeader>
 
-            <AppNav isDesktop={isDesktop} />
+            <AppNav isOpened={opened} onToggle={toggle} />
 
             <AppShellMain
                 {...MAIN_CONTENT_PROPS}
+                className={styles.main}
                 bg={APP_MAIN_BG}
                 style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
             >

@@ -19,6 +19,7 @@ export async function rawStudyStateForStudy(
             'study.proposalResubmissionNoteDraft',
             'study.codeResubmissionNoteDraft',
             'study.piUserId',
+            'study.datasets',
             'study.researchQuestions',
             'study.projectSummary',
             'study.impact',

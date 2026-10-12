@@ -14,6 +14,7 @@ export type RawJob = {
 // rarely, so hasStep2CollabDoc carries the rest of the signal.
 export type DraftStep2Fields = {
     piUserId: string | null
+    datasets: string[] | null
     researchQuestions: Json | null
     projectSummary: Json | null
     impact: Json | null

@@ -1,12 +1,12 @@
 'use client'
 
 import { ActionIcon, Button, Group, Stack, Text } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
+import { showToast } from '@/components/toast-notifications'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
 
@@ -25,10 +25,10 @@ function useDeleteDraft(study: StudyRow) {
                 queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] }),
                 queryClient.invalidateQueries({ queryKey: ['researcher-studies'] }),
             ])
-            notifications.show({
+            showToast({
+                category: 'success',
                 title: 'Proposal draft deleted',
                 message: `Proposal draft ${draftLabel} was successfully deleted`,
-                color: 'green',
             })
         },
         onError: reportMutationError('Failed to delete proposal draft'),

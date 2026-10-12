@@ -2,7 +2,6 @@
 
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
-import { Routes } from '@/lib/routes'
 import { proposalReviewDecision } from '@/lib/review-decision'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderScreenById, renderStudyScreen } from '../../_screens/render-screen'
@@ -30,12 +29,8 @@ export default async function ReviewProposalPage(props: { params: Promise<{ orgS
             raw,
             study,
             orgSlug,
-            dashboardHref: Routes.dashboard,
         })
     }
 
-    return renderScreenById(
-        { screen: 'reviewer-proposal-feedback' },
-        { role: 'reviewer', study, raw, orgSlug, dashboardHref: Routes.dashboard },
-    )
+    return renderScreenById({ screen: 'reviewer-proposal-feedback' }, { role: 'reviewer', study, raw, orgSlug })
 }

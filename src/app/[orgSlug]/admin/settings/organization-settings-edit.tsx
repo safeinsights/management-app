@@ -3,7 +3,7 @@
 import { Stack, TextInput, Textarea, Grid, Text, Flex, Title, Button, Group, Divider } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { useForm, zodResolver, useMutation } from '@/common'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
 import { type PublicOrg } from '@/schema/org'
@@ -60,10 +60,10 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                 description: values.description,
             }),
         onSuccess: (data) => {
-            notifications.show({
+            showToast({
+                category: 'success',
                 title: 'Success',
                 message: data.message,
-                color: 'green',
             })
             onSaveSuccess()
             form.resetDirty({ name: form.values.name, description: form.values.description })

@@ -1,8 +1,15 @@
 import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData, BLANK_UUID } from '@/tests/unit.helpers'
+import {
+    insertTestProposalDecision,
+    insertTestStudyData,
+    mockSessionWithTestData,
+    BLANK_UUID,
+} from '@/tests/unit.helpers'
 import { s3Available } from '@/tests/s3.helpers'
+import { flushDeferred } from '@/tests/vitest.setup'
+import { deliver } from '@/server/mailgun'
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
@@ -20,6 +27,12 @@ vi.mock('@/lib/logger', () => {
         },
     }
 })
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
 
 vi.mock('@/server/aws', () => ({
     storeS3File: vi.fn(),
@@ -107,6 +120,19 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     rows = await getStatusRows(jobId)
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
+})
+
+test('containerizer tells the Data Partner when packaging errors', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestProposalDecision({ studyId, authorId: user.id })
+
+    expect((await apiHandler.POST(authedRequest({ jobId: jobIds[0], status: 'JOB-ERRORED' }))).ok).toBe(true)
+    await flushDeferred()
+
+    expect(deliver).toHaveBeenCalledWith(
+        expect.objectContaining({ to: user.email, template: 'vb - dp - code errored' }),
+    )
 })
 
 async function erroredReasons(jobId: string) {

@@ -10,23 +10,23 @@ import {
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
+    flushDeferred,
+    postHogCaptures,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
-    approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
-    rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
 import { codeSubmissionVersion } from '@/server/db/queries'
-import { sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
 import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
@@ -40,8 +40,8 @@ vi.mock('@/server/storage', () => ({
 }))
 
 vi.mock('@/server/mailer', () => ({
-    sendStudyResultsRejectedEmail: vi.fn(),
-    sendStudyResultsApprovedEmail: vi.fn(),
+    sendLabOutputsNeedReviewEmail: vi.fn(),
+    sendLabCodeErroredEmail: vi.fn(),
 }))
 
 // Spy on the generation trigger only; study-request.ts depends on the rest of the module.
@@ -306,87 +306,6 @@ describe('Study Job Actions', () => {
         })
     })
 
-    describe('result decision actions', () => {
-        test('creates FILES-REJECTED status and sends rejection email', async () => {
-            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-
-            await rejectStudyJobFilesAction({
-                studyJobId: job.id,
-                orgSlug: org.slug,
-            })
-
-            const statusChanges = await db
-                .selectFrom('jobStatusChange')
-                .select('status')
-                .where('studyJobId', '=', job.id)
-                .orderBy('createdAt', 'desc')
-                .execute()
-
-            expect(statusChanges.find((sc) => sc.status === 'FILES-REJECTED')).toBeTruthy()
-            expect(sendStudyResultsRejectedEmail).toHaveBeenCalledWith(study.id)
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select('reviewerId')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.reviewerId).toBe(user.id)
-        })
-
-        test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
-            const { enclave, file, job, lab, researcher, reviewer, sharedFiles, study } =
-                await setupResultApprovalFixture()
-
-            actionResult(
-                await approveStudyJobFilesAction({
-                    orgSlug: enclave.slug,
-                    studyJobId: job.id,
-                    sharedFiles,
-                }),
-            )
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select('reviewerId')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.reviewerId).toBe(reviewer.id)
-
-            mockClerkSession({
-                clerkUserId: researcher.clerkId,
-                orgSlug: lab.slug,
-                userId: researcher.id,
-                orgId: lab.id,
-                orgType: 'lab',
-            })
-            const studies = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
-            const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
-            const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
-            expect(state.resultsApproved).toBe(true)
-            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
-
-            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
-            expect(files).toHaveLength(1)
-            expect(files[0]).toMatchObject({
-                studyJobFileId: file.id,
-                recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
-            })
-        })
-
-        test('permission denied for non-enclave user', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-
-            const result = await rejectStudyJobFilesAction({
-                studyJobId: job.id,
-                orgSlug: org.slug,
-            })
-
-            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-        })
-    })
-
     describe('markOutputsDecisionViewedAction', () => {
         type Fixture = Awaited<ReturnType<typeof setupResultApprovalFixture>>
 
@@ -399,7 +318,15 @@ describe('Study Job Actions', () => {
                 .execute()
 
         const approve = async ({ enclave, job, sharedFiles }: Fixture) =>
-            actionResult(await approveStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id, sharedFiles }))
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'Ready to share.',
+                    sharedFiles,
+                }),
+            )
 
         const signInAsResearcher = ({ researcher, lab }: Fixture) =>
             mockClerkSession({
@@ -506,10 +433,63 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(1)
+
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
+                distinctId: reviewer.id,
+                event: 'study_results_outputs_shared',
+                properties: expect.objectContaining({
+                    study_id: study.id,
+                    study_job_id: job.id,
+                    user_role: 'reviewer',
+                }),
+            })
+        })
+
+        test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
+            const { enclave, file, job, lab, researcher, reviewer, sharedFiles, study } =
+                await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'The outputs look clean and contain no PII.',
+                    sharedFiles,
+                }),
+            )
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select('reviewerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.reviewerId).toBe(reviewer.id)
+
+            mockClerkSession({
+                clerkUserId: researcher.clerkId,
+                orgSlug: lab.slug,
+                userId: researcher.id,
+                orgId: lab.id,
+                orgType: 'lab',
+            })
+            const studies = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+            const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
+            const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
+            expect(state.resultsApproved).toBe(true)
+            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
+
+            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+            expect(files).toHaveLength(1)
+            expect(files[0]).toMatchObject({
+                studyJobFileId: file.id,
+                recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
+            })
         })
 
         test('sharing feedback only rejects the files and shares no keys', async () => {
-            const { enclave, file, job, study } = await setupResultApprovalFixture()
+            const { enclave, file, job, reviewer, study } = await setupResultApprovalFixture()
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -530,7 +510,65 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(0)
+
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual(
+                expect.objectContaining({
+                    event: 'study_results_outputs_not_shared',
+                    properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),
+                }),
+            )
+            expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledWith(study.id)
+
+            const decided = await db
+                .selectFrom('study')
+                .select('reviewerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(decided.reviewerId).toBe(reviewer.id)
         })
+
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            'a %s decision on an errored run tells the lab its code errored',
+            async (decision) => {
+                const { enclave, job, sharedFiles } = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The run failed before writing any outputs.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+                await flushDeferred()
+
+                expect(sendLabCodeErroredEmail).toHaveBeenCalledTimes(1)
+                expect(sendLabOutputsNeedReviewEmail).not.toHaveBeenCalled()
+            },
+        )
+
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            'a %s decision on a completed run tells the lab its outputs need review',
+            async (decision) => {
+                const { enclave, job, sharedFiles } = await setupResultApprovalFixture()
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The outputs look clean and contain no PII.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+                await flushDeferred()
+
+                expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledTimes(1)
+                expect(sendLabCodeErroredEmail).not.toHaveBeenCalled()
+            },
+        )
 
         // OTTER-766: the decision used to inherit the code submission round, so a study on its first
         // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.

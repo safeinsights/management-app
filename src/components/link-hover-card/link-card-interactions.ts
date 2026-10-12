@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useSyncExternalStore, type RefObject } from 'react'
 import type { PopoverProps } from '@mantine/core'
 
 /** The card's look, shared by the editor cards and the plain-link card so the two cannot drift. */
@@ -26,7 +26,7 @@ const PRIMARY_BUTTON = 0
 type ModifierKeys = { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }
 
 // Any modifier asks the browser for a new tab, a new window or the context menu, not for the card.
-export const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+const hasModifier = (event: ModifierKeys) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
 
 export const wantsBrowserDefault = (event: ModifierKeys & { button: number }) =>
     event.button !== PRIMARY_BUTTON || hasModifier(event)
@@ -39,15 +39,43 @@ export function openLinkInNewTab(url: string) {
  * Moves focus into the card without scrolling, since the first pass runs before the popover is positioned.
  * A second pass on the next frame outlasts Lexical re-applying its selection after the opening click.
  */
-export function useFocusOnOpen(target: RefObject<HTMLElement | null>) {
+export function useFocusOnOpen(target: RefObject<HTMLElement | null>, enabled = true) {
     useEffect(() => {
+        if (!enabled) return
+
         const focusTarget = () => target.current?.focus({ preventScroll: true })
 
         focusTarget()
         const frame = requestAnimationFrame(focusTarget)
 
         return () => cancelAnimationFrame(frame)
-    }, [target])
+    }, [target, enabled])
+}
+
+// One token per open card rather than a count, so a cleanup can never take the total below zero.
+const openCards = new Set<symbol>()
+const openCardListeners = new Set<() => void>()
+
+function notifyOpenCardListeners() {
+    openCardListeners.forEach((listener) => listener())
+}
+
+function subscribeToOpenCards(listener: () => void) {
+    openCardListeners.add(listener)
+    return () => {
+        openCardListeners.delete(listener)
+    }
+}
+
+const isAnyLinkCardOpen = () => openCards.size > 0
+
+/**
+ * Mantine's Modal hears Escape on window, ahead of the card's document listener, so a modal
+ * hosting a card has to leave the first Escape to it (OTTER-792). A modal closes any card already
+ * open as it opens, so an open card is always one inside the topmost modal.
+ */
+export function useIsLinkCardOpen() {
+    return useSyncExternalStore(subscribeToOpenCards, isAnyLinkCardOpen, () => false)
 }
 
 /**
@@ -71,25 +99,53 @@ export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
 
         return () => document.removeEventListener('keydown', handleEscape, true)
     }, [isOpen, onEscape])
+
+    // Keyed on isOpen alone, so a new onEscape does not briefly report the card as closed.
+    useEffect(() => {
+        if (!isOpen) return
+
+        const card = Symbol('open link card')
+        openCards.add(card)
+        notifyOpenCardListeners()
+
+        return () => {
+            openCards.delete(card)
+            notifyOpenCardListeners()
+        }
+    }, [isOpen])
 }
 
-let closeOpenCard: (() => void) | null = null
+type OpenLinkCard = { close: () => void; dropdownId: string }
+
+let openCard: OpenLinkCard | null = null
 
 /**
  * One link card at a time across the page, so opening one elsewhere closes this one. `close` has to
  * keep a stable identity.
  */
-export function useExclusiveLinkCard(close: () => void) {
+export function useExclusiveLinkCard(close: () => void, dropdownId: string) {
     const release = useCallback(() => {
-        if (closeOpenCard === close) closeOpenCard = null
+        if (openCard?.close === close) openCard = null
     }, [close])
 
     const claim = useCallback(() => {
-        if (closeOpenCard && closeOpenCard !== close) closeOpenCard()
-        closeOpenCard = close
+        if (openCard && openCard.close !== close) openCard.close()
+        openCard = { close, dropdownId }
+    }, [close, dropdownId])
+
+    // A card holding focus is in use, an edit form with unsaved changes above all, so a passing
+    // pointer must not take it over.
+    const isAnotherCardFocused = useCallback(() => {
+        if (!openCard || openCard.close === close) return false
+        return Boolean(document.getElementById(openCard.dropdownId)?.contains(document.activeElement))
     }, [close])
 
     useEffect(() => release, [release])
 
-    return { claim }
+    return { claim, isAnotherCardFocused }
+}
+
+/** For a layer opening above the page, which would otherwise leave a card open underneath it. */
+export function closeOpenLinkCard() {
+    openCard?.close()
 }

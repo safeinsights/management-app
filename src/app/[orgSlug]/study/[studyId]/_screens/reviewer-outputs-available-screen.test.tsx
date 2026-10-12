@@ -28,7 +28,6 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { setupStudyAction } from '@/tests/db-action.helpers'
-import { Routes } from '@/lib/routes'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 
@@ -58,7 +57,6 @@ const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
             ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
                 orgSlug,
                 studyId: study.id,
-                dashboardHref: Routes.dashboard,
             }),
         }),
     )
@@ -78,7 +76,6 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
                             ...screenNavProps('reviewer', 'reviewer-outputs-available', raw, {
                                 orgSlug,
                                 studyId: study.id,
-                                dashboardHref: Routes.dashboard,
                             }),
                         })}
                     </ModalsProvider>
@@ -217,7 +214,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('replaces the available banner with the review-before-sharing warning', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Review the outputs before sharing')
@@ -262,7 +259,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         fireEvent.click(screen.getByTestId('outputs-submit-decision'))
 

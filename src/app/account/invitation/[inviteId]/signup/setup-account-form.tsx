@@ -6,18 +6,7 @@ import { useForm, useMutation, useQuery, z, zodResolver } from '@/common'
 import { CLERK_ERROR_COPY } from '@/components/clerk-errors'
 import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs'
-import {
-    Alert,
-    Button,
-    Flex,
-    Paper,
-    PasswordInput,
-    Text,
-    TextInput,
-    Title,
-    useMantineTheme,
-    Stack,
-} from '@mantine/core'
+import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
 import {
     AcknowledgementCheckbox,
     globalDocAgreementLabel,
@@ -95,7 +84,6 @@ type InviteData = {
 
 export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
-    const theme = useMantineTheme()
     const router = useRouter()
 
     // Public: the form must show these before an account exists.
@@ -211,20 +199,7 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     <Text size="md">
                         You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
-                    <TextInput
-                        label="Email"
-                        radius="sm"
-                        value={email}
-                        disabled
-                        c={semanticColor('text.primary')}
-                        styles={{
-                            input: {
-                                backgroundColor: theme.colors.charcoal[1],
-                                borderColor: theme.colors.charcoal[1],
-                                color: theme.colors.charcoal[9],
-                            },
-                        }}
-                    />
+                    <TextInput label="Email" radius="sm" value={email} disabled c={semanticColor('text.primary')} />
 
                     <Flex direction="row" gap="xl">
                         <TextInput
@@ -311,16 +286,8 @@ export const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) =
                     </Stack>
 
                     <Flex mt="sm">
-                        <Button
-                            type="submit"
-                            loading={isCreating}
-                            disabled={!canSubmit}
-                            w="100%"
-                            size="lg"
-                            bg={!canSubmit ? 'grey.1' : undefined}
-                            styles={!canSubmit ? { label: { color: theme.colors.grey[7] } } : undefined}
-                        >
-                            Create Account
+                        <Button type="submit" loading={isCreating} disabled={!canSubmit} w="100%" size="lg">
+                            Create account
                         </Button>
                     </Flex>
                 </Flex>

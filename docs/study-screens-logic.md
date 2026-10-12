@@ -275,7 +275,7 @@ error**, not a runtime throw. Both pages dispatch through the shared `renderStud
 
 ```ts
 // view/page.tsx → role: 'researcher'   |   review/page.tsx → role: 'reviewer'
-return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId, dashboardHref, returnTo })
+return renderStudyScreen({ role, raw: rawStudyState, study, orgSlug, studyId })
 ```
 
 The `reviewer-*` components are **thin adapters** over the existing reviewer views
@@ -339,8 +339,7 @@ forward-jump to a code screen for the same state.
 `/code` is a form route, not a dispatcher screen, so it has no `ScreenId` and resolves its own nav
 through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous step` is the only
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
-before that. It takes `NavCtxBase` — the context without `dashboardHref`, which this rule never
-reads.
+before that.
 
 Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
 once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
@@ -352,25 +351,27 @@ server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submit
 `requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
 pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
 
-`Back to my studies` goes to `ctx.dashboardHref`, resolved by the page: the personal `/dashboard`
-for reviewers, and for researchers the org dashboard only when the study was entered with
-`?returnTo=org`.
+`Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
+routes this exit to one fixed destination, never back to the entry point, so neither the page nor
+the route carries an entry marker (OTTER-805).
 
 ## Stage 3 — Dashboard action (`dashboard-rules.ts`)
 
 `resolveDashboardAction(role, state, ctx)` is the same first-match pattern, returning the
-`{ label, href, secondaryAction? }` for the dashboard cell. It is faithful to the old
-`useStudyHref`: the label stays `"View"` for every non-draft destination.
+`{ href, secondaryAction? }` for a researcher row. Since OTTER-617 the dashboard has no action
+column: `href` is the study title link, and `secondaryAction: 'delete-draft'` puts the draft bin beside
+the status badge for the draft's author. A reviewer row's title links to `studyReview`. The table is
+faithful to the old `useStudyHref`.
 
-| #   | When                                                                                       | Link             | Label                     |
-| --- | ------------------------------------------------------------------------------------------ | ---------------- | ------------------------- |
-| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal`  | `Edit` (+ `delete-draft`) |
-| 2   | `isDraft`                                                                                  | `studyEdit`      | `Edit` (+ `delete-draft`) |
-| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`      | `View`                    |
-| 4   | `hasAnyJob`                                                                                | `studyView`      | `View`                    |
-| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`      | `View`                    |
-| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted` | `View`                    |
-| 7   | fallback                                                                                   | `studyView`      | `View`                    |
+| #   | When                                                                                       | Link                               |
+| --- | ------------------------------------------------------------------------------------------ | ---------------------------------- |
+| 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal` (+ `delete-draft`) |
+| 2   | `isDraft`                                                                                  | `studyEdit` (+ `delete-draft`)     |
+| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`                        |
+| 4   | `hasAnyJob`                                                                                | `studyView`                        |
+| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`                        |
+| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted`                   |
+| 7   | fallback                                                                                   | `studyView`                        |
 
 Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
 draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays

@@ -22,11 +22,15 @@ import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
 const mockRedirect = vi.mocked(redirect)
 
+const stubVimeoDuration = (seconds: number) =>
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ duration: seconds }))
+
 beforeEach(() => {
     memoryRouter.setCurrentUrl('/')
     mockRedirect.mockImplementation(() => {
         throw new Error('NEXT_REDIRECT')
     })
+    stubVimeoDuration(600)
 })
 
 const renderRoute = async (orgSlug: string, studyId: string) => {
@@ -51,6 +55,7 @@ describe('StudyCodeUploadRoute', () => {
         await renderRoute(org.slug, study.id)
 
         expect(screen.getByText('STEP 3')).toBeInTheDocument()
+        expect(screen.getByTestId('video-duration-badge')).toHaveTextContent('10 min video')
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
         expect(previousLink).toHaveAttribute('href', expect.stringContaining('/edit'))

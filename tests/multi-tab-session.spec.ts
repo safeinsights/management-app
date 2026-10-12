@@ -15,7 +15,7 @@ test.describe('two tabs, one session', () => {
 
         await goto(page, '/dashboard')
         await expect(page).toHaveURL(/\/dashboard/)
-        await expect(page.getByRole('heading', { name: 'My dashboard' })).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1, name: 'My studies' })).toBeVisible()
     })
 
     test('reloading a signed-out tab after signing in elsewhere keeps the active tab signed in', async ({ page }) => {
@@ -35,6 +35,6 @@ test.describe('two tabs, one session', () => {
 
         await goto(page, '/dashboard')
         await expect(page).toHaveURL(/\/dashboard/)
-        await expect(page.getByRole('heading', { name: 'My dashboard' })).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1, name: 'My studies' })).toBeVisible()
     })
 })

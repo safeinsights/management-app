@@ -10,6 +10,7 @@ import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
+import { UUID_RE } from '@/lib/collaboration-documents'
 import {
     CSP_HEADER,
     CSP_NONCE_HEADER,
@@ -59,6 +60,30 @@ function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
     return NextResponse.redirect(cleanUrl)
 }
 
+const SIGNIN_PARAM_VALIDATORS: Record<string, (value: string) => boolean> = {
+    [BOUNCE_PARAM]: (v) => v === BOUNCE_VALUE,
+    restart: (v) => v === 'true',
+    invite_not_found: (v) => v === '1',
+    error: (v) => v === 'session',
+    invite_id: (v) => UUID_RE.test(v),
+}
+
+// Next serializes every query param into the page's RSC payload, so DAST scanners report any value
+// they injected as reflected XSS (SIINFOSEC-1626). Dropping invalid values keeps them out of the page.
+function sanitizeSigninParams(req: NextRequest): NextResponse | null {
+    if (req.nextUrl.pathname !== Routes.accountSignin) return null
+
+    const params = req.nextUrl.searchParams
+    const invalid = Object.entries(SIGNIN_PARAM_VALIDATORS)
+        .filter(([param, isValid]) => params.has(param) && !params.getAll(param).every(isValid))
+        .map(([param]) => param)
+    if (!invalid.length) return null
+
+    const cleanUrl = req.nextUrl.clone()
+    invalid.forEach((param) => cleanUrl.searchParams.delete(param))
+    return NextResponse.redirect(cleanUrl)
+}
+
 // Every document-rendering path goes through here rather than NextResponse.next() directly, so no
 // branch can miss the nonce.
 export function continueWithNonce(req: NextRequest): NextResponse {
@@ -85,6 +110,9 @@ export const proxy = clerkMiddleware(async (auth, req) => {
 
     const redirectSanitized = sanitizeRedirectParam(req)
     if (redirectSanitized) return redirectSanitized
+
+    const signinSanitized = sanitizeSigninParams(req)
+    if (signinSanitized) return signinSanitized
 
     const { userId: clerkUserId, sessionClaims } = await auth()
 

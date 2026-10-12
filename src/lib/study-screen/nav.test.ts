@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { Route } from 'next'
 import type { StudyState } from './state.types'
 import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import {
@@ -40,7 +39,7 @@ const state = (overrides: Partial<StudyState>): StudyState => ({
 })
 
 const STUDY_ID = '01900000-0000-7000-8000-000000000001'
-const ctx: NavCtx = { orgSlug: 'lab', studyId: STUDY_ID, dashboardHref: '/dashboard' as Route }
+const ctx: NavCtx = { orgSlug: 'lab', studyId: STUDY_ID }
 
 const base = `/lab/study/${STUDY_ID}`
 const labels = (nav: StepNav) => [nav.back?.label, nav.secondary?.label, nav.forward?.label]
@@ -116,12 +115,9 @@ describe('resolveStepNav — spec pattern invariants', () => {
 describe('resolveStepNav — proposal phase', () => {
     const submitted = { isDraft: false } as const
 
-    it('anchors "Previous step" to the read-only Step 1 record, carrying the entry point', () => {
-        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'APPROVED' }), {
-            ...ctx,
-            returnTo: 'org',
-        })
-        expect(nav.back).toMatchObject({ label: 'Previous step', variant: 'subtle', href: `${base}/edit?returnTo=org` })
+    it('anchors "Previous step" to the read-only Step 1 record', () => {
+        const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status: 'APPROVED' }), ctx)
+        expect(nav.back).toMatchObject({ label: 'Previous step', variant: 'subtle', href: `${base}/edit` })
     })
 
     it('under review: the Data Partner holds the next move, so the exit is elevated', () => {
@@ -155,12 +151,13 @@ describe('resolveStepNav — proposal phase', () => {
     it.each(['PENDING-REVIEW', 'CHANGE-REQUESTED', 'REJECTED', 'APPROVED'] as const)(
         'once code is submitted, forward returns to the read-only code step (status %s)',
         (status) => {
-            const nav = resolveStepNav('proposal-feedback', state({ ...submitted, status, hasSubmittedCode: true }), {
-                ...ctx,
-                returnTo: 'org',
-            })
+            const nav = resolveStepNav(
+                'proposal-feedback',
+                state({ ...submitted, status, hasSubmittedCode: true }),
+                ctx,
+            )
             expect(labels(nav)).toEqual(['Previous step', undefined, 'Next step'])
-            expect(nav.forward?.href).toBe(`${base}/view/code?returnTo=org`)
+            expect(nav.forward?.href).toBe(`${base}/view/code`)
         },
     )
 })

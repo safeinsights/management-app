@@ -1,9 +1,13 @@
 import type { StudyJobStatus } from '@/database/types'
 import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { Table, TableTbody } from '@mantine/core'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { StudyRow } from './study-row'
+import { Routes } from '@/lib/routes'
+import { getColumns } from './columns'
+import { DeleteDraftButton } from './delete-draft-button'
+import { buildRowModel } from './row-model'
+import { StudyRowView } from './study-row-view'
 import type { Audience, StudyRow as StudyRowType } from './types'
 
 const baseStudy: StudyRowType = {
@@ -20,6 +24,7 @@ const baseStudy: StudyRowType = {
     jobStatusChanges: [],
     researcherAgreementsAckedAt: null,
     piUserId: null,
+    datasets: null,
     researchQuestions: null,
     projectSummary: null,
     impact: null,
@@ -29,11 +34,15 @@ const baseStudy: StudyRowType = {
     orgSlug: 'test-org',
 }
 
-function renderRow(study: StudyRowType, audience: Audience = 'reviewer') {
+function renderRow(study: StudyRowType, audience: Audience = 'reviewer', userId?: string) {
     return renderWithProviders(
         <Table>
             <TableTbody>
-                <StudyRow study={study} audience={audience} scope="org" orgSlug="test-org" />
+                <StudyRowView
+                    row={buildRowModel(study, audience, { orgSlug: 'test-org', userId })}
+                    columns={getColumns(audience, 'org', false)}
+                    DeleteDraft={DeleteDraftButton}
+                />
             </TableTbody>
         </Table>,
     )
@@ -51,7 +60,7 @@ describe('StudyRow status pill', () => {
 
         await user.hover(screen.getByText('Awaiting code'))
 
-        expect(await screen.findByText('Waiting for Genius to submit their code.')).toBeVisible()
+        expect(await screen.findByText('Waiting for Genius Lab to submit their code.')).toBeVisible()
     })
 
     it('tells the researcher the proposal is with the data partner, naming the partner', async () => {
@@ -67,7 +76,7 @@ describe('StudyRow status pill', () => {
     })
 })
 
-const rowEl = () => screen.getByText('Reading Comprehension Study').closest('tr') as HTMLElement
+const rowEl = () => screen.getByRole('link', { name: 'Reading Comprehension Study' }).closest('tr') as HTMLElement
 // The highlight is a data attribute the CSS module keys on, not an inline colour.
 const isHighlighted = (tr: HTMLElement) => tr.hasAttribute('data-highlighted')
 
@@ -115,5 +124,87 @@ describe('StudyRow reviewer highlight', () => {
             ],
         })
         expect(isHighlighted(rowEl())).toBe(false)
+    })
+})
+
+describe('StudyRow title', () => {
+    // "Back to my studies" always lands on My studies, so an org dashboard entry carries no marker (OTTER-805).
+    it('is the only link in the row and opens the study in the same tab', () => {
+        renderRow(
+            { ...baseStudy, status: 'APPROVED', jobStatusChanges: [{ status: 'CODE-SUBMITTED' as StudyJobStatus }] },
+            'researcher',
+        )
+
+        const link = screen.getByRole('link', { name: 'Reading Comprehension Study' })
+        expect(link).toHaveAttribute('href', Routes.studyView({ orgSlug: 'test-org', studyId: baseStudy.id }))
+        expect(link).not.toHaveAttribute('target')
+        expect(within(rowEl()).getAllByRole('link')).toHaveLength(1)
+    })
+
+    it('shows the full title in a tooltip on hover', async () => {
+        const user = userEvent.setup()
+        renderRow(baseStudy)
+
+        await user.hover(screen.getByRole('link', { name: 'Reading Comprehension Study' }))
+
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Reading Comprehension Study')
+    })
+})
+
+describe('StudyRow attribution', () => {
+    it('lists every review stage in the Reviewed by tooltip', async () => {
+        const user = userEvent.setup()
+        renderRow({
+            ...baseStudy,
+            proposalReviewerName: 'Aspen Brooke',
+            proposalReviewedAt: new Date('2026-09-01'),
+            codeReviewerName: 'Jesse Tetris',
+            codeReviewedAt: new Date('2026-09-02'),
+        })
+
+        await user.hover(screen.getByText('Jesse Tetris'))
+
+        const tooltip = await screen.findByRole('tooltip')
+        expect(tooltip).toHaveTextContent('Proposal: Aspen Brooke')
+        expect(tooltip).toHaveTextContent('Code: Jesse Tetris')
+        expect(tooltip).toHaveTextContent('Outputs: Not reviewed')
+    })
+
+    it('shows Not submitted for a draft', () => {
+        renderRow({ ...baseStudy, status: 'DRAFT', jobStatusChanges: [] }, 'researcher')
+        expect(screen.getAllByText('Not submitted')).toHaveLength(2)
+    })
+})
+
+describe('StudyRow draft bin', () => {
+    const draft = { ...baseStudy, status: 'DRAFT' as const, jobStatusChanges: [] }
+
+    it('shows the bin beside the status for the draft author', () => {
+        renderRow(draft, 'researcher', 'researcher-1')
+        expect(screen.getByLabelText(/delete draft study/i)).toBeDefined()
+    })
+
+    it('hides the bin from other researchers', () => {
+        renderRow(draft, 'researcher', 'someone-else')
+        expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
+    })
+
+    it('renders no bin when the container passes no delete control', () => {
+        renderWithProviders(
+            <Table>
+                <TableTbody>
+                    <StudyRowView
+                        row={buildRowModel(draft, 'researcher', { orgSlug: 'test-org', userId: 'researcher-1' })}
+                        columns={getColumns('researcher', 'org', false)}
+                    />
+                </TableTbody>
+            </Table>,
+        )
+        expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
+    })
+
+    it('hides the bin once the study is submitted', () => {
+        renderRow({ ...draft, status: 'PENDING-REVIEW' }, 'researcher', 'researcher-1')
+        expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
     })
 })

@@ -1,8 +1,8 @@
 import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
-import { buttonVars, cssVariablesResolver, theme } from './theme'
-import { semanticShades } from './theme/tokens'
+import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
+import { semanticCssVariables, semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
 // hand-copied from its Variables panel, so drift would otherwise be invisible in review.
@@ -32,6 +32,11 @@ describe('palette', () => {
     it.each(Object.entries(semanticShades))('resolves %s -> %s', (_token, ref) => {
         const [family, shade] = ref.split('.')
         expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
+    })
+
+    it('publishes border/SideNav as navy/0 at 30 percent', () => {
+        const vars = semanticCssVariables(mergeMantineTheme(DEFAULT_THEME, theme))
+        expect(vars['--si-color-border-sidenav']).toBe('#e6e9ef4d')
     })
 })
 
@@ -91,6 +96,14 @@ describe('buttons', () => {
         },
     )
 
+    it('paints a disabled action icon as a pale glyph with no tile', () => {
+        expect(theme.components?.ActionIcon?.vars).toBe(actionIconVars)
+        expect(actionIconVars().root).toEqual({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#dadee1',
+        })
+    })
+
     it('no longer ships button colours through a styles callback', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
@@ -105,6 +118,44 @@ describe('buttons', () => {
 
     it('falls back to the md geometry for an unsized button', () => {
         expect(buttonVars({}, {}).root['--button-height']).toBe('42px')
+    })
+})
+
+describe('inputs', () => {
+    it.each([undefined, 'default'])('gives the %s variant the selected blue focus border', (variant) => {
+        expect(inputVars({}, { variant }).wrapper['--input-bd-focus']).toBe('var(--si-color-surface-selected)')
+    })
+
+    it.each(['unstyled', 'filled'])('leaves the %s variant focus border to Mantine', (variant) => {
+        expect(inputVars({}, { variant }).wrapper).not.toHaveProperty('--input-bd-focus')
+    })
+
+    it.each(['default', 'unstyled'])('paints the disabled %s input from the library tokens', (variant) => {
+        expect(inputVars({}, { variant }).wrapper).toMatchObject({
+            '--input-disabled-bg': 'var(--si-color-surface-disabled-medium)',
+            '--input-disabled-color': 'var(--si-color-text-disabled)',
+        })
+    })
+
+    it('keeps disabled inputs at full opacity', () => {
+        const styles = theme.components?.Input?.styles as { input?: { opacity?: number } } | undefined
+
+        expect(styles?.input?.opacity).toBe(1)
+    })
+})
+
+describe('checkboxes', () => {
+    it('defaults every checkbox to the selected blue and the small radius', () => {
+        expect(theme.components?.Checkbox?.defaultProps).toMatchObject({
+            radius: 'xs',
+            color: 'var(--si-color-surface-selected)',
+        })
+    })
+})
+
+describe('radios', () => {
+    it('defaults every radio to the same selected blue as the checkboxes', () => {
+        expect(theme.components?.Radio?.defaultProps?.color).toBe('var(--si-color-surface-selected)')
     })
 })
 

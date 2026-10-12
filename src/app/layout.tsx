@@ -9,6 +9,9 @@ import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
+// The layered build only: the plain stylesheet sits outside the cascade layer and would outrank the
+// theme's Notification override.
+import '@mantine/notifications/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
 import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
@@ -18,6 +21,7 @@ import { GlobalLoading } from '@/components/layout/global-loading'
 import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
+import { clientUserInfoSnapshotForRequest } from '@/server/session'
 
 const APP_TITLE = 'SafeInsights'
 
@@ -43,12 +47,18 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     await connection()
+    const { userInfo, updatedAt } = await clientUserInfoSnapshotForRequest()
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
         <html lang="en" translate="no" className={globalFont.className}>
             <body>
-                <Providers singleUserEditing={SINGLE_USER_EDITING} posthogProjectToken={postHogProjectToken}>
+                <Providers
+                    singleUserEditing={SINGLE_USER_EDITING}
+                    posthogProjectToken={postHogProjectToken}
+                    userInfo={userInfo}
+                    userInfoUpdatedAt={updatedAt}
+                >
                     <Suspense fallback={<GlobalLoading />}>
                         {children}
                         <HydrationMarker />
