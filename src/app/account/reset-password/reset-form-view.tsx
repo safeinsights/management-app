@@ -41,13 +41,14 @@ export const ResetFormView: FC<ResetFormViewProps> = ({ form, onSubmit, isPendin
                         <Link
                             href={Routes.accountSignin}
                             mt="md"
-                            c="purple.5"
+                            c={semanticColor('link.default')}
                             fw={fontWeight.semibold}
                             fz="md"
-                            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                         >
-                            <CaretLeftIcon size={20} />
-                            Back to log in
+                            <Flex component="span" align="center" gap="xs">
+                                <CaretLeftIcon size={20} />
+                                Back to log in
+                            </Flex>
                         </Link>
                     </Stack>
                 </Flex>

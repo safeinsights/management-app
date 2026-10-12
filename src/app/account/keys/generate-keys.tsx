@@ -14,6 +14,7 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import styles from './generate-keys.module.css'
 import {
     KEY_RESET_CONFIRM_COLOR,
     KEY_RESET_MODAL_BODY,
@@ -89,7 +90,6 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     isRegenerating = false,
     firstKeyRedirect = Routes.dashboard,
 }) => {
-    const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
@@ -131,12 +131,9 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                     </Text>
                     <Code
                         block
-                        style={{
-                            maxHeight: 160,
-                            border: `1px solid ${theme.colors.grey[7]}`,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
+                        mah={160}
+                        bd={`1px solid ${semanticColor('border.dark')}`}
+                        className={styles.privateKey}
                     >
                         {keys.privateKey}
                     </Code>

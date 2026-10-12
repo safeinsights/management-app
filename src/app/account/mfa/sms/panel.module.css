@@ -16,3 +16,8 @@
     border-color: transparent;
     outline-offset: 0;
 }
+
+/* The Stepper only switches between the two steps' content; its step headers are never shown. */
+.hiddenSteps {
+    display: none;
+}

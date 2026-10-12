@@ -14,6 +14,7 @@ import {
     Box,
     Button,
     CopyButton,
+    Flex,
     Group,
     Paper,
     rgba,
@@ -114,7 +115,7 @@ function AddTotpScreenContent({
             <Stack align="center" gap="xs">
                 {totp && displayFormat === 'qr' && (
                     <>
-                        <Box bg={rgba(theme.colors.grey[0], 0.3)} p={6}>
+                        <Box bg={rgba(theme.colors.grey[0], 0.3)} p="xs">
                             <QRCodeSVG value={totp?.uri || ''} size={150} />
                         </Box>
                         {secret && (
@@ -141,12 +142,14 @@ function AddTotpScreenContent({
                             </Group>
                         )}
                         <Text size="sm">
-                            <span style={{ color: theme.colors.grey[7] }}>Having trouble?</span>{' '}
+                            <Box component="span" c={semanticColor('text.secondary')}>
+                                Having trouble?
+                            </Box>{' '}
                             <Anchor
                                 component="button"
                                 c={semanticColor('link.default')}
                                 underline="always"
-                                style={{ opacity: canRegenerate ? 1 : 0.4 }}
+                                opacity={canRegenerate ? 1 : 0.4}
                                 disabled={!canRegenerate}
                                 onClick={async () => {
                                     try {
@@ -195,13 +198,14 @@ function AddTotpScreenContent({
                     <Link
                         href={Routes.accountMfa}
                         mt="md"
-                        c="purple.5"
+                        c={semanticColor('link.default')}
                         fw={fontWeight.semibold}
                         fz="md"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                     >
-                        <CaretLeftIcon size={20} />
-                        Back to options
+                        <Flex component="span" align="center" gap="xs">
+                            <CaretLeftIcon size={20} />
+                            Back to options
+                        </Flex>
                     </Link>
                 </Stack>
             </form>

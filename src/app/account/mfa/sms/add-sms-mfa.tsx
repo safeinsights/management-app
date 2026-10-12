@@ -7,7 +7,7 @@ import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Box, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
+import { Anchor, Box, Button, Container, Flex, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
@@ -19,6 +19,7 @@ import BackupCodes from '../app/backup-codes'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
 import { AddSmsMfaView } from './add-sms-mfa-view'
+import styles from './panel.module.css'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 // https://clerk.com/docs/custom-flows/add-phone
@@ -173,11 +174,7 @@ export function AddSMSMFA() {
                 <Stack gap="lg">
                     <Stepper
                         unstyled
-                        styles={{
-                            steps: {
-                                display: 'none',
-                            },
-                        }}
+                        classNames={{ steps: styles.hiddenSteps }}
                         active={isVerifying ? 1 : 0}
                         onStepClick={() => null}
                     >
@@ -217,7 +214,7 @@ export function AddSMSMFA() {
                                             Verify code
                                         </Button>
                                         <Group>
-                                            <Text fz="md" c="grey.7">
+                                            <Text fz="md" c={semanticColor('text.secondary')}>
                                                 Didn’t receive a code?{' '}
                                                 <Anchor component="button" onClick={resendCode}>
                                                     Resend code
@@ -228,13 +225,14 @@ export function AddSMSMFA() {
                                             <Link
                                                 href={Routes.accountMfa}
                                                 mt="md"
-                                                c="purple.5"
+                                                c={semanticColor('link.default')}
                                                 fw={fontWeight.semibold}
                                                 fz="md"
-                                                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                                             >
-                                                <CaretLeftIcon size={20} />
-                                                Back to options
+                                                <Flex component="span" align="center" gap="xs">
+                                                    <CaretLeftIcon size={20} />
+                                                    Back to options
+                                                </Flex>
                                             </Link>
                                         </Group>
                                     </Stack>

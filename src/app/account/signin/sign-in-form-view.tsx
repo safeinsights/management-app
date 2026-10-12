@@ -46,7 +46,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         label="Password"
                         key={form.key('password')}
                         {...form.getInputProps('password')}
-                        mt={10}
+                        mt="sm"
                         placeholder="*********"
                         aria-label="Password"
                         // Mantine renders PasswordInput's inner <input> with withAria disabled, so
@@ -63,14 +63,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         Forgot password?
                     </Link>
                     <SignInError clerkError={clerkError} setClerkError={setClerkError} />
-                    <Button
-                        mt="md"
-                        mb="xxl"
-                        size="lg"
-                        disabled={!form.isValid()}
-                        type="submit"
-                        bg={!form.isValid() ? 'grey.1' : undefined}
-                    >
+                    <Button mt="md" mb="xxl" size="lg" disabled={!form.isValid()} type="submit">
                         Login
                     </Button>
                 </Flex>

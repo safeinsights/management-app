@@ -23,7 +23,7 @@ const DocumentDates: FC<{ document?: GlobalDocument | null }> = ({ document }) =
     if (!document) return null
 
     return (
-        <Stack gap={2} align="flex-end">
+        <Stack gap="xxs" align="flex-end">
             <Text fz="sm" c="dimmed">
                 Effective on: {formatInstantAsUtcDay(document.publishedAt)}
             </Text>

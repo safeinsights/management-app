@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Flex, Group, Stack, Text, Title } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import PhoneInput, { isPossiblePhoneNumber } from 'react-phone-number-input'
@@ -11,7 +11,7 @@ import { revalidateOnBlur } from '@/components/form-field'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import styles from './panel.module.css'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const PHONE_ERROR_ID = 'sms-mfa-phone-error'
 
@@ -30,7 +30,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 SMS verification
             </Title>
             <Text>Enter your phone number to receive a verification code via SMS to complete the setup.</Text>
-            <Text fz="sm" fw={500}>
+            <Text fz="sm" fw={fontWeight.semibold}>
                 Enter phone number
             </Text>
             {/* PhoneInput is a third-party control, so it cannot take getInputProps; blur
@@ -68,13 +68,14 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 <Link
                     href={Routes.accountMfa}
                     mt="md"
-                    c="purple.5"
+                    c={semanticColor('link.default')}
                     fw={fontWeight.semibold}
                     fz="md"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 >
-                    <CaretLeftIcon size={20} />
-                    Back to options
+                    <Flex component="span" align="center" gap="xs">
+                        <CaretLeftIcon size={20} />
+                        Back to options
+                    </Flex>
                 </Link>
             </Group>
         </Stack>

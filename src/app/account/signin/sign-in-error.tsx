@@ -1,7 +1,7 @@
 import { InputError } from '@/components/errors'
 import { Stack, Flex, CloseButton, Text, useMantineTheme } from '@mantine/core'
 import { FC } from 'react'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface SignInErrorProps {
     clerkError: { title: string; message: string } | null
@@ -16,7 +16,7 @@ export const SignInError: FC<SignInErrorProps> = ({ clerkError, setClerkError })
             error={
                 <Stack justify="space-between" gap="xs">
                     <Flex direction="row" justify="space-between" align="flex-start">
-                        <Text ta="left" c="red" fw={fontWeight.bold}>
+                        <Text ta="left" c={semanticColor('error.text')} fw={fontWeight.bold}>
                             {clerkError.title}
                         </Text>
                         <CloseButton

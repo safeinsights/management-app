@@ -1,0 +1,5 @@
+/* A private key is one unbroken string, so it must wrap at any character rather than overflow. */
+.privateKey {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
