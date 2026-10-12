@@ -7,6 +7,8 @@ import { ResubmissionNoteSection } from '@/components/study/resubmission-note-se
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { Routes } from '@/lib/routes'
+import type { NavAction } from '@/lib/study-screen'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 const ORG_NAME = 'Reviewing Org'
@@ -37,6 +39,7 @@ const renderFooter = (
         withNoteInput?: boolean
         blockedReason?: string | null
         onSubmitAttempt?: () => void
+        viewOutputs?: NavAction
     } = {},
 ) => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
@@ -50,6 +53,7 @@ const renderFooter = (
                 blockedReason={opts.blockedReason ?? null}
                 onSubmitAttempt={opts.onSubmitAttempt ?? (() => {})}
                 filesEdited={opts.filesEdited ?? false}
+                viewOutputs={opts.viewOutputs}
             />
         </EditCodeResubmitProvider>,
     )
@@ -283,5 +287,67 @@ describe('EditStudyCodeFooter — Previous step', () => {
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+    })
+})
+
+describe('EditStudyCodeFooter: View outputs', () => {
+    const VIEW_OUTPUTS: NavAction = {
+        label: 'View outputs',
+        href: Routes.studyView({ orgSlug: 'lab-1', studyId: STUDY_ID }),
+        variant: 'outline',
+        testId: 'cta-view-outputs',
+    }
+
+    it('is absent when Edit code was not opened from the outputs step', () => {
+        renderFooter()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
+    it('renders as an outline button just before Resubmit code for review', () => {
+        renderFooter({ viewOutputs: VIEW_OUTPUTS })
+
+        const viewOutputs = screen.getByRole('button', { name: 'View outputs' })
+        const resubmit = screen.getByRole('button', { name: 'Resubmit code for review' })
+        expect(viewOutputs).toHaveAttribute('data-variant', 'outline')
+        expect(viewOutputs.compareDocumentPosition(resubmit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('opens the latest outputs page in the same tab without saving when nothing has changed', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        renderFooter({ initialNote: wordsString(3), viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).not.toHaveBeenCalled()
+    })
+
+    it('saves the note edited this session before leaving for the outputs page', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        vi.mocked(saveCodeResubmissionNoteDraftAction).mockClear()
+        renderFooter({ initialNote: wordsString(3), withNoteInput: true, viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByLabelText('Resubmission note'))
+        await user.paste(' more')
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled()
+    })
+
+    it('stays on Edit code when the note draft cannot be saved', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        vi.mocked(saveCodeResubmissionNoteDraftAction).mockRejectedValueOnce(new Error('offline'))
+        renderFooter({ initialNote: wordsString(3), withNoteInput: true, viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByLabelText('Resubmission note'))
+        await user.paste(' more')
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled())
+        expect(memoryRouter.asPath).toBe('/start')
     })
 })
