@@ -4,7 +4,6 @@ import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { latestJob, projectStudyState, type RawJob, type RawStudyState, type StudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
 import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
-import { getOrgNameFromId } from '@/server/db/queries'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type GuardSuccess = {
@@ -46,8 +45,7 @@ export async function guardOutputsFeedbackScreen({
     }
 
     const { entries, feedbackLoadError } = await loadOutputsFeedback(study.id)
-    const dataPartner = await getOrgNameFromId(study.orgId)
     const decidedAt = latestStatusAt(datedStatusChanges(job.statusChanges), decisionStatus)
 
-    return { job, entries, feedbackLoadError, dataPartner, decidedAt }
+    return { job, entries, feedbackLoadError, dataPartner: study.orgName, decidedAt }
 }

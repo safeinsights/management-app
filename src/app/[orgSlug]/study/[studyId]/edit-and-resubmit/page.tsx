@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation'
 import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
-import { db } from '@/database'
 import { isSessionOrgMember } from '@/lib/utils'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
@@ -36,8 +35,6 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in entriesResult) return notFound()
     const entries = entriesResult
 
-    const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
-
     const labMembers = await getUsersForOrgId(study.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
@@ -62,7 +59,7 @@ export default async function StudyEditAndResubmitRoute(props: {
             >
                 <EditResubmitForm
                     header={<StudyPageHeader study={study} />}
-                    orgName={enclaveOrg?.name ?? ''}
+                    orgName={study.orgName}
                     members={memberOptions}
                     researcherName={study.createdBy}
                     researcherId={study.researcherId}
