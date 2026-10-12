@@ -1,11 +1,12 @@
 'use client'
 
-import { FC, ReactNode } from 'react'
+import { FC } from 'react'
 import type { Route } from 'next'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
+import { MANTINE_VARIANT } from '@/components/study/step-navigation'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { Routes } from '@/lib/routes'
@@ -34,16 +35,6 @@ const UNSAVED_EDITS_TOOLTIP =
 
 const ORDERED_FIELD_IDS = [SUBMIT_CODE_ERROR_ID, RESUBMISSION_NOTE_FIELD_ID]
 
-// Either exit leaves edit mode, so both explain that unsubmitted edits stay private until resubmit.
-const UnsavedEditsTooltip: FC<{ hasChanges: boolean; children: ReactNode }> = ({ hasChanges, children }) => {
-    if (!hasChanges) return children
-    return (
-        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320}>
-            {children}
-        </InfoTooltip>
-    )
-}
-
 // Flush the debounced note draft before navigating, or the last keystrokes are lost.
 const useLeaveEditCode = ({ hasChanges, isBusy }: { hasChanges: boolean; isBusy: boolean }) => {
     const router = useRouter()
@@ -66,9 +57,10 @@ type PreviousStepButtonProps = {
     onClick: () => void
 }
 
+// Either exit leaves edit mode, so both explain that unsubmitted edits stay private until resubmit.
 const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, isSaving, onClick }) => {
     return (
-        <UnsavedEditsTooltip hasChanges={hasChanges}>
+        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320} disabled={!hasChanges}>
             <Button
                 type="button"
                 variant="subtle"
@@ -80,7 +72,7 @@ const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, i
             >
                 Previous step
             </Button>
-        </UnsavedEditsTooltip>
+        </InfoTooltip>
     )
 }
 
@@ -94,10 +86,10 @@ type ViewOutputsButtonProps = {
 const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, hasChanges, isBusy, onLeave }) => {
     if (!action) return null
     return (
-        <UnsavedEditsTooltip hasChanges={hasChanges}>
+        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320} disabled={!hasChanges}>
             <Button
                 type="button"
-                variant="outline"
+                variant={MANTINE_VARIANT[action.variant]}
                 size="md"
                 disabled={isBusy}
                 data-testid={action.testId}
@@ -105,7 +97,7 @@ const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, hasChanges, isB
             >
                 {action.label}
             </Button>
-        </UnsavedEditsTooltip>
+        </InfoTooltip>
     )
 }
 

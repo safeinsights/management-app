@@ -7,8 +7,8 @@ import { ResubmissionNoteSection } from '@/components/study/resubmission-note-se
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
-import { Routes } from '@/lib/routes'
-import type { NavAction } from '@/lib/study-screen'
+import { codeResubmissionNav, type NavAction } from '@/lib/study-screen'
+import { studyState } from '@/lib/study-screen/state.fixture'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 const ORG_NAME = 'Reviewing Org'
@@ -291,12 +291,10 @@ describe('EditStudyCodeFooter — Previous step', () => {
 })
 
 describe('EditStudyCodeFooter: View outputs', () => {
-    const VIEW_OUTPUTS: NavAction = {
-        label: 'View outputs',
-        href: Routes.studyView({ orgSlug: 'lab-1', studyId: STUDY_ID }),
-        variant: 'outline',
-        testId: 'cta-view-outputs',
-    }
+    const VIEW_OUTPUTS = codeResubmissionNav(studyState({ resultsRejected: true }), {
+        orgSlug: 'lab-1',
+        studyId: STUDY_ID,
+    }).secondary as NavAction
 
     it('is absent when Edit code was not opened from the outputs step', () => {
         renderFooter()
