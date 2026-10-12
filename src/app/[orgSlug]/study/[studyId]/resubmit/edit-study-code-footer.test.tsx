@@ -46,14 +46,14 @@ vi.mock('@/server/actions/study-request', () => ({
     saveCodeResubmissionNoteDraftAction: vi.fn().mockResolvedValue({ studyId: '', savedAt: '' }),
 }))
 
-const EXIT_TARGET = `/lab-1/study/${'11111111-1111-4111-8111-111111111111'}/view`
-
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
-const VIEW_OUTPUTS = codeResubmissionNav(studyState({ resultsRejected: true }), {
-    orgSlug: 'lab-1',
-    studyId: STUDY_ID,
-}).secondary as NavAction
+const OUTPUTS_TARGET = Routes.studyView({ orgSlug: 'lab-1', studyId: STUDY_ID })
+const PREVIOUS_TARGET = Routes.studySubmitted({ orgSlug: 'lab-1', studyId: STUDY_ID, from: 'edit-code' })
+
+const NAV = codeResubmissionNav(studyState({ resultsRejected: true }), { orgSlug: 'lab-1', studyId: STUDY_ID })
+const PREVIOUS_STEP = NAV.back
+const VIEW_OUTPUTS = NAV.secondary as NavAction
 
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
@@ -82,6 +82,7 @@ const renderFooter = (
                 blockedReason={opts.blockedReason ?? null}
                 onSubmitAttempt={opts.onSubmitAttempt ?? (() => {})}
                 filesEdited={opts.filesEdited ?? false}
+                previousStep={PREVIOUS_STEP}
                 viewOutputs={opts.viewOutputs}
             />
         </EditCodeResubmitProvider>,
@@ -278,23 +279,24 @@ describe('EditStudyCodeFooter — confirmation modal', () => {
 })
 
 describe('EditStudyCodeFooter — Previous step', () => {
-    it('steps back to the study view without saving when nothing has changed', async () => {
+    it('steps back to the approved proposal without saving when nothing has changed', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
         renderFooter({ initialNote: wordsString(3) })
 
         const previous = screen.getByRole('button', { name: 'Previous step' })
         expect(previous).toHaveAttribute('data-variant', 'subtle')
+        expect(previous).toHaveAttribute('data-testid', 'cta-previous-step')
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save and exit' })).not.toBeInTheDocument()
 
         await user.click(previous)
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(PREVIOUS_TARGET))
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).not.toHaveBeenCalled()
     })
 
-    it('saves the note edited this session, then steps back to the study view', async () => {
+    it('saves the note edited this session, then steps back to the approved proposal', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
         renderFooter({ initialNote: wordsString(3), withNoteInput: true })
@@ -303,7 +305,7 @@ describe('EditStudyCodeFooter — Previous step', () => {
         await user.paste(' more')
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(PREVIOUS_TARGET))
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled()
     })
 
@@ -314,7 +316,7 @@ describe('EditStudyCodeFooter — Previous step', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(PREVIOUS_TARGET))
     })
 })
 
@@ -340,7 +342,7 @@ describe('EditStudyCodeFooter: View outputs', () => {
 
         await user.click(screen.getByRole('button', { name: 'View outputs' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(OUTPUTS_TARGET))
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).not.toHaveBeenCalled()
     })
 
@@ -353,7 +355,7 @@ describe('EditStudyCodeFooter: View outputs', () => {
         await user.paste(' more')
         await user.click(screen.getByRole('button', { name: 'View outputs' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(OUTPUTS_TARGET))
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled()
     })
 
@@ -398,7 +400,10 @@ describe('EditStudyCodeFooter: View outputs', () => {
 // The form's dirty flag compares against the page-load note, not the last autosave, so an exit
 // that only saved when dirty would drop a revert to the original note.
 describe('EditStudyCodeFooter: leaving after an autosave', () => {
-    it.each(['Previous step', 'View outputs'])('%s saves a note reverted to its page-load value', async (exitLabel) => {
+    it.each([
+        ['Previous step', PREVIOUS_TARGET],
+        ['View outputs', OUTPUTS_TARGET],
+    ])('%s saves a note reverted to its page-load value', async (exitLabel, target) => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
         const original = wordsString(3)
@@ -418,7 +423,7 @@ describe('EditStudyCodeFooter: leaving after an autosave', () => {
         await user.click(screen.getByRole('button', { name: 'Revert note' }))
         await user.click(exit)
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(target))
         expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenLastCalledWith({
             studyId: STUDY_ID,
             note: original,

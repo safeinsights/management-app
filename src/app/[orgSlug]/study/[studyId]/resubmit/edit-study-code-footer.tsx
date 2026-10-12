@@ -2,14 +2,13 @@
 
 import { FC, useState, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button, Group, type ButtonVariant } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { MANTINE_VARIANT } from '@/components/study/step-navigation'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
-import { Routes } from '@/lib/routes'
 import type { NavAction } from '@/lib/study-screen'
 import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
@@ -26,6 +25,7 @@ interface EditStudyCodeFooterProps {
     blockedReason: string | null
     onSubmitAttempt: () => void
     filesEdited: boolean
+    previousStep: NavAction
     /** Present only when the round was reopened from the outputs step. */
     viewOutputs?: NavAction
 }
@@ -122,10 +122,10 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     blockedReason,
     onSubmitAttempt,
     filesEdited,
+    previousStep,
     viewOutputs,
 }) => {
-    const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, orgName, noteForm, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
+    const { orgName, noteForm, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
 
     const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt({
         isSubmitting,
@@ -139,7 +139,6 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     })
 
     const isBusy = isSaving || isSubmitting
-    const exitTarget = Routes.studyView({ orgSlug, studyId })
     const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
     const { leave, leavingVia } = useLeaveEditCode({ isBusy })
 
@@ -157,13 +156,14 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
         <>
             <Group justify="space-between" align="flex-start" mt="xs">
                 <LeaveEditCodeButton
-                    label="Previous step"
-                    variant="subtle"
+                    label={previousStep.label}
+                    variant={MANTINE_VARIANT[previousStep.variant]}
                     leftSection={<CaretLeftIcon />}
+                    testId={previousStep.testId}
                     hasChanges={hasChanges}
                     isBusy={isBusy}
                     isLeaving={isSaving && leavingVia === 'previous'}
-                    onClick={() => leave('previous', exitTarget)}
+                    onClick={() => leave('previous', previousStep.href)}
                 />
                 <Group gap="md" align="flex-start">
                     <ViewOutputsButton

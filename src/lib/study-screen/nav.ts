@@ -1,6 +1,6 @@
 import type { Route } from 'next'
 import type { StudyStatus } from '@/database/types'
-import { Routes } from '@/lib/routes'
+import { Routes, type NavOrigin } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
 import type { StudyRole, StudyState } from './state.types'
 import { canResearcherResubmitCode } from './eligibility'
@@ -40,6 +40,8 @@ export type StepNav = {
 export type NavCtx = {
     orgSlug: string
     studyId: string
+    // Set only on a page reached by "Previous step" from an edit page, so its forward step can return.
+    from?: NavOrigin
 }
 
 type NavRule = (state: StudyState, ctx: NavCtx) => StepNav
@@ -91,7 +93,8 @@ const editProposal = (ctx: NavCtx): NavAction => ({
 
 // --- phase anchors -------------------------------------------------------------------------------
 // "Previous step" is anchored per phase rather than to the page the user arrived from, which is what
-// lets this table stay a pure function of state.
+// lets this table stay a pure function of state. The one exception is a step back from an edit page:
+// the same state must then step forward to the edit page again, so the URL carries `from` one hop.
 
 // Proposal phase anchors to Step 1, which serves a submitted study as a read-only record (OTTER-764).
 const proposalPreviousStep = (ctx: NavCtx): NavAction =>
@@ -103,6 +106,10 @@ const proposalPreviousStep = (ctx: NavCtx): NavAction =>
 // route back into it.
 const codePreviousStep = (ctx: NavCtx): NavAction =>
     previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
+
+// Edit code walks back past the code step it was opened from, straight to the approved proposal.
+const editCodePreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, from: 'edit-code' }))
 
 // Outputs phase anchors to the approved-code step, which the read-only /view/code route already serves.
 const resultsPreviousStep = (ctx: NavCtx): NavAction =>
@@ -117,13 +124,16 @@ const studyOverviewNav: NavRule = (state, ctx) =>
 
 // Submitting code and code decisions rewrite study.status, so a submitted job is checked first: it
 // means the proposal was approved and this page was reached by walking back, so forward returns to
-// the read-only code step. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
+// the read-only code step, or to Edit code when that is where the step back came from and the round
+// is still open. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
 const proposalFeedbackNav: NavRule = (state, ctx) => {
     const back = proposalPreviousStep(ctx)
     if (state.hasSubmittedCode) {
+        const returnsToEditCode = ctx.from === 'edit-code' && canResearcherResubmitCode(state)
+        const params = { orgSlug: ctx.orgSlug, studyId: ctx.studyId }
         return {
             back,
-            forward: nextStep(Routes.studyViewCode({ orgSlug: ctx.orgSlug, studyId: ctx.studyId })),
+            forward: nextStep(returnsToEditCode ? Routes.studyResubmit(params) : Routes.studyViewCode(params)),
         }
     }
     if (state.status === 'CHANGE-REQUESTED') return { back, forward: editProposal(ctx) }
@@ -140,11 +150,13 @@ export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtx): StepNav => 
     back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
 })
 
-// /resubmit is a form route like /code: Previous step flushes the note draft and Resubmit opens a
-// modal, so both stay with the form. The table adds only "View outputs", for a round reopened from
-// the outputs step (OTTER-837).
-export const codeResubmissionNav = (state: StudyState, ctx: NavCtx): StepNav =>
-    isOutputsDecided(state) ? { secondary: viewOutputs(ctx) } : {}
+// /resubmit is a form route like /code: Resubmit opens a modal, so it stays with the form. The table
+// supplies "Previous step" (the footer flushes the note draft before following it) and, for a round
+// reopened from the outputs step, "View outputs" (OTTER-837).
+export const codeResubmissionNav = (state: StudyState, ctx: NavCtx): StepNav & { back: NavAction } => ({
+    back: editCodePreviousStep(ctx),
+    ...(isOutputsDecided(state) ? { secondary: viewOutputs(ctx) } : {}),
+})
 
 const codeUnderReviewNav: NavRule = (_state, ctx) => ({
     back: codePreviousStep(ctx),

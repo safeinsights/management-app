@@ -33,6 +33,7 @@ interface EditStudyCodeViewProps {
     orgName: string
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
+    previousStep: NavAction
     viewOutputs?: NavAction
 }
 
@@ -41,6 +42,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     orgName,
     feedbackEntries,
     studyHasCodeEnv,
+    previousStep,
     viewOutputs,
 }) => {
     const ide = useIDEFiles({ studyId })
@@ -84,6 +86,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 blockedReason={blockedReason}
                 onSubmitAttempt={() => setSubmitAttempted(true)}
                 filesEdited={ide.userEditedFiles}
+                previousStep={previousStep}
                 viewOutputs={viewOutputs}
             />
         </Stack>
