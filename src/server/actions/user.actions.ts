@@ -63,6 +63,8 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({
             userId,
+            actorId: session.user.id,
+            orgId: orgUser.orgId,
             before: { ...orgUser },
             after: { isAdmin },
         })

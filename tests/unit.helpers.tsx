@@ -15,6 +15,7 @@ import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { PostHog } from 'posthog-node'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
@@ -53,6 +54,18 @@ export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
 export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+const postHogCaptureMock = () => vi.mocked(PostHog.prototype.captureImmediate)
+
+export const postHogCaptures = () => postHogCaptureMock().mock.calls.map(([event]) => event)
+
+// posthog-node reports a failed send through its 'error' event rather than rejecting, as the mock does.
+export const failNextPostHogCapture = (error: Error) =>
+    postHogCaptureMock().mockImplementationOnce(async function (this: { emitError(error: unknown): void }) {
+        this.emitError(error)
+    } as never)
+
+export const flushDeferred = () => globalThis.__flushDeferred()
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
     db
@@ -208,16 +221,18 @@ const lexicalTextNode = (text: string) => ({
     version: 1,
 })
 
-/** Serialized Lexical state for one paragraph holding a link, plus optional plain text after it. */
+/** Serialized Lexical state for one paragraph holding a link, plus optional plain text around it. */
 export function lexicalLinkState({
     url,
     text = 'example',
     target = '_blank',
+    lead,
     tail,
 }: {
     url: string
     text?: string
     target?: string | null
+    lead?: string
     tail?: string
 }) {
     const link = {
@@ -232,7 +247,11 @@ export function lexicalLinkState({
         title: null,
         url,
     }
-    const children = tail === undefined ? [link] : [link, lexicalTextNode(tail)]
+    const children = [
+        ...(lead === undefined ? [] : [lexicalTextNode(lead)]),
+        link,
+        ...(tail === undefined ? [] : [lexicalTextNode(tail)]),
+    ]
 
     return JSON.stringify({
         root: {
