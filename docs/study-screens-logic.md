@@ -304,21 +304,25 @@ The spec's governing rule: every state carries **exactly one solid button**, so 
 end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form
 (passed to `StepNavigation` as `formAction`); such screens legitimately return only `Previous step`.
 "Previous step" is anchored **per phase**, not to the page the user arrived from, which keeps the
-table a pure function of state.
+table a pure function of state. The one exception is a step back from an edit page (OTTER-673): the
+page it lands on has the same state as when it is reached from the status page, but its `Next step`
+must return to the edit page. So Edit proposal and Edit code step back with `?from=edit-proposal` or
+`?from=edit-code`, and `/edit` and `/submitted` read it into `NavCtx.from`. It lasts one hop, and a
+page ignores it once the edit page would no longer render.
 
 **Researcher table:**
 
-| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                   |
-| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                            |
-| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code`; CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
-| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                           |
-| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                    |
-| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
-| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
-| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
-| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                            |
-| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                                                                                     |
+| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                                                                                              |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code` (`from=edit-code` and `canResearcherResubmitCode`: → `/resubmit`); CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                                                                                             |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                                                                                      |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                                                                                     |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                                                                                             |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                                                                                      |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                                                                                              |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                                                                                           |
 
 **Reviewer table:**
 
@@ -341,11 +345,16 @@ through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
 before that.
 
-`/resubmit` (Edit code) is a form route too. `Previous step` (flushes the note draft, then `/view`)
-and `Resubmit code for review` belong to the form. `codeResubmissionNav(state, ctx)` adds only an
-outline `View outputs` → `/view`, and only when `isOutputsDecided`: the round was reopened from the
-outputs step, so `/view` serves the latest outputs screen. Edit code reached from
-`CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
+`/resubmit` (Edit code) is a form route too. `Resubmit code for review` belongs to the form.
+`codeResubmissionNav(state, ctx)` always supplies `Previous step` → `/submitted?from=edit-code`, the
+approved proposal, past the code step Edit code was opened from (OTTER-673); the footer flushes the
+note draft before following it. It adds an outline `View outputs` → `/view` only when
+`isOutputsDecided`: the round was reopened from the outputs step, so `/view` serves the latest outputs
+screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
+
+`/edit` (Step 1) resolves its forward step through `setupStepNav(status, ctx)`. For a submitted study
+its only action is `Next step`: → `/edit-and-resubmit` when `from=edit-proposal` and the study is still
+`CHANGE-REQUESTED`, else → `/submitted` (OTTER-673).
 
 Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
 once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
@@ -563,7 +572,7 @@ re-architecting — exactly as the design intended.
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
-| `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837)                                                              |
+| `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837), `setupStepNav` (`/edit`, OTTER-673)                         |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
 | `index.ts`                             | public barrel                                                                                               |
 | `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |
