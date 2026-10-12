@@ -25,8 +25,9 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     // The same predicate the autosave and resubmit actions gate on, so the page never renders a
     // state those actions would reject.
     const raw = await rawStudyStateForStudy(studyId)
-    const state = raw ? projectStudyState(raw) : null
-    if (!state || !canResearcherResubmitCode(state)) return notFound()
+    if (!raw) return notFound()
+    const state = projectStudyState(raw)
+    if (!canResearcherResubmitCode(state)) return notFound()
     const nav = codeResubmissionNav(state, { orgSlug, studyId })
 
     const feedbackResult = await getCodeReviewFeedbackAction({ studyId })

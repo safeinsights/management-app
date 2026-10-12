@@ -119,6 +119,37 @@ describe('ResubmitStudyCodePage', () => {
         expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
     })
 
+    it('hides View outputs when a newer round asks for code changes after an outputs decision', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const second = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await insertStatus(second.id, 'CODE-SUBMITTED')
+
+        // The projection reads the round with the highest id. Two inserts can share a v7
+        // millisecond, so order the rounds by id instead of by insertion.
+        const [olderRound, newerRound] = [job.id, second.id].sort()
+        await insertStatus(olderRound, 'CODE-APPROVED')
+        await insertStatus(olderRound, 'RUN-COMPLETE')
+        await insertStatus(olderRound, 'FILES-REJECTED')
+        await insertStatus(newerRound, 'CODE-CHANGES-REQUESTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
     it('returns notFound when no resubmittable status exists in the job history', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
