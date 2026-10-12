@@ -9,6 +9,7 @@ import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
+import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
@@ -64,6 +65,16 @@ export async function resolveUserId(role: SeedRole): Promise<string> {
     }
     userIdCache.set(role, row.id)
     return row.id
+}
+
+// The name the dashboards show for a seeded role.
+export async function seededFullName(role: SeedRole): Promise<string> {
+    const user = await db
+        .selectFrom('user')
+        .select('fullName')
+        .where('id', '=', await resolveUserId(role))
+        .executeTakeFirstOrThrow()
+    return user.fullName
 }
 
 // These columns are jsonb holding a Lexical editor state, not plain text.
@@ -218,6 +229,24 @@ function buildReviewReport() {
     }
 }
 
+// Who the app records on each job status, so seeded studies attribute work as real ones do
+// (OTTER-617): the reviewer decides, the enclave job API reports run stages with no user, and the
+// lab's own actions, the scanner and the containerizer record the researcher.
+const NO_USER_STATUSES: readonly StudyJobStatus[] = [
+    'INITIATED',
+    'JOB-PROVISIONING',
+    'JOB-RUNNING',
+    'RUN-COMPLETE',
+    'JOB-ERRORED',
+]
+const REVIEWER_STATUSES: readonly StudyJobStatus[] = [...CODE_DECISION_JOB_STATUSES, ...ROUND_CLOSING_JOB_STATUSES]
+
+const seededStatusActor = (status: StudyJobStatus, ids: { researcherId: string; reviewerId: string }) => {
+    if (REVIEWER_STATUSES.includes(status)) return ids.reviewerId
+    if (NO_USER_STATUSES.includes(status)) return null
+    return ids.researcherId
+}
+
 // `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
@@ -228,7 +257,7 @@ async function insertSubmittedJob(
         reviewRound = 1,
     }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number } = {},
 ) {
-    const userId = await resolveUserId('researcher')
+    const actors = { researcherId: await resolveUserId('researcher'), reviewerId: await resolveUserId('reviewer') }
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
 
     if (withMainCode) {
@@ -236,8 +265,8 @@ async function insertSubmittedJob(
             .insertInto('studyJobFile')
             .values({
                 studyJobId: job.id,
-                name: 'main.r',
-                path: `studies/${studyId}/${job.id}/main.r`,
+                name: 'analysis.r',
+                path: `studies/${studyId}/${job.id}/analysis.r`,
                 fileType: 'MAIN-CODE',
             })
             .execute()
@@ -262,7 +291,7 @@ async function insertSubmittedJob(
             statuses.map((status, i) => ({
                 studyJobId: job.id,
                 status,
-                userId,
+                userId: seededStatusActor(status, actors),
                 createdAt: new Date(now - (statuses.length - i) * 1000),
             })),
         )

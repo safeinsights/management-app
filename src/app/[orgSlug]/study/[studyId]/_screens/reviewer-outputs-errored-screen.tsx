@@ -34,7 +34,7 @@ export async function ReviewerOutputsErroredScreen({
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
 
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const erroredAt = latestStatusAt(job.statusChanges, 'JOB-ERRORED')
     // Reviewer-scoped query, so the raw reason never reaches the researcher.
     const recordedReason = await latestRecordedJobFailureReason(job.id)

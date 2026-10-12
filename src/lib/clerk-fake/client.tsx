@@ -5,6 +5,7 @@
 // Hook returns are memoized: a new object every render makes effects keyed on user/session/auth
 // throw "Maximum update depth exceeded".
 
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { clearRoleCookieFromDocument, writeRoleCookieToDocument } from './cookie'
 import { defaultOrgSlug, FAKE_ROLES, type FakeRole } from './fixtures'
@@ -20,9 +21,22 @@ function useFixtureState(): FixtureState {
 // never trips during tests.
 const SESSION_ACTIVE_AT = new Date()
 
-function doSignOut() {
-    clearRoleCookieFromDocument()
-    notifyAuthChanged()
+// Real Clerk's ClerkProvider refreshes the router after setActive and signOut, so server components
+// such as the root layout re-render for the new session.
+function useAuthChanged() {
+    const router = useRouter()
+    return useCallback(() => {
+        notifyAuthChanged()
+        router.refresh()
+    }, [router])
+}
+
+function useSignOut() {
+    const authChanged = useAuthChanged()
+    return useCallback(async () => {
+        clearRoleCookieFromDocument()
+        authChanged()
+    }, [authChanged])
 }
 
 export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string; nonce?: string }) {
@@ -45,7 +59,7 @@ export function useUser() {
 
 export function useAuth() {
     const state = useFixtureState()
-    const signOut = useCallback(async () => doSignOut(), [])
+    const signOut = useSignOut()
     const getToken = useCallback(async () => 'e2e-fake-token', [])
     return useMemo(() => {
         const fixture = state === LOADING ? null : state
@@ -63,6 +77,7 @@ export function useAuth() {
 
 export function useSession() {
     const state = useFixtureState()
+    const signOut = useSignOut()
     return useMemo(() => {
         if (state === LOADING) return { isLoaded: false, isSignedIn: undefined, session: null }
         if (!state) return { isLoaded: true, isSignedIn: false, session: null }
@@ -70,20 +85,21 @@ export function useSession() {
             id: `e2e-session-${state.role}`,
             lastActiveAt: SESSION_ACTIVE_AT,
             touch: async () => session,
-            end: async () => doSignOut(),
+            end: signOut,
         }
         return { isLoaded: true, isSignedIn: true, session }
-    }, [state])
+    }, [state, signOut])
 }
 
 export function useClerk() {
-    const signOut = useCallback(async () => doSignOut(), [])
+    const signOut = useSignOut()
     const openUserProfile = useCallback(() => {}, [])
     return useMemo(() => ({ isLoaded: true, signOut, openUserProfile }), [signOut, openUserProfile])
 }
 
 export function useSignIn() {
     const [signIn] = useState(createFakeSignIn)
+    const authChanged = useAuthChanged()
     // setActive may be called from a different component (mfa.tsx) than the one that ran
     // create() (sign-in-form.tsx), so derive the role from the session id, not signIn.role.
     const setActive = useCallback(
@@ -94,10 +110,10 @@ export function useSignIn() {
             const role = (match?.[1] as FakeRole | undefined) ?? signIn.role
             if (role) {
                 writeRoleCookieToDocument(role)
-                notifyAuthChanged()
+                authChanged()
             }
         },
-        [signIn],
+        [signIn, authChanged],
     )
     return useMemo(() => ({ isLoaded: true, signIn, setActive }), [signIn, setActive])
 }

@@ -136,7 +136,7 @@ describe('EditResubmitFooter — Resubmit proposal button (OTTER-762)', () => {
         await user.click(resubmitButton())
 
         await screen.findByText(REQUIRED_NOTE_ERROR)
-        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Resubmission Note' }))
+        expect(document.activeElement).toBe(screen.getByLabelText('Resubmission note'))
     })
 })
 

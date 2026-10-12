@@ -275,6 +275,7 @@ export interface Study {
     irbDocPath: string | null
     irbProtocols: string | null
     isTestStudy: Generated<boolean>
+    labEditedAt: Timestamp | null
     language: Generated<Language>
     lastUpdatedAt: Generated<Timestamp>
     mainCodeFileName: string | null

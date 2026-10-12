@@ -1,0 +1,4 @@
+/* Figma keeps header labels on one line; "Last updated" is 1px wider than its 128px column leaves. */
+.label {
+    white-space: nowrap;
+}

@@ -1,16 +1,12 @@
 import type { Story } from '@ladle/react'
-import { Anchor } from '@mantine/core'
 import { Routes } from '@/lib/routes'
-import { resolvePillStatus, resolveRowHighlight } from '@/lib/study-screen'
-import { rowStudyState } from './dashboard-raw-state'
-import { pillOrgNamesFromRow } from './pill-context'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
+import { getColumns } from './columns'
+import { buildRowModel } from './row-model'
+import { DEFAULT_SORT } from './sort'
 import { StudiesTableView } from './studies-table-view'
-import { StudyRowView } from './study-row-view'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 
-// renderRow builds a session-free StudyRowView with a plain link; the real container injects
-// the Clerk-coupled StudyActionLink.
 const meta = { title: 'Pages / Dashboard', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -37,99 +33,99 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     orgName: 'Mars University',
     orgSlug: 'mars-university',
     reviewingEnclaveName: 'Mars University Data Partner',
+    submittingLabName: 'Kinetic Lab',
+    submittedByOrgSlug: 'kinetic-lab',
     ...o,
 })
 
-function StoryRow({ study: s, audience, scope }: { study: StudyRowType; audience: Audience; scope: Scope }) {
-    const state = rowStudyState(s)
-    const status = resolvePillStatus(audience, state, pillOrgNamesFromRow(s))
-    const isHighlighted = resolveRowHighlight(audience, state)
-    return (
-        <StudyRowView
-            study={s}
-            audience={audience}
-            scope={scope}
-            status={status}
-            isHighlighted={isHighlighted}
-            actionLink={
-                <Anchor href="#" fz="sm">
-                    View
-                </Anchor>
-            }
-        />
-    )
-}
+// Session-free: no user id, so no draft bin; the real container passes the signed-in user.
+const table = (studies: StudyRowType[], audience: Audience, scope: Scope) => ({
+    rows: studies.map((s) => buildRowModel(s, audience, { orgSlug: 'mars-university' })),
+    columns: getColumns(audience, scope, false),
+    sort: DEFAULT_SORT,
+    onSort: () => undefined,
+    audience,
+})
 
-export const ResearcherWithStudies: Story = () => (
+export const ResearchLabWithStudies: Story = () => (
     <div style={{ padding: 24 }}>
         <StudiesTableView
-            studies={[
-                study({ id: 'a1', title: 'Foo', status: 'DRAFT' }),
-                study({ id: 'a2', title: 'JP New Study', status: 'PENDING-REVIEW' }),
-                study({
-                    id: 'a3',
-                    title: 'Results ready study',
-                    status: 'APPROVED',
-                    jobStatusChanges: [{ status: 'CODE-APPROVED' }, { status: 'FILES-APPROVED' }],
-                }),
-            ]}
-            audience="researcher"
-            scope="user"
-            title="Studies"
-            newStudyHref={Routes.studyRequest({ orgSlug: 'mars-university-lab' })}
-            renderRow={(s) => <StoryRow key={s.id} study={s} audience="researcher" scope="user" />}
+            {...table(
+                [
+                    study({ id: '00000000-0000-4000-8000-000000000001', title: 'Foo', status: 'DRAFT' }),
+                    study({ id: '00000000-0000-4000-8000-000000000002', title: 'JP New Study' }),
+                    study({
+                        id: '00000000-0000-4000-8000-000000000003',
+                        title: 'Results ready study',
+                        status: 'APPROVED',
+                        jobStatusChanges: [{ status: 'CODE-APPROVED' }, { status: 'FILES-APPROVED' }],
+                    }),
+                ],
+                'researcher',
+                'org',
+            )}
+            title="All studies"
+            description="Track every study your organization has created, from draft to completed. Open a study to check its status, view details, or take your next step."
+            showDescription
+            newStudyHref={Routes.studyRequest({ orgSlug: 'kinetic-lab' })}
             paperWrapper
         />
     </div>
 )
 
-export const ResearcherEmpty: Story = () => (
+export const ResearchLabEmpty: Story = () => (
     <div style={{ padding: 24 }}>
         <StudiesTableView
-            studies={[]}
-            audience="researcher"
-            scope="user"
-            title="Studies"
-            newStudyHref={Routes.studyRequest({ orgSlug: 'mars-university-lab' })}
-            renderRow={(s) => <StoryRow key={s.id} study={s} audience="researcher" scope="user" />}
+            {...table([], 'researcher', 'org')}
+            title="All studies"
+            newStudyHref={Routes.studyRequest({ orgSlug: 'kinetic-lab' })}
             paperWrapper
         />
     </div>
 )
 
-export const ReviewerWorklist: Story = () => (
+export const DataPartnerWithStudies: Story = () => (
     <div style={{ padding: 24 }}>
         <StudiesTableView
-            studies={[
-                study({ id: 'b1', title: 'Needs review proposal', status: 'PENDING-REVIEW' }),
-                study({ id: 'b2', title: 'Approved proposal', status: 'APPROVED', reviewerName: 'Grace Hopper' }),
-                study({
-                    id: 'b3',
-                    title: 'Errored job',
-                    status: 'APPROVED',
-                    jobStatusChanges: [{ status: 'JOB-ERRORED' }],
-                }),
-            ]}
-            audience="reviewer"
-            scope="org"
-            title="Studies to Review"
-            description="Review all the studies submitted to your organization. Studies that need your attention are labeled Needs review."
-            renderRow={(s) => <StoryRow key={s.id} study={s} audience="reviewer" scope="org" />}
+            {...table(
+                [
+                    study({ id: '00000000-0000-4000-8000-000000000011', title: 'Needs review proposal' }),
+                    study({
+                        id: '00000000-0000-4000-8000-000000000012',
+                        title: 'Approved proposal',
+                        status: 'APPROVED',
+                    }),
+                    study({
+                        id: '00000000-0000-4000-8000-000000000013',
+                        title: 'Errored job',
+                        status: 'APPROVED',
+                        jobStatusChanges: [{ status: 'JOB-ERRORED' }],
+                    }),
+                ],
+                'reviewer',
+                'org',
+            )}
+            title="Studies for review"
+            description="Track and review studies submitted to your organization. Open a study to view its details, review submitted materials, and submit your decision."
+            showDescription
             paperWrapper
         />
+    </div>
+)
+
+export const DataPartnerEmpty: Story = () => (
+    <div style={{ padding: 24 }}>
+        <StudiesTableView {...table([], 'reviewer', 'org')} title="Studies for review" paperWrapper />
     </div>
 )
 
 export const LoadError: Story = () => (
     <div style={{ padding: 24 }}>
         <StudiesTableView
-            studies={[]}
-            audience="reviewer"
-            scope="org"
-            title="Studies to Review"
+            {...table([], 'reviewer', 'org')}
+            title="Studies for review"
             isError
             errorMessage="boom"
-            renderRow={(s) => <StoryRow key={s.id} study={s} audience="reviewer" scope="org" />}
             paperWrapper
         />
     </div>

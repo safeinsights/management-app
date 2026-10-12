@@ -146,10 +146,7 @@ function AddTotpScreenContent({
                                 component="button"
                                 c={semanticColor('link.default')}
                                 underline="always"
-                                style={{
-                                    opacity: canRegenerate ? 1 : 0.4,
-                                    cursor: canRegenerate ? 'pointer' : 'not-allowed',
-                                }}
+                                style={{ opacity: canRegenerate ? 1 : 0.4 }}
                                 disabled={!canRegenerate}
                                 onClick={async () => {
                                     try {

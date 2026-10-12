@@ -1,14 +1,12 @@
 import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
-import { Anchor, Table } from '@mantine/core'
+import { Table } from '@mantine/core'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
+import { getColumns } from './columns'
+import { buildRowModel } from './row-model'
 import { StudyRowView } from './study-row-view'
-import { resolvePillStatus } from '@/lib/study-screen'
-import { rowStudyState } from './dashboard-raw-state'
-import { pillOrgNamesFromRow } from './pill-context'
 import type { Audience, Scope, StudyRow as StudyRowType } from './types'
 
-// Targets StudyRowView because the container reads the Clerk session via StudyActionLink.
 const meta = { title: 'Tables / Study row', argTypes: pageBackgroundArgTypes }
 export default meta
 
@@ -35,90 +33,77 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     orgName: 'Mars University',
     orgSlug: 'mars-university',
     reviewingEnclaveName: 'Mars University Data Partner',
+    submittingLabName: 'Kinetic Lab',
+    submittedByOrgSlug: 'kinetic-lab',
     ...o,
 })
 
-const link = (
-    <Anchor href="#" fz="sm">
-        View
-    </Anchor>
-)
-
-function Row({
-    s,
-    audience,
-    scope,
-    highlighted = false,
-}: {
-    s: StudyRowType
-    audience: Audience
-    scope: Scope
-    highlighted?: boolean
-}) {
-    const status = resolvePillStatus(audience, rowStudyState(s), pillOrgNamesFromRow(s))
+function Rows({ studies, audience, scope }: { studies: StudyRowType[]; audience: Audience; scope: Scope }) {
+    const columns = getColumns(audience, scope, false)
     return (
-        <StudyRowView
-            study={s}
-            audience={audience}
-            scope={scope}
-            status={status}
-            isHighlighted={highlighted}
-            actionLink={link}
-        />
+        <>
+            {studies.map((s) => (
+                <StudyRowView
+                    key={s.title}
+                    row={buildRowModel(s, audience, { orgSlug: 'mars-university' })}
+                    columns={columns}
+                />
+            ))}
+        </>
     )
 }
 
 const Wrap = ({ children }: { children: ReactNode }) => (
     <div style={{ padding: 24 }}>
-        <Table>
+        <Table layout="fixed" verticalSpacing="md" horizontalSpacing="md">
             <Table.Tbody>{children}</Table.Tbody>
         </Table>
     </div>
 )
 
-export const ResearcherRows: Story = () => (
+export const ResearchLabRows: Story = () => (
     <Wrap>
-        <Row s={study({ title: 'Code draft study', status: 'DRAFT' })} audience="researcher" scope="user" />
-        <Row s={study({ title: 'Proposal under review' })} audience="researcher" scope="user" />
-        <Row
-            s={study({
-                title: 'Code approved study',
-                status: 'APPROVED',
-                jobStatusChanges: [{ status: 'CODE-APPROVED' }],
-            })}
+        <Rows
             audience="researcher"
-            scope="user"
-        />
-        <Row
-            s={study({
-                title: 'Results ready study',
-                status: 'APPROVED',
-                jobStatusChanges: [{ status: 'CODE-APPROVED' }, { status: 'FILES-APPROVED' }],
-            })}
-            audience="researcher"
-            scope="user"
-            highlighted
+            scope="org"
+            studies={[
+                study({ title: 'A draft that has not been submitted yet', status: 'DRAFT' }),
+                study({
+                    title: 'Proposal under review',
+                    proposalAuditName: 'Ada Lovelace',
+                    proposalAuditAt: new Date('2026-05-19'),
+                }),
+                study({
+                    title: 'Results ready study with a title long enough to be truncated in its column',
+                    status: 'APPROVED',
+                    jobStatusChanges: [
+                        { status: 'CODE-SUBMITTED' },
+                        { status: 'CODE-APPROVED' },
+                        { status: 'FILES-APPROVED' },
+                    ],
+                    codeSubmitterName: 'Grace Hopper',
+                    codeSubmittedAt: new Date('2026-05-25'),
+                }),
+            ]}
         />
     </Wrap>
 )
 
-export const ReviewerRows: Story = () => (
+export const DataPartnerRows: Story = () => (
     <Wrap>
-        <Row
-            s={study({ title: 'Needs review proposal', status: 'PENDING-REVIEW' })}
+        <Rows
             audience="reviewer"
             scope="org"
-            highlighted
-        />
-        <Row
-            s={study({ title: 'Approved proposal', status: 'APPROVED', reviewerName: 'Grace Hopper' })}
-            audience="reviewer"
-            scope="org"
-        />
-        <Row
-            s={study({ title: 'Errored job', status: 'APPROVED', jobStatusChanges: [{ status: 'JOB-ERRORED' }] })}
-            audience="reviewer"
-            scope="org"
+            studies={[
+                study({ title: 'Needs review proposal' }),
+                study({
+                    title: 'Approved proposal',
+                    status: 'APPROVED',
+                    proposalReviewerName: 'Aspen Brooke',
+                    proposalReviewedAt: new Date('2026-05-20'),
+                }),
+                study({ title: 'Errored job', status: 'APPROVED', jobStatusChanges: [{ status: 'JOB-ERRORED' }] }),
+            ]}
         />
     </Wrap>
 )
