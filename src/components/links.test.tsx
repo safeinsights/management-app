@@ -49,15 +49,15 @@ describe('LinkWithIcon', () => {
         expect(link.firstElementChild).toBe(screen.getByTestId('icon'))
     })
 
-    it('merges a caller style over the base layout instead of replacing it', () => {
+    it('merges a caller className with the base layout instead of replacing it', () => {
         renderWithProviders(
-            <LinkWithIcon href={'/x' as Route} icon={icon} data-testid="link" style={{ marginTop: 10, gap: 8 }}>
+            <LinkWithIcon href={'/x' as Route} icon={icon} data-testid="link" className="caller">
                 Label
             </LinkWithIcon>,
         )
 
         const link = screen.getByTestId('link')
-        expect(link).toHaveStyle({ marginTop: '10px', gap: '8px' })
-        expect(link).toHaveStyle({ whiteSpace: 'nowrap' })
+        expect(link).toHaveClass('caller')
+        expect(link.className).toMatch(/linkWithIcon/)
     })
 })

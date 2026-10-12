@@ -11,10 +11,10 @@ export type PanelProps = FlexProps & {
 export const Panel: React.FC<PanelProps> = ({ children, title, ...flexProps }) => {
     return (
         <Flex direction="column" {...flexProps}>
-            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+            <Paper bg={semanticColor('surface.tableheader')} shadow="none" p="sm" mt="xl" radius="sm">
                 <Title order={3}>{title}</Title>
             </Paper>
-            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+            <Paper bg={semanticColor('surface.sunken')} shadow="none" p="xl" radius="sm">
                 {children}
             </Paper>
         </Flex>
@@ -43,7 +43,14 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
             <Text c={semanticColor('success.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>
-            <Anchor component="button" mt="md" size="sm" c="blue.8" fw={fontWeight.semibold} onClick={onContinue}>
+            <Anchor
+                component="button"
+                mt="md"
+                size="sm"
+                c={semanticColor('link.default')}
+                fw={fontWeight.semibold}
+                onClick={onContinue}
+            >
                 {children}
             </Anchor>
         </Flex>
@@ -72,7 +79,14 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
             <Text c={semanticColor('error.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>
-            <Anchor component="button" mt="md" size="sm" c="blue.8" fw={fontWeight.semibold} onClick={onContinue}>
+            <Anchor
+                component="button"
+                mt="md"
+                size="sm"
+                c={semanticColor('link.default')}
+                fw={fontWeight.semibold}
+                onClick={onContinue}
+            >
                 {children}
             </Anchor>
         </Flex>

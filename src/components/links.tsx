@@ -1,10 +1,12 @@
 'use client'
 
 import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps } from '@mantine/core'
+import clsx from 'clsx'
 import { FC, ReactNode } from 'react'
 import NextLink from 'next/link'
 import type { Route } from 'next'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import classes from './links.module.css'
 
 export type LinkProps = AnchorProps & {
     href: Route
@@ -29,7 +31,7 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
     icon,
     iconPosition = 'trailing',
     children,
-    style,
+    className,
     ...anchorProps
 }) => (
     <MantineAnchor
@@ -38,8 +40,8 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
         fw={fontWeight.semibold}
         display="inline-flex"
         {...anchorProps}
-        // Merged, not replaced, so a caller's `style` cannot drop the icon+text flex layout.
-        style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0, ...style }}
+        // Merged, not replaced, so a caller's `className` cannot drop the icon+text flex layout.
+        className={clsx(classes.linkWithIcon, className)}
     >
         {iconPosition === 'leading' && icon}
         {children}

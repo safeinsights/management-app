@@ -27,7 +27,8 @@ import {
 } from '@phosphor-icons/react'
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Routes } from '@/lib/routes'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
+import classes from './researcher-profile-popover.module.css'
 
 interface ResearcherProfilePopoverProps {
     userId: string
@@ -108,9 +109,6 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             variant="light"
             color="grey"
             rightSection={<ArrowSquareOutIcon size={14} />}
-            bg="gray.1"
-            c="gray.7"
-            style={{ cursor: 'pointer' }}
             size="lg"
             radius="xs"
             h={32}
@@ -170,7 +168,7 @@ const PopoverHeader: FC<{ fullName: string; onClose: () => void }> = ({ fullName
         <Text fw={fontWeight.bold} size="md" mt="xs">
             {fullName}
         </Text>
-        <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
+        <ActionIcon variant="transparent" color={semanticColor('icon.light')} onClick={onClose} size="sm">
             <XCircleIcon size={24} weight="fill" />
         </ActionIcon>
     </Group>
@@ -257,19 +255,9 @@ const PopoverContent: FC<{
 
 const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string; size: 'sm' | 'md' }>(
     ({ onMouseEnter, name, size, ...others }, ref) => (
-        <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
+        <Group gap="xs" w="fit-content" className={classes.anchor} onMouseEnter={onMouseEnter} wrap="nowrap">
             <Text size={size}>{name}</Text>
-            <div
-                ref={ref}
-                {...others}
-                style={{ display: 'flex', color: 'gray' }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--mantine-color-charcoal-5)'
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'gray'
-                }}
-            >
+            <div ref={ref} {...others} className={classes.infoIcon}>
                 <InfoIcon weight="fill" size={16} color="currentColor" />
             </div>
         </Group>

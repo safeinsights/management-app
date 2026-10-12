@@ -1,0 +1,12 @@
+.anchor {
+    cursor: pointer;
+}
+
+.infoIcon {
+    display: flex;
+    color: var(--si-color-icon-light);
+}
+
+.infoIcon:hover {
+    color: var(--si-color-icon-light-hover);
+}

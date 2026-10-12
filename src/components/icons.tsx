@@ -3,6 +3,7 @@
 import { InfoIcon as SVGIcon, CaretRightIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, ActionIconProps, useMantineTheme } from '@mantine/core'
 import { forwardRef } from 'react'
+import classes from './icons.module.css'
 
 type InfoIconProps = ActionIconProps & {
     size?: number
@@ -26,10 +27,8 @@ export function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
         <CaretRightIcon
             size={12}
             weight="bold"
-            style={{
-                transform: isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)',
-                transition: 'transform 200ms ease',
-            }}
+            className={classes.toggleChevron}
+            data-expanded={isExpanded || undefined}
         />
     )
 }

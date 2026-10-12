@@ -5,7 +5,9 @@ import { ActionIcon, Badge, Group, Text } from '@mantine/core'
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
+import { fontWeight } from '@/theme/tokens'
 import { SettingsCard, SettingsCardRow } from './settings-card'
+import classes from './code-envs-view.module.css'
 
 // Presentational only: the body, refresher and per-row nodes are injected so these render
 // without a QueryClient (e.g. Ladle).
@@ -39,7 +41,6 @@ export const ScanStatusBadge: React.FC<{ status: string | null; onClick?: () => 
             size="sm"
             color={config.color}
             leftSection={SCAN_BADGE_ICONS[status as ScanStatus]}
-            style={isClickable ? { cursor: 'pointer' } : undefined}
             onClick={isClickable ? onClick : undefined}
         >
             {config.label}
@@ -79,15 +80,10 @@ export function CodeEnvRowView({
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
                     <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
-                        <CaretDownIcon
-                            style={{
-                                transform: detailOpened ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                transition: 'transform 200ms',
-                            }}
-                        />
+                        <CaretDownIcon className={classes.caret} data-collapsed={!detailOpened || undefined} />
                     </ActionIcon>
-                    <Text fw={500}>{name}</Text>
-                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={onLanguageBadgeClick}>
+                    <Text fw={fontWeight.semibold}>{name}</Text>
+                    <Badge variant="light" size="sm" onClick={onLanguageBadgeClick}>
                         {language}
                     </Badge>
                     {isTesting && (

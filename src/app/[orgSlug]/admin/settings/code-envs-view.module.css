@@ -1,0 +1,7 @@
+.caret {
+    transition: transform 200ms;
+}
+
+.caret[data-collapsed] {
+    transform: rotate(-90deg);
+}

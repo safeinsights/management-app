@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const metadata: Metadata = { title: 'About' }
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
-        <Text component="div" fz="lg" fw={500}>
+        <Text component="div" fz="lg" fw={fontWeight.semibold}>
             {title}:
         </Text>
         <Text component="div" fz="md" fw={fontWeight.bold}>
@@ -65,7 +65,16 @@ const EditorReleaseLink = () => {
 
 export default function AboutPage() {
     return (
-        <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm" miw={500} maw={800} mx="auto">
+        <Paper
+            bg={semanticColor('surface.tableheader')}
+            shadow="none"
+            p="sm"
+            mt="xl"
+            radius="sm"
+            miw={500}
+            maw={800}
+            mx="auto"
+        >
             <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
                 <Stat title="Release" value={<TagLink />} />
 
