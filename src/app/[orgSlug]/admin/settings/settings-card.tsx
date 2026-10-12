@@ -44,8 +44,8 @@ export function SettingsCard({ title, addLabel, onAdd, description, slot, childr
                         {addLabel}
                     </Button>
                 </Group>
-                <CardDescription description={description} />
                 <Divider c="dimmed" />
+                <CardDescription description={description} />
                 {slot}
                 {children}
             </Stack>

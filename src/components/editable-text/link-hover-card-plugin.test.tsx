@@ -30,7 +30,6 @@ import {
 import { LINK_CARD_LABELS, LINK_CARD_DIALOG_LABEL, INVALID_URL_MESSAGE } from '@/components/link-hover-card/copy'
 import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { SingleUserEditor } from './single-user-editor'
 
 const URL = 'https://example.com/prior-study'
@@ -490,7 +489,7 @@ describe('LinkHoverCardPlugin', () => {
         const card = await findCard()
 
         expect(await within(card).findByText('my 1st study')).toBeInTheDocument()
-        expect(within(card).getByText(`SafeInsights · ${displayOrgName(org.name)}`)).toBeInTheDocument()
+        expect(within(card).getByText(`SafeInsights · ${org.name}`)).toBeInTheDocument()
     })
 
     it('refuses to save an invalid URL', async () => {

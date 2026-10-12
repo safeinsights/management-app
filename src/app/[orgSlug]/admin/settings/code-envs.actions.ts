@@ -468,7 +468,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
 
         if (Number(linkedDataSources.count) > 0) {
             throw new Error(
-                'Cannot delete this code environment because it has linked data sources. Remove or reassign them first.',
+                'Cannot delete this code environment because it has linked data sources. Remove or re-assign them first.',
             )
         }
 
