@@ -18,7 +18,7 @@ describe('StudyPageHeader', () => {
     it('renders the submitting research lab as the eyebrow', () => {
         renderWithProviders(<StudyPageHeader study={study} />)
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
     })
 
     it('falls back to the submitting org slug when the lab name is missing', () => {
