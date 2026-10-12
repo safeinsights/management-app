@@ -84,7 +84,7 @@ describe('StudyEditPage', () => {
         await renderPage(org.slug, study.id)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: 'Save and continue' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Save & continue' })).toBeInTheDocument()
     })
 
     // OTTER-764: a submitted study renders the same page as a read-only record, which is what gives
@@ -104,7 +104,7 @@ describe('StudyEditPage', () => {
         expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { level: 1, name: 'A submitted study' })).toBeInTheDocument()
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
     })
 
     it('renders Step 1 read-only for a decided study', async () => {
@@ -250,6 +250,6 @@ describe('StudyEditPage', () => {
         await renderPage(org.slug, study.id)
 
         expect(mockRedirect).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: 'Save and continue' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Save & continue' })).toBeInTheDocument()
     })
 })

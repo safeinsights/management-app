@@ -29,14 +29,9 @@ const MODAL_BODY =
 // read-only record.
 type SetupNavMode = 'create' | 'revisit' | 'submitted'
 
-/**
- * The first visit and a revisit differ by the ampersand because the cards specify them that way:
- * OTTER-690 wrote "Save & continue" for the new-study page and OTTER-764 wrote "Save and continue"
- * for the back-navigation state. Not a typo to tidy up.
- */
 const CTA_LABELS: Record<SetupNavMode, string> = {
     create: 'Save & continue',
-    revisit: 'Save and continue',
+    revisit: 'Save & continue',
     submitted: 'Next step',
 }
 

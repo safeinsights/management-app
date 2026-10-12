@@ -635,7 +635,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
@@ -681,7 +681,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expectLockedSetupField(page, 'Programming language', 'R')
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
-        await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Save & continue' })).toHaveCount(0)
 
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
@@ -733,7 +733,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // The revisit CTA saves and moves straight on. Reaching Step 2 is itself the proof that the
         // confirmation modal was skipped: it belongs to the first visit, where the Data Partner and
         // the language were still open to change, and an open modal would hold the navigation.
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
