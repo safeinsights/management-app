@@ -340,7 +340,8 @@ describe('useAlreadySignedIn', () => {
         expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeDefined()
         const [toast] = (notifications.show as Mock).mock.calls[0]
         expect(toast.title).toBe('Failed to sign out while switching accounts')
-        expect(toast.message).toMatch(/^You appear to be offline\. Check your connection and try again\./)
+        // Exact, so a Sentry reference that offline can never be delivered would fail it.
+        expect(toast.message).toBe('You appear to be offline. Check your connection and try again.')
     })
 
     it('switchAccount signs out on retry once back online', async () => {
@@ -361,5 +362,8 @@ describe('useAlreadySignedIn', () => {
 
         expect(signOut).toHaveBeenCalledOnce()
         expect(result.current.status).toBe('signed-out')
+        // The offline error toast never auto-closes, so the retry has to take it down.
+        const [offlineToast] = (notifications.show as Mock).mock.calls[0]
+        expect(notifications.hide).toHaveBeenCalledWith(offlineToast.id)
     })
 })
