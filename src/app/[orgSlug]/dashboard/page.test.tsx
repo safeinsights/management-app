@@ -75,6 +75,18 @@ describe('Org Dashboard', () => {
 
         expect(await screen.findByText('Studies for review')).toBeDefined()
         expect(screen.queryByText(/Welcome to the/i)).toBeNull()
+        expect(screen.queryByTestId('new-study')).toBeNull()
+    })
+
+    it('offers New study on a research lab dashboard', async () => {
+        const labOrg: Org = { ...routeOrg, type: 'lab', settings: {} }
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
+        vi.mocked(getOrgFromSlugAction).mockResolvedValue(labOrg)
+
+        renderWithProviders(await OrgDashboardPage({ params: Promise.resolve({ orgSlug: labOrg.slug }) }))
+
+        await screen.findByText(/Every study follows four steps/)
+        expect(screen.getByTestId('new-study')).toHaveTextContent('New study')
     })
 
     it('heads the page with the route org above "Dashboard", once', async () => {

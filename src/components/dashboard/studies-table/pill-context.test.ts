@@ -4,9 +4,9 @@ import { pillOrgNamesFromRow } from './pill-context'
 describe('pillOrgNamesFromRow', () => {
     it('names the reviewing enclave and the submitting org exactly as stored', () => {
         const names = pillOrgNamesFromRow(
-            mockStudyRow({ reviewingEnclaveName: 'Riverside University', submittingLabName: 'Genius Lab' }),
+            mockStudyRow({ reviewingEnclaveName: 'Clinical Lab Network', submittingLabName: 'Genius Lab' }),
         )
-        expect(names).toEqual({ dataPartner: 'Riverside University', researchLab: 'Genius Lab' })
+        expect(names).toEqual({ dataPartner: 'Clinical Lab Network', researchLab: 'Genius Lab' })
     })
 
     it('falls back to the org name for the data partner and the slug for the lab', () => {

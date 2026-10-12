@@ -148,6 +148,7 @@ describe('UserStudiesDashboard', () => {
         expect(await screen.findByText(/Every study follows four steps/)).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('does not show the toggle for a single-role reviewer', async () => {

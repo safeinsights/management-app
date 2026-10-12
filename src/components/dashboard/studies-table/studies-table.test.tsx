@@ -350,6 +350,10 @@ describe('Studies Table', () => {
 
             await user.click(screen.getByRole('button', { name: /Last updated/ }))
             expect(titles()).toEqual(['apple', 'Banana', 'cherry'])
+            expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute(
+                'aria-sort',
+                'descending',
+            )
         })
 
         it('does not keep a sort after the table remounts', async () => {

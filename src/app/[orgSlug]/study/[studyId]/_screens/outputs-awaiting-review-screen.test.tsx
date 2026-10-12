@@ -70,13 +70,14 @@ describe('OutputsAwaitingReviewScreen', () => {
     })
 
     it('names the reviewing data partner in the banner title and body', async () => {
-        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Openstax Data Partner' })
+        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Clinical Lab Network' })
         await renderScreen(study, org.slug)
 
         const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
         expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })
 
