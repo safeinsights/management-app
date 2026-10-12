@@ -33,6 +33,48 @@
     display: block;
 }
 
+/* Shared rules Mantine's style props cannot express. Reach for these before adding a CSS module. */
+.pre-wrap {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.clip {
+    overflow: hidden;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+/* A layer over interactive content: presses fall through to whatever sits underneath. */
+.click-through {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* A quarter-turn anticlockwise while data-rotated is set, e.g. a disclosure chevron. */
+.rotatable {
+    transition: transform 200ms ease;
+}
+
+.rotatable[data-rotated] {
+    transform: rotate(-90deg);
+}
+
+/* Figma icon/light-default, darkening to icon/light-hover. */
+.icon-light {
+    color: var(--si-color-icon-light);
+}
+
+.icon-light:hover {
+    color: var(--si-color-icon-light-hover);
+}
+
 /* EditableText (Lexical) formatting classes */
 .editable-text-paragraph {
     margin: 0;

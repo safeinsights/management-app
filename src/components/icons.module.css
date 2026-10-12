@@ -1,7 +1,0 @@
-.toggleChevron {
-    transition: transform 200ms ease;
-}
-
-.toggleChevron[data-expanded] {
-    transform: rotate(-90deg);
-}

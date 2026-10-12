@@ -7,7 +7,6 @@ import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
 import { fontWeight } from '@/theme/tokens'
 import { SettingsCard, SettingsCardRow } from './settings-card'
-import classes from './code-envs-view.module.css'
 
 // Presentational only: the body, refresher and per-row nodes are injected so these render
 // without a QueryClient (e.g. Ladle).
@@ -80,7 +79,7 @@ export function CodeEnvRowView({
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
                     <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
-                        <CaretDownIcon className={classes.caret} data-collapsed={!detailOpened || undefined} />
+                        <CaretDownIcon className="rotatable" data-rotated={!detailOpened || undefined} />
                     </ActionIcon>
                     <Text fw={fontWeight.semibold}>{name}</Text>
                     <Badge variant="light" size="sm" onClick={onLanguageBadgeClick}>

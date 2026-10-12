@@ -1,6 +1,0 @@
-.linkWithIcon {
-    align-items: center;
-    gap: var(--mantine-spacing-xxs);
-    white-space: nowrap;
-    flex-shrink: 0;
-}

@@ -5,6 +5,7 @@ import {
     ActionIcon,
     Anchor,
     Badge,
+    Box,
     Button,
     Divider,
     Group,
@@ -28,7 +29,6 @@ import {
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Routes } from '@/lib/routes'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import classes from './researcher-profile-popover.module.css'
 
 interface ResearcherProfilePopoverProps {
     userId: string
@@ -255,11 +255,11 @@ const PopoverContent: FC<{
 
 const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string; size: 'sm' | 'md' }>(
     ({ onMouseEnter, name, size, ...others }, ref) => (
-        <Group gap="xs" w="fit-content" className={classes.anchor} onMouseEnter={onMouseEnter} wrap="nowrap">
+        <Group gap="xs" w="fit-content" className="clickable" onMouseEnter={onMouseEnter} wrap="nowrap">
             <Text size={size}>{name}</Text>
-            <div ref={ref} {...others} className={classes.infoIcon}>
+            <Box ref={ref} {...others} display="flex" className="icon-light">
                 <InfoIcon weight="fill" size={16} color="currentColor" />
-            </div>
+            </Box>
         </Group>
     ),
 )

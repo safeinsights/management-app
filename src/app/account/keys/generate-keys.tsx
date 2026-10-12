@@ -14,7 +14,6 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import styles from './generate-keys.module.css'
 import {
     KEY_RESET_CONFIRM_COLOR,
     KEY_RESET_MODAL_BODY,
@@ -129,12 +128,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                     <Text fz={14} fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
-                    <Code
-                        block
-                        mah={160}
-                        bd={`1px solid ${semanticColor('border.dark')}`}
-                        className={styles.privateKey}
-                    >
+                    <Code block mah={160} bd={`1px solid ${semanticColor('border.dark')}`} className="pre-wrap">
                         {keys.privateKey}
                     </Code>
                 </Stack>

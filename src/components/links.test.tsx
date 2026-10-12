@@ -35,7 +35,7 @@ describe('LinkWithIcon', () => {
         const link = screen.getByTestId('link')
         const iconEl = screen.getByTestId('icon')
         expect(link.textContent).toBe('Label')
-        expect(link.lastElementChild).toBe(iconEl)
+        expect(iconEl.parentElement?.lastElementChild).toBe(iconEl)
     })
 
     it('renders the icon before the text when iconPosition="leading"', () => {
@@ -45,8 +45,8 @@ describe('LinkWithIcon', () => {
             </LinkWithIcon>,
         )
 
-        const link = screen.getByTestId('link')
-        expect(link.firstElementChild).toBe(screen.getByTestId('icon'))
+        const iconEl = screen.getByTestId('icon')
+        expect(iconEl.parentElement?.firstElementChild).toBe(iconEl)
     })
 
     it('merges a caller className with the base layout instead of replacing it', () => {
@@ -58,6 +58,6 @@ describe('LinkWithIcon', () => {
 
         const link = screen.getByTestId('link')
         expect(link).toHaveClass('caller')
-        expect(link.className).toMatch(/linkWithIcon/)
+        expect(link).toHaveClass('nowrap')
     })
 })
