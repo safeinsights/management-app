@@ -70,24 +70,13 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
 
 const SIGN_OUT_TIMEOUT_MESSAGE = 'Signing out took too long. Your connection may be down.'
 const SIGN_OUT_OFFLINE_MESSAGE = 'You appear to be offline. Check your connection and try again.'
-
-class SignOutOfflineError extends Error {}
+const SWITCH_FAILED_TITLE = 'Failed to sign out while switching accounts'
 
 // reportError renders an Error through String(), which glues the constructor name onto the message.
-// The timeout and offline texts are sentences written for the user, so they report as text; anything
-// else keeps the Error so Sentry gets the stack.
+// The timeout text is a sentence written for the user, so it reports as text; anything else keeps
+// the Error so Sentry gets the stack.
 function displayableSignOutError(error: unknown) {
-    return error instanceof TimeoutError || error instanceof SignOutOfflineError ? error.message : error
-}
-
-// Clerk's sign-out first fires a server action whose failure escapes as an unhandled rejection, and
-// offline the sign-out cannot succeed anyway, so it is not attempted (OTTER-790).
-async function endSessionForSwitch(signOut: () => Promise<void>) {
-    if (!navigator.onLine) throw new SignOutOfflineError(SIGN_OUT_OFFLINE_MESSAGE)
-    posthog.reset()
-    // A connection that reports online can still fail, and then signOut settles neither way, which
-    // would leave the caller's catch and finally unreachable and the panel on its spinner (OTTER-745).
-    await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
+    return error instanceof TimeoutError ? error.message : error
 }
 
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
@@ -156,14 +145,24 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     // downgrade above waits for Clerk to flip isSignedIn, while this one reaches the form however
     // the sign-out ends, timeout included.
     const switchAccount = useCallback(async () => {
+        // Clerk's signOut fires a server action whose offline failure escapes as an unhandled
+        // rejection (OTTER-790). The session survives, so the panel stays: the form would only meet
+        // session_exists and send the user back in as the same account.
+        if (!navigator.onLine) {
+            reportError(SIGN_OUT_OFFLINE_MESSAGE, SWITCH_FAILED_TITLE)
+            return
+        }
         setIsSwitching(true)
         try {
-            await endSessionForSwitch(signOut)
+            posthog.reset()
+            // A connection that reports online can still fail, and then signOut settles neither way,
+            // which left this catch and finally unreachable and the panel on its spinner (OTTER-745).
+            await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
             // to reject. Reaching the form is what the user asked for; the finally below does that.
-            reportError(displayableSignOutError(error), 'Failed to sign out while switching accounts')
+            reportError(displayableSignOutError(error), SWITCH_FAILED_TITLE)
         } finally {
             // Signing back in as the same Clerk user would otherwise show the org list cached before.
             queryClient.removeQueries({ queryKey: CURRENT_USER_INFO_KEY })

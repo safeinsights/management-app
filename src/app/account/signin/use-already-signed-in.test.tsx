@@ -313,34 +313,17 @@ describe('useAlreadySignedIn', () => {
         expect(toast.message).toMatch(/^Signing out took too long\. Your connection may be down\./)
     })
 
-    // OTTER-790: Clerk's signOut fires a server action whose offline failure escapes as an unhandled
-    // rejection, so offline it is never called. No timers are advanced: the form must not wait for
-    // the sign-out timeout.
-    it('switchAccount skips Clerk while offline and reveals the form at once', async () => {
+    // OTTER-790: offline, the session cannot end, so the form would only hit session_exists and send
+    // the user back in as the same account. signOut mirrors Clerk's offline shape: a server action
+    // rejecting with no handler, which fails the run if anything calls it.
+    it('switchAccount keeps the panel and skips Clerk while offline', async () => {
         vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-        const signOut = vi.fn()
+        const signOut = vi.fn(() => {
+            void Promise.reject(new TypeError('Failed to fetch'))
+            return new Promise<void>(() => {})
+        })
         ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
         const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
-        mockSignedInUser()
-
-        const { result } = renderAlreadySignedIn()
-        await act(async () => {
-            await result.current.switchAccount()
-        })
-
-        expect(signOut).not.toHaveBeenCalled()
-        // The session survives an offline switch, so the analytics identity must too.
-        expect(resetPosthog).not.toHaveBeenCalled()
-        expect(result.current.status).toBe('signed-out')
-        expect(result.current.isSwitching).toBe(false)
-        const [toast] = (notifications.show as Mock).mock.calls[0]
-        expect(toast.title).toBe('Failed to sign out while switching accounts')
-        expect(toast.message).toMatch(/^You appear to be offline\. Check your connection and try again\./)
-    })
-
-    it('switchAccount drops the cached org list while offline', async () => {
-        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-        ;(useClerk as Mock).mockReturnValue({ signOut: vi.fn(), openUserProfile: vi.fn() })
         mockSignedInUser()
         const queryClient = createTestQueryClient()
         queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
@@ -350,6 +333,33 @@ describe('useAlreadySignedIn', () => {
             await result.current.switchAccount()
         })
 
-        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeUndefined()
+        expect(signOut).not.toHaveBeenCalled()
+        expect(resetPosthog).not.toHaveBeenCalled()
+        expect(result.current.status).toBe('signed-in')
+        expect(result.current.isSwitching).toBe(false)
+        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeDefined()
+        const [toast] = (notifications.show as Mock).mock.calls[0]
+        expect(toast.title).toBe('Failed to sign out while switching accounts')
+        expect(toast.message).toMatch(/^You appear to be offline\. Check your connection and try again\./)
+    })
+
+    it('switchAccount signs out on retry once back online', async () => {
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValueOnce(false)
+        const signOut = vi.fn().mockResolvedValue(undefined)
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderAlreadySignedIn()
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+        expect(result.current.status).toBe('signed-in')
+
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(signOut).toHaveBeenCalledOnce()
+        expect(result.current.status).toBe('signed-out')
     })
 })
