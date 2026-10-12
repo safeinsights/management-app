@@ -5,7 +5,6 @@ import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/acti
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { isSessionOrgMember } from '@/lib/utils'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
@@ -63,7 +62,7 @@ export default async function StudyEditAndResubmitRoute(props: {
             >
                 <EditResubmitForm
                     header={<StudyPageHeader study={study} />}
-                    orgName={displayOrgName(enclaveOrg?.name ?? '')}
+                    orgName={enclaveOrg?.name ?? ''}
                     members={memberOptions}
                     researcherName={study.createdBy}
                     researcherId={study.researcherId}

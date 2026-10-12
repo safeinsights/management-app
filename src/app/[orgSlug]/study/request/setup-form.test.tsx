@@ -195,7 +195,7 @@ describe('Set Up page header', () => {
         const fixtures = await setupFixtures()
         renderSetup(fixtures, { submittingLabName: 'Genius Lab' })
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Untitled study', level: 1 })).toBeInTheDocument()
     })
 
@@ -230,7 +230,7 @@ describe('Set Up page header', () => {
             },
         })
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
         expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'A saved title', level: 1 })).toBeInTheDocument()
     })
@@ -242,7 +242,7 @@ describe('Set Up page header', () => {
             draftData: submittedDraft(fixtures, { submittingLabName: 'Genius Lab' }),
         })
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
         expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
     })
 

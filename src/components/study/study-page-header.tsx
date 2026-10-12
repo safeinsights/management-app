@@ -1,6 +1,6 @@
 import { Stack, Group } from '@mantine/core'
 import { PageHeader } from '@/components/page-header'
-import { displayLabName, UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import { TestStudyLabel } from './test-study-label'
 
 // Every study page shows the submitting Research Lab, so both a researcher and a reviewer of the
@@ -14,7 +14,7 @@ export type StudyHeaderStudy = {
 }
 
 export function StudyPageHeader({ study }: { study: StudyHeaderStudy }) {
-    const eyebrow = displayLabName(study.submittingLabName, study.submittedByOrgSlug)
+    const eyebrow = study.submittingLabName || study.submittedByOrgSlug
     const title = (
         <Group gap="sm" align="center">
             <Stack gap="md" align="flex-start">

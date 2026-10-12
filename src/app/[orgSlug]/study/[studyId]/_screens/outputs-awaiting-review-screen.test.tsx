@@ -14,7 +14,6 @@ import {
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -74,7 +73,7 @@ describe('OutputsAwaitingReviewScreen', () => {
         const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Openstax Data Partner' })
         await renderScreen(study, org.slug)
 
-        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
+        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
         expect(alert).toHaveTextContent(copy.body)

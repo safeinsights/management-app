@@ -86,8 +86,7 @@ describe('Org Dashboard', () => {
         const heading = screen.getByRole('heading', { level: 1, name: 'Dashboard' })
 
         expect(heading).toBeInTheDocument()
-        // "Lab" is stripped by displayOrgName, so the eyebrow is the display form of the name.
-        expect(pageHeaderEyebrow()).toBe('Mars University')
+        expect(pageHeaderEyebrow()).toBe('Mars University Lab')
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })

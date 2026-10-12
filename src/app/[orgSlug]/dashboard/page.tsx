@@ -5,7 +5,6 @@ import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { PageHeader } from '@/components/page-header'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
@@ -25,11 +24,10 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     }
 
     const isEnclave = isEnclaveOrg(org)
-    const orgName = displayOrgName(org.name)
 
     return (
         <Stack p="xxl" gap="xxl">
-            <PageHeader eyebrow={orgName} title="Dashboard" />
+            <PageHeader eyebrow={org.name} title="Dashboard" />
             <JoinedOrgBanner />
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
