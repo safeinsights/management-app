@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -16,9 +16,8 @@ const EDITOR_SKELETON_HEIGHT = 400
 
 const contentStyle = {
     minHeight: 400,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '14px',
+    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
+    fontSize: 'var(--mantine-font-size-sm)',
     lineHeight: 1.6,
 } as const
 
@@ -83,7 +82,7 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
         value: 'approve',
         title: 'Approve and run code',
         description: (
-            <Text component="span" size="sm" c="grey.7">
+            <Text component="span" size="sm" c={semanticColor('text.secondary')}>
                 The code will run in your secure enclave and your feedback will be shared with {labName}.
             </Text>
         ),
@@ -93,7 +92,7 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
         value: 'needs-clarification',
         title: 'Request revision',
         description: (
-            <Text component="span" size="sm" c="grey.7">
+            <Text component="span" size="sm" c={semanticColor('text.secondary')}>
                 Send the code back to {labName} for changes or additional information.
             </Text>
         ),
@@ -131,7 +130,7 @@ function DecisionRadioGroup({
             testId={option.testId}
             error={error}
             errorId={errorId}
-            styles={DECISION_RADIO_STYLES}
+            isProminent
         />
     ))
 

@@ -19,7 +19,7 @@ import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { EditorFooter, EditorFooterArea } from './editor-footer'
-import { EditorSurface, resolveContentHeight } from './editor-surface'
+import { EditorSurface, resolveContentHeight, type EditorContentStyle } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
@@ -163,7 +163,7 @@ export type CollaborativeEditorProps = {
     /** Callers must gate render until this is non-null (SSR and pre-hydration only). */
     websocketProvider: HocuspocusProviderWebsocket
     contentClassName?: string
-    contentStyle?: React.CSSProperties
+    contentStyle?: EditorContentStyle
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void

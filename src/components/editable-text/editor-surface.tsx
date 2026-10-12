@@ -10,30 +10,25 @@ import {
     type ReactNode,
     type RefObject,
 } from 'react'
-import { Paper, Text } from '@mantine/core'
+import clsx from 'clsx'
+import { Box, Paper, Text } from '@mantine/core'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { LinkHoverCardPlugin } from './link-hover-card-plugin'
 import { Toolbar } from './toolbar'
 import type { WidgetBlurProps } from '@/components/form-field'
+import classes from './editor-surface.module.css'
 
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
 // `contentStyle.minHeight` is a fallback because callers predating `contentHeight` express the
 // same thing that way.
-export const resolveContentHeight = (contentHeight?: number, contentStyle?: CSSProperties) =>
+/** The text metrics a caller may set on the editable surface; the frame owns everything else. */
+export type EditorContentStyle = Pick<CSSProperties, 'minHeight' | 'padding' | 'fontSize' | 'lineHeight'>
+
+export const resolveContentHeight = (contentHeight?: number, contentStyle?: EditorContentStyle) =>
     contentHeight ?? contentStyle?.minHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
-
-/** Absorbs the slack when the box is dragged taller, so the measured content stays its own size. */
-const SCROLL_AREA_STYLE: CSSProperties = { position: 'relative', flex: 1, overflow: 'auto' }
-
-const PLACEHOLDER_BASE_STYLE: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    pointerEvents: 'none',
-}
 
 // A drag may not shrink the field below its content (OTTER-691). Applied as `min-height` so it
 // coexists with the inline `height` a native drag writes; measuring the scroll container instead
@@ -70,7 +65,7 @@ function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef
 export interface EditorSurfaceProps {
     inputId?: string
     contentClassName?: string
-    contentStyle?: CSSProperties
+    contentStyle?: EditorContentStyle
     placeholder?: string
     ariaLabel?: string
     ariaDescribedBy?: string
@@ -114,26 +109,28 @@ export function EditorSurface({
         [contentRef],
     )
 
-    const surfaceStyle: CSSProperties = {
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        minHeight: floor,
-        resize: isResizable ? 'vertical' : 'none',
-        borderColor: error ? 'var(--mantine-color-error)' : undefined,
-    }
-    const editableStyle: CSSProperties = { ...contentStyle, minHeight: startingHeight }
-
     return (
-        <Paper p={0} className="collaborative-editor-container" style={surfaceStyle} {...widgetBlur}>
-            <div style={SCROLL_AREA_STYLE} onMouseDown={focusFromSlack}>
+        <Paper
+            p={0}
+            className="collaborative-editor-container"
+            mih={floor}
+            data-resizable={isResizable || undefined}
+            data-error={error ? true : undefined}
+            {...widgetBlur}
+        >
+            {/* Absorbs the slack when the box is dragged taller, so the measured content stays its own size. */}
+            <Box pos="relative" flex={1} className={classes.scrollArea} onMouseDown={focusFromSlack}>
                 <div ref={contentRef}>
                     <RichTextPlugin
                         contentEditable={
-                            <ContentEditable
+                            <Box
+                                component={ContentEditable}
                                 id={inputId}
-                                className={contentClassName}
-                                style={editableStyle}
+                                className={clsx(classes.editable, contentClassName)}
+                                p={contentStyle?.padding}
+                                fz={contentStyle?.fontSize}
+                                lh={contentStyle?.lineHeight}
+                                mih={startingHeight}
                                 // Lexical sets no tabindex. Browsers still focus a contenteditable
                                 // but happy-dom does not, so tests would silently no-op.
                                 tabIndex={0}
@@ -147,7 +144,7 @@ export function EditorSurface({
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
-            </div>
+            </Box>
             {children}
             {/* Inside the field on purpose: a card in a portal would read as a blur (OTTER-647),
                 and this position puts it before the toolbar in the tab order. */}
@@ -159,19 +156,21 @@ export function EditorSurface({
     )
 }
 
-const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle?: CSSProperties }) => {
+const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle?: EditorContentStyle }) => {
     if (!text) return null
 
     // Mirrors the editable surface's own text metrics so the two sit exactly on top of each other.
-    const style: CSSProperties = {
-        ...PLACEHOLDER_BASE_STYLE,
-        padding: contentStyle?.padding,
-        fontSize: contentStyle?.fontSize,
-        lineHeight: contentStyle?.lineHeight,
-    }
-
     return (
-        <Text c="dimmed" style={style}>
+        <Text
+            c="dimmed"
+            pos="absolute"
+            top={0}
+            left={0}
+            p={contentStyle?.padding}
+            fz={contentStyle?.fontSize}
+            lh={contentStyle?.lineHeight}
+            className={classes.placeholder}
+        >
             {text}
         </Text>
     )

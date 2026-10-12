@@ -5,7 +5,7 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -21,9 +21,8 @@ const EDITOR_SKELETON_HEIGHT = 260
 
 const contentStyle = {
     minHeight: 260,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '14px',
+    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
+    fontSize: 'var(--mantine-font-size-sm)',
     lineHeight: 1.6,
 } as const
 
@@ -96,7 +95,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
             description={option.description}
             error={error}
             disabled={option.disabled}
-            styles={DECISION_RADIO_STYLES}
+            isProminent
             testId={`outputs-decision-${option.value}`}
         />
     ))

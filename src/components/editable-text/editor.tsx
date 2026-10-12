@@ -8,7 +8,7 @@ import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocu
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { EditorFooterArea } from './editor-footer'
 import { SingleUserEditor } from './single-user-editor'
-import { resolveContentHeight } from './editor-surface'
+import { resolveContentHeight, type EditorContentStyle } from './editor-surface'
 
 const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
     ssr: false,
@@ -23,7 +23,7 @@ export type EditorProps = {
     initialValue?: string
     websocketProvider?: HocuspocusProviderWebsocket | null
     contentClassName?: string
-    contentStyle?: React.CSSProperties
+    contentStyle?: EditorContentStyle
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void

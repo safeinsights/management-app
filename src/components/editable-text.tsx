@@ -11,13 +11,16 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin'
 import { LinkHoverCardReadOnlyPlugin } from './editable-text/link-hover-card-readonly-plugin'
 import { EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useState } from 'react'
-import { Box } from '@mantine/core'
+import clsx from 'clsx'
+import { Box, Stack } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { Toolbar } from './editable-text/toolbar'
 import { EscapeFocusPlugin } from './editable-text/escape-focus-plugin'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './editable-text/config'
+import classes from './editable-text/editor-surface.module.css'
+import { semanticColor } from '@/theme/tokens'
 
 export interface EditableTextProps {
     /** Serialized Lexical JSON state */
@@ -76,71 +79,45 @@ export const EditableText: FC<EditableTextProps> = ({
     // Computed once on mount; Lexical owns its state from there.
     const [initialConfig] = useState<InitialConfigType>(() => createInitialConfig(value, disabled, readOnly))
 
-    const [isFocused, setIsFocused] = useState(false)
-
     const handleChange = (editorState: EditorState) => {
         onChange?.(JSON.stringify(editorState.toJSON()))
     }
 
-    const handleFocus = () => {
-        setIsFocused(true)
-        onFocus?.()
-    }
-
-    const handleBlur = () => {
-        setIsFocused(false)
-        onBlur?.()
-    }
-
     const isEditable = !disabled && !readOnly
-
-    const borderColor = error
-        ? 'var(--mantine-color-error)'
-        : isFocused
-          ? 'var(--mantine-color-blue-filled)'
-          : 'var(--mantine-color-gray-4)'
 
     return (
         <Box>
             <LexicalComposer initialConfig={initialConfig}>
-                <Box
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        border: borderless ? 'none' : `1px solid ${borderColor}`,
-                        borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
-                        minHeight: borderless ? undefined : minHeight,
-                        maxHeight,
-                        resize: borderless ? undefined : resizable ? 'vertical' : undefined,
-                        backgroundColor: disabled ? 'var(--mantine-color-gray-1)' : undefined,
-                    }}
+                <Stack
+                    gap={0}
+                    className={clsx(classes.frame, !borderless && 'collaborative-editor-container')}
+                    data-resizable={(!borderless && resizable) || undefined}
+                    data-error={error ? true : undefined}
+                    mih={borderless ? undefined : minHeight}
+                    mah={maxHeight}
+                    bg={disabled ? semanticColor('surface.disabled.medium') : undefined}
                 >
-                    <Box style={{ position: 'relative', flex: 1, overflow: 'auto' }}>
+                    <Box pos="relative" flex={1} className={classes.scrollArea}>
                         <RichTextPlugin
                             contentEditable={
-                                <ContentEditable
+                                <Box
+                                    component={ContentEditable}
                                     id={id}
                                     aria-label={ariaLabel}
-                                    style={{
-                                        outline: 'none',
-                                        padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
-                                        minHeight: borderless ? undefined : minHeight,
-                                    }}
-                                    onFocus={handleFocus}
-                                    onBlur={handleBlur}
+                                    className={classes.editable}
+                                    p={borderless ? 0 : 'sm'}
+                                    mih={borderless ? undefined : minHeight}
+                                    onFocus={onFocus}
+                                    onBlur={onBlur}
                                 />
                             }
                             placeholder={
                                 <Box
-                                    style={{
-                                        position: 'absolute',
-                                        top: 'var(--mantine-spacing-sm)',
-                                        left: 'var(--mantine-spacing-sm)',
-                                        color: 'var(--mantine-color-placeholder)',
-                                        pointerEvents: 'none',
-                                        userSelect: 'none',
-                                    }}
+                                    pos="absolute"
+                                    top="var(--mantine-spacing-sm)"
+                                    left="var(--mantine-spacing-sm)"
+                                    c={semanticColor('text.placeholder')}
+                                    className={classes.placeholder}
                                 >
                                     {placeholder}
                                 </Box>
@@ -158,7 +135,7 @@ export const EditableText: FC<EditableTextProps> = ({
                         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     </Box>
                     {isEditable && <Toolbar />}
-                </Box>
+                </Stack>
             </LexicalComposer>
             {error && typeof error !== 'boolean' && (
                 <Box mt="xs">

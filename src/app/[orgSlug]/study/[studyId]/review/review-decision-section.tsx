@@ -8,16 +8,12 @@ import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { useWidgetBlur } from '@/components/form-field'
 import type { StudyForReview } from './review-types'
 import { buildDecisionOptions } from './review-types'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
     study: StudyForReview
     labName: string
-}
-
-const RADIO_STYLES = {
-    label: { fontWeight: 600, fontSize: 16 },
-    description: { fontSize: 14 },
 }
 
 export const DECISION_RADIO_NAME = 'review-decision'
@@ -49,13 +45,16 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
         <Radio
             key={option.value}
             value={option.value}
-            label={option.label}
+            label={
+                <Text span inherit fz="md" fw={fontWeight.semibold}>
+                    {option.label}
+                </Text>
+            }
             description={
-                <Text component="span" size="sm" c="grey.7">
+                <Text component="span" size="sm" c={semanticColor('text.secondary')}>
                     {option.description}
                 </Text>
             }
-            styles={RADIO_STYLES}
         />
     ))
 
@@ -71,7 +70,8 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
                 name={DECISION_RADIO_NAME}
                 label={<VisuallyHidden>Decision</VisuallyHidden>}
                 // VisuallyHidden clips the text; position:absolute collapses Mantine's wrapper div.
-                styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
+                labelProps={{ pos: 'absolute' }}
+                errorProps={{ mb: 'lg' }}
                 error={errorNode}
                 inputWrapperOrder={['label', 'description', 'error', 'input']}
             >

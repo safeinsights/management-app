@@ -13,7 +13,7 @@ import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes } from './config'
 import { EditorFooterArea } from './editor-footer'
-import { EditorSurface } from './editor-surface'
+import { EditorSurface, type EditorContentStyle } from './editor-surface'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
 
@@ -23,7 +23,7 @@ export type SingleUserEditorProps = {
     /** Serialized Lexical JSON to seed the editor with. */
     initialValue?: string
     contentClassName?: string
-    contentStyle?: React.CSSProperties
+    contentStyle?: EditorContentStyle
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void

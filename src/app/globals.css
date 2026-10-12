@@ -148,15 +148,27 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Collaborative editor focus border */
+/* Rich-text editor frame, shared by EditorSurface and EditableText */
 .collaborative-editor-container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid var(--mantine-color-gray-4);
     transition: border-color 0.15s;
     border-radius: var(--mantine-radius-sm);
 }
 
+.collaborative-editor-container[data-resizable] {
+    resize: vertical;
+}
+
 .collaborative-editor-container:focus-within {
     border-color: var(--mantine-color-blue-filled);
+}
+
+/* After :focus-within, so an invalid field keeps its error border while focused. */
+.collaborative-editor-container[data-error] {
+    border-color: var(--mantine-color-error);
 }
 
 /* Yjs collaboration cursor styles */

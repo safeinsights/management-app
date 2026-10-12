@@ -49,7 +49,6 @@ export type ResubmissionNoteEditorProps = Pick<
 const contentStyle = {
     minHeight: 140,
     padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
-    outline: 'none',
     fontSize: '1rem',
     lineHeight: 1.6,
 } as const
