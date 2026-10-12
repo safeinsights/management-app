@@ -1,9 +1,8 @@
 'use server'
 
-import { getStudyFilesPath } from '@/server/workspace-files'
-
-import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
+import { listStudyFiles } from '@/server/workspace-files'
+import { getMicrovmConfig } from '@/server/microvm/config'
+import { ensureMicrovm, getMicrovmLaunchStatus } from '@/server/microvm/workspaces'
 import { Action, z } from './action'
 import {
     copyStarterCodeIntoWorkspace,
@@ -26,30 +25,8 @@ import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
 import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-code-gate'
 
-// Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
-// what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    const coderFilesPath = await getStudyFilesPath(studyId)
-
-    let entries: string[]
-    try {
-        entries = await fs.readdir(coderFilesPath)
-    } catch (e) {
-        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
-        throw e
-    }
-
-    for (const entry of entries) {
-        if (entry.startsWith('.')) continue
-        try {
-            const stats = await fs.lstat(path.join(coderFilesPath, entry))
-            if (stats.isSymbolicLink() || !stats.isFile() || stats.size === 0) continue
-            return true
-        } catch {
-            continue
-        }
-    }
-    return false
+    return (await listStudyFiles(studyId)).length > 0
 }
 
 async function workspaceFileActivityEntries(studyId: string, before?: Date) {
@@ -80,50 +57,17 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
     .handler(async ({ params: { studyId } }) => {
         const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
 
-        const coderFilesPath = await getStudyFilesPath(studyId)
-
-        let entries: string[] = []
-        try {
-            entries = await fs.readdir(coderFilesPath)
-        } catch (e) {
-            if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                return {
-                    files: [],
-                    lastModified: null,
-                }
-            }
-            throw e
-        }
-
-        const files: WorkspaceFileInfo[] = []
-        let lastModified: Date | null = null
-
-        for (const entry of entries) {
-            if (entry.startsWith('.')) continue
-
-            const filePath = path.join(coderFilesPath, entry)
-            let stats
-            try {
-                stats = await fs.lstat(filePath)
-            } catch {
-                continue
-            }
-
-            if (stats.isSymbolicLink()) continue
-            if (!stats.isFile()) continue
-            if (stats.size === 0) continue
-
-            files.push({
-                name: entry,
-                size: stats.size,
-                mtime: stats.mtime.toISOString(),
-                lastActivity: activityByFile.get(entry) ?? null,
-            })
-
-            if (!lastModified || stats.mtime > lastModified) {
-                lastModified = stats.mtime
-            }
-        }
+        const studyFiles = await listStudyFiles(studyId)
+        const files: WorkspaceFileInfo[] = studyFiles.map((file) => ({
+            name: file.name,
+            size: file.size,
+            mtime: file.mtime.toISOString(),
+            lastActivity: activityByFile.get(file.name) ?? null,
+        }))
+        const lastModified = studyFiles.reduce<Date | null>(
+            (latest, file) => (!latest || file.mtime > latest ? file.mtime : latest),
+            null,
+        )
 
         return {
             files,
@@ -156,6 +100,15 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
+
+        // Every researcher with IDE access shares the study's one MicroVM and edits in it together,
+        // so the one-owner lock below is Coder's alone.
+        if (await getMicrovmConfig()) {
+            const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
+            await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+            const { microvmId } = await ensureMicrovm(studyId)
+            return { success: true, workspace: { id: microvmId } }
+        }
 
         // OTTER-693: claiming here rather than in the UI covers both entry points the card names,
         // since the Launch IDE button and the table's pencil both land on this action. The `is null`
@@ -242,6 +195,16 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
+
+        // Shared by everyone with IDE access; see ensureWorkspaceAction.
+        if (await getMicrovmConfig()) {
+            const { fullName } = await db
+                .selectFrom('user')
+                .select('fullName')
+                .where('id', '=', session.user.id)
+                .executeTakeFirstOrThrow()
+            return await getMicrovmLaunchStatus(studyId, { id: session.user.id, name: fullName })
+        }
 
         // Defence in depth behind ensureWorkspaceAction: this hands back the workspace url, so it
         // must not answer a researcher the study's IDE is not locked to.
@@ -342,6 +305,10 @@ export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
 
+        // Everyone with IDE access shares the study's MicroVM (see ensureWorkspaceAction), so to each
+        // viewer it reads as theirs: the controls enable and the one-owner lock warning stays hidden.
+        if (await getMicrovmConfig()) return { isClaimed: true, isOwnedByViewer: true, ownerName: null, isShared: true }
+
         const study = await db
             .selectFrom('study')
             .leftJoin('user', 'user.id', 'study.ideOwnerId')
@@ -350,12 +317,13 @@ export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
             .executeTakeFirst()
 
         if (!study?.ideOwnerId) {
-            return { isClaimed: false, isOwnedByViewer: false, ownerName: null }
+            return { isClaimed: false, isOwnedByViewer: false, ownerName: null, isShared: false }
         }
 
         return {
             isClaimed: true,
             isOwnedByViewer: study.ideOwnerId === session.user.id,
             ownerName: study.ownerName,
+            isShared: false,
         }
     })

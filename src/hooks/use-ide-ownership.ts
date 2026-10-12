@@ -31,6 +31,8 @@ export function useIdeOwnership(studyId: string) {
         // button needs the two apart to pick its solid-vs-outline variant.
         isIdeClaimed: ideOwner?.isClaimed === true,
         ideOwnerName: ideOwner?.ownerName ?? null,
+        // The MicroVM backend: one IDE per study that its researchers share, opened by /ide/<studyId>.
+        isIdeShared: ideOwner?.isShared === true,
         refresh,
     }
 }

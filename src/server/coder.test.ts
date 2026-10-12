@@ -19,7 +19,8 @@ import { getIdeOwnerForStudy, siUser, fetchLatestCodeEnvForStudyId, getDataSourc
 import { fetchFileContents } from './storage'
 import { getAgentContextAction } from './actions/agent-context.actions'
 
-vi.mock('./config', () => ({
+vi.mock('./config', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('./config')>()),
     getConfigValue: vi.fn(),
 }))
 

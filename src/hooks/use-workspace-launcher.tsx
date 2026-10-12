@@ -42,6 +42,8 @@ const notifyPopupBlocked = (url: string) => {
 interface UseWorkspaceLauncherOptions {
     studyId: string
     onSuccess?: () => void
+    /** The shared MicroVM IDE: the click opens /ide/<studyId>, which starts it and redirects. */
+    isShared?: boolean
 }
 
 interface LaunchOptions {
@@ -66,7 +68,11 @@ interface UseWorkspaceLauncherReturn {
 
 const STATUS_QUERY_KEY = 'workspace-build-status'
 
-export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
+export function useWorkspaceLauncher({
+    studyId,
+    onSuccess,
+    isShared = false,
+}: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
     const [errorEventId, setErrorEventId] = useState<string | null>(null)
@@ -126,12 +132,21 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
 
     const launchWorkspace = useCallback(
         (options?: LaunchOptions) => {
+            // Opened inside the click, so the popup blocker allows it; the new tab waits for the
+            // MicroVM itself, so this page shows no progress modal.
+            if (isShared) {
+                const url = `/ide/${studyId}`
+                const { blocked } = openWorkspace(url, studyId, options?.sameWindow ?? false)
+                if (blocked) notifyPopupBlocked(url)
+                onSuccess?.()
+                return
+            }
             sameWindowRef.current = options?.sameWindow ?? false
             abandonedRef.current = false
             clearError()
             ensure.mutate({ studyId })
         },
-        [clearError, ensure, studyId],
+        [clearError, ensure, studyId, isShared, onSuccess],
     )
 
     /**

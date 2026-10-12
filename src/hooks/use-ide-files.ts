@@ -90,7 +90,13 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     // than claiming a page nobody has touched is saved.
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
-    const { canEditInIde, isIdeClaimed, ideOwnerName, refresh: refreshIdeOwnership } = useIdeOwnership(studyId)
+    const {
+        canEditInIde,
+        isIdeClaimed,
+        ideOwnerName,
+        isIdeShared,
+        refresh: refreshIdeOwnership,
+    } = useIdeOwnership(studyId)
 
     const onLaunchSuccess = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
@@ -110,7 +116,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         lastUpdatedAt: launchLastUpdatedAt,
         buildLog: launchBuildLog,
         agentLog: launchAgentLog,
-    } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess })
+    } = useWorkspaceLauncher({ studyId, onSuccess: onLaunchSuccess, isShared: isIdeShared })
 
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
 

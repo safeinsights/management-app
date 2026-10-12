@@ -1,4 +1,4 @@
-import { getStudyFilesPath } from '@/server/workspace-files'
+import { studyFileStore } from '@/server/workspace-files'
 import {
     coderWorkspaceAgentLogsPath,
     coderWorkspaceBuildByIdPath,
@@ -35,8 +35,6 @@ import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from
 import { latestStudyJobCreatedAt } from '../db/mutations'
 import { db, type DBExecutor } from '@/database'
 import { fetchFileContents } from '../storage'
-import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
 import { templateFileNameFor } from '@/lib/languages'
 
@@ -182,7 +180,7 @@ async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     }
 }
 
-async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
+export async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
     const environment = [...(codeEnv.settings?.environment || [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
@@ -315,16 +313,6 @@ export async function createUserAndWorkspace(
     }
 }
 
-async function studyDirHasFiles(dir: string): Promise<boolean> {
-    try {
-        const entries = await fs.readdir(dir)
-        return entries.some((e) => !e.startsWith('.'))
-    } catch (e) {
-        if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return false
-        throw e
-    }
-}
-
 /**
  * Copies the Data Partner's starter code into a study's workspace. Exported so the Submit code page
  * can pre-load the template before anyone provisions a workspace (OTTER-693); the launch path calls
@@ -347,7 +335,7 @@ export const copyStarterCodeIntoWorkspace = async (
     const starterFiles = codeEnv.starterCodeFileNames ?? []
     if (starterFiles.length === 0) return null
 
-    const studyDir = await getStudyFilesPath(studyId)
+    const store = await studyFileStore()
 
     // The card names the first starter file Main.{x} after the language; any others keep their own
     // name and carry no badge.
@@ -361,19 +349,19 @@ export const copyStarterCodeIntoWorkspace = async (
 
     // Only copy when empty, so ready-polling repeats do not clobber user edits. Returning null on
     // the skip path is what stops a caller resetting the researcher's main-file choice.
-    if (await studyDirHasFiles(studyDir)) {
-        logger.info(`${logCtx} ${studyDir} already has files, skipping starter-code copy`)
+    if ((await store.list(studyId)).some((file) => !file.name.startsWith('.'))) {
+        logger.info(`${logCtx} workspace already has files, skipping starter-code copy`)
         return null
     }
 
     logger.info(
-        `${logCtx} initializing into ${studyDir} from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
+        `${logCtx} initializing from codeEnv=${codeEnv.identifier} (id=${codeEnv.id}), ` +
             `${starterFiles.length} starter file(s): [${starterFiles.join(', ')}]`,
     )
 
     for (const [index, fileName] of starterFiles.entries()) {
         const filePath = pathForStarterCode({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, fileName })
-        const targetFilePath = path.join(studyDir, targetNameFor(fileName, index))
+        const targetName = targetNameFor(fileName, index)
 
         let fileData
         try {
@@ -384,14 +372,12 @@ export const copyStarterCodeIntoWorkspace = async (
         }
 
         try {
-            await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-            await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-            await fs.utimes(targetFilePath, pastDate, pastDate)
+            await store.write(studyId, targetName, Buffer.from(await fileData.arrayBuffer()), pastDate)
         } catch (error) {
-            logger.error(`${logCtx} failed writing starter file to ${targetFilePath}:`, error)
+            logger.error(`${logCtx} failed writing starter file ${targetName}:`, error)
             throw error
         }
-        logger.info(`${logCtx} wrote ${fileName} to ${targetFilePath}`)
+        logger.info(`${logCtx} wrote ${fileName} as ${targetName}`)
     }
 
     return templateName
@@ -399,7 +385,6 @@ export const copyStarterCodeIntoWorkspace = async (
 
 export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
-    const studyDir = await getStudyFilesPath(studyId)
 
     await copyStarterCodeIntoWorkspace(studyId)
 
@@ -408,5 +393,5 @@ export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<voi
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
     // Refreshed every launch so a relaunch picks up context changes even when starter code is untouched.
-    await writeAgentContext({ targetDir: studyDir, language: codeEnv.language, orgId: codeEnv.orgId, pastDate, logCtx })
+    await writeAgentContext({ studyId, language: codeEnv.language, orgId: codeEnv.orgId, pastDate, logCtx })
 }

@@ -1,10 +1,8 @@
 'use server'
 
-import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 import type { DBExecutor } from '@/database'
 import { Action, z } from './action'
-import { getStudyFilesPath } from '@/server/workspace-files'
+import { studyFileStore } from '@/server/workspace-files'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -38,13 +36,8 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
     .handler(async ({ db, params: { studyId, file }, session }) => {
         await ensureRoundJobForUpload(db, studyId)
 
-        const coderFilesPath = await getStudyFilesPath(studyId)
-        await fs.mkdir(coderFilesPath, { recursive: true })
-
         const fileName = sanitizeFileName(file.name)
-        const filePath = path.join(coderFilesPath, fileName)
-        const buffer = Buffer.from(await file.arrayBuffer())
-        await fs.writeFile(filePath, buffer)
+        await (await studyFileStore()).write(studyId, fileName, Buffer.from(await file.arrayBuffer()))
 
         // OTTER-693: feeds the Last activity column. Written after the file lands, so a failed
         // write cannot leave activity claiming an upload that never happened.
@@ -113,11 +106,10 @@ export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId, fileName } }) => {
-        const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
-        const filePath = path.join(coderFilesPath, sanitized)
         // Raw bytes, not utf-8: workspace files include binary artifacts like png plots (OTTER-516).
-        const contents = await fs.readFile(filePath)
+        const contents = await (await studyFileStore()).read(studyId, sanitized)
+        if (!contents) throw new Error(`File not found: ${sanitized}`)
         return { fileName: sanitized, contents: new Uint8Array(contents).buffer }
     })
 
@@ -127,9 +119,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName } }) => {
-        const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
-        const filePath = path.join(coderFilesPath, sanitized)
 
         // Server-side so both files tables get the rule: /code disables the button, /resubmit's
         // table does not, and deleting it would leave main_code_file_name naming nothing.
@@ -142,15 +132,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
             throw new Error('Main file cannot be deleted. Set another file as main first.')
         }
 
-        try {
-            await fs.unlink(filePath)
-        } catch (e) {
-            if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
-                // already gone; deleting is idempotent
-            } else {
-                throw e
-            }
-        }
+        await (await studyFileStore()).remove(studyId, sanitized)
         await stampLabEdit(db, studyId)
 
         return { success: true }
