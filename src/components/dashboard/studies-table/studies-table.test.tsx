@@ -1,5 +1,5 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { ExternalLinks } from '@/lib/routes'
 import { screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -92,6 +92,7 @@ const mockStudies = [
 
 vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
+    softDeleteStudyAction: vi.fn(),
 }))
 
 // mockResolvedValueOnce is strict and the action's return type is much wider than the fixtures.
@@ -204,6 +205,16 @@ describe('Studies Table', () => {
 
         const link = await screen.findByRole('link', { name: 'Untitled study' })
         expect(link).toHaveAttribute('href', '/test-org/study/11111111-1111-4111-8111-111111111111/edit')
+    })
+
+    it('offers the draft author the delete-draft bin', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({ status: 'DRAFT' as StudyStatus, researcherId: user.id, orgSlug: org.slug }),
+        )
+        renderWithProviders(<StudiesTable audience="researcher" scope="org" orgSlug={org.slug} paperWrapper />)
+
+        expect(await screen.findByLabelText('Delete draft study Study Title 1')).toBeDefined()
     })
 
     it('does not duplicate the new study button on an empty lab org dashboard', async () => {
