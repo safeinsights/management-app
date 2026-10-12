@@ -4,11 +4,10 @@ import type { ReactNode } from 'react'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { semanticColor } from '@/theme/tokens'
-
-const ROW_BORDER = { borderBottom: '1px solid var(--mantine-color-gray-3)' }
+import classes from './settings-card.module.css'
 
 export function SettingsCardRow({ children }: { children: ReactNode }) {
-    return <Box style={ROW_BORDER}>{children}</Box>
+    return <Box className={classes.row}>{children}</Box>
 }
 
 function CardDescription({ description }: { description?: ReactNode }) {

@@ -3,6 +3,7 @@ import { MAIN_CONTENT_PROPS, SIDENAV_BG } from '@/lib/constants'
 import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
+import classes from './focused-layout-shell-view.module.css'
 
 // Session-free so it renders in isolation; ./focused-layout-shell wires up the real hooks.
 export type FocusedLayoutShellViewProps = {
@@ -26,19 +27,14 @@ export function FocusedLayoutShellView({
                 <Group
                     h="100%"
                     p="md"
-                    style={{ cursor: isSignInFlow ? 'pointer' : '' }}
+                    className={isSignInFlow ? classes.clickable : undefined}
                     onClick={() => isSignInFlow && onHeaderClick()}
                 >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
             </AppShellHeader>
 
-            <AppShellMain
-                {...MAIN_CONTENT_PROPS}
-                bg={SIDENAV_BG}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                px="md"
-            >
+            <AppShellMain {...MAIN_CONTENT_PROPS} bg={SIDENAV_BG} className={classes.centered} px="md">
                 {children}
             </AppShellMain>
             <AppFooter isDark />

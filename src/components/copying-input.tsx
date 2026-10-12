@@ -4,6 +4,7 @@ import { Input, UnstyledButton } from '@mantine/core'
 import { useClipboard } from '@mantine/hooks'
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
+import classes from './copying-input.module.css'
 import { InfoTooltip } from './tooltip'
 
 export const CopyingInput: FC<{ value: string; tooltipLabel?: string }> = ({ value, tooltipLabel = 'Copy code' }) => {
@@ -12,7 +13,8 @@ export const CopyingInput: FC<{ value: string; tooltipLabel?: string }> = ({ val
     return (
         <Input
             value={value}
-            styles={{ input: { cursor: 'pointer', backgroundColor: '#eaedff' } }}
+            pointer
+            classNames={{ input: classes.input }}
             readOnly
             rightSectionPointerEvents="all"
             size="sm"

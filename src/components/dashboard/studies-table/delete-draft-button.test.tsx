@@ -55,9 +55,9 @@ describe('DeleteDraftButton', () => {
         await user1.click(screen.getByLabelText(/delete draft study/i))
         const confirm = await screen.findByRole('button', { name: /yes, delete proposal draft/i })
 
-        // Mantine v7 maps `color="red.6"` to an inline CSS variable, so the resolved color is
-        // not assertable.
-        expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--mantine-color-red-6)')
+        // The color is an inline CSS variable (status/error/bg-dark, red.6), so the resolved value
+        // is not assertable.
+        expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--si-color-error-bg-dark)')
     })
 
     it('closes the modal when the header X close button is clicked', async () => {

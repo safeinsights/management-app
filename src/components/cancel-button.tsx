@@ -3,6 +3,7 @@ import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
+import { semanticColor } from '@/theme/tokens'
 
 export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
@@ -33,14 +34,14 @@ export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled
                         <Button variant="outline" onClick={() => setIsOpen(false)}>
                             Back to proposal
                         </Button>
-                        <Button variant="filled" color="red.6" onClick={confirmCancel}>
+                        <Button variant="filled" color={semanticColor('error.bg.dark')} onClick={confirmCancel}>
                             Yes, delete proposal
                         </Button>
                     </Group>
                 </Stack>
             </AppModal>
 
-            <Button type="button" variant="outline" c="purple.5" size="md" disabled={disabled} onClick={handleCancel}>
+            <Button type="button" variant="outline" size="md" disabled={disabled} onClick={handleCancel}>
                 Cancel
             </Button>
         </>

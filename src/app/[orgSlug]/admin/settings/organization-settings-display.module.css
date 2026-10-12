@@ -1,0 +1,4 @@
+/* Keeps the line breaks an admin typed into the multi-line description. */
+.description {
+    white-space: pre-wrap;
+}

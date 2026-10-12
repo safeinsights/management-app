@@ -46,7 +46,6 @@ export function JoinedOrgBanner() {
             withCloseButton
             onClose={() => setJoinedOrg(null)}
             icon={<CheckCircleIcon weight="fill" size={20} color={theme.colors.green[7]} />}
-            styles={{ closeButton: { color: theme.colors.green[7] } }}
             data-testid="joined-org-banner"
         >
             <Text size="sm" c={theme.colors.green[7]} fw={fontWeight.bold}>

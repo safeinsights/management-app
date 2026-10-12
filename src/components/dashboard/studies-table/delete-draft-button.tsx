@@ -8,6 +8,7 @@ import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { showToast } from '@/components/toast-notifications'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
+import { semanticColor } from '@/theme/tokens'
 import { StudyRow } from './types'
 
 const UNTITLED_DRAFT_FALLBACK = 'Untitled Draft'
@@ -51,7 +52,7 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
         <>
             <ActionIcon
                 variant="subtle"
-                color="red.7"
+                color="red"
                 onClick={open}
                 aria-label={`Delete draft study ${draftLabel}`}
                 data-testid="delete-draft-button"
@@ -68,7 +69,12 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
                         <Button variant="outline" onClick={close} disabled={isPending}>
                             Cancel
                         </Button>
-                        <Button variant="filled" color="red.6" onClick={confirm} loading={isPending}>
+                        <Button
+                            variant="filled"
+                            color={semanticColor('error.bg.dark')}
+                            onClick={confirm}
+                            loading={isPending}
+                        >
                             Yes, delete proposal draft
                         </Button>
                     </Group>

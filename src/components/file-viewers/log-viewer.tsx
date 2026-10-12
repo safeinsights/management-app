@@ -1,6 +1,7 @@
 import { parseLogMessages } from '@/lib/file-content-helpers'
 import { Code, ScrollArea, Table } from '@mantine/core'
 import type { ReactNode } from 'react'
+import classes from './file-viewers.module.css'
 
 function formatTimestamp(ts: number): string {
     return new Date(ts).toLocaleTimeString()
@@ -22,12 +23,10 @@ export function logViewer(_path: string, text: string): ReactNode | null {
                 <Table.Tbody>
                     {entries.map((entry, i) => (
                         <Table.Tr key={i}>
-                            <Table.Td w={100} valign="top" style={{ whiteSpace: 'nowrap' }}>
+                            <Table.Td w={100} valign="top" className={classes.nowrap}>
                                 <Code>{formatTimestamp(entry.timestamp)}</Code>
                             </Table.Td>
-                            <Table.Td style={{ overflowWrap: 'break-word', whiteSpace: 'pre-wrap' }}>
-                                {entry.message}
-                            </Table.Td>
+                            <Table.Td className={classes.wrapped}>{entry.message}</Table.Td>
                         </Table.Tr>
                     ))}
                 </Table.Tbody>

@@ -1,0 +1,9 @@
+/* For content with no meaningful line length (JSON, logs, plain text), where scrolling sideways helps no one. */
+.wrapped {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.nowrap {
+    white-space: nowrap;
+}

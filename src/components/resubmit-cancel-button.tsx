@@ -48,7 +48,7 @@ export function ResubmitCancelButton({
                 </Stack>
             </AppModal>
 
-            <Button type="button" variant="outline" c="purple.5" disabled={disabled} onClick={handleCancel}>
+            <Button type="button" variant="outline" disabled={disabled} onClick={handleCancel}>
                 Cancel
             </Button>
         </>
