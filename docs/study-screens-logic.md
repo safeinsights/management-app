@@ -341,6 +341,12 @@ through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
 before that.
 
+`/resubmit` (Edit code) is a form route too. `Previous step` (flushes the note draft, then `/view`)
+and `Resubmit code for review` belong to the form. `codeResubmissionNav(state, ctx)` adds only an
+outline `View outputs` → `/view`, and only when `isOutputsDecided`: the round was reopened from the
+outputs step, so `/view` serves the latest outputs screen. Edit code reached from
+`CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
+
 Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
 once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
 `CODE-SUBMITTED`, whatever the reviewer has decided since — because its confirmation modal promises
@@ -552,6 +558,7 @@ re-architecting — exactly as the design intended.
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
+| `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837)                                                              |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
 | `index.ts`                             | public barrel                                                                                               |
 | `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |
