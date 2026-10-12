@@ -53,8 +53,6 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
                 status: study.status,
                 orgSlug: study.orgSlug,
                 orgName: study.orgName,
-                // Never the slug: displayLabName owns that fallback, and a slug sent through
-                // displayOrgName loses its trailing word (OTTER-619).
                 submittingLabName: study.submittingLabName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,

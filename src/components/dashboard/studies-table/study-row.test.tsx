@@ -60,7 +60,7 @@ describe('StudyRow status pill', () => {
 
         await user.hover(screen.getByText('Awaiting code'))
 
-        expect(await screen.findByText('Waiting for Genius to submit their code.')).toBeVisible()
+        expect(await screen.findByText('Waiting for Genius Lab to submit their code.')).toBeVisible()
     })
 
     it('tells the researcher the proposal is with the data partner, naming the partner', async () => {
