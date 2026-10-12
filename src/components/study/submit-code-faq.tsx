@@ -20,6 +20,7 @@ import { markSubmitCodeFaqSeenAction } from '@/server/actions/submit-code-faq.ac
 import { MainFileTemplateCopy } from './main-file-template-copy'
 import { OnboardingVideo } from './onboarding-video'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import classes from './submit-code-faq.module.css'
 
 const FAQ_ITEM_VALUE = 'submit-code-faq'
 const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
@@ -28,22 +29,6 @@ const QUESTION_ICON_SIZE = 16
 const SECTION_ICON_SIZE = 14
 /** Figma `body/sm` and `label/md` are both 14px here. */
 const SECTION_FONT_SIZE = 14
-/** Icon width plus the 8px gap beside it, so an answer lines up under its question. */
-const ANSWER_INDENT = 22
-
-/**
- * Figma's `alpha/blue30`. Left as the literal token value because the theme has no blue this
- * light — `blue.0` is several steps darker — and adding a scale step is a wider change than
- * this card.
- */
-const PANEL_BACKGROUND = 'rgba(231, 241, 254, 0.3)'
-
-const ACCORDION_STYLES = {
-    item: { borderColor: 'var(--mantine-color-charcoal-1)' },
-    control: { backgroundColor: 'var(--mantine-color-grey-0)' },
-    panel: { backgroundColor: PANEL_BACKGROUND },
-    content: { paddingInline: 16, paddingBlock: 24 },
-} as const
 
 type FaqEntry = {
     icon: ReactNode
@@ -104,7 +89,7 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
                 {question}
             </Text>
         </Group>
-        <Text fz={SECTION_FONT_SIZE} c={semanticColor('text.primary')} pl={ANSWER_INDENT}>
+        <Text fz={SECTION_FONT_SIZE} c={semanticColor('text.primary')} pl="lg">
             {answer}
         </Text>
     </Stack>
@@ -171,11 +156,12 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
             disableChevronRotation
             variant="contained"
             radius="md"
-            styles={ACCORDION_STYLES}
+            classNames={{ content: classes.content }}
             data-testid="submit-code-faq"
         >
-            <Accordion.Item value={FAQ_ITEM_VALUE}>
+            <Accordion.Item value={FAQ_ITEM_VALUE} bd={`1px solid ${semanticColor('border.default')}`}>
                 <Accordion.Control
+                    bg={semanticColor('surface.page')}
                     icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color="var(--mantine-color-blue-7)" />}
                 >
                     <Group gap="md" wrap="nowrap">
@@ -185,7 +171,7 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                         <VideoDurationBadge minutes={videoDurationMinutes} />
                     </Group>
                 </Accordion.Control>
-                <Accordion.Panel>
+                <Accordion.Panel bg={semanticColor('brand.accentalpha')}>
                     <Stack gap="md">
                         <OnboardingVideo isVisible={openValue !== null} />
                         <Divider color={semanticColor('border.default')} />

@@ -1,0 +1,4 @@
+/* Mantine has no pointer-events prop; the drop must pass through the overlay to the Dropzone below. */
+.overlay {
+    pointer-events: none;
+}

@@ -6,7 +6,7 @@ import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
 import { useQueryClient } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface AgreementsPageProps {
     isReviewer: boolean
@@ -70,19 +70,14 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={fontWeight.bold} c="gray.7" pb="sm">
+            <Text fz="sm" fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="sm">
                 {stepLabel}
             </Text>
             <Title order={2} size="h4">
                 {title}
             </Title>
             <Divider my="sm" mb="md" />
-            <Alert
-                icon={<InfoIcon weight="fill" color={theme.colors.blue[6]} />}
-                color="blue"
-                mb="md"
-                styles={{ body: { gap: 8 } }}
-            >
+            <Alert icon={<InfoIcon weight="fill" color={theme.colors.blue[6]} />} color="blue" mb="md">
                 This feature is currently under construction.
             </Alert>
             <Text fz="sm">

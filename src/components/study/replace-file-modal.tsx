@@ -4,7 +4,7 @@ import type { FC } from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import type { DuplicateResolution } from '@/hooks/use-upload-queue'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const MODAL_TITLE = 'Replace existing file?'
 
@@ -37,7 +37,7 @@ export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve })
                     <Button variant="outline" onClick={() => onResolve('keepBoth')}>
                         Keep both
                     </Button>
-                    <Button color="red.7" onClick={() => onResolve('replace')}>
+                    <Button color={semanticColor('error.bg.dark')} onClick={() => onResolve('replace')}>
                         Replace
                     </Button>
                 </Group>

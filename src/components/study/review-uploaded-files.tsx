@@ -54,7 +54,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
                     onChange={(event) => setMainFile(event.currentTarget.value)}
                 />
             </Table.Td>
-            <Table.Td style={{ maxWidth: 300 }}>
+            <Table.Td maw={300}>
                 <Text size="sm" truncate>
                     {file.name}
                 </Text>

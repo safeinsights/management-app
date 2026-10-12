@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, type ReactNode, type DragEvent, type RefObject } from 'react'
-import { Anchor, Box, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
+import { Anchor, Box, Overlay, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { Dropzone, type FileWithPath } from '@mantine/dropzone'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import {
@@ -14,26 +14,12 @@ import {
 import { showUploadFailed } from './upload-notifications'
 import { showToast } from '@/components/toast-notifications'
 import { fontWeight } from '@/theme/tokens'
+import classes from './file-drop-overlay.module.css'
 
 function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
     return (
-        <Box
-            pos="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            bg="rgba(0, 0, 0, 0.45)"
-            style={{
-                zIndex: 10,
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-            }}
-        >
+        <Overlay backgroundOpacity={0.45} radius="md" zIndex={10} center className={classes.overlay}>
             <Paper p="lg" radius="md" shadow="md">
                 <Stack align="center" gap="xs">
                     <ThemeIcon variant="light" color="blue" size="xl" radius="xl">
@@ -47,7 +33,7 @@ function DragOverlayBanner({ isVisible }: { isVisible: boolean }) {
                     </Text>
                 </Stack>
             </Paper>
-        </Box>
+        </Overlay>
     )
 }
 
@@ -132,15 +118,7 @@ export function FileDropOverlay({
                 accept={ACCEPTED_FILE_TYPES}
                 activateOnClick={false}
                 disabled={disabled}
-                styles={{
-                    root: {
-                        border: 'none',
-                        padding: 0,
-                        backgroundColor: 'transparent',
-                        color: 'inherit',
-                    },
-                    inner: { pointerEvents: 'all' },
-                }}
+                unstyled
             >
                 {children}
             </Dropzone>

@@ -1,0 +1,4 @@
+/* Mantine's Alert has no prop or variable for the icon's trailing margin, which defaults to md. */
+.icon {
+    margin-inline-end: var(--mantine-spacing-xs);
+}

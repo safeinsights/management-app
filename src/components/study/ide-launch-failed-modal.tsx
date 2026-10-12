@@ -41,7 +41,7 @@ export const IdeLaunchFailedModal: FC<IdeLaunchFailedModalProps> = ({
                 <Text size="sm">{supportLine(supportRef)}</Text>
             </Stack>
             {/* Full rather than a partial value: the bar reads as a failed run, not as progress. */}
-            <Progress value={100} color="red.7" size="sm" aria-label="Launch failed" />
+            <Progress value={100} color={semanticColor('error.bg.dark')} size="sm" aria-label="Launch failed" />
             <Button onClick={onRetry}>Try again</Button>
         </Stack>
     </AppModal>

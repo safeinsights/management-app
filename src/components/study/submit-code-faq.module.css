@@ -1,0 +1,4 @@
+/* Accordion.Panel's content box is reachable only through classNames/styles; Figma pads it 24/16. */
+.content {
+    padding: var(--mantine-spacing-lg) var(--mantine-spacing-md);
+}

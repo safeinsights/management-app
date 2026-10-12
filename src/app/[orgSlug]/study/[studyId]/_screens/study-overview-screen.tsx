@@ -12,7 +12,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
             <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
+                        <Title order={2} size="xl" flex={1} miw={0}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />

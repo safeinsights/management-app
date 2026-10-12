@@ -717,7 +717,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         const fixture = await setupFilesFixture(['main.R', 'extra.R'])
         await renderSection(fixture)
         const tabs = screen.getByTestId('study-code-file-tabs')
-        expect(tabs).toHaveStyle({ overflow: 'hidden' })
+        expect(tabs.className).toMatch(/fileTabs/)
     })
 
     it('renders the main code file first and active by default', async () => {
