@@ -10,6 +10,7 @@ import {
     resolveStepNav,
     codeSubmissionNav,
     codeResubmissionNav,
+    setupStepNav,
     type NavCtx,
     type StepNav,
 } from './nav'
@@ -320,6 +321,23 @@ describe('codeResubmissionNav', () => {
 
     it('never adds a solid action: Resubmit is form-owned', () => {
         expect(solids(codeResubmissionNav(state({ ...decided, resultsApproved: true }), ctx))).toBe(0)
+    })
+})
+
+// /edit resolves its own nav as a form route; a submitted study's only action is "Next step" (OTTER-673).
+describe('setupStepNav', () => {
+    it('returns to Edit proposal when the step back came from it', () => {
+        expect(setupStepNav('CHANGE-REQUESTED', { ...ctx, from: 'edit-proposal' })).toEqual({
+            forward: { label: 'Next step', href: `${base}/edit-and-resubmit`, variant: 'solid', testId: 'cta-next-step' },
+        })
+    })
+
+    it.each([
+        ['without an origin', 'CHANGE-REQUESTED', undefined],
+        ['once the proposal is decided', 'APPROVED', 'edit-proposal'],
+        ['for an Edit code origin', 'CHANGE-REQUESTED', 'edit-code'],
+    ] as const)('steps forward to the proposal status %s', (_label, status, from) => {
+        expect(setupStepNav(status, { ...ctx, from }).forward?.href).toBe(`${base}/submitted`)
     })
 })
 

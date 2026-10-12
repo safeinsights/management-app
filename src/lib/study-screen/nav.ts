@@ -150,6 +150,17 @@ export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtx): StepNav => 
     back: status === 'APPROVED' ? codePreviousStep(ctx) : proposalPreviousStep(ctx),
 })
 
+// /edit (Step 1) is a form route too. For a submitted study its only action is "Next step": back to
+// Edit proposal when that is where the step back came from and the proposal still awaits revision,
+// otherwise to the proposal status.
+export const setupStepNav = (status: StudyStatus, ctx: NavCtx): StepNav => {
+    const params = { orgSlug: ctx.orgSlug, studyId: ctx.studyId }
+    const returnsToEditProposal = ctx.from === 'edit-proposal' && status === 'CHANGE-REQUESTED'
+    return {
+        forward: nextStep(returnsToEditProposal ? Routes.studyEditAndResubmit(params) : Routes.studySubmitted(params)),
+    }
+}
+
 // /resubmit is a form route like /code: Resubmit opens a modal, so it stays with the form. The table
 // supplies "Previous step" (the footer flushes the note draft before following it) and, for a round
 // reopened from the outputs step, "View outputs" (OTTER-837).

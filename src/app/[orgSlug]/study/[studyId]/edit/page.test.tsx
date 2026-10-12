@@ -27,8 +27,8 @@ beforeEach(() => {
     })
 })
 
-const renderRoute = (orgSlug: string, studyId: string) =>
-    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }) })
+const renderRoute = (orgSlug: string, studyId: string, from?: string) =>
+    StudyEditPage({ params: Promise.resolve({ orgSlug, studyId }), searchParams: Promise.resolve({ from }) })
 
 const setupDraft = async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -71,8 +71,8 @@ const insertSubmittedStudyFor = async (
 
 // StudyProposal calls useStudyRequest(); production wires that provider in the study layout,
 // which this render does not exercise.
-const renderPage = async (orgSlug: string, studyId: string) => {
-    const page = await renderRoute(orgSlug, studyId)
+const renderPage = async (orgSlug: string, studyId: string, from?: string) => {
+    const page = await renderRoute(orgSlug, studyId, from)
     renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page!}</StudyRequestProvider>)
 }
 
@@ -233,6 +233,28 @@ describe('StudyEditPage', () => {
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: org.slug, studyId: study.id })),
         )
+    })
+
+    // OTTER-673: Edit proposal's "Previous step" lands here, and "Next step" has to return to Edit
+    // proposal, not to the proposal status it was opened from.
+    it.each([
+        ['returns to Edit proposal when the step back came from it', 'CHANGE-REQUESTED', 'edit-proposal', 'edit'],
+        ['steps forward to the submitted record without an origin', 'CHANGE-REQUESTED', undefined, 'submitted'],
+        ['ignores an Edit proposal origin once the proposal is decided', 'APPROVED', 'edit-proposal', 'submitted'],
+        ['ignores an origin it does not know', 'CHANGE-REQUESTED', 'dashboard', 'submitted'],
+    ] as const)('%s', async (_name, studyStatus, from, target) => {
+        const user = userEvent.setup()
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: researcher.id, studyStatus })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+        memoryRouter.setCurrentUrl('/start')
+
+        await renderPage(org.slug, study.id, from)
+        await user.click(screen.getByRole('button', { name: 'Next step' }))
+
+        const params = { orgSlug: org.slug, studyId: study.id }
+        const expected = target === 'edit' ? Routes.studyEditAndResubmit(params) : Routes.studySubmitted(params)
+        await waitFor(() => expect(memoryRouter.asPath).toBe(expected))
     })
 
     // /edit is a revisitable step: it never resume-redirects to Step 2. resolveScreen, not this

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import type { Route } from 'next'
 import { useParams, useRouter } from 'next/navigation'
 import { Stack } from '@mantine/core'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
@@ -19,6 +20,8 @@ interface StudyProposalProps {
     draftData?: DraftStudyData | null
     /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
     submittingLabName?: string | null
+    /** Where a submitted study's "Next step" leads, resolved by the page from the nav table. */
+    nextStepHref?: Route
 }
 
 const MODAL_BODY =
@@ -55,7 +58,7 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName, nextStepHref }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
@@ -78,11 +81,11 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     // A submitted proposal has nothing to validate or save, so the CTA only steps forward
     // (OTTER-764). `isProceeding` still guards it: the target re-reads from the server, and without
     // it the button looks dead for the whole navigation. Nothing resets it, the page is leaving.
-    const goToSubmitted = useCallback(() => {
+    const goToNextStep = useCallback(() => {
         if (!studyId) return
         setIsProceeding(true)
-        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
-    }, [router, submittingOrgSlug, studyId])
+        router.push(nextStepHref ?? Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
+    }, [router, submittingOrgSlug, studyId, nextStepHref])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({
@@ -115,7 +118,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const eyebrow = draftData?.submittingLabName ?? submittingLabName
     const headingTitle = titleValue.trim() || UNTITLED_STUDY_TITLE
 
-    const onProceed = navMode === 'submitted' ? goToSubmitted : attemptContinue
+    const onProceed = navMode === 'submitted' ? goToNextStep : attemptContinue
 
     return (
         <Stack p="xl" gap="xl">

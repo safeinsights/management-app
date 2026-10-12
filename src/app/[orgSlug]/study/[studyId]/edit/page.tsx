@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
-import { Routes } from '@/lib/routes'
+import { NavOriginParam, Routes } from '@/lib/routes'
+import { setupStepNav } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -10,9 +11,12 @@ import { StudyProposal } from '../../request/proposal'
 
 export const metadata: Metadata = { title: 'Set up study' }
 
-export default async function StudyEditPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const params = await props.params
-    const { studyId } = params
+export default async function StudyEditPage(props: {
+    params: Promise<{ studyId: string; orgSlug: string }>
+    searchParams: Promise<{ from?: string }>
+}) {
+    const { studyId, orgSlug } = await props.params
+    const from = NavOriginParam.safeParse((await props.searchParams).from).data
 
     // getStudyAction rather than a query of our own: it carries the `view Study` ability check and
     // filters soft-deleted rows.
@@ -42,9 +46,12 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
 
     // A DRAFT is the editable wizard, a submitted study the same page as a read-only record
     // (OTTER-764). Revisitable either way, so it never self-redirects to resume on Step 2.
+    const nextStepHref = setupStepNav(study.status, { orgSlug, studyId, from }).forward?.href
+
     return (
         <StudyProposal
             studyId={studyId}
+            nextStepHref={nextStepHref}
             draftData={{
                 id: studyId,
                 title: study.title ?? '',

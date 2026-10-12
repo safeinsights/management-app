@@ -240,7 +240,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' })),
             { timeout: 5000 },
         )
 
@@ -308,7 +308,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
+            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' })),
             { timeout: 5000 },
         )
         expect(notifications.show).not.toHaveBeenCalled()

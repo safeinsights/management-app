@@ -9,7 +9,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react'
 import { AppModal } from '@/components/modals/app-modal'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { useSaveProposalDraft } from '@/contexts/proposal/hooks/use-save-proposal-draft'
-import { Routes } from '@/lib/routes'
+import { Routes, type NavOrigin } from '@/lib/routes'
 import { hasLexicalContent } from '@/lib/lexical'
 import { ReviewerPreview } from './reviewer-preview'
 import { useProposalSubmitAttempt } from './use-proposal-submit-attempt'
@@ -35,6 +35,8 @@ interface ProposalFooterProps {
     /** Drafts beyond the proposal fields to flush before leaving; false blocks the navigation. */
     flushBeforeLeave?: () => Promise<boolean>
     isFlushing?: boolean
+    /** Tells Step 1 which page "Previous step" left, so its "Next step" can return there. */
+    previousFrom?: NavOrigin
 }
 
 const nothingToFlush = () => Promise.resolve(true)
@@ -56,6 +58,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
     orderedFieldIds,
     flushBeforeLeave = nothingToFlush,
     isFlushing = false,
+    previousFrom,
 }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -79,7 +82,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
         // Yjs autosave is inactive in single-user mode, so this is the only write path.
         const saved = await Promise.all([saveDraft(), flushBeforeLeave()])
         if (!saved.every(Boolean)) return
-        router.push(Routes.studyEdit({ orgSlug, studyId }))
+        router.push(Routes.studyEdit({ orgSlug, studyId, from: previousFrom }))
     }
 
     const handleOpenReviewer = async () => {

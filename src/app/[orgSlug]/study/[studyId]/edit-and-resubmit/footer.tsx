@@ -33,7 +33,8 @@ interface EditResubmitFooterProps {
 }
 
 // Edit proposal's footer: the shared ProposalFooter wired to the edit-and-resubmit context, which
-// adds the resubmission note to validation and to the flush before leaving (OTTER-762).
+// adds the resubmission note to validation and to the flush before leaving (OTTER-762). Its step back
+// tells Step 1 where it came from, so Step 1's "Next step" returns here (OTTER-673).
 export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
     researcherName,
     researcherId,
@@ -60,6 +61,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
             orderedFieldIds={RESUBMIT_ORDERED_FIELD_IDS}
             flushBeforeLeave={flushNote}
             isFlushing={isSavingNote}
+            previousFrom="edit-proposal"
         />
     )
 }
