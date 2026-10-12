@@ -15,6 +15,7 @@ import { cssVariablesResolver, theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { PostHog } from 'posthog-node'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
@@ -53,6 +54,18 @@ export { faker } from '@faker-js/faker'
 export { QueryClientProvider }
 export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+const postHogCaptureMock = () => vi.mocked(PostHog.prototype.captureImmediate)
+
+export const postHogCaptures = () => postHogCaptureMock().mock.calls.map(([event]) => event)
+
+// posthog-node reports a failed send through its 'error' event rather than rejecting, as the mock does.
+export const failNextPostHogCapture = (error: Error) =>
+    postHogCaptureMock().mockImplementationOnce(async function (this: { emitError(error: unknown): void }) {
+        this.emitError(error)
+    } as never)
+
+export const flushDeferred = () => globalThis.__flushDeferred()
 
 export const getAuditEntries = (recordId: string, recordType: AuditRecordType) =>
     db
@@ -196,6 +209,60 @@ export function renderWithProviders(
         </QueryClientProvider>,
         options,
     )
+}
+
+const lexicalTextNode = (text: string) => ({
+    detail: 0,
+    format: 0,
+    mode: 'normal',
+    style: '',
+    text,
+    type: 'text',
+    version: 1,
+})
+
+/** Serialized Lexical state for one paragraph holding a link, plus optional plain text around it. */
+export function lexicalLinkState({
+    url,
+    text = 'example',
+    target = '_blank',
+    lead,
+    tail,
+}: {
+    url: string
+    text?: string
+    target?: string | null
+    lead?: string
+    tail?: string
+}) {
+    const link = {
+        children: [lexicalTextNode(text)],
+        direction: 'ltr',
+        format: '',
+        indent: 0,
+        type: 'link',
+        version: 1,
+        rel: target ? 'noopener noreferrer' : null,
+        target,
+        title: null,
+        url,
+    }
+    const children = [
+        ...(lead === undefined ? [] : [lexicalTextNode(lead)]),
+        link,
+        ...(tail === undefined ? [] : [lexicalTextNode(tail)]),
+    ]
+
+    return JSON.stringify({
+        root: {
+            children: [{ children, direction: 'ltr', format: '', indent: 0, type: 'paragraph', version: 1 }],
+            direction: 'ltr',
+            format: '',
+            indent: 0,
+            type: 'root',
+            version: 1,
+        },
+    })
 }
 
 // Shows the org list that useSession() holds, for tests of the flows that change it.

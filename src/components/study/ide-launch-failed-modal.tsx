@@ -18,7 +18,7 @@ type IdeLaunchFailedModalProps = {
     isOpen: boolean
     onClose: () => void
     onRetry: () => void
-    /** The Sentry event id `reportError` minted for this failure, or null before it lands. */
+    /** The Sentry event id `captureError` minted for this failure, or null before it lands. */
     supportRef?: string | null
 }
 

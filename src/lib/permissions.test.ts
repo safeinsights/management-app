@@ -165,7 +165,6 @@ test('SI admin can review studies for orgs they do not belong to', () => {
 
     expect(ability.can('review', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
     expect(ability.can('approve', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
-    expect(ability.can('reject', toRecord('Study', { orgId: otherOrgId }))).toBe(true)
 })
 
 test('SI admin (manage/all) grants every action across subjects', () => {

@@ -49,7 +49,7 @@ type Abilities =
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }>
     | Ability<
           'Study',
-          'review' | 'approve' | 'reject' | 'update' | 'delete',
+          'review' | 'approve' | 'update' | 'delete',
           // `status` is unused here but must appear on every 'Study' arm so the CASL subject
           // union accepts a `status` condition on the view rule.
           { orgId?: UUID; submittedByOrgId?: UUID; status?: StudyStatus }

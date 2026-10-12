@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@/common'
-import { reportError } from '@/components/errors'
+import { captureError } from '@/components/errors'
 import { showSystemNotification } from '@/components/system-notifications'
 import { ActionFailure } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
@@ -73,7 +73,8 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
 
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
-        onError: (err) => setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null),
+        // The failure modal is the only surface for a failed launch (OTTER-832), so no toast.
+        onError: (err) => setErrorEventId(captureError(err) || null),
     })
 
     const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
@@ -102,7 +103,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
     useEffect(() => {
         if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
             reportedErrorRef.current = buildStatus.error
-            setErrorEventId(reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(buildStatus.error) || null)
         }
     }, [buildStatus.error])
 
@@ -111,7 +112,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         if (buildStatus.failed && !reportedFailureRef.current) {
             reportedFailureRef.current = true
             const err = new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE)
-            setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(err) || null)
         }
     }, [buildStatus.failed, buildStatus.reason])
 
