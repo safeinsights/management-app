@@ -147,4 +147,7 @@ html {
    readers still announce; visibility takes it out of the accessibility tree. */
 .mantine-datatable-empty-state:not([data-active]) {
     visibility: hidden;
+    transition:
+        opacity 0.2s,
+        visibility 0.2s;
 }
