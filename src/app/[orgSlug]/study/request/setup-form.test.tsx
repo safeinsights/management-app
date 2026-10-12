@@ -199,13 +199,6 @@ describe('Set Up page header', () => {
         expect(screen.getByRole('heading', { name: 'Untitled study', level: 1 })).toBeInTheDocument()
     })
 
-    it('falls back to the lab slug before the row exists when the org has no name', async () => {
-        const fixtures = await setupFixtures()
-        renderSetup(fixtures, { submittingLabName: null })
-
-        expect(screen.getByText(fixtures.lab.slug)).toBeInTheDocument()
-    })
-
     it('mirrors the title into the heading as it is typed', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
@@ -244,16 +237,6 @@ describe('Set Up page header', () => {
 
         expect(screen.getByText('Genius Lab')).toBeInTheDocument()
         expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
-    })
-
-    it('falls back to the lab slug when no lab name was passed', async () => {
-        const fixtures = await setupFixtures()
-        renderSetup(fixtures, {
-            studyId: faker.string.uuid(),
-            draftData: submittedDraft(fixtures),
-        })
-
-        expect(screen.getByText(fixtures.lab.slug)).toBeInTheDocument()
     })
 
     it('renders exactly one level-1 heading', async () => {

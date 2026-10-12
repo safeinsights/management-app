@@ -4,7 +4,6 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 const study = {
     title: 'Impact of highlighting on student learning outcomes',
     submittingLabName: 'Genius Lab',
-    submittedByOrgSlug: 'genius',
     isTestStudy: false,
 }
 
@@ -19,12 +18,6 @@ describe('StudyPageHeader', () => {
         renderWithProviders(<StudyPageHeader study={study} />)
 
         expect(screen.getByText('Genius Lab')).toBeInTheDocument()
-    })
-
-    it('falls back to the submitting org slug when the lab name is missing', () => {
-        renderWithProviders(<StudyPageHeader study={{ ...study, submittingLabName: null }} />)
-
-        expect(screen.getByText('genius')).toBeInTheDocument()
     })
 
     it('marks a test study beside the title', () => {

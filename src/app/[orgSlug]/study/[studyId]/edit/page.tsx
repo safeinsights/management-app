@@ -53,7 +53,6 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
                 status: study.status,
                 orgSlug: study.orgSlug,
                 orgName: study.orgName,
-                // Never a slug: labNameOrSlug supplies the submitting lab's own, and study.orgSlug is the DP's.
                 submittingLabName: study.submittingLabName,
                 descriptionDocPath: study.descriptionDocPath,
                 irbDocPath: study.irbDocPath,

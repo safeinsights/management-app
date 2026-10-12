@@ -91,7 +91,7 @@ describe('ProposalSection', () => {
     it('shows the revised title and versioned heading when reviewVersion > 1', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
         expect(screen.getByRole('heading', { name: 'Review proposal v2.0', level: 2 })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent(`Revised proposal submitted by ${labName}`)
     })
@@ -99,7 +99,7 @@ describe('ProposalSection', () => {
     it('renders the action banner naming the submitting lab', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
         const banner = screen.getByTestId('status-alert')
         expect(banner).toHaveAttribute('data-variant', 'action')
         expect(banner).toHaveTextContent(`New proposal submitted by ${labName}`)

@@ -108,9 +108,6 @@ export const initialsFromNames = (firstName?: string | null, lastName?: string |
         .join('')
         .toUpperCase()
 
-// The one fallback for naming a Research Lab, so the same lab never shows under two names.
-export const labNameOrSlug = (labName: string | null | undefined, slug: string) => labName || slug
-
 // A study reaches its own page before it has a title, both while it is being set up and once it is
 // saved with the field left empty, so both places head it with these words.
 export const UNTITLED_STUDY_TITLE = 'Untitled study'
