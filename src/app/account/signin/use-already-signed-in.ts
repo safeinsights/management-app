@@ -69,12 +69,25 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
 }
 
 const SIGN_OUT_TIMEOUT_MESSAGE = 'Signing out took too long. Your connection may be down.'
+const SIGN_OUT_OFFLINE_MESSAGE = 'You appear to be offline. Check your connection and try again.'
+
+class SignOutOfflineError extends Error {}
 
 // reportError renders an Error through String(), which glues the constructor name onto the message.
-// The timeout text is a sentence written for the user, so it reports as text; anything else keeps
-// the Error so Sentry gets the stack.
+// The timeout and offline texts are sentences written for the user, so they report as text; anything
+// else keeps the Error so Sentry gets the stack.
 function displayableSignOutError(error: unknown) {
-    return error instanceof TimeoutError ? error.message : error
+    return error instanceof TimeoutError || error instanceof SignOutOfflineError ? error.message : error
+}
+
+// Clerk's sign-out first fires a server action whose failure escapes as an unhandled rejection, and
+// offline the sign-out cannot succeed anyway, so it is not attempted (OTTER-790).
+async function endSessionForSwitch(signOut: () => Promise<void>) {
+    if (!navigator.onLine) throw new SignOutOfflineError(SIGN_OUT_OFFLINE_MESSAGE)
+    posthog.reset()
+    // A connection that reports online can still fail, and then signOut settles neither way, which
+    // would leave the caller's catch and finally unreachable and the panel on its spinner (OTTER-745).
+    await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
 }
 
 // Latched on first load so a sign-in completed through the form doesn't re-open the prompt. The
@@ -145,10 +158,7 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     const switchAccount = useCallback(async () => {
         setIsSwitching(true)
         try {
-            posthog.reset()
-            // Offline, signOut settles neither way, which left this catch and finally unreachable
-            // and the panel stuck on its spinner (OTTER-745).
-            await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
+            await endSessionForSwitch(signOut)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
