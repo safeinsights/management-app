@@ -81,6 +81,44 @@ describe('ResubmitStudyCodePage', () => {
         expect(within(section).queryByTestId('your-files-divider')).not.toBeInTheDocument()
     })
 
+    it('offers View outputs when Edit code reopens the round from the outputs step', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await insertStatus(job.id, 'CODE-APPROVED')
+        await insertStatus(job.id, 'RUN-COMPLETE')
+        await insertStatus(job.id, 'FILES-REJECTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'View outputs' })).toBeInTheDocument()
+    })
+
+    it('hides View outputs when Edit code follows a code revision request', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
     it('returns notFound when no resubmittable status exists in the job history', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
