@@ -330,6 +330,23 @@ describe('useWorkspaceLauncher', () => {
                 ),
             )
         })
+
+        // The shared query cache handler reports every stale action id, so this caught a double send.
+        it('reports a stale status poll to Sentry once', async () => {
+            statusMock.mockRejectedValue(staleActionError())
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.errorEventId).toMatch(/^[a-f0-9]{32}$/))
+            expect(captureException).toHaveBeenCalledTimes(1)
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ id: STALE_DEPLOYMENT_NOTIFICATION_ID }),
+            )
+        })
     })
 
     describe('clearError and retry', () => {
