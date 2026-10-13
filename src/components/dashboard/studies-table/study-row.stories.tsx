@@ -17,6 +17,8 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     createdAt: new Date('2026-05-18'),
     submittedAt: new Date('2026-05-19'),
     lastUpdatedAt: new Date('2026-05-21'),
+    // Opened after the last change; a story passes null to show the unread dot.
+    lastOpenedAt: new Date('2026-06-01'),
     reviewerName: null,
     researcherId: 'user-1',
     reviewerId: null,
@@ -70,6 +72,7 @@ export const ResearchLabRows: Story = () => (
                 study({ title: 'A draft that has not been submitted yet', status: 'DRAFT' }),
                 study({
                     title: 'Proposal under review',
+                    lastOpenedAt: null,
                     proposalAuditName: 'Ada Lovelace',
                     proposalAuditAt: new Date('2026-05-19'),
                 }),
