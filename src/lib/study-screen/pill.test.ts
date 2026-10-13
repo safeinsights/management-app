@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyState } from './state.types'
-import { resolvePillId, resolvePillStatus, resolveRowHighlight } from './pill'
+import { resolvePillId, resolvePillStatus } from './pill'
 import { studyState } from './state.fixture'
 
 const state = (overrides: Partial<StudyState>): StudyState =>
@@ -207,18 +207,5 @@ describe('resolvePillStatus', () => {
         expect(resolvePillStatus('reviewer', decided, NAMES).tooltip).toBe(
             'A decision on the outputs has been shared with Openstax Lab.',
         )
-    })
-})
-
-describe('resolveRowHighlight', () => {
-    it('reviewer: pending review highlights', () => {
-        expect(resolveRowHighlight('reviewer', state({ status: 'PENDING-REVIEW' }))).toBe(true)
-    })
-    it('reviewer: code awaiting decision highlights', () => {
-        expect(resolveRowHighlight('reviewer', state({ codeAwaitingDecision: true }))).toBe(true)
-    })
-    it('researcher: results approved highlights until the lab opens the decision', () => {
-        expect(resolveRowHighlight('researcher', state({ resultsApproved: true }))).toBe(true)
-        expect(resolveRowHighlight('researcher', state({ resultsApproved: true, resultsViewed: true }))).toBe(false)
     })
 })

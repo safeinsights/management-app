@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import type { Audience, StudyRow } from './types'
-import { dashboardRawStateFromRow, lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
+import { dashboardRawStateFromRow, isStudyUnread, lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
 import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
 
 const row = (overrides: Partial<StudyRow>): StudyRow => ({
@@ -162,5 +162,38 @@ describe('lastBadgeChangeAt', () => {
     it('returns null without a timed history', () => {
         expect(changedAt('researcher', [])).toBeNull()
         expect(changedAt('researcher', [{ status: 'CODE-SUBMITTED' }])).toBeNull()
+    })
+})
+
+describe('isStudyUnread', () => {
+    const at = (minute: number) => new Date(Date.UTC(2026, 9, 1, 12, minute))
+    const updated = row({ lastUpdatedAt: at(10), jobStatusChanges: [] })
+
+    it('marks a study the viewer never opened', () => {
+        expect(isStudyUnread({ ...updated, lastOpenedAt: null }, 'researcher')).toBe(true)
+        expect(isStudyUnread({ ...updated, lastOpenedAt: undefined }, 'reviewer')).toBe(true)
+    })
+
+    it('marks a change newer than the last visit and clears once opened after it', () => {
+        expect(isStudyUnread({ ...updated, lastOpenedAt: at(9) }, 'researcher')).toBe(true)
+        expect(isStudyUnread({ ...updated, lastOpenedAt: at(11) }, 'researcher')).toBe(false)
+    })
+
+    it("counts the viewer's own unshared edits, as Last updated does", () => {
+        expect(isStudyUnread({ ...updated, ownEditsAt: at(12), lastOpenedAt: at(11) }, 'researcher')).toBe(true)
+    })
+
+    // A run stage moves only the reviewer's badge, so only the reviewer's row is marked.
+    it("follows each audience's own badge changes", () => {
+        const running = row({
+            lastUpdatedAt: at(0),
+            jobStatusChanges: ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-PACKAGING', 'JOB-RUNNING'].map((status, i) => ({
+                status: status as StudyJobStatus,
+                createdAt: at(i + 1).toISOString(),
+            })),
+            lastOpenedAt: new Date(at(3).getTime() + 30_000),
+        })
+        expect(isStudyUnread(running, 'researcher')).toBe(false)
+        expect(isStudyUnread(running, 'reviewer')).toBe(true)
     })
 })

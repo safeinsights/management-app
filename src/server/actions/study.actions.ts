@@ -159,8 +159,11 @@ const ownEditsAtSql = (audience: StudyRole) =>
 // the earliest skips CREATED rows that code submission writes later.
 const PROPOSAL_AUDIT_SKEW = sql`interval '5 seconds'`
 
-function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
+function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole, userId: string) {
     return fetchStudyQuery(db)
+        .leftJoin('studyLastOpened', (join) =>
+            join.onRef('studyLastOpened.studyId', '=', 'study.id').on('studyLastOpened.userId', '=', userId),
+        )
         .leftJoinLateral(
             (eb) =>
                 eb
@@ -224,6 +227,7 @@ function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
             'jobStages.codeReviewedAt',
             'jobStages.outputsReviewerName',
             'jobStages.outputsReviewedAt',
+            'studyLastOpened.openedAt as lastOpenedAt',
         ])
         .select(ownEditsAtSql(audience).as('ownEditsAt'))
 }
@@ -271,8 +275,8 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, orgType }) => {
-        let query = fetchDashboardStudyQuery(db, orgType === 'enclave' ? 'reviewer' : 'researcher')
+    .handler(async ({ db, session, orgId, orgType }) => {
+        let query = fetchDashboardStudyQuery(db, orgType === 'enclave' ? 'reviewer' : 'researcher', session.user.id)
         if (orgType === 'enclave') {
             query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
@@ -297,7 +301,7 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
         if (labIds.length === 0) {
             return []
         }
-        return fetchDashboardStudyQuery(db, 'researcher')
+        return fetchDashboardStudyQuery(db, 'researcher', userId)
             .where('study.submittedByOrgId', 'in', labIds)
             .where((eb) => eb(eb.val(userId), 'in', studyLabMemberIds(db, eb.ref('study.id'))))
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -321,7 +325,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         }
         // Only studies the user decided on, at any stage of any round; reviewerId covers decisions
         // made before decisions were recorded per stage.
-        return fetchDashboardStudyQuery(db, 'reviewer')
+        return fetchDashboardStudyQuery(db, 'reviewer', userId)
             .where('study.orgId', 'in', reviewerOrgIds)
             .where('study.status', '!=', 'DRAFT')
             .where((eb) =>

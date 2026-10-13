@@ -1,6 +1,6 @@
 # Study Screen Logic
 
-How the app decides **which screen a researcher or reviewer sees, which link/pill/highlight the
+How the app decides **which screen a researcher or reviewer sees, which link/pill the
 dashboard shows, and which status label is displayed** for a given study.
 
 All of this logic lives in one pure module — `src/lib/study-screen/` — with **no React, DB, or
@@ -60,21 +60,21 @@ rounds are history. The lone cross-job fact is `submissionRound` (a count of rou
                             │
                         StudyState             ← flat booleans/enums; "latest job" facts
                             │
-        ┌───────────────────┼────────────────────┬──────────────────────┐
-        ▼                   ▼                    ▼                      ▼
-  resolveScreen()   resolveDashboardAction()  resolvePillStatus()  resolveRowHighlight()
-  (role screen rules)  (DASHBOARD_RULES)       (priority walk)       (role rule)
-        │                   │                    │                      │
-        ▼                   ▼                    ▼                      ▼
-  ScreenDescriptor    DashboardAction         StatusLabel             boolean
+        ┌───────────────────┼────────────────────┐
+        ▼                   ▼                    ▼
+  resolveScreen()   resolveDashboardAction()  resolvePillStatus()
+  (role screen rules)  (DASHBOARD_RULES)       (priority walk)
+        │                   │                    │
+        ▼                   ▼                    ▼
+  ScreenDescriptor    DashboardAction         StatusLabel
         │
   SCREEN_COMPONENTS[descriptor.screen]   ← registry maps id → React component
         │
    rendered screen
 ```
 
-Every consumer reads from the **same** `StudyState` — that is what keeps routing, the link, the
-pill, and the highlight from drifting apart.
+Every consumer reads from the **same** `StudyState`, which is what keeps routing, the link and the
+pill from drifting apart.
 
 ---
 
@@ -379,7 +379,7 @@ redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 
-## Stage 4 — Pill + row highlight (`pill.ts`)
+## Stage 4: Pill (`pill.ts`)
 
 `resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
 uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
@@ -478,9 +478,9 @@ The spec names backend states conceptually; none of them is a new stored value e
 | 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
 | 16  | fallback                                              | `proposal-draft`              |
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
-opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
-`codeAwaitingDecision`. Both mean an action is owed.
+Rows carry no status-based highlight. A row's only emphasis is the per-person unread dot
+(OTTER-838): `isStudyUnread` in `components/dashboard/studies-table/dashboard-raw-state.ts` compares
+the row's Last updated value with the viewer's last visit, and the badge already says who must act.
 
 > `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
 > (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
@@ -501,7 +501,7 @@ opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` o
 ## Role dimension
 
 Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
-picks the matching rule table, and the pill/highlight resolvers already branch on role. The
+picks the matching rule table, and the pill resolver already branches on role. The
 **projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts and
 inherits all the order-independence guarantees for free (`reviewerAgreementsAcked` is the exception:
 it is still projected but, since OTTER-727, read by no rule). Adding the reviewer flow was adding a rule table + adapters, not

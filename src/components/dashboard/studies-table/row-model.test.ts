@@ -174,4 +174,16 @@ describe('buildRowModel', () => {
             expect(row.lastActivityAt).toEqual(new Date('2026-09-03'))
         })
     })
+
+    describe('unread', () => {
+        it('marks the row when Last updated is newer than the last visit', () => {
+            const row = model({ lastUpdatedAt: new Date('2026-09-03'), lastOpenedAt: new Date('2026-09-02') })
+            expect(row.isUnread).toBe(true)
+        })
+
+        it('leaves the row unmarked once opened after the change', () => {
+            const row = model({ lastUpdatedAt: new Date('2026-09-03'), lastOpenedAt: new Date('2026-09-04') })
+            expect(row.isUnread).toBe(false)
+        })
+    })
 })

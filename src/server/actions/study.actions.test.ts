@@ -682,6 +682,31 @@ describe('dashboard rows (OTTER-617)', () => {
             expect(ids).not.toContain(colleagueOnly.studyId)
         })
     })
+
+    describe('last opened (OTTER-838)', () => {
+        const openStudy = (studyId: string, userId: string, openedAt: Date) =>
+            db.insertInto('studyLastOpened').values({ studyId, userId, openedAt }).execute()
+
+        it("returns only the viewer's own last visit on every dashboard", async () => {
+            const { enclave, lab, studyId, creator } = await submittedStudy()
+            const { user: teammate } = await insertTestUser({ org: lab })
+            const openedAt = new Date('2026-09-05T10:00:00Z')
+            await openStudy(studyId, creator.id, openedAt)
+
+            expect((await labRow(lab.slug, studyId)).lastOpenedAt).toEqual(openedAt)
+            const mine = actionResult(await fetchStudiesForCurrentResearcherUserAction())
+            expect(mine.find((row) => row.id === studyId)!.lastOpenedAt).toEqual(openedAt)
+
+            asUser(teammate, lab)
+            expect((await labRow(lab.slug, studyId)).lastOpenedAt).toBeNull()
+
+            const { user: reviewer } = await insertTestUser({ org: enclave })
+            await proposalComment(studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
+            asUser(reviewer, enclave)
+            const reviewed = actionResult(await fetchStudiesForCurrentReviewerAction())
+            expect(reviewed.find((row) => row.id === studyId)!.lastOpenedAt).toBeNull()
+        })
+    })
 })
 
 describe('ackAgreementsAction', () => {

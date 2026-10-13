@@ -48,6 +48,8 @@ export type StudyRow = {
     codeReviewedAt?: Date | null
     outputsReviewerName?: string | null
     outputsReviewedAt?: Date | null
+    // The viewer's own last visit (OTTER-838); null when they never opened the study.
+    lastOpenedAt?: Date | null
 }
 
 export type StudiesTableProps = {
