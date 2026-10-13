@@ -9,7 +9,8 @@ export type NavOrg = {
     isAdmin: boolean
 }
 
-// Which side nav rows carry the unread dot (OTTER-838); invalidated by writes that change it.
+// Which side nav rows carry the unread dot (OTTER-838). The query adds the user id, so writes that
+// change it invalidate by this prefix.
 export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
 
 export type NavUnread = { myStudies: boolean; orgSlugs: string[] }

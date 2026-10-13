@@ -39,7 +39,7 @@ import {
     studyDeciderIds,
     studyLabMemberIds,
 } from '@/server/db/queries'
-import { nextVersionForStudyComment } from '@/server/db/mutations'
+import { markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
@@ -382,16 +382,11 @@ export const fetchNavUnreadAction = new Action('fetchNavUnreadAction')
 // Recorded from the client on entering and leaving a study, not during its render: a render-time
 // write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
 export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string().uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
-        const openedAt = new Date()
-        await db
-            .insertInto('studyLastOpened')
-            .values({ studyId, userId: session.user.id, openedAt })
-            .onConflict((oc) => oc.columns(['userId', 'studyId']).doUpdateSet({ openedAt }))
-            .execute()
+        await markStudyOpened(db, { studyId, userId: session.user.id })
     })
 
 export const getStudyAction = new Action('getStudyAction')

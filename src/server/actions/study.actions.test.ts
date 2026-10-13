@@ -739,6 +739,19 @@ describe('dashboard rows (OTTER-617)', () => {
             expect(lastUpdatedAfter).toEqual(lastUpdatedBefore)
         })
 
+        // A visit write that lands late, from another tab or after a slow request, must not move
+        // the stamp back and resurface changes the person has already seen.
+        it('never moves the stamp back', async () => {
+            const { lab, studyId, creator } = await submittedStudy()
+            const later = new Date(Date.now() + 60 * 60 * 1000)
+            await openStudy(studyId, creator.id, later)
+            asUser(creator, lab)
+
+            actionResult(await markStudyOpenedAction({ studyId }))
+
+            expect(await stampOf(studyId, creator.id)).toEqual([{ openedAt: later }])
+        })
+
         it('refuses someone who cannot view the study', async () => {
             const { studyId } = await submittedStudy()
             const outsiderLab = await insertTestOrg({ slug: `otter-838-outsider-${Date.now()}`, type: 'lab' })

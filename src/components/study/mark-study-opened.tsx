@@ -1,14 +1,14 @@
 'use client'
 
 import { type FC, useEffect, useRef } from 'react'
-import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { STUDIES_TABLE_QUERY_KEYS } from '@/components/dashboard/studies-table'
 import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
 import { markStudyOpenedAction } from '@/server/actions/study.actions'
 
-// Stamped on leaving too, so a change made during the visit (often the viewer's own) never marks
-// the study unread (OTTER-838). Failures go to Sentry only: the reader cannot act on them.
+// Stamped on leaving too, so a change made during the visit never marks the study unread (OTTER-838).
+// The server stamps when the write arrives, so it is never retried or held offline: a late stamp
+// would hide changes made after the person left, while a lost one only leaves a dot.
 function useMarkStudyOpened(studyId: string) {
     const queryClient = useQueryClient()
     const { mutate } = useMutation({
@@ -21,8 +21,7 @@ function useMarkStudyOpened(studyId: string) {
                 ),
             )
         },
-        retry: 2,
-        onError: (error) => captureException(error),
+        networkMode: 'always',
     })
     const markedOnEnter = useRef<string | null>(null)
 

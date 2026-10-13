@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
+import { useSession } from '@/hooks/session'
 import { NAV_UNREAD_QUERY_KEY, NOTHING_UNREAD, orderNavOrgs, type NavUnread } from '@/lib/nav/side-nav'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
@@ -16,10 +17,14 @@ type Props = {
     onToggle: () => void
 }
 
+// Keyed by user, so an account switch that keeps the query client never shows the last user's dots.
 function useNavUnread(): NavUnread {
+    const { session } = useSession()
+    const userId = session?.user.id
     const { data = NOTHING_UNREAD } = useQuery({
-        queryKey: NAV_UNREAD_QUERY_KEY,
+        queryKey: [...NAV_UNREAD_QUERY_KEY, userId],
         queryFn: async () => fetchNavUnreadAction(),
+        enabled: Boolean(userId),
         refetchOnWindowFocus: false,
     })
     return data
