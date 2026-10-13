@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 import { actionResult, faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
-import { designateTestLabsAction, fetchEligibleTestLabsAction, fetchOrgTestLabsAction } from './test-labs.actions'
+import {
+    designateTestLabsAction,
+    fetchEligibleTestLabsAction,
+    fetchOrgTestLabsAction,
+    undesignateTestLabAction,
+} from './test-labs.actions'
 
 const insertLab = () => insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
 
@@ -104,5 +109,87 @@ describe('fetchEligibleTestLabsAction', () => {
         const eligible = actionResult(await fetchEligibleTestLabsAction({ orgSlug: dataPartner.slug }))
 
         expect(eligible.map((lab) => lab.id)).not.toContain(dataPartner.id)
+    })
+})
+
+const asSiAdmin = async () => {
+    const dataPartner = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+    await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true, isSiAdmin: true })
+
+    return { dataPartner }
+}
+
+const designatedRowId = async (dataPartnerId: string, researchLabId: string) => {
+    const row = await db
+        .selectFrom('orgTestLab')
+        .select('id')
+        .where('dataPartnerId', '=', dataPartnerId)
+        .where('researchLabId', '=', researchLabId)
+        .executeTakeFirstOrThrow()
+
+    return row.id
+}
+
+const rowExists = async (testLabId: string) =>
+    Boolean(await db.selectFrom('orgTestLab').select('id').where('id', '=', testLabId).executeTakeFirst())
+
+describe('undesignateTestLabAction', () => {
+    it('drops the lab, which becomes eligible again and can be designated once more', async () => {
+        const { dataPartner } = await asSiAdmin()
+        const lab = await insertLab()
+        actionResult(await designateTestLabsAction({ orgSlug: dataPartner.slug, researchLabIds: [lab.id] }))
+        const testLabId = await designatedRowId(dataPartner.id, lab.id)
+
+        actionResult(await undesignateTestLabAction({ orgSlug: dataPartner.slug, testLabId }))
+
+        expect(actionResult(await fetchOrgTestLabsAction({ orgSlug: dataPartner.slug }))).toEqual([])
+        const eligible = actionResult(await fetchEligibleTestLabsAction({ orgSlug: dataPartner.slug }))
+        expect(eligible.map((row) => row.id)).toContain(lab.id)
+
+        actionResult(await designateTestLabsAction({ orgSlug: dataPartner.slug, researchLabIds: [lab.id] }))
+        const designated = actionResult(await fetchOrgTestLabsAction({ orgSlug: dataPartner.slug }))
+        expect(designated.map((row) => row.researchLabId)).toEqual([lab.id])
+    })
+
+    it('refuses a data partner admin who is not an SI admin, and keeps the row', async () => {
+        const { dataPartner } = await asDataPartnerAdmin()
+        const lab = await insertLab()
+        actionResult(await designateTestLabsAction({ orgSlug: dataPartner.slug, researchLabIds: [lab.id] }))
+        const testLabId = await designatedRowId(dataPartner.id, lab.id)
+
+        const result = await undesignateTestLabAction({ orgSlug: dataPartner.slug, testLabId })
+
+        expect(isActionError(result)).toBe(true)
+        expect(await rowExists(testLabId)).toBe(true)
+    })
+
+    it("refuses another data partner's row, even for an SI admin, and keeps it", async () => {
+        const { dataPartner: other } = await asDataPartnerAdmin()
+        const lab = await insertLab()
+        actionResult(await designateTestLabsAction({ orgSlug: other.slug, researchLabIds: [lab.id] }))
+        const testLabId = await designatedRowId(other.id, lab.id)
+        const { dataPartner } = await asSiAdmin()
+
+        const result = await undesignateTestLabAction({ orgSlug: dataPartner.slug, testLabId })
+
+        expect(isActionError(result)).toBe(true)
+        expect(await rowExists(testLabId)).toBe(true)
+    })
+
+    it('refuses a research lab as the acting org', async () => {
+        const lab = await insertLab()
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab', isAdmin: true, isSiAdmin: true })
+
+        const result = await undesignateTestLabAction({ orgSlug: lab.slug, testLabId: faker.string.uuid() })
+
+        expect(isActionError(result)).toBe(true)
+    })
+
+    it('reports an unknown row as not found', async () => {
+        const { dataPartner } = await asSiAdmin()
+
+        const result = await undesignateTestLabAction({ orgSlug: dataPartner.slug, testLabId: faker.string.uuid() })
+
+        expect(result).toMatchObject({ error: expect.objectContaining({ testLab: 'was not found' }) })
     })
 })

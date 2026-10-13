@@ -11,7 +11,6 @@ import {
     screen,
     type Mock,
 } from '@/tests/unit.helpers'
-import { displayOrgName } from '@/lib/string'
 import StudyViewPage from './view/page'
 import StudyReviewPage from './review/page'
 
@@ -46,7 +45,7 @@ describe('study page header across personas', () => {
         const researcherView = renderWithProviders(researcherPage)
 
         expect(screen.getByRole('heading', { level: 1, name: STUDY_TITLE })).toBeInTheDocument()
-        expect(pageHeaderEyebrow()).toBe(displayOrgName(LAB_NAME))
+        expect(pageHeaderEyebrow()).toBe(LAB_NAME)
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
         researcherView.unmount()
         ;(useParams as Mock).mockReturnValue({ orgSlug: enclaveOrg.slug, studyId: study.id })
@@ -57,7 +56,7 @@ describe('study page header across personas', () => {
         renderWithProviders(reviewerPage)
 
         expect(screen.getByRole('heading', { level: 1, name: STUDY_TITLE })).toBeInTheDocument()
-        expect(pageHeaderEyebrow()).toBe(displayOrgName(LAB_NAME))
+        expect(pageHeaderEyebrow()).toBe(LAB_NAME)
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 })
