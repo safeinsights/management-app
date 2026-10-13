@@ -451,7 +451,7 @@ async function approveJobCode({
             .values({ userId, status: 'JOB-READY', studyJobId: job.id })
             .executeTakeFirstOrThrow()
     } else {
-        // The study runs the code env frozen when its language was chosen (SHRMP-271).
+        // The study runs the code env frozen when its language was chosen.
         const image = await fetchCodeEnvForStudyId(studyId, db)
 
         const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')

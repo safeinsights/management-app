@@ -160,7 +160,7 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
 }
 
 // Frozen so a Data Partner editing or replacing a code env later cannot change what the study runs:
-// its image, command lines, variables and data paths all come from this copy (SHRMP-271).
+// its image, command lines, variables and data paths all come from this copy.
 async function snapshotCodeEnv(db: Kysely<DB>, studyId: string) {
     const codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
     await db

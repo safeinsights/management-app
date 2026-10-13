@@ -564,7 +564,7 @@ export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
     ])
 }
 
-// The code env a study runs: the copy frozen when its language was chosen (SHRMP-271), or the live
+// The code env a study runs: the copy frozen when its language was chosen, or the live
 // one for a study made before studies kept a copy.
 export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
     const study = await db
