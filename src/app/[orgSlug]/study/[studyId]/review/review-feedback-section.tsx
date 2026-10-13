@@ -12,9 +12,7 @@ const EDITOR_SKELETON_HEIGHT = 600
 
 const contentStyle = {
     minHeight: 600,
-    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
     fontSize: '1rem',
-    lineHeight: 1.6,
 } as const
 
 type ReviewFeedbackSectionProps = {

@@ -16,9 +16,7 @@ import { textFieldInputId } from './field-ids'
 import { isLexicalOverLimit, type ProposalFormValues } from './schema'
 
 const contentStyle = {
-    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
     fontSize: '1rem',
-    lineHeight: 1.6,
 } as const
 
 type Props = {

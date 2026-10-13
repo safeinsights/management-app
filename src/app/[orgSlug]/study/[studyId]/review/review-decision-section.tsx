@@ -6,9 +6,10 @@ import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { useWidgetBlur } from '@/components/form-field'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import type { StudyForReview } from './review-types'
 import { buildDecisionOptions } from './review-types'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
@@ -42,14 +43,11 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
     const errorNode = decision.error ? <InputError error={decision.error} /> : undefined
 
     const radioOptions = buildDecisionOptions(labName).map((option) => (
-        <Radio
+        <DecisionRadio
             key={option.value}
             value={option.value}
-            label={
-                <Text span inherit fz="md" fw={fontWeight.semibold}>
-                    {option.label}
-                </Text>
-            }
+            label={option.label}
+            isProminent
             description={
                 <Text component="span" size="sm" c={semanticColor('text.secondary')}>
                     {option.description}

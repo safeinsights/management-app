@@ -48,9 +48,7 @@ export type ResubmissionNoteEditorProps = Pick<
 
 const contentStyle = {
     minHeight: 140,
-    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
     fontSize: '1rem',
-    lineHeight: 1.6,
 } as const
 
 const noteChangeHandler = (noteForm: UseFormReturnType<ResubmitNoteValue>) => (json: string) => {

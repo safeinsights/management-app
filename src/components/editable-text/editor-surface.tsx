@@ -21,11 +21,14 @@ import type { WidgetBlurProps } from '@/components/form-field'
 
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
+/** What a caller may set on the editable surface; the surface owns padding and line height. */
+export type EditorContentStyle = Pick<CSSProperties, 'minHeight' | 'fontSize'>
+
+// Shared by the editable surface and its placeholder so the two sit exactly on top of each other.
+const TEXT_METRICS = { px: 'md', py: 'xs', lh: 1.6 } as const
+
 // `contentStyle.minHeight` is a fallback because callers predating `contentHeight` express the
 // same thing that way.
-/** The text metrics a caller may set on the editable surface; the frame owns everything else. */
-export type EditorContentStyle = Pick<CSSProperties, 'minHeight' | 'padding' | 'fontSize' | 'lineHeight'>
-
 export const resolveContentHeight = (contentHeight?: number, contentStyle?: EditorContentStyle) =>
     contentHeight ?? contentStyle?.minHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
 
@@ -58,7 +61,9 @@ function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef
         return () => observer.disconnect()
     }, [contentHeight, hostRef])
 
-    return { contentRef, chromeRef, floor }
+    // Mantine turns numbers and px strings into rem, which stops matching a pixel measurement once
+    // the browser's base font size is not 16px; calc() passes through unconverted.
+    return { contentRef, chromeRef, floor: floor === undefined ? undefined : `calc(${floor}px)` }
 }
 
 export interface EditorSurfaceProps {
@@ -125,9 +130,8 @@ export function EditorSurface({
                                 component={ContentEditable}
                                 id={inputId}
                                 className={clsx('editable-text-content', contentClassName)}
-                                p={contentStyle?.padding}
+                                {...TEXT_METRICS}
                                 fz={contentStyle?.fontSize}
-                                lh={contentStyle?.lineHeight}
                                 mih={startingHeight}
                                 // Lexical sets no tabindex. Browsers still focus a contenteditable
                                 // but happy-dom does not, so tests would silently no-op.
@@ -138,7 +142,7 @@ export function EditorSurface({
                                 ariaRequired={ariaRequired}
                             />
                         }
-                        placeholder={<EditorPlaceholder text={placeholder} contentStyle={contentStyle} />}
+                        placeholder={<EditorPlaceholder text={placeholder} fontSize={contentStyle?.fontSize} />}
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
@@ -154,21 +158,11 @@ export function EditorSurface({
     )
 }
 
-const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle?: EditorContentStyle }) => {
+const EditorPlaceholder = ({ text, fontSize }: { text?: string; fontSize?: EditorContentStyle['fontSize'] }) => {
     if (!text) return null
 
-    // Mirrors the editable surface's own text metrics so the two sit exactly on top of each other.
     return (
-        <Text
-            c="dimmed"
-            pos="absolute"
-            top={0}
-            left={0}
-            p={contentStyle?.padding}
-            fz={contentStyle?.fontSize}
-            lh={contentStyle?.lineHeight}
-            className="click-through"
-        >
+        <Text c="dimmed" pos="absolute" top={0} left={0} {...TEXT_METRICS} fz={fontSize} className="click-through">
             {text}
         </Text>
     )

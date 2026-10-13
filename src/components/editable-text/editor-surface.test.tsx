@@ -1,5 +1,5 @@
 import { rem } from '@mantine/core'
-import { renderWithProviders, screen, describe, it, expect } from '@/tests/unit.helpers'
+import { renderWithProviders, screen, describe, it, expect, waitFor } from '@/tests/unit.helpers'
 import { SingleUserEditor } from './single-user-editor'
 
 // Driven through SingleUserEditor because the surface only works inside a LexicalComposer.
@@ -23,6 +23,12 @@ describe('EditorSurface', () => {
         renderWithProviders(<SingleUserEditor id="doc-locked" ariaLabel="Impact" isResizable={false} />)
 
         expect(surface()).not.toHaveAttribute('data-resizable')
+    })
+
+    it('keeps the measured height floor in pixels', async () => {
+        renderWithProviders(<SingleUserEditor id="doc-floor" ariaLabel="Impact" isResizable />)
+
+        await waitFor(() => expect(surface().style.minHeight).toMatch(/^calc\(\d+(\.\d+)?px\)$/))
     })
 
     it('applies the requested content height to the editable surface', () => {

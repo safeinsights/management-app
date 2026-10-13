@@ -16,9 +16,7 @@ const EDITOR_SKELETON_HEIGHT = 400
 
 const contentStyle = {
     minHeight: 400,
-    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
     fontSize: 'var(--mantine-font-size-sm)',
-    lineHeight: 1.6,
 } as const
 
 const SECTION_HEADING_ID = 'code-review-decision-heading'

@@ -21,9 +21,7 @@ const EDITOR_SKELETON_HEIGHT = 260
 
 const contentStyle = {
     minHeight: 260,
-    padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-md)',
     fontSize: 'var(--mantine-font-size-sm)',
-    lineHeight: 1.6,
 } as const
 
 // Worded as "nothing that can be shared" rather than "no output files": the branch is also
