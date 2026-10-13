@@ -306,7 +306,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
 
-            showToast('success', SUBMIT_SUCCESS_TITLE, '')
+            showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE })
 
             if (onSubmitSuccess) {
                 onSubmitSuccess()
@@ -318,7 +318,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // The wording can promise the work is safe because uploads, deletions and the main-file
             // choice all persist as they happen — only the submission failed.
             captureException(error)
-            showToast('error', SUBMIT_ERROR_TITLE, submitErrorMessage(error))
+            showToast({ category: 'error', title: SUBMIT_ERROR_TITLE, message: submitErrorMessage(error) })
             onSubmitError?.()
         },
     })

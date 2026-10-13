@@ -36,7 +36,7 @@ describe('AgentContext', () => {
         await waitFor(() => {
             expect(showSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'green',
+                    'data-toast-kind': 'success',
                     title: 'Context saved',
                     message: 'Updated System context.',
                 }),
@@ -44,6 +44,27 @@ describe('AgentContext', () => {
         })
 
         showSpy.mockRestore()
+    })
+
+    it('reports a failed save with a support reference', async () => {
+        renderWithProviders(<AgentContext />)
+
+        const textarea = await screen.findByLabelText('System context')
+        await userEvent.type(textarea, 'new content')
+
+        await mockSessionWithTestData({ isSiAdmin: false })
+        const submitButton = (await screen.findAllByRole('button', { name: 'Submit' }))[0]
+        await userEvent.click(submitButton)
+
+        await waitFor(() => {
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    'data-toast-kind': 'error',
+                    title: 'Context save failed',
+                    message: expect.stringMatching(/\nReference: [a-f0-9]{32}$/),
+                }),
+            )
+        })
     })
 
     it('saves content to the DB on submit', async () => {

@@ -1,14 +1,10 @@
 'use client'
 
 import { useState, type FC } from 'react'
-import dynamic from 'next/dynamic'
-import { ActionIcon, AspectRatio, Center, Group, Stack, Text } from '@mantine/core'
+import { ActionIcon, AspectRatio, Box, Center, Group, Stack, Text } from '@mantine/core'
 import { PlayIcon } from '@phosphor-icons/react/dist/ssr'
-import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
+import { IDE_ONBOARDING_VIDEO_EMBED_URL } from '@/lib/config'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-
-// Not fetched until Play is pressed, so a researcher who never watches doesn't download the player.
-const ReactPlayer = dynamic(() => import('react-player'), { ssr: false })
 
 const VIDEO_TITLE = 'Watch: Getting started with the SafeInsights IDE'
 
@@ -60,17 +56,7 @@ const OnboardingVideoTeaser: FC<{ isVisible: boolean; onPlay: () => void }> = ({
     )
 }
 
-// vimeo-video-element builds its iframe inside a shadow root with no title, so screen readers would
-// announce an unnamed frame. It writes that iframe after react-player's onReady fires and rewrites it
-// on later loads, so the title is reapplied whenever the shadow root changes (OTTER-827 QA).
-export function titleShadowIframe(host: Element | null) {
-    const root = host?.shadowRoot
-    if (!root) return
-    const applyTitle = () => root.querySelector('iframe')?.setAttribute('title', 'SafeInsights IDE Orientation')
-    applyTitle()
-    new MutationObserver(applyTitle).observe(root, { childList: true, subtree: true })
-}
-
+// The iframe mounts only after Play, so a researcher who never watches doesn't load the player.
 const OnboardingVideoPlayer: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
@@ -78,14 +64,13 @@ const OnboardingVideoPlayer: FC<{ isVisible: boolean }> = ({ isVisible }) => {
         <Stack gap="md" data-testid="onboarding-video-player">
             <VideoHeading />
             <AspectRatio ratio={16 / 9} w="100%">
-                <ReactPlayer
-                    ref={titleShadowIframe}
-                    src={IDE_ONBOARDING_VIDEO_URL}
-                    playing
-                    controls
-                    width="100%"
-                    height="100%"
-                    config={{ vimeo: { autopause: false, referrerpolicy: 'strict-origin-when-cross-origin' } }}
+                <Box
+                    component="iframe"
+                    src={IDE_ONBOARDING_VIDEO_EMBED_URL}
+                    title="SafeInsights IDE Orientation"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    bd="none"
                 />
             </AspectRatio>
         </Stack>

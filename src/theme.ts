@@ -11,6 +11,7 @@ import {
     Input,
     type InputProps,
     MantineColorsTuple,
+    Notification,
     Radio,
     type VariantColorsResolver,
 } from '@mantine/core'
@@ -308,10 +309,37 @@ export const theme = createTheme({
             },
             vars: buttonVars,
         },
+        Notification: Notification.extend({
+            // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
+            // toast would otherwise present an unlabelled dismiss control. Matches how the modals in
+            // this repo already label theirs.
+            defaultProps: { closeButtonProps: { 'aria-label': 'Close' } },
+            styles: {
+                root: {
+                    borderRadius: 4,
+                    padding: '12px 16px',
+                    gap: 16,
+                    backgroundColor: semanticColor('surface.popover'),
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                },
+                title: { color: semanticColor('text.primary'), fontWeight: 700 },
+                description: { color: semanticColor('text.secondary') },
+                closeButton: { color: semanticColor('icon.dark') },
+            },
+        }),
+        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
+        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        Notifications: {
+            styles: {
+                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
+                notification: { marginTop: 0 },
+            },
+        },
     },
     // brand/default is navy/5 and brand/hover navy/6, so primaryShade 5 makes Mantine resolve the
     // filled variant and its hover straight off the brand ramp.
     primaryShade: 5,
+    respectReducedMotion: true,
     primaryColor: 'navy',
     // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {

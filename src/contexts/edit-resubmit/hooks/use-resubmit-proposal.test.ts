@@ -213,7 +213,7 @@ describe('useResubmitProposal', () => {
             ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_SUCCESS_TITLE,
         )
         expect(successCall).toBeDefined()
-        expect(successCall?.[0]).toMatchObject({ color: 'green' })
+        expect(successCall?.[0]).toMatchObject({ 'data-toast-kind': 'success' })
     })
 
     it('does not call the action or broadcast when validation fails', async () => {
@@ -257,7 +257,7 @@ describe('useResubmitProposal', () => {
         })
 
         await waitFor(() => expect(failureToast()).toBeDefined())
-        expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_MESSAGE })
+        expect(failureToast()?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_MESSAGE })
         expect(sendStateless).not.toHaveBeenCalled()
         // Staying on the form is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
@@ -280,7 +280,10 @@ describe('useResubmitProposal', () => {
         })
 
         await waitFor(() => {
-            expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+            expect(failureToast()?.[0]).toMatchObject({
+                'data-toast-kind': 'error',
+                message: SUBMIT_FAILURE_UNSAVED_MESSAGE,
+            })
         })
     })
 
@@ -307,7 +310,10 @@ describe('useResubmitProposal', () => {
         })
 
         await waitFor(() => {
-            expect(failureToast()?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+            expect(failureToast()?.[0]).toMatchObject({
+                'data-toast-kind': 'error',
+                message: SUBMIT_FAILURE_UNSAVED_MESSAGE,
+            })
         })
     })
 

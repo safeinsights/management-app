@@ -27,6 +27,9 @@ const keylessUserSigningIn = async () => {
     mockSignInCreate(vi.fn().mockResolvedValue({ status: 'complete', createdSessionId: 'session-id' }))
 }
 
+// The already-signed-in exit is a full load, so the root layout re-renders with the session's orgs.
+const spyOnHardNavigation = () => vi.spyOn(window.location, 'replace').mockImplementation(() => {})
+
 const submitCredentials = async () => {
     await userEvent.type(screen.getByLabelText('Email'), 'ada@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'whatever')
@@ -42,11 +45,12 @@ describe('SignInForm', () => {
             ],
         })
         mockSignInCreate(create)
+        const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/dashboard'))
     })
 
     // OTTER-745: reportError ran before the session_exists branch, so the redirect the test above
@@ -59,11 +63,12 @@ describe('SignInForm', () => {
             ],
         })
         mockSignInCreate(create)
+        const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/dashboard'))
         expect(notifications.show).not.toHaveBeenCalled()
     })
 
@@ -76,11 +81,12 @@ describe('SignInForm', () => {
             ],
         })
         mockSignInCreate(create)
+        const replace = spyOnHardNavigation()
 
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe('/dashboard'))
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/dashboard'))
     })
 
     it('carries an explicit redirect_url through key generation for a keyless user', async () => {

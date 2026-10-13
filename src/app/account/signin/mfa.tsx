@@ -49,7 +49,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         onError(error: unknown) {
             form.setErrors({
                 code: errorToString(error, {
-                    form_code_incorrect: 'Invalid verification code. Please try again.',
+                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
                 }),
             })
         },

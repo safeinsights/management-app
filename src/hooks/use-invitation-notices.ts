@@ -1,6 +1,6 @@
 'use client'
 
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import type { Route } from 'next'
@@ -17,17 +17,17 @@ export function useInvitationNotices() {
         if (!skippedOrg && !declinedOrg) return
 
         if (skippedOrg) {
-            notifications.show({
+            showToast({
+                category: 'success',
                 id: 'skip-invitation',
-                color: 'green',
-                message: `You have opted to skip the invitation to ${skippedOrg}. The invitation can be found in your inbox and is valid for 7 days.`,
+                title: `You have opted to skip the invitation to ${skippedOrg}. The invitation can be found in your inbox and is valid for 7 days.`,
             })
         }
         if (declinedOrg) {
-            notifications.show({
+            showToast({
+                category: 'success',
                 id: 'decline-invitation',
-                color: 'green',
-                message: `You've declined ${declinedOrg}'s invitation.`,
+                title: `You've declined ${declinedOrg}'s invitation.`,
             })
         }
 

@@ -1,4 +1,4 @@
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { captureException } from '@sentry/nextjs'
 import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 
@@ -29,8 +29,8 @@ export async function reportSubmissionFailure(
     captureException(error)
 
     const saved = await Promise.all(flushes)
-    notifications.show({
-        color: 'red',
+    showToast({
+        category: 'error',
         title,
         message: saved.every(Boolean) ? SUBMIT_FAILURE_MESSAGE : SUBMIT_FAILURE_UNSAVED_MESSAGE,
     })

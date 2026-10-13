@@ -52,9 +52,9 @@ const noRawStyleValues = {
         schema: [],
         messages: {
             inlineStyle:
-                'The inline `style` prop bypasses the theme. Move a component-wide convention into theme.components, or a genuinely local rule into a CSS module referencing --mantine-*/--si-* variables.',
+                'The inline `style` prop bypasses the theme. Move a component-wide convention into theme.components. Prefer a Mantine prop or component feature for a local rule. A CSS module is a last resort (see CLAUDE.md).',
             oneOffStyles:
-                'The one-off `styles` prop bypasses the theme. Move a component-wide convention into theme.components, or a genuinely local rule into a CSS module referencing --mantine-*/--si-* variables.',
+                'The one-off `styles` prop bypasses the theme. Move a component-wide convention into theme.components. Prefer a Mantine prop or component feature for a local rule. A CSS module is a last resort (see CLAUDE.md).',
             rawColor:
                 '"{{value}}" on `{{prop}}` is a raw colour. Use semanticColor(…) from @/theme/tokens so a retint happens in one place.',
             rawWeight:
@@ -63,7 +63,7 @@ const noRawStyleValues = {
             hexLiteral: '"{{value}}" is a hardcoded colour. Use semanticColor(…) from @/theme/tokens.',
             rawShade:
                 '"{{value}}" names a ramp rung directly. Use semanticColor(…) from @/theme/tokens so a retint reaches it.',
-            pxLiteral: '"{{value}}" hardcodes pixels. Use a theme scale key, or rem() in a CSS module.',
+            pxLiteral: '"{{value}}" hardcodes pixels. Use a theme scale key.',
             stockRamp:
                 '"{{value}}" is a Mantine stock ramp the theme does not define, so it paints from Mantine\'s palette and an SI retint never reaches it. Use an SI ramp ({{ramps}}) or semanticColor(…) from @/theme/tokens.',
         },

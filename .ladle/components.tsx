@@ -10,6 +10,7 @@ import '../src/app/globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
+import '@mantine/notifications/styles.layer.css'
 import './ladle.css'
 // The REAL app theme + resolver — the single source of truth shared with the app.
 import { cssVariablesResolver, theme } from '@/theme'

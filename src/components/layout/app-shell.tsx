@@ -2,9 +2,7 @@
 
 import { AppShellHeader, AppShellMain, AppShell as MantineAppShell } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { Notifications } from '@mantine/notifications'
-import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS, NOTIFICATION_DISPLAY_MS } from '@/lib/constants'
-import '@mantine/notifications/styles.css'
+import { APP_MAIN_BG, APP_SHELL, MAIN_CONTENT_PROPS } from '@/lib/constants'
 import { ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import styles from './shell.module.css'
@@ -40,7 +38,6 @@ export function AppShell({ children }: Props) {
             <RequireMFA />
             <RequireUserKey />
             <RequireLegalAcknowledgement />
-            <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             <ActivityContext />
 
             <AppShellHeader withBorder={false}>

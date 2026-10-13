@@ -102,6 +102,53 @@ describe('Workspace Actions', () => {
         expect(result.files[0]).toHaveProperty('mtime')
     })
 
+    describe('listWorkspaceFileActivityAction (OTTER-778)', () => {
+        const recordActivity = (
+            studyId: string,
+            userId: string,
+            action: 'UPLOADED' | 'EDITED_IN_IDE',
+            createdAt: Date,
+        ) =>
+            db
+                .insertInto('workspaceFileActivity')
+                .values({ studyId, fileName: 'main.py', action, userId, createdAt })
+                .execute()
+
+        test('returns the activity from before the submission, not edits made since', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+            await recordActivity(study.id, user.id, 'EDITED_IN_IDE', new Date(Date.now() + 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
+
+            expect(result).toEqual({ 'main.py': expect.objectContaining({ action: 'UPLOADED' }) })
+        })
+
+        test('returns nothing for a job from another study', async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
+            const { job: otherJob } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await recordActivity(study.id, user.id, 'UPLOADED', new Date(Date.now() - 86_400_000))
+
+            const { listWorkspaceFileActivityAction } = await import('./workspaces.actions')
+            const result = actionResult(
+                await listWorkspaceFileActivityAction({ studyId: study.id, jobId: otherJob.id }),
+            )
+
+            expect(result).toEqual({})
+        })
+    })
+
     describe('getStarterCodeInfoAction', () => {
         test('signs the full starter-code key, not the bare file name', async () => {
             const { org, user } = await mockSessionWithTestData()
@@ -351,6 +398,43 @@ describe('Workspace Actions', () => {
 
             actionResult(await deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }))
             await expect(fs.readFile(path.join(studyDir, 'helper.r'), 'utf8')).rejects.toThrow()
+        })
+
+        test('stamps the lab edit time on upload, set-main and delete without touching last_updated_at', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudy()
+            const studyDir = path.join(TEST_CODER_FILES, study.id)
+            await fs.mkdir(studyDir, { recursive: true })
+            await fs.writeFile(path.join(studyDir, 'helper.r'), 'print(2)')
+
+            const stamps = () =>
+                db
+                    .selectFrom('study')
+                    .select(['labEditedAt', 'lastUpdatedAt'])
+                    .where('id', '=', study.id)
+                    .executeTakeFirstOrThrow()
+            const clearStamp = () =>
+                db.updateTable('study').set({ labEditedAt: null }).where('id', '=', study.id).execute()
+            const before = await stamps()
+
+            const { uploadWorkspaceFileAction, setMainCodeFileAction, deleteWorkspaceFileAction } =
+                await import('./workspace-files.actions')
+            const saves = [
+                () =>
+                    uploadWorkspaceFileAction({
+                        studyId: study.id,
+                        file: new File(['print(1)'], 'main.r', { type: 'text/plain' }),
+                    }),
+                () => setMainCodeFileAction({ studyId: study.id, fileName: 'main.r' }),
+                () => deleteWorkspaceFileAction({ studyId: study.id, fileName: 'helper.r' }),
+            ]
+            for (const save of saves) {
+                await clearStamp()
+                actionResult(await save())
+                const after = await stamps()
+                expect(after.labEditedAt).not.toBeNull()
+                expect(after.lastUpdatedAt).toEqual(before.lastUpdatedAt)
+            }
         })
 
         // The card says IDE access cannot be shared or transferred, and 'load IDE' is granted to

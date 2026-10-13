@@ -36,6 +36,17 @@ describe('showOutputsDecisionFailure', () => {
         })
     })
 
+    it('raises an error toast that stays up until the reviewer acts on it', () => {
+        showOutputsDecisionFailure({ error: new ActionFailure({ study: 'is unavailable' }), isSaved: true })
+
+        expect(lastNotification()).toMatchObject({
+            id: FAILURE_NOTIFICATION_ID,
+            autoClose: false,
+            role: 'alert',
+            'data-toast-kind': 'error',
+        })
+    })
+
     it('keeps one notice however many times the submit is retried', () => {
         showOutputsDecisionFailure({ error: new Error('offline'), isSaved: true })
         showOutputsDecisionFailure({ error: new Error('offline'), isSaved: true })

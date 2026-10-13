@@ -84,7 +84,9 @@ describe('PersonalInfoSection', () => {
         await userEvents.click(saveButton)
 
         await waitFor(() => {
-            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Saved', 'data-toast-kind': 'success' }),
+            )
             expect(refetch).toHaveBeenCalled()
         })
 
@@ -124,7 +126,11 @@ describe('PersonalInfoSection', () => {
 
         await waitFor(() => {
             expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({ title: 'Save failed', color: 'red' }),
+                expect.objectContaining({
+                    title: 'Save failed',
+                    'data-toast-kind': 'error',
+                    message: expect.stringMatching(/^Network error\nReference: [a-f0-9]{32}$/),
+                }),
             )
         })
     })

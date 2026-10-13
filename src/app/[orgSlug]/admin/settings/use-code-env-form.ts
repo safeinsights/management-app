@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { useParams } from 'next/navigation'
 import {
     createOrgCodeEnvAction,
@@ -210,7 +210,11 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             return isEditMode ? handleEdit(values as EditFormValues) : handleCreate(values as CreateFormValues)
         },
         onSuccess: () => {
-            reportSuccess(isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully')
+            showToast({
+                category: 'success',
+                title: 'Success',
+                message: isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully',
+            })
             onCompleteAction()
         },
         onError: (err: unknown) => {

@@ -116,7 +116,7 @@ describe('useProposalReviewMutation', () => {
         expect(payload.submittedByName.length).toBeGreaterThan(0)
 
         expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'green', title: 'Decision submitted' }),
+            expect.objectContaining({ 'data-toast-kind': 'success', title: 'Decision submitted' }),
         )
 
         await waitFor(() =>

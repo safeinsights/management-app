@@ -124,7 +124,7 @@ export const UploadParticipationAgreementForm: FC<{
             <SignatorySelect isVisible={!signatory} orgLabel={orgLabel} choice={choice} />
             <ChosenSignatory orgLabel={orgLabel} signatory={signatory} />
             <VersionNote versionNumber={chosen?.versionNumber} />
-            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} />
+            <SignedOnInput value={upload.signedAt} onChange={upload.setSignedAt} error={upload.signedAtError} />
             <PdfDropzone label={`Signed ${documentLabel}`} file={upload.file} onChange={upload.setFile} />
             <Group justify="flex-end">
                 <Button onClick={upload.askForConfirmation} disabled={!upload.canPublish}>

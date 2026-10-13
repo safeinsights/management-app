@@ -209,7 +209,9 @@ describe('PositionsSection', () => {
         await userEvents.click(deleteButtons[0])
 
         await waitFor(() => {
-            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved', color: 'green' }))
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'Saved', 'data-toast-kind': 'success' }),
+            )
         })
 
         const positions = await db

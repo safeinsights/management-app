@@ -119,6 +119,30 @@ describe('ParticipationAgreements', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
     })
 
+    it('blocks publishing a signed date in the future and says why', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await seedSignedDopa('2026-07-27')
+
+        renderWithProviders(<ParticipationAgreements type="DOPA" />)
+
+        const row = await rowFor(org.name)
+        fireEvent.click(within(row).getByRole('button', { name: 'Upload new version' }))
+
+        await waitFor(() => expect(screen.getByLabelText('Signed on')).toBeDefined())
+        // Well past the day of slack the server allows for its UTC clock.
+        const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: future } })
+        chooseFile('signed-dopa.pdf')
+
+        expect(await screen.findByText('Signed date cannot be in the future')).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+
+        fireEvent.change(screen.getByLabelText('Signed on'), { target: { value: '2026-08-03' } })
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Publish' })).not.toBeDisabled())
+        expect(screen.queryByText('Signed date cannot be in the future')).toBeNull()
+    })
+
     it('names the org, date and file in the confirmation, and promises re-acknowledgement', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const org = await seedSignedDopa('2026-07-27')

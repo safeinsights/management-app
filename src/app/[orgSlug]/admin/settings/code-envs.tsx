@@ -18,7 +18,7 @@ import { CodeEnvHistoryEmpty, CodeEnvHistoryError, CodeEnvHistoryTable } from '.
 import { useCodeEnvHistory } from './use-code-env-history'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
+import { showToast } from '@/components/toast-notifications'
 import { Refresher } from '@/components/refresher'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
@@ -109,12 +109,29 @@ const CodeEnvDetailPanel: React.FC<{
     )
 }
 
-const DeleteCodeEnv: React.FC<{ isVisible: boolean; label: string; onConfirmed: () => void }> = ({
-    isVisible,
-    label,
-    onConfirmed,
-}) => {
+// data-disabled rather than disabled: a disabled button fires no mouse events, so the tooltip would never open.
+const BlockedDeleteCodeEnv: React.FC<{ label: string }> = ({ label }) => (
+    <Tooltip
+        label="A code environment with linked data sources cannot be deleted. Remove or re-assign them first."
+        events={{ hover: true, focus: true, touch: false }}
+        withArrow
+        multiline
+        maw={240}
+    >
+        <ActionIcon size="sm" variant="subtle" color="red" data-disabled aria-disabled aria-label={label}>
+            <TrashIcon />
+        </ActionIcon>
+    </Tooltip>
+)
+
+const DeleteCodeEnv: React.FC<{
+    isVisible: boolean
+    hasLinkedDataSources: boolean
+    label: string
+    onConfirmed: () => void
+}> = ({ isVisible, hasLinkedDataSources, label, onConfirmed }) => {
     if (!isVisible) return null
+    if (hasLinkedDataSources) return <BlockedDeleteCodeEnv label={label} />
 
     return (
         <SuretyGuard
@@ -148,7 +165,7 @@ const CodeEnvRow: React.FC<{
             queryClient.invalidateQueries({
                 queryKey: ['orgCodeEnvs', orgSlug],
             })
-            reportSuccess('Code environment was deleted successfully')
+            showToast({ category: 'success', title: 'Success', message: 'Code environment was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete code environment'),
     })
@@ -229,6 +246,7 @@ const CodeEnvRow: React.FC<{
                         </Tooltip>
                         <DeleteCodeEnv
                             isVisible={canDelete}
+                            hasLinkedDataSources={image.dataSources.length > 0}
                             label={`Delete ${image.name}`}
                             onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
                         />

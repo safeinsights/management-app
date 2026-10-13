@@ -1,7 +1,5 @@
 import { AppShell, AppShellHeader, AppShellMain, Group } from '@mantine/core'
-import { Notifications } from '@mantine/notifications'
-import { MAIN_CONTENT_PROPS, NOTIFICATION_DISPLAY_MS, SIDENAV_BG } from '@/lib/constants'
-import '@mantine/notifications/styles.css'
+import { MAIN_CONTENT_PROPS, SIDENAV_BG } from '@/lib/constants'
 import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
 import { SafeInsightsLogo } from './svg/si-logo'
@@ -22,7 +20,6 @@ export function FocusedLayoutShellView({
 }: FocusedLayoutShellViewProps) {
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
-            <Notifications position="top-right" autoClose={NOTIFICATION_DISPLAY_MS} />
             {activityContext}
 
             <AppShellHeader bg={SIDENAV_BG} withBorder={false}>

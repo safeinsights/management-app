@@ -205,7 +205,7 @@ describe('useSubmitProposal', () => {
             ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
         )
         expect(errorCall).toBeDefined()
-        expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_MESSAGE })
+        expect(errorCall?.[0]).toMatchObject({ 'data-toast-kind': 'error', message: SUBMIT_FAILURE_MESSAGE })
         expect(sendStateless).not.toHaveBeenCalled()
         // Staying on the form is what makes "your work is saved" recoverable.
         expect(memoryRouter.asPath).toBe('/start')
@@ -241,7 +241,10 @@ describe('useSubmitProposal', () => {
             const errorCall = (notifications.show as Mock).mock.calls.find(
                 ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_FAILURE_TITLE,
             )
-            expect(errorCall?.[0]).toMatchObject({ color: 'red', message: SUBMIT_FAILURE_UNSAVED_MESSAGE })
+            expect(errorCall?.[0]).toMatchObject({
+                'data-toast-kind': 'error',
+                message: SUBMIT_FAILURE_UNSAVED_MESSAGE,
+            })
         })
     })
 
@@ -300,6 +303,6 @@ describe('useSubmitProposal', () => {
             ([arg]) => arg && (arg as { title?: string }).title === SUBMIT_SUCCESS_TITLE,
         )
         expect(successCall).toBeDefined()
-        expect(successCall?.[0]).toMatchObject({ color: 'green' })
+        expect(successCall?.[0]).toMatchObject({ 'data-toast-kind': 'success' })
     })
 })

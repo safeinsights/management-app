@@ -325,7 +325,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
 
         await waitFor(() => expect(outcome).toBe(false))
         expect(showMock).toHaveBeenCalledWith(
-            expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+            expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
         )
         expect(memoryRouter.asPath).toBe('/')
     })
@@ -448,7 +448,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
             ),
         )
     })
@@ -459,7 +459,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
-                expect.objectContaining({ color: 'red', title: STATUS_CHECK_FAILURE_TITLE }),
+                expect.objectContaining({ 'data-toast-kind': 'error', title: STATUS_CHECK_FAILURE_TITLE }),
             ),
         )
     })

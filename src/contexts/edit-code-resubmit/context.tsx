@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { useForm, useMutation, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import {
@@ -144,7 +144,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             }),
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
-            notifications.show({ title: CODE_SUBMIT_SUCCESS_TITLE, message: '', color: 'green' })
+            showToast({ category: 'success', title: CODE_SUBMIT_SUCCESS_TITLE, message: '' })
             router.push(Routes.studyView({ orgSlug, studyId }))
         },
         onError: (error: unknown) =>

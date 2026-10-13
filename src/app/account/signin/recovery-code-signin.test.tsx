@@ -53,8 +53,8 @@ describe('RecoveryCodeSignIn', () => {
             expect(memoryRouter.asPath).toBe(Routes.dashboard)
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    color: 'green',
-                    message: expect.stringContaining('signed in using a recovery code'),
+                    'data-toast-kind': 'success',
+                    title: expect.stringContaining('signed in using a recovery code'),
                 }),
             )
         })

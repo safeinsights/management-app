@@ -1,6 +1,5 @@
 'use client'
 
-import posthog from 'posthog-js'
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
@@ -8,7 +7,7 @@ import { SuccessPanel } from '@/components/panel'
 import { useSession } from '@/hooks/session'
 import { Button } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
+import { showToast } from '@/components/toast-notifications'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { type FC, useState } from 'react'
 import { orgAdminInviteUserAction } from './admin-users.actions'
@@ -44,16 +43,11 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
-        onSuccess(data, invite) {
+        onSuccess(data) {
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
-            posthog.capture('team_member_invited', {
-                org_slug: orgSlug,
-                permission: invite.permission,
-                already_invited: data?.alreadyInvited ?? false,
-            })
             if (data?.alreadyInvited) {
-                notifications.show({
-                    color: 'green',
+                showToast({
+                    category: 'success',
                     title: 'Invite resent',
                     message: 'This user has already been invited. Resending invite.',
                 })
