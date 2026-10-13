@@ -122,10 +122,9 @@ const resultsPreviousStep = (ctx: NavCtx): NavAction =>
 const studyOverviewNav: NavRule = (state, ctx) =>
     state.isDraft ? {} : { back: proposalPreviousStep(ctx), forward: backToMyStudies() }
 
-// Submitting code and code decisions rewrite study.status, so a submitted job is checked first: it
-// means the proposal was approved and this page was reached by walking back, so forward returns to
-// the read-only code step, or to Edit code when that is where the step back came from and the round
-// is still open. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
+// Code submission and decisions rewrite study.status, so a submitted job is checked first: forward
+// returns to the code step, or to Edit code when the step back came from it and the round is still
+// open. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
 const proposalFeedbackNav: NavRule = (state, ctx) => {
     const back = proposalPreviousStep(ctx)
     if (state.hasSubmittedCode) {
@@ -152,8 +151,9 @@ export const codeSubmissionNav = (status: StudyStatus, ctx: NavCtx): StepNav => 
 
 // /edit (Step 1) is a form route too. For a submitted study its only action is "Next step": back to
 // Edit proposal when that is where the step back came from and the proposal still awaits revision,
-// otherwise to the proposal status.
+// otherwise to the proposal status. A draft gets none: its CTA saves and continues instead.
 export const setupStepNav = (status: StudyStatus, ctx: NavCtx): StepNav => {
+    if (status === 'DRAFT') return {}
     const params = { orgSlug: ctx.orgSlug, studyId: ctx.studyId }
     const returnsToEditProposal = ctx.from === 'edit-proposal' && status === 'CHANGE-REQUESTED'
     return {

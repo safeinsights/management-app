@@ -44,16 +44,12 @@ export default async function StudyEditPage(props: {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
 
-    // Only a submitted study's Step 1 steps forward; a draft's CTA saves and continues instead.
-    const nextStepHref =
-        study.status === 'DRAFT' ? undefined : setupStepNav(study.status, { orgSlug, studyId, from }).forward?.href
-
     // A DRAFT is the editable wizard, a submitted study the same page as a read-only record
     // (OTTER-764). Revisitable either way, so it never self-redirects to resume on Step 2.
     return (
         <StudyProposal
             studyId={studyId}
-            nextStepHref={nextStepHref}
+            nextStepHref={setupStepNav(study.status, { orgSlug, studyId, from }).forward?.href}
             draftData={{
                 id: studyId,
                 title: study.title ?? '',

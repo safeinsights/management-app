@@ -347,6 +347,10 @@ describe('setupStepNav', () => {
     ] as const)('steps forward to the proposal status %s', (_label, status, from) => {
         expect(setupStepNav(status, { ...ctx, from }).forward?.href).toBe(`${base}/submitted`)
     })
+
+    it('gives a draft no action, since its CTA saves and continues', () => {
+        expect(setupStepNav('DRAFT', { ...ctx, from: 'edit-proposal' })).toEqual({})
+    })
 })
 
 describe('phasedStepNav', () => {
