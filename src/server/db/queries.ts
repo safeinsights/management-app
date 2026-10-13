@@ -761,6 +761,8 @@ export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE' | 'NOT-RUN'
 export type JobScanResult = {
     // null means no readable log. NOT-RUN means the readable log has no header for this tool.
     semgrep: ScanToolStatus | null
+    // The scan log for the reviewer, without a status line the verdict already shows.
+    details: string | null
     // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
@@ -784,6 +786,16 @@ export function parseSemgrepStatus(log: string | string[]): ScanToolStatus {
     return SEMGREP_VERDICTS.get(phrase) ?? 'INDETERMINATE'
 }
 
+// A pass or fail status line is already shown as the verdict. Any other first line says why there
+// is no verdict, so it stays.
+export function scanLogDetails(log: string): string | null {
+    const lines = log.split('\n')
+    const status = parseSemgrepStatus(log)
+    const statusIndex = lines.findIndex((line) => line.trim().length > 0)
+    const rest = status === 'PASSED' || status === 'FAILED' ? lines.slice(statusIndex + 1) : lines
+    return rest.join('\n').trim() || null
+}
+
 // No log row yet, or an unreadable file, is treated as "not reported".
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
     const logFile = await Action.db
@@ -796,16 +808,16 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { semgrep: null, logFile: null }
+    if (!logFile) return { semgrep: null, details: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
-        const lines = trimmedLines(await blob.text())
-        return { semgrep: parseSemgrepStatus(lines), logFile }
+        const log = await blob.text()
+        return { semgrep: parseSemgrepStatus(trimmedLines(log)), details: scanLogDetails(log), logFile }
     } catch {
         // The download route serves the file from the DB row + a signed URL, so keep it available
         // with unknown statuses rather than pretending the scan is pending.
-        return { semgrep: null, logFile }
+        return { semgrep: null, details: null, logFile }
     }
 }
 

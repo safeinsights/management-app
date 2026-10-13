@@ -3,7 +3,7 @@ import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.he
 import { s3Available } from '@/tests/s3.helpers'
 import { storeStudyLogFile } from '@/server/storage'
 import { db } from '@/database'
-import { jobScanResultForJob, parseSemgrepStatus } from './queries'
+import { jobScanResultForJob, parseSemgrepStatus, scanLogDetails } from './queries'
 
 // Real scanner output: see iac codebuild/scripts/semgrep.ts semgrepPlaintextLog.
 const SEMGREP_CLEAN = ['Semgrep Scan: no findings', 'R and Python files analyzed: 1', '  main.R'].join('\n')
@@ -67,6 +67,25 @@ describe('scan status header boundaries', () => {
     })
 })
 
+describe('scanLogDetails', () => {
+    it('drops a pass or fail status line, which the verdict already shows', () => {
+        expect(scanLogDetails(SEMGREP_CLEAN)).toBe('R and Python files analyzed: 1\n  main.R')
+        expect(scanLogDetails(SEMGREP_FINDINGS)).toContain('main.R:12  ERROR    privacy-r-network-call')
+        expect(scanLogDetails(SEMGREP_FINDINGS)).not.toContain('Semgrep Scan')
+    })
+
+    it('keeps a status line that gives no verdict', () => {
+        expect(scanLogDetails('Semgrep Scan: partially scanned\nmain.R timed out')).toBe(
+            'Semgrep Scan: partially scanned\nmain.R timed out',
+        )
+        expect(scanLogDetails('No scan report available')).toBe('No scan report available')
+    })
+
+    it('is null when only the status line remains', () => {
+        expect(scanLogDetails('Semgrep Scan: no findings\n\n')).toBeNull()
+    })
+})
+
 describe('jobScanResultForJob', () => {
     it('reports no statuses and no log file when the scan has not reported yet', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -74,7 +93,7 @@ describe('jobScanResultForJob', () => {
 
         const result = await jobScanResultForJob(job.id)
 
-        expect(result).toEqual({ semgrep: null, logFile: null })
+        expect(result).toEqual({ semgrep: null, details: null, logFile: null })
     })
 
     it('keeps the log downloadable with unknown statuses when the file cannot be read', async () => {
@@ -125,6 +144,7 @@ describe('jobScanResultForJob', () => {
         const result = await jobScanResultForJob(job.id)
 
         expect(result.semgrep).toBe(semgrep)
+        expect(result.details).toBe(scanLogDetails(log))
         expect(result.logFile?.name).toBe('security-scan-log.txt')
     })
 })

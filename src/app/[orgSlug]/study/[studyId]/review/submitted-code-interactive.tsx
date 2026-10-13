@@ -4,7 +4,6 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
-    Anchor,
     Button,
     Collapse,
     Divider,
@@ -18,9 +17,8 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { AnalysisPanel } from './analysis-panel'
+import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
 import { SecurityScanPanel, isScanPending } from './security-scan-panel'
-import { ToggleChevron } from '@/components/icons'
 import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -63,13 +61,6 @@ export function splitVisibleFiles(files: CodeFile[]) {
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
 }
 
-function useAiSummaryToggle() {
-    const [isExpanded, setIsExpanded] = useState(false)
-    return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
-}
-
-const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 2
-
 // Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
     ul: ({ node: _node, ...props }) => (
@@ -80,20 +71,15 @@ const MARKDOWN_LIST_COMPONENTS: Components = {
     ),
 }
 
-function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
+function AiSummaryContent({ summary }: { summary: string }) {
     return (
-        <Text
-            component="div"
-            size="sm"
-            data-testid="ai-summary-body"
-            lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
-        >
+        <ExpandableDetails testId="ai-summary" showLabel="View full AI summary" hideLabel="Hide full AI summary">
             <Typography fz="sm">
                 <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
                     {summary}
                 </Markdown>
             </Typography>
-        </Text>
+        </ExpandableDetails>
     )
 }
 
@@ -164,27 +150,6 @@ function useJobAnalysisPoll(
     })
 }
 
-function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onToggle: () => void }) {
-    const toggleLabel = isExpanded ? 'Hide full AI summary' : 'View full AI summary'
-    return (
-        <Anchor
-            component="button"
-            type="button"
-            onClick={onToggle}
-            size="sm"
-            fw={fontWeight.bold}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            data-testid="ai-summary-toggle"
-            aria-expanded={isExpanded}
-        >
-            {toggleLabel}
-            <ToggleChevron isExpanded={isExpanded} />
-        </Anchor>
-    )
-}
-
 function AiSummaryPending() {
     return (
         <Group gap="xs" data-testid="ai-summary-pending">
@@ -224,17 +189,6 @@ function AiSummaryEmpty() {
     )
 }
 
-type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: () => void }
-
-function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
-    return (
-        <Stack gap="xs" p="md" bd={`1px solid ${semanticColor('border.default')}`} bdrs="xs">
-            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
-            <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
-        </Stack>
-    )
-}
-
 function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -267,7 +221,6 @@ type AiSummaryProps = {
 }
 
 function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timedOut, onRetryStarted }: AiSummaryProps) {
-    const { isExpanded, toggle } = useAiSummaryToggle()
     const retry = useRetryStudyReview(studyJobId, analysisKey, onRetryStarted)
     const summary = review?.report?.codeExplanation ?? null
 
@@ -285,7 +238,7 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
             // longer resolve, and unlike a landed report there is nothing here worth protecting.
             if (state === 'pending') return timedOut || hasError ? errorState : <AiSummaryPending />
             if (!summary) return <AiSummaryEmpty />
-            return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+            return <AiSummaryContent summary={summary} />
         }
         if (hasError || timedOut) return errorState
         return <AiSummaryPending />

@@ -902,7 +902,7 @@ describe('Study Job Actions', () => {
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toEqual({ semgrep: null, logFile: null })
+            expect(analysis.scan).toEqual({ semgrep: null, details: null, logFile: null })
         })
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there

@@ -42,12 +42,15 @@ vi.mock('@/server/storage', async () => {
 
 const ORG_SLUG = 'test-org-submitted'
 
-const scanResult = (semgrep: JobScanResult['semgrep']): JobScanResult => ({
+const SCAN_DETAILS = 'R and Python files analyzed: 1\n  main.r\n\nFor review, not failing the gate:\n  main.r:28  INFO'
+
+const scanResult = (semgrep: JobScanResult['semgrep'], details: string | null = SCAN_DETAILS): JobScanResult => ({
     semgrep,
+    details,
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 
-const scanInProgress: JobScanResult = { semgrep: null, logFile: null }
+const scanInProgress: JobScanResult = { semgrep: null, details: null, logFile: null }
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -578,6 +581,25 @@ describe('SubmittedCodeSection — Security scan results', () => {
             if (status === 'NOT-RUN') expect(scan).toHaveTextContent('did not run')
         },
     )
+
+    it('shows the scan log clamped, and expands it on toggle', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED'))
+        const body = screen.getByTestId('scan-details-body')
+        expect(body).toHaveTextContent('main.r:28  INFO')
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
+
+        await userEvent.setup().click(screen.getByTestId('scan-details-toggle'))
+
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
+        expect(screen.getByTestId('scan-details-toggle')).toHaveTextContent('Hide full scan details')
+    })
+
+    it('shows no details box when the log has nothing past its status line', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED', null))
+        expect(screen.queryByTestId('scan-details-body')).not.toBeInTheDocument()
+    })
 
     it('shows a spinner while the scan is pending', async () => {
         const fixture = await setupBaseFixture()
