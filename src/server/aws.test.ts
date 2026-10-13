@@ -45,6 +45,7 @@ describe('buildTriggerBuildImageCommandInput', () => {
         process.env = {
             ...originalEnv,
             CONTAINERIZER_PROJECT_NAME: 'TestCodeBuildProject',
+            DOMAIN_NAME: 'pr123.qa.safeinsights.org',
             ENVIRONMENT_ID: 'test',
             CODEBUILD_WEBHOOK_SECRET: 'mock-webhook-secret',
         }
@@ -72,6 +73,7 @@ describe('buildTriggerBuildImageCommandInput', () => {
         const expectedEnvVars = [
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/containerizer' },
+            { name: 'ASSIGNED_DOMAIN', value: 'pr123.qa.safeinsights.org' },
             {
                 name: 'ON_START_PAYLOAD',
                 value: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-PACKAGING' }),
@@ -165,6 +167,7 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
         process.env = {
             ...originalEnv,
             SCANNER_PROJECT_NAME: 'TestScannerProject',
+            DOMAIN_NAME: 'pr123.qa.safeinsights.org',
             ENVIRONMENT_ID: 'test',
             CODEBUILD_WEBHOOK_SECRET: 'mock-webhook-secret',
         }
@@ -184,6 +187,7 @@ describe('buildTriggerScanForStudyJobCommandInput', () => {
         const expectedEnvVars = [
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
             { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
+            { name: 'ASSIGNED_DOMAIN', value: 'pr123.qa.safeinsights.org' },
             {
                 // The round rides along so the webhook can refuse a build that outlived it.
                 name: 'ON_SUCCESS_PAYLOAD',
