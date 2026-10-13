@@ -12,6 +12,7 @@ import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 
 import { ActivityContext } from '../activity-context'
+import { MarkStudyOpened } from '../study/mark-study-opened'
 import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { TopNav } from './top-nav/top-nav'
@@ -39,6 +40,7 @@ export function AppShell({ children }: Props) {
             <RequireUserKey />
             <RequireLegalAcknowledgement />
             <ActivityContext />
+            <MarkStudyOpened />
 
             <AppShellHeader withBorder={false}>
                 <TopNav isNavOpened={opened} onToggleNav={toggle} />
