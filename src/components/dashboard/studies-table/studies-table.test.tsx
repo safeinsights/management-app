@@ -1,5 +1,5 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
 import { ExternalLinks } from '@/lib/routes'
 import { screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -92,6 +92,7 @@ const mockStudies = [
 
 vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
+    softDeleteStudyAction: vi.fn(),
 }))
 
 // mockResolvedValueOnce is strict and the action's return type is much wider than the fixtures.
@@ -206,6 +207,16 @@ describe('Studies Table', () => {
         expect(link).toHaveAttribute('href', '/test-org/study/11111111-1111-4111-8111-111111111111/edit')
     })
 
+    it('offers the draft author the delete-draft bin', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(
+            orgStudies({ status: 'DRAFT' as StudyStatus, researcherId: user.id, orgSlug: org.slug }),
+        )
+        renderWithProviders(<StudiesTable audience="researcher" scope="org" orgSlug={org.slug} paperWrapper />)
+
+        expect(await screen.findByLabelText('Delete draft study Study Title 1')).toBeDefined()
+    })
+
     it('does not duplicate the new study button on an empty lab org dashboard', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
         renderWithProviders(
@@ -306,7 +317,7 @@ describe('Studies Table', () => {
             expect(screen.getByRole('columnheader', { name: /Study title/ })).not.toHaveAttribute('aria-sort')
         })
 
-        it('sorts by a header button, flips on a second click, and returns to the default from Last updated', async () => {
+        it('sorts by a header button, flips on a second click, and opens Last updated newest first', async () => {
             const user = userEvent.setup()
             vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(dated())
             renderTable()
@@ -320,6 +331,25 @@ describe('Studies Table', () => {
             expect(titles()).toEqual(['cherry', 'Banana', 'apple'])
 
             await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['apple', 'Banana', 'cherry'])
+            expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute(
+                'aria-sort',
+                'descending',
+            )
+        })
+
+        it('sorts Last updated oldest first on a second click', async () => {
+            const user = userEvent.setup()
+            vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(dated())
+            renderTable()
+            await screen.findByRole('link', { name: 'apple' })
+
+            await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['cherry', 'Banana', 'apple'])
+            expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute('aria-sort', 'ascending')
+
+            await user.click(screen.getByRole('button', { name: /Last updated/ }))
+            expect(titles()).toEqual(['apple', 'Banana', 'cherry'])
             expect(screen.getByRole('columnheader', { name: /Last updated/ })).toHaveAttribute(
                 'aria-sort',
                 'descending',

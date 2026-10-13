@@ -2,7 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { captureRouterTransitionStart, replayIntegration } from '@sentry/nextjs'
-import { scrubSentryEvent } from '@/lib/sentry'
+import { sentryScrubOptions } from '@/lib/sentry'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
@@ -16,7 +16,7 @@ Sentry.init({
         }),
     ],
 
-    beforeSend: scrubSentryEvent,
+    ...sentryScrubOptions,
 
     tracesSampleRate: 1,
     enableLogs: true,

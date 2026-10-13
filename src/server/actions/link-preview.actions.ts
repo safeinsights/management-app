@@ -4,7 +4,7 @@ import { Action, z } from '@/server/actions/action'
 import { toRecord } from '@/lib/permissions'
 import { type PageAccess } from '@/lib/routes/access'
 import { matchInternalRoute, type InternalRouteMatch, type ResolvedInternalLink } from '@/lib/routes/match'
-import { displayOrgName, UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import { getLabOrg, isOrgAdmin, type UserSession } from '@/lib/types'
 
 // Deleted, never there, and not allowed all answer the same way, so a preview cannot be used to
@@ -48,7 +48,7 @@ export const resolveInternalLinkAction = new Action('resolveInternalLinkAction')
             .executeTakeFirst()
         if (!org) return UNAVAILABLE
 
-        const category = displayOrgName(org.name)
+        const category = org.name
 
         if (match.kind === 'orgPage') {
             return canReachOrgPage(session, match) ? { kind: 'internal', title: match.title, category } : UNAVAILABLE

@@ -214,7 +214,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('replaces the available banner with the review-before-sharing warning', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Review the outputs before sharing')
@@ -259,7 +259,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         fireEvent.click(screen.getByTestId('outputs-submit-decision'))
 

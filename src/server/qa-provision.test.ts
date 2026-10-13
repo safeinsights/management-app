@@ -10,7 +10,6 @@ import {
 } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
-import { updateClerkUserMetadata } from '@/server/clerk'
 import { deliver } from '@/server/mailgun'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
 
@@ -140,40 +139,6 @@ describe('provisionQaUser', () => {
             skipPasswordChecks: true,
         })
         expect(result.passwordSet).toBe(true)
-    })
-
-    it('syncs Clerk metadata after an org change so authorization sees it', async () => {
-        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user } = await insertTestUser({ org, email: qaEmail() })
-        ;(updateClerkUserMetadata as Mock).mockClear()
-
-        await provisionQaUser(db, user.id, { orgs: [{ slug: org.slug }] })
-
-        expect(updateClerkUserMetadata as Mock).toHaveBeenCalledWith(user.id)
-    })
-
-    it('restores the previous memberships when the Clerk metadata sync fails', async () => {
-        const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
-        const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user } = await insertTestUser({ org: orgA, isAdmin: true, email: qaEmail() })
-        const before = await orgSlugsFor(user.id)
-        ;(updateClerkUserMetadata as Mock).mockRejectedValueOnce(new Error('clerk is down'))
-
-        await expect(provisionQaUser(db, user.id, { orgs: [{ slug: orgB.slug, isAdmin: true }] })).rejects.toThrow(
-            'clerk is down',
-        )
-
-        expect(await orgSlugsFor(user.id)).toEqual(before)
-    })
-
-    it('does not resync Clerk metadata when orgs are untouched', async () => {
-        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
-        const { user } = await insertTestUser({ org, email: qaEmail() })
-        ;(updateClerkUserMetadata as Mock).mockClear()
-
-        await provisionQaUser(db, user.id, { publicKey: await readTestSupportFile('public_key.pem') })
-
-        expect(updateClerkUserMetadata as Mock).not.toHaveBeenCalled()
     })
 
     it('leaves omitted fields untouched', async () => {

@@ -1,11 +1,10 @@
 // E2E Clerk fake, aliased in for `@clerk/nextjs/server` when E2E_FAKE_CLERK is set.
-// Must stay edge-safe for clerkMiddleware/createRouteMatcher, since proxy.ts runs in the
-// middleware runtime where next/headers is unavailable.
+// The proxy and RSC auth paths resolve the same database Clerk id.
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { readRoleCookieFromHeaders } from './cookie.server'
 import { isFakeRole } from './fixtures'
-import { buildV3Metadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole, type FakeFixture } from './fixtures'
+import { buildSessionClaimsMetadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole, type FakeFixture } from './fixtures'
 import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
@@ -13,7 +12,7 @@ import { buildRouteMatcher } from './route-matcher'
 export type User = FakeUser
 
 type SessionClaims = {
-    userMetadata: UserInfo
+    userMetadata: UserPublicMetadata
     unsafeMetadata: { currentOrgSlug?: string }
 }
 
@@ -30,7 +29,7 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
         userId,
         orgSlug,
         sessionClaims: {
-            userMetadata: buildV3Metadata(fixture),
+            userMetadata: buildSessionClaimsMetadata(fixture),
             unsafeMetadata: { currentOrgSlug: orgSlug },
         },
     }
@@ -54,7 +53,7 @@ export async function verifyToken(_token: string, _options: unknown): Promise<{ 
     const fixture = fixtureForRole('admin')!
     return {
         sub: await resolveClerkId(fixture),
-        userMetadata: buildV3Metadata(fixture),
+        userMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
     }
 }
@@ -136,12 +135,26 @@ export function clerkMiddleware(handler: MiddlewareHandler) {
     return async (req: NextRequest): Promise<NextResponse> => {
         const rawCookie = req.cookies.get('__e2e_role')?.value
         const fixture = fixtureForRole(isFakeRole(rawCookie) ? rawCookie : null)
-        // Edge-safe: no DB read here, so the fallback clerkId is only used for proxy logging.
-        const result = buildAuthResult(fixture, fixture?.clerkId ?? null)
+        const result = buildAuthResult(fixture, fixture ? await resolveClerkId(fixture) : null)
         const authFn: MiddlewareAuth = async () => result
         const out = await handler(authFn, req)
-        return out instanceof NextResponse ? out : NextResponse.next()
+        const res = out instanceof NextResponse ? out : NextResponse.next()
+        return forwardAuthStatus(req, res, fixture ? 'signed-in' : 'signed-out')
     }
+}
+
+// Real clerkMiddleware forwards this request header the same way, and the root layout reads the
+// session only when it is present.
+function forwardAuthStatus(req: NextRequest, res: NextResponse, status: string): NextResponse {
+    if (res.headers.get('x-middleware-next') !== '1') return res
+    const override = 'x-middleware-override-headers'
+    if (!res.headers.get(override)) {
+        res.headers.set(override, [...req.headers.keys()].join(','))
+        req.headers.forEach((value, key) => res.headers.set(`x-middleware-request-${key}`, value))
+    }
+    res.headers.set(override, `${res.headers.get(override)},x-clerk-auth-status`)
+    res.headers.set('x-middleware-request-x-clerk-auth-status', status)
+    return res
 }
 
 export function createRouteMatcher(patterns: string[]) {

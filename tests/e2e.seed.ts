@@ -265,8 +265,8 @@ async function insertSubmittedJob(
             .insertInto('studyJobFile')
             .values({
                 studyJobId: job.id,
-                name: 'main.r',
-                path: `studies/${studyId}/${job.id}/main.r`,
+                name: 'analysis.r',
+                path: `studies/${studyId}/${job.id}/analysis.r`,
                 fileType: 'MAIN-CODE',
             })
             .execute()

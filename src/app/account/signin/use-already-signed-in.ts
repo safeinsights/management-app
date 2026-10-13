@@ -5,6 +5,8 @@ import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { reportError } from '@/components/errors'
+import { useQueryClient } from '@/common'
+import { CURRENT_USER_INFO_KEY } from '@/hooks/session'
 import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { DOWNLOAD_PREFIX } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
@@ -81,6 +83,7 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     const { isLoaded, isSignedIn, user } = useUser()
     const { signOut } = useClerk()
     const searchParams = useSearchParams()
+    const queryClient = useQueryClient()
 
     const [status, setStatus] = useState<AlreadySignedInStatus>('loading')
     const [isSwitching, setIsSwitching] = useState(false)
@@ -152,10 +155,12 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
             // to reject. Reaching the form is what the user asked for; the finally below does that.
             reportError(displayableSignOutError(error), 'Failed to sign out while switching accounts')
         } finally {
+            // Signing back in as the same Clerk user would otherwise show the org list cached before.
+            queryClient.removeQueries({ queryKey: CURRENT_USER_INFO_KEY })
             setIsSwitching(false)
             setStatus('signed-out')
         }
-    }, [signOut])
+    }, [signOut, queryClient])
 
     return {
         status,

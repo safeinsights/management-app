@@ -8,7 +8,6 @@ import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { displayOrgName } from '@/lib/string'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeDecisionBanner, type BannerCopy } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
@@ -61,7 +60,7 @@ export function CodePostDecisionView({
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
-    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
+    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: reviewingOrgName })
 
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
@@ -76,7 +75,7 @@ export function CodePostDecisionView({
                     jobId={job.id}
                     files={codeFiles}
                     activityByName={activityByName}
-                    dataPartnerName={displayOrgName(reviewingOrgName)}
+                    dataPartnerName={reviewingOrgName}
                 />
 
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />

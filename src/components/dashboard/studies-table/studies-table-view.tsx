@@ -12,7 +12,7 @@ import { TableHeader, tableMinWidth, type ColumnDef } from './columns'
 import { EmptyState } from './empty-state'
 import type { RowModel } from './row-model'
 import type { ColumnId, SortState } from './sort'
-import { StudyRowView } from './study-row-view'
+import { StudyRowView, type DeleteDraftComponent } from './study-row-view'
 import type { Audience } from './types'
 
 // Presentational: the container builds the row models and owns the sort state.
@@ -30,14 +30,24 @@ export type StudiesTableViewProps = {
     isError?: boolean
     errorMessage?: string
     paperWrapper?: boolean
+    DeleteDraft?: DeleteDraftComponent
 }
 
 type StudiesTableBodyProps = Pick<
     StudiesTableViewProps,
-    'rows' | 'columns' | 'sort' | 'onSort' | 'audience' | 'isError' | 'errorMessage'
+    'rows' | 'columns' | 'sort' | 'onSort' | 'audience' | 'isError' | 'errorMessage' | 'DeleteDraft'
 >
 
-function StudiesTableBody({ rows, columns, sort, onSort, audience, isError, errorMessage }: StudiesTableBodyProps) {
+function StudiesTableBody({
+    rows,
+    columns,
+    sort,
+    onSort,
+    audience,
+    isError,
+    errorMessage,
+    DeleteDraft,
+}: StudiesTableBodyProps) {
     if (isError) {
         return <ErrorAlert error={`Failed to load studies: ${errorMessage}`} />
     }
@@ -56,7 +66,7 @@ function StudiesTableBody({ rows, columns, sort, onSort, audience, isError, erro
                 <TableHeader columns={columns} sort={sort} onSort={onSort} />
                 <TableTbody>
                     {rows.map((row) => (
-                        <StudyRowView key={row.id} row={row} columns={columns} />
+                        <StudyRowView key={row.id} row={row} columns={columns} DeleteDraft={DeleteDraft} />
                     ))}
                 </TableTbody>
             </Table>

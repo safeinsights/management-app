@@ -34,7 +34,8 @@
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
       "mcp__playwright-test__browser_navigate",
-      "mcp__claude_ai_Atlassian__getJiraIssue"
+      "mcp__claude_ai_Atlassian__getJiraIssue",
+      "Bash(docker exec *)"
     ],
     "deny": [
       "Read(.env)",

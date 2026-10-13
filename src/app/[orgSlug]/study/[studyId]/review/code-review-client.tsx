@@ -258,7 +258,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
     const [tabSessionId] = useState(() => crypto.randomUUID())
 
     const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const proposalHref = Routes.studyReviewProposal({ orgSlug, studyId: study.id })
 
     const {

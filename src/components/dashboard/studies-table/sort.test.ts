@@ -24,6 +24,15 @@ describe('sortRows', () => {
         expect(titles(sortRows(rows, DEFAULT_SORT))).toEqual(['new', 'old'])
     })
 
+    it('sorts oldest first when Last updated is ascending', () => {
+        const rows = [
+            row({ title: 'new', lastUpdatedAt: new Date('2026-03-01') }),
+            row({ title: 'old', lastUpdatedAt: new Date('2026-01-01') }),
+            row({ title: 'mid', lastUpdatedAt: new Date('2026-02-01') }),
+        ]
+        expect(titles(sortRows(rows, { column: 'lastUpdated', direction: 'asc' }))).toEqual(['old', 'mid', 'new'])
+    })
+
     it('sorts titles alphabetically, ignoring case', () => {
         const rows = [row({ title: 'cherry' }), row({ title: 'apple' }), row({ title: 'Banana' })]
         expect(titles(sortRows(rows, { column: 'title', direction: 'asc' }))).toEqual(['apple', 'Banana', 'cherry'])
@@ -81,8 +90,10 @@ describe('nextSort', () => {
         expect(nextSort(asc, 'title')).toEqual({ column: 'title', direction: 'desc' })
     })
 
-    it('returns to the default on any Last updated click', () => {
+    it('opens Last updated newest first, then flips it to oldest first and back', () => {
         expect(nextSort({ column: 'title', direction: 'desc' }, 'lastUpdated')).toEqual(DEFAULT_SORT)
-        expect(nextSort(DEFAULT_SORT, 'lastUpdated')).toEqual(DEFAULT_SORT)
+        const oldestFirst = nextSort(DEFAULT_SORT, 'lastUpdated')
+        expect(oldestFirst).toEqual({ column: 'lastUpdated', direction: 'asc' })
+        expect(nextSort(oldestFirst, 'lastUpdated')).toEqual(DEFAULT_SORT)
     })
 })

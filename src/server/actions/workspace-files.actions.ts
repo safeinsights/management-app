@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { DBExecutor } from '@/database'
 import { Action, z } from './action'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import { getStudyFilesPath } from '@/server/workspace-files'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload } from '@/server/db/mutations'
@@ -15,14 +15,6 @@ import {
     MAX_UPLOAD_FILE_BYTES,
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
-
-async function getStudyFilesPath(studyId: string) {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
-    return coderFilesPath
-}
 
 // OTTER-617: the researcher's Last updated reads this; the data partner's does not.
 const stampLabEdit = (db: DBExecutor, studyId: string) =>

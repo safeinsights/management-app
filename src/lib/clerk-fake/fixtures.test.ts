@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { sessionFromMetadata } from '@/lib/session'
 import { isOrgAdmin } from '@/lib/types'
-import { buildV3Metadata, fixtureForEmail, fixtureForRole, isFakeRole, ROLE_FIXTURES, type FakeRole } from './fixtures'
+import {
+    buildSessionClaimsMetadata,
+    buildV3Metadata,
+    fixtureForEmail,
+    fixtureForRole,
+    isFakeRole,
+    ROLE_FIXTURES,
+    type FakeRole,
+} from './fixtures'
 import { parseRoleCookie, E2E_ROLE_COOKIE } from './cookie'
 
 describe('clerk-fake fixtures', () => {
@@ -52,6 +60,18 @@ describe('clerk-fake fixtures', () => {
         })
         expect(isOrgAdmin(reviewer.orgs['reviewer-is-org-admin'])).toBe(true)
         expect(isOrgAdmin(reviewer.orgs['openstax'])).toBe(false)
+    })
+
+    it('builds session claims metadata without orgs, matching the production token shape', () => {
+        for (const role of Object.keys(ROLE_FIXTURES) as FakeRole[]) {
+            const fixture = ROLE_FIXTURES[role]
+            const claims = buildSessionClaimsMetadata(fixture)
+
+            expect(claims.format).toBe('v3')
+            expect(claims.user.id).toBe(fixture.userId)
+            expect(claims.teams).toBeNull()
+            expect(claims.orgs).toBeUndefined()
+        }
     })
 
     it('resolves fixtures by role and email', () => {

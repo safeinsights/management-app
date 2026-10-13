@@ -14,13 +14,12 @@ describe('initializeDevWorkspaceFiles', () => {
             return {
                 ...mod,
                 CODER_DISABLED: true,
-                DEV_ENV: true,
                 getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
             }
         })
         vi.doMock('@/server/storage', () => ({
             fetchFileContents: vi.fn().mockResolvedValue({
-                arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+                arrayBuffer: vi.fn().mockResolvedValue(new TextEncoder().encode('starter content').buffer),
             }),
         }))
     })
@@ -62,7 +61,7 @@ describe('initializeDevWorkspaceFiles', () => {
             vi.useRealTimers()
         }
 
-        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/Main.R`)
+        const writtenFileStat = await fs.stat(`${TEST_CODER_FILES}/${study.id}/Main.R`)
         const jobRow = await db
             .selectFrom('studyJob')
             .select('createdAt')
@@ -70,6 +69,22 @@ describe('initializeDevWorkspaceFiles', () => {
             .executeTakeFirstOrThrow()
 
         expect(writtenFileStat.mtime.getTime()).toBeLessThan(jobRow.createdAt.getTime())
+    })
+
+    test('keeps each study in its own workspace directory', async () => {
+        const { org, user } = await mockSessionWithTestData()
+        const { study: first } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+        const { study: second } = await insertTestStudyJobData({ org, researcherId: user.id, language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
+
+        const { initializeDevWorkspaceFiles } = await import('./dev')
+        await initializeDevWorkspaceFiles(first.id)
+        await fs.writeFile(`${TEST_CODER_FILES}/${first.id}/Main.R`, 'user edits', 'utf-8')
+        await initializeDevWorkspaceFiles(second.id)
+
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${first.id}/Main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${second.id}/Main.R`, 'utf-8')).toBe('starter content')
+        await expect(fs.stat(`${TEST_CODER_FILES}/Main.R`)).rejects.toMatchObject({ code: 'ENOENT' })
     })
 
     const seedContext = async (name: 'SYSTEM' | 'PYTHON' | 'R', content: string) => {
@@ -87,7 +102,7 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe(
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/CLAUDE.md`, 'utf-8')).toBe(
             'system context\nr context\nNo data sources provided',
         )
     })
@@ -102,12 +117,12 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        await fs.writeFile(`${TEST_CODER_FILES}/Main.R`, 'user edits', 'utf-8')
+        await fs.writeFile(`${TEST_CODER_FILES}/${study.id}/Main.R`, 'user edits', 'utf-8')
         await seedContext('SYSTEM', 'updated system context')
         await initializeDevWorkspaceFiles(study.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/Main.R`, 'utf-8')).toBe('user edits')
-        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe(
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/Main.R`, 'utf-8')).toBe('user edits')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/CLAUDE.md`, 'utf-8')).toBe(
             'updated system context\nr context\nNo data sources provided',
         )
     })
@@ -122,10 +137,10 @@ describe('initializeDevWorkspaceFiles', () => {
         const { initializeDevWorkspaceFiles } = await import('./dev')
         await initializeDevWorkspaceFiles(study.id)
 
-        await fs.writeFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'my own context notes', 'utf-8')
+        await fs.writeFile(`${TEST_CODER_FILES}/${study.id}/CLAUDE.md`, 'my own context notes', 'utf-8')
         await seedContext('SYSTEM', 'updated system context')
         await initializeDevWorkspaceFiles(study.id)
 
-        expect(await fs.readFile(`${TEST_CODER_FILES}/CLAUDE.md`, 'utf-8')).toBe('my own context notes')
+        expect(await fs.readFile(`${TEST_CODER_FILES}/${study.id}/CLAUDE.md`, 'utf-8')).toBe('my own context notes')
     })
 })
