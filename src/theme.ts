@@ -311,10 +311,10 @@ export const theme = createTheme({
         Divider: Divider.extend({
             defaultProps: { color: semanticColor('border.default') },
         }),
-        // Rendered markdown (legal documents) wraps long URLs and words instead of widening its box.
-        // Unlike `break-word`, `anywhere` also shrinks the min-content width a scroll area sizes to.
+        // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
+        // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
         Typography: Typography.extend({
-            styles: { root: { overflowWrap: 'anywhere' } },
+            styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
         }),
         Table: {
             styles: () => ({

@@ -32,7 +32,7 @@ const REMARK_PLUGINS = [remarkGfm]
 
 // No `rehype-raw`: this content reaches every user, so embedded HTML stays escaped.
 const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
-    <Typography fz="sm">
+    <Typography variant="legal" fz="sm">
         <Markdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_LIST_COMPONENTS}>
             {content}
         </Markdown>
@@ -40,14 +40,7 @@ const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
 )
 
 const BoundedMarkdown: FC<BoundedProps> = ({ content, maxHeight, label }) => (
-    <ScrollArea.Autosize
-        mah={maxHeight}
-        type="auto"
-        scrollbars="y"
-        offsetScrollbars="present"
-        aria-label={label}
-        tabIndex={0}
-    >
+    <ScrollArea.Autosize mah={maxHeight} type="auto" offsetScrollbars="present" aria-label={label} tabIndex={0}>
         <DocumentMarkdown content={content} />
     </ScrollArea.Autosize>
 )

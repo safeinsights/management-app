@@ -215,7 +215,7 @@ html {
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
 }
 
-/* Rendered markdown: a code block wraps instead of widening its box (OTTER-836). */
-.mantine-Typography-root pre {
+/* Legal documents: a code block wraps instead of widening its box (OTTER-836). */
+.mantine-Typography-root[data-variant='legal'] pre {
     white-space: pre-wrap;
 }
