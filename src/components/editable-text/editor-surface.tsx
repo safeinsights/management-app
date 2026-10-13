@@ -10,7 +10,7 @@ import {
     type ReactNode,
     type RefObject,
 } from 'react'
-import { Paper, Text } from '@mantine/core'
+import { Box, Paper, Text } from '@mantine/core'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
@@ -152,9 +152,9 @@ export function EditorSurface({
             {/* Inside the field on purpose: a card in a portal would read as a blur (OTTER-647),
                 and this position puts it before the toolbar in the tab order. */}
             <LinkHoverCardPlugin />
-            <div ref={chromeRef}>
+            <Box ref={chromeRef} p="xxs">
                 <Toolbar />
-            </div>
+            </Box>
         </Paper>
     )
 }

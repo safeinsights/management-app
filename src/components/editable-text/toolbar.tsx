@@ -1,6 +1,7 @@
 'use client'
 
-import { ActionIcon, Box, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, Divider, Paper, TextInput, Tooltip } from '@mantine/core'
+import { semanticColor } from '@/theme/tokens'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -179,7 +180,10 @@ export const Toolbar = () => {
     const outdent = () => runOnEditor(() => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined))
 
     return (
-        <Box
+        <Paper
+            withBorder
+            shadow="md"
+            radius="xs"
             p="xxs"
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
@@ -187,8 +191,8 @@ export const Toolbar = () => {
                 }
             }}
             style={{
-                borderTop: '1px solid var(--mantine-color-gray-3)',
-                display: 'flex',
+                borderColor: semanticColor('border.default'),
+                display: 'inline-flex',
                 gap: 4,
                 alignItems: 'center',
             }}
@@ -211,7 +215,7 @@ export const Toolbar = () => {
                     onOutdent={outdent}
                 />
             )}
-        </Box>
+        </Paper>
     )
 }
 
@@ -300,6 +304,7 @@ function FormatButtons({
             >
                 <TextUnderlineIcon size={16} weight={formatState.isUnderline ? 'bold' : 'regular'} />
             </ActionIcon>
+            <Divider orientation="vertical" />
             <ActionIcon
                 variant={formatState.isLink ? 'filled' : 'subtle'}
                 color="charcoal.4"
@@ -327,6 +332,7 @@ function FormatButtons({
             >
                 <ListNumbersIcon size={16} weight={formatState.listType === 'number' ? 'bold' : 'regular'} />
             </ActionIcon>
+            <Divider orientation="vertical" />
             <ActionIcon
                 variant="subtle"
                 color="charcoal.4"

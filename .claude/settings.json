@@ -33,7 +33,8 @@
       "mcp__playwright-test__browser_evaluate",
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
-      "mcp__playwright-test__browser_navigate"
+      "mcp__playwright-test__browser_navigate",
+      "mcp__claude_ai_Atlassian__getJiraIssue"
     ],
     "deny": [
       "Read(.env)",
