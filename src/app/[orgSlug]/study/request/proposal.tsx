@@ -87,10 +87,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
     // (OTTER-764). `isProceeding` still guards it: the target re-reads from the server, and without
     // it the button looks dead for the whole navigation. Nothing resets it, the page is leaving.
     const goToNextStep = useCallback(() => {
-        if (!studyId) return
+        if (!nextStepHref) return
         setIsProceeding(true)
-        router.push(nextStepHref ?? Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
-    }, [router, submittingOrgSlug, studyId, nextStepHref])
+        router.push(nextStepHref)
+    }, [router, nextStepHref])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({

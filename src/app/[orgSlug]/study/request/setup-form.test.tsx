@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { Route } from 'next'
 import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
@@ -117,6 +118,7 @@ const renderSetup = (
         studyId?: string
         draftData?: DraftStudyData | null
         submittingLabName?: string | null
+        nextStepHref?: Route
     } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
@@ -997,18 +999,15 @@ describe('Locked fields', () => {
         const fixtures = await setupFixtures()
         const overLimitTitle = 'a'.repeat(61)
         const draftData = submittedDraft(fixtures, { title: overLimitTitle })
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
+        const nextStepHref = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        renderSetup(fixtures, { studyId: draftData.id, draftData, nextStepHref })
 
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent(overLimitTitle))
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 
         await user.click(nextStepButton())
 
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
-            ),
-        )
+        await waitFor(() => expect(memoryRouter.asPath).toBe(nextStepHref))
         expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
     })
 })
@@ -1209,40 +1208,22 @@ describe('Step 1 navigation state: a submitted proposal', () => {
 
     // Nothing here is editable, so there is nothing to validate and nothing to save. The click is a
     // step forward and no more.
-    it('steps forward to the submitted record with no validation and no modal', async () => {
+    // The page resolves the target from the nav table (setupStepNav); the form only follows it.
+    it('steps forward to the target the page resolved, with no validation and no modal', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const draftData = submittedDraft(fixtures)
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
+        const nextStepHref = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        renderSetup(fixtures, { studyId: draftData.id, draftData, nextStepHref })
 
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
-            ),
-        )
+        await waitFor(() => expect(memoryRouter.asPath).toBe(nextStepHref))
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
-    })
-
-    it('reaches the submitted record for a decided proposal too', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        const draftData = submittedDraft(fixtures, { status: 'CHANGE-REQUESTED' })
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
-
-        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
-        await user.click(nextStepButton())
-
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
-            ),
-        )
     })
 })
 
