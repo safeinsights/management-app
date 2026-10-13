@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { Progress, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Progress, Stack, Text } from '@mantine/core'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { useTimedProgress, type TimedStep } from '@/hooks/use-timed-progress'
 import { useSpyMode } from './spy-mode-context'
@@ -62,11 +62,11 @@ export function TimedProgressBar<T>({
     const details =
         isSpyMode && children ? (
             <details>
-                <UnstyledButton component="summary">
+                <summary className="clickable">
                     <Text span size="xs" c="dimmed">
                         {caption ?? label}
                     </Text>
-                </UnstyledButton>
+                </summary>
                 <Stack gap="xxs" mt="xxs">
                     {children}
                 </Stack>
