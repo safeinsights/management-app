@@ -553,19 +553,26 @@ export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
 export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
     return latestCodeEnvForStudyQuery(db, studyId).select([
         'orgCodeEnv.id',
-        'orgCodeEnv.identifier',
         'orgCodeEnv.language',
         'orgCodeEnv.dataSourceType',
         'orgCodeEnv.url',
         'orgCodeEnv.settings',
         'orgCodeEnv.commandLines',
-        'orgCodeEnv.starterCodeFileNames',
-        'orgCodeEnv.sampleDataPath',
     ])
 }
 
-// The code env a study runs: the copy frozen when its language was chosen, or the live
-// one for a study made before studies kept a copy.
+// The parts of a code env that name things an edit replaces: the sample database (named from the
+// identifier) and the starter code and sample data in S3. They are never frozen.
+const currentCodeEnvResources = (db: DBExecutor, codeEnvId: string) =>
+    db
+        .selectFrom('orgCodeEnv')
+        .select(['identifier', 'starterCodeFileNames', 'sampleDataPath'])
+        .where('id', '=', codeEnvId)
+        .executeTakeFirst()
+
+// The code env a study runs: the copy frozen when its language was chosen, with the resources it names
+// read as they are now. A study made before studies kept a copy, or whose frozen code env has since
+// been deleted (taking its database and files with it), gets the org's current code env instead.
 export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
     const study = await db
         .selectFrom('study')
@@ -573,10 +580,15 @@ export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = A
         .select(['study.codeEnvSnapshot', 'study.orgId', 'org.slug'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error(`no study found for studyId: ${studyId}`))
-    const codeEnv: CodeEnvSnapshot | undefined =
-        study.codeEnvSnapshot ?? (await selectCodeEnvSnapshot(db, studyId).executeTakeFirst())
-    if (!codeEnv) throw new Error(`no code environment found for studyId: ${studyId}`)
-    return { ...codeEnv, slug: study.slug, orgId: study.orgId }
+
+    let codeEnv: CodeEnvSnapshot | undefined = study.codeEnvSnapshot ?? undefined
+    let resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    if (!codeEnv || !resources) {
+        codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
+        resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    }
+    if (!codeEnv || !resources) throw new Error(`no code environment found for studyId: ${studyId}`)
+    return { ...codeEnv, ...resources, slug: study.slug, orgId: study.orgId }
 }
 
 export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {

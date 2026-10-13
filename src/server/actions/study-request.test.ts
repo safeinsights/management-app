@@ -209,14 +209,11 @@ describe('Request Study Actions', () => {
             const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
             expect(await studySnapshot(studyId)).toEqual({
                 id: chosen.id,
-                identifier: chosen.identifier,
                 language: 'R',
                 dataSourceType: null,
                 url: 'example.com/r:chosen',
                 settings: { environment: [{ name: 'K', value: 'chosen' }] },
                 commandLines: { r: 'Rscript --chosen %f' },
-                starterCodeFileNames: chosen.starterCodeFileNames,
-                sampleDataPath: null,
             })
             expect(older.id).not.toBe(chosen.id)
 
@@ -227,6 +224,9 @@ describe('Request Study Actions', () => {
                     url: 'example.com/r:edited',
                     commandLines: { r: 'Rscript --edited %f' },
                     settings: { environment: [{ name: 'K', value: 'edited' }] },
+                    identifier: 'renamed',
+                    starterCodeFileNames: ['edited.R'],
+                    sampleDataPath: 'edited-data',
                 })
                 .where('id', '=', chosen.id)
                 .execute()
@@ -243,6 +243,10 @@ describe('Request Study Actions', () => {
                 url: 'example.com/r:chosen',
                 commandLines: { r: 'Rscript --chosen %f' },
                 settings: { environment: [{ name: 'K', value: 'chosen' }] },
+                // Not frozen: they name the sample database and the S3 files the edit replaced.
+                identifier: 'renamed',
+                starterCodeFileNames: ['edited.R'],
+                sampleDataPath: 'edited-data',
                 slug: enclave.slug,
                 orgId: enclave.id,
             })
@@ -266,6 +270,24 @@ describe('Request Study Actions', () => {
             expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
                 id: added.id,
                 url: 'example.com/python:added',
+            })
+        })
+
+        it('falls back to the current code env once the frozen one is deleted', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-deleted' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const frozen = await insertOlderCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:frozen' })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            const current = await insertTestCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:current' })
+            await db.deleteFrom('orgCodeEnv').where('id', '=', frozen.id).execute()
+
+            expect((await studySnapshot(studyId))?.id).toBe(frozen.id)
+            expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
+                id: current.id,
+                url: 'example.com/r:current',
+                identifier: current.identifier,
             })
         })
 
