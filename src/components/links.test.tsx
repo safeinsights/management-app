@@ -35,7 +35,7 @@ describe('LinkWithIcon', () => {
         const link = screen.getByTestId('link')
         const iconEl = screen.getByTestId('icon')
         expect(link.textContent).toBe('Label')
-        expect(iconEl.parentElement?.lastElementChild).toBe(iconEl)
+        expect(iconEl.previousSibling?.textContent).toBe('Label')
     })
 
     it('renders the icon before the text when iconPosition="leading"', () => {
@@ -46,7 +46,7 @@ describe('LinkWithIcon', () => {
         )
 
         const iconEl = screen.getByTestId('icon')
-        expect(iconEl.parentElement?.firstElementChild).toBe(iconEl)
+        expect(iconEl.nextSibling?.textContent).toBe('Label')
     })
 
     it('merges a caller className with the base layout instead of replacing it', () => {

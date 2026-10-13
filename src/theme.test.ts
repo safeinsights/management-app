@@ -110,6 +110,13 @@ describe('buttons', () => {
         })
     })
 
+    it('paints a disabled transparent button with no tile', () => {
+        expect(buttonVars({}, { variant: 'transparent' }).root).toMatchObject({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#595959',
+        })
+    })
+
     it('no longer ships button colours through a styles callback', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
@@ -124,6 +131,21 @@ describe('buttons', () => {
 
     it('falls back to the md geometry for an unsized button', () => {
         expect(buttonVars({}, {}).root['--button-height']).toBe('42px')
+    })
+})
+
+describe('badges', () => {
+    const badgeRoot = (props: object) => theme.components?.Badge?.styles(DEFAULT_THEME, props).root
+
+    it.each([
+        ['onClick', { onClick: () => {} }],
+        ['href', { href: '/x' }],
+    ])('gives a badge with %s a pointer', (_, props) => {
+        expect(badgeRoot(props)).toMatchObject({ cursor: 'pointer' })
+    })
+
+    it('leaves a static badge on the default cursor', () => {
+        expect(badgeRoot({})).not.toHaveProperty('cursor')
     })
 })
 

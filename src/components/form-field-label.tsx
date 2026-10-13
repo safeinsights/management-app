@@ -7,33 +7,21 @@ export interface FormFieldLabelProps {
     label: string
     required?: boolean
     inputId?: string
-    variant?: 'orgset' | 'optional'
+    variant?: 'orgset'
 }
 
 export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({ label, required = false, inputId, variant }) => {
-    let labelContent
-    if (variant === 'orgset') {
-        labelContent = (
+    const labelContent =
+        variant === 'orgset' ? (
             <Text fw={fontWeight.semibold} size="sm" span>
                 {label}
                 <RequiredIndicator isVisible={required} />
             </Text>
-        )
-    }
-    if (variant === 'optional') {
-        labelContent = (
+        ) : (
             <Title order={3} size="h5" fw={fontWeight.semibold} display="inline">
                 {label}
                 <RequiredIndicator isVisible={required} />
             </Title>
         )
-    } else {
-        labelContent = (
-            <Title order={3} size="h5" fw={fontWeight.semibold} display="inline">
-                {label}
-                <RequiredIndicator isVisible={required} />
-            </Title>
-        )
-    }
     return <Input.Label htmlFor={inputId}>{labelContent}</Input.Label>
 }
