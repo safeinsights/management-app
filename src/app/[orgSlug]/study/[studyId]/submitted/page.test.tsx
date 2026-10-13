@@ -44,47 +44,18 @@ describe('StudySubmittedRoute (/submitted)', () => {
     })
 
     // OTTER-673: Edit code's "Previous step" lands here, and "Next step" has to return to Edit code.
-    it('steps forward to Edit code when the step back came from Edit code', async () => {
-        const { org, study } = await insertDecidedCodeStudy('CODE-CHANGES-REQUESTED')
+    it.each([
+        ['returns to Edit code when the step back came from it', 'CODE-CHANGES-REQUESTED', 'edit-code', 'edit-code'],
+        ['steps forward to the code step without an origin', 'CODE-CHANGES-REQUESTED', undefined, 'code-step'],
+        ['ignores an Edit code origin once the round is closed', 'CODE-APPROVED', 'edit-code', 'code-step'],
+        ['ignores an origin it does not know', 'CODE-CHANGES-REQUESTED', 'dashboard', 'code-step'],
+    ] as const)('%s', async (_name, decision, from, target) => {
+        const { org, study } = await insertDecidedCodeStudy(decision)
 
-        await renderSubmitted(org.slug, study.id, 'edit-code')
+        await renderSubmitted(org.slug, study.id, from)
 
-        expect(screen.getByTestId('cta-next-step')).toHaveAttribute(
-            'href',
-            Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }),
-        )
-    })
-
-    it('steps forward to the code step when the step back came from the code step', async () => {
-        const { org, study } = await insertDecidedCodeStudy('CODE-CHANGES-REQUESTED')
-
-        await renderSubmitted(org.slug, study.id)
-
-        expect(screen.getByTestId('cta-next-step')).toHaveAttribute(
-            'href',
-            Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
-        )
-    })
-
-    it('ignores an Edit code origin once the round can no longer be resubmitted', async () => {
-        const { org, study } = await insertDecidedCodeStudy('CODE-APPROVED')
-
-        await renderSubmitted(org.slug, study.id, 'edit-code')
-
-        expect(screen.getByTestId('cta-next-step')).toHaveAttribute(
-            'href',
-            Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
-        )
-    })
-
-    it('ignores an origin it does not know', async () => {
-        const { org, study } = await insertDecidedCodeStudy('CODE-CHANGES-REQUESTED')
-
-        await renderSubmitted(org.slug, study.id, 'dashboard')
-
-        expect(screen.getByTestId('cta-next-step')).toHaveAttribute(
-            'href',
-            Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
-        )
+        const params = { orgSlug: org.slug, studyId: study.id }
+        const expected = target === 'edit-code' ? Routes.studyResubmit(params) : Routes.studyViewCode(params)
+        expect(screen.getByTestId('cta-next-step')).toHaveAttribute('href', expected)
     })
 })
