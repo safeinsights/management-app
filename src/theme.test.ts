@@ -241,3 +241,11 @@ describe('light variant pairs', () => {
         expect(resolved.variables).not.toHaveProperty('--mantine-color-error')
     })
 })
+
+describe('typography', () => {
+    it('wraps long words so rendered markdown never widens its box', () => {
+        const styles = theme.components?.Typography?.styles as { root?: { overflowWrap?: string } } | undefined
+
+        expect(styles?.root?.overflowWrap).toBe('anywhere')
+    })
+})

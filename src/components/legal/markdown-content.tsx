@@ -40,7 +40,14 @@ const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
 )
 
 const BoundedMarkdown: FC<BoundedProps> = ({ content, maxHeight, label }) => (
-    <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
+    <ScrollArea.Autosize
+        mah={maxHeight}
+        type="auto"
+        scrollbars="y"
+        offsetScrollbars="present"
+        aria-label={label}
+        tabIndex={0}
+    >
         <DocumentMarkdown content={content} />
     </ScrollArea.Autosize>
 )
