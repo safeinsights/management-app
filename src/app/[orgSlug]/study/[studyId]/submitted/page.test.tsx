@@ -17,10 +17,10 @@ const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
 
 // A study whose code was submitted and then decided, so /submitted is the approved proposal reached by
 // walking back from the code step.
-const insertDecidedCodeStudy = async (decision: StudyJobStatus) => {
+const insertDecidedCodeStudy = async (statuses: readonly StudyJobStatus[]) => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
     const { study, job } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
-    await insertStatus(job.id, decision)
+    for (const status of statuses) await insertStatus(job.id, status)
     return { org, study }
 }
 
@@ -45,12 +45,18 @@ describe('StudySubmittedRoute (/submitted)', () => {
 
     // OTTER-673: Edit code's "Previous step" lands here, and "Next step" has to return to Edit code.
     it.each([
-        ['returns to Edit code when the step back came from it', 'CODE-CHANGES-REQUESTED', 'edit-code', 'edit-code'],
-        ['steps forward to the code step without an origin', 'CODE-CHANGES-REQUESTED', undefined, 'code-step'],
-        ['ignores an Edit code origin once the round is closed', 'CODE-APPROVED', 'edit-code', 'code-step'],
-        ['ignores an origin it does not know', 'CODE-CHANGES-REQUESTED', 'dashboard', 'code-step'],
-    ] as const)('%s', async (_name, decision, from, target) => {
-        const { org, study } = await insertDecidedCodeStudy(decision)
+        ['returns to Edit code when the step back came from it', ['CODE-CHANGES-REQUESTED'], 'edit-code', 'edit-code'],
+        [
+            'returns to Edit code after a feedback-only outputs decision',
+            ['CODE-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED'],
+            'edit-code',
+            'edit-code',
+        ],
+        ['steps forward to the code step without an origin', ['CODE-CHANGES-REQUESTED'], undefined, 'code-step'],
+        ['ignores an Edit code origin once the round is closed', ['CODE-APPROVED'], 'edit-code', 'code-step'],
+        ['ignores an origin it does not know', ['CODE-CHANGES-REQUESTED'], 'dashboard', 'code-step'],
+    ] as const)('%s', async (_name, statuses, from, target) => {
+        const { org, study } = await insertDecidedCodeStudy(statuses)
 
         await renderSubmitted(org.slug, study.id, from)
 

@@ -1213,7 +1213,7 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const draftData = submittedDraft(fixtures)
-        const nextStepHref = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        const nextStepHref = Routes.studyEditAndResubmit({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
         renderSetup(fixtures, { studyId: draftData.id, draftData, nextStepHref })
 
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
@@ -1224,6 +1224,18 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
+    })
+
+    it('steps forward to the proposal status when the page resolved no target', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await user.click(nextStepButton())
+
+        const expected = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(expected))
     })
 })
 

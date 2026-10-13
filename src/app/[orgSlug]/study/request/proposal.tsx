@@ -20,7 +20,7 @@ interface StudyProposalProps {
     draftData?: DraftStudyData | null
     /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
     submittingLabName?: string | null
-    /** Where a submitted study's "Next step" leads, resolved by the page from the nav table. */
+    /** Where a submitted study's "Next step" leads, resolved by the page from the nav table. Defaults to the proposal status. */
     nextStepHref?: Route
 }
 
@@ -87,10 +87,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
     // (OTTER-764). `isProceeding` still guards it: the target re-reads from the server, and without
     // it the button looks dead for the whole navigation. Nothing resets it, the page is leaving.
     const goToNextStep = useCallback(() => {
-        if (!nextStepHref) return
+        if (!studyId) return
         setIsProceeding(true)
-        router.push(nextStepHref)
-    }, [router, nextStepHref])
+        router.push(nextStepHref ?? Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
+    }, [router, nextStepHref, submittingOrgSlug, studyId])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({
