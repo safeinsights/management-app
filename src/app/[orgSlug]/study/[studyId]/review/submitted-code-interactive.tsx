@@ -7,6 +7,7 @@ import {
     Anchor,
     Button,
     Collapse,
+    Divider,
     Group,
     Loader,
     Menu,
@@ -355,6 +356,7 @@ export function JobAnalysisPanels({
         <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
             <Stack gap="xl">
                 <SecurityScanPanel scan={data?.scan ?? null} hasError={error != null} />
+                <Divider />
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
