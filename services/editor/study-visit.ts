@@ -1,7 +1,6 @@
-// A save moves the study's Last updated, so everyone in the document when it saves counts as having
-// seen it: the person whose change triggered the save, who may already have left, and whoever is
-// still connected. Without this, an edit stored just after its author leaves would mark the study
-// unread for that author (OTTER-838).
+// A save moves the study's Last updated, so everyone in the document when it saves has seen it: the
+// last editor, who may already have left, and whoever is still connected. Otherwise an edit stored
+// just after its author leaves would mark the study unread for that author (OTTER-838).
 
 import type { DbQuery } from './auth.ts'
 

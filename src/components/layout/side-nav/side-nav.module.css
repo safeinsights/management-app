@@ -86,7 +86,7 @@
     display: inline-flex;
 }
 
-/* Figma 4336:50503: a 10px dot whose centre sits on the icon's top-right corner. The 2px ring is a
+/* Figma 4336:50503: a 10px dot whose center sits on the icon's top-right corner. The 2px ring is a
    cutout in the row's own fill, so it follows the row from navy to the pale hover and current fill. */
 .unreadBadge {
     position: absolute;
