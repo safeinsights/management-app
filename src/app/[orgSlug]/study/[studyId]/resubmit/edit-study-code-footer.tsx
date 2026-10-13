@@ -98,18 +98,24 @@ const LeaveEditCodeButton: FC<LeaveEditCodeButtonProps> = ({
     )
 }
 
-type ViewOutputsButtonProps = Omit<LeaveEditCodeButtonProps, 'label' | 'variant' | 'testId' | 'onClick'> & {
+type LeaveNavButtonProps = Omit<
+    LeaveEditCodeButtonProps,
+    'label' | 'variant' | 'leftSection' | 'testId' | 'onClick'
+> & {
     action?: NavAction
+    withCaret?: boolean
     onLeave: (href: Route) => void
 }
 
-const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, onLeave, ...rest }) => {
+// A nav table action laid out the way StepNavigation's NavButton does, but leaving through the flush.
+const LeaveNavButton: FC<LeaveNavButtonProps> = ({ action, withCaret = false, onLeave, ...rest }) => {
     if (!action) return null
     return (
         <LeaveEditCodeButton
             {...rest}
             label={action.label}
             variant={MANTINE_VARIANT[action.variant]}
+            leftSection={withCaret ? <CaretLeftIcon /> : undefined}
             testId={action.testId}
             onClick={() => onLeave(action.href)}
         />
@@ -155,18 +161,16 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     return (
         <>
             <Group justify="space-between" align="flex-start" mt="xs">
-                <LeaveEditCodeButton
-                    label={previousStep.label}
-                    variant={MANTINE_VARIANT[previousStep.variant]}
-                    leftSection={<CaretLeftIcon />}
-                    testId={previousStep.testId}
+                <LeaveNavButton
+                    action={previousStep}
+                    withCaret
                     hasChanges={hasChanges}
                     isBusy={isBusy}
                     isLeaving={isSaving && leavingVia === 'previous'}
-                    onClick={() => leave('previous', previousStep.href)}
+                    onLeave={(href) => leave('previous', href)}
                 />
                 <Group gap="md" align="flex-start">
-                    <ViewOutputsButton
+                    <LeaveNavButton
                         action={viewOutputs}
                         hasChanges={hasChanges}
                         isBusy={isBusy}
