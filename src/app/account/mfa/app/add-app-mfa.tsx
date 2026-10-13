@@ -8,20 +8,7 @@ import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import {
-    ActionIcon,
-    Anchor,
-    Box,
-    Button,
-    CopyButton,
-    Group,
-    Paper,
-    rgba,
-    Stack,
-    Text,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
+import { ActionIcon, Anchor, Box, Button, CopyButton, Group, Paper, rgba, Stack, Text, Title } from '@mantine/core'
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
@@ -39,7 +26,6 @@ function AddTotpScreenContent({
     setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
     setBackupCodes: React.Dispatch<React.SetStateAction<string[] | null>>
 }) {
-    const theme = useMantineTheme()
     const { user } = useUser()
     const createBackupCode = useReverification(() => user?.createBackupCode())
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
@@ -114,7 +100,7 @@ function AddTotpScreenContent({
             <Stack align="center" gap="xs">
                 {totp && displayFormat === 'qr' && (
                     <>
-                        <Box bg={rgba(theme.colors.grey[0], 0.3)} p="xs">
+                        <Box bg={rgba(semanticColor('surface.page'), 0.3)} p="xs">
                             <QRCodeSVG value={totp?.uri || ''} size={150} />
                         </Box>
                         {secret && (
@@ -132,7 +118,7 @@ function AddTotpScreenContent({
                                                 {copied ? (
                                                     <CheckIcon size={24} />
                                                 ) : (
-                                                    <CopyIcon size={24} color={theme.colors.gray[8]} />
+                                                    <CopyIcon size={24} color={semanticColor('icon.dark')} />
                                                 )}
                                             </ActionIcon>
                                         </InfoTooltip>

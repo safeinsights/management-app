@@ -4,6 +4,7 @@ import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypt
 import { formatBytes } from '@/lib/format'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import { semanticColor } from '@/theme/tokens'
 import { PrivateKeyForm } from '@/components/private-key-form'
 import { Button, Stack, Table } from '@mantine/core'
 import { CheckCircleIcon, LockIcon, LockOpenIcon } from '@phosphor-icons/react/dist/ssr'
@@ -90,13 +91,13 @@ type UnifiedFileRowProps = {
 
 const UnifiedFileRow: FC<UnifiedFileRowProps> = ({ row, onView }) => {
     const statusCell = {
-        locked: <LockIcon size={18} color="var(--mantine-color-gray-5)" aria-label="Encrypted" />,
-        decrypted: <LockOpenIcon size={18} color="var(--mantine-color-blue-6)" aria-label="Decrypted" />,
+        locked: <LockIcon size={18} color={semanticColor('icon.light')} aria-label="Encrypted" />,
+        decrypted: <LockOpenIcon size={18} color={semanticColor('info.text')} aria-label="Decrypted" />,
         approved: (
             <CheckCircleIcon
                 size={18}
                 weight="fill"
-                color="var(--mantine-color-green-7)"
+                color={semanticColor('success.text')}
                 aria-label="Shared with researcher"
             />
         ),

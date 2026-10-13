@@ -1,4 +1,4 @@
-import { Flex, FlexProps, Paper, Text, Anchor, useMantineTheme, Title } from '@mantine/core'
+import { Flex, FlexProps, Paper, Text, Anchor, Title } from '@mantine/core'
 import { CheckCircleIcon, ProhibitIcon } from '@phosphor-icons/react/dist/ssr'
 import React from 'react'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -27,8 +27,6 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
     onContinue,
     ...flexProps
 }) => {
-    const theme = useMantineTheme()
-
     return (
         <Flex
             direction="column"
@@ -39,7 +37,7 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
             fw={fontWeight.semibold}
             {...flexProps}
         >
-            <CheckCircleIcon size={28} color={theme.colors.green[7]} weight="fill" />
+            <CheckCircleIcon size={28} color={semanticColor('success.text')} weight="fill" />
             <Text c={semanticColor('success.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>
@@ -63,8 +61,6 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
     onContinue,
     ...flexProps
 }) => {
-    const theme = useMantineTheme()
-
     return (
         <Flex
             direction="column"
@@ -75,7 +71,7 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
             fw={fontWeight.semibold}
             {...flexProps}
         >
-            <ProhibitIcon size={28} color={theme.colors.red[7]} weight="fill" />
+            <ProhibitIcon size={28} color={semanticColor('error.text')} weight="fill" />
             <Text c={semanticColor('error.text')} size="md" fw={fontWeight.bold}>
                 {title}
             </Text>

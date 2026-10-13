@@ -48,7 +48,7 @@ const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <ChalkboardTeacherIcon size={20} color="var(--mantine-color-gray-6)" />
+            <ChalkboardTeacherIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
@@ -60,7 +60,7 @@ const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <SuitcaseSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
+            <SuitcaseSimpleIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
@@ -73,7 +73,7 @@ const PopoverEducation: FC<{ degree?: string | null }> = ({ degree }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <CertificateIcon size={20} color="var(--mantine-color-gray-6)" />
+            <CertificateIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {degree}
             </Text>
@@ -92,7 +92,7 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <BookOpenIcon size={20} color="var(--mantine-color-gray-6)" />
+            <BookOpenIcon size={20} color={semanticColor('icon.light')} />
             <Group gap="xxs">{pills}</Group>
         </Group>
     )
@@ -182,7 +182,7 @@ const MinimalPopoverContent: FC<{ fullName: string; email: string; onClose: () =
     <Stack gap="xl">
         <PopoverHeader fullName={fullName} onClose={onClose} />
         <Group gap="xs" align="center" wrap="nowrap">
-            <EnvelopeSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
+            <EnvelopeSimpleIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {email}
             </Text>

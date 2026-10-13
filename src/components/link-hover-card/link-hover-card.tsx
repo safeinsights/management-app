@@ -187,7 +187,7 @@ function CopyLinkAction({ href, actionRef }: { href: string; actionRef?: Ref<HTM
     const clipboard = useClipboard({ timeout: COPIED_RESET_MS })
     const tooltip = clipboard.copied ? LINK_CARD_LABELS.copied : LINK_CARD_LABELS.copy
     const icon = clipboard.copied ? (
-        <CheckIcon size={ICON_SIZE} color="var(--mantine-color-green-9)" />
+        <CheckIcon size={ICON_SIZE} color={semanticColor('success.text')} />
     ) : (
         <CopyIcon size={ICON_SIZE} />
     )

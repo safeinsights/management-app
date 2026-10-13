@@ -2,7 +2,7 @@ import { useState, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import { useSession } from '@/hooks/session'
 import { useUser } from '@clerk/nextjs'
-import { Button, CopyButton, Group, ScrollArea, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Button, CopyButton, Group, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
@@ -20,7 +20,6 @@ type BackupCodesProps = {
 }
 
 const BackupCodes = ({ codes }: BackupCodesProps) => {
-    const theme = useMantineTheme()
     const { isLoaded } = useUser()
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
@@ -88,7 +87,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                 </Button>
                                 {copied && (
                                     <Group gap="xs" justify="center" align="center">
-                                        <CheckIcon size={16} color={theme.colors.green[7]} />
+                                        <CheckIcon size={16} color={semanticColor('success.text')} />
                                         <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
                                             Copied!
                                         </Text>
