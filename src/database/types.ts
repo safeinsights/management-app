@@ -332,6 +332,13 @@ export interface StudyJobFileRecipientKey {
     studyJobFileId: string
 }
 
+export interface StudyLastOpened {
+    id: Generated<string>
+    openedAt: Generated<Timestamp>
+    studyId: string
+    userId: string
+}
+
 export interface StudyProposalComment {
     authorId: string
     authorRole: StudyProposalCommentAuthorRole
@@ -427,6 +434,7 @@ export interface DB {
     studyJobFile: StudyJobFile
     studyJobFileActivity: StudyJobFileActivity
     studyJobFileRecipientKey: StudyJobFileRecipientKey
+    studyLastOpened: StudyLastOpened
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment
