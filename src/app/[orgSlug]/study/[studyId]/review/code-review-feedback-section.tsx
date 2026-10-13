@@ -64,7 +64,7 @@ function FeedbackEditor({
 type DecisionOption = {
     value: CodeDecision
     title: string
-    description: ReactNode
+    description: string
     testId: string
 }
 
@@ -72,21 +72,13 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
     {
         value: 'approve',
         title: 'Approve and run code',
-        description: (
-            <Text component="span" size="sm" c={semanticColor('text.secondary')}>
-                The code will run in your secure enclave and your feedback will be shared with {labName}.
-            </Text>
-        ),
+        description: `The code will run in your secure enclave and your feedback will be shared with ${labName}.`,
         testId: 'code-review-decision-approve',
     },
     {
         value: 'needs-clarification',
         title: 'Request revision',
-        description: (
-            <Text component="span" size="sm" c={semanticColor('text.secondary')}>
-                Send the code back to {labName} for changes or additional information.
-            </Text>
-        ),
+        description: `Send the code back to ${labName} for changes or additional information.`,
         testId: 'code-review-decision-needs-clarification',
     },
 ]

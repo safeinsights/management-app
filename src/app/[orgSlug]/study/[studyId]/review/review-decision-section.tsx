@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { Box, Radio, Stack, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
@@ -9,7 +9,6 @@ import { useWidgetBlur } from '@/components/form-field'
 import { DecisionRadio } from '@/components/study/decision-radio'
 import type { StudyForReview } from './review-types'
 import { buildDecisionOptions } from './review-types'
-import { semanticColor } from '@/theme/tokens'
 
 type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
@@ -48,11 +47,7 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
             value={option.value}
             label={option.label}
             isProminent
-            description={
-                <Text component="span" size="sm" c={semanticColor('text.secondary')}>
-                    {option.description}
-                </Text>
-            }
+            description={option.description}
         />
     ))
 
