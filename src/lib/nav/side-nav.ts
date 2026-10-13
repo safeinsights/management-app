@@ -14,6 +14,8 @@ export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
 
 export type NavUnread = { myStudies: boolean; orgSlugs: string[] }
 
+export const NOTHING_UNREAD: NavUnread = { myStudies: false, orgSlugs: [] }
+
 export type NavIcon = 'house' | 'dashboard' | 'settings' | 'team' | 'legal' | 'catalog' | 'resources' | 'support'
 
 export type NavItem = {

@@ -1,11 +1,10 @@
 import { describe, expect, it, renderWithProviders, screen, within } from '@/tests/unit.helpers'
 import { ExternalLinks, Routes } from '@/lib/routes'
-import type { NavOrg, NavUnread } from '@/lib/nav/side-nav'
+import { NOTHING_UNREAD, type NavOrg } from '@/lib/nav/side-nav'
 import { SideNavView } from './side-nav-view'
 
 const partner: NavOrg = { id: '1', name: 'Open Data Partner', slug: 'partner', type: 'enclave', isAdmin: true }
 const lab: NavOrg = { id: '2', name: 'Rice Lab', slug: 'lab', type: 'lab', isAdmin: false }
-const nothingUnread: NavUnread = { myStudies: false, orgSlugs: [] }
 
 describe('SideNavView', () => {
     it('lists My studies first, then the orgs by name with their type badge and admin label', () => {
@@ -14,7 +13,7 @@ describe('SideNavView', () => {
                 orgs={[partner, lab]}
                 focusedOrgSlug={null}
                 pathname={Routes.dashboard}
-                unread={nothingUnread}
+                unread={NOTHING_UNREAD}
             />,
         )
 
@@ -40,7 +39,7 @@ describe('SideNavView', () => {
                 orgs={[partner, lab]}
                 focusedOrgSlug={null}
                 pathname={Routes.dashboard}
-                unread={nothingUnread}
+                unread={NOTHING_UNREAD}
             />,
         )
 
@@ -58,7 +57,7 @@ describe('SideNavView', () => {
                 orgs={[partner, lab]}
                 focusedOrgSlug="partner"
                 pathname={Routes.studyRequest({ orgSlug: 'partner' })}
-                unread={nothingUnread}
+                unread={NOTHING_UNREAD}
             />,
         )
 
@@ -74,7 +73,7 @@ describe('SideNavView', () => {
 
     it('links the external pages in new tabs based on the org types the user belongs to', () => {
         renderWithProviders(
-            <SideNavView orgs={[lab]} focusedOrgSlug={null} pathname={Routes.dashboard} unread={nothingUnread} />,
+            <SideNavView orgs={[lab]} focusedOrgSlug={null} pathname={Routes.dashboard} unread={NOTHING_UNREAD} />,
         )
 
         const catalog = screen.getByRole('link', { name: /Data catalog/ })
@@ -87,7 +86,7 @@ describe('SideNavView', () => {
 
     it('sends the logo to My studies', () => {
         renderWithProviders(
-            <SideNavView orgs={[]} focusedOrgSlug={null} pathname={Routes.legal} unread={nothingUnread} />,
+            <SideNavView orgs={[]} focusedOrgSlug={null} pathname={Routes.legal} unread={NOTHING_UNREAD} />,
         )
 
         expect(screen.getByRole('link', { name: /SafeInsights/ })).toHaveAttribute('href', Routes.dashboard)
@@ -134,7 +133,7 @@ describe('SideNavView', () => {
                     orgs={[partner, lab]}
                     focusedOrgSlug={null}
                     pathname={Routes.dashboard}
-                    unread={nothingUnread}
+                    unread={NOTHING_UNREAD}
                 />,
             )
 

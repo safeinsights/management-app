@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { NAV_UNREAD_QUERY_KEY, orderNavOrgs, type NavUnread } from '@/lib/nav/side-nav'
+import { NAV_UNREAD_QUERY_KEY, NOTHING_UNREAD, orderNavOrgs, type NavUnread } from '@/lib/nav/side-nav'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 import { fetchNavUnreadAction } from '@/server/actions/study.actions'
@@ -15,8 +15,6 @@ type Props = {
     isOpened: boolean
     onToggle: () => void
 }
-
-const NOTHING_UNREAD: NavUnread = { myStudies: false, orgSlugs: [] }
 
 function useNavUnread(): NavUnread {
     const { data = NOTHING_UNREAD } = useQuery({

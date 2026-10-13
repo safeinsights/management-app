@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import { AppShellNavbar, Text } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
-import type { NavOrg, NavUnread } from '@/lib/nav/side-nav'
+import { NOTHING_UNREAD, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import { WithAppShell } from '~ladle/decorators/with-app-shell'
 import { SideNavView } from './side-nav-view'
@@ -15,8 +15,6 @@ const ORGS: NavOrg[] = [
     { id: 'org-rl-admin', name: 'Mars University', slug: 'mars-university', type: 'lab', isAdmin: true },
     { id: 'org-rl', name: 'Westbrook University Research Consortium', slug: 'westbrook', type: 'lab', isAdmin: false },
 ]
-
-const NOTHING_UNREAD: NavUnread = { myStudies: false, orgSlugs: [] }
 
 const Shell: React.FC<{ focusedOrgSlug: string | null; pathname: string; unread?: NavUnread }> = ({
     focusedOrgSlug,
