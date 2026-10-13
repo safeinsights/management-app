@@ -1,7 +1,6 @@
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { LegalMarkdownContent } from '@/components/legal/markdown-content'
+import { describe, expect, it, renderWithProviders } from '@/tests/unit.helpers'
 import { Typography } from '@mantine/core'
-import { describe, expect, it } from 'vitest'
-import { LegalMarkdownContent } from './markdown-content'
 
 describe('LegalMarkdownContent', () => {
     it('wraps long words in legal documents without changing other Typography', () => {
