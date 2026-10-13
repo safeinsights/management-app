@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
-import { Accordion, Badge, Divider, Group, Stack, Text } from '@mantine/core'
+import { Accordion, Badge, Divider, Group, Stack, Text, rem } from '@mantine/core'
 import {
     CaretRightIcon,
     CaretUpDownIcon,
@@ -26,8 +26,11 @@ const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
 
 const QUESTION_ICON_SIZE = 16
 const SECTION_ICON_SIZE = 14
+const SECTION_ICON_GAP = 'xs'
 /** Figma `body/sm` and `label/md` are both 14px here. */
 const SECTION_FONT_SIZE = 14
+// Lines the answer up under the question's text, past the icon and the gap beside it.
+const ANSWER_INDENT = `calc(${rem(SECTION_ICON_SIZE)} + var(--mantine-spacing-${SECTION_ICON_GAP}))`
 
 type FaqEntry = {
     icon: ReactNode
@@ -82,13 +85,13 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
     // Keyed on the question so a test can pair a heading with its own answer without walking the
     // DOM; the two are separate nodes, and the template answer is split by an emphasised span.
     <Stack gap={0} data-testid={`faq-section-${question}`}>
-        <Group gap="xs" wrap="nowrap">
+        <Group gap={SECTION_ICON_GAP} wrap="nowrap">
             {icon}
             <Text fz={SECTION_FONT_SIZE} fw={fontWeight.bold} lh={1.2} c={semanticColor('text.primary')}>
                 {question}
             </Text>
         </Group>
-        <Text fz={SECTION_FONT_SIZE} c={semanticColor('text.primary')} pl="lg">
+        <Text fz={SECTION_FONT_SIZE} c={semanticColor('text.primary')} pl={ANSWER_INDENT}>
             {answer}
         </Text>
     </Stack>
@@ -160,7 +163,7 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
             <Accordion.Item value={FAQ_ITEM_VALUE} bd={`1px solid ${semanticColor('border.default')}`}>
                 <Accordion.Control
                     bg={semanticColor('surface.page')}
-                    icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color="var(--mantine-color-blue-7)" />}
+                    icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color={semanticColor('info.text')} />}
                 >
                     <Group gap="md" wrap="nowrap">
                         <Text component="span" fw={fontWeight.semibold} c={semanticColor('text.primary')}>

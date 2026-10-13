@@ -2,6 +2,7 @@
 
 import { Button, Loader, VisuallyHidden } from '@mantine/core'
 import { FC } from 'react'
+import { semanticColor } from '@/theme/tokens'
 
 interface SecurityKeyViewButtonProps {
     isDecrypting: boolean
@@ -19,7 +20,7 @@ export const SecurityKeyViewButton: FC<SecurityKeyViewButtonProps> = ({ isDecryp
                 size="sm"
                 onClick={onClick}
                 disabled={disabled}
-                leftSection={disabled ? <Loader size={14} color="var(--mantine-color-charcoal-6)" /> : undefined}
+                leftSection={disabled ? <Loader size={14} color={semanticColor('text.disabled')} /> : undefined}
             >
                 {label}
             </Button>

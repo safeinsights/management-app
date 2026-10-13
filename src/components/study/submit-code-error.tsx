@@ -18,7 +18,7 @@ const ErrorContent: FC<{ message: string | null }> = ({ message }) => {
 
     return (
         <Group gap="xs" wrap="nowrap" align="center">
-            <WarningCircleIcon size={16} weight="fill" color="var(--mantine-color-red-7)" aria-hidden />
+            <WarningCircleIcon size={16} weight="fill" color={semanticColor('error.text')} aria-hidden />
             <Text size="sm" c={semanticColor('error.text')}>
                 {message}
             </Text>

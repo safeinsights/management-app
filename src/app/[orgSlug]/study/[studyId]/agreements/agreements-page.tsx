@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
 import { useQueryClient } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
@@ -66,8 +66,6 @@ const REVIEWER_SECTIONS: SectionProps[] = [
 ]
 
 function AgreementSection({ stepLabel, title, description }: SectionProps) {
-    const theme = useMantineTheme()
-
     return (
         <Paper p="xl">
             <Text fz="sm" fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="sm">
@@ -77,7 +75,7 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
                 {title}
             </Title>
             <Divider my="sm" mb="md" />
-            <Alert icon={<InfoIcon weight="fill" color={theme.colors.blue[6]} />} color="blue" mb="md">
+            <Alert icon={<InfoIcon weight="fill" />} color="blue" mb="md">
                 This feature is currently under construction.
             </Alert>
             <Text fz="sm">
