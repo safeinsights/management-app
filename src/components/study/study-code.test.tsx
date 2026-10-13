@@ -629,6 +629,7 @@ describe('StudyCode component', () => {
             const player = await screen.findByTestId('onboarding-video-player')
             expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
             expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(player.querySelector('iframe')).toHaveAttribute('title', 'SafeInsights IDE Orientation')
             expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
         })
 
