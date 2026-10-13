@@ -31,11 +31,18 @@ import {
 // Key prefixes of the two researcher tables, for writes that change what a researcher row shows.
 export const RESEARCHER_STUDIES_QUERY_KEYS = { user: 'user-researcher-studies', org: 'researcher-studies' } as const
 
+const REVIEWER_STUDIES_QUERY_KEYS = { user: 'user-reviewer-studies', org: 'org-studies' } as const
+
+// Every studies table, for writes that change what any row shows.
+export const STUDIES_TABLE_QUERY_KEYS = [
+    ...Object.values(RESEARCHER_STUDIES_QUERY_KEYS),
+    ...Object.values(REVIEWER_STUDIES_QUERY_KEYS),
+]
+
 function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string): string[] {
-    if (scope === 'org') {
-        return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.org, orgSlug] : ['org-studies', orgSlug]
-    }
-    return audience === 'researcher' ? [RESEARCHER_STUDIES_QUERY_KEYS.user] : ['user-reviewer-studies', userId || '']
+    const keys = audience === 'researcher' ? RESEARCHER_STUDIES_QUERY_KEYS : REVIEWER_STUDIES_QUERY_KEYS
+    if (scope === 'org') return [keys.org, orgSlug]
+    return audience === 'researcher' ? [keys.user] : [keys.user, userId || '']
 }
 
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {

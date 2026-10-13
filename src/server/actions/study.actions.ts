@@ -345,6 +345,28 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
             .execute()
     })
 
+// Recorded from the client on entering and leaving a study, not during its render: a render-time
+// write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
+export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, session, db }) => {
+        const openedAt = new Date()
+        await db
+            .insertInto('studyLastOpened')
+            .values({ studyId, userId: session.user.id, openedAt })
+            .onConflict((oc) => oc.columns(['userId', 'studyId']).doUpdateSet({ openedAt }))
+            .execute()
+    })
+
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {

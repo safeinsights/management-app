@@ -1,6 +1,7 @@
 'use client'
 
 import { RequireStudyAgreement } from '@/components/legal/require-study-agreement'
+import { MarkStudyOpened } from '@/components/study/mark-study-opened'
 import { useParams } from 'next/navigation'
 import { type ReactNode } from 'react'
 
@@ -12,6 +13,7 @@ export default function StudyIdLayout({ children }: { children: ReactNode }) {
     return (
         <>
             <RequireStudyAgreement studyId={studyId} />
+            <MarkStudyOpened studyId={studyId} />
             {children}
         </>
     )

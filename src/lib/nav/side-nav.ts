@@ -9,6 +9,9 @@ export type NavOrg = {
     isAdmin: boolean
 }
 
+// Which side nav rows carry the unread dot (OTTER-838); invalidated by writes that change it.
+export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
+
 export type NavIcon = 'house' | 'dashboard' | 'settings' | 'team' | 'legal' | 'catalog' | 'resources' | 'support'
 
 export type NavItem = {

@@ -31,6 +31,7 @@ import {
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     getCodeReviewFeedbackAction,
+    markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
     getStudyAction,
     softDeleteStudyAction,
@@ -705,6 +706,48 @@ describe('dashboard rows (OTTER-617)', () => {
             asUser(reviewer, enclave)
             const reviewed = actionResult(await fetchStudiesForCurrentReviewerAction())
             expect(reviewed.find((row) => row.id === studyId)!.lastOpenedAt).toBeNull()
+        })
+
+        const stampOf = async (studyId: string, userId: string) =>
+            db
+                .selectFrom('studyLastOpened')
+                .select('openedAt')
+                .where('studyId', '=', studyId)
+                .where('userId', '=', userId)
+                .execute()
+
+        it('records one row per person and study, moving it forward on each visit', async () => {
+            const { lab, studyId, creator } = await submittedStudy()
+            const { studyId: otherStudyId } = await submittedStudy()
+            asUser(creator, lab)
+            const lastUpdatedBefore = (
+                await db.selectFrom('study').select('lastUpdatedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+            ).lastUpdatedAt
+
+            actionResult(await markStudyOpenedAction({ studyId }))
+            const [first] = await stampOf(studyId, creator.id)
+            actionResult(await markStudyOpenedAction({ studyId }))
+            const rows = await stampOf(studyId, creator.id)
+
+            expect(rows).toHaveLength(1)
+            expect(rows[0].openedAt.getTime()).toBeGreaterThanOrEqual(first.openedAt.getTime())
+            expect(await stampOf(otherStudyId, creator.id)).toHaveLength(0)
+            const lastUpdatedAfter = (
+                await db.selectFrom('study').select('lastUpdatedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+            ).lastUpdatedAt
+            expect(lastUpdatedAfter).toEqual(lastUpdatedBefore)
+        })
+
+        it('refuses someone who cannot view the study', async () => {
+            const { studyId } = await submittedStudy()
+            const outsiderLab = await insertTestOrg({ slug: `otter-838-outsider-${Date.now()}`, type: 'lab' })
+            const { user: outsider } = await insertTestUser({ org: outsiderLab })
+            asUser(outsider, outsiderLab)
+
+            const result = await markStudyOpenedAction({ studyId })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+            expect(await stampOf(studyId, outsider.id)).toHaveLength(0)
         })
     })
 })
