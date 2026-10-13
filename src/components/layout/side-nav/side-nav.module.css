@@ -81,8 +81,27 @@
 }
 
 .icon {
+    position: relative;
     flex-shrink: 0;
     display: inline-flex;
+}
+
+/* Figma 4336:50503: a 10px dot whose centre sits on the icon's top-right corner. The 2px ring is a
+   cutout in the row's own fill, so it follows the row from navy to the pale hover and current fill. */
+.unreadBadge {
+    position: absolute;
+    top: rem(-5px);
+    right: rem(-5px);
+    width: rem(10px);
+    height: rem(10px);
+    border-radius: 50%;
+    background-color: var(--si-color-unread-dot);
+    box-shadow: 0 0 0 rem(2px) var(--si-color-surface-sidenav);
+}
+
+.row:hover .unreadBadge,
+.row[aria-current='page'] .unreadBadge {
+    box-shadow: 0 0 0 rem(2px) var(--si-color-surface-sidenav-hover);
 }
 
 .label {

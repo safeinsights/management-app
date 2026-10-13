@@ -1,4 +1,4 @@
-import { externalNavLinks, type NavOrg } from '@/lib/nav/side-nav'
+import { externalNavLinks, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import Link from 'next/link'
 import { SafeInsightsLogo } from '../svg/si-logo'
@@ -14,9 +14,10 @@ export type SideNavViewProps = {
     orgs: NavOrg[]
     focusedOrgSlug: string | null
     pathname: string
+    unread: NavUnread
 }
 
-export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, pathname }) => {
+export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, pathname, unread }) => {
     const links = externalNavLinks(orgs)
     const isOnMyStudies = pathname === Routes.dashboard
 
@@ -27,10 +28,22 @@ export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, 
             </Link>
             <ul className={styles.list}>
                 <li className={styles.group}>
-                    <NavRow label="My studies" url={Routes.dashboard} icon="house" isCurrent={isOnMyStudies} />
+                    <NavRow
+                        label="My studies"
+                        url={Routes.dashboard}
+                        icon="house"
+                        isCurrent={isOnMyStudies}
+                        hasUnread={unread.myStudies}
+                    />
                 </li>
                 {orgs.map((org) => (
-                    <OrgGroup key={org.id} org={org} focusedOrgSlug={focusedOrgSlug} pathname={pathname} />
+                    <OrgGroup
+                        key={org.id}
+                        org={org}
+                        focusedOrgSlug={focusedOrgSlug}
+                        pathname={pathname}
+                        hasUnread={unread.orgSlugs.includes(org.slug)}
+                    />
                 ))}
                 <li className={styles.group}>
                     <ul className={styles.list}>

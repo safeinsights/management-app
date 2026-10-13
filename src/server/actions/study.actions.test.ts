@@ -30,6 +30,7 @@ import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
+    fetchNavUnreadAction,
     getCodeReviewFeedbackAction,
     markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
@@ -748,6 +749,52 @@ describe('dashboard rows (OTTER-617)', () => {
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
             expect(await stampOf(studyId, outsider.id)).toHaveLength(0)
+        })
+
+        describe('side nav dots', () => {
+            it('marks My studies and the lab until the researcher opens the study', async () => {
+                const { lab, studyId, creator } = await submittedStudy()
+                asUser(creator, lab)
+
+                expect(actionResult(await fetchNavUnreadAction())).toEqual({ myStudies: true, orgSlugs: [lab.slug] })
+
+                actionResult(await markStudyOpenedAction({ studyId }))
+
+                expect(actionResult(await fetchNavUnreadAction())).toEqual({ myStudies: false, orgSlugs: [] })
+            })
+
+            it('marks the data partner only for studies it can see', async () => {
+                const { enclave, lab, studyId: submittedId } = await submittedStudy()
+                const { user: reviewer } = await insertTestUser({ org: enclave })
+                const { study: draft } = await insertTestStudyOnly({
+                    org: enclave,
+                    submittedByOrg: lab,
+                    status: 'DRAFT',
+                })
+                asUser(reviewer, enclave)
+
+                expect(actionResult(await fetchNavUnreadAction()).orgSlugs).toEqual([enclave.slug])
+
+                actionResult(await markStudyOpenedAction({ studyId: submittedId }))
+
+                // The draft is still unopened, but the data partner never sees drafts.
+                expect(draft.status).toBe('DRAFT')
+                expect(actionResult(await fetchNavUnreadAction()).orgSlugs).toEqual([])
+            })
+
+            // My studies covers both tabs, so a reviewer-side change marks it for a dual-role person.
+            it('marks My studies for a study on the reviewer tab', async () => {
+                const { enclave, studyId } = await submittedStudy()
+                const { user: reviewer } = await insertTestUser({ org: enclave })
+                await proposalComment(studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
+                asUser(reviewer, enclave)
+
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toBe(true)
+
+                actionResult(await markStudyOpenedAction({ studyId }))
+
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toBe(false)
+            })
         })
     })
 })

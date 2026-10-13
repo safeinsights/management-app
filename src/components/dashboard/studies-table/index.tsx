@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useQuery } from '@/common'
+import { useEffect, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@/common'
 import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
+import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import { getLabOrg, type UserSession } from '@/lib/types'
 import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
@@ -53,6 +54,14 @@ function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
             (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
             study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
+}
+
+// The side nav dots read the same rows, so each fresh table answer refreshes them too (OTTER-838).
+function useRefreshNavUnread(dataUpdatedAt: number) {
+    const queryClient = useQueryClient()
+    useEffect(() => {
+        if (dataUpdatedAt) void queryClient.invalidateQueries({ queryKey: NAV_UNREAD_QUERY_KEY })
+    }, [dataUpdatedAt, queryClient])
 }
 
 // Belongs to is a My studies column, and only for someone in two or more orgs of the tab's kind.
@@ -124,6 +133,7 @@ export function StudiesTable({
         isFetching,
         isRefetching,
         isLoading,
+        dataUpdatedAt,
     } = useQuery({
         queryKey,
         queryFn: fetchStudies,
@@ -134,6 +144,7 @@ export function StudiesTable({
         refetchOnWindowFocus: false,
     })
     const studies = data as StudyRowType[]
+    useRefreshNavUnread(dataUpdatedAt)
 
     const table = useStudiesTableRows({ studies, audience, scope, orgSlug: effectiveOrgSlug, session })
 

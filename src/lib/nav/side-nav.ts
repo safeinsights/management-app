@@ -12,6 +12,8 @@ export type NavOrg = {
 // Which side nav rows carry the unread dot (OTTER-838); invalidated by writes that change it.
 export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
 
+export type NavUnread = { myStudies: boolean; orgSlugs: string[] }
+
 export type NavIcon = 'house' | 'dashboard' | 'settings' | 'team' | 'legal' | 'catalog' | 'resources' | 'support'
 
 export type NavItem = {
