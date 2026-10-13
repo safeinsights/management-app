@@ -35,7 +35,8 @@ export function noteSaveStatus(status?: ResubmissionNoteAutosaveStatus): SaveSta
 export type ResubmissionNoteEditorProps = Pick<
     SingleUserEditorProps,
     | 'inputId'
-    | 'contentStyle'
+    | 'contentHeight'
+    | 'fz'
     | 'ariaLabel'
     | 'onChange'
     | 'error'
@@ -45,11 +46,6 @@ export type ResubmissionNoteEditorProps = Pick<
     | 'footerRight'
     | 'isResizable'
 >
-
-const contentStyle = {
-    minHeight: 140,
-    fontSize: '1rem',
-} as const
 
 const noteChangeHandler = (noteForm: UseFormReturnType<ResubmitNoteValue>) => (json: string) => {
     // Focus alone makes Lexical report an update, and on an empty root it appends a paragraph.
@@ -100,7 +96,8 @@ export const ResubmissionNoteCard: FC<ResubmissionNoteCardProps> = ({
 
     const editorProps: ResubmissionNoteEditorProps = {
         inputId: RESUBMISSION_NOTE_FIELD_ID,
-        contentStyle,
+        contentHeight: 140,
+        fz: 'md',
         ariaLabel: 'Resubmission note',
         onChange: noteChangeHandler(noteForm),
         error,

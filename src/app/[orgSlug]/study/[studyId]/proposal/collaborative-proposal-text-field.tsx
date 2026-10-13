@@ -15,10 +15,6 @@ import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
 import { isLexicalOverLimit, type ProposalFormValues } from './schema'
 
-const contentStyle = {
-    fontSize: '1rem',
-} as const
-
 type Props = {
     studyId: string
     field: EditableTextField & { id: ProposalTextFieldKey }
@@ -73,7 +69,7 @@ export function CollaborativeProposalTextField({
                         studyId={studyId}
                         initialValue={initialValue}
                         websocketProvider={websocketProvider}
-                        contentStyle={contentStyle}
+                        fz="md"
                         contentHeight={contentHeight}
                         isResizable={isResizable}
                         ariaLabel={field.label}

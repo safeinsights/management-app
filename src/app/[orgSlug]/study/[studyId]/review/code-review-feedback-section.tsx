@@ -12,13 +12,6 @@ import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { CodeDecision } from '@/lib/review-decision'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-const EDITOR_SKELETON_HEIGHT = 400
-
-const contentStyle = {
-    minHeight: 400,
-    fontSize: 'var(--mantine-font-size-sm)',
-} as const
-
 const SECTION_HEADING_ID = 'code-review-decision-heading'
 export const FEEDBACK_INPUT_ID = 'code-review-feedback'
 export const DECISION_GROUP_ID = 'code-review-decision-group'
@@ -60,8 +53,8 @@ function FeedbackEditor({
             docName={codeReviewFeedbackDocName(jobId)}
             inputId={FEEDBACK_INPUT_ID}
             ariaLabel="Code review feedback"
-            contentStyle={contentStyle}
-            skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            contentHeight={400}
+            fz="sm"
             isResizable
             onProviderReady={publishProvider}
         />

@@ -1,17 +1,8 @@
 'use client'
 
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type CSSProperties,
-    type MouseEvent,
-    type ReactNode,
-    type RefObject,
-} from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import clsx from 'clsx'
-import { Box, Paper, Text } from '@mantine/core'
+import { Box, Paper, Text, type MantineFontSize } from '@mantine/core'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
@@ -21,21 +12,13 @@ import type { WidgetBlurProps } from '@/components/form-field'
 
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
-/** What a caller may set on the editable surface; the surface owns padding and line height. */
-export type EditorContentStyle = Pick<CSSProperties, 'minHeight' | 'fontSize'>
-
 // Shared by the editable surface and its placeholder so the two sit exactly on top of each other.
 const TEXT_METRICS = { px: 'md', py: 'xs', lh: 1.6 } as const
-
-// `contentStyle.minHeight` is a fallback because callers predating `contentHeight` express the
-// same thing that way.
-export const resolveContentHeight = (contentHeight?: number, contentStyle?: EditorContentStyle) =>
-    contentHeight ?? contentStyle?.minHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
 
 // A drag may not shrink the field below its content (OTTER-691). Applied as `min-height` so it
 // coexists with the inline `height` a native drag writes; measuring the scroll container instead
 // of `contentRef` would feed the floor its own value.
-function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef: RefObject<HTMLDivElement | null>) {
+function useEditorHeightFloor(contentHeight: number, hostRef: RefObject<HTMLDivElement | null>) {
     const contentRef = useRef<HTMLDivElement>(null)
     const chromeRef = useRef<HTMLDivElement>(null)
     const [floor, setFloor] = useState<number | undefined>(undefined)
@@ -69,7 +52,8 @@ function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef
 export interface EditorSurfaceProps {
     inputId?: string
     contentClassName?: string
-    contentStyle?: EditorContentStyle
+    /** The surface owns padding and line height; callers pick only the text size. */
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     ariaDescribedBy?: string
@@ -89,19 +73,18 @@ export interface EditorSurfaceProps {
 export function EditorSurface({
     inputId,
     contentClassName,
-    contentStyle,
+    fz,
     placeholder,
     ariaLabel,
     ariaDescribedBy,
     ariaRequired,
     error,
     widgetBlur,
-    contentHeight,
+    contentHeight = DEFAULT_EDITOR_CONTENT_HEIGHT,
     isResizable = false,
     children,
 }: EditorSurfaceProps) {
-    const startingHeight = resolveContentHeight(contentHeight, contentStyle)
-    const { contentRef, chromeRef, floor } = useEditorHeightFloor(startingHeight, widgetBlur.ref)
+    const { contentRef, chromeRef, floor } = useEditorHeightFloor(contentHeight, widgetBlur.ref)
 
     // Dragging the box taller leaves slack under the text where a click would otherwise do
     // nothing. Presses landing on the text itself keep their own caret placement.
@@ -131,8 +114,8 @@ export function EditorSurface({
                                 id={inputId}
                                 className={clsx('editable-text-content', contentClassName)}
                                 {...TEXT_METRICS}
-                                fz={contentStyle?.fontSize}
-                                mih={startingHeight}
+                                fz={fz}
+                                mih={contentHeight}
                                 // Lexical sets no tabindex. Browsers still focus a contenteditable
                                 // but happy-dom does not, so tests would silently no-op.
                                 tabIndex={0}
@@ -142,7 +125,7 @@ export function EditorSurface({
                                 ariaRequired={ariaRequired}
                             />
                         }
-                        placeholder={<EditorPlaceholder text={placeholder} fontSize={contentStyle?.fontSize} />}
+                        placeholder={<EditorPlaceholder text={placeholder} fz={fz} />}
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
@@ -158,11 +141,11 @@ export function EditorSurface({
     )
 }
 
-const EditorPlaceholder = ({ text, fontSize }: { text?: string; fontSize?: EditorContentStyle['fontSize'] }) => {
+const EditorPlaceholder = ({ text, fz }: { text?: string; fz?: MantineFontSize }) => {
     if (!text) return null
 
     return (
-        <Text c="dimmed" pos="absolute" top={0} left={0} {...TEXT_METRICS} fz={fontSize} className="click-through">
+        <Text c="dimmed" pos="absolute" top={0} left={0} {...TEXT_METRICS} fz={fz} className="click-through">
             {text}
         </Text>
     )

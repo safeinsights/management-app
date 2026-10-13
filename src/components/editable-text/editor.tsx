@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Skeleton, Stack } from '@mantine/core'
+import { Skeleton, Stack, type MantineFontSize } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { EditorFooterArea } from './editor-footer'
 import { SingleUserEditor } from './single-user-editor'
-import { resolveContentHeight, type EditorContentStyle } from './editor-surface'
+import { DEFAULT_EDITOR_CONTENT_HEIGHT } from './editor-surface'
 
 const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
     ssr: false,
@@ -23,7 +23,7 @@ export type EditorProps = {
     initialValue?: string
     websocketProvider?: HocuspocusProviderWebsocket | null
     contentClassName?: string
-    contentStyle?: EditorContentStyle
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
@@ -44,11 +44,9 @@ export type EditorProps = {
     contentHeight?: number
     isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
-    /** Defaults to the height the editor mounts at, so the swap is not a jump. */
-    skeletonHeight?: number
 }
 
-export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorProps) {
+export function Editor({ websocketProvider, ...props }: EditorProps) {
     const singleUserEditing = useSingleUserEditing()
     // Keeps the server render and the client's first render byte-identical; without it the
     // dynamic <Suspense> is a hydration mismatch.
@@ -58,7 +56,7 @@ export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorPr
 
     // Sized like the editor it stands in for; this outer skeleton renders first, so a flat
     // default here is the jump the user sees.
-    const placeholderHeight = skeletonHeight ?? resolveContentHeight(props.contentHeight, props.contentStyle)
+    const placeholderHeight = props.contentHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
 
     if (singleUserEditing) {
         return <SingleUserEditor {...props} />

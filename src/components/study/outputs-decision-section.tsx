@@ -17,13 +17,6 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
 
-const EDITOR_SKELETON_HEIGHT = 260
-
-const contentStyle = {
-    minHeight: 260,
-    fontSize: 'var(--mantine-font-size-sm)',
-} as const
-
 // Worded as "nothing that can be shared" rather than "no output files": the branch is also
 // reached by jobs holding files this screen cannot offer (OTTER-524).
 const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
@@ -180,7 +173,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     studyId={studyId}
                     websocketProvider={websocketProvider}
                     onProviderReady={publishProvider}
-                    contentStyle={contentStyle}
+                    contentHeight={260}
+                    fz="sm"
                     onChange={onFeedbackChange}
                     error={feedbackError}
                     ariaLabel="Decision feedback"
@@ -190,7 +184,6 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasDescription: false,
                         hasCounter: true,
                     })}
-                    skeletonHeight={EDITOR_SKELETON_HEIGHT}
                     isResizable
                     // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}

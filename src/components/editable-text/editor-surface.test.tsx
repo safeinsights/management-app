@@ -43,25 +43,10 @@ describe('EditorSurface', () => {
         expect(editable().style.minHeight).toBe(rem(200))
     })
 
-    it('keeps a caller-supplied minHeight when no content height is given', () => {
-        renderWithProviders(
-            <SingleUserEditor id="doc-style-height" ariaLabel="Feedback" contentStyle={{ minHeight: 600 }} />,
-        )
+    it('applies the requested text size to the editable surface', () => {
+        renderWithProviders(<SingleUserEditor id="doc-fz" ariaLabel="Feedback" fz="sm" />)
 
-        expect(editable().style.minHeight).toBe(rem(600))
-    })
-
-    it('prefers an explicit content height over a caller-supplied minHeight', () => {
-        renderWithProviders(
-            <SingleUserEditor
-                id="doc-both-heights"
-                ariaLabel="Feedback"
-                contentStyle={{ minHeight: 600 }}
-                contentHeight={105}
-            />,
-        )
-
-        expect(editable().style.minHeight).toBe(rem(105))
+        expect(editable().style.fontSize).toBe('var(--mantine-font-size-sm)')
     })
 
     it('makes the editable surface focusable', () => {

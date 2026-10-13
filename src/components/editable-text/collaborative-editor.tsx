@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { Alert, Badge, Group, Skeleton, Stack, Text } from '@mantine/core'
+import { Alert, Badge, Group, Skeleton, Stack, Text, type MantineFontSize } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin'
 import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext'
@@ -19,7 +19,7 @@ import { useProviderSaveStatus } from '@/lib/realtime/use-provider-save-status'
 import { useTriggerStudyKickOut } from '@/hooks/use-study-status-on-reconnect'
 import { SaveStatusIndicator } from '@/components/save-status'
 import { EditorFooter, EditorFooterArea } from './editor-footer'
-import { EditorSurface, resolveContentHeight, type EditorContentStyle } from './editor-surface'
+import { DEFAULT_EDITOR_CONTENT_HEIGHT, EditorSurface } from './editor-surface'
 import { lexicalTheme, lexicalNodes, isValidUrl, linkAttributes, pickCursorColor } from './config'
 import { EscapeFocusPlugin } from './escape-focus-plugin'
 import { useWidgetBlur } from '@/components/form-field'
@@ -163,7 +163,7 @@ export type CollaborativeEditorProps = {
     /** Callers must gate render until this is non-null (SSR and pre-hydration only). */
     websocketProvider: HocuspocusProviderWebsocket
     contentClassName?: string
-    contentStyle?: EditorContentStyle
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
@@ -220,7 +220,7 @@ export function CollaborativeEditor({
     id,
     websocketProvider,
     contentClassName,
-    contentStyle,
+    fz,
     placeholder,
     ariaLabel,
     onChange,
@@ -338,7 +338,7 @@ export function CollaborativeEditor({
     if (phase === 'initial')
         return (
             <Stack gap="xxs">
-                <Skeleton h={resolveContentHeight(contentHeight, contentStyle)} radius={4} />
+                <Skeleton h={contentHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT} radius={4} />
                 <EditorFooterArea left={footerLeft} right={footerRight} />
             </Stack>
         )
@@ -351,7 +351,7 @@ export function CollaborativeEditor({
                     <EditorSurface
                         inputId={inputId}
                         contentClassName={contentClassName}
-                        contentStyle={contentStyle}
+                        fz={fz}
                         placeholder={placeholder}
                         ariaLabel={ariaLabel}
                         ariaDescribedBy={ariaDescribedBy}

@@ -5,7 +5,7 @@ import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/fo
 import { CharacterCounter } from '@/components/character-counter'
 import { Editor, type EditorProps } from '@/components/editable-text/editor'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
-import type { EditorContentStyle } from '@/components/editable-text/editor-surface'
+import type { MantineFontSize } from '@mantine/core'
 
 // Shared by the proposal and code reviews so the error slot, counter and ARIA wiring cannot
 // drift apart again (OTTER-737). Outputs review deliberately owns its own.
@@ -16,8 +16,8 @@ type DecisionFeedbackEditorProps = {
     inputId: string
     ariaLabel: string
     placeholder?: string
-    contentStyle: EditorContentStyle
-    skeletonHeight: number
+    contentHeight: number
+    fz: MantineFontSize
     isResizable?: boolean
     onProviderReady: EditorProps['onProviderReady']
 }
@@ -29,8 +29,8 @@ export function DecisionFeedbackEditor({
     inputId,
     ariaLabel,
     placeholder,
-    contentStyle,
-    skeletonHeight,
+    contentHeight,
+    fz,
     isResizable,
     onProviderReady,
 }: DecisionFeedbackEditorProps) {
@@ -48,7 +48,8 @@ export function DecisionFeedbackEditor({
             inputId={inputId}
             studyId={studyId}
             websocketProvider={websocketProvider}
-            contentStyle={contentStyle}
+            contentHeight={contentHeight}
+            fz={fz}
             onChange={feedback.onChange}
             onBlur={feedback.onBlur}
             error={feedback.error}
@@ -68,7 +69,6 @@ export function DecisionFeedbackEditor({
                 />
             }
             onProviderReady={onProviderReady}
-            skeletonHeight={skeletonHeight}
         />
     )
 }
