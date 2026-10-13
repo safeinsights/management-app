@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { toRecord } from '@/lib/permissions'
-import { NavOriginParam, Routes } from '@/lib/routes'
+import { Routes, StudyNavSearchParams } from '@/lib/routes'
 import { setupStepNav } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
@@ -16,7 +16,7 @@ export default async function StudyEditPage(props: {
     searchParams: Promise<{ from?: string }>
 }) {
     const { studyId, orgSlug } = await props.params
-    const from = NavOriginParam.safeParse((await props.searchParams).from).data
+    const { from } = StudyNavSearchParams.parse(await props.searchParams)
 
     // getStudyAction rather than a query of our own: it carries the `view Study` ability check and
     // filters soft-deleted rows.

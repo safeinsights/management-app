@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { isActionError } from '@/lib/errors'
-import { NavOriginParam } from '@/lib/routes'
+import { StudyNavSearchParams } from '@/lib/routes'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
 import { renderScreenById } from '../_screens/render-screen'
@@ -17,7 +17,7 @@ export default async function StudySubmittedRoute(props: {
     searchParams: Promise<{ from?: string }>
 }) {
     const { studyId, orgSlug } = await props.params
-    const from = NavOriginParam.safeParse((await props.searchParams).from).data
+    const { from } = StudyNavSearchParams.parse(await props.searchParams)
 
     const result = await getStudyAction({ studyId })
 

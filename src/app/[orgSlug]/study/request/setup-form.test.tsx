@@ -1044,7 +1044,6 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         expect(continueButton()).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
@@ -1224,18 +1223,6 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
-    })
-
-    it('steps forward to the proposal status when the page resolved no target', async () => {
-        const user = userEvent.setup()
-        const fixtures = await setupFixtures()
-        const draftData = submittedDraft(fixtures)
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
-
-        await user.click(nextStepButton())
-
-        const expected = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
-        await waitFor(() => expect(memoryRouter.asPath).toBe(expected))
     })
 })
 

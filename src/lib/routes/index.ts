@@ -9,7 +9,7 @@ export {
     DashboardSearchParams,
     RedirectSearchParams,
     InviteSearchParams,
-    NavOriginParam,
+    StudyNavSearchParams,
     type NavOrigin,
     type RouteParams,
 } from './definitions'

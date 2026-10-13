@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
-import { NavOriginParam, Routes } from './definitions'
+import { Routes, StudyNavSearchParams } from './definitions'
 
 const params = { orgSlug: 'openstax-lab', studyId: '01a0011e-b0b2-7618-9ca5-5caa61bc30d3' }
 const base = `/openstax-lab/study/${params.studyId}`
@@ -17,9 +17,10 @@ describe('study routes that carry a navigation origin', () => {
         expect(Routes.studySubmitted({ ...params, from: 'edit-code' })).toBe(`${base}/submitted?from=edit-code`)
     })
 
-    it('accepts only the two edit pages as an origin', () => {
-        expect(NavOriginParam.safeParse('edit-code').success).toBe(true)
-        expect(NavOriginParam.safeParse('dashboard').success).toBe(false)
-        expect(NavOriginParam.safeParse(undefined).success).toBe(false)
+    it('reads only the two edit pages as an origin and drops anything else', () => {
+        expect(StudyNavSearchParams.parse({ from: 'edit-code' })).toEqual({ from: 'edit-code' })
+        expect(StudyNavSearchParams.parse({ from: 'dashboard' })).toEqual({ from: undefined })
+        expect(StudyNavSearchParams.parse({ from: ['edit-code', 'edit-proposal'] })).toEqual({ from: undefined })
+        expect(StudyNavSearchParams.parse({})).toEqual({ from: undefined })
     })
 })

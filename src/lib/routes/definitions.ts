@@ -40,10 +40,13 @@ export const InviteSearchParams = z.object({
 
 // The edit page a researcher stepped back from, so the page it lands on can step forward to it again
 // (OTTER-673). It lasts one hop: nothing passes it on.
-export const NavOriginParam = z.enum(['edit-proposal', 'edit-code'])
+const NavOriginParam = z.enum(['edit-proposal', 'edit-code'])
 export type NavOrigin = z.infer<typeof NavOriginParam>
 
 const StudyNavParams = StudyParams.extend({ from: NavOriginParam.optional() })
+
+// An unknown origin is dropped rather than rejected, so a stale or hand-edited URL never errors.
+export const StudyNavSearchParams = z.object({ from: NavOriginParam.optional().catch(undefined) })
 
 // Route typing approach: https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 export const Routes = {
