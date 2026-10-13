@@ -1,17 +1,16 @@
 'use client'
 
 import { FC } from 'react'
-import { Box, Button, Flex, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 import PhoneInput, { isPossiblePhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import { InputError } from '@/components/errors'
 import { revalidateOnBlur } from '@/components/form-field'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import styles from './panel.module.css'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 
 const PHONE_ERROR_ID = 'sms-mfa-phone-error'
 
@@ -65,18 +64,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 Send verification code
             </Button>
             <Group gap="xs" justify="center">
-                <Link
-                    href={Routes.accountMfa}
-                    mt="md"
-                    c={semanticColor('link.default')}
-                    fw={fontWeight.semibold}
-                    fz="md"
-                >
-                    <Flex component="span" align="center" gap="xs">
-                        <CaretLeftIcon size={20} />
-                        Back to options
-                    </Flex>
-                </Link>
+                <BackLink href={Routes.accountMfa}>Back to options</BackLink>
             </Group>
         </Stack>
     </form>

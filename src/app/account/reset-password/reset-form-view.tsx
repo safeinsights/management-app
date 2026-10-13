@@ -3,10 +3,10 @@
 import { FC, FormEvent } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { Flex, Paper, Stack, TextInput, Title } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
-import { Button, Link } from '@/common'
+import { Button } from '@/common'
+import { BackLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 export type ResetFormValues = {
     email: string
@@ -38,18 +38,7 @@ export const ResetFormView: FC<ResetFormViewProps> = ({ form, onSubmit, isPendin
                         <Button w="100%" mt="xs" type="submit" size="lg" loading={isPending} disabled={!form.isValid()}>
                             Send Verification Code
                         </Button>
-                        <Link
-                            href={Routes.accountSignin}
-                            mt="md"
-                            c={semanticColor('link.default')}
-                            fw={fontWeight.semibold}
-                            fz="md"
-                        >
-                            <Flex component="span" align="center" gap="xs">
-                                <CaretLeftIcon size={20} />
-                                Back to log in
-                            </Flex>
-                        </Link>
+                        <BackLink href={Routes.accountSignin}>Back to log in</BackLink>
                     </Stack>
                 </Flex>
             </Paper>

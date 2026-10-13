@@ -1,7 +1,8 @@
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { describe, expect, it } from 'vitest'
 import type { Route } from 'next'
-import { LinkWithIcon } from './links'
+import { BackLink, LinkWithIcon } from './links'
+import { Routes } from '@/lib/routes'
 
 describe('LinkWithIcon', () => {
     const icon = <svg data-testid="icon" />
@@ -59,5 +60,13 @@ describe('LinkWithIcon', () => {
         const link = screen.getByTestId('link')
         expect(link).toHaveClass('caller')
         expect(link).toHaveClass('nowrap')
+    })
+})
+
+describe('BackLink', () => {
+    it('links to the given route with its label', () => {
+        renderWithProviders(<BackLink href={Routes.accountMfa}>Back to options</BackLink>)
+
+        expect(screen.getByRole('link', { name: 'Back to options' })).toHaveAttribute('href', Routes.accountMfa)
     })
 })

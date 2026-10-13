@@ -2,7 +2,7 @@
 
 import { useForm, useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
 import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
@@ -14,7 +14,6 @@ import {
     Box,
     Button,
     CopyButton,
-    Flex,
     Group,
     Paper,
     rgba,
@@ -23,11 +22,11 @@ import {
     Title,
     useMantineTheme,
 } from '@mantine/core'
-import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
 import OtpInput from '@/components/otp-input'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -195,18 +194,7 @@ function AddTotpScreenContent({
                     >
                         Verify code
                     </Button>
-                    <Link
-                        href={Routes.accountMfa}
-                        mt="md"
-                        c={semanticColor('link.default')}
-                        fw={fontWeight.semibold}
-                        fz="md"
-                    >
-                        <Flex component="span" align="center" gap="xs">
-                            <CaretLeftIcon size={20} />
-                            Back to options
-                        </Flex>
-                    </Link>
+                    <BackLink href={Routes.accountMfa}>Back to options</BackLink>
                 </Stack>
             </form>
         </Stack>

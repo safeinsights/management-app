@@ -1,25 +1,24 @@
 'use client'
 
 import { InputError } from '@/components/errors'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Box, Button, Container, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Box, Button, Container, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
 import { showToast } from '@/components/toast-notifications'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
 import { useState } from 'react'
 import BackupCodes from '../app/backup-codes'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
 import { AddSmsMfaView } from './add-sms-mfa-view'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 // https://clerk.com/docs/custom-flows/add-phone
 // https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -212,18 +211,7 @@ export function AddSMSMFA() {
                                     </Text>
                                 </Group>
                                 <Group gap="xs" justify="center">
-                                    <Link
-                                        href={Routes.accountMfa}
-                                        mt="md"
-                                        c={semanticColor('link.default')}
-                                        fw={fontWeight.semibold}
-                                        fz="md"
-                                    >
-                                        <Flex component="span" align="center" gap="xs">
-                                            <CaretLeftIcon size={20} />
-                                            Back to options
-                                        </Flex>
-                                    </Link>
+                                    <BackLink href={Routes.accountMfa}>Back to options</BackLink>
                                 </Group>
                             </Stack>
                         </form>
