@@ -165,7 +165,7 @@ describe('StudyEditPage', () => {
 
     // OTTER-596 next to the persona check: a DRAFT fails `view Study` for the Data Partner, so the
     // page's own not-found branch answers and the guard never runs.
-    it('shows the not-found message to a Data Partner member for another lab\'s draft', async () => {
+    it("shows the not-found message to a Data Partner member for another lab's draft", async () => {
         const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })

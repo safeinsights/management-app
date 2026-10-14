@@ -5,7 +5,7 @@ import { Routes } from '@/lib/routes'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
 
-type ResearcherPageGuardResult = { ok: true } | { ok: false; render: React.ReactNode }
+type ResearcherPageGuardResult = { ok: true } | { ok: false; render: React.ReactElement }
 
 type GuardedStudy = { orgId: string; orgSlug: string; submittedByOrgId: string }
 

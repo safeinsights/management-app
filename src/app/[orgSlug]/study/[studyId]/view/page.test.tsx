@@ -794,9 +794,15 @@ describe('/view for a Data Partner member (OTTER-768)', () => {
         })
         const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
         const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
-        const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            studyStatus: 'PENDING-REVIEW',
+        })
 
-        await expect(StudyReviewPage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) })).rejects.toThrow('NEXT_REDIRECT')
+        await expect(
+            StudyReviewPage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
         expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
     })
 
