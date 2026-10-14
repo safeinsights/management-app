@@ -75,7 +75,7 @@
     color: var(--si-color-icon-light-hover);
 }
 
-/* EditableText (Lexical) formatting classes */
+/* Lexical formatting classes, named by lexicalTheme in editable-text/config.ts */
 .editable-text-paragraph {
     margin: 0;
 }
@@ -148,7 +148,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Rich-text editor frame, shared by EditorSurface and EditableText */
+/* Rich-text editor frame around EditorSurface */
 .collaborative-editor-container {
     display: flex;
     flex-direction: column;
