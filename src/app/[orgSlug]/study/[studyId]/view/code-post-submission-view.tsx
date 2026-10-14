@@ -3,7 +3,7 @@
 import { type FC } from 'react'
 import { Stack } from '@mantine/core'
 import { displayOrgName } from '@/lib/string'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
 import type { StepNav } from '@/lib/study-screen'
@@ -86,10 +86,14 @@ export function CodePostSubmissionView({
 
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} />
+            <StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />
 
             <Stack gap="xxl">
-                <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
+                <ProposalStepHeader
+                    stepLabel={SUBMIT_CODE_STEP.label}
+                    heading={SUBMIT_CODE_STEP.heading}
+                    banner={banner}
+                />
 
                 <SubmittedCodeFilesSection
                     jobId={job.id}

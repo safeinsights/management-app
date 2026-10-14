@@ -4,7 +4,7 @@ import { FC, useState } from 'react'
 import { Stack } from '@mantine/core'
 import { useIDEFiles, type StudyCodeIDE } from '@/hooks/use-ide-files'
 import { NO_CHANGES_MESSAGE, SELECT_MAIN_FILE_MESSAGE } from '@/components/study/submit-code-error'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { EDIT_CODE_STEP, ProposalStepHeader } from '@/components/study/proposal-step-header'
 import { IdeLaunchAction } from '@/components/study/launch-ide-control'
 import { showsLaunchIdeControl } from '@/components/study/study-code-files'
 import { YourFilesSection } from '@/components/study/your-files-section'
@@ -60,7 +60,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
         <Stack gap="xxl">
             {/* The files sit inside the step header's card, so Launch IDE rides in its header row
                 rather than the one the Submit code page gives the Code files card. */}
-            <ProposalStepHeader stepLabel="STEP 3" heading="Edit code" action={launchIde}>
+            <ProposalStepHeader stepLabel={EDIT_CODE_STEP.label} heading={EDIT_CODE_STEP.heading} action={launchIde}>
                 <YourFilesSection
                     ide={ide}
                     dataPartnerName={orgName}

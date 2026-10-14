@@ -1,7 +1,7 @@
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { displayOrgName } from '@/lib/string'
@@ -32,10 +32,10 @@ export async function OutputsAwaitingReviewScreen({
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
                 <ProposalStepHeader
-                    stepLabel="STEP 4"
-                    heading="Verify outputs"
+                    stepLabel={VERIFY_OUTPUTS_STEP.label}
+                    heading={VERIFY_OUTPUTS_STEP.heading}
                     banner={<DatedStatusBanner copy={copy} at={completedAt} />}
                 />
                 <StepNavigation nav={nav} />

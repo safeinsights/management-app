@@ -39,7 +39,7 @@ const renderKeysPage = async (confirmLabel = 'Yes, I have stored my key') => {
 
     const page = await KeysPage()
     renderWithProviders(page)
-    await screen.findByText(/security key/i, { selector: 'h3' })
+    await screen.findByRole('heading', { level: 1, name: /security key/i })
 
     fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
     fireEvent.click(await screen.findByRole('button', { name: 'Next' }))

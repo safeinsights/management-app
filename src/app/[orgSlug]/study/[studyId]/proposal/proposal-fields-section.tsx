@@ -7,6 +7,7 @@ import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import {
     SaveStatusAnnouncer,
@@ -36,7 +37,7 @@ interface ProposalFieldsSectionProps {
     yjsForm: ReturnType<typeof useYjsFormMap>
     websocketProvider: HocuspocusProviderWebsocket | null
     /** "Study proposal" on Step 2, "Edit proposal" on the revision page; the card is otherwise the same. */
-    heading: string
+    step: StudyHeaderStep
     orgName: string
     members: MemberOption[]
     researcherName: string
@@ -123,7 +124,7 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
     form,
     yjsForm,
     websocketProvider,
-    heading,
+    step,
     orgName,
     members,
     researcherName,
@@ -158,7 +159,7 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
             <SaveStatusAnnouncer status={fieldsAnnouncedStatus} />
             {/* No study title anywhere in the card: Step 1 owns it (OTTER-690) and the card forbids
                 repeating it as body text. */}
-            <ProposalStepHeader stepLabel="STEP 2" heading={heading}>
+            <ProposalStepHeader stepLabel={step.label} heading={step.heading}>
                 <Stack gap="lg">
                     <Text>{intro}</Text>
 

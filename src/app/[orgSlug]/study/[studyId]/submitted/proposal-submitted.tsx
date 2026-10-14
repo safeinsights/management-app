@@ -10,6 +10,7 @@ import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/stud
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
 import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
@@ -58,6 +59,8 @@ function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; fe
     )
 }
 
+const SUBMIT_PROPOSAL_STEP: StudyHeaderStep = { label: 'STEP 2', heading: 'Submit proposal' }
+
 export function ProposalSubmitted({
     orgSlug,
     study,
@@ -79,15 +82,15 @@ export function ProposalSubmitted({
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyPageHeader study={study} />
+            <StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />
             <Stack gap="xxl">
                 {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
                     longer needs the "Initial request 2.0" counter (OTTER-762). */}
                 <ProposalRequest
                     study={study}
                     orgSlug={orgSlug}
-                    stepLabel="STEP 2"
-                    heading="Submit proposal"
+                    stepLabel={SUBMIT_PROPOSAL_STEP.label}
+                    heading={SUBMIT_PROPOSAL_STEP.heading}
                     banner={banner}
                     initialExpanded={false}
                 />

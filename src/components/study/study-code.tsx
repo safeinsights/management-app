@@ -12,14 +12,11 @@ import { blocksStudyWork } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from '@/components/legal/require-study-agreement'
 import { StepNavigation } from './step-navigation'
 import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
-import { ProposalStepHeader } from './proposal-step-header'
+import { ProposalStepHeader, SUBMIT_CODE_STEP } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
 import { fontWeight } from '@/theme/tokens'
 import { submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
-
-const STEP_LABEL = 'STEP 3'
-const SECTION_TITLE = 'Submit code'
 
 interface StudyCodeProps {
     studyId: string
@@ -170,7 +167,7 @@ export const StudyCode = ({
             <Stack gap="xxl">
                 {/* No studyTitle: the card forbids repeating the title as body text here. The
                     header's rule only draws when something follows it, which the children below do. */}
-                <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
+                <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading}>
                     <Stack gap="lg">
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
                         <SubmitCodeFaq

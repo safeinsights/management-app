@@ -262,7 +262,9 @@ describe('OutputsFeedbackScreen', () => {
         const { org, study, raw } = await setupFeedbackOnly()
         await renderScreen(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+        ).toBeInTheDocument()
         const header = screen.getByTestId('proposal-section-header')
         expect(header).toHaveTextContent('STEP 4')
         expect(header).toHaveTextContent('Verify outputs')

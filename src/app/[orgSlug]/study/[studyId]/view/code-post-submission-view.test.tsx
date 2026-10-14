@@ -149,7 +149,9 @@ describe('CodePostSubmissionView', () => {
 
             const title = study.title ?? ''
             expect(title).not.toBe('')
-            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${title} — Step 3: Submit code` }),
+            ).toBeInTheDocument()
             expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(header).not.toHaveTextContent(title)
         })

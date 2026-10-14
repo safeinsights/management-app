@@ -123,7 +123,7 @@ export function PostFeedbackView({
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={{ label: stepLabel, heading }} />
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}

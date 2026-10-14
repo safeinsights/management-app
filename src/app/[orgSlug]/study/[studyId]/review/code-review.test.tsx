@@ -61,7 +61,9 @@ describe('CodeReview', () => {
         it('renders the H1 page title "Study proposal"', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 2: Review code` }),
+            ).toBeInTheDocument()
         })
 
         it('renders the STEP 2 sub-label and the section heading', async () => {

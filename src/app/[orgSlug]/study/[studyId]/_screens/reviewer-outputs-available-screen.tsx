@@ -3,6 +3,7 @@ import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy } from '@/server/db/queries'
@@ -51,7 +52,7 @@ export async function ReviewerOutputsAvailableScreen({
             studyId={study.id}
             job={job}
             labName={labName}
-            header={<StudyPageHeader study={study} />}
+            header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             nav={phasedNav}

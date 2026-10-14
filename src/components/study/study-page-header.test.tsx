@@ -15,6 +15,14 @@ describe('StudyPageHeader', () => {
         expect(screen.getByRole('heading', { level: 1, name: study.title })).toBeInTheDocument()
     })
 
+    it('names the current step in the level-1 heading', () => {
+        renderWithProviders(<StudyPageHeader study={study} step={{ label: 'STEP 3', heading: 'Submit code' }} />)
+
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Submit code` }),
+        ).toBeInTheDocument()
+    })
+
     it('renders the submitting research lab as the eyebrow', () => {
         renderWithProviders(<StudyPageHeader study={study} />)
 

@@ -101,7 +101,9 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })

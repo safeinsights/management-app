@@ -2,7 +2,7 @@
 
 import { FC, ReactNode } from 'react'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -36,7 +36,11 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({ decidedAt, ban
 
     return (
         <>
-            <ProposalStepHeader stepLabel="STEP 4" heading="Verify outputs" banner={bannerAlert} />
+            <ProposalStepHeader
+                stepLabel={VERIFY_OUTPUTS_STEP.label}
+                heading={VERIFY_OUTPUTS_STEP.heading}
+                banner={bannerAlert}
+            />
             {feedbackSection}
             <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
             <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />

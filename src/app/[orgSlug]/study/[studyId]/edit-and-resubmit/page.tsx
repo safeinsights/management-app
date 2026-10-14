@@ -8,6 +8,7 @@ import { db } from '@/database'
 import { displayOrgName } from '@/lib/string'
 import { isSessionOrgMember } from '@/lib/utils'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { EDIT_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
 
@@ -62,7 +63,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                 }}
             >
                 <EditResubmitForm
-                    header={<StudyPageHeader study={study} />}
+                    header={<StudyPageHeader study={study} step={EDIT_PROPOSAL_STEP} />}
                     orgName={displayOrgName(enclaveOrg?.name ?? '')}
                     members={memberOptions}
                     researcherName={study.createdBy}

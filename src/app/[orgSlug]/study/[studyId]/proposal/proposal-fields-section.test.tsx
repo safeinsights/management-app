@@ -14,6 +14,7 @@ import {
 } from '@/tests/unit.helpers'
 import { ProposalProvider, useProposal } from '@/contexts/proposal'
 import { fieldTestId } from '@/components/form-field'
+import { EDIT_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { DRAFT_REQUIRED_ERRORS, type ProposalFormValues } from './schema'
 import { ProposalFieldsSection } from './proposal-fields-section'
@@ -90,7 +91,7 @@ const SectionOnPage = (props: PageProps) => {
             form={form}
             yjsForm={yjsForm}
             websocketProvider={websocketProvider}
-            heading="Edit proposal"
+            step={EDIT_PROPOSAL_STEP}
             orgName={ORG_NAME}
             members={[PI, OTHER_PI]}
             researcherName="Ada Lovelace"
@@ -154,7 +155,7 @@ beforeEach(() => {
 // OTTER-762).
 describe('ProposalFieldsSection section header and body copy (OTTER-762)', () => {
     it('reuses the shared section header with the Step 2 eyebrow and the heading it is given', async () => {
-        await renderSection({ heading: 'Edit proposal' })
+        await renderSection({ step: EDIT_PROPOSAL_STEP })
 
         const header = screen.getByTestId('proposal-section-header')
         expect(within(header).getByText('STEP 2')).toBeInTheDocument()
