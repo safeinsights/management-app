@@ -1,5 +1,14 @@
 import { faker } from '@faker-js/faker'
-import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import {
+    authFileFor,
+    expect,
+    expectLegalLayoutToMatchDesign,
+    goto,
+    test,
+    TestingUsers,
+    visitAsRole,
+    path,
+} from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
@@ -211,5 +220,10 @@ test.describe('Organization Admin', () => {
         })
         expect(gap).toBeGreaterThanOrEqual(0)
         expect(gap).toBeLessThanOrEqual(8)
+    })
+
+    test('legal center layout matches the design', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+        await expectLegalLayoutToMatchDesign(page)
     })
 })

@@ -1,4 +1,4 @@
-import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
+import { authFileFor, expect, expectLegalLayoutToMatchDesign, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
 // Any role but `legal`, whose user is left owing ToS v2 and meets a blocking modal on every page.
@@ -44,5 +44,10 @@ test.describe('Personal legal page', () => {
         const panel = page.getByRole('tabpanel', { name: 'Privacy Notice' })
         await expect(panel.getByRole('heading', { name: 'Privacy Notice', level: 1 })).toBeVisible()
         await expect(panel.getByText('Version 1. Seeded for end-to-end tests.')).toBeVisible()
+    })
+
+    test('the legal page layout matches the design', async ({ page }) => {
+        await visitAsRole(page, '/legal')
+        await expectLegalLayoutToMatchDesign(page)
     })
 })

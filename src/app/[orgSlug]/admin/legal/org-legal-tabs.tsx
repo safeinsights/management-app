@@ -22,10 +22,10 @@ export const OrgLegalTabs: FC<Props> = ({ orgSlug, orgType }) => {
                 <Tabs.Tab value="SLA">{legalDocumentTypeLabels.SLA}</Tabs.Tab>
                 <Tabs.Tab value={participationType}>{legalDocumentTypeLabels[participationType]}</Tabs.Tab>
             </Tabs.List>
-            <Tabs.Panel value="SLA" pt="md">
+            <Tabs.Panel value="SLA" pt="xl">
                 <OrgStudyAgreements orgSlug={orgSlug} orgType={orgType} />
             </Tabs.Panel>
-            <Tabs.Panel value={participationType} pt="md">
+            <Tabs.Panel value={participationType} pt="xl">
                 <OrgParticipationAgreement orgSlug={orgSlug} type={participationType} />
             </Tabs.Panel>
         </Tabs>

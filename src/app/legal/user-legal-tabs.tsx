@@ -18,19 +18,19 @@ export const UserLegalTabs: FC = () => (
             <Tabs.Tab value="TOS">{legalDocumentCollectionLabels.TOS}</Tabs.Tab>
             <Tabs.Tab value="PN">{legalDocumentCollectionLabels.PN}</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="SLA" pt="md">
+        <Tabs.Panel value="SLA" pt="xl">
             <UserStudyAgreements />
         </Tabs.Panel>
-        <Tabs.Panel value="DOPA" pt="md">
+        <Tabs.Panel value="DOPA" pt="xl">
             <UserParticipationAgreements type="DOPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="ROPA" pt="md">
+        <Tabs.Panel value="ROPA" pt="xl">
             <UserParticipationAgreements type="ROPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="TOS" pt="md">
+        <Tabs.Panel value="TOS" pt="xl">
             <UserGlobalDocument type="TOS" />
         </Tabs.Panel>
-        <Tabs.Panel value="PN" pt="md">
+        <Tabs.Panel value="PN" pt="xl">
             <UserGlobalDocument type="PN" />
         </Tabs.Panel>
     </Tabs>
