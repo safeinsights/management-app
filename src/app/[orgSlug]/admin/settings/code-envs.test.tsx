@@ -336,11 +336,11 @@ describe('CodeEnvs', async () => {
 
         fireEvent.click(await screen.findByRole('button', { name: /edit linked r/i }))
         await userEvent.click(await screen.findByRole('textbox', { name: /Data Sources/i }))
-        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source' }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source', hidden: true }))
         await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
 
         await waitFor(() => {
-            expect(screen.getByText('Unlinked Source').parentElement).toHaveTextContent('Linked R')
+            expect(screen.getByText('Unlinked Source', { selector: 'p' }).parentElement).toHaveTextContent('Linked R')
         })
     })
 
