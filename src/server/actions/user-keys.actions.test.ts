@@ -157,7 +157,7 @@ describe('getKeyPageStateAction', () => {
     })
 
     it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
-        const { user, org } = await mockKeylessSession({ orgType: 'lab' })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({

@@ -994,6 +994,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, restoreSession, ...mocks }
 }
 
+// Only enclave members get a key from insertTestUser, so lab sessions need no helper to be keyless.
 export async function mockKeylessSession(options: MockSessionWithTestDataOptions = {}) {
     const session = await mockSessionWithTestData(options)
     await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
@@ -1004,7 +1005,7 @@ export async function mockKeylessSession(options: MockSessionWithTestDataOptions
 // accept the invite before the key detour redirects, or the membership is lost. Pass invitedEmail to
 // build the OTTER-788 case, where the invite was addressed to something the account does not own yet.
 export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?: string } = {}) {
-    const { user, org } = await mockKeylessSession({ orgType: 'lab' })
+    const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
 
     const email = invitedEmail ?? user.email!
     const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

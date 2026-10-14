@@ -1,7 +1,7 @@
 import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
-import { describe, expect, it, mockKeylessSession, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { describe, expect, it, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { requireUserKey } from './user-key-gate'
@@ -10,7 +10,7 @@ const requestPath = async (path: string) => (await headers()).set(REQUEST_PATH_H
 
 describe('requireUserKey', () => {
     it('redirects a keyless account to key setup', async () => {
-        await mockKeylessSession({ orgType: 'lab' })
+        await mockSessionWithTestData({ orgType: 'lab' })
 
         await requireUserKey()
 
@@ -18,7 +18,7 @@ describe('requireUserKey', () => {
     })
 
     it('carries the page a keyless account asked for to key setup', async () => {
-        const { org } = await mockKeylessSession({ orgType: 'lab' })
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
         await requestPath(`/${org.slug}/study/abc/review?tab=code`)
 
         await requireUserKey()
@@ -28,9 +28,9 @@ describe('requireUserKey', () => {
 
     // Otherwise the signup flow, which reaches the gate through My dashboard, would lose the
     // inviting org's landing.
-    it('does not carry My dashboard', async () => {
-        await mockKeylessSession({ orgType: 'lab' })
-        await requestPath(Routes.dashboard)
+    it.each([Routes.dashboard, Routes.home, `${Routes.dashboard}?skip=Acme`])('does not carry %s', async (path) => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        await requestPath(path)
 
         await requireUserKey()
 
@@ -38,7 +38,7 @@ describe('requireUserKey', () => {
     })
 
     it('drops a path that does not stay on this site', async () => {
-        await mockKeylessSession({ orgType: 'lab' })
+        await mockSessionWithTestData({ orgType: 'lab' })
         await requestPath('//evil.example/x')
 
         await requireUserKey()
