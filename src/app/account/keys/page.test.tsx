@@ -2,6 +2,7 @@ import {
     db,
     faker,
     fireEvent,
+    insertClaimedInvite,
     insertTestOrg,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -47,26 +48,39 @@ const renderKeysPage = async (confirmLabel = 'Yes, I have stored my key') => {
 }
 
 describe('KeysPage', () => {
-    it('lands a keyless single-org account on that org dashboard with no redirect_url', async () => {
+    it('lands a keyless single-org account on the org that invited it with no redirect_url', async () => {
         router.setCurrentUrl('/account/keys')
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         await renderKeysPage()
 
         await waitFor(() => expect(router.asPath).toBe(`/${org.slug}/dashboard`))
     })
 
-    it('lands a keyless multi-org account on My studies, since no org is unambiguous', async () => {
+    it('lands a keyless multi-org account on the org that invited it', async () => {
         router.setCurrentUrl('/account/keys')
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-        await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
+        const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: invitingOrg.id, isAdmin: false }).execute()
+        await insertClaimedInvite({ userId: user.id, orgId: invitingOrg.id })
 
         await renderKeysPage()
 
-        await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+        await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
+    })
+
+    it('returns a keyless account to the page it asked for rather than the inviting org', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        router.setCurrentUrl(`/account/keys?redirect_url=${encodeURIComponent(`/${org.slug}/study/abc/review`)}`)
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
+
+        await renderKeysPage()
+
+        await waitFor(() => expect(router.asPath).toBe(`/${org.slug}/study/abc/review`))
     })
 
     // OTTER-741: a direct visit by an account that already holds a key is a reset, and must say so.

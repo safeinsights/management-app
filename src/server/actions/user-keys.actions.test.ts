@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, faker, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    faker,
+    insertClaimedInvite,
+    insertTestOrg,
+    readTestSupportFile,
+} from '@/tests/unit.helpers'
 import {
     getKeyPageStateAction,
     getUserPublicKeyAction,
@@ -138,8 +145,15 @@ describe('getKeyPageStateAction', () => {
         return session
     }
 
-    it('returns the org dashboard when the account belongs to exactly one org', async () => {
-        const { org } = await keylessSession()
+    const joinOrg = async (userId: string) => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await db.insertInto('orgUser').values({ userId, orgId: org.id, isAdmin: false }).execute()
+        return org
+    }
+
+    it('returns the dashboard of the org whose invite the account claimed', async () => {
+        const { user, org } = await keylessSession()
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
@@ -148,7 +162,8 @@ describe('getKeyPageStateAction', () => {
     })
 
     it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
-        const { org } = await keylessSession({ orgType: 'lab' })
+        const { user, org } = await keylessSession({ orgType: 'lab' })
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
@@ -156,10 +171,43 @@ describe('getKeyPageStateAction', () => {
         })
     })
 
-    it('falls back to My studies when the account belongs to more than one org', async () => {
+    it('returns the inviting org for an account that belongs to more than one org', async () => {
         const { user } = await keylessSession()
-        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-        await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
+        const invitingOrg = await joinOrg(user.id)
+        await insertClaimedInvite({ userId: user.id, orgId: invitingOrg.id })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${invitingOrg.slug}/dashboard`,
+        })
+    })
+
+    it('prefers the most recent claimed invite', async () => {
+        const { user, org } = await keylessSession()
+        const laterOrg = await joinOrg(user.id)
+        await insertClaimedInvite({ userId: user.id, orgId: org.id, createdAt: new Date('2026-01-01') })
+        await insertClaimedInvite({ userId: user.id, orgId: laterOrg.id, createdAt: new Date('2026-01-02') })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${laterOrg.slug}/dashboard`,
+        })
+    })
+
+    it('skips a claimed invite to an org the account has since left', async () => {
+        const { user, org } = await keylessSession()
+        const leftOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await insertClaimedInvite({ userId: user.id, orgId: org.id, createdAt: new Date('2026-01-01') })
+        await insertClaimedInvite({ userId: user.id, orgId: leftOrg.id, createdAt: new Date('2026-01-02') })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
+        })
+    })
+
+    it('falls back to My studies for a single-org account with no claimed invite', async () => {
+        await keylessSession()
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
     })

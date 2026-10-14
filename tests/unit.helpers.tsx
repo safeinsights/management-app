@@ -1012,6 +1012,15 @@ export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?
     return { user, org, invitingOrg, invite, invitedEmail: email }
 }
 
+// An invite the account has already accepted, which is what records the org that invited it.
+export async function insertClaimedInvite({ userId, orgId, createdAt }: { userId: string; orgId: string; createdAt?: Date }) {
+    return await db
+        .insertInto('pendingUser')
+        .values({ email: testEmail(), orgId, isAdmin: false, claimedByUserId: userId, ...(createdAt ? { createdAt } : {}) })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+}
+
 type MockDualRoleSessionOptions = {
     labSlug?: string
     enclaveSlug?: string

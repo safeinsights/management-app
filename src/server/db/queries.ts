@@ -459,6 +459,22 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
+// pending_user keeps no claim time, so the newest invite stands in for the newest claim. The
+// membership join drops an org the account has since left.
+export const getLatestClaimedInviteOrg = async (userId: string) =>
+    await Action.db
+        .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
+        .innerJoin('orgUser', (join) =>
+            join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
+        )
+        .select('org.slug')
+        .where('pendingUser.claimedByUserId', '=', userId)
+        .orderBy('pendingUser.createdAt', 'desc')
+        .orderBy('pendingUser.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
 export const getInfoForStudyJobId = async (studyJobId: string) => {
     return await Action.db
         .selectFrom('studyJob')
