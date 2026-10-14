@@ -1,6 +1,6 @@
 'use client'
 
-import { Stack } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { PageHeader } from '@/components/page-header'
 
@@ -13,9 +13,11 @@ export type LegalPageShellProps = {
 
 export function LegalPageShell({ title, eyebrow, tabs }: LegalPageShellProps) {
     return (
-        <Stack p="md">
-            <PageHeader eyebrow={eyebrow} title={title} />
-            {tabs}
-        </Stack>
+        <Box p="md">
+            <Stack maw={1036} mx="auto">
+                <PageHeader eyebrow={eyebrow} title={title} />
+                {tabs}
+            </Stack>
+        </Box>
     )
 }

@@ -3,6 +3,7 @@ import {
     authFileFor,
     expect,
     expectLegalLayoutToMatchDesign,
+    LEGAL_DESIGN_VIEWPORT,
     goto,
     test,
     TestingUsers,
@@ -222,8 +223,12 @@ test.describe('Organization Admin', () => {
         expect(gap).toBeLessThanOrEqual(8)
     })
 
-    test('legal center layout matches the design', async ({ page }) => {
-        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
-        await expectLegalLayoutToMatchDesign(page)
+    test.describe('at the design frame width', () => {
+        test.use({ viewport: LEGAL_DESIGN_VIEWPORT })
+
+        test('legal center layout matches the design', async ({ page }) => {
+            await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+            await expectLegalLayoutToMatchDesign(page)
+        })
     })
 })
