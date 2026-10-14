@@ -6,8 +6,9 @@ import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
-import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
+import { NAV_UNREAD_QUERY_KEY, withScopeUnread, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
 import { getLabOrg, type UserSession } from '@/lib/types'
 import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
 import {
@@ -56,12 +57,32 @@ function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     )
 }
 
-// The side nav dots read the same rows, so each fresh table answer refreshes them too (OTTER-838).
-function useRefreshNavUnread(dataUpdatedAt: number) {
+// The side nav dot for this table's scope reads the same rows, so each fresh table answer patches
+// that dot in place rather than rerunning every dashboard query behind the nav (OTTER-838).
+function usePatchNavUnread({
+    studies,
+    dataUpdatedAt,
+    userId,
+    scope,
+    audience,
+    orgSlug,
+}: {
+    studies: StudyRowType[]
+    dataUpdatedAt: number
+    userId: string | undefined
+    scope: Scope
+    audience: Audience
+    orgSlug: string
+}) {
     const queryClient = useQueryClient()
     useEffect(() => {
-        if (dataUpdatedAt) void queryClient.invalidateQueries({ queryKey: NAV_UNREAD_QUERY_KEY })
-    }, [dataUpdatedAt, queryClient])
+        if (!dataUpdatedAt) return
+        const isUnread = studies.some((study) => isStudyUnread(study, audience))
+        queryClient.setQueryData<NavUnread>(
+            [...NAV_UNREAD_QUERY_KEY, userId],
+            (nav) => nav && withScopeUnread(nav, { scope, audience, orgSlug }, isUnread),
+        )
+    }, [dataUpdatedAt, studies, userId, scope, audience, orgSlug, queryClient])
 }
 
 // Belongs to is a My studies column, and only for someone in two or more orgs of the tab's kind.
@@ -144,7 +165,7 @@ export function StudiesTable({
         refetchOnWindowFocus: false,
     })
     const studies = data as StudyRowType[]
-    useRefreshNavUnread(dataUpdatedAt)
+    usePatchNavUnread({ studies, dataUpdatedAt, userId, scope, audience, orgSlug })
 
     const table = useStudiesTableRows({ studies, audience, scope, orgSlug: effectiveOrgSlug, session })
 

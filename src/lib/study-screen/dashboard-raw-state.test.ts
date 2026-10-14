@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import type { Audience, StudyRow } from './types'
+import type { StudyRow } from './dashboard-row.types'
+import type { StudyRole } from './state.types'
 import { dashboardRawStateFromRow, isStudyUnread, lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
 import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
 
@@ -69,7 +70,7 @@ describe('dashboardRawStateFromRow', () => {
 const NAMES = { dataPartner: 'Openstax', researchLab: 'Openstax Lab' }
 
 // Proves a StudyRow reaches the right pill; the rule matrix itself lives in pill.test.ts.
-const pill = (status: StudyStatus, audience: Audience, jobStatusChanges: Array<{ status: StudyJobStatus }> = []) =>
+const pill = (status: StudyStatus, audience: StudyRole, jobStatusChanges: Array<{ status: StudyJobStatus }> = []) =>
     resolvePillStatus(audience, rowStudyState(row({ status, jobStatusChanges })), NAMES)
 
 describe('row pill', () => {
@@ -97,7 +98,7 @@ describe('lastBadgeChangeAt', () => {
     const at = (minute: number) => new Date(Date.UTC(2026, 9, 1, 12, minute))
     const history = (...statuses: StudyJobStatus[]) =>
         statuses.map((status, i) => ({ status, createdAt: at(i + 1).toISOString() }))
-    const changedAt = (audience: Audience, jobStatusChanges: StudyRow['jobStatusChanges']) =>
+    const changedAt = (audience: StudyRole, jobStatusChanges: StudyRow['jobStatusChanges']) =>
         lastBadgeChangeAt(row({ status: 'APPROVED', jobStatusChanges }), audience)
 
     it('moves both dates when the lab opens a code round', () => {

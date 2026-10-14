@@ -17,7 +17,10 @@ describe('AppNav unread dots', () => {
         const { user: previous } = await mockSessionWithTestData({ orgType: 'lab' })
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData(['nav-unread', previous.id], { myStudies: true, orgSlugs: [org.slug] })
+        queryClient.setQueryData(['nav-unread', previous.id], {
+            myStudies: { researcher: true, reviewer: false },
+            orgSlugs: [org.slug],
+        })
 
         renderWithProviders(
             <AppShell navbar={{ width: 240, breakpoint: 'sm' }}>

@@ -46,7 +46,8 @@ import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/l
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { projectStudyState } from '@/lib/study-screen'
-import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
+import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
+import { NOTHING_UNREAD } from '@/lib/nav/side-nav'
 
 // Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
 vi.mock('@/server/mailgun', async (importOriginal) => ({
@@ -769,11 +770,14 @@ describe('dashboard rows (OTTER-617)', () => {
                 const { lab, studyId, creator } = await submittedStudy()
                 asUser(creator, lab)
 
-                expect(actionResult(await fetchNavUnreadAction())).toEqual({ myStudies: true, orgSlugs: [lab.slug] })
+                expect(actionResult(await fetchNavUnreadAction())).toEqual({
+                    myStudies: { researcher: true, reviewer: false },
+                    orgSlugs: [lab.slug],
+                })
 
                 actionResult(await markStudyOpenedAction({ studyId }))
 
-                expect(actionResult(await fetchNavUnreadAction())).toEqual({ myStudies: false, orgSlugs: [] })
+                expect(actionResult(await fetchNavUnreadAction())).toEqual(NOTHING_UNREAD)
             })
 
             it('marks the data partner only for studies it can see', async () => {
@@ -795,18 +799,24 @@ describe('dashboard rows (OTTER-617)', () => {
                 expect(actionResult(await fetchNavUnreadAction()).orgSlugs).toEqual([])
             })
 
-            // My studies covers both tabs, so a reviewer-side change marks it for a dual-role person.
-            it('marks My studies for a study on the reviewer tab', async () => {
+            // One flag per tab, so each My studies table can patch its own half of the nav.
+            it('marks the reviewer tab of My studies for a study on that tab', async () => {
                 const { enclave, studyId } = await submittedStudy()
                 const { user: reviewer } = await insertTestUser({ org: enclave })
                 await proposalComment(studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
                 asUser(reviewer, enclave)
 
-                expect(actionResult(await fetchNavUnreadAction()).myStudies).toBe(true)
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toEqual({
+                    researcher: false,
+                    reviewer: true,
+                })
 
                 actionResult(await markStudyOpenedAction({ studyId }))
 
-                expect(actionResult(await fetchNavUnreadAction()).myStudies).toBe(false)
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toEqual({
+                    researcher: false,
+                    reviewer: false,
+                })
             })
         })
     })

@@ -46,6 +46,6 @@ export const Unread: Story = () => (
     <Shell
         focusedOrgSlug={null}
         pathname={Routes.dashboard}
-        unread={{ myStudies: true, orgSlugs: ['openstax-data', 'mars-university'] }}
+        unread={{ myStudies: { researcher: true, reviewer: false }, orgSlugs: ['openstax-data', 'mars-university'] }}
     />
 )

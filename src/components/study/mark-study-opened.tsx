@@ -2,10 +2,14 @@
 
 import { type FC, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { STUDIES_TABLE_QUERY_KEYS } from '@/components/dashboard/studies-table'
 import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
+import { actionResult } from '@/lib/utils'
 import { markStudyOpenedAction } from '@/server/actions/study.actions'
+
+type Stamp = { studyId: string; isEnter: boolean }
 
 // Stamped on leaving too, so a change made during the visit never marks the study unread (OTTER-838).
 // The server stamps when the write arrives, so it is never retried or held offline: a late stamp
@@ -13,15 +17,19 @@ import { markStudyOpenedAction } from '@/server/actions/study.actions'
 function useMarkStudyOpened(studyId: string | undefined) {
     const queryClient = useQueryClient()
     const { mutate } = useMutation({
-        mutationFn: (id: string) => markStudyOpenedAction({ studyId: id }),
-        // The dashboard refetches on mount and can read the rows before the leave stamp lands.
-        onSuccess: async () => {
+        mutationFn: async ({ studyId: id }: Stamp) => actionResult(await markStudyOpenedAction({ studyId: id })),
+        // The dashboard refetches on mount and can read the rows before the leave stamp lands. Only
+        // entering refetches the nav: a dashboard reached on leaving patches its own dot.
+        onSuccess: async (_, { isEnter }) => {
+            const tableKeys = STUDIES_TABLE_QUERY_KEYS.map((key) => [key])
             await Promise.all(
-                [...STUDIES_TABLE_QUERY_KEYS.map((key) => [key]), NAV_UNREAD_QUERY_KEY].map((queryKey) =>
+                [...tableKeys, ...(isEnter ? [NAV_UNREAD_QUERY_KEY] : [])].map((queryKey) =>
                     queryClient.invalidateQueries({ queryKey }),
                 ),
             )
         },
+        // A stamp that keeps failing leaves every dot lit, and the reader cannot act on it.
+        onError: (error) => captureException(error),
         networkMode: 'always',
     })
     const markedOnEnter = useRef<string | null>(null)
@@ -31,9 +39,9 @@ function useMarkStudyOpened(studyId: string | undefined) {
         // The ref stops StrictMode's remount from writing the enter stamp twice.
         if (markedOnEnter.current !== studyId) {
             markedOnEnter.current = studyId
-            mutate(studyId)
+            mutate({ studyId, isEnter: true })
         }
-        return () => mutate(studyId)
+        return () => mutate({ studyId, isEnter: false })
     }, [studyId, mutate])
 }
 

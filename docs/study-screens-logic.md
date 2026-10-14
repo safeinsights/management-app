@@ -503,7 +503,7 @@ the template without opening a round, and `submitStudyCodeAction` refuses until 
 | 16  | fallback                                              | `proposal-draft`              |
 
 Rows carry no status-based highlight. A row's only emphasis is the per-person unread dot
-(OTTER-838): `isStudyUnread` in `components/dashboard/studies-table/dashboard-raw-state.ts` compares
+(OTTER-838): `isStudyUnread` in `lib/study-screen/dashboard-raw-state.ts` compares
 the row's Last updated value with the viewer's last visit, and the badge already says who must act.
 
 > `code-declined` has no row in the product spec, because the reject action is hidden from reviewers

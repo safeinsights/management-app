@@ -4,6 +4,7 @@ import {
     db,
     describe,
     expect,
+    faker,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -12,8 +13,15 @@ import {
     renderWithProviders,
     waitFor,
 } from '@/tests/unit.helpers'
+import { vi } from 'vitest'
+import { captureException } from '@sentry/nextjs'
 import { useParams } from 'next/navigation'
 import { MarkStudyOpened } from './mark-study-opened'
+
+vi.mock('@sentry/nextjs', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sentry/nextjs')>()),
+    captureException: vi.fn(),
+}))
 
 const onRoute = (params: { orgSlug: string; studyId?: string }) => (useParams as Mock).mockReturnValue(params)
 
@@ -105,23 +113,45 @@ describe('MarkStudyOpened', () => {
         window.dispatchEvent(new Event('online'))
     })
 
-    // Without this the dashboard and the side nav can show a dot for the study just left.
-    it('invalidates the studies tables and the side nav once the visit is recorded', async () => {
+    // Without this the dashboard and the side nav can show a dot for the study just left. Leaving
+    // skips the nav: the dashboard it lands on patches its own dot.
+    it('invalidates the tables on both stamps and the side nav on entering only', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData(['researcher-studies', org.slug], [])
-        queryClient.setQueryData(['user-reviewer-studies', user.id], [])
-        queryClient.setQueryData(['nav-unread', user.id], { myStudies: true, orgSlugs: [] })
+        const tableKeys = [
+            ['researcher-studies', org.slug],
+            ['user-reviewer-studies', user.id],
+        ]
+        const navKey = ['nav-unread', user.id]
+        const prime = () => {
+            tableKeys.forEach((key) => queryClient.setQueryData(key, []))
+            queryClient.setQueryData(navKey, { myStudies: { researcher: true, reviewer: false }, orgSlugs: [] })
+        }
+        const isInvalidated = (key: string[]) => queryClient.getQueryState(key)?.isInvalidated
+        prime()
         onRoute({ orgSlug: org.slug, studyId: study.id })
 
         const { unmount } = renderWithProviders(<MarkStudyOpened />, { queryClient })
+        await waitFor(() => [...tableKeys, navKey].forEach((key) => expect(isInvalidated(key)).toBe(true)))
+        await waitFor(() => expect(queryClient.isMutating()).toBe(0))
 
-        await waitFor(() => {
-            expect(queryClient.getQueryState(['researcher-studies', org.slug])?.isInvalidated).toBe(true)
-            expect(queryClient.getQueryState(['user-reviewer-studies', user.id])?.isInvalidated).toBe(true)
-            expect(queryClient.getQueryState(['nav-unread', user.id])?.isInvalidated).toBe(true)
-        })
+        prime()
+        unmount()
+        await waitFor(() => tableKeys.forEach((key) => expect(isInvalidated(key)).toBe(true)))
+        await waitFor(() => expect(queryClient.isMutating()).toBe(0))
+        expect(isInvalidated(navKey)).toBe(false)
+    })
+
+    // Otherwise a stamp that always fails leaves every dot lit with no trace.
+    it('reports a failed stamp to Sentry', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const queryClient = createTestQueryClient()
+        onRoute({ orgSlug: org.slug, studyId: faker.string.uuid() })
+
+        const { unmount } = renderWithProviders(<MarkStudyOpened />, { queryClient })
+
+        await waitFor(() => expect(captureException).toHaveBeenCalledWith(expect.any(Error)))
         unmount()
         await waitFor(() => expect(queryClient.isMutating()).toBe(0))
     })

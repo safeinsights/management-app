@@ -17,8 +17,8 @@ import {
     reviewFeedbackDocNameForVersion,
 } from '@/lib/collaboration-documents'
 import type { StudyRole } from '@/lib/study-screen/state.types'
-import { isStudyUnread } from '@/components/dashboard/studies-table/dashboard-raw-state'
-import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import {
     CODE_DECISION_JOB_STATUSES,
     ROUND_CLOSING_JOB_STATUSES,
@@ -374,7 +374,10 @@ export const fetchNavUnreadAction = new Action('fetchNavUnreadAction')
             ),
         ])
         return {
-            myStudies: anyUnread(researcherRows, 'researcher') || anyUnread(reviewerRows, 'reviewer'),
+            myStudies: {
+                researcher: anyUnread(researcherRows, 'researcher'),
+                reviewer: anyUnread(reviewerRows, 'reviewer'),
+            },
             orgSlugs: orgs.filter((org) => org.isUnread).map((org) => org.slug),
         }
     })

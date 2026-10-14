@@ -99,7 +99,7 @@ describe('SideNavView', () => {
                     orgs={[partner, lab]}
                     focusedOrgSlug="lab"
                     pathname={Routes.orgDashboard({ orgSlug: 'lab' })}
-                    unread={{ myStudies: true, orgSlugs: ['lab'] }}
+                    unread={{ myStudies: { researcher: true, reviewer: false }, orgSlugs: ['lab'] }}
                 />,
             )
 
@@ -111,14 +111,14 @@ describe('SideNavView', () => {
             expect(within(nav).getAllByText('Updated')).toHaveLength(2)
         })
 
-        // Selecting a row clears nothing; only opening a study does.
+        // Selecting a row clears nothing; only opening a study does. The reviewer tab alone lights it.
         it('keeps the dot on the selected My studies row', () => {
             renderWithProviders(
                 <SideNavView
                     orgs={[lab]}
                     focusedOrgSlug={null}
                     pathname={Routes.dashboard}
-                    unread={{ myStudies: true, orgSlugs: [] }}
+                    unread={{ myStudies: { researcher: false, reviewer: true }, orgSlugs: [] }}
                 />,
             )
 

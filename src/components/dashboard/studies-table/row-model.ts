@@ -3,7 +3,7 @@ import { Routes } from '@/lib/routes'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { StatusLabel } from '@/lib/status-labels'
 import { resolveDashboardAction, resolvePillStatus, type StudyState } from '@/lib/study-screen'
-import { isStudyUnread, lastActivityAt, rowStudyState, timeOf } from './dashboard-raw-state'
+import { isStudyUnread, lastActivityAt, rowStudyState, timeOf } from '@/lib/study-screen/dashboard-raw-state'
 import { dataPartnerDisplayName, labDisplayName, pillOrgNamesFromRow } from './pill-context'
 import type { Audience, StudyRow } from './types'
 

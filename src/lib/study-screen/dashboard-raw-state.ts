@@ -1,12 +1,8 @@
-import {
-    projectStudyState,
-    resolvePillId,
-    type RawStudyState,
-    type StudyRole,
-    type StudyState,
-} from '@/lib/study-screen'
 import type { PillId } from '@/lib/status-labels'
-import type { StudyRow } from './types'
+import type { StudyRow } from './dashboard-row.types'
+import { resolvePillId } from './pill'
+import { projectStudyState } from './state'
+import type { RawStudyState, StudyRole, StudyState } from './state.types'
 
 // Diverging from /view's latest-*submitted*-job projection is deliberate: the dashboard tracks
 // the current round. Do not "fix" it to mirror /view.
