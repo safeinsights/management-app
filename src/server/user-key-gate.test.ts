@@ -15,7 +15,7 @@ describe('requireUserKey', () => {
     })
 
     it('lets an account that holds a key through', async () => {
-        await mockSessionWithTestData()
+        await mockSessionWithTestData({ orgType: 'enclave' })
 
         await requireUserKey()
 

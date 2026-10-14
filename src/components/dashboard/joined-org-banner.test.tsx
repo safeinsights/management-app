@@ -12,7 +12,7 @@ import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { JoinedOrgBanner } from './joined-org-banner'
 
 // insertTestUser only seeds a public key for enclave orgs, so orgType picks the key state:
-// 'enclave' is keyed, 'lab' is the keyless user RequireUserKey bounces to key setup.
+// 'enclave' is keyed, 'lab' is the keyless user the layout sends to key setup.
 const KEYED = 'enclave'
 const KEYLESS = 'lab'
 
