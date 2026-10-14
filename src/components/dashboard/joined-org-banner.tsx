@@ -16,8 +16,8 @@ const bannerMessage = ({ orgName, linkedEmail }: JoinedOrg) =>
 export function JoinedOrgBanner() {
     const [joinedOrg, setJoinedOrg] = useState<JoinedOrg | null>(null)
 
-    // A keyless user mounts the dashboard transiently before RequireUserKey redirects them, so
-    // the one-shot flag waits on that same key check rather than a delay (OTTER-639).
+    // Waits on a definite key so a keyless account keeps the one-shot flag for the landing after
+    // key setup (OTTER-639).
     useEffect(() => {
         const joined = readJoinedOrg()
         if (!joined) return

@@ -27,7 +27,7 @@ interface Keys {
     fingerprint: string
 }
 
-// Keyed off account state, not the parameter's presence, because RequireUserKey passes none.
+// Keyed off account state, not the parameter's presence, because the layout key redirect passes none.
 // firstKeyRedirect is the fallback so a malformed redirect_url cannot demote a first key
 // to Routes.dashboard (OTTER-655).
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
