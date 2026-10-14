@@ -102,6 +102,8 @@ vi.mock('next/router', () => require('next-router-mock'))
 vi.mock('next/server', async (importOriginal) => ({
     ...(await importOriginal()),
     after: mockState.runDeferredTestCallback,
+    // The real one throws outside a request scope, so server layouts could not be called in a test.
+    connection: async () => {},
 }))
 
 // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
