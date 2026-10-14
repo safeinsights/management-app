@@ -1,5 +1,11 @@
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { mockSessionWithTestData, renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import {
+    createTestQueryClient,
+    mockSessionWithTestData,
+    renderWithProviders,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { ExternalLinks } from '@/lib/routes'
 import { screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -431,5 +437,38 @@ describe('Studies Table', () => {
         )
 
         expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
+    })
+
+    // The table owns its scope's dot, so a fetch patches that one org and refetches nothing (OTTER-838).
+    describe('side nav dot', () => {
+        const opened = (lastOpenedAt: Date | null) => [{ ...mockStudies[0], lastOpenedAt }] as unknown as OrgStudies
+
+        const renderWithNav = async (studies: OrgStudies, isOrgMarked: boolean) => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const navKey = ['nav-unread', user.id]
+            vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce(studies)
+            const queryClient = createTestQueryClient()
+            queryClient.setQueryData(navKey, {
+                myStudies: { researcher: true, reviewer: false },
+                orgSlugs: isOrgMarked ? ['other-org', org.slug] : ['other-org'],
+            })
+            renderWithProviders(<StudiesTable audience="reviewer" scope="org" orgSlug={org.slug} />, { queryClient })
+            const navOrgs = () => queryClient.getQueryData<{ orgSlugs: string[] }>(navKey)?.orgSlugs
+            return { org, queryClient, navKey, navOrgs }
+        }
+
+        it('marks its own org for an unopened row, without refetching the nav', async () => {
+            const { org, queryClient, navKey, navOrgs } = await renderWithNav(opened(null), false)
+
+            await waitFor(() => expect(navOrgs()).toEqual(['other-org', org.slug]))
+            expect(queryClient.getQueryData(navKey)).toMatchObject({ myStudies: { researcher: true, reviewer: false } })
+            expect(queryClient.getQueryState(navKey)?.isInvalidated).toBe(false)
+        })
+
+        it('clears only its own org once every row is opened', async () => {
+            const { navOrgs } = await renderWithNav(opened(new Date(Date.now() + 60_000)), true)
+
+            await waitFor(() => expect(navOrgs()).toEqual(['other-org']))
+        })
     })
 })

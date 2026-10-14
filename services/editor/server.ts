@@ -20,6 +20,7 @@ import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
 import { ResilientDbPool } from './db-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
 import { mirrorProposalTitleToStudy } from './title-mirror.ts'
+import { editorUserIds, markStudyOpenedByEditors } from './study-visit.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
 // logging when authentication has already failed. Returns null on any error.
@@ -94,7 +95,7 @@ const server = new Server({
                 })
                 return result.rows[0]?.data ?? null
             },
-            store: async ({ documentName, state, document }) => {
+            store: async ({ documentName, state, document, context }) => {
                 const parsed = parseDocumentName(documentName)
                 if (!parsed) {
                     log('db.store.reject', { documentName, reason: 'unrecognized-name' })
@@ -115,6 +116,18 @@ const server = new Server({
                     [documentName, Buffer.from(state), studyId],
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
+
+                // Best-effort like the title mirror below: the edit is already persisted.
+                try {
+                    const editors = editorUserIds([context, ...document.getConnections().map((c) => c.context)])
+                    await markStudyOpenedByEditors(studyId, editors, pool)
+                } catch (err) {
+                    log('db.store.studyVisit.fail', {
+                        documentName,
+                        studyId,
+                        message: err instanceof Error ? err.message : String(err),
+                    })
+                }
 
                 // Best-effort: Yjs is already persisted above; a mirror failure must not
                 // fail the store hook or roll back the canonical document write.

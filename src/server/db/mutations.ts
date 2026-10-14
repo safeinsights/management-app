@@ -147,3 +147,21 @@ export function nextVersionForStudyComment({ studyId, increment }: { studyId: st
     ), 1)`
     return increment ? sql<number>`${current} + 1` : current
 }
+
+// Opening a study and saving your own edit both count as having seen it (OTTER-838). The stamp
+// never moves back, and `seenAt` covers an edit time taken from the app clock rather than the DB's.
+export async function markStudyOpened(
+    db: Kysely<DB>,
+    { studyId, userId, seenAt }: { studyId: string; userId: string; seenAt?: Date },
+) {
+    const openedAt = seenAt ? sql<Date>`greatest(clock_timestamp(), ${seenAt})` : sql<Date>`clock_timestamp()`
+    await db
+        .insertInto('studyLastOpened')
+        .values({ studyId, userId, openedAt })
+        .onConflict((oc) =>
+            oc.columns(['userId', 'studyId']).doUpdateSet((eb) => ({
+                openedAt: eb.fn('greatest', [eb.ref('studyLastOpened.openedAt'), eb.ref('excluded.openedAt')]),
+            })),
+        )
+        .execute()
+}

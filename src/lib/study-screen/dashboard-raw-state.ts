@@ -1,12 +1,8 @@
-import {
-    projectStudyState,
-    resolvePillId,
-    type RawStudyState,
-    type StudyRole,
-    type StudyState,
-} from '@/lib/study-screen'
 import type { PillId } from '@/lib/status-labels'
-import type { StudyRow } from './types'
+import type { StudyRow } from './dashboard-row.types'
+import { resolvePillId } from './pill'
+import { projectStudyState } from './state'
+import type { RawStudyState, StudyRole, StudyState } from './state.types'
 
 // Diverging from /view's latest-*submitted*-job projection is deliberate: the dashboard tracks
 // the current round. Do not "fix" it to mirror /view.
@@ -67,3 +63,17 @@ export function lastBadgeChangeAt(study: StudyRow, audience: StudyRole): Date | 
     }
     return changedAt === null ? null : new Date(changedAt)
 }
+
+export const timeOf = (at: Date | string | null | undefined) => (at ? new Date(at).getTime() : null)
+
+export const newestDate = (...dates: Array<Date | string | null | undefined>): Date =>
+    new Date(Math.max(...dates.map((date) => timeOf(date) ?? 0)))
+
+// The Last updated column's value. The unread dot compares against this same value, so the dot and
+// the date shown beside it never disagree (OTTER-838).
+export const lastActivityAt = (study: StudyRow, audience: StudyRole): Date =>
+    newestDate(study.lastUpdatedAt, lastBadgeChangeAt(study, audience), study.ownEditsAt)
+
+// Never opened counts as unread: a study the person has not seen is new to them.
+export const isStudyUnread = (study: StudyRow, audience: StudyRole): boolean =>
+    !study.lastOpenedAt || lastActivityAt(study, audience).getTime() > new Date(study.lastOpenedAt).getTime()

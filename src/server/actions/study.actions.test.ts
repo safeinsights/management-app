@@ -30,7 +30,9 @@ import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
+    fetchNavUnreadAction,
     getCodeReviewFeedbackAction,
+    markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
     getStudyAction,
     softDeleteStudyAction,
@@ -44,7 +46,8 @@ import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/l
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { proposalFieldsDocName } from '@/lib/collaboration-documents'
 import { projectStudyState } from '@/lib/study-screen'
-import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
+import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
+import { NOTHING_UNREAD } from '@/lib/nav/side-nav'
 
 // Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
 vi.mock('@/server/mailgun', async (importOriginal) => ({
@@ -680,6 +683,141 @@ describe('dashboard rows (OTTER-617)', () => {
             expect(ids).toContain(proposalDecided.studyId)
             expect(ids).toContain(earlierRound.studyId)
             expect(ids).not.toContain(colleagueOnly.studyId)
+        })
+    })
+
+    describe('last opened (OTTER-838)', () => {
+        const openStudy = (studyId: string, userId: string, openedAt: Date) =>
+            db.insertInto('studyLastOpened').values({ studyId, userId, openedAt }).execute()
+
+        it("returns only the viewer's own last visit on every dashboard", async () => {
+            const { enclave, lab, studyId, creator } = await submittedStudy()
+            const { user: teammate } = await insertTestUser({ org: lab })
+            const openedAt = new Date('2026-09-05T10:00:00Z')
+            await openStudy(studyId, creator.id, openedAt)
+
+            expect((await labRow(lab.slug, studyId)).lastOpenedAt).toEqual(openedAt)
+            const mine = actionResult(await fetchStudiesForCurrentResearcherUserAction())
+            expect(mine.find((row) => row.id === studyId)!.lastOpenedAt).toEqual(openedAt)
+
+            asUser(teammate, lab)
+            expect((await labRow(lab.slug, studyId)).lastOpenedAt).toBeNull()
+
+            const { user: reviewer } = await insertTestUser({ org: enclave })
+            await proposalComment(studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
+            asUser(reviewer, enclave)
+            const reviewed = actionResult(await fetchStudiesForCurrentReviewerAction())
+            expect(reviewed.find((row) => row.id === studyId)!.lastOpenedAt).toBeNull()
+        })
+
+        const stampOf = async (studyId: string, userId: string) =>
+            db
+                .selectFrom('studyLastOpened')
+                .select('openedAt')
+                .where('studyId', '=', studyId)
+                .where('userId', '=', userId)
+                .execute()
+
+        it('records one row per person and study, moving it forward on each visit', async () => {
+            const { lab, studyId, creator } = await submittedStudy()
+            const { studyId: otherStudyId } = await submittedStudy()
+            asUser(creator, lab)
+            const lastUpdatedBefore = (
+                await db.selectFrom('study').select('lastUpdatedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+            ).lastUpdatedAt
+
+            actionResult(await markStudyOpenedAction({ studyId }))
+            const [first] = await stampOf(studyId, creator.id)
+            actionResult(await markStudyOpenedAction({ studyId }))
+            const rows = await stampOf(studyId, creator.id)
+
+            expect(rows).toHaveLength(1)
+            expect(rows[0].openedAt.getTime()).toBeGreaterThanOrEqual(first.openedAt.getTime())
+            expect(await stampOf(otherStudyId, creator.id)).toHaveLength(0)
+            const lastUpdatedAfter = (
+                await db.selectFrom('study').select('lastUpdatedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
+            ).lastUpdatedAt
+            expect(lastUpdatedAfter).toEqual(lastUpdatedBefore)
+        })
+
+        // A visit write that lands late, from another tab or after a slow request, must not move
+        // the stamp back and resurface changes the person has already seen.
+        it('never moves the stamp back', async () => {
+            const { lab, studyId, creator } = await submittedStudy()
+            const later = new Date(Date.now() + 60 * 60 * 1000)
+            await openStudy(studyId, creator.id, later)
+            asUser(creator, lab)
+
+            actionResult(await markStudyOpenedAction({ studyId }))
+
+            expect(await stampOf(studyId, creator.id)).toEqual([{ openedAt: later }])
+        })
+
+        it('refuses someone who cannot view the study', async () => {
+            const { studyId } = await submittedStudy()
+            const outsiderLab = await insertTestOrg({ slug: `otter-838-outsider-${Date.now()}`, type: 'lab' })
+            const { user: outsider } = await insertTestUser({ org: outsiderLab })
+            asUser(outsider, outsiderLab)
+
+            const result = await markStudyOpenedAction({ studyId })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+            expect(await stampOf(studyId, outsider.id)).toHaveLength(0)
+        })
+
+        describe('side nav dots', () => {
+            it('marks My studies and the lab until the researcher opens the study', async () => {
+                const { lab, studyId, creator } = await submittedStudy()
+                asUser(creator, lab)
+
+                expect(actionResult(await fetchNavUnreadAction())).toEqual({
+                    myStudies: { researcher: true, reviewer: false },
+                    orgSlugs: [lab.slug],
+                })
+
+                actionResult(await markStudyOpenedAction({ studyId }))
+
+                expect(actionResult(await fetchNavUnreadAction())).toEqual(NOTHING_UNREAD)
+            })
+
+            it('marks the data partner only for studies it can see', async () => {
+                const { enclave, lab, studyId: submittedId } = await submittedStudy()
+                const { user: reviewer } = await insertTestUser({ org: enclave })
+                const { study: draft } = await insertTestStudyOnly({
+                    org: enclave,
+                    submittedByOrg: lab,
+                    status: 'DRAFT',
+                })
+                asUser(reviewer, enclave)
+
+                expect(actionResult(await fetchNavUnreadAction()).orgSlugs).toEqual([enclave.slug])
+
+                actionResult(await markStudyOpenedAction({ studyId: submittedId }))
+
+                // The draft is still unopened, but the data partner never sees drafts.
+                expect(draft.status).toBe('DRAFT')
+                expect(actionResult(await fetchNavUnreadAction()).orgSlugs).toEqual([])
+            })
+
+            // One flag per tab, so each My studies table can patch its own half of the nav.
+            it('marks the reviewer tab of My studies for a study on that tab', async () => {
+                const { enclave, studyId } = await submittedStudy()
+                const { user: reviewer } = await insertTestUser({ org: enclave })
+                await proposalComment(studyId, reviewer.id, 'REVIEWER-FEEDBACK', new Date())
+                asUser(reviewer, enclave)
+
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toEqual({
+                    researcher: false,
+                    reviewer: true,
+                })
+
+                actionResult(await markStudyOpenedAction({ studyId }))
+
+                expect(actionResult(await fetchNavUnreadAction()).myStudies).toEqual({
+                    researcher: false,
+                    reviewer: false,
+                })
+            })
         })
     })
 })

@@ -17,6 +17,8 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     createdAt: new Date('2026-05-18'),
     submittedAt: new Date('2026-05-19'),
     lastUpdatedAt: new Date('2026-05-21'),
+    // Opened after the last change; a story passes null to show the unread dot.
+    lastOpenedAt: new Date('2026-06-01'),
     reviewerName: null,
     researcherId: 'user-1',
     reviewerId: null,
@@ -53,7 +55,7 @@ export const ResearchLabWithStudies: Story = () => (
             {...table(
                 [
                     study({ id: '00000000-0000-4000-8000-000000000001', title: 'Foo', status: 'DRAFT' }),
-                    study({ id: '00000000-0000-4000-8000-000000000002', title: 'JP New Study' }),
+                    study({ id: '00000000-0000-4000-8000-000000000002', title: 'JP New Study', lastOpenedAt: null }),
                     study({
                         id: '00000000-0000-4000-8000-000000000003',
                         title: 'Results ready study',
