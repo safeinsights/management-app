@@ -56,7 +56,7 @@ export function InviteFormView({
                 <Radio.Group
                     label="Assign Permissions"
                     withAsterisk
-                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
+                    labelProps={{ fw: fontWeight.semibold, mb: 'xxs' }}
                     name="permission"
                     {...permissionRest}
                     ref={permissionRef}

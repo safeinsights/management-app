@@ -89,7 +89,6 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     isRegenerating = false,
     firstKeyRedirect = Routes.dashboard,
 }) => {
-    const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
@@ -129,15 +128,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                     <Text fz={14} fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
-                    <Code
-                        block
-                        style={{
-                            maxHeight: 160,
-                            border: `1px solid ${theme.colors.grey[7]}`,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
-                    >
+                    <Code block mah={160} bd={`1px solid ${semanticColor('border.dark')}`} className="pre-wrap">
                         {keys.privateKey}
                     </Code>
                 </Stack>

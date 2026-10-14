@@ -130,7 +130,7 @@ const SectionLayout: FC<SectionLayoutProps> = ({ isNested, description, launchCo
                 <SectionHeading description={description} />
                 {launchControl}
             </Group>
-            <Divider my="lg" color={semanticColor('border.default')} data-testid="your-files-divider" />
+            <Divider my="lg" data-testid="your-files-divider" />
             {body}
         </Paper>
     )

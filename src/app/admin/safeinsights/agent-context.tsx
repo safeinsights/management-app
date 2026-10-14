@@ -8,6 +8,7 @@ import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { showToast } from '@/components/toast-notifications'
+import { semanticColor } from '@/theme/tokens'
 
 type ContextProps = { name: ContextName; orgId: string | null }
 
@@ -77,7 +78,7 @@ function AgentContextDataLoader({ name, orgId }: ContextProps) {
 
     if (error) {
         return (
-            <Text c="red">
+            <Text c={semanticColor('error.text')}>
                 Failed to load context for {name}: {error.message}
             </Text>
         )

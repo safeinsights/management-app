@@ -17,6 +17,7 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import clsx from 'clsx'
 import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
 import { SecurityScanPanel, isScanPending } from './security-scan-panel'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -61,14 +62,11 @@ export function splitVisibleFiles(files: CodeFile[]) {
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
 }
 
-// Panda's preflight zeroes list-style globally, so restore markers explicitly.
+// The feedback editor's list classes (globals.css), so summary lists indent like reviewer feedback
+// rather than with Typography's wider defaults.
 const MARKDOWN_LIST_COMPONENTS: Components = {
-    ul: ({ node: _node, ...props }) => (
-        <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
-    ),
-    ol: ({ node: _node, ...props }) => (
-        <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
-    ),
+    ul: ({ node: _node, className, ...props }) => <ul className={clsx('editable-text-ul', className)} {...props} />,
+    ol: ({ node: _node, className, ...props }) => <ol className={clsx('editable-text-ol', className)} {...props} />,
 }
 
 function AiSummaryContent({ summary }: { summary: string }) {
@@ -353,12 +351,8 @@ function FileTab({
             gap={0}
             wrap="nowrap"
             align="center"
-            style={{
-                backgroundColor: isActive ? 'var(--mantine-color-blue-7)' : 'transparent',
-                borderRadius: 0,
-                whiteSpace: 'nowrap',
-                paddingRight: 6,
-            }}
+            bg={isActive ? semanticColor('surface.selected') : undefined}
+            pr="xs"
         >
             <UnstyledButton
                 onClick={onClick}
@@ -368,9 +362,14 @@ function FileTab({
                 pl="md"
                 pr="xs"
                 py="xs"
-                style={{ whiteSpace: 'nowrap' }}
             >
-                <Text size="sm" component="span" c={isActive ? 'white' : 'charcoal.7'} fw={fontWeight.regular}>
+                <Text
+                    size="sm"
+                    component="span"
+                    c={isActive ? semanticColor('text.white') : semanticColor('text.secondary')}
+                    fw={fontWeight.regular}
+                    className="nowrap"
+                >
                     {display}
                 </Text>
             </UnstyledButton>
@@ -408,14 +407,9 @@ function OverflowFilesMenu({
     return (
         <Menu position="bottom-start" withinPortal shadow="md">
             <Menu.Target>
-                <UnstyledButton
-                    data-testid="study-code-files-overflow"
-                    px="md"
-                    py="xs"
-                    style={{ borderRadius: 0, whiteSpace: 'nowrap' }}
-                >
-                    <Group gap="xxs" wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
-                        <Text size="sm" c={semanticColor('text.secondary')} component="span">
+                <UnstyledButton data-testid="study-code-files-overflow" px="md" py="xs">
+                    <Group gap="xxs" wrap="nowrap" align="center">
+                        <Text size="sm" c={semanticColor('text.secondary')} component="span" className="nowrap">
                             +{hidden.length} more files
                         </Text>
                         <CaretRightIcon size={12} weight="bold" />
@@ -430,7 +424,7 @@ function OverflowFilesMenu({
 function CodeFilesHeading({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
     return (
-        <Text fw={700} fz={16}>
+        <Text fw={fontWeight.bold} fz={16}>
             Code files
         </Text>
     )
@@ -463,7 +457,7 @@ function FileTabsRow({
     ))
 
     return (
-        <Group gap="sm" wrap="nowrap" style={{ overflow: 'hidden' }} data-testid="study-code-file-tabs">
+        <Group gap="sm" wrap="nowrap" className="clip" data-testid="study-code-file-tabs">
             {tabs}
             <OverflowFilesMenu
                 hidden={hidden}
@@ -505,7 +499,10 @@ function CodeFileDownloadButton({
             aria-label={`Download ${fileName}`}
             data-testid="study-code-download"
         >
-            <DownloadSimpleIcon weight="fill" color={isActive ? 'white' : 'var(--mantine-color-charcoal-7)'} />
+            <DownloadSimpleIcon
+                weight="fill"
+                color={isActive ? semanticColor('text.white') : semanticColor('icon.dark')}
+            />
         </ActionIcon>
     )
 }

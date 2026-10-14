@@ -4,20 +4,14 @@ import {
     useCallback,
     useEffect,
     useRef,
-    type CSSProperties,
     type MouseEvent as ReactMouseEvent,
     type ReactNode,
     type RefObject,
 } from 'react'
-import { Popover } from '@mantine/core'
+import { Box, Popover } from '@mantine/core'
 import { useIsomorphicEffect } from '@mantine/hooks'
 import type { LexicalEditor } from 'lexical'
 import { LINK_CARD_POPOVER_PROPS } from '@/components/link-hover-card/link-card-interactions'
-
-// Out of flow and sized to nothing, so mounting the card inside read-only content cannot add a
-// line to a clamped block. Only the measured box matters, never where the host itself lands.
-const ANCHOR_HOST_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: 0, height: 0 }
-const ANCHOR_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }
 
 const SECONDARY_BUTTON = 2
 const APPLE_PLATFORM = /Mac|iPhone|iPad|iPod/i
@@ -191,7 +185,9 @@ export function AnchoredLinkCard({
     }
 
     return (
-        <div ref={hostRef} style={ANCHOR_HOST_STYLE}>
+        // Out of flow and sized to nothing, so mounting the card inside read-only content cannot add a
+        // line to a clamped block. Only the measured box matters, never where the host itself lands.
+        <Box ref={hostRef} pos="absolute" top={0} left={0} w={0} h={0}>
             <Popover
                 {...LINK_CARD_POPOVER_PROPS}
                 opened={opened}
@@ -207,7 +203,15 @@ export function AnchoredLinkCard({
                 onDismiss={onDismiss}
             >
                 <Popover.Target>
-                    <span ref={anchorRef} aria-hidden style={ANCHOR_STYLE} />
+                    <Box
+                        component="span"
+                        ref={anchorRef}
+                        aria-hidden
+                        pos="absolute"
+                        top={0}
+                        left={0}
+                        className="click-through"
+                    />
                 </Popover.Target>
                 <Popover.Dropdown
                     id={dropdownId}
@@ -219,6 +223,6 @@ export function AnchoredLinkCard({
                     {children}
                 </Popover.Dropdown>
             </Popover>
-        </div>
+        </Box>
     )
 }

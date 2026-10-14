@@ -7,7 +7,14 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 // computed line-height, so it tracks the font size with no separate value to keep in sync. Nothing
 // is added to the DOM, so an empty eyebrow still has no text a screen reader could announce.
 const Eyebrow: FC<{ text?: string | null }> = ({ text }) => (
-    <Text fz="sm" fw={fontWeight.semibold} c="charcoal.6" tt="uppercase" mih="1lh" data-testid="page-header-eyebrow">
+    <Text
+        fz="sm"
+        fw={fontWeight.semibold}
+        c={semanticColor('text.secondary')}
+        tt="uppercase"
+        mih="1lh"
+        data-testid="page-header-eyebrow"
+    >
         {text}
     </Text>
 )

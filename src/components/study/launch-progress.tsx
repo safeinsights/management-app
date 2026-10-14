@@ -1,4 +1,5 @@
 import { type TimedStep } from '@/hooks/use-timed-progress'
+import { Box } from '@mantine/core'
 import { TimedProgressBar } from '@/components/timed-progress-bar'
 
 type LaunchLogs = { buildLog: string; agentLog: string }
@@ -40,7 +41,7 @@ export function LaunchProgress({ isVisible, buildLog, agentLog, lastUpdatedAt }:
             lastUpdatedAt={lastUpdatedAt}
             label="Launch progress"
         >
-            <textarea readOnly value={logs} rows={24} style={{ width: '100%' }} />
+            <Box component="textarea" readOnly value={logs} rows={24} w="100%" />
         </TimedProgressBar>
     )
 }

@@ -3,6 +3,7 @@ import type { Route } from 'next'
 import { Divider, Group, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
+import { fontWeight } from '@/theme/tokens'
 
 // The results body arrives via children, keeping this free of server-only imports so it renders
 // in isolation (e.g. Ladle).
@@ -14,7 +15,7 @@ export type StudyDetailsReviewerViewProps = {
 export function StudyDetailsReviewerView({ previousHref, children }: StudyDetailsReviewerViewProps) {
     return (
         <Stack px="xl" gap="xl">
-            <Title order={2} size="h4" fw={500}>
+            <Title order={2} size="h4" fw={fontWeight.semibold}>
                 Study Details
             </Title>
             <Divider />

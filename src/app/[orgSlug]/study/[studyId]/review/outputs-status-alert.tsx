@@ -3,7 +3,7 @@
 import { semanticColor } from '@/theme/tokens'
 import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
-import { Anchor } from '@mantine/core'
+import { Anchor, Flex } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
@@ -37,9 +37,12 @@ const SlackDPSupportLink = () => (
         rel="noopener noreferrer"
         c={semanticColor('link.default')}
         inherit
+        display="inline-flex"
     >
-        Slack
-        <ArrowSquareOutIcon size={16} style={{ marginLeft: 4, verticalAlign: 'text-bottom' }} />
+        <Flex component="span" align="center" gap="xxs">
+            Slack
+            <ArrowSquareOutIcon size={16} />
+        </Flex>
     </Anchor>
 )
 

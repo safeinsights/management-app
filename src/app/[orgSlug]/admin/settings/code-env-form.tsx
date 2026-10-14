@@ -28,6 +28,7 @@ import { fetchOrgCodeEnvsAction } from './code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { RequiredIndicator } from '@/components/required-indicator'
+import { semanticColor } from '@/theme/tokens'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -124,7 +125,7 @@ function StarterCodeSection({
                 </Group>
             </Dropzone>
             {(error || isMissing) && (
-                <Text size="sm" c="red" mt="xs">
+                <Text size="sm" c={semanticColor('error.text')} mt="xs">
                     {error ?? 'At least one starter code file is required.'}
                 </Text>
             )}

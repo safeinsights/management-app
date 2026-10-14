@@ -5,6 +5,7 @@ import {
     ActionIcon,
     Anchor,
     Badge,
+    Box,
     Button,
     Divider,
     Group,
@@ -27,7 +28,7 @@ import {
 } from '@phosphor-icons/react'
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Routes } from '@/lib/routes'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface ResearcherProfilePopoverProps {
     userId: string
@@ -47,7 +48,7 @@ const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <ChalkboardTeacherIcon size={20} color="var(--mantine-color-gray-6)" />
+            <ChalkboardTeacherIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
@@ -59,7 +60,7 @@ const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <SuitcaseSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
+            <SuitcaseSimpleIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {value}
             </Text>
@@ -72,7 +73,7 @@ const PopoverEducation: FC<{ degree?: string | null }> = ({ degree }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <CertificateIcon size={20} color="var(--mantine-color-gray-6)" />
+            <CertificateIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {degree}
             </Text>
@@ -91,7 +92,7 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <BookOpenIcon size={20} color="var(--mantine-color-gray-6)" />
+            <BookOpenIcon size={20} color={semanticColor('icon.light')} />
             <Group gap="xxs">{pills}</Group>
         </Group>
     )
@@ -108,9 +109,6 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             variant="light"
             color="grey"
             rightSection={<ArrowSquareOutIcon size={14} />}
-            bg="gray.1"
-            c="gray.7"
-            style={{ cursor: 'pointer' }}
             size="lg"
             radius="xs"
             h={32}
@@ -170,7 +168,7 @@ const PopoverHeader: FC<{ fullName: string; onClose: () => void }> = ({ fullName
         <Text fw={fontWeight.bold} size="md" mt="xs">
             {fullName}
         </Text>
-        <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
+        <ActionIcon variant="transparent" color={semanticColor('icon.light')} onClick={onClose} size="sm">
             <XCircleIcon size={24} weight="fill" />
         </ActionIcon>
     </Group>
@@ -184,7 +182,7 @@ const MinimalPopoverContent: FC<{ fullName: string; email: string; onClose: () =
     <Stack gap="xl">
         <PopoverHeader fullName={fullName} onClose={onClose} />
         <Group gap="xs" align="center" wrap="nowrap">
-            <EnvelopeSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
+            <EnvelopeSimpleIcon size={20} color={semanticColor('icon.light')} />
             <Text size="sm" fw={fontWeight.semibold}>
                 {email}
             </Text>
@@ -257,21 +255,11 @@ const PopoverContent: FC<{
 
 const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; name: string; size: 'sm' | 'md' }>(
     ({ onMouseEnter, name, size, ...others }, ref) => (
-        <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
+        <Group gap="xs" w="fit-content" className="clickable" onMouseEnter={onMouseEnter} wrap="nowrap">
             <Text size={size}>{name}</Text>
-            <div
-                ref={ref}
-                {...others}
-                style={{ display: 'flex', color: 'gray' }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--mantine-color-charcoal-5)'
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'gray'
-                }}
-            >
+            <Box ref={ref} {...others} display="flex" className="icon-light">
                 <InfoIcon weight="fill" size={16} color="currentColor" />
-            </div>
+            </Box>
         </Group>
     ),
 )

@@ -31,7 +31,7 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <RichTextPlugin
-                contentEditable={<ContentEditable style={{ outline: 'none' }} />}
+                contentEditable={<ContentEditable />}
                 placeholder={null}
                 ErrorBoundary={LexicalErrorBoundary}
             />
