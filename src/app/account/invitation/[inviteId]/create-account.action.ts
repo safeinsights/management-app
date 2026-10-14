@@ -219,8 +219,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         await updateClerkUserMetadata(siUser.id)
         onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: false })
 
-        // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
-        // stale right after this server-side update.
+        // Read from the database: Clerk metadata can be stale right after this server-side update.
         const needsUserKey = !(await getUserPublicKey(siUser.id))
 
         return { ...siUser, needsUserKey }
