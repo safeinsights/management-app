@@ -323,6 +323,27 @@ describe('CodeEnvs', async () => {
         })
     })
 
+    it('shows the new link in the data sources list after a code env edit', async () => {
+        await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, name: 'Unlinked Source' })
+
+        renderWithProviders(
+            <>
+                <CodeEnvs />
+                <DataSources />
+            </>,
+        )
+
+        fireEvent.click(await screen.findByRole('button', { name: /edit linked r/i }))
+        await userEvent.click(await screen.findByRole('textbox', { name: /Data Sources/i }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source' }))
+        await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Unlinked Source').parentElement).toHaveTextContent('Linked R')
+        })
+    })
+
     it('hides delete on the only non-testing environment for a language even when it has linked data sources', async () => {
         const only = await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
         await insertTestDataSource({ orgId: org.id, codeEnvIds: [only.id] })

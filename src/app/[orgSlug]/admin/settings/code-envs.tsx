@@ -177,10 +177,12 @@ const CodeEnvRow: React.FC<{
         isError: isHistoryError,
     } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
 
+    // Data source rows list their code envs, so a save that links or unlinks one must refresh them too.
     const handleEditComplete = () => {
         closeEditModal()
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
         queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
+        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
     }
 
     const handleViewCode = async (fileName?: string) => {
@@ -356,6 +358,7 @@ export const CodeEnvs: React.FC = () => {
     const handleFormComplete = () => {
         closeAddModal()
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
     }
 
     const codeEnvs = query.data ?? NO_CODE_ENVS
