@@ -18,6 +18,10 @@ test.describe('public files', () => {
         // The org guard reads the first path segment as an org slug, so a member who is not an SI
         // admin was sent to the dashboard.
         test('serves robots.txt instead of redirecting to the dashboard', async ({ request }) => {
+            // robots.txt answers 200 with or without a session, so first prove the session reaches the server.
+            const dashboard = await request.get('/dashboard', { maxRedirects: 0 })
+            expect(dashboard.status()).toBe(200)
+
             const res = await request.get('/robots.txt', { maxRedirects: 0 })
 
             expect(res.status()).toBe(200)

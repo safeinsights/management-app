@@ -23,6 +23,8 @@ describe('proxy matcher', () => {
         '/notes.txt',
         '/openstax/robots.txt',
         '/robots.txt.bak',
+        '/robots.txt/',
+        '/Robots.txt',
     ])('still runs for %s', (url) => {
         expect(runsProxy(url)).toBe(true)
     })
