@@ -460,6 +460,22 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
+// Both actions that grant the membership do it in the claim's transaction, so joinedAt is the claim time.
+// The membership join also drops an org the account has since left.
+export const getLatestClaimedInviteOrg = async (userId: string) =>
+    await Action.db
+        .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
+        .innerJoin('orgUser', (join) =>
+            join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
+        )
+        .select('org.slug')
+        .where('pendingUser.claimedByUserId', '=', userId)
+        .orderBy('orgUser.joinedAt', 'desc')
+        .orderBy('orgUser.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
 export const getInfoForStudyJobId = async (studyJobId: string) => {
     return await Action.db
         .selectFrom('studyJob')

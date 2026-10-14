@@ -1,11 +1,46 @@
+import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import { Routes } from '@/lib/routes'
-import { describe, expect, it, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { keyGenerationUrl } from '@/lib/user-key-redirect'
+import { describe, expect, faker, it, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { requireUserKey } from './user-key-gate'
+
+const requestPath = async (path: string) => (await headers()).set(REQUEST_PATH_HEADER, path)
 
 describe('requireUserKey', () => {
     it('redirects a keyless account to key setup', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
+
+        await requireUserKey()
+
+        expect(redirect).toHaveBeenCalledWith(Routes.accountKeys)
+    })
+
+    it('carries the page a keyless account asked for to key setup', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const studyPage = `${Routes.studyReview({ orgSlug: org.slug, studyId: faker.string.uuid() })}?tab=code`
+        await requestPath(studyPage)
+
+        await requireUserKey()
+
+        expect(redirect).toHaveBeenCalledWith(keyGenerationUrl(studyPage))
+    })
+
+    // Otherwise the signup flow, which reaches the gate through My dashboard, would lose the
+    // inviting org's landing.
+    it.each([Routes.dashboard, Routes.home, `${Routes.dashboard}?skip=Acme`])('does not carry %s', async (path) => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        await requestPath(path)
+
+        await requireUserKey()
+
+        expect(redirect).toHaveBeenCalledWith(Routes.accountKeys)
+    })
+
+    it('drops a path that does not stay on this site', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        await requestPath('//evil.example/x')
 
         await requireUserKey()
 
