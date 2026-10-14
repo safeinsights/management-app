@@ -488,6 +488,7 @@ type MinimalTestOrg = { slug: string; id: string; type: 'enclave' | 'lab' }
 
 export const insertTestStudyJobData = async ({
     org,
+    submittedByOrg,
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
@@ -502,6 +503,8 @@ export const insertTestStudyJobData = async ({
     withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
+    // See insertTestStudyOnly: puts the Data Partner and the Research Lab on different orgs.
+    submittedByOrg?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
@@ -519,14 +522,14 @@ export const insertTestStudyJobData = async ({
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        const { user } = await insertTestUser({ org: org })
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
             orgId: org.id,
-            submittedByOrgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
             containerLocation: 'test-container',
             title: title ?? 'my 1st study',
             researcherId: researcherId,

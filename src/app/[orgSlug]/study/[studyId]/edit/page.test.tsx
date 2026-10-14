@@ -43,32 +43,6 @@ const setupDraft = async () => {
 
 const LEXICAL_BODY = JSON.stringify({ root: { children: [{ type: 'paragraph', children: [] }] } })
 
-// insertTestStudyJobData points orgId and submittedByOrgId at one org, which cannot express a
-// Data Partner reviewing another lab's study. OTTER-768 adds a fixture option for this.
-const insertSubmittedStudyFor = async (
-    enclaveOrgId: string,
-    submittedByOrgId: string,
-    researcherId: string,
-    title: string,
-) =>
-    await db
-        .insertInto('study')
-        .values({
-            orgId: enclaveOrgId,
-            submittedByOrgId,
-            containerLocation: 'test-container',
-            title,
-            researcherId,
-            piName: 'test',
-            status: 'PENDING-REVIEW',
-            submittedAt: new Date(),
-            dataSources: ['all'],
-            outputMimeType: 'application/zip',
-            language: 'R',
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
 // StudyProposal calls useStudyRequest(); production wires that provider in the study layout,
 // which this render does not exercise.
 const renderPage = async (orgSlug: string, studyId: string, from?: string) => {
@@ -176,12 +150,13 @@ describe('StudyEditPage', () => {
         const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
         const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
         const { user: otherResearcher } = await insertTestUser({ org: otherLab })
-        const study = await insertSubmittedStudyFor(
-            enclaveOrg.id,
-            otherLab.id,
-            otherResearcher.id,
-            'A study under review',
-        )
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: otherLab,
+            researcherId: otherResearcher.id,
+            studyStatus: 'PENDING-REVIEW',
+            title: 'A study under review',
+        })
 
         await expect(renderRoute(enclaveOrg.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
@@ -190,7 +165,12 @@ describe('StudyEditPage', () => {
 
     it('renders Step 1 for a dual-role user whose lab submitted the study', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
-        const study = await insertSubmittedStudyFor(enclaveOrg.id, labOrg.id, user.id, 'A dual-role study')
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: labOrg,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
         ;(useParams as Mock).mockReturnValue({ orgSlug: labOrg.slug, studyId: study.id })
 
         await renderPage(labOrg.slug, study.id)
@@ -206,7 +186,12 @@ describe('StudyEditPage', () => {
         const enclaveOrg = await insertTestOrg({ slug: `enclave-${crypto.randomUUID().slice(0, 8)}`, type: 'enclave' })
         const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
         const { user: researcher } = await insertTestUser({ org: lab })
-        const study = await insertSubmittedStudyFor(enclaveOrg.id, lab.id, researcher.id, 'An SI admin study')
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: lab,
+            researcherId: researcher.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
         ;(useParams as Mock).mockReturnValue({ orgSlug: lab.slug, studyId: study.id })
 
         await renderPage(lab.slug, study.id)
