@@ -214,29 +214,3 @@ html {
     scroll-padding-top: var(--app-shell-header-offset, 0px);
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
 }
-
-/* mantine-datatable keeps its empty state mounted over a populated table at opacity 0, which screen
-   readers still announce; visibility takes it out of the accessibility tree. */
-.mantine-datatable-empty-state:not([data-active]) {
-    visibility: hidden;
-    transition:
-        opacity 0.2s,
-        visibility 0.2s;
-}
-
-/* UX: a sortable column's icon sits right after its label, not at the column edge. The label's wrapper
-   gets width: 100% inline, hence max-width; centred and right-aligned columns keep their alignment. */
-th.mantine-datatable-header-cell-sortable .mantine-datatable-header-cell-sortable-group {
-    justify-content: flex-start;
-}
-th.mantine-datatable-header-cell-sortable .mantine-datatable-header-cell-sortable-group > :first-child {
-    max-width: fit-content;
-}
-th.mantine-datatable-header-cell-sortable
-    .mantine-datatable-header-cell-sortable-group:has(.mantine-datatable-text-align-center) {
-    justify-content: center;
-}
-th.mantine-datatable-header-cell-sortable
-    .mantine-datatable-header-cell-sortable-group:has(.mantine-datatable-text-align-right) {
-    justify-content: flex-end;
-}
