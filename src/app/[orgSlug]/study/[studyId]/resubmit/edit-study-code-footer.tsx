@@ -2,14 +2,13 @@
 
 import { FC, useState, type ReactNode } from 'react'
 import type { Route } from 'next'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button, Group, type ButtonVariant } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
 import { MANTINE_VARIANT } from '@/components/study/step-navigation'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
-import { Routes } from '@/lib/routes'
 import type { NavAction } from '@/lib/study-screen'
 import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
@@ -26,6 +25,7 @@ interface EditStudyCodeFooterProps {
     blockedReason: string | null
     onSubmitAttempt: () => void
     filesEdited: boolean
+    previousStep: NavAction
     /** Present only when the round was reopened from the outputs step. */
     viewOutputs?: NavAction
 }
@@ -98,18 +98,24 @@ const LeaveEditCodeButton: FC<LeaveEditCodeButtonProps> = ({
     )
 }
 
-type ViewOutputsButtonProps = Omit<LeaveEditCodeButtonProps, 'label' | 'variant' | 'testId' | 'onClick'> & {
+type LeaveNavButtonProps = Omit<
+    LeaveEditCodeButtonProps,
+    'label' | 'variant' | 'leftSection' | 'testId' | 'onClick'
+> & {
     action?: NavAction
+    withCaret?: boolean
     onLeave: (href: Route) => void
 }
 
-const ViewOutputsButton: FC<ViewOutputsButtonProps> = ({ action, onLeave, ...rest }) => {
+// A nav table action laid out the way StepNavigation's NavButton does, but leaving through the flush.
+const LeaveNavButton: FC<LeaveNavButtonProps> = ({ action, withCaret = false, onLeave, ...rest }) => {
     if (!action) return null
     return (
         <LeaveEditCodeButton
             {...rest}
             label={action.label}
             variant={MANTINE_VARIANT[action.variant]}
+            leftSection={withCaret ? <CaretLeftIcon /> : undefined}
             testId={action.testId}
             onClick={() => onLeave(action.href)}
         />
@@ -122,10 +128,10 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     blockedReason,
     onSubmitAttempt,
     filesEdited,
+    previousStep,
     viewOutputs,
 }) => {
-    const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, orgName, noteForm, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
+    const { orgName, noteForm, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
 
     const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt({
         isSubmitting,
@@ -139,7 +145,6 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     })
 
     const isBusy = isSaving || isSubmitting
-    const exitTarget = Routes.studyView({ orgSlug, studyId })
     const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
     const { leave, leavingVia } = useLeaveEditCode({ isBusy })
 
@@ -156,17 +161,16 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     return (
         <>
             <Group justify="space-between" align="flex-start" mt="xs">
-                <LeaveEditCodeButton
-                    label="Previous step"
-                    variant="subtle"
-                    leftSection={<CaretLeftIcon />}
+                <LeaveNavButton
+                    action={previousStep}
+                    withCaret
                     hasChanges={hasChanges}
                     isBusy={isBusy}
                     isLeaving={isSaving && leavingVia === 'previous'}
-                    onClick={() => leave('previous', exitTarget)}
+                    onLeave={(href) => leave('previous', href)}
                 />
                 <Group gap="md" align="flex-start">
-                    <ViewOutputsButton
+                    <LeaveNavButton
                         action={viewOutputs}
                         hasChanges={hasChanges}
                         isBusy={isBusy}
