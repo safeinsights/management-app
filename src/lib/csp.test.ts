@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { CSP_HEADER, cspHeaderValue, cspReportUrl, generateNonce, reportingEndpointsValue } from './csp'
+import {
+    CSP_HEADER,
+    STATIC_CSP_DIRECTIVES,
+    cspHeaderValue,
+    cspReportUrl,
+    generateNonce,
+    reportingEndpointsValue,
+} from './csp'
 
 describe('csp', () => {
     it('generates a distinct nonce each call', () => {
@@ -50,9 +57,14 @@ describe('csp', () => {
         expect(reportingEndpointsValue('https://r.example/csp')).toBe('csp-report="https://r.example/csp"')
     })
 
-    // e2e runs with Clerk faked, so real Clerk stays unverified until a deployed environment
-    // reports clean. Guards the flip to enforcing being deliberate.
-    it('is report-only until the policy is verified against real Clerk', () => {
-        expect(CSP_HEADER).toBe('Content-Security-Policy-Report-Only')
+    it('enforces the policy', () => {
+        expect(CSP_HEADER).toBe('Content-Security-Policy')
+    })
+
+    // Next keeps only the proxy's header on pages, so losing these would drop clickjacking protection.
+    it('repeats the static directives that the proxy header replaces', () => {
+        for (const directive of STATIC_CSP_DIRECTIVES) {
+            expect(cspHeaderValue('abc123')).toContain(directive)
+        }
     })
 })

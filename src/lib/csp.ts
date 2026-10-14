@@ -1,20 +1,23 @@
-// Emitted from the proxy because a nonce is per-request; static directives stay in
-// next.config.ts. Production only, as `next dev` needs 'unsafe-eval' (OTTER-721).
+// Emitted from the proxy because a nonce is per-request. Production only, as `next dev` needs
+// 'unsafe-eval' (OTTER-721).
 export const CSP_NONCE_HEADER = 'x-csp-nonce'
 
 export const isCspEnabled = () => process.env.NODE_ENV === 'production'
 
-// Report-only until a deployed environment reports clean, so a policy that is wrong about real
-// Clerk or Sentry cannot take down signin.
-export const CSP_HEADER = 'Content-Security-Policy-Report-Only'
+export const CSP_HEADER = 'Content-Security-Policy'
 
 export const REPORTING_ENDPOINTS_HEADER = 'Reporting-Endpoints'
 
 const CSP_REPORT_GROUP = 'csp-report'
 
-// Enforced from next.config.ts and repeated in the nonce policy below, so the two cannot disagree
-// once that policy stops being report-only (SIINFOSEC-1460/1461).
-export const OBJECT_SRC_DIRECTIVE = "object-src 'none'"
+// Also sent from next.config.ts, for responses the proxy skips. Where both set the header, Next keeps
+// only the proxy's, so the nonce policy must repeat these (SIINFOSEC-1460/1461, ZAP-10055).
+export const STATIC_CSP_DIRECTIVES = [
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+]
 
 export function generateNonce(): string {
     const bytes = new Uint8Array(16)
@@ -48,7 +51,7 @@ export function cspHeaderValue(nonce: string, reportUrl?: string): string {
         // Sentry Session Replay compresses in a blob-URL worker, which some browsers resolve
         // through script-src.
         "worker-src 'self' blob:",
-        OBJECT_SRC_DIRECTIVE,
+        ...STATIC_CSP_DIRECTIVES,
     ]
     if (reportUrl) {
         // report-uri is kept for browsers without the Reporting API.
