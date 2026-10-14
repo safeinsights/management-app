@@ -43,7 +43,7 @@ export async function ReviewerOutputsAvailableScreen({
         )
     }
 
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const availableAt = latestStatusAt(job.statusChanges, 'RUN-COMPLETE')
 
     return (

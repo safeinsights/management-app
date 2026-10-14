@@ -52,7 +52,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     // from the moment it is written, which would label this page as the next iteration.
     const reviewVersion = await codeRoundForJob(job.id)
     const isResubmission = reviewVersion > 1
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const step: StudyHeaderStep = { label: 'STEP 2', heading: codeReviewHeading(reviewVersion) }
     const submittedAt = latestCodeSubmittedAt(job)
 

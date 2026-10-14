@@ -2,7 +2,6 @@
 
 import { type FC } from 'react'
 import { Stack } from '@mantine/core'
-import { displayOrgName } from '@/lib/string'
 import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
@@ -45,7 +44,7 @@ const UnderReviewBanner: FC<UnderReviewBannerProps> = ({
     if (!isVisible) return null
 
     const copy = researcherCodeSubmittedBanner({
-        dataPartner: displayOrgName(reviewingOrgName),
+        dataPartner: reviewingOrgName,
         version: submissionVersion,
     })
 
@@ -99,7 +98,7 @@ export function CodePostSubmissionView({
                     jobId={job.id}
                     files={codeFiles}
                     activityByName={activityByName}
-                    dataPartnerName={displayOrgName(reviewingOrgName)}
+                    dataPartnerName={reviewingOrgName}
                 />
 
                 <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />

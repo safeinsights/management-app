@@ -112,7 +112,7 @@ export function PostFeedbackView({
         <DecisionBanner
             kind={kind}
             decision={decision}
-            researchLab={study.submittingLabName ?? study.submittedByOrgSlug}
+            researchLab={study.submittingLabName}
             reviewerName={latestDecision ? latest?.authorName : null}
             decidedAt={timestampDate}
         />

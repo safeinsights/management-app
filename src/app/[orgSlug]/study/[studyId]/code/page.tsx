@@ -10,7 +10,6 @@ import { CodeUploadPage } from './code-upload'
 import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.actions'
@@ -67,7 +66,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 studyId={studyId}
                 // study.orgId is the enclave org, so orgName is the Data Partner the code will run
                 // against — not the submitting lab. Same source /resubmit reads.
-                dataPartnerName={displayOrgName(result.orgName)}
+                dataPartnerName={result.orgName}
                 isFirstVisit={isFirstVisit}
                 videoDurationMinutes={videoDurationMinutes}
                 isEditable={isEditable}

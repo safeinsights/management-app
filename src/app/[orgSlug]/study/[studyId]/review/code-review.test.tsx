@@ -90,7 +90,7 @@ describe('CodeReview', () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             const banner = screen.getByTestId('status-alert')
-            const labName = study.submittingLabName ?? study.submittedByOrgSlug
+            const labName = study.submittingLabName
             expect(banner).toHaveAttribute('data-variant', 'action')
             expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
             expect(banner).toHaveTextContent('Review the code files and AI summary')
@@ -187,7 +187,7 @@ describe('CodeReview', () => {
             )
 
             const banner = screen.getByTestId('status-alert')
-            const labName = study.submittingLabName ?? study.submittedByOrgSlug
+            const labName = study.submittingLabName
             expect(banner).toHaveTextContent(`Revised code submitted by ${labName}`)
             expect(banner).not.toHaveTextContent('New code submitted')
         })

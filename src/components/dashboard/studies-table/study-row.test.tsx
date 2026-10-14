@@ -5,6 +5,7 @@ import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Routes } from '@/lib/routes'
 import { getColumns } from './columns'
+import { DeleteDraftButton } from './delete-draft-button'
 import { buildRowModel } from './row-model'
 import { StudyRowView } from './study-row-view'
 import type { Audience, StudyRow as StudyRowType } from './types'
@@ -40,6 +41,7 @@ function renderRow(study: StudyRowType, audience: Audience = 'reviewer', userId?
                 <StudyRowView
                     row={buildRowModel(study, audience, { orgSlug: 'test-org', userId })}
                     columns={getColumns(audience, 'org', false)}
+                    DeleteDraft={DeleteDraftButton}
                 />
             </TableTbody>
         </Table>,
@@ -58,7 +60,7 @@ describe('StudyRow status pill', () => {
 
         await user.hover(screen.getByText('Awaiting code'))
 
-        expect(await screen.findByText('Waiting for Genius to submit their code.')).toBeVisible()
+        expect(await screen.findByText('Waiting for Genius Lab to submit their code.')).toBeVisible()
     })
 
     it('tells the researcher the proposal is with the data partner, naming the partner', async () => {
@@ -184,6 +186,20 @@ describe('StudyRow draft bin', () => {
 
     it('hides the bin from other researchers', () => {
         renderRow(draft, 'researcher', 'someone-else')
+        expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
+    })
+
+    it('renders no bin when the container passes no delete control', () => {
+        renderWithProviders(
+            <Table>
+                <TableTbody>
+                    <StudyRowView
+                        row={buildRowModel(draft, 'researcher', { orgSlug: 'test-org', userId: 'researcher-1' })}
+                        columns={getColumns('researcher', 'org', false)}
+                    />
+                </TableTbody>
+            </Table>,
+        )
         expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
     })
 

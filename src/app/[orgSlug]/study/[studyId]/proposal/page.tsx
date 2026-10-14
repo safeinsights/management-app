@@ -9,7 +9,6 @@ import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { STUDY_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
-import { displayOrgName } from '@/lib/string'
 import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 
@@ -65,7 +64,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                 }}
             >
                 <ProposalForm
-                    orgName={displayOrgName(result.orgName)}
+                    orgName={result.orgName}
                     members={memberOptions}
                     researcherName={result.researcherName}
                     researcherId={result.researcherId}

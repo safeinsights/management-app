@@ -340,7 +340,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         expect(shareOutputs).toBeDisabled()
         expect(feedbackOnly).toBeEnabled()
         expect(screen.getByTestId('outputs-decision-section')).toHaveTextContent(
-            `There is nothing from this run that can be shared with ${study.submittingLabName ?? study.submittedByOrgSlug}.`,
+            `There is nothing from this run that can be shared with ${study.submittingLabName}.`,
         )
     })
 
@@ -430,7 +430,7 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
     it('replaces the errored banner with the review-before-sharing warning', async () => {
         const { study } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Review the outputs before sharing')
@@ -489,7 +489,7 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
         const { study } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         fireEvent.click(screen.getByTestId('outputs-submit-decision'))
 

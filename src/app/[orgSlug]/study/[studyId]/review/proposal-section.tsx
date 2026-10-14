@@ -40,7 +40,7 @@ export const proposalReviewStep = (reviewVersion: number): StudyHeaderStep => ({
 })
 
 export function ProposalSection({ study, orgSlug, priorEntries = [], reviewVersion = 1 }: ProposalSectionProps) {
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const isResubmission = reviewVersion > 1
     const submittedAt = decisionTimestampForProposalHeader(study, priorEntries)
     const step = proposalReviewStep(reviewVersion)

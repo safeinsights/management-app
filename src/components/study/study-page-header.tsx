@@ -1,16 +1,14 @@
 import { Stack, Group, VisuallyHidden } from '@mantine/core'
 import { PageHeader } from '@/components/page-header'
-import { displayLabName, UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { StudyHeaderStep } from './proposal-step-header'
 import { TestStudyLabel } from './test-study-label'
 
 // Every study page shows the submitting Research Lab, so both a researcher and a reviewer of the
-// same study read the same eyebrow. Resolved here rather than at each call site so the fallback
-// cannot drift between them.
+// same study read the same eyebrow.
 export type StudyHeaderStudy = {
     title: string | null
-    submittingLabName: string | null
-    submittedByOrgSlug: string
+    submittingLabName: string
     isTestStudy: boolean
 }
 
@@ -27,7 +25,6 @@ const HiddenStep = ({ step }: { step?: StudyHeaderStep }) => {
 }
 
 export function StudyPageHeader({ study, step }: { study: StudyHeaderStudy; step?: StudyHeaderStep }) {
-    const eyebrow = displayLabName(study.submittingLabName, study.submittedByOrgSlug)
     const title = (
         <Group gap="sm" align="center">
             <Stack gap="md" align="flex-start">
@@ -40,5 +37,5 @@ export function StudyPageHeader({ study, step }: { study: StudyHeaderStudy; step
         </Group>
     )
 
-    return <PageHeader eyebrow={eyebrow} title={title} />
+    return <PageHeader eyebrow={study.submittingLabName} title={title} />
 }

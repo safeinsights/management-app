@@ -7,7 +7,7 @@ import { requireDataPartner } from '@/server/actions/org-context'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { ActionFailure } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { designateTestLabs, labsEligibleAsTestLabs, orgTestLabs } from '@/server/db/test-lab'
+import { designateTestLabs, labsEligibleAsTestLabs, orgTestLabs, undesignateTestLab } from '@/server/db/test-lab'
 
 const orgSlugSchema = z.object({ orgSlug: z.string() })
 
@@ -54,6 +54,25 @@ export const designateTestLabsAction = new Action('designateTestLabsAction', { p
         }
 
         await designateTestLabs(db, { dataPartnerId: orgId, researchLabIds, createdByUserId: session.user.id })
+
+        revalidatePath(Routes.adminSettings({ orgSlug }))
+    })
+
+const undesignateSchema = orgSlugSchema.extend({ testLabId: z.uuid() })
+
+// No permission rule grants 'undesignate', so this admits SI admins only. The button that calls it
+// hides behind spy mode, which is a client-side toggle and no gate at all.
+export const undesignateTestLabAction = new Action('undesignateTestLabAction', { performsMutations: true })
+    .params(undesignateSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('undesignate', 'TestLab')
+    .handler(async ({ db, orgId, orgType, params: { orgSlug, testLabId } }) => {
+        requireDataPartner({ orgId, orgType })
+
+        const dropped = await undesignateTestLab(db, { dataPartnerId: orgId, testLabId })
+        if (!dropped) {
+            throw new ActionFailure({ testLab: 'was not found' })
+        }
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
     })

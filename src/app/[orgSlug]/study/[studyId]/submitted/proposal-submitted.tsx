@@ -1,7 +1,6 @@
 'use client'
 
 import { Stack } from '@mantine/core'
-import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -72,7 +71,7 @@ export function ProposalSubmitted({
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
     const bannerCopy = researcherProposalBanner(proposalStatus, {
-        dataPartner: displayOrgName(orgName),
+        dataPartner: orgName,
         version: studyVersion,
     })
 

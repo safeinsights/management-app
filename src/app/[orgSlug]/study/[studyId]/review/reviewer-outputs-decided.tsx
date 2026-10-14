@@ -51,7 +51,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
         )
     }
 
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const { reviewerName, decidedAt } = outputsDecisionAttribution(feedbackEntries, job.statusChanges)
 
