@@ -459,7 +459,7 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
-// Both claim actions insert the membership in the claim's transaction, so joinedAt is the claim time.
+// Both actions that grant the membership do it in the claim's transaction, so joinedAt is the claim time.
 // The membership join also drops an org the account has since left.
 export const getLatestClaimedInviteOrg = async (userId: string) =>
     await Action.db

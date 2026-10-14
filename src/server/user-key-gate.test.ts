@@ -1,7 +1,7 @@
 import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
-import { describe, expect, it, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { describe, expect, faker, it, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { requireUserKey } from './user-key-gate'
@@ -19,11 +19,12 @@ describe('requireUserKey', () => {
 
     it('carries the page a keyless account asked for to key setup', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        await requestPath(`/${org.slug}/study/abc/review?tab=code`)
+        const studyPage = `${Routes.studyReview({ orgSlug: org.slug, studyId: faker.string.uuid() })}?tab=code`
+        await requestPath(studyPage)
 
         await requireUserKey()
 
-        expect(redirect).toHaveBeenCalledWith(keyGenerationUrl(`/${org.slug}/study/abc/review?tab=code`))
+        expect(redirect).toHaveBeenCalledWith(keyGenerationUrl(studyPage))
     })
 
     // Otherwise the signup flow, which reaches the gate through My dashboard, would lose the

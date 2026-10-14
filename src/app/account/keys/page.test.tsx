@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import router from 'next-router-mock'
+import { Routes } from '@/lib/routes'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import KeysPage from './page'
@@ -49,17 +50,17 @@ const renderKeysPage = async (confirmLabel = 'Yes, I have stored my key') => {
 
 describe('KeysPage', () => {
     it('lands a keyless single-org account on the org that invited it with no redirect_url', async () => {
-        router.setCurrentUrl('/account/keys')
+        router.setCurrentUrl(Routes.accountKeys)
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         await renderKeysPage()
 
-        await waitFor(() => expect(router.asPath).toBe(`/${org.slug}/dashboard`))
+        await waitFor(() => expect(router.asPath).toBe(Routes.orgDashboard({ orgSlug: org.slug })))
     })
 
     it('lands a keyless multi-org account on the org that invited it', async () => {
-        router.setCurrentUrl('/account/keys')
+        router.setCurrentUrl(Routes.accountKeys)
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
         const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
         await db.insertInto('orgUser').values({ userId: user.id, orgId: invitingOrg.id, isAdmin: false }).execute()
@@ -67,17 +68,18 @@ describe('KeysPage', () => {
 
         await renderKeysPage()
 
-        await waitFor(() => expect(router.asPath).toBe(`/${invitingOrg.slug}/dashboard`))
+        await waitFor(() => expect(router.asPath).toBe(Routes.orgDashboard({ orgSlug: invitingOrg.slug })))
     })
 
     it('returns a keyless account to the page it asked for rather than the inviting org', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-        router.setCurrentUrl(`/account/keys?redirect_url=${encodeURIComponent(`/${org.slug}/study/abc/review`)}`)
+        const studyPage = Routes.studyReview({ orgSlug: org.slug, studyId: faker.string.uuid() })
+        router.setCurrentUrl(`${Routes.accountKeys}?redirect_url=${encodeURIComponent(studyPage)}`)
         await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         await renderKeysPage()
 
-        await waitFor(() => expect(router.asPath).toBe(`/${org.slug}/study/abc/review`))
+        await waitFor(() => expect(router.asPath).toBe(studyPage))
     })
 
     // OTTER-741: a direct visit by an account that already holds a key is a reset, and must say so.

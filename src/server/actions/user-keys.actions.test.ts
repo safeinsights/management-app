@@ -16,6 +16,7 @@ import {
 } from './user-keys.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 
 async function validTestKey() {
@@ -161,7 +162,7 @@ describe('getKeyPageStateAction', () => {
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
@@ -171,7 +172,7 @@ describe('getKeyPageStateAction', () => {
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
@@ -182,7 +183,7 @@ describe('getKeyPageStateAction', () => {
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${invitingOrg.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: invitingOrg.slug }),
         })
     })
 
@@ -196,7 +197,7 @@ describe('getKeyPageStateAction', () => {
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
@@ -208,26 +209,35 @@ describe('getKeyPageStateAction', () => {
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
     it('falls back to My studies for a single-org account with no claimed invite', async () => {
         await mockKeylessSession()
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 
     it('falls back to My studies when the account belongs to no org', async () => {
         const { user } = await mockKeylessSession()
         await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 
     it('reports an existing key and skips the org resolution', async () => {
         await mockSessionWithTestData()
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: true, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: true,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 })
