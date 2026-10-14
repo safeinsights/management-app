@@ -4,7 +4,7 @@ import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { canResearcherResubmitCode, codeResubmissionNav, projectStudyState } from '@/lib/study-screen'
-import { fetchLatestCodeEnvForStudyIdOrNull } from '@/server/db/queries'
+import { fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
@@ -32,7 +32,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     if ('error' in feedbackResult) return notFound()
     const feedbackEntries = feedbackResult
 
-    const studyHasCodeEnv = (await fetchLatestCodeEnvForStudyIdOrNull(studyId)) != null
+    const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId)) != null
 
     return (
         <Box bg={semanticColor('surface.page')}>

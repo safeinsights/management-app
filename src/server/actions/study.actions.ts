@@ -30,6 +30,7 @@ import { enclaveOrgIds, labOrgIds, sleep } from '@/lib/utils'
 import {
     codeSubmissionVersion,
     currentReviewVersion,
+    fetchCodeEnvForStudyId,
     getProposalFeedbackForStudy,
     getStudyJobFileOfType,
     latestJobForStudy,
@@ -501,16 +502,8 @@ async function approveJobCode({
             .values({ userId, status: 'JOB-READY', studyJobId: job.id })
             .executeTakeFirstOrThrow()
     } else {
-        const image = await db
-            .selectFrom('orgCodeEnv')
-            .where('language', '=', job.language)
-            .where('orgId', '=', study.orgId)
-            .where('isTesting', '=', false)
-            .orderBy('orgCodeEnv.createdAt', 'desc')
-            .select(['url', 'commandLines'])
-            .executeTakeFirstOrThrow(
-                throwNotFound(`no code environment found for org ${orgSlug} and language ${job.language}`),
-            )
+        // The study runs the code env frozen when its language was chosen.
+        const image = await fetchCodeEnvForStudyId(studyId, db)
 
         const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
         const ext = bareExtension(mainCode.name)
