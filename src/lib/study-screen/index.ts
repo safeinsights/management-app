@@ -29,6 +29,7 @@ export {
     phasedStepNav,
     codeSubmissionNav,
     codeResubmissionNav,
+    editProposalPreviousStep,
     setupStepNav,
 } from './nav'
 export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'

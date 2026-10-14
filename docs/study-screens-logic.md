@@ -352,6 +352,10 @@ note draft before following it. It adds an outline `View outputs` → `/view` on
 `isOutputsDecided`: the round was reopened from the outputs step, so `/view` serves the latest outputs
 screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
 
+`/edit-and-resubmit` (Edit proposal) takes its `Previous step` from `editProposalPreviousStep(ctx)`:
+→ `/edit?from=edit-proposal`, Step 1. The footer saves the proposal and note drafts before following
+it (OTTER-673).
+
 `/edit` (Step 1) resolves its forward step through `setupStepNav(status, ctx)`. For a submitted study
 its only action is `Next step`: → `/edit-and-resubmit` when `from=edit-proposal` and the study is still
 `CHANGE-REQUESTED`, else → `/submitted` (OTTER-673).

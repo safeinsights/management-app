@@ -3,6 +3,7 @@
 import { FC } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import type { NavAction } from '@/lib/study-screen'
 import { ProposalFooter } from '@/app/[orgSlug]/study/[studyId]/proposal/proposal-footer'
 import { invalidProposalFieldIds } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import { ORDERED_FIELD_IDS } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
@@ -30,17 +31,18 @@ interface EditResubmitFooterProps {
     orgName: string
     /** The persisted `study.title`, which this page reads for the reviewer preview but no longer edits. */
     studyTitle?: string | null
+    previousStep: NavAction
 }
 
 // Edit proposal's footer: the shared ProposalFooter wired to the edit-and-resubmit context, which
-// adds the resubmission note to validation and to the flush before leaving (OTTER-762). Its step back
-// tells Step 1 where it came from, so Step 1's "Next step" returns here (OTTER-673).
+// adds the resubmission note to validation and to the flush before leaving (OTTER-762).
 export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
     researcherName,
     researcherId,
     enclaveOrgSlug,
     orgName,
     studyTitle,
+    previousStep,
 }) => {
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
     const validate = () => invalidResubmitFieldIds(form, noteForm)
@@ -61,7 +63,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
             orderedFieldIds={RESUBMIT_ORDERED_FIELD_IDS}
             flushBeforeLeave={flushNote}
             isFlushing={isSavingNote}
-            previousFrom="edit-proposal"
+            previousHref={previousStep.href}
         />
     )
 }

@@ -10,6 +10,7 @@ import {
     resolveStepNav,
     codeSubmissionNav,
     codeResubmissionNav,
+    editProposalPreviousStep,
     setupStepNav,
     type NavCtx,
     type StepNav,
@@ -324,6 +325,18 @@ describe('codeResubmissionNav', () => {
 
     it('never adds a solid action: Resubmit is form-owned', () => {
         expect(solids(codeResubmissionNav(state({ ...decided, resultsApproved: true }), ctx))).toBe(0)
+    })
+})
+
+// Edit proposal's footer follows this; setupStepNav reads the origin back on Step 1 (OTTER-673).
+describe('editProposalPreviousStep', () => {
+    it('steps back to Step 1 and names Edit proposal as the origin', () => {
+        expect(editProposalPreviousStep(ctx)).toEqual({
+            label: 'Previous step',
+            href: `${base}/edit?from=edit-proposal`,
+            variant: 'subtle',
+            testId: 'cta-previous-step',
+        })
     })
 })
 

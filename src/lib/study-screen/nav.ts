@@ -107,6 +107,10 @@ const proposalPreviousStep = (ctx: NavCtx): NavAction =>
 const codePreviousStep = (ctx: NavCtx): NavAction =>
     previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId }))
 
+// Edit proposal steps back to Step 1, which `setupStepNav` sends forward to Edit proposal again.
+export const editProposalPreviousStep = (ctx: NavCtx): NavAction =>
+    previousStep(Routes.studyEdit({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, from: 'edit-proposal' }))
+
 // Edit code walks back past the code step it was opened from, straight to the approved proposal.
 const editCodePreviousStep = (ctx: NavCtx): NavAction =>
     previousStep(Routes.studySubmitted({ orgSlug: ctx.orgSlug, studyId: ctx.studyId, from: 'edit-code' }))
