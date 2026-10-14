@@ -69,7 +69,7 @@ export function useActiveEditors(
     return editors
 }
 
-function ActiveEditorsList({
+export function ActiveEditorsList({
     providerRef,
     currentUserId,
 }: {
