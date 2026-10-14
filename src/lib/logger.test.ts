@@ -24,4 +24,28 @@ describe('logger', () => {
 
         expect(captureMessage).toHaveBeenCalledWith('bad study {"id":7,"size":"10n","self":"[Circular]"}', 'warning')
     })
+
+    it('does not mark an object that is only repeated as circular', async () => {
+        const { logger, captureMessage } = await freshLogger()
+        const org = { slug: 'acme' }
+
+        logger.warn('x', { owner: org, reviewer: org, n: BigInt(10) })
+
+        expect(captureMessage).toHaveBeenCalledWith(
+            'x {"owner":{"slug":"acme"},"reviewer":{"slug":"acme"},"n":"10n"}',
+            'warning',
+        )
+    })
+
+    it('still reports when serializing the object throws', async () => {
+        const { logger, captureMessage } = await freshLogger()
+        const payload = {
+            get detail() {
+                throw new Error('unavailable')
+            },
+        }
+
+        expect(() => logger.warn('Could not process payload', payload)).not.toThrow()
+        expect(captureMessage).toHaveBeenCalledWith('Could not process payload [Unserializable]', 'warning')
+    })
 })
