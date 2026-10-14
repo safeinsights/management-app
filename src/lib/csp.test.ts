@@ -19,8 +19,8 @@ describe('csp', () => {
         expect(cspHeaderValue('abc123')).toContain("script-src 'nonce-abc123'")
     })
 
-    it('allows blob workers so Sentry session replay keeps working', () => {
-        expect(cspHeaderValue('abc123')).toContain("worker-src 'self' blob:")
+    it('does not open a blob worker exception now that session replay is off', () => {
+        expect(cspHeaderValue('abc123')).not.toContain('worker-src')
     })
 
     it('forbids plugin embeds', () => {
