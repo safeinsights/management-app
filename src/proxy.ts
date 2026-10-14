@@ -11,6 +11,7 @@ import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { UUID_RE } from '@/lib/collaboration-documents'
+import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import {
     CSP_HEADER,
     CSP_NONCE_HEADER,
@@ -85,9 +86,13 @@ function sanitizeSigninParams(req: NextRequest): NextResponse | null {
 }
 
 // Every document-rendering path goes through here rather than NextResponse.next() directly, so no
-// branch can miss the nonce.
+// branch can miss the nonce or the request path.
 export function continueWithNonce(req: NextRequest): NextResponse {
-    if (!isCspEnabled()) return NextResponse.next()
+    const headers = new Headers(req.headers)
+    // set, not append: a client-supplied value must never reach the key gate.
+    headers.set(REQUEST_PATH_HEADER, req.nextUrl.pathname + req.nextUrl.search)
+
+    if (!isCspEnabled()) return NextResponse.next({ request: { headers } })
 
     const nonce = generateNonce()
     const reportUrl = cspReportUrl()
@@ -95,7 +100,6 @@ export function continueWithNonce(req: NextRequest): NextResponse {
 
     // Do not collapse these two. Next learns the nonce only by parsing a `content-security-policy`
     // request header; x-csp-nonce is how our own server components read the raw value.
-    const headers = new Headers(req.headers)
     headers.set(CSP_NONCE_HEADER, nonce)
     headers.set('content-security-policy', policy)
 
