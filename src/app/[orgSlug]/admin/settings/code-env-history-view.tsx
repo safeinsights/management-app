@@ -3,7 +3,7 @@
 import { Badge, Group, Stack, Table, Text } from '@mantine/core'
 import type { AuditEventType } from '@/database/types'
 import type { CodeEnvAuditMetadata } from '@/lib/audit-diff'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export type CodeEnvHistoryEntry = {
     id: string
@@ -138,5 +138,9 @@ export const CodeEnvHistoryEmpty: React.FC<{ isVisible: boolean }> = ({ isVisibl
 // this" are opposite answers.
 export const CodeEnvHistoryError: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    return <Text c="red">Could not load the change history for this code environment. Please try again.</Text>
+    return (
+        <Text c={semanticColor('error.text')}>
+            Could not load the change history for this code environment. Please try again.
+        </Text>
+    )
 }

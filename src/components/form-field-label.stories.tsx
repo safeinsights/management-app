@@ -29,18 +29,6 @@ export const OrgsetVariantRequired: Story = () => (
     </div>
 )
 
-export const OptionalVariant: Story = () => (
-    <div style={{ padding: 24, maxWidth: 640 }}>
-        <FormFieldLabel label="Additional notes" variant="optional" inputId="notes" />
-    </div>
-)
-
-export const OptionalVariantRequired: Story = () => (
-    <div style={{ padding: 24, maxWidth: 640 }}>
-        <FormFieldLabel label="Additional notes" variant="optional" required inputId="notes-req" />
-    </div>
-)
-
 export const LongLabel: Story = () => (
     <div style={{ padding: 24, maxWidth: 640 }}>
         <FormFieldLabel

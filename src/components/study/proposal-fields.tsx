@@ -13,7 +13,7 @@ export type FieldDividerVariant = 'subtle' | 'default' | 'none'
 export const FieldDivider: FC<{ variant: FieldDividerVariant }> = ({ variant }) => {
     if (variant === 'none') return null
 
-    const color = variant === 'subtle' ? 'gray.1' : undefined
+    const color = variant === 'subtle' ? semanticColor('surface.page') : undefined
     return <Divider color={color} />
 }
 
@@ -46,7 +46,7 @@ export function LexicalProposalField({
 }
 
 const DatasetPill: FC<{ name: string; size: 'sm' | 'md' }> = ({ name, size }) => (
-    <Box bg={semanticColor('surface.page')} px="xs" py={2} bdrs="sm">
+    <Box bg={semanticColor('surface.page')} px="xs" py="xxs" bdrs="sm">
         <Text size={size} c={semanticColor('text.primary')}>
             {name}
         </Text>

@@ -3,7 +3,7 @@
 import { FC } from 'react'
 import { Box, Divider, Stack, Text } from '@mantine/core'
 import { useParams } from 'next/navigation'
-import { EditableText } from '@/components/editable-text'
+import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
@@ -71,7 +71,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                             {field.label}
                         </Text>
                         {hasContent ? (
-                            <EditableText value={fieldValue} readOnly borderless resizable={false} />
+                            <ReadOnlyLexicalContent value={fieldValue} />
                         ) : (
                             <Text size="md" fw={fontWeight.regular}>
                                 Not provided

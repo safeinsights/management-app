@@ -1,25 +1,24 @@
 'use client'
 
 import { InputError } from '@/components/errors'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Box, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
+import { Anchor, Box, Button, Container, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { notifications } from '@mantine/notifications'
 import { showToast } from '@/components/toast-notifications'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 import { redirect } from 'next/navigation'
 import { useState } from 'react'
 import BackupCodes from '../app/backup-codes'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
 import { AddSmsMfaView } from './add-sms-mfa-view'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 // https://clerk.com/docs/custom-flows/add-phone
 // https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -171,78 +170,53 @@ export function AddSMSMFA() {
         <Container>
             <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
                 <Stack gap="lg">
-                    <Stepper
-                        unstyled
-                        styles={{
-                            steps: {
-                                display: 'none',
-                            },
-                        }}
-                        active={isVerifying ? 1 : 0}
-                        onStepClick={() => null}
-                    >
-                        <Stepper.Step label="Send verification code" description="Enter your phone number">
-                            {!isVerifying && (
-                                <AddSmsMfaView
-                                    form={phoneForm}
-                                    onSubmit={(values) => sendVerificationCode(values)}
-                                    isSendingSms={isSendingSms}
-                                />
-                            )}
-                        </Stepper.Step>
-                        <Stepper.Step label="Verify code" description="Enter the code sent to your phone number">
-                            {isVerifying && !backupCodes && (
-                                <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
-                                    <Stack align="center" gap="sm">
-                                        <Title order={3}>Verify your code</Title>
-                                        <Text>
-                                            We’ve sent a 6-digit code to your phone number ending in {'****'}
-                                            {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
-                                        </Text>
-                                        <Title order={4} ta="center" mt="xs">
-                                            Enter your code
-                                        </Title>
-                                        <OtpInput form={otpForm} errorId="add-sms-mfa-code-error" />
-                                        <Box id="add-sms-mfa-code-error">
-                                            {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
-                                        </Box>
-                                        <Button
-                                            type="submit"
-                                            w="100%"
-                                            size="md"
-                                            radius="sm"
-                                            loading={isVerifyingCode}
-                                            disabled={!/\d{6,}/.test(otpForm.values.code)}
-                                        >
-                                            Verify code
-                                        </Button>
-                                        <Group>
-                                            <Text fz="md" c="grey.7">
-                                                Didn’t receive a code?{' '}
-                                                <Anchor component="button" onClick={resendCode}>
-                                                    Resend code
-                                                </Anchor>
-                                            </Text>
-                                        </Group>
-                                        <Group gap="xs" justify="center">
-                                            <Link
-                                                href={Routes.accountMfa}
-                                                mt="md"
-                                                c="purple.5"
-                                                fw={fontWeight.semibold}
-                                                fz="md"
-                                                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                                            >
-                                                <CaretLeftIcon size={20} />
-                                                Back to options
-                                            </Link>
-                                        </Group>
-                                    </Stack>
-                                </form>
-                            )}
-                            {backupCodes && <BackupCodes codes={backupCodes} />}
-                        </Stepper.Step>
-                    </Stepper>
+                    {!isVerifying && (
+                        <AddSmsMfaView
+                            form={phoneForm}
+                            onSubmit={(values) => sendVerificationCode(values)}
+                            isSendingSms={isSendingSms}
+                        />
+                    )}
+                    {isVerifying && !backupCodes && (
+                        <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
+                            <Stack align="center" gap="sm">
+                                <Title order={3}>Verify your code</Title>
+                                <Text>
+                                    We’ve sent a 6-digit code to your phone number ending in {'****'}
+                                    {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
+                                </Text>
+                                <Title order={4} ta="center" mt="xs">
+                                    Enter your code
+                                </Title>
+                                <OtpInput form={otpForm} errorId="add-sms-mfa-code-error" />
+                                <Box id="add-sms-mfa-code-error">
+                                    {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
+                                </Box>
+                                <Button
+                                    type="submit"
+                                    w="100%"
+                                    size="md"
+                                    radius="sm"
+                                    loading={isVerifyingCode}
+                                    disabled={!/\d{6,}/.test(otpForm.values.code)}
+                                >
+                                    Verify code
+                                </Button>
+                                <Group>
+                                    <Text fz="md" c={semanticColor('text.secondary')}>
+                                        Didn’t receive a code?{' '}
+                                        <Anchor component="button" onClick={resendCode}>
+                                            Resend code
+                                        </Anchor>
+                                    </Text>
+                                </Group>
+                                <Group gap="xs" justify="center">
+                                    <BackLink href={Routes.accountMfa}>Back to options</BackLink>
+                                </Group>
+                            </Stack>
+                        </form>
+                    )}
+                    {backupCodes && <BackupCodes codes={backupCodes} />}
                 </Stack>
             </Paper>
         </Container>

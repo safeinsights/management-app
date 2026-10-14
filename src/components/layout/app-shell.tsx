@@ -52,7 +52,9 @@ export function AppShell({ children }: Props) {
                 {...MAIN_CONTENT_PROPS}
                 className={styles.main}
                 bg={APP_MAIN_BG}
-                style={{ maxWidth: APP_SHELL.mainMaxWidth, width: '100%', margin: '0 auto' }}
+                maw={APP_SHELL.mainMaxWidth}
+                w="100%"
+                mx="auto"
             >
                 {children}
             </AppShellMain>

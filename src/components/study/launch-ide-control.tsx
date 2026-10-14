@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC } from 'react'
-import { Button, HoverCard, Stack, Text } from '@mantine/core'
+import { Button, Group, HoverCard, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -25,19 +25,12 @@ const UnclaimedHelperText: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Text size="xs" c={semanticColor('text.secondary')}>
-            <Text
-                span
-                inherit
-                c={semanticColor('warning.text')}
-                mr="xxs"
-                display="inline-flex"
-                style={{ verticalAlign: 'middle' }}
-            >
-                <WarningIcon size={12} weight="fill" aria-hidden />
+        <Group gap="xxs" wrap="nowrap">
+            <WarningIcon size={12} weight="fill" color={semanticColor('warning.text')} aria-hidden />
+            <Text size="xs" c={semanticColor('text.secondary')}>
+                {UNCLAIMED_HELPER}
             </Text>
-            {UNCLAIMED_HELPER}
-        </Text>
+        </Group>
     )
 }
 

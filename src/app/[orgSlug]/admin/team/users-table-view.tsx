@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import { InfoTooltip } from '@/components/tooltip'
 import { UserAvatar } from '@/components/user-avatar'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
+import { semanticColor } from '@/theme/tokens'
 
 // Presentational only: the container injects the per-row permission mutation via
 // `renderPermission`.
@@ -43,8 +44,8 @@ const FullNameCell: React.FC<{ user: User }> = ({ user }) => (
     <Flex align="center" gap="lg">
         <UserAvatar user={user} />
         <Flex direction="column">
-            <Text c="dark.9">{user.fullName}</Text>
-            <Text size="sm" c="gray.7">
+            <Text c={semanticColor('text.primary')}>{user.fullName}</Text>
+            <Text size="sm" c={semanticColor('text.secondary')}>
                 {user.email}
             </Text>
         </Flex>

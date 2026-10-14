@@ -32,9 +32,11 @@ export const uiThemeComponents: MantineThemeComponents = {
             radius: 'xs',
         },
         styles: () => ({
-            // Figma: pad 12/16, gap 8 — uniform across all 30 variants.
+            // Figma: pad 12/16, gap 8 — uniform across all 30 variants. The gap is the icon's only
+            // spacing, so Mantine's own icon margin goes.
             root: { padding: '12px 16px' },
             wrapper: { gap: 8 },
+            icon: { marginInlineEnd: 0 },
             title: { color: 'inherit' },
         }),
     }),

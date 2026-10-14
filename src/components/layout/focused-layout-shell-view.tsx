@@ -1,4 +1,4 @@
-import { AppShell, AppShellHeader, AppShellMain, Group } from '@mantine/core'
+import { AppShell, AppShellHeader, AppShellMain, Center, Group } from '@mantine/core'
 import { MAIN_CONTENT_PROPS, SIDENAV_BG } from '@/lib/constants'
 import { type ReactNode } from 'react'
 import { AppFooter } from './app-footer'
@@ -26,20 +26,15 @@ export function FocusedLayoutShellView({
                 <Group
                     h="100%"
                     p="md"
-                    style={{ cursor: isSignInFlow ? 'pointer' : '' }}
+                    className={isSignInFlow ? 'clickable' : undefined}
                     onClick={() => isSignInFlow && onHeaderClick()}
                 >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
             </AppShellHeader>
 
-            <AppShellMain
-                {...MAIN_CONTENT_PROPS}
-                bg={SIDENAV_BG}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                px="md"
-            >
-                {children}
+            <AppShellMain {...MAIN_CONTENT_PROPS} bg={SIDENAV_BG} display="flex" px="md">
+                <Center flex={1}>{children}</Center>
             </AppShellMain>
             <AppFooter isDark />
         </AppShell>

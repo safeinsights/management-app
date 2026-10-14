@@ -1,5 +1,5 @@
 import { SignInResource } from '@clerk/types'
-import { Stack, Title } from '@mantine/core'
+import { Box, Stack, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { SmsVerification } from './sms-verification'
 import { TotpVerification } from './totp-verification'
@@ -24,7 +24,7 @@ export const VerifyCode = ({
     resetFlow,
 }: VerifyCodeProps) => {
     return (
-        <form onSubmit={form.onSubmit(onSubmit)} style={{ width: '100%' }}>
+        <Box component="form" onSubmit={form.onSubmit(onSubmit)} w="100%">
             <Stack align="center" gap="md" mb="xl">
                 <Title order={3} mb="xs">
                     Verify your code
@@ -40,6 +40,6 @@ export const VerifyCode = ({
                     <TotpVerification form={form} isVerifyingCode={isVerifyingCode} resetFlow={resetFlow} />
                 )}
             </Stack>
-        </form>
+        </Box>
     )
 }

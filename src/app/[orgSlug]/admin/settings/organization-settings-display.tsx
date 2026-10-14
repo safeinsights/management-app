@@ -40,7 +40,7 @@ export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSe
                         </Text>
                     </Grid.Col>
                     <Grid.Col span={valueSpan}>
-                        <Text size="sm" c={org.description ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap' }}>
+                        <Text size="sm" c={org.description ? undefined : 'dimmed'} className="pre-wrap">
                             {org.description || 'Not set'}
                         </Text>
                     </Grid.Col>

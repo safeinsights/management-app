@@ -40,7 +40,7 @@ export function PositionForm({
             <Stack gap="md">
                 <div>
                     <FormFieldLabel label="Institutional or organization affiliation" required inputId="affiliation" />
-                    <Text size="sm" mb={6}>
+                    <Text size="sm" mb="xs">
                         State your current institutional or organizational affiliation. If you are a student, please
                         specify your current educational institution.
                     </Text>
@@ -52,7 +52,7 @@ export function PositionForm({
                 </div>
                 <div>
                     <FormFieldLabel label="Position" required inputId="position" />
-                    <Text size="sm" mb={6}>
+                    <Text size="sm" mb="xs">
                         Your current position at this organization or institution.
                     </Text>
                     <TextInput
@@ -63,7 +63,7 @@ export function PositionForm({
                 </div>
                 <div>
                     <FormFieldLabel label="Link to your profile page" inputId="profileUrl" />
-                    <Text size="sm" mb={6}>
+                    <Text size="sm" mb="xs">
                         Add a link to your personal institutional or organization’s profile page, if available.
                     </Text>
                     <TextInput

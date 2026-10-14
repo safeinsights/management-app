@@ -7,7 +7,6 @@ import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { ErrorAlert } from '@/components/errors'
 import { RefresherSlot } from '@/components/refresher'
-import { semanticColor } from '@/theme/tokens'
 import { TableHeader, tableMinWidth, type ColumnDef } from './columns'
 import { EmptyState } from './empty-state'
 import type { RowModel } from './row-model'
@@ -96,7 +95,7 @@ export function StudiesTableView({
                     </ButtonLink>
                 )}
             </Group>
-            <Divider c={semanticColor('border.default')} />
+            <Divider />
             {description && showDescription && <Text>{description}</Text>}
             <RefresherSlot>{refresher}</RefresherSlot>
             <StudiesTableBody {...table} isError={isError} errorMessage={errorMessage} />

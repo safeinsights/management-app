@@ -3,12 +3,11 @@
 import { FC } from 'react'
 import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
-import { CaretLeftIcon } from '@phosphor-icons/react'
 import PhoneInput, { isPossiblePhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import { InputError } from '@/components/errors'
 import { revalidateOnBlur } from '@/components/form-field'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import styles from './panel.module.css'
 import { fontWeight } from '@/theme/tokens'
@@ -30,7 +29,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 SMS verification
             </Title>
             <Text>Enter your phone number to receive a verification code via SMS to complete the setup.</Text>
-            <Text fz="sm" fw={500}>
+            <Text fz="sm" fw={fontWeight.semibold}>
                 Enter phone number
             </Text>
             {/* PhoneInput is a third-party control, so it cannot take getInputProps; blur
@@ -65,17 +64,7 @@ export const AddSmsMfaView: FC<AddSmsMfaViewProps> = ({ form, onSubmit, isSendin
                 Send verification code
             </Button>
             <Group gap="xs" justify="center">
-                <Link
-                    href={Routes.accountMfa}
-                    mt="md"
-                    c="purple.5"
-                    fw={fontWeight.semibold}
-                    fz="md"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                    <CaretLeftIcon size={20} />
-                    Back to options
-                </Link>
+                <BackLink href={Routes.accountMfa}>Back to options</BackLink>
             </Group>
         </Stack>
     </form>
