@@ -188,7 +188,7 @@ export const config = {
     matcher: [
         '/(admin|dl|reviewer|researcher|organization)(.*)',
         // Excludes api requests: the api access wrapper hits the DB and middleware has no full
-        // node env.
-        '/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // node env. robots.txt is exempt by exact path because crawlers are never signed in.
+        '/((?!_next|api|robots\\.txt$|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     ],
 }
