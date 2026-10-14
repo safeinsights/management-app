@@ -3,6 +3,7 @@ import { redirect, useParams } from 'next/navigation'
 import { StudyRequestProvider } from '@/contexts/study-request'
 import { Routes } from '@/lib/routes'
 import {
+    faker,
     insertTestOrg,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
@@ -28,8 +29,6 @@ const renderPage = async (orgSlug: string) => {
     const page = await renderRoute(orgSlug)
     renderWithProviders(<StudyRequestProvider submittingOrgSlug={orgSlug}>{page}</StudyRequestProvider>)
 }
-
-const uniqueSlug = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`
 
 describe('RequestStudyPage', () => {
     it('renders Step 1 for a lab member', async () => {
@@ -67,7 +66,7 @@ describe('RequestStudyPage', () => {
 
     it('renders Step 1 for an SI admin on a lab they do not belong to', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const lab = await insertTestOrg({ slug: uniqueSlug('lab'), type: 'lab' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
 
         await renderPage(lab.slug)
 
@@ -77,7 +76,7 @@ describe('RequestStudyPage', () => {
 
     it('sends an SI admin on a Data Partner slug to that dashboard', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const enclave = await insertTestOrg({ slug: uniqueSlug('enclave'), type: 'enclave' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
 
         await expect(renderRoute(enclave.slug)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(Routes.orgDashboard({ orgSlug: enclave.slug }))

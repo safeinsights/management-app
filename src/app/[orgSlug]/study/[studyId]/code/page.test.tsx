@@ -5,9 +5,9 @@ import {
     cleanupWorkspaceDirs,
     createWorkspaceDir,
     db,
-    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -289,15 +289,8 @@ describe('StudyCodeUploadRoute', () => {
 
 // OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
 describe('/code for a Data Partner member (OTTER-768)', () => {
-    const seedStudy = async (studyStatus: 'APPROVED' | 'PENDING-REVIEW') => {
-        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
-        const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus })
-        return { enclave, study }
-    }
-
     it('sends the member to the review page', async () => {
-        const { enclave, study } = await seedStudy('APPROVED')
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
 
         await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
@@ -305,7 +298,7 @@ describe('/code for a Data Partner member (OTTER-768)', () => {
 
     // getDraftStudyAction refuses this status before the guard runs; /view's guard takes the next hop.
     it('hands a status the code step does not serve to /view', async () => {
-        const { enclave, study } = await seedStudy('PENDING-REVIEW')
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
 
         await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyView({ orgSlug: enclave.slug, studyId: study.id }))

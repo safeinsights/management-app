@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import {
+    faker,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
+    mockDataPartnerSessionWithLabStudy,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -20,8 +22,6 @@ beforeEach(() => {
     })
 })
 
-const uniqueSlug = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`
-
 const guardFor = (study: { id: string; orgId: string; submittedByOrgId: string }, orgSlug: string) =>
     researcherPageGuard({ orgId: study.orgId, orgSlug, submittedByOrgId: study.submittedByOrgId }, study.id)
 
@@ -30,7 +30,7 @@ describe('researcherPageGuard', () => {
     // instead of the submitting lab would fail here.
     it('lets in a member of the submitting lab who is not the study researcher', async () => {
         const { org: lab } = await mockSessionWithTestData({ orgType: 'lab' })
-        const enclave = await insertTestOrg({ slug: uniqueSlug('enclave'), type: 'enclave' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user: colleague } = await insertTestUser({ org: lab })
         const { study } = await insertTestStudyJobData({
             org: enclave,
@@ -44,13 +44,7 @@ describe('researcherPageGuard', () => {
     })
 
     it('sends a Data Partner member to the review page of the study', async () => {
-        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const lab = await insertTestOrg({ slug: uniqueSlug('lab'), type: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org: enclave,
-            submittedByOrg: lab,
-            studyStatus: 'PENDING-REVIEW',
-        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
 
         await expect(guardFor(study, enclave.slug)).rejects.toThrow('NEXT_REDIRECT')
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
@@ -71,8 +65,8 @@ describe('researcherPageGuard', () => {
 
     it('lets in an SI admin who belongs to neither org', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        const enclave = await insertTestOrg({ slug: uniqueSlug('enclave'), type: 'enclave' })
-        const lab = await insertTestOrg({ slug: uniqueSlug('lab'), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { study } = await insertTestStudyJobData({
             org: enclave,
             submittedByOrg: lab,
@@ -85,8 +79,8 @@ describe('researcherPageGuard', () => {
 
     it('refuses a member of another lab', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
-        const enclave = await insertTestOrg({ slug: uniqueSlug('enclave'), type: 'enclave' })
-        const otherLab = await insertTestOrg({ slug: uniqueSlug('other-lab'), type: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const otherLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { study } = await insertTestStudyJobData({
             org: enclave,
             submittedByOrg: otherLab,

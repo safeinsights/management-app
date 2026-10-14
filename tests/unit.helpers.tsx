@@ -1044,6 +1044,14 @@ export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessi
     return { user, labOrg, enclaveOrg, ...mocks }
 }
 
+// A signed-in Data Partner member, and a study their org reviews for a lab they do not belong to.
+export async function mockDataPartnerSessionWithLabStudy({ studyStatus }: { studyStatus: StudyStatus }) {
+    const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus })
+    return { enclave, lab, study }
+}
+
 type CreateTestProposalDraftOptions = {
     /** Unique enclave slug for this test. The lab counterpart is derived as `${enclaveSlug}-lab`. */
     enclaveSlug: string

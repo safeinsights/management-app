@@ -9,6 +9,7 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
+    mockDataPartnerSessionWithLabStudy,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -147,35 +148,20 @@ describe('StudyEditPage', () => {
     // hold for every submitted study. Step 1 is the Research Lab's page, so they are moved on
     // rather than shown the researcher wizard.
     it('sends a Data Partner member to the review page', async () => {
-        const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
-        const { user: otherResearcher } = await insertTestUser({ org: otherLab })
-        const { study } = await insertTestStudyJobData({
-            org: enclaveOrg,
-            submittedByOrg: otherLab,
-            researcherId: otherResearcher.id,
-            studyStatus: 'PENDING-REVIEW',
-            title: 'A study under review',
-        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
 
-        await expect(renderRoute(enclaveOrg.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
 
-        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclaveOrg.slug, studyId: study.id }))
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
     })
 
     // OTTER-596 next to the persona check: a DRAFT fails `view Study` for the Data Partner, so the
     // page's own not-found branch answers and the guard never runs.
     it("shows the not-found message to a Data Partner member for another lab's draft", async () => {
-        const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'DRAFT' })
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-        const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
-        const { study } = await insertTestStudyJobData({
-            org: enclaveOrg,
-            submittedByOrg: otherLab,
-            studyStatus: 'DRAFT',
-        })
 
-        const page = await renderRoute(enclaveOrg.slug, study.id)
+        const page = await renderRoute(enclave.slug, study.id)
         renderWithProviders(page!)
 
         expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()

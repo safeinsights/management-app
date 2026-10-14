@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
-    insertTestOrg,
     insertTestStudyJobData,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -176,9 +176,7 @@ describe('/resubmit for a Data Partner member (OTTER-768)', () => {
         vi.mocked(redirect).mockImplementation(() => {
             throw new Error('NEXT_REDIRECT')
         })
-        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
-        const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus: 'APPROVED' })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
 
         await expect(
             ResubmitStudyCodePage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
