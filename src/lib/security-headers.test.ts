@@ -28,6 +28,13 @@ describe('static security headers', () => {
         expect(await staticCsp()).toContain("object-src 'none'")
     })
 
+    it('tells browsers to use https only', async () => {
+        const [rule] = await nextConfig.headers!()
+        const hsts = rule.headers.find((h) => h.key === 'Strict-Transport-Security')
+
+        expect(hsts?.value).toBe('max-age=31536000; includeSubDomains')
+    })
+
     it('does not advertise the framework', () => {
         expect(nextConfig.poweredByHeader).toBe(false)
     })
