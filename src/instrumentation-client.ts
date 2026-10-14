@@ -1,7 +1,6 @@
 // Sentry client init: https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
-import { captureRouterTransitionStart } from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
 
 Sentry.init({
@@ -20,4 +19,4 @@ Sentry.init({
     environment: process.env.ENVIRONMENT_ID || 'development',
 })
 
-export const onRouterTransitionStart = captureRouterTransitionStart
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

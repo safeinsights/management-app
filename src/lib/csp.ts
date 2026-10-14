@@ -45,6 +45,9 @@ export function cspHeaderValue(nonce: string, reportUrl?: string): string {
         // 'strict-dynamic' lets Next's bootstrap scripts load the chunks they pull in, which a
         // host allowlist cannot express reliably.
         `script-src 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
+        // Clerk's session token poller runs its timers in a blob-URL worker. Listed explicitly so it
+        // does not silently stop if 'strict-dynamic' is ever removed.
+        "worker-src 'self' blob:",
         OBJECT_SRC_DIRECTIVE,
     ]
     if (reportUrl) {

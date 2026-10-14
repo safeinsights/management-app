@@ -19,8 +19,8 @@ describe('csp', () => {
         expect(cspHeaderValue('abc123')).toContain("script-src 'nonce-abc123'")
     })
 
-    it('does not open a blob worker exception now that session replay is off', () => {
-        expect(cspHeaderValue('abc123')).not.toContain('worker-src')
+    it('allows the blob worker that Clerk session polling uses', () => {
+        expect(cspHeaderValue('abc123')).toContain("worker-src 'self' blob:")
     })
 
     it('forbids plugin embeds', () => {
