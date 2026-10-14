@@ -9,6 +9,7 @@ import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
+import { researcherPageGuard } from '../researcher-page-guard'
 
 export const metadata: Metadata = { title: 'Edit study code' }
 
@@ -19,6 +20,9 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     if ('error' in study || !study.submittedByOrgSlug || study.title === null) {
         return notFound()
     }
+
+    const guard = await researcherPageGuard(study, studyId)
+    if (!guard.ok) return guard.render
 
     // The same predicate the autosave and resubmit actions gate on, so the page never renders a
     // state those actions would reject.

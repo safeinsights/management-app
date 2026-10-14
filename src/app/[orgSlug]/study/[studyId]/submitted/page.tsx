@@ -6,6 +6,7 @@ import { StudyNavSearchParams } from '@/lib/routes'
 import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
 import { renderScreenById } from '../_screens/render-screen'
+import { researcherPageGuard } from '../researcher-page-guard'
 
 export const metadata: Metadata = { title: 'Submit proposal' }
 
@@ -24,6 +25,9 @@ export default async function StudySubmittedRoute(props: {
     if (isActionError(result) || !result) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }
+
+    const guard = await researcherPageGuard(result, studyId)
+    if (!guard.ok) return guard.render
 
     if (!isSubmittedStudy(result)) {
         return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />

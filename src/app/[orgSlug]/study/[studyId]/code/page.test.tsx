@@ -7,6 +7,7 @@ import {
     db,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -18,6 +19,7 @@ import {
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { memoryRouter } from 'next-router-mock'
+import { Routes } from '@/lib/routes'
 import { resolvePillId } from '@/lib/study-screen'
 import { studyCodeStateFor } from '@/server/study-code-gate'
 import StudyCodeUploadRoute from './page'
@@ -282,5 +284,23 @@ describe('StudyCodeUploadRoute', () => {
             await renderRoute(org.slug, second.id)
             expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
         })
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/code for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
+
+        await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
+    })
+
+    // getDraftStudyAction refuses this status before the guard runs; /view's guard takes the next hop.
+    it('hands a status the code step does not serve to /view', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
+
+        await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyView({ orgSlug: enclave.slug, studyId: study.id }))
     })
 })

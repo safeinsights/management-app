@@ -488,6 +488,7 @@ type MinimalTestOrg = { slug: string; id: string; type: 'enclave' | 'lab' }
 
 export const insertTestStudyJobData = async ({
     org,
+    submittedByOrg,
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
@@ -502,6 +503,8 @@ export const insertTestStudyJobData = async ({
     withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
+    // See insertTestStudyOnly: puts the Data Partner and the Research Lab on different orgs.
+    submittedByOrg?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
@@ -519,14 +522,14 @@ export const insertTestStudyJobData = async ({
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        const { user } = await insertTestUser({ org: org })
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
             orgId: org.id,
-            submittedByOrgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
             containerLocation: 'test-container',
             title: title ?? 'my 1st study',
             researcherId: researcherId,
@@ -1039,6 +1042,14 @@ export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessi
     })
 
     return { user, labOrg, enclaveOrg, ...mocks }
+}
+
+// A signed-in Data Partner member, and a study their org reviews for a lab they do not belong to.
+export async function mockDataPartnerSessionWithLabStudy({ studyStatus }: { studyStatus: StudyStatus }) {
+    const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus })
+    return { enclave, lab, study }
 }
 
 type CreateTestProposalDraftOptions = {
