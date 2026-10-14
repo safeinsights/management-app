@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { useParams } from 'next/navigation'
+import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
     describe,
@@ -19,6 +21,7 @@ type FakeProvider = {
     awareness: { getLocalState: () => Record<string, unknown> | null }
     sendStateless: Mock
     destroy: Mock
+    __emit: (event: string, ...args: unknown[]) => void
 }
 
 const providers = () => (HocuspocusProvider as unknown as { __instances: FakeProvider[] }).__instances
@@ -32,6 +35,8 @@ describe('useCodeSubmissionPresence', () => {
         __resetSharedYjsWebsocketForTests()
         providers().length = 0
         studyId = faker.string.uuid()
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab' })
+        memoryRouter.setCurrentUrl('/start')
         mockClerkSession({
             clerkUserId: 'user_erin',
             userId: faker.string.uuid(),
@@ -66,13 +71,33 @@ describe('useCodeSubmissionPresence', () => {
         expect(JSON.parse(provider.sendStateless.mock.calls[0][0] as string)).toEqual({
             type: 'code-submitted',
             studyId,
-            submittedByTabId: result.current.tabSessionId,
+            submittedByTabId: expect.any(String),
             submittedByClerkId: 'user_erin',
             submittedByName: 'Erin Lab',
         })
+        // Own broadcast must not kick this tab: the mutation's onSuccess already navigates it.
+        provider.__emit('stateless', { payload: provider.sendStateless.mock.calls[0][0] })
+        expect(memoryRouter.asPath).toBe('/start')
 
         unmount()
         expect(provider.destroy).toHaveBeenCalledTimes(1)
+    })
+
+    it('kicks this tab to the study view when another tab submits the code', async () => {
+        renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
+        await waitFor(() => expect(providers()).toHaveLength(1))
+
+        providers()[0].__emit('stateless', {
+            payload: JSON.stringify({
+                type: 'code-submitted',
+                studyId,
+                submittedByTabId: faker.string.uuid(),
+                submittedByClerkId: 'user_erin',
+                submittedByName: 'Erin Lab',
+            }),
+        })
+
+        expect(memoryRouter.asPath).toBe(`/lab/study/${studyId}/view`)
     })
 
     it('opens nothing while disabled', async () => {

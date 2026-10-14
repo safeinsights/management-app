@@ -51,7 +51,7 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
 
     const headerAction = (
         <Group gap="md">
-            <CodeSubmissionPresence {...presence} studyId={studyId} />
+            <CodeSubmissionPresence provider={presence.provider} />
             <IdeLaunchAction
                 ide={ide}
                 isVisible={showsLaunchIdeControl({ ide, showLaunchIde: studyHasCodeEnv })}

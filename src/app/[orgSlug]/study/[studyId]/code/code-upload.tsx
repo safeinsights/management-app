@@ -44,7 +44,7 @@ export function CodeUploadPage({
             isEditable={isEditable}
             nav={nav}
             onSubmitSuccess={onSubmitSuccess}
-            presence={<CodeSubmissionPresence {...presence} studyId={studyId} />}
+            presence={<CodeSubmissionPresence provider={presence.provider} />}
         />
     )
 }
