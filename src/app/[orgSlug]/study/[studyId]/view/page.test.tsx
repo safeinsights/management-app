@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import {
     insertTestBaselineJob,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -780,5 +783,36 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
         })
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/view for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
+        const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const lab = await insertTestOrg({ slug: `lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus: 'PENDING-REVIEW' })
+
+        await expect(StudyReviewPage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) })).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
+    })
+
+    // The URL picks the persona, so a dual-role user whose lab submitted the study keeps /view.
+    it('lets a dual-role user whose lab submitted the study stay on the page', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: labOrg,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: labOrg.slug, studyId: study.id }) })
+
+        expect(page).toBeDefined()
+        expect(redirect).not.toHaveBeenCalled()
     })
 })

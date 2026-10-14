@@ -163,6 +163,26 @@ describe('StudyEditPage', () => {
         expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclaveOrg.slug, studyId: study.id }))
     })
 
+    // OTTER-596 next to the persona check: a DRAFT fails `view Study` for the Data Partner, so the
+    // page's own not-found branch answers and the guard never runs.
+    it('shows the not-found message to a Data Partner member for another lab\'s draft', async () => {
+        const { org: enclaveOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const otherLab = await insertTestOrg({ slug: `other-lab-${crypto.randomUUID().slice(0, 8)}`, type: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: otherLab,
+            studyStatus: 'DRAFT',
+        })
+
+        const page = await renderRoute(enclaveOrg.slug, study.id)
+        renderWithProviders(page!)
+
+        expect(screen.getByText(/No such study exists/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
     it('renders Step 1 for a dual-role user whose lab submitted the study', async () => {
         const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
         const { study } = await insertTestStudyJobData({
