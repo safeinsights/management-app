@@ -102,7 +102,7 @@ async function navigateToProposeStudy(page: Page, studyTitle: string) {
     await confirmStep1(page)
 
     await page.waitForURL(/\/proposal$/)
-    await expect(page.getByText('STEP 2')).toBeVisible()
+    await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
 }
 
 // Not `getByPlaceholder`: Step 2 renders no placeholder text (OTTER-691), so the locator this
@@ -747,7 +747,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
         await page.waitForURL(/\/proposal$/)
-        await expect(page.getByText('STEP 2')).toBeVisible()
+        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
     })
 })
 
@@ -954,7 +954,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // again from there. Every field is a locked group by now, so none of them holds a control.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
@@ -1023,7 +1023,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('cta-back-to-my-studies')).toHaveCount(0)
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
@@ -1371,7 +1371,7 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // ...and confirming moves on to Step 2.
         await confirmStep1(page)
         await page.waitForURL(/\/proposal$/)
-        await expect(page.getByText('STEP 2')).toBeVisible()
+        await expect(page.getByText('STEP 2', { exact: true })).toBeVisible()
 
         // Step 2 no longer owns the title, and OTTER-691 removed its placeholders. Asserted on the
         // controls themselves: `getByPlaceholder(...).toHaveCount(0)` also passes when the field is
