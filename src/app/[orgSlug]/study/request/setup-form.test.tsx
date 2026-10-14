@@ -1224,6 +1224,21 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
     })
+
+    it('steps forward to the proposal status when the page resolved no target', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        const draftData = submittedDraft(fixtures)
+        renderSetup(fixtures, { studyId: draftData.id, draftData })
+
+        await user.click(nextStepButton())
+
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
+            ),
+        )
+    })
 })
 
 // One button carries all three states, and assistive tech reads its accessible name. Each state is
