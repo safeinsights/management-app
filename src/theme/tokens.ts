@@ -82,7 +82,7 @@ export const semanticShades = {
     'warning.text': 'yellow.8',
     'warning.border': 'yellow.6',
     'warning.bg.light': 'yellow.0',
-    'warning.bg.dark': 'yellow.5',
+    'warning.bg.dark': 'yellow.4',
     /** status/error/* */
     'error.text': 'red.7',
     'error.border': 'red.6',

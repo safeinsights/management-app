@@ -12,6 +12,7 @@ import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/study.actions'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
+import type { NavAction } from '@/lib/study-screen'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 const FILES_DESCRIPTION = 'View and manage your code files. You can update files, delete them, or upload new ones.'
@@ -32,6 +33,8 @@ interface EditStudyCodeViewProps {
     orgName: string
     feedbackEntries: CodeReviewFeedbackEntry[]
     studyHasCodeEnv: boolean
+    previousStep: NavAction
+    viewOutputs?: NavAction
 }
 
 export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
@@ -39,6 +42,8 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
     orgName,
     feedbackEntries,
     studyHasCodeEnv,
+    previousStep,
+    viewOutputs,
 }) => {
     const ide = useIDEFiles({ studyId })
     const { noteForm, isSaving, lastSavedAt } = useEditCodeResubmit()
@@ -81,6 +86,8 @@ export const EditStudyCodeView: FC<EditStudyCodeViewProps> = ({
                 blockedReason={blockedReason}
                 onSubmitAttempt={() => setSubmitAttempted(true)}
                 filesEdited={ide.userEditedFiles}
+                previousStep={previousStep}
+                viewOutputs={viewOutputs}
             />
         </Stack>
     )

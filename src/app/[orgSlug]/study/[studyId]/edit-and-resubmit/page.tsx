@@ -5,6 +5,7 @@ import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/acti
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { isSessionOrgMember } from '@/lib/utils'
+import { editProposalPreviousStep } from '@/lib/study-screen'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: 'Edit proposal' }
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
 }) {
-    const { studyId } = await props.params
+    const { orgSlug, studyId } = await props.params
 
     const study = await getStudyAction({ studyId })
 
@@ -69,6 +70,7 @@ export default async function StudyEditAndResubmitRoute(props: {
                     initialNote={initialNote}
                     studyTitle={study.title}
                     isDraftCreator={isDraftCreator}
+                    previousStep={editProposalPreviousStep({ orgSlug, studyId })}
                 />
             </EditResubmitProvider>
         </Stack>
