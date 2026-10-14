@@ -586,7 +586,7 @@ describe('SubmittedCodeSection — Security scan results', () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanResult('PASSED'))
         const body = screen.getByTestId('scan-details-body')
-        expect(body).toHaveTextContent('main.r:28  INFO')
+        expect(body).toHaveTextContent('main.r:28 INFO')
         expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
 
         await userEvent.setup().click(screen.getByTestId('scan-details-toggle'))
