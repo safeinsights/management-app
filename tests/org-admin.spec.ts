@@ -199,14 +199,16 @@ test.describe('Organization Admin', () => {
         await expect(label).toBeVisible()
         await expect(icon).toBeVisible()
 
-        // The label element can stretch up to the icon, so measure where its text actually ends.
-        const textRight = await label.evaluate((el) => {
+        // The label element can stretch up to the icon, so measure where its text actually ends. Read
+        // both rects in one evaluate: rows loading in between would resize the columns.
+        const gap = await header.evaluate((th) => {
+            const text = th.querySelector('.mantine-datatable-header-cell-sortable-text')
+            const sortIcon = th.querySelector('[role="img"][aria-label*="sorted" i]')
+            if (!text || !sortIcon) return Infinity
             const range = document.createRange()
-            range.selectNodeContents(el)
-            return range.getBoundingClientRect().right
+            range.selectNodeContents(text)
+            return sortIcon.getBoundingClientRect().left - range.getBoundingClientRect().right
         })
-        const iconBox = await icon.boundingBox()
-        const gap = (iconBox?.x ?? Infinity) - textRight
         expect(gap).toBeGreaterThanOrEqual(0)
         expect(gap).toBeLessThanOrEqual(8)
     })
