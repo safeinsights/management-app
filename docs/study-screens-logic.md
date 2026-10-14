@@ -540,6 +540,10 @@ re-architecting — exactly as the design intended.
 - **Shared guard** (`review/reviewer-page-guard.tsx`): both reviewer entry points run the same
   access preamble (session/org → study → lab-org redirect to `/view` → `isSubmittedStudy` →
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
+- **Researcher guard** (`researcher-page-guard.tsx`, OTTER-768): the mirror for `/submitted`,
+  `/view`, `/view/code`, `/code`, `/resubmit` and `/edit`. A member of the submitting org or an SI
+  admin passes; a reviewer of the study is redirected to `/review`. `view Study` alone is not enough,
+  because the Data Partner holds it for every submitted study.
 - **Agreements gate — hidden (OTTER-727)**: the old redirect-to-`/agreements` became the
   `reviewer-agreements` screen, and is now hidden entirely. Its rule is gone from the reviewer table
   (see the OTTER-727 note above), and both `/agreements/reviewer` and `/agreements/researcher`
@@ -584,6 +588,7 @@ re-architecting — exactly as the design intended.
 | `_screens/render-screen.tsx`           | `renderStudyScreen` — shared `/view` + `/review` dispatch                                                   |
 | `_screens/reviewer-*-screen.tsx`       | six reviewer adapters over existing reviewer views                                                          |
 | `review/reviewer-page-guard.tsx`       | shared reviewer access preamble                                                                             |
+| `researcher-page-guard.tsx`            | shared researcher persona check (OTTER-768)                                                                 |
 | `lib/review-decision.ts`               | status/`CODE-*` → `ReviewDecision` fallback maps                                                            |
 
 Tests sit next to each module; `state.shuffle.test.ts` and `consistency.test.ts` enforce the
