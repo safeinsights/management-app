@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { memoryRouter } from 'next-router-mock'
@@ -7,6 +8,9 @@ import { ResubmissionNoteSection } from '@/components/study/resubmission-note-se
 import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { Routes } from '@/lib/routes'
+import { codeResubmissionNav, type NavAction } from '@/lib/study-screen'
+import { studyState } from '@/lib/study-screen/state.fixture'
 import { EditStudyCodeFooter } from './edit-study-code-footer'
 
 const ORG_NAME = 'Reviewing Org'
@@ -17,6 +21,26 @@ const NoteInput = () => {
     return <ResubmissionNoteSection noteForm={noteForm} orgName={ORG_NAME} />
 }
 
+// Drives the draft directly, to reach the "autosaved, then reverted" state the editor can't type.
+const DraftControls = ({ edited, original }: { edited: string; original: string }) => {
+    const { noteForm, saveDraft } = useEditCodeResubmit()
+    const [saved, setSaved] = useState(false)
+    return (
+        <>
+            <button type="button" onClick={() => noteForm.setFieldValue('resubmissionNote', edited)}>
+                Edit note
+            </button>
+            <button type="button" onClick={async () => setSaved(await saveDraft())}>
+                Save draft
+            </button>
+            <button type="button" onClick={() => noteForm.setFieldValue('resubmissionNote', original)}>
+                Revert note
+            </button>
+            {saved ? 'Draft saved' : null}
+        </>
+    )
+}
+
 vi.mock('@/server/actions/study-request', () => ({
     resubmitStudyCodeAction: vi.fn(),
     saveCodeResubmissionNoteDraftAction: vi.fn().mockResolvedValue({ studyId: '', savedAt: '' }),
@@ -25,6 +49,11 @@ vi.mock('@/server/actions/study-request', () => ({
 const EXIT_TARGET = `/lab-1/study/${'11111111-1111-4111-8111-111111111111'}/view`
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
+
+const VIEW_OUTPUTS = codeResubmissionNav(studyState({ resultsRejected: true }), {
+    orgSlug: 'lab-1',
+    studyId: STUDY_ID,
+}).secondary as NavAction
 
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
@@ -37,6 +66,8 @@ const renderFooter = (
         withNoteInput?: boolean
         blockedReason?: string | null
         onSubmitAttempt?: () => void
+        viewOutputs?: NavAction
+        extra?: ReactNode
     } = {},
 ) => {
     ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
@@ -44,12 +75,14 @@ const renderFooter = (
         <EditCodeResubmitProvider studyId={STUDY_ID} orgName={ORG_NAME} initialNote={opts.initialNote ?? ''}>
             <SubmitCodeError message={opts.blockedReason ?? null} />
             {opts.withNoteInput && <NoteInput />}
+            {opts.extra}
             <EditStudyCodeFooter
                 mainFileName={opts.mainFileName ?? ''}
                 fileNames={opts.fileNames ?? []}
                 blockedReason={opts.blockedReason ?? null}
                 onSubmitAttempt={opts.onSubmitAttempt ?? (() => {})}
                 filesEdited={opts.filesEdited ?? false}
+                viewOutputs={opts.viewOutputs}
             />
         </EditCodeResubmitProvider>,
     )
@@ -264,7 +297,6 @@ describe('EditStudyCodeFooter — Previous step', () => {
     it('saves the note edited this session, then steps back to the study view', async () => {
         const user = userEvent.setup()
         memoryRouter.setCurrentUrl('/start')
-        vi.mocked(saveCodeResubmissionNoteDraftAction).mockClear()
         renderFooter({ initialNote: wordsString(3), withNoteInput: true })
 
         await user.click(screen.getByLabelText('Resubmission note'))
@@ -283,5 +315,113 @@ describe('EditStudyCodeFooter — Previous step', () => {
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+    })
+})
+
+describe('EditStudyCodeFooter: View outputs', () => {
+    it('is absent when Edit code was not opened from the outputs step', () => {
+        renderFooter()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
+    it('renders as an outline button just before Resubmit code for review', () => {
+        renderFooter({ viewOutputs: VIEW_OUTPUTS })
+
+        const viewOutputs = screen.getByRole('button', { name: 'View outputs' })
+        const resubmit = screen.getByRole('button', { name: 'Resubmit code for review' })
+        expect(viewOutputs).toHaveAttribute('data-variant', 'outline')
+        expect(viewOutputs.compareDocumentPosition(resubmit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('opens the latest outputs page in the same tab without saving when nothing has changed', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        renderFooter({ initialNote: wordsString(3), viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).not.toHaveBeenCalled()
+    })
+
+    it('saves the note edited this session before leaving for the outputs page', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        renderFooter({ initialNote: wordsString(3), withNoteInput: true, viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByLabelText('Resubmission note'))
+        await user.paste(' more')
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenCalled()
+    })
+
+    it('goes to the href the nav table resolved, not the Previous step target', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        const elsewhere = Routes.studyView({ orgSlug: 'lab-1', studyId: '22222222-2222-4222-8222-222222222222' })
+        renderFooter({ viewOutputs: { ...VIEW_OUTPUTS, href: elsewhere } })
+
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(elsewhere))
+    })
+
+    it('spins only itself while saving, and stays on Edit code when the save fails', async () => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        let rejectSave: (error: Error) => void = () => {}
+        vi.mocked(saveCodeResubmissionNoteDraftAction).mockImplementationOnce(
+            () =>
+                new Promise((_resolve, reject) => {
+                    rejectSave = reject
+                }) as ReturnType<typeof saveCodeResubmissionNoteDraftAction>,
+        )
+        renderFooter({ initialNote: wordsString(3), withNoteInput: true, viewOutputs: VIEW_OUTPUTS })
+
+        await user.click(screen.getByLabelText('Resubmission note'))
+        await user.paste(' more')
+        await user.click(screen.getByRole('button', { name: 'View outputs' }))
+
+        const viewOutputs = screen.getByRole('button', { name: 'View outputs' })
+        await waitFor(() => expect(viewOutputs).toHaveAttribute('data-loading'))
+        expect(screen.getByRole('button', { name: 'Previous step' })).not.toHaveAttribute('data-loading')
+
+        rejectSave(new Error('offline'))
+
+        await waitFor(() => expect(viewOutputs).not.toHaveAttribute('data-loading'))
+        expect(memoryRouter.asPath).toBe('/start')
+    })
+})
+
+// The form's dirty flag compares against the page-load note, not the last autosave, so an exit
+// that only saved when dirty would drop a revert to the original note.
+describe('EditStudyCodeFooter: leaving after an autosave', () => {
+    it.each(['Previous step', 'View outputs'])('%s saves a note reverted to its page-load value', async (exitLabel) => {
+        const user = userEvent.setup()
+        memoryRouter.setCurrentUrl('/start')
+        const original = wordsString(3)
+        const edited = wordsString(5)
+        renderFooter({
+            initialNote: original,
+            viewOutputs: VIEW_OUTPUTS,
+            extra: <DraftControls edited={edited} original={original} />,
+        })
+        const exit = screen.getByRole('button', { name: exitLabel })
+
+        await user.click(screen.getByRole('button', { name: 'Edit note' }))
+        await user.click(screen.getByRole('button', { name: 'Save draft' }))
+        await screen.findByText('Draft saved')
+        await waitFor(() => expect(exit).toBeEnabled())
+
+        await user.click(screen.getByRole('button', { name: 'Revert note' }))
+        await user.click(exit)
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(EXIT_TARGET))
+        expect(vi.mocked(saveCodeResubmissionNoteDraftAction)).toHaveBeenLastCalledWith({
+            studyId: STUDY_ID,
+            note: original,
+        })
     })
 })
