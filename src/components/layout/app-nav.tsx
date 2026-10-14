@@ -26,6 +26,7 @@ function useNavUnread(): NavUnread {
         queryFn: async () => fetchNavUnreadAction(),
         enabled: Boolean(userId),
         refetchOnWindowFocus: false,
+        staleTime: Infinity,
     })
     return data
 }
