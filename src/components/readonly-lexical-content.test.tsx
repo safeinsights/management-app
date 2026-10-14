@@ -1,4 +1,14 @@
-import { renderWithProviders, fireEvent, screen, waitFor, describe, it, expect, vi } from '@/tests/unit.helpers'
+import {
+    renderWithProviders,
+    fireEvent,
+    screen,
+    waitFor,
+    describe,
+    it,
+    expect,
+    vi,
+    lexicalLinkState,
+} from '@/tests/unit.helpers'
 import { LINK_CARD_DIALOG_LABEL, LINK_CARD_LABELS } from '@/components/link-hover-card/copy'
 import { ReadOnlyLexicalContent } from './readonly-lexical-content'
 
@@ -16,24 +26,7 @@ function root(children: object[]) {
     return JSON.stringify({ root: { children, direction: 'ltr', format: '', indent: 0, type: 'root', version: 1 } })
 }
 
-function linkState(url: string, target: string | null) {
-    return root([
-        paragraph([
-            {
-                children: [textNode('example')],
-                direction: 'ltr',
-                format: '',
-                indent: 0,
-                type: 'link',
-                version: 1,
-                rel: target ? 'noopener noreferrer' : null,
-                target,
-                title: null,
-                url,
-            },
-        ]),
-    ])
-}
+const linkState = (url: string, target: string | null) => lexicalLinkState({ url, target })
 
 /** Mirrors how links were persisted before target/rel were set on insertion. */
 const legacyLinkState = (url: string) => linkState(url, null)

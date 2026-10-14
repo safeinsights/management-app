@@ -468,6 +468,9 @@ async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<strin
     return Object.entries({
         WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
         WEBHOOK_ENDPOINT: webhookEndpoint,
+        // The CodeBuild project's default is the base environment's domain, so a PR preview's
+        // webhooks would otherwise land on an app whose database does not have the job.
+        ...(process.env.DOMAIN_NAME && { ASSIGNED_DOMAIN: process.env.DOMAIN_NAME }),
         ...vars,
     }).map(([name, value]) => ({ name, value: typeof value === 'object' ? JSON.stringify(value) : value }))
 }

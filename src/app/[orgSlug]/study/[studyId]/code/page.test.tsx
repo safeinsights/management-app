@@ -6,6 +6,7 @@ import {
     createWorkspaceDir,
     db,
     insertTestStudyJobData,
+    insertTestStudyOnly,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -17,6 +18,8 @@ import {
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { memoryRouter } from 'next-router-mock'
+import { resolvePillId } from '@/lib/study-screen'
+import { studyCodeStateFor } from '@/server/study-code-gate'
 import StudyCodeUploadRoute from './page'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
@@ -164,7 +167,6 @@ describe('StudyCodeUploadRoute', () => {
             expect(screen.getByText(/already have code/i)).toBeInTheDocument()
         })
 
-        // The preload mints a round job, so a view-only visit must not open one.
         it('opens no round job on a view-only visit', async () => {
             const { org, study } = await seedWithFiles('CODE-SUBMITTED')
             const before = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
@@ -173,6 +175,23 @@ describe('StudyCodeUploadRoute', () => {
 
             const after = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
             expect(after).toHaveLength(before.length)
+        })
+    })
+
+    // Spec rows 8 and 9: only a launch or an upload turns "Proposal approved" into a code draft.
+    describe('code draft trigger (OTTER-698)', () => {
+        it('opens no round job when an approved study is only viewed, so both badges stay approved', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            await renderRoute(org.slug, study.id)
+
+            const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobs).toHaveLength(0)
+
+            const state = (await studyCodeStateFor(db, study.id))!
+            expect(resolvePillId('researcher', state)).toBe('proposal-approved')
+            expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
     })
 

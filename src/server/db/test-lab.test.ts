@@ -6,7 +6,7 @@ import {
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
 } from '@/server/actions/study-request'
-import { designateTestLabs } from './test-lab'
+import { designateTestLabs, isDesignatedTestLab, undesignateTestLab } from './test-lab'
 
 const insertParties = async () => {
     const enclave = await insertTestOrg({ type: 'enclave', slug: faker.string.alpha(10) })
@@ -102,5 +102,51 @@ describe('stamping is_test_study at study creation', () => {
 
         expect(before.isTestStudy).toBe(false)
         expect((await createDraft(enclave.slug, lab.slug)).isTestStudy).toBe(true)
+    })
+})
+
+const designatedRowId = async (dataPartnerId: string, researchLabId: string) => {
+    const row = await db
+        .selectFrom('orgTestLab')
+        .select('id')
+        .where('dataPartnerId', '=', dataPartnerId)
+        .where('researchLabId', '=', researchLabId)
+        .executeTakeFirstOrThrow()
+
+    return row.id
+}
+
+describe('dropping a test lab', () => {
+    // The stamp records a fact about the study at creation, so a drop only stops stamping new ones.
+    it('keeps an already stamped study a test study and stops stamping new ones', async () => {
+        const { enclave, lab } = await insertParties()
+        const { user } = await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave', isAdmin: true })
+        await designateTestLabs(db, { dataPartnerId: enclave.id, researchLabIds: [lab.id], createdByUserId: user.id })
+        const before = await createDraft(enclave.slug, lab.slug)
+        const testLabId = await designatedRowId(enclave.id, lab.id)
+
+        expect(await undesignateTestLab(db, { dataPartnerId: enclave.id, testLabId })).toEqual({ id: testLabId })
+
+        const after = await createDraft(enclave.slug, lab.slug)
+        const earlier = await db
+            .selectFrom('study')
+            .select('isTestStudy')
+            .where('id', '=', before.studyId)
+            .executeTakeFirstOrThrow()
+
+        expect(before.isTestStudy).toBe(true)
+        expect(earlier.isTestStudy).toBe(true)
+        expect(after.isTestStudy).toBe(false)
+    })
+
+    it('deletes nothing when the row belongs to a different data partner', async () => {
+        const { enclave, lab } = await insertParties()
+        const other = await insertTestOrg({ type: 'enclave', slug: faker.string.alpha(10) })
+        const { user } = await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave', isAdmin: true })
+        await designateTestLabs(db, { dataPartnerId: enclave.id, researchLabIds: [lab.id], createdByUserId: user.id })
+        const testLabId = await designatedRowId(enclave.id, lab.id)
+
+        expect(await undesignateTestLab(db, { dataPartnerId: other.id, testLabId })).toBeUndefined()
+        expect(await isDesignatedTestLab(db, { dataPartnerId: enclave.id, researchLabId: lab.id })).toBe(true)
     })
 })

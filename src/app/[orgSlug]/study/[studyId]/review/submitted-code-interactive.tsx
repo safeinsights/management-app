@@ -4,9 +4,9 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 import {
     ActionIcon,
     Alert,
-    Anchor,
     Button,
     Collapse,
+    Divider,
     Group,
     Loader,
     Menu,
@@ -17,7 +17,8 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { ToggleChevron } from '@/components/icons'
+import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
+import { SecurityScanPanel, isScanPending } from './security-scan-panel'
 import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -60,13 +61,6 @@ export function splitVisibleFiles(files: CodeFile[]) {
     return { visible: files.slice(0, visibleSlots), hidden, hiddenCount: hidden.length }
 }
 
-function useAiSummaryToggle() {
-    const [isExpanded, setIsExpanded] = useState(false)
-    return { isExpanded, toggle: () => setIsExpanded((v) => !v) }
-}
-
-const AI_SUMMARY_COLLAPSED_LINE_CLAMP = 2
-
 // Panda's preflight zeroes list-style globally, so restore markers explicitly.
 const MARKDOWN_LIST_COMPONENTS: Components = {
     ul: ({ node: _node, ...props }) => (
@@ -77,20 +71,15 @@ const MARKDOWN_LIST_COMPONENTS: Components = {
     ),
 }
 
-function AiSummaryBody({ isExpanded, summary }: { isExpanded: boolean; summary: string }) {
+function AiSummaryContent({ summary }: { summary: string }) {
     return (
-        <Text
-            component="div"
-            size="sm"
-            data-testid="ai-summary-body"
-            lineClamp={isExpanded ? undefined : AI_SUMMARY_COLLAPSED_LINE_CLAMP}
-        >
+        <ExpandableDetails testId="ai-summary" showLabel="View full AI summary" hideLabel="Hide full AI summary">
             <Typography fz="sm">
                 <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_LIST_COMPONENTS}>
                     {summary}
                 </Markdown>
             </Typography>
-        </Text>
+        </ExpandableDetails>
     )
 }
 
@@ -126,7 +115,7 @@ function useElapsedSince(since: Date | string, ms: number) {
 const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
     ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
 
-type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
+type JobAnalysisUpdate = JobAnalysis
 
 // The server drops a review belonging to a previous round, so a null review here means
 // "generating", never "last round's" (OTTER-775).
@@ -137,49 +126,28 @@ type JobAnalysisUpdate = { review: StudyReviewWithMeta | null }
 function useJobAnalysisPoll(
     studyJobId: string,
     submittedAt: Date | string,
-    initialReview: StudyReviewWithMeta | null,
+    initialAnalysis: JobAnalysis,
     intervalMs: number,
 ) {
     return useQuery({
         queryKey: jobAnalysisKey(studyJobId, submittedAt),
-        // No `withScan`: this page stopped rendering a scan verdict in OTTER-694, and asking for
-        // one would buy an S3 read on every tick.
         queryFn: async (): Promise<JobAnalysisUpdate> => {
             const response = await getJobAnalysisAction({ studyJobId })
-            if (isActionError(response)) return { review: null }
-            return { review: response.review }
+            if (isActionError(response)) throw new Error('Unable to load analysis')
+            return response
         },
-        initialData: { review: initialReview },
+        initialData: initialAnalysis,
         // The server render is already stale by the time it reaches the browser; without this the
         // seeded value counts as fresh and the first interval tick is skipped.
         initialDataUpdatedAt: 0,
         refetchInterval: (query) => {
             if (query.state.error) return false
             const review = query.state.data?.review
-            return review == null || studyReviewState(review) === 'pending' ? intervalMs : false
+            return review == null || studyReviewState(review) === 'pending' || isScanPending(query.state.data?.scan)
+                ? intervalMs
+                : false
         },
     })
-}
-
-function AiSummaryToggle({ isExpanded, onToggle }: { isExpanded: boolean; onToggle: () => void }) {
-    const toggleLabel = isExpanded ? 'Hide full AI summary' : 'View full AI summary'
-    return (
-        <Anchor
-            component="button"
-            type="button"
-            onClick={onToggle}
-            size="sm"
-            fw={fontWeight.bold}
-            display="inline-flex"
-            w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            data-testid="ai-summary-toggle"
-            aria-expanded={isExpanded}
-        >
-            {toggleLabel}
-            <ToggleChevron isExpanded={isExpanded} />
-        </Anchor>
-    )
 }
 
 function AiSummaryPending() {
@@ -221,17 +189,6 @@ function AiSummaryEmpty() {
     )
 }
 
-type AiSummaryContentProps = { summary: string; isExpanded: boolean; onToggle: () => void }
-
-function AiSummaryContent({ summary, isExpanded, onToggle }: AiSummaryContentProps) {
-    return (
-        <Stack gap="xs" p="md" bd={`1px solid ${semanticColor('border.default')}`} bdrs="xs">
-            <AiSummaryBody isExpanded={isExpanded} summary={summary} />
-            <AiSummaryToggle isExpanded={isExpanded} onToggle={onToggle} />
-        </Stack>
-    )
-}
-
 function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -264,7 +221,6 @@ type AiSummaryProps = {
 }
 
 function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timedOut, onRetryStarted }: AiSummaryProps) {
-    const { isExpanded, toggle } = useAiSummaryToggle()
     const retry = useRetryStudyReview(studyJobId, analysisKey, onRetryStarted)
     const summary = review?.report?.codeExplanation ?? null
 
@@ -282,23 +238,20 @@ function AiSummaryCollapsible({ studyJobId, analysisKey, review, hasError, timed
             // longer resolve, and unlike a landed report there is nothing here worth protecting.
             if (state === 'pending') return timedOut || hasError ? errorState : <AiSummaryPending />
             if (!summary) return <AiSummaryEmpty />
-            return <AiSummaryContent summary={summary} isExpanded={isExpanded} onToggle={toggle} />
+            return <AiSummaryContent summary={summary} />
         }
         if (hasError || timedOut) return errorState
         return <AiSummaryPending />
     }
 
     return (
-        <Stack gap="lg" data-testid="ai-summary">
-            <Stack gap={4}>
-                <Text fw={fontWeight.bold}>AI Summary of submitted code files</Text>
-                <Text size="xs" c="dimmed">
-                    AI-generated summary, which may contain errors. Review the submitted code before making your
-                    decision.
-                </Text>
-            </Stack>
+        <AnalysisPanel
+            title="AI Summary of submitted code files"
+            description="AI-generated summary, which may contain errors. Review the submitted code before making your decision."
+            testId="ai-summary"
+        >
             {renderBody()}
-        </Stack>
+        </AnalysisPanel>
     )
 }
 
@@ -347,7 +300,7 @@ export function JobAnalysisPanels({
     children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
-    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis.review, pollIntervalMs)
+    const { data, error } = useJobAnalysisPoll(studyJobId, submittedAt, initialAnalysis, pollIntervalMs)
     const review = data?.review ?? null
     // The server judges a row it has; the submission clock only covers a run that never wrote one.
     const summaryGaveUp = review ? review.isStale : summaryTimeout.elapsed
@@ -355,6 +308,8 @@ export function JobAnalysisPanels({
     return (
         <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
             <Stack gap="xl">
+                <SecurityScanPanel scan={data?.scan ?? null} hasError={error != null} />
+                <Divider />
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}

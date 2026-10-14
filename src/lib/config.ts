@@ -9,3 +9,5 @@ export const WS_URL = IS_DEV || IS_CI ? 'ws://localhost:4001' : '/ws'
 export const SAFE_INSIGHTS_SLACK_URL = 'https://openstax.slack.com/archives/C081BN1R8CE'
 
 export const IDE_ONBOARDING_VIDEO_URL = 'https://vimeo.com/1232097300/ba124af101'
+export const IDE_ONBOARDING_VIDEO_EMBED_URL =
+    'https://player.vimeo.com/video/1232097300?h=ba124af101&autoplay=1&autopause=0'

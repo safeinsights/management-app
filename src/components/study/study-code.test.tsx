@@ -131,7 +131,7 @@ const renderIDE = async (
         acknowledged?: boolean
     } = {},
 ) => {
-    const { study } = await setupStudy(studyOrgSlug, { acknowledged })
+    const { study, user } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
@@ -155,7 +155,7 @@ const renderIDE = async (
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
-    return { study, previousHref, dataPartnerName }
+    return { study, user, previousHref, dataPartnerName }
 }
 
 /**
@@ -519,24 +519,31 @@ describe('StudyCode component', () => {
         })
 
         it('records the visit on mount, without waiting for the reader to touch it', async () => {
-            const { study } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            const { study, user } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
 
             await waitFor(async () => {
                 const rows = await db
                     .selectFrom('audit')
                     .select('id')
                     .where('recordType', '=', 'USER')
+                    .where('recordId', '=', user.id)
                     .where('eventType', '=', 'VIEWED')
                     .execute()
                 expect(rows).toHaveLength(1)
             })
+            await waitForPendingMutations()
             expect(study).toBeDefined()
         })
 
         it('records nothing on a return visit', async () => {
-            await renderIDE()
+            const { user } = await renderIDE()
 
-            const rows = await db.selectFrom('audit').select('id').where('eventType', '=', 'VIEWED').execute()
+            const rows = await db
+                .selectFrom('audit')
+                .select('id')
+                .where('recordId', '=', user.id)
+                .where('eventType', '=', 'VIEWED')
+                .execute()
             expect(rows).toHaveLength(0)
         })
 
@@ -629,6 +636,7 @@ describe('StudyCode component', () => {
             const player = await screen.findByTestId('onboarding-video-player')
             expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
             expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(player.querySelector('iframe')).toHaveAttribute('title', 'SafeInsights IDE Orientation')
             expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
         })
 
@@ -1493,6 +1501,8 @@ describe('StudyCode component', () => {
 
     describe('IDE launch failure modal (OTTER-693)', () => {
         const FILES = { 'main.R': 'print(1)' }
+        const expectNoErrorToast = () =>
+            expect(notifications.show).not.toHaveBeenCalledWith(expect.objectContaining({ 'data-toast-kind': 'error' }))
 
         it('replaces the launch with a failure modal, and retries on Try again', async () => {
             vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
@@ -1508,28 +1518,49 @@ describe('StudyCode component', () => {
             const heading = await screen.findByText('IDE failed to launch')
             const dialog = heading.closest('[role="dialog"]') as HTMLElement
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
-            // The real Sentry event id, not the design's placeholder: reportError mints one for
+            // The real Sentry event id, not the design's placeholder: captureError mints one for
             // this same failure and the researcher quotes it to support.
             expect(dialog).toHaveTextContent(
                 /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
             )
+            const firstRef = dialog.textContent?.match(/Ref: ([a-f0-9]{32})/)?.[1] ?? ''
+            // OTTER-832: the modal is the only surface, so no toast repeats it.
+            expectNoErrorToast()
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
             // through the launch mutation rather than firing on the click itself.
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+
+            // The retry fails the same way, and still only the modal reports it. Waiting on a fresh
+            // Ref proves the second failure was captured, not that the first modal is still fading.
+            await screen.findByText((text) => /Ref: [a-f0-9]{32}\./.test(text) && !text.includes(firstRef))
+            expectNoErrorToast()
         })
 
-        // The mutation path above lands the id in the same React batch. A build Coder reports as
-        // failed reaches reportError from an effect instead, so the modal paints once without a ref
-        // — that frame must read as a whole sentence rather than exposing a blank or a placeholder.
-        it('fills the Ref once a failed build is polled', async () => {
-            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
-                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
-                >,
-            )
+        // The mutation path above lands the id in the same React batch. A failed build or a failed
+        // poll reaches captureError from an effect instead, so the modal paints once without a ref,
+        // and that frame must read as a whole sentence rather than a blank or a placeholder.
+        it.each([
+            [
+                'a failed build',
+                () =>
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'build failed',
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
+            ],
+            [
+                'a status polling error',
+                () => vi.mocked(getCoderWorkspaceLaunchStatus).mockRejectedValue(new Error('workspace not found')),
+            ],
+        ])('fills the Ref once %s is polled', async (_label, arrange) => {
+            arrange()
             await renderIDE('openstax-lab', FILES)
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
 
@@ -1542,6 +1573,7 @@ describe('StudyCode component', () => {
                     /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
                 ),
             )
+            expectNoErrorToast()
         })
 
         it('closes without retrying when dismissed', async () => {
@@ -1672,17 +1704,25 @@ describe('StudyCode component', () => {
         /**
          * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
          * renames the first starter file after the code env's language, and the badge matches that
-         * derived name. `pristine` decides whether it still counts as untouched — the badge keys off
+         * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
          * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
-        const renderWithTemplate = async ({ pristine, isMain = false }: { pristine: boolean; isMain?: boolean }) => {
+        const renderWithTemplate = async ({
+            baseline,
+            isMain = false,
+        }: {
+            baseline: 'pristine' | 'edited' | 'none'
+            isMain?: boolean
+        }) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-            await insertTestBaselineJob(study.id, {
-                createdAt: new Date(Date.now() + (pristine ? 60_000 : -60_000)),
-            })
+            if (baseline !== 'none') {
+                await insertTestBaselineJob(study.id, {
+                    createdAt: new Date(Date.now() + (baseline === 'pristine' ? 60_000 : -60_000)),
+                })
+            }
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1711,7 +1751,7 @@ describe('StudyCode component', () => {
         // The card's "star pre-selected by default": the pre-load writes study.mainCodeFileName, so
         // the researcher lands on a starred template without touching anything.
         it('renders the template starred when the pre-load has set it as main', async () => {
-            await renderWithTemplate({ pristine: true, isMain: true })
+            await renderWithTemplate({ baseline: 'pristine', isMain: true })
 
             await waitFor(() => {
                 expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
@@ -1719,23 +1759,27 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
 
-        it('badges the untouched starter file, and only that file', async () => {
-            await renderWithTemplate({ pristine: true })
+        // 'none' is the first visit: the pre-load opens no round job, so there is no baseline (OTTER-698).
+        it.each(['pristine', 'none'] as const)(
+            'badges the untouched starter file, and only that file (baseline: %s)',
+            async (baseline) => {
+                await renderWithTemplate({ baseline })
 
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
+                await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+                expect(screen.getAllByText('Template')).toHaveLength(1)
+                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                expect(templateRow).toHaveTextContent('Template')
+            },
+        )
 
         it('drops the badge once the starter file has been edited or replaced', async () => {
-            await renderWithTemplate({ pristine: false })
+            await renderWithTemplate({ baseline: 'edited' })
 
             expect(screen.queryByText('Template')).not.toBeInTheDocument()
         })
 
         it('explains the template on hover, in the same words as the FAQ', async () => {
-            await renderWithTemplate({ pristine: true })
+            await renderWithTemplate({ baseline: 'pristine' })
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
 
             const copy = () => screen.queryAllByText(/It is a template from Test Data Partner that connects to their/)

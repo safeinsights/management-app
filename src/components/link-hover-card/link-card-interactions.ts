@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useSyncExternalStore, type RefObject } from 'react'
 import type { PopoverProps } from '@mantine/core'
 
 /** The card's look, shared by the editor cards and the plain-link card so the two cannot drift. */
@@ -52,6 +52,32 @@ export function useFocusOnOpen(target: RefObject<HTMLElement | null>, enabled = 
     }, [target, enabled])
 }
 
+// One token per open card rather than a count, so a cleanup can never take the total below zero.
+const openCards = new Set<symbol>()
+const openCardListeners = new Set<() => void>()
+
+function notifyOpenCardListeners() {
+    openCardListeners.forEach((listener) => listener())
+}
+
+function subscribeToOpenCards(listener: () => void) {
+    openCardListeners.add(listener)
+    return () => {
+        openCardListeners.delete(listener)
+    }
+}
+
+const isAnyLinkCardOpen = () => openCards.size > 0
+
+/**
+ * Mantine's Modal hears Escape on window, ahead of the card's document listener, so a modal
+ * hosting a card has to leave the first Escape to it (OTTER-792). A modal closes any card already
+ * open as it opens, so an open card is always one inside the topmost modal.
+ */
+export function useIsLinkCardOpen() {
+    return useSyncExternalStore(subscribeToOpenCards, isAnyLinkCardOpen, () => false)
+}
+
 /**
  * Escape acts on the card wherever focus sits: on one of its actions, or back on the link. A
  * native listener on the document is what makes that reliable. A React handler on the dropdown
@@ -73,6 +99,20 @@ export function useEscapeOnCard(isOpen: boolean, onEscape: () => void) {
 
         return () => document.removeEventListener('keydown', handleEscape, true)
     }, [isOpen, onEscape])
+
+    // Keyed on isOpen alone, so a new onEscape does not briefly report the card as closed.
+    useEffect(() => {
+        if (!isOpen) return
+
+        const card = Symbol('open link card')
+        openCards.add(card)
+        notifyOpenCardListeners()
+
+        return () => {
+            openCards.delete(card)
+            notifyOpenCardListeners()
+        }
+    }, [isOpen])
 }
 
 type OpenLinkCard = { close: () => void; dropdownId: string }
@@ -103,4 +143,9 @@ export function useExclusiveLinkCard(close: () => void, dropdownId: string) {
     useEffect(() => release, [release])
 
     return { claim, isAnotherCardFocused }
+}
+
+/** For a layer opening above the page, which would otherwise leave a card open underneath it. */
+export function closeOpenLinkCard() {
+    openCard?.close()
 }
