@@ -120,7 +120,7 @@ describe('OutputsDecisionSection feedback field', () => {
 
         await screen.findByLabelText('Decision feedback')
         const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
-        expect(surface.style.resize).toBe('vertical')
+        expect(surface).toHaveAttribute('data-resizable')
     })
 
     it('associates the counter with the editor via aria-describedby', async () => {

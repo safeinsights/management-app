@@ -36,7 +36,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
             <Text>
                 {`We've sent a 6-digit code to your phone number ending in ${phoneNumber?.slice(-4)}. Please enter it below to continue.`}
             </Text>
-            <Title order={4} ta="center" mt="xs" mb={'-0.5rem'}>
+            <Title order={4} ta="center" mt="xs" mb="-xs">
                 Enter your code
             </Title>
             <OtpInput form={form} errorId="sms-code-error" />
@@ -55,7 +55,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                 Verify code
             </Button>
             <Group>
-                <Text fz="sm" c="grey.7">
+                <Text fz="sm" c={semanticColor('text.secondary')}>
                     Didn’t receive a code?{' '}
                     <Anchor
                         component="button"
@@ -63,7 +63,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
                         c={semanticColor('link.default')}
                         fz="sm"
                         underline="always"
-                        style={{ opacity: canResendCode ? 1 : 0.4 }}
+                        opacity={canResendCode ? 1 : 0.4}
                         disabled={!canResendCode}
                         onClick={resendCode}
                     >

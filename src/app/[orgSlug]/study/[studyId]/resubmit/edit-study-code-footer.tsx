@@ -1,13 +1,15 @@
 'use client'
 
-import { FC } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
+import { FC, useState, type ReactNode } from 'react'
+import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
+import { Button, Group, type ButtonVariant } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { InfoTooltip } from '@/components/tooltip'
+import { MANTINE_VARIANT } from '@/components/study/step-navigation'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
-import { Routes } from '@/lib/routes'
+import type { NavAction } from '@/lib/study-screen'
 import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import {
@@ -23,6 +25,9 @@ interface EditStudyCodeFooterProps {
     blockedReason: string | null
     onSubmitAttempt: () => void
     filesEdited: boolean
+    previousStep: NavAction
+    /** Present only when the round was reopened from the outputs step. */
+    viewOutputs?: NavAction
 }
 
 const UNSAVED_EDITS_TOOLTIP =
@@ -30,32 +35,90 @@ const UNSAVED_EDITS_TOOLTIP =
 
 const ORDERED_FIELD_IDS = [SUBMIT_CODE_ERROR_ID, RESUBMISSION_NOTE_FIELD_ID]
 
-type PreviousStepButtonProps = {
+type EditCodeExit = 'previous' | 'outputs'
+
+// Always flush, even when the note matches its page-load value: an earlier autosave may have
+// stored something else, and leaving cancels the pending debounce. A no-op when already saved.
+const useLeaveEditCode = ({ isBusy }: { isBusy: boolean }) => {
+    const router = useRouter()
+    const { saveDraft } = useEditCodeResubmit()
+    const [leavingVia, setLeavingVia] = useState<EditCodeExit | null>(null)
+
+    const leave = async (exit: EditCodeExit, href: Route) => {
+        if (isBusy) return
+        setLeavingVia(exit)
+        const saved = await saveDraft()
+        if (!saved) {
+            setLeavingVia(null)
+            return
+        }
+        router.push(href)
+    }
+
+    return { leave, leavingVia }
+}
+
+type LeaveEditCodeButtonProps = {
+    label: string
+    variant: ButtonVariant
+    leftSection?: ReactNode
+    testId?: string
     hasChanges: boolean
     isBusy: boolean
-    isSaving: boolean
+    isLeaving: boolean
     onClick: () => void
 }
 
-const PreviousStepButton: FC<PreviousStepButtonProps> = ({ hasChanges, isBusy, isSaving, onClick }) => {
-    const button = (
-        <Button
-            type="button"
-            variant="subtle"
-            size="md"
-            leftSection={<CaretLeftIcon />}
-            disabled={isBusy}
-            loading={isSaving}
-            onClick={onClick}
-        >
-            Previous step
-        </Button>
-    )
-    if (!hasChanges) return button
+// Either exit leaves edit mode, so both explain that unsubmitted edits stay private until resubmit.
+const LeaveEditCodeButton: FC<LeaveEditCodeButtonProps> = ({
+    label,
+    variant,
+    leftSection,
+    testId,
+    hasChanges,
+    isBusy,
+    isLeaving,
+    onClick,
+}) => {
     return (
-        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320}>
-            {button}
+        <InfoTooltip label={UNSAVED_EDITS_TOOLTIP} withArrow maw={320} disabled={!hasChanges}>
+            <Button
+                type="button"
+                variant={variant}
+                size="md"
+                leftSection={leftSection}
+                disabled={isBusy}
+                loading={isLeaving}
+                data-testid={testId}
+                onClick={onClick}
+            >
+                {label}
+            </Button>
         </InfoTooltip>
+    )
+}
+
+type LeaveNavButtonProps = Omit<
+    LeaveEditCodeButtonProps,
+    'label' | 'variant' | 'leftSection' | 'testId' | 'onClick'
+> & {
+    action?: NavAction
+    withCaret?: boolean
+    onLeave: (href: Route) => void
+}
+
+// A nav table action laid out the way StepNavigation's NavButton does, but leaving through the flush.
+const LeaveNavButton: FC<LeaveNavButtonProps> = ({ action, withCaret = false, onLeave, ...rest }) => {
+    if (!action) return null
+    return (
+        <LeaveEditCodeButton
+            {...rest}
+            label={action.label}
+            variant={MANTINE_VARIANT[action.variant]}
+            leftSection={withCaret ? <CaretLeftIcon /> : undefined}
+            testId={action.testId}
+            onClick={() => onLeave(action.href)}
+        />
     )
 }
 
@@ -65,10 +128,10 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     blockedReason,
     onSubmitAttempt,
     filesEdited,
+    previousStep,
+    viewOutputs,
 }) => {
-    const router = useRouter()
-    const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { studyId, orgName, noteForm, saveDraft, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
+    const { orgName, noteForm, resubmit, isSaving, isSubmitting } = useEditCodeResubmit()
 
     const { attemptSubmit, isConfirmOpen, closeConfirm } = useProposalSubmitAttempt({
         isSubmitting,
@@ -82,17 +145,8 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     })
 
     const isBusy = isSaving || isSubmitting
-    const exitTarget = Routes.studyView({ orgSlug, studyId })
     const hasChanges = noteForm.isDirty('resubmissionNote') || filesEdited
-
-    const handlePrevious = async () => {
-        if (isBusy) return
-        if (hasChanges) {
-            const saved = await saveDraft()
-            if (!saved) return
-        }
-        router.push(exitTarget)
-    }
+    const { leave, leavingVia } = useLeaveEditCode({ isBusy })
 
     // The files card names the reason, so a blocked click reports rather than doing nothing.
     const handleResubmitClick = () => {
@@ -107,23 +161,34 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
     return (
         <>
             <Group justify="space-between" align="flex-start" mt="xs">
-                <PreviousStepButton
+                <LeaveNavButton
+                    action={previousStep}
+                    withCaret
                     hasChanges={hasChanges}
                     isBusy={isBusy}
-                    isSaving={isSaving}
-                    onClick={handlePrevious}
+                    isLeaving={isSaving && leavingVia === 'previous'}
+                    onLeave={(href) => leave('previous', href)}
                 />
-                <Button
-                    id={RESUBMIT_CODE_BUTTON_ID}
-                    size="md"
-                    variant="filled"
-                    disabled={isBusy}
-                    loading={isSubmitting}
-                    onClick={handleResubmitClick}
-                    aria-describedby={SUBMIT_CODE_ERROR_ID}
-                >
-                    Resubmit code for review
-                </Button>
+                <Group gap="md" align="flex-start">
+                    <LeaveNavButton
+                        action={viewOutputs}
+                        hasChanges={hasChanges}
+                        isBusy={isBusy}
+                        isLeaving={isSaving && leavingVia === 'outputs'}
+                        onLeave={(href) => leave('outputs', href)}
+                    />
+                    <Button
+                        id={RESUBMIT_CODE_BUTTON_ID}
+                        size="md"
+                        variant="filled"
+                        disabled={isBusy}
+                        loading={isSubmitting}
+                        onClick={handleResubmitClick}
+                        aria-describedby={SUBMIT_CODE_ERROR_ID}
+                    >
+                        Resubmit code for review
+                    </Button>
+                </Group>
             </Group>
 
             <SubmitConfirmationModal

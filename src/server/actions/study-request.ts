@@ -13,7 +13,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
-import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
+import { getOrCreateCurrentRoundJob, markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
 import {
     codeSubmissionVersion,
     fetchUserFullName,
@@ -51,7 +51,7 @@ import {
     resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { requireStudyAgreement } from '@/server/study-agreement'
-import { requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
+import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -287,11 +287,12 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
 
         const before = await db.selectFrom('study').select('language').where('id', '=', studyId).executeTakeFirst()
 
+        const editedAt = new Date()
         const verified =
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set({ ...updateValues, labEditedAt: new Date() })
+                      .set({ ...updateValues, labEditedAt: editedAt })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -308,6 +309,8 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         if (!verified) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
+        // A person's own save must not mark the study unread for them (OTTER-838).
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
 
         // Autosave resends the language every time, so only an actual change may replace the snapshot.
         if (studyInfo.language !== undefined && studyInfo.language !== before?.language) {
@@ -563,6 +566,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     // enforced here rather than left to markCodeSubmitted, which swallowed a second one (OTTER-693).
     // A resubmission goes through resubmitStudyCodeAction, which requires a resubmission note.
     .middleware(requireUnsubmittedCodeRound(({ params }) => params.studyId))
+    .middleware(requireOpenedCodeRound(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')
@@ -769,9 +773,10 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
 
         // The 0-row check turns a cross-lab attempt into a hard failure instead of letting the
         // client's autosave indicator report "saved" when nothing persisted.
+        const editedAt = new Date()
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note, labEditedAt: new Date() })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: editedAt })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -780,6 +785,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         if (!saved) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
 
         return { studyId, savedAt: new Date().toISOString() }
     })
@@ -796,9 +802,10 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
+        const editedAt = new Date()
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note, labEditedAt: new Date() })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: editedAt })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -808,6 +815,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
         if (!saved) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
 
         return { studyId, savedAt: new Date().toISOString() }
     })

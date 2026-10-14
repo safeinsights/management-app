@@ -126,6 +126,24 @@ describe('useSubmissionRedirectListener', () => {
         expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/review/code`)
     })
 
+    // OTTER-753: the lab's code page has the same two-researcher race as the review screens.
+    it('fires kick-out for a same-user other tab on code-submitted', () => {
+        mountListener()
+        provider.emitStateless(
+            JSON.stringify({
+                type: 'code-submitted',
+                studyId,
+                submittedByTabId: otherTabId,
+                submittedByClerkId: 'user_erin',
+                submittedByName: 'Erin',
+            }),
+        )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
+        const arg = (notifications.show as Mock).mock.calls[0][0]
+        expect(arg.message).toBe('Erin has submitted the code for review. No further edits are allowed at this point.')
+        expect(memoryRouter.asPath).toBe(`/${ORG_SLUG}/study/${studyId}/view`)
+    })
+
     // OTTER-726: the outputs round closes for everyone at once, and the reviewer who is still
     // typing has to be told who ended it rather than finding out when their own submit fails.
     it('fires kick-out for a same-user other tab on outputs-review-submitted', () => {

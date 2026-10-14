@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { PageHeader } from '@/components/page-header'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 import { KEY_RESET_CONFIRM_COLOR, KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
 
 export type RegenerateKeyViewProps = {
@@ -14,8 +14,6 @@ export type RegenerateKeyViewProps = {
     onCloseModal: () => void
     onConfirmGenerate: () => void
 }
-
-const DIVIDER_COLOR = semanticColor('border.default')
 
 export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
     generatedOn,
@@ -32,7 +30,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 <Title order={2} fz={20}>
                     Existing security key
                 </Title>
-                <Divider c={DIVIDER_COLOR} />
+                <Divider />
                 <Text fz={16}>
                     You generated a security key on {generatedOn}. For security reasons, SafeInsights does not store or
                     display it again. You need this key to access your outputs in every organization you belong to.
@@ -43,7 +41,7 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 <Title order={2} fz={20}>
                     Lost access to your key?
                 </Title>
-                <Divider c={DIVIDER_COLOR} />
+                <Divider />
                 <Text fz={16}>
                     Outputs can be accessed only with a security key. If you have lost yours, ask another member of your
                     organization to access them with their key. To restore your own access going forward, you can

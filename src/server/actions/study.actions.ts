@@ -4,7 +4,7 @@ import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql, type ExpressionBuilder } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType } from '@/lib/types'
-import type { DB, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { DB, OrgType, StudyJobStatus, StudyStatus } from '@/database/types'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
@@ -17,6 +17,8 @@ import {
     reviewFeedbackDocNameForVersion,
 } from '@/lib/collaboration-documents'
 import type { StudyRole } from '@/lib/study-screen/state.types'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import {
     CODE_DECISION_JOB_STATUSES,
     ROUND_CLOSING_JOB_STATUSES,
@@ -38,7 +40,7 @@ import {
     studyDeciderIds,
     studyLabMemberIds,
 } from '@/server/db/queries'
-import { nextVersionForStudyComment } from '@/server/db/mutations'
+import { markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { purgeCodeReviewFeedbackYjsDoc, purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import {
@@ -160,8 +162,11 @@ const ownEditsAtSql = (audience: StudyRole) =>
 // the earliest skips CREATED rows that code submission writes later.
 const PROPOSAL_AUDIT_SKEW = sql`interval '5 seconds'`
 
-function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
+function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole, userId: string) {
     return fetchStudyQuery(db)
+        .leftJoin('studyLastOpened', (join) =>
+            join.onRef('studyLastOpened.studyId', '=', 'study.id').on('studyLastOpened.userId', '=', userId),
+        )
         .leftJoinLateral(
             (eb) =>
                 eb
@@ -225,6 +230,7 @@ function fetchDashboardStudyQuery(db: DBExecutor, audience: StudyRole) {
             'jobStages.codeReviewedAt',
             'jobStages.outputsReviewerName',
             'jobStages.outputsReviewedAt',
+            'studyLastOpened.openedAt as lastOpenedAt',
         ])
         .select(ownEditsAtSql(audience).as('ownEditsAt'))
 }
@@ -261,6 +267,70 @@ function jobStageActors(eb: ExpressionBuilder<DB, 'study'>) {
         ])
 }
 
+const audienceForOrg = (orgType: OrgType): StudyRole => (orgType === 'enclave' ? 'reviewer' : 'researcher')
+
+function orgDashboardStudies(db: DBExecutor, orgId: string, orgType: OrgType, userId: string) {
+    let query = fetchDashboardStudyQuery(db, audienceForOrg(orgType), userId)
+    if (orgType === 'enclave') {
+        query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
+    }
+    if (orgType === 'lab') {
+        query = query.where('study.submittedByOrgId', '=', orgId)
+    }
+    return query
+        .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
+        .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+        .select(['reviewerOrg.name as reviewingEnclaveName'])
+        .select(['submittingOrg.name as submittingLabName'])
+        .execute()
+}
+
+// My studies is a personal record: studies the user is named on (creator, PI) or submitted a
+// version of, within their own labs.
+async function researcherMyStudies(db: DBExecutor, userId: string, labIds: string[]) {
+    if (labIds.length === 0) {
+        return []
+    }
+    return fetchDashboardStudyQuery(db, 'researcher', userId)
+        .where('study.submittedByOrgId', 'in', labIds)
+        .where((eb) => eb(eb.val(userId), 'in', studyLabMemberIds(db, eb.ref('study.id'))))
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+        .select([
+            'org.name as orgName',
+            'org.slug as orgSlug',
+            'submittingOrg.name as submittingLabName',
+            'submittingOrg.slug as submittedByOrgSlug',
+        ])
+        .execute()
+}
+
+async function reviewerMyStudies(db: DBExecutor, userId: string, reviewerOrgIds: string[]) {
+    if (reviewerOrgIds.length === 0) {
+        return []
+    }
+    // Only studies the user decided on, at any stage of any round; reviewerId covers decisions
+    // made before decisions were recorded per stage.
+    return fetchDashboardStudyQuery(db, 'reviewer', userId)
+        .where('study.orgId', 'in', reviewerOrgIds)
+        .where('study.status', '!=', 'DRAFT')
+        .where((eb) =>
+            eb.or([
+                eb('study.reviewerId', '=', userId),
+                eb(eb.val(userId), 'in', studyDeciderIds(db, eb.ref('study.id'))),
+            ]),
+        )
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+        .select([
+            'org.name as orgName',
+            'org.slug as orgSlug',
+            'submittingOrg.name as submittingLabName',
+            'submittingOrg.slug as submittedByOrgSlug',
+        ])
+        .execute()
+}
+
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(
@@ -272,74 +342,55 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, orgType }) => {
-        let query = fetchDashboardStudyQuery(db, orgType === 'enclave' ? 'reviewer' : 'researcher')
-        if (orgType === 'enclave') {
-            query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
-        }
-        if (orgType === 'lab') {
-            query = query.where('study.submittedByOrgId', '=', orgId)
-        }
-        return query
-            .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
-            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
-            .select(['reviewerOrg.name as reviewingEnclaveName'])
-            .select(['submittingOrg.name as submittingLabName'])
-            .execute()
-    })
+    .handler(async ({ db, session, orgId, orgType }) => orgDashboardStudies(db, orgId, orgType, session.user.id))
 
-// My studies is a personal record: studies the user is named on (creator, PI) or submitted a
-// version of, within their own labs.
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db, session }) => {
-        const userId = session.user.id
-        const labIds = labOrgIds(session)
-        if (labIds.length === 0) {
-            return []
-        }
-        return fetchDashboardStudyQuery(db, 'researcher')
-            .where('study.submittedByOrgId', 'in', labIds)
-            .where((eb) => eb(eb.val(userId), 'in', studyLabMemberIds(db, eb.ref('study.id'))))
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
-            .select([
-                'org.name as orgName',
-                'org.slug as orgSlug',
-                'submittingOrg.name as submittingLabName',
-                'submittingOrg.slug as submittedByOrgSlug',
-            ])
-            .execute()
-    })
+    .handler(async ({ db, session }) => researcherMyStudies(db, session.user.id, labOrgIds(session)))
 
 export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
     .requireAbilityTo('view', 'Studies')
+    .handler(async ({ db, session }) => reviewerMyStudies(db, session.user.id, enclaveOrgIds(session)))
+
+const anyUnread = (rows: unknown[], audience: StudyRole) =>
+    (rows as StudyRow[]).some((row) => isStudyUnread(row, audience))
+
+// Runs the same queries and the same Last updated rule as the tables, so a nav dot never points at
+// a scope whose rows all read as opened (OTTER-838).
+export const fetchNavUnreadAction = new Action('fetchNavUnreadAction')
+    .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
         const userId = session.user.id
-        const reviewerOrgIds = enclaveOrgIds(session)
-        if (reviewerOrgIds.length === 0) {
-            return []
+        const [researcherRows, reviewerRows, orgs] = await Promise.all([
+            researcherMyStudies(db, userId, labOrgIds(session)),
+            reviewerMyStudies(db, userId, enclaveOrgIds(session)),
+            Promise.all(
+                Object.values(session.orgs).map(async (org) => ({
+                    slug: org.slug,
+                    isUnread: anyUnread(
+                        await orgDashboardStudies(db, org.id, org.type, userId),
+                        audienceForOrg(org.type),
+                    ),
+                })),
+            ),
+        ])
+        return {
+            myStudies: {
+                researcher: anyUnread(researcherRows, 'researcher'),
+                reviewer: anyUnread(reviewerRows, 'reviewer'),
+            },
+            orgSlugs: orgs.filter((org) => org.isUnread).map((org) => org.slug),
         }
-        // Only studies the user decided on, at any stage of any round; reviewerId covers decisions
-        // made before decisions were recorded per stage.
-        return fetchDashboardStudyQuery(db, 'reviewer')
-            .where('study.orgId', 'in', reviewerOrgIds)
-            .where('study.status', '!=', 'DRAFT')
-            .where((eb) =>
-                eb.or([
-                    eb('study.reviewerId', '=', userId),
-                    eb(eb.val(userId), 'in', studyDeciderIds(db, eb.ref('study.id'))),
-                ]),
-            )
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
-            .select([
-                'org.name as orgName',
-                'org.slug as orgSlug',
-                'submittingOrg.name as submittingLabName',
-                'submittingOrg.slug as submittedByOrgSlug',
-            ])
-            .execute()
+    })
+
+// Recorded from the client on entering and leaving a study, not during its render: a render-time
+// write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
+export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string().uuid() }))
+    .middleware(studyViewMiddleware)
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, session, db }) => {
+        await markStudyOpened(db, { studyId, userId: session.user.id })
     })
 
 export const getStudyAction = new Action('getStudyAction')

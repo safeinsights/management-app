@@ -76,12 +76,12 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
             <Text fw={fontWeight.bold} fz={14}>
                 {title}
             </Text>
-            <Box bg="gray.0" p="lg">
+            <Box bg={semanticColor('surface.sunken')} p="lg">
                 <Stack gap="xs">
                     <Text size="sm" fw={fontWeight.semibold}>
                         {entry.authorName}
                     </Text>
-                    <Text size="sm" c="gray.7">
+                    <Text size="sm" c={semanticColor('text.secondary')}>
                         {date}
                     </Text>
                 </Stack>

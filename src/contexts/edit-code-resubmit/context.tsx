@@ -19,6 +19,7 @@ import {
     type ResubmitNoteValue,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { useCodeSubmissionPresence, type CodeSubmissionPresence } from '@/hooks/use-code-submission-presence'
 
 interface EditCodeResubmitContextValue {
     studyId: string
@@ -29,6 +30,7 @@ interface EditCodeResubmitContextValue {
     lastSavedAt: Date | null
     resubmit: (args: { mainFileName: string; fileNames: string[] }) => void
     isSubmitting: boolean
+    presence: CodeSubmissionPresence
 }
 
 const EditCodeResubmitContext = createContext<EditCodeResubmitContextValue | null>(null)
@@ -51,6 +53,7 @@ interface EditCodeResubmitProviderProps {
 export function EditCodeResubmitProvider({ children, studyId, orgName, initialNote }: EditCodeResubmitProviderProps) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const presence = useCodeSubmissionPresence(studyId)
 
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
@@ -145,6 +148,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
             showToast({ category: 'success', title: CODE_SUBMIT_SUCCESS_TITLE, message: '' })
+            presence.broadcastSubmitted()
             router.push(Routes.studyView({ orgSlug, studyId }))
         },
         onError: (error: unknown) =>
@@ -173,6 +177,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             lastSavedAt,
             resubmit,
             isSubmitting: submitMutation.isPending,
+            presence,
         }),
         [
             studyId,
@@ -183,6 +188,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
             lastSavedAt,
             resubmit,
             submitMutation.isPending,
+            presence,
         ],
     )
 

@@ -2,8 +2,8 @@ import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { StatusLabel } from '@/lib/status-labels'
-import { resolveDashboardAction, resolvePillStatus, resolveRowHighlight, type StudyState } from '@/lib/study-screen'
-import { lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
+import { resolveDashboardAction, resolvePillStatus, type StudyState } from '@/lib/study-screen'
+import { isStudyUnread, lastActivityAt, rowStudyState, timeOf } from '@/lib/study-screen/dashboard-raw-state'
 import { dataPartnerDisplayName, labDisplayName, pillOrgNamesFromRow } from './pill-context'
 import type { Audience, StudyRow } from './types'
 
@@ -27,14 +27,12 @@ export type RowModel = {
     submittedBy: Attribution
     reviewedBy: Attribution
     status: StatusLabel
-    isHighlighted: boolean
+    isUnread: boolean
     canDeleteDraft: boolean
     study: StudyRow
 }
 
 type Stage = { name: string | null | undefined; at: Date | string | null | undefined }
-
-const timeOf = (at: Date | string | null | undefined) => (at ? new Date(at).getTime() : null)
 
 const newestStage = (stages: Stage[]): Stage | null =>
     stages.reduce<Stage | null>((newest, stage) => {
@@ -69,9 +67,6 @@ const attribution = (stages: Array<[label: string, stage: Stage]>, placeholder: 
     lines: stages.map(([label, stage]) => `${label}: ${stage.name ?? placeholder}`),
 })
 
-const newestDate = (...dates: Array<Date | string | null | undefined>): Date =>
-    new Date(Math.max(...dates.map((date) => timeOf(date) ?? 0)))
-
 // The researcher link and the draft bin come from the same dashboard rule (docs/study-screens-logic.md,
 // Stage 3).
 const rowLink = (study: StudyRow, state: StudyState, audience: Audience, orgSlug: string, userId?: string) => {
@@ -103,7 +98,7 @@ export function buildRowModel(
         id: study.id,
         title: study.title?.trim() || UNTITLED_STUDY_TITLE,
         href,
-        lastActivityAt: newestDate(study.lastUpdatedAt, lastBadgeChangeAt(study, audience), study.ownEditsAt),
+        lastActivityAt: lastActivityAt(study, audience),
         submittedTo: study.status === 'DRAFT' ? null : dataPartnerDisplayName(study),
         submittedFrom: labDisplayName(study),
         belongsTo: audience === 'researcher' ? labDisplayName(study) : dataPartnerDisplayName(study),
@@ -123,7 +118,7 @@ export function buildRowModel(
             NOT_REVIEWED,
         ),
         status: resolvePillStatus(audience, state, pillOrgNamesFromRow(study)),
-        isHighlighted: resolveRowHighlight(audience, state),
+        isUnread: isStudyUnread(study, audience),
         canDeleteDraft,
         study,
     }

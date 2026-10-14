@@ -1,6 +1,6 @@
 # Study Screen Logic
 
-How the app decides **which screen a researcher or reviewer sees, which link/pill/highlight the
+How the app decides **which screen a researcher or reviewer sees, which link/pill the
 dashboard shows, and which status label is displayed** for a given study.
 
 All of this logic lives in one pure module — `src/lib/study-screen/` — with **no React, DB, or
@@ -60,21 +60,21 @@ rounds are history. The lone cross-job fact is `submissionRound` (a count of rou
                             │
                         StudyState             ← flat booleans/enums; "latest job" facts
                             │
-        ┌───────────────────┼────────────────────┬──────────────────────┐
-        ▼                   ▼                    ▼                      ▼
-  resolveScreen()   resolveDashboardAction()  resolvePillStatus()  resolveRowHighlight()
-  (role screen rules)  (DASHBOARD_RULES)       (priority walk)       (role rule)
-        │                   │                    │                      │
-        ▼                   ▼                    ▼                      ▼
-  ScreenDescriptor    DashboardAction         StatusLabel             boolean
+        ┌───────────────────┼────────────────────┐
+        ▼                   ▼                    ▼
+  resolveScreen()   resolveDashboardAction()  resolvePillStatus()
+  (role screen rules)  (DASHBOARD_RULES)       (priority walk)
+        │                   │                    │
+        ▼                   ▼                    ▼
+  ScreenDescriptor    DashboardAction         StatusLabel
         │
   SCREEN_COMPONENTS[descriptor.screen]   ← registry maps id → React component
         │
    rendered screen
 ```
 
-Every consumer reads from the **same** `StudyState` — that is what keeps routing, the link, the
-pill, and the highlight from drifting apart.
+Every consumer reads from the **same** `StudyState`, which is what keeps routing, the link and the
+pill from drifting apart.
 
 ---
 
@@ -304,21 +304,25 @@ The spec's governing rule: every state carries **exactly one solid button**, so 
 end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form
 (passed to `StepNavigation` as `formAction`); such screens legitimately return only `Previous step`.
 "Previous step" is anchored **per phase**, not to the page the user arrived from, which keeps the
-table a pure function of state.
+table a pure function of state. The one exception is a step back from an edit page (OTTER-673): the
+page it lands on has the same state as when it is reached from the status page, but its `Next step`
+must return to the edit page. So Edit proposal and Edit code step back with `?from=edit-proposal` or
+`?from=edit-code`, and `/edit` and `/submitted` read it into `NavCtx.from`. It lasts one hop, and a
+page ignores it once the edit page would no longer render.
 
 **Researcher table:**
 
-| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                   |
-| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                            |
-| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code`; CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
-| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                           |
-| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                    |
-| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
-| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
-| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
-| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                            |
-| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                                                                                     |
+| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                                                                                              |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code` (`from=edit-code` and `canResearcherResubmitCode`: → `/resubmit`); CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                                                                                             |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                                                                                      |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                                                                                     |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                                                                                             |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                                                                                      |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                                                                                              |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                                                                                           |
 
 **Reviewer table:**
 
@@ -340,6 +344,21 @@ forward-jump to a code screen for the same state.
 through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous step` is the only
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
 before that.
+
+`/resubmit` (Edit code) is a form route too. `Resubmit code for review` belongs to the form.
+`codeResubmissionNav(state, ctx)` always supplies `Previous step` → `/submitted?from=edit-code`, the
+approved proposal, past the code step Edit code was opened from (OTTER-673); the footer flushes the
+note draft before following it. It adds an outline `View outputs` → `/view` only when
+`isOutputsDecided`: the round was reopened from the outputs step, so `/view` serves the latest outputs
+screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
+
+`/edit-and-resubmit` (Edit proposal) takes its `Previous step` from `editProposalPreviousStep(ctx)`:
+→ `/edit?from=edit-proposal`, Step 1. The footer saves the proposal and note drafts before following
+it (OTTER-673).
+
+`/edit` (Step 1) resolves its forward step through `setupStepNav(status, ctx)`. For a submitted study
+its only action is `Next step`: → `/edit-and-resubmit` when `from=edit-proposal` and the study is still
+`CHANGE-REQUESTED`, else → `/submitted` (OTTER-673).
 
 Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
 once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
@@ -379,7 +398,7 @@ redirect-free so Step 2's Previous button remains a working escape hatch.
 
 ---
 
-## Stage 4 — Pill + row highlight (`pill.ts`)
+## Stage 4: Pill (`pill.ts`)
 
 `resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
 uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
@@ -437,6 +456,11 @@ The spec names backend states conceptually; none of them is a new stored value e
 | `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
 | `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
 
+The `INITIATED` job behind `code-initiated` is opened by the first IDE launch (Launch IDE or the
+table pencil) or code upload, never by opening `/code`: the starter-code preload copies and stars
+the template without opening a round, and `submitStudyCodeAction` refuses until a round is open
+(OTTER-698).
+
 ### Researcher pill table (`researcher-pill-rules.ts`)
 
 | #   | Condition                                                          | Pill                      |
@@ -478,9 +502,9 @@ The spec names backend states conceptually; none of them is a new stored value e
 | 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
 | 16  | fallback                                              | `proposal-draft`              |
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
-opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
-`codeAwaitingDecision`. Both mean an action is owed.
+Rows carry no status-based highlight. A row's only emphasis is the per-person unread dot
+(OTTER-838): `isStudyUnread` in `lib/study-screen/dashboard-raw-state.ts` compares
+the row's Last updated value with the viewer's last visit, and the badge already says who must act.
 
 > `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
 > (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
@@ -501,7 +525,7 @@ opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` o
 ## Role dimension
 
 Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
-picks the matching rule table, and the pill/highlight resolvers already branch on role. The
+picks the matching rule table, and the pill resolver already branches on role. The
 **projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts and
 inherits all the order-independence guarantees for free (`reviewerAgreementsAcked` is the exception:
 it is still projected but, since OTTER-727, read by no rule). Adding the reviewer flow was adding a rule table + adapters, not
@@ -552,6 +576,7 @@ re-architecting — exactly as the design intended.
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
+| `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837), `setupStepNav` (`/edit`, OTTER-673)                         |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
 | `index.ts`                             | public barrel                                                                                               |
 | `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |

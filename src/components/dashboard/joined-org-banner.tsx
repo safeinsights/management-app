@@ -3,10 +3,10 @@
 import { JOINED_ORG_STORAGE_KEY, readJoinedOrg, type JoinedOrg } from '@/lib/joined-org'
 import { actionResult } from '@/lib/utils'
 import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
-import { Alert, Text, useMantineTheme } from '@mantine/core'
+import { Alert, Text } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const bannerMessage = ({ orgName, linkedEmail }: JoinedOrg) =>
     linkedEmail
@@ -14,7 +14,6 @@ const bannerMessage = ({ orgName, linkedEmail }: JoinedOrg) =>
         : `You have been added to ${orgName}.`
 
 export function JoinedOrgBanner() {
-    const theme = useMantineTheme()
     const [joinedOrg, setJoinedOrg] = useState<JoinedOrg | null>(null)
 
     // A keyless user mounts the dashboard transiently before RequireUserKey redirects them, so
@@ -45,11 +44,10 @@ export function JoinedOrgBanner() {
             color="green"
             withCloseButton
             onClose={() => setJoinedOrg(null)}
-            icon={<CheckCircleIcon weight="fill" size={20} color={theme.colors.green[7]} />}
-            styles={{ closeButton: { color: theme.colors.green[7] } }}
+            icon={<CheckCircleIcon weight="fill" size={20} color={semanticColor('success.text')} />}
             data-testid="joined-org-banner"
         >
-            <Text size="sm" c={theme.colors.green[7]} fw={fontWeight.bold}>
+            <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.bold}>
                 {bannerMessage(joinedOrg)}
             </Text>
         </Alert>

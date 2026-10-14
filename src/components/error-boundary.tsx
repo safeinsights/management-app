@@ -42,28 +42,23 @@ export class ErrorBoundary extends Component<Props, State> {
                         </Group>
                     </AppShellHeader>
 
-                    <AppShellMain
-                        bg={SIDENAV_BG}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        px="md"
-                    >
-                        <Paper
-                            bg={semanticColor('surface.raised')}
-                            p="xxl"
-                            radius="sm"
-                            w={600}
-                            my={{ base: '1rem', lg: 0 }}
-                        >
-                            <AppErrorImage style={{ margin: '0 auto' }} />
+                    <AppShellMain bg={SIDENAV_BG} display="flex" px="md">
+                        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} m="auto">
                             <Stack mb="xxl" ta="center" align="center" gap="0">
-                                <Title order={1} fw={800} mt="sm">
+                                <AppErrorImage />
+                                <Title order={1} mt="sm">
                                     Something Went Wrong
                                 </Title>
-                                <Text size="md" fw={fontWeight.regular} c="grey.6" mt="md">
+                                <Text size="md" fw={fontWeight.regular} c={semanticColor('text.secondary')} mt="md">
                                     We’re experiencing a technical issue. <br /> Please try again in a few minutes.
                                 </Text>
                                 {this.state.eventId && (
-                                    <Text size="sm" fw={fontWeight.semibold} c="grey.5" mt="sm">
+                                    <Text
+                                        size="sm"
+                                        fw={fontWeight.semibold}
+                                        c={semanticColor('text.secondary')}
+                                        mt="sm"
+                                    >
                                         Error ID: {this.state.eventId}
                                     </Text>
                                 )}

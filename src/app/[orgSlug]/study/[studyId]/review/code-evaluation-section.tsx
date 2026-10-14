@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Alert, Center, Divider, Flex, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -82,8 +82,9 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
-            {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
-            <Text id={labelId} component="div" fz={14} w={320}>
+            {/* A div, since a criterion link renders its card inline and the card holds block elements.
+                No fixed label column (Figma): the label takes what the radio group leaves. */}
+            <Text id={labelId} component="div" fz={14} flex={1}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
@@ -120,12 +121,9 @@ function AgreementNote({ note }: { note: string | undefined }) {
     if (!note) return null
     return (
         <InfoTooltip label={note}>
-            <InfoIcon
-                size={14}
-                weight="fill"
-                aria-label={note}
-                style={{ marginLeft: 4, verticalAlign: 'text-bottom' }}
-            />
+            <Center component="span">
+                <InfoIcon size={14} weight="fill" aria-label={note} />
+            </Center>
         </InfoTooltip>
     )
 }
@@ -154,9 +152,9 @@ const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
                     Study Agreement
                 </CriterionLink>
                 {/* The inline SVG is a line-break opportunity; keep the icon on the "?" line. */}
-                <span style={{ whiteSpace: 'nowrap' }}>
+                <Flex component="span" display="inline-flex" align="center" gap="xxs">
                     ?<AgreementNote note={isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined} />
-                </span>
+                </Flex>
             </>
         ),
     },

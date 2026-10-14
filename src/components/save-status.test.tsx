@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders, screen } from '@/tests/unit.helpers'
-import { theme } from '@/theme'
+import { semanticColor } from '@/theme/tokens'
 import { SaveStatusAnnouncer, SaveStatusIndicator, announcedSaveStatus } from './save-status'
 
 describe('SaveStatusIndicator', () => {
@@ -27,7 +27,7 @@ describe('SaveStatusIndicator', () => {
         renderWithProviders(<SaveStatusIndicator status="saved" />)
         const checkmark = screen.getByTestId('autosave-status').querySelector('svg')
         expect(checkmark).toBeInTheDocument()
-        expect(checkmark).toHaveAttribute('fill', theme.colors!.green![7])
+        expect(checkmark).toHaveAttribute('fill', semanticColor('success.text'))
     })
 
     it('renders nothing when hidden, even in the saved state (OTTER-674)', () => {

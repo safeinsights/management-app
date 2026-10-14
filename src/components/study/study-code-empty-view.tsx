@@ -7,7 +7,7 @@ import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeControl } from './launch-ide-control'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface StarterFile {
     name: string
@@ -56,7 +56,7 @@ const WriteCodeInIdePanel: FC<WriteCodeInIdePanelProps> = ({
 
     return (
         <>
-            <Paper bg="violet.0" p="lg" radius="md">
+            <Paper bg={semanticColor('highlight.bg.light')} p="lg" radius="md">
                 <Stack gap="sm">
                     <Text fw={fontWeight.bold}>Write and test your code in IDE (recommended)</Text>
                     <Text size="sm" c="dimmed">

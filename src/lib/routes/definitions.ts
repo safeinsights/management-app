@@ -38,6 +38,16 @@ export const InviteSearchParams = z.object({
         .transform((val) => (val ? safeRedirectUrl(val, '/' as Route) : undefined)),
 })
 
+// The edit page a researcher stepped back from, so the page it lands on can step forward to it again
+// (OTTER-673). It lasts one hop: nothing passes it on.
+const NavOriginParam = z.enum(['edit-proposal', 'edit-code'])
+export type NavOrigin = z.infer<typeof NavOriginParam>
+
+const StudyNavParams = StudyParams.extend({ from: NavOriginParam.optional() })
+
+// An unknown origin is dropped rather than rejected, so a stale or hand-edited URL never errors.
+export const StudyNavSearchParams = z.object({ from: NavOriginParam.optional().catch(undefined) })
+
 // Route typing approach: https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 export const Routes = {
     home: '/' as Route,
@@ -59,7 +69,10 @@ export const Routes = {
     // 404s until the code step is reached; /view resolves to results once decided.
     studyViewCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view/code`, StudyParams),
 
-    studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),
+    studyEdit: makeRoute(
+        ({ orgSlug, studyId, from }) => withQuery(`/${orgSlug}/study/${studyId}/edit`, { from }),
+        StudyNavParams,
+    ),
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
@@ -93,7 +106,10 @@ export const Routes = {
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
-    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
+    studySubmitted: makeRoute(
+        ({ orgSlug, studyId, from }) => withQuery(`/${orgSlug}/study/${studyId}/submitted`, { from }),
+        StudyNavParams,
+    ),
 
     researcherProfileView: makeRoute(
         ({ orgSlug, studyId, userId }) => withQuery(`/${orgSlug}/study/${studyId}/researcher-profile`, { userId }),
