@@ -459,8 +459,8 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
-// pending_user keeps no claim time, so the newest invite stands in for the newest claim. The
-// membership join drops an org the account has since left.
+// Both claim actions insert the membership in the claim's transaction, so joinedAt is the claim time.
+// The membership join also drops an org the account has since left.
 export const getLatestClaimedInviteOrg = async (userId: string) =>
     await Action.db
         .selectFrom('pendingUser')
@@ -470,8 +470,8 @@ export const getLatestClaimedInviteOrg = async (userId: string) =>
         )
         .select('org.slug')
         .where('pendingUser.claimedByUserId', '=', userId)
-        .orderBy('pendingUser.createdAt', 'desc')
-        .orderBy('pendingUser.id', 'desc')
+        .orderBy('orgUser.joinedAt', 'desc')
+        .orderBy('orgUser.id', 'desc')
         .limit(1)
         .executeTakeFirst()
 

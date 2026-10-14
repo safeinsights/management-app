@@ -146,6 +146,15 @@ describe('getKeyPageStateAction', () => {
         return org
     }
 
+    const setJoinedAt = async (userId: string, orgId: string, joinedAt: Date) => {
+        await db
+            .updateTable('orgUser')
+            .set({ joinedAt })
+            .where('userId', '=', userId)
+            .where('orgId', '=', orgId)
+            .executeTakeFirstOrThrow()
+    }
+
     it('returns the dashboard of the org whose invite the account claimed', async () => {
         const { user, org } = await mockKeylessSession()
         await insertClaimedInvite({ userId: user.id, orgId: org.id })
@@ -177,23 +186,25 @@ describe('getKeyPageStateAction', () => {
         })
     })
 
-    it('prefers the most recent claimed invite', async () => {
+    it('prefers the org whose invite the account accepted last, not the newest invite', async () => {
         const { user, org } = await mockKeylessSession()
-        const laterOrg = await joinOrg(user.id)
+        const newerInviteOrg = await joinOrg(user.id)
         await insertClaimedInvite({ userId: user.id, orgId: org.id, createdAt: new Date('2026-01-01') })
-        await insertClaimedInvite({ userId: user.id, orgId: laterOrg.id, createdAt: new Date('2026-01-02') })
+        await insertClaimedInvite({ userId: user.id, orgId: newerInviteOrg.id, createdAt: new Date('2026-01-02') })
+        await setJoinedAt(user.id, newerInviteOrg.id, new Date('2026-01-03'))
+        await setJoinedAt(user.id, org.id, new Date('2026-01-04'))
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${laterOrg.slug}/dashboard`,
+            firstKeyRedirect: `/${org.slug}/dashboard`,
         })
     })
 
     it('skips a claimed invite to an org the account has since left', async () => {
         const { user, org } = await mockKeylessSession()
         const leftOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-        await insertClaimedInvite({ userId: user.id, orgId: org.id, createdAt: new Date('2026-01-01') })
-        await insertClaimedInvite({ userId: user.id, orgId: leftOrg.id, createdAt: new Date('2026-01-02') })
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
+        await insertClaimedInvite({ userId: user.id, orgId: leftOrg.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
