@@ -175,7 +175,7 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                 <Accordion.Panel bg={semanticColor('brand.accentalpha')}>
                     <Stack gap="md">
                         <OnboardingVideo isVisible={openValue !== null} />
-                        <Divider color={semanticColor('border.default')} />
+                        <Divider />
                         {entries.map((entry) => (
                             <FaqSection key={entry.question} {...entry} />
                         ))}

@@ -77,7 +77,7 @@ export function LinkHoverCard({
     return (
         <Stack gap="sm">
             <LinkHoverCardTitle preview={preview} />
-            <Divider color={semanticColor('border.default')} />
+            <Divider />
             <Group gap="md">
                 <CopyLinkAction href={preview.href} actionRef={firstActionRef} />
                 <LinkCardAction

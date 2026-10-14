@@ -2,7 +2,7 @@ import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
-import { semanticCssVariables, semanticShades } from './theme/tokens'
+import { semanticColor, semanticCssVariables, semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
 // hand-copied from its Variables panel, so drift would otherwise be invisible in review.
@@ -52,6 +52,12 @@ describe('palette', () => {
 describe('textarea', () => {
     it('turns no resize handle on by default', () => {
         expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
+    })
+})
+
+describe('dividers', () => {
+    it('draws the line in border/default', () => {
+        expect(theme.components?.Divider?.defaultProps?.color).toBe(semanticColor('border.default'))
     })
 })
 

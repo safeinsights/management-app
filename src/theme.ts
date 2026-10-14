@@ -10,6 +10,7 @@ import {
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Divider,
     Input,
     type InputProps,
     MantineColorsTuple,
@@ -303,6 +304,10 @@ export const theme = createTheme({
         // Same blue as the checkboxes, which share forms with radios (code-env-form).
         Radio: Radio.extend({
             defaultProps: { color: semanticColor('surface.selected') },
+        }),
+        // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
+        Divider: Divider.extend({
+            defaultProps: { color: semanticColor('border.default') },
         }),
         Table: {
             styles: () => ({

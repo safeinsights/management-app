@@ -9,7 +9,7 @@ export function SettingsCardRow({ children }: { children: ReactNode }) {
     return (
         <>
             <Box>{children}</Box>
-            <Divider color={semanticColor('border.default')} />
+            <Divider />
         </>
     )
 }
@@ -47,7 +47,7 @@ export function SettingsCard({ title, addLabel, onAdd, description, slot, childr
                         {addLabel}
                     </Button>
                 </Group>
-                <Divider c="dimmed" />
+                <Divider />
                 <CardDescription description={description} />
                 {slot}
                 {children}

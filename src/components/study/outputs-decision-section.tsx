@@ -165,7 +165,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     </Text>
                     <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
-                <Divider color={semanticColor('border.default')} />
+                <Divider />
                 <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />
                 <Editor
                     id={outputsReviewFeedbackDocName(jobId)}

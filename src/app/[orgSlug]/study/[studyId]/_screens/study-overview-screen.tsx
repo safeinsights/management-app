@@ -28,7 +28,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Code
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">No code has been uploaded yet.</Text>
                 </Stack>
             </Paper>
@@ -40,7 +40,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Status
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">Status will be available after code is uploaded.</Text>
                 </Stack>
             </Paper>

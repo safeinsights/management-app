@@ -13,7 +13,7 @@ export function ApiKeySettingsDisplay() {
                 <Title order={4} size="xl">
                     API key
                 </Title>
-                <Divider c="dimmed" />
+                <Divider />
                 <Text fz="sm" fw={fontWeight.semibold}>
                     Section Under Design
                 </Text>
