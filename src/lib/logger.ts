@@ -1,7 +1,6 @@
 import debug from 'debug'
 import * as Sentry from '@sentry/nextjs'
 import type { SeverityLevel } from '@sentry/nextjs'
-import { inspect } from 'util'
 
 const consoleMethodMap = {
     warn: console.warn,
@@ -25,6 +24,18 @@ function safeCapture(fn: () => void, warningMsg: string): void {
     }
 }
 
+// Not util.inspect: in the browser Next swaps in a util polyfill whose eval trips the CSP (OTTER-679).
+function circularSafeReplacer() {
+    const seen = new WeakSet<object>()
+    return (_key: string, value: unknown) => {
+        if (typeof value === 'bigint') return `${value}n`
+        if (typeof value !== 'object' || value === null) return value
+        if (seen.has(value)) return '[Circular]'
+        seen.add(value)
+        return value
+    }
+}
+
 function pretty(a: unknown): string {
     if (a === null) return 'null'
     if (a === undefined) return 'undefined'
@@ -38,8 +49,7 @@ function pretty(a: unknown): string {
         try {
             return JSON.stringify(a)
         } catch {
-            // circular or too deep for JSON
-            return inspect(a, { depth: null })
+            return JSON.stringify(a, circularSafeReplacer())
         }
     }
     return String(a)

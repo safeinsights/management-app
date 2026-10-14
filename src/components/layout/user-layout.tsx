@@ -29,8 +29,9 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
         redirect('/account/mfa')
     }
 
+    // Without `dynamic` Clerk drops the CSP nonce from clerk.browser.js (OTTER-679).
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} dynamic>
             <SentryUserProvider />
             <PostHogUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
