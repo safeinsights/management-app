@@ -1,14 +1,18 @@
 'use client'
 
 import { showToast } from '@/components/toast-notifications'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import type { Route } from 'next'
+
+function stripInvitationParams() {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('skip')
+    url.searchParams.delete('decline')
+    window.history.replaceState(null, '', url)
+}
 
 export function useInvitationNotices() {
-    const router = useRouter()
     const searchParams = useSearchParams()
-    const pathname = usePathname()
 
     const skippedOrg = searchParams.get('skip')
     const declinedOrg = searchParams.get('decline')
@@ -31,9 +35,9 @@ export function useInvitationNotices() {
             })
         }
 
-        const params = new URLSearchParams(searchParams.toString())
-        params.delete('skip')
-        params.delete('decline')
-        router.replace(`${pathname}?${params.toString()}` as Route)
-    }, [skippedOrg, declinedOrg, pathname, searchParams, router])
+        // Native history, not router.replace: that refetches this force-dynamic page and can be
+        // dropped before it commits. Deferred until Next has patched it (vercel/next.js#72322).
+        const timer = setTimeout(stripInvitationParams, 0)
+        return () => clearTimeout(timer)
+    }, [skippedOrg, declinedOrg])
 }
