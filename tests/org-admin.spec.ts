@@ -189,4 +189,25 @@ test.describe('Organization Admin', () => {
         await participationTab.click()
         await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
     })
+
+    test('legal center shows the sort icon beside the column label', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+
+        const header = page.getByRole('button', { name: /^study title/i })
+        const label = header.locator('.mantine-datatable-header-cell-sortable-text')
+        const icon = header.getByLabel(/sorted/i)
+        await expect(label).toBeVisible()
+        await expect(icon).toBeVisible()
+
+        // The label element can stretch up to the icon, so measure where its text actually ends.
+        const textRight = await label.evaluate((el) => {
+            const range = document.createRange()
+            range.selectNodeContents(el)
+            return range.getBoundingClientRect().right
+        })
+        const iconBox = await icon.boundingBox()
+        const gap = (iconBox?.x ?? Infinity) - textRight
+        expect(gap).toBeGreaterThanOrEqual(0)
+        expect(gap).toBeLessThanOrEqual(8)
+    })
 })

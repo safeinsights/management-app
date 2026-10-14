@@ -223,3 +223,20 @@ html {
         opacity 0.2s,
         visibility 0.2s;
 }
+
+/* UX: a sortable column's icon sits right after its label, not at the column edge. The label's wrapper
+   gets width: 100% inline, hence max-width; centred and right-aligned columns keep their alignment. */
+th.mantine-datatable-header-cell-sortable .mantine-datatable-header-cell-sortable-group {
+    justify-content: flex-start;
+}
+th.mantine-datatable-header-cell-sortable .mantine-datatable-header-cell-sortable-group > :first-child {
+    max-width: fit-content;
+}
+th.mantine-datatable-header-cell-sortable
+    .mantine-datatable-header-cell-sortable-group:has(.mantine-datatable-text-align-center) {
+    justify-content: center;
+}
+th.mantine-datatable-header-cell-sortable
+    .mantine-datatable-header-cell-sortable-group:has(.mantine-datatable-text-align-right) {
+    justify-content: flex-end;
+}
