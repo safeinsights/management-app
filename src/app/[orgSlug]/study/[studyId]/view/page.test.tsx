@@ -808,11 +808,12 @@ describe('/view for a Data Partner member (OTTER-768)', () => {
             submittedByOrg: labOrg,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: labOrg.slug, studyId: study.id }) })
 
-        expect(page).toBeDefined()
+        expect(page?.type).toBe(CodePostSubmissionView)
         expect(redirect).not.toHaveBeenCalled()
     })
 })

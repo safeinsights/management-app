@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { redirect } from 'next/navigation'
+import { AccessDeniedAlert } from '@/components/errors'
 import { Routes } from '@/lib/routes'
 import {
     faker,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
+    mockClerkSession,
     mockDataPartnerSessionWithLabStudy,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
@@ -93,5 +95,22 @@ describe('researcherPageGuard', () => {
         expect(mockRedirect).not.toHaveBeenCalled()
         if (!result.ok) renderWithProviders(<>{result.render}</>)
         expect(screen.getByText('No such study exists')).toBeInTheDocument()
+    })
+
+    it('denies access when there is no session, as the reviewer guard does', async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        mockClerkSession(null)
+
+        const result = await guardFor(study, enclave.slug)
+
+        expect(result.ok).toBe(false)
+        expect(mockRedirect).not.toHaveBeenCalled()
+        if (!result.ok) expect(result.render.type).toBe(AccessDeniedAlert)
     })
 })
