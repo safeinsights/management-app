@@ -8,7 +8,12 @@ import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 import { setSentryFromSession } from '@/lib/sentry'
-import { localStorageContext, type AfterCommitFn, type RequestContext } from '@/server/request-context'
+import {
+    afterCommitQueue,
+    localStorageContext,
+    type AfterCommitFn,
+    type RequestContext,
+} from '@/server/request-context'
 
 type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
@@ -131,10 +136,7 @@ export class Action<
                 }
                 const session = await sessionFromClerk()
 
-                const afterCommitFns: (() => Promise<unknown>)[] = []
-                const afterCommit: AfterCommitFn = (fn) => {
-                    afterCommitFns.push(fn)
-                }
+                const { afterCommit, run: runAfterCommitFns } = afterCommitQueue()
 
                 const execute = async (dbConn: DBExecutor): Promise<Res> => {
                     let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
@@ -165,18 +167,7 @@ export class Action<
 
                 if (actionCtx) actionCtx.db = db
 
-                // Only reached once the writes are committed. A handler that threw never gets here,
-                // so work queued by a rolled-back handler is dropped with it. One hook failing must
-                // not fail the action: the mutation the caller asked for already happened.
-                const runAfterCommitFns = async () => {
-                    for (const fn of afterCommitFns) {
-                        try {
-                            await fn()
-                        } catch (error: unknown) {
-                            logger.error(error)
-                        }
-                    }
-                }
+                // Only reached once the writes are committed, so a rolled-back handler's queue is dropped.
                 // Inside the store, with db already swapped off the committed transaction, so a hook
                 // reads the same context its handler did rather than an empty one.
                 await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())

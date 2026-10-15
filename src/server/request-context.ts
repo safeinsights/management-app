@@ -22,6 +22,25 @@ export const localStorageContext = new AsyncLocalStorage<RequestContext>()
 
 export const currentDb = (): DBExecutor => localStorageContext.getStore()?.db ?? db
 
+// Run only once the writes are committed. One hook failing must not fail the caller: the change it
+// asked for already happened.
+export function afterCommitQueue() {
+    const hooks: (() => Promise<unknown>)[] = []
+    const afterCommit: AfterCommitFn = (hook) => {
+        hooks.push(hook)
+    }
+    const run = async () => {
+        for (const hook of hooks) {
+            try {
+                await hook()
+            } catch (error: unknown) {
+                logger.error(error)
+            }
+        }
+    }
+    return { afterCommit, run }
+}
+
 // The owner of a borrowed transaction decides when it commits, so nothing here can promise "after commit".
 const refuseAfterCommit: AfterCommitFn = () => {
     throw new Error('cannot queue after-commit work in a transaction this call does not own')
@@ -47,13 +66,8 @@ export async function withTransaction<T>(executor: DBExecutor, fn: (trx: Transac
         }
     }
 
-    const hooks: (() => Promise<unknown>)[] = []
-    const owned: RequestContext = {
-        ...outer,
-        afterCommit: (hook) => {
-            hooks.push(hook)
-        },
-    }
+    const queue = afterCommitQueue()
+    const owned: RequestContext = { ...outer, afterCommit: queue.afterCommit }
     const settle = () => {
         owned.db = settledDb
         owned.afterCommit = outer?.afterCommit
@@ -64,14 +78,7 @@ export async function withTransaction<T>(executor: DBExecutor, fn: (trx: Transac
             return localStorageContext.run(owned, () => fn(trx))
         })
         settle()
-        // Committed, so like action.ts a failing hook is logged and must not fail the caller.
-        for (const hook of hooks) {
-            try {
-                await localStorageContext.run(owned, hook)
-            } catch (error: unknown) {
-                logger.error(error)
-            }
-        }
+        await localStorageContext.run(owned, queue.run)
         return result
     } finally {
         settle()
