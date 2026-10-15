@@ -262,26 +262,90 @@ export type JobAnalysisPanelsProps = {
     summaryTimeoutMs?: number
     pollIntervalMs?: number
     detailsExpanded?: boolean
-    // Sibling of the details Collapse so a closed panel does not leave flex-gap above the toggle.
     expandToggle?: ReactNode
+    // Blocks above the scan and summary; they count toward the collapsed preview.
+    leadingBlocks?: SubmissionDetailBlock[]
     children?: ReactNode
 }
 
-function JobAnalysisExtendedDetails({
+// The collapsed section previews whatever blocks come first, so adding, removing or reordering a
+// block never needs a change here (OTTER-865).
+const SUBMISSION_DETAILS_PREVIEW_COUNT = 2
+
+export type SubmissionDetailBlock = { key: string; isVisible?: boolean; content: ReactNode }
+
+export function splitPreviewBlocks(blocks: SubmissionDetailBlock[], previewCount: number) {
+    const shown = blocks.filter((block) => block.isVisible !== false)
+    return { preview: shown.slice(0, previewCount), rest: shown.slice(previewCount) }
+}
+
+function BlockDivider({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+    return <Divider />
+}
+
+function DetailBlockRow({ content, withDivider }: { content: ReactNode; withDivider: boolean }) {
+    return (
+        <>
+            <BlockDivider isVisible={withDivider} />
+            {content}
+        </>
+    )
+}
+
+function DividedBlocks({ blocks }: { blocks: SubmissionDetailBlock[] }) {
+    return blocks.map((block, index) => (
+        <DetailBlockRow key={block.key} content={block.content} withDivider={index > 0} />
+    ))
+}
+
+function CollapsibleRest({
     isVisible,
+    blocks,
+    expanded,
     expandToggle,
-    children,
 }: {
     isVisible: boolean
+    blocks: SubmissionDetailBlock[]
+    expanded: boolean
     expandToggle?: ReactNode
-    children: ReactNode
 }) {
+    if (!isVisible) return null
+    // The toggle is a sibling of the Collapse so a closed panel does not leave flex-gap above it.
     return (
-        <Stack gap={0}>
-            {expandToggle}
-            <Collapse in={isVisible} keepMounted>
-                {children}
-            </Collapse>
+        <>
+            <Divider />
+            <Stack gap={0}>
+                {expandToggle}
+                <Collapse in={expanded} keepMounted>
+                    <Stack gap="xl">
+                        <DividedBlocks blocks={blocks} />
+                    </Stack>
+                </Collapse>
+            </Stack>
+        </>
+    )
+}
+
+function SubmissionDetailBlocks({
+    blocks,
+    detailsExpanded,
+    expandToggle,
+}: {
+    blocks: SubmissionDetailBlock[]
+    detailsExpanded: boolean
+    expandToggle?: ReactNode
+}) {
+    const { preview, rest } = splitPreviewBlocks(blocks, SUBMISSION_DETAILS_PREVIEW_COUNT)
+    return (
+        <Stack gap="xl">
+            <DividedBlocks blocks={preview} />
+            <CollapsibleRest
+                isVisible={rest.length > 0}
+                blocks={rest}
+                expanded={detailsExpanded}
+                expandToggle={expandToggle}
+            />
         </Stack>
     )
 }
@@ -295,6 +359,7 @@ export function JobAnalysisPanels({
     pollIntervalMs = ANALYSIS_POLL_INTERVAL_MS,
     detailsExpanded = true,
     expandToggle,
+    leadingBlocks = [],
     children,
 }: JobAnalysisPanelsProps) {
     const summaryTimeout = useElapsedSince(submittedAt, summaryTimeoutMs)
@@ -303,11 +368,12 @@ export function JobAnalysisPanels({
     // The server judges a row it has; the submission clock only covers a run that never wrote one.
     const summaryGaveUp = review ? review.isStale : summaryTimeout.elapsed
 
-    return (
-        <JobAnalysisExtendedDetails isVisible={detailsExpanded} expandToggle={expandToggle}>
-            <Stack gap="xl">
-                <SecurityScanPanel scan={data?.scan ?? null} hasError={error != null} />
-                <Divider />
+    const blocks: SubmissionDetailBlock[] = [
+        ...leadingBlocks,
+        { key: 'security-scan', content: <SecurityScanPanel scan={data?.scan ?? null} hasError={error != null} /> },
+        {
+            key: 'ai-summary',
+            content: (
                 <AiSummaryCollapsible
                     studyJobId={studyJobId}
                     analysisKey={jobAnalysisKey(studyJobId, submittedAt)}
@@ -316,10 +382,12 @@ export function JobAnalysisPanels({
                     timedOut={summaryGaveUp}
                     onRetryStarted={summaryTimeout.reset}
                 />
-                {children}
-            </Stack>
-        </JobAnalysisExtendedDetails>
-    )
+            ),
+        },
+        { key: 'code-files', isVisible: children != null, content: children },
+    ]
+
+    return <SubmissionDetailBlocks blocks={blocks} detailsExpanded={detailsExpanded} expandToggle={expandToggle} />
 }
 
 function useStudyCodeViewer(files: CodeFile[], initialExpanded: boolean) {

@@ -8,7 +8,7 @@ import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
-import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
+import { JobAnalysisPanels, StudyCodeViewer, type SubmissionDetailBlock } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { fontWeight } from '@/theme/tokens'
@@ -62,8 +62,7 @@ type SubmittedCodeSectionProps = {
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
-    // When the parent owns expand/collapse, datasets stay mounted and this hides the AI summary
-    // and code files.
+    // When the parent owns expand/collapse, the first two blocks stay visible and the rest collapse.
     detailsExpanded?: boolean
     // When set, the parent owns expand/collapse. The code viewer then always shows its files and
     // its toggle becomes the section's "Hide full submission details" closer.
@@ -115,13 +114,12 @@ export function SubmittedCodeSection({
     const expandToggle = (
         <SubmissionDetailsExpandToggle isVisible={showExpandToggle} onClick={onExpand} toggleRef={expandToggleRef} />
     )
+    const leadingBlocks: SubmissionDetailBlock[] = [{ key: 'datasets', content: <DatasetPills names={datasetNames} /> }]
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
             <Stack gap="md">
                 <SubmittedCodeHeader proposalHref={proposalHref} />
-                <Divider />
-                <DatasetPills names={datasetNames} />
                 <Divider />
                 <JobAnalysisPanels
                     studyJobId={job.id}
@@ -129,16 +127,14 @@ export function SubmittedCodeSection({
                     submittedAt={submittedAt}
                     detailsExpanded={detailsExpanded}
                     expandToggle={expandToggle}
+                    leadingBlocks={leadingBlocks}
                 >
-                    <Stack gap="xxl">
-                        <Divider />
-                        <StudyCodeViewer
-                            studyJobId={job.id}
-                            files={codeFiles}
-                            initialExpanded={codeInitiallyExpanded}
-                            onCollapse={onCollapse}
-                        />
-                    </Stack>
+                    <StudyCodeViewer
+                        studyJobId={job.id}
+                        files={codeFiles}
+                        initialExpanded={codeInitiallyExpanded}
+                        onCollapse={onCollapse}
+                    />
                 </JobAnalysisPanels>
             </Stack>
         </Paper>
