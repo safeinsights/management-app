@@ -49,7 +49,7 @@ const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
 
 // OTTER-690: Step 1 is one card, and the study title is entered here rather than on Step 2.
 async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = /openstax/i) {
-    await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+    await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Set up study', level: 2 })).toBeVisible()
 
     await page.getByLabel(/Study title/).fill(studyTitle)
@@ -675,7 +675,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // submission, which is what makes the permanent lock outrank state 2's editable title.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
