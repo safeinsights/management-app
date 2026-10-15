@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
+import { z } from 'zod'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
@@ -18,5 +19,8 @@ Sentry.init({
     release: process.env.RELEASE_TAG || 'unknown',
     environment: process.env.ENVIRONMENT_ID || 'development',
 })
+
+// Zod probes `new Function` to pick its JIT, which the CSP reports as an eval violation (OTTER-679).
+z.config({ jitless: true })
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
