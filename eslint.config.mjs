@@ -12,6 +12,22 @@ import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
 
+// Shared with the database-handle object below: a later object setting this rule replaces the list.
+const restrictedImportPaths = [
+    {
+        name: '@tanstack/react-query',
+        message: 'Please import tanstack from @/common instead.',
+    },
+    {
+        // It cancels the Tab keydown, which traps keyboard focus in the editor and
+        // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
+        // now it has been copied into a new editor along with the rest of the plugin
+        // list, so the ban is the guard. Indent / Outdent live on the toolbar.
+        name: '@lexical/react/LexicalTabIndentationPlugin',
+        message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
+    },
+]
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -123,21 +139,7 @@ const eslintConfig = [
             'custom/noSelectAllWithoutArgs': 'error',
             'custom/noBareRouteStrings': 'error',
             'custom/noInvalidButtonVariant': 'error',
-            'no-restricted-imports': [
-                'error',
-                {
-                    name: '@tanstack/react-query',
-                    message: 'Please import tanstack from @/common instead.',
-                },
-                {
-                    // It cancels the Tab keydown, which traps keyboard focus in the editor and
-                    // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
-                    // now it has been copied into a new editor along with the rest of the plugin
-                    // list, so the ban is the guard. Indent / Outdent live on the toolbar.
-                    name: '@lexical/react/LexicalTabIndentationPlugin',
-                    message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
-                },
-            ],
+            'no-restricted-imports': ['error', ...restrictedImportPaths],
             'no-console': ['error', { allow: ['warn', 'error'] }],
             '@typescript-eslint/no-unused-vars': [
                 'error',
@@ -145,6 +147,30 @@ const eslintConfig = [
             ],
             semi: ['error', 'never'],
             'import/no-duplicates': 'error',
+        },
+    },
+    // One way to get a database handle: currentDb() or a required executor. Only the two files
+    // that open transactions at the root may touch the global db or call .transaction().
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/server/actions/action.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                ...restrictedImportPaths,
+                {
+                    name: '@/database',
+                    importNames: ['db'],
+                    message: 'Use currentDb() from @/server/request-context, or take a required executor.',
+                },
+            ],
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: "CallExpression[callee.property.name='transaction']",
+                    message: 'Open transactions with withTransaction() from @/server/request-context.',
+                },
+            ],
         },
     },
     // Theme tokens over ad-hoc styling.
