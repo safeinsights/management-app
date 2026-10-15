@@ -15,12 +15,31 @@ import {
     userEvent,
     vi,
     waitFor,
+    within,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useAuth } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Suspense } from 'react'
 import AddTeam from './page'
+
+const renderInviteFrom = async (orgName: string) => {
+    const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+    const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), name: orgName, type: 'lab' })
+    const invite = await db
+        .insertInto('pendingUser')
+        .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    await act(async () => {
+        renderWithProviders(
+            <Suspense>
+                <AddTeam params={Promise.resolve({ inviteId: invite.id })} />
+            </Suspense>,
+        )
+    })
+}
 
 describe('AddTeam', () => {
     it('reloads the org list before it leaves for the joined org', async () => {
@@ -57,5 +76,26 @@ describe('AddTeam', () => {
 
         await waitFor(() => expect(memoryRouter.asPath).toContain(invitingOrg.slug))
         expect(listsAtPush).toEqual([expect.arrayContaining([org.slug, invitingOrg.slug])])
+    })
+
+    it('carries an org name with URL characters intact when skipping', async () => {
+        const orgName = `R&D + Co #${faker.string.alpha(6)}`
+        await renderInviteFrom(orgName)
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Skip for now' }))
+
+        await waitFor(() => expect(memoryRouter.query).toEqual({ skip: orgName }))
+    })
+
+    it('carries an org name with URL characters intact when declining', async () => {
+        const orgName = `R&D + Co #${faker.string.alpha(6)}`
+        await renderInviteFrom(orgName)
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Decline invitation' }))
+        await userEvent.click(
+            within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline invitation' }),
+        )
+
+        await waitFor(() => expect(memoryRouter.query).toEqual({ decline: orgName }))
     })
 })

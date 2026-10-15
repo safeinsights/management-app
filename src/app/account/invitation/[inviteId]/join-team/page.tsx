@@ -71,7 +71,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { mutate: revokeInvite, isPending: isRevoking } = useMutation({
         mutationFn: () => onRevokeInviteAction({ inviteId }),
         onSuccess: () => {
-            router.push(`${Routes.dashboard}?decline=${org!.name}` as Route)
+            router.push(`${Routes.dashboard}?decline=${encodeURIComponent(org!.name)}` as Route)
         },
         onError: reportMutationError('Unable to decline invitation'),
     })
@@ -137,7 +137,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     onClick={() => {
                         if (isSkipping) return
                         setIsSkipping(true)
-                        router.push(`${Routes.dashboard}?skip=${org.name}`)
+                        router.push(`${Routes.dashboard}?skip=${encodeURIComponent(org.name)}`)
                     }}
                 >
                     Skip for now
