@@ -8,11 +8,11 @@ import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { inviteLandingUrl } from '@/lib/invite-landing'
+import { markInvitationNotice } from '@/lib/invitation-notice'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
@@ -71,10 +71,18 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { mutate: revokeInvite, isPending: isRevoking } = useMutation({
         mutationFn: () => onRevokeInviteAction({ inviteId }),
         onSuccess: () => {
-            router.push(`${Routes.dashboard}?decline=${encodeURIComponent(org!.name)}` as Route)
+            markInvitationNotice({ kind: 'decline', orgName: org!.name })
+            router.push(Routes.dashboard)
         },
         onError: reportMutationError('Unable to decline invitation'),
     })
+
+    const skipInvitation = () => {
+        if (isSkipping) return
+        setIsSkipping(true)
+        markInvitationNotice({ kind: 'skip', orgName: org!.name })
+        router.push(Routes.dashboard)
+    }
 
     // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
     // so without this the spinner never stops.
@@ -129,17 +137,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     isLoading={isRevoking}
                     orgName={org.name}
                 />
-                <Button
-                    variant="subtle"
-                    size="lg"
-                    loading={isSkipping}
-                    w="100%"
-                    onClick={() => {
-                        if (isSkipping) return
-                        setIsSkipping(true)
-                        router.push(`${Routes.dashboard}?skip=${encodeURIComponent(org.name)}`)
-                    }}
-                >
+                <Button variant="subtle" size="lg" loading={isSkipping} w="100%" onClick={skipInvitation}>
                     Skip for now
                 </Button>
             </Flex>

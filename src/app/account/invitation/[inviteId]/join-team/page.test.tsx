@@ -18,6 +18,8 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
+import { takeInvitationNotice } from '@/lib/invitation-notice'
+import { Routes } from '@/lib/routes'
 import { useAuth } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
 import { Suspense } from 'react'
@@ -78,16 +80,17 @@ describe('AddTeam', () => {
         expect(listsAtPush).toEqual([expect.arrayContaining([org.slug, invitingOrg.slug])])
     })
 
-    it('carries an org name with URL characters intact when skipping', async () => {
+    it('leaves a skip notice for the dashboard without putting it in the URL', async () => {
         const orgName = `R&D + Co #${faker.string.alpha(6)}`
         await renderInviteFrom(orgName)
 
         await userEvent.click(await screen.findByRole('button', { name: 'Skip for now' }))
 
-        await waitFor(() => expect(memoryRouter.query).toEqual({ skip: orgName }))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
+        expect(takeInvitationNotice()).toEqual({ kind: 'skip', orgName })
     })
 
-    it('carries an org name with URL characters intact when declining', async () => {
+    it('leaves a decline notice for the dashboard without putting it in the URL', async () => {
         const orgName = `R&D + Co #${faker.string.alpha(6)}`
         await renderInviteFrom(orgName)
 
@@ -96,6 +99,7 @@ describe('AddTeam', () => {
             within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline invitation' }),
         )
 
-        await waitFor(() => expect(memoryRouter.query).toEqual({ decline: orgName }))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
+        expect(takeInvitationNotice()).toEqual({ kind: 'decline', orgName })
     })
 })
