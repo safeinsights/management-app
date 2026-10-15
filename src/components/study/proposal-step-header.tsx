@@ -1,18 +1,17 @@
 import type { FC, ReactNode } from 'react'
 import { Box, Divider, Group, Paper, Text, Title } from '@mantine/core'
+import type { PageHeaderStep } from '@/components/page-header'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-
-// The pair a step card shows; StudyPageHeader repeats it in the H1 for screen readers (OTTER-823).
-export type StudyHeaderStep = { label: string; heading: string }
 
 // Steps shown on more than one page. Here rather than beside the 'use client' panels that render
 // them, because a server page cannot read a value exported from a client module.
-export const VERIFY_OUTPUTS_STEP: StudyHeaderStep = { label: 'STEP 4', heading: 'Verify outputs' }
-export const REVIEW_OUTPUTS_STEP: StudyHeaderStep = { label: 'STEP 3', heading: 'Review outputs' }
-export const SUBMIT_CODE_STEP: StudyHeaderStep = { label: 'STEP 3', heading: 'Submit code' }
-export const EDIT_CODE_STEP: StudyHeaderStep = { label: 'STEP 3', heading: 'Edit code' }
-export const STUDY_PROPOSAL_STEP: StudyHeaderStep = { label: 'STEP 2', heading: 'Study proposal' }
-export const EDIT_PROPOSAL_STEP: StudyHeaderStep = { label: 'STEP 2', heading: 'Edit proposal' }
+export const VERIFY_OUTPUTS_STEP: PageHeaderStep = { label: 'Step 4', heading: 'Verify outputs' }
+export const REVIEW_OUTPUTS_STEP: PageHeaderStep = { label: 'Step 3', heading: 'Review outputs' }
+export const SUBMIT_CODE_STEP: PageHeaderStep = { label: 'Step 3', heading: 'Submit code' }
+export const EDIT_CODE_STEP: PageHeaderStep = { label: 'Step 3', heading: 'Edit code' }
+export const STUDY_PROPOSAL_STEP: PageHeaderStep = { label: 'Step 2', heading: 'Study proposal' }
+export const EDIT_PROPOSAL_STEP: PageHeaderStep = { label: 'Step 2', heading: 'Edit proposal' }
+export const SET_UP_STUDY_STEP: PageHeaderStep = { label: 'Step 1', heading: 'Set up study' }
 
 type ProposalStepHeaderProps = {
     stepLabel: string
@@ -38,7 +37,8 @@ export function ProposalStepHeader({ stepLabel, heading, banner, children, actio
         <Paper p="xxl" data-testid="proposal-section-header">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
                 <Box>
-                    <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs">
+                    {/* Uppercase by CSS, so screen readers read "Step 3" rather than spelling out "STEP". */}
+                    <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs" tt="uppercase">
                         {stepLabel}
                     </Text>
                     <Title order={2} fz="xl" c={semanticColor('text.primary')} pb="xxs">

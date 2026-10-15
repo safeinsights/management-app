@@ -5,7 +5,7 @@ import { Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import * as Sentry from '@sentry/nextjs'
 import { Component, ErrorInfo, ReactNode, useEffect, useState } from 'react'
 import { AppErrorImage } from '../../public/svg/app-error-image'
-import { StandaloneScreenShell } from './layout/standalone-screen-shell'
+import { FocusedLayoutShellView } from './layout/focused-layout-shell-view'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import { APP_TITLE, MAIN_CONTENT_ID } from '@/lib/constants'
 
@@ -38,7 +38,7 @@ export function ErrorScreen({ eventId }: { eventId?: string }) {
     }
 
     return (
-        <StandaloneScreenShell>
+        <FocusedLayoutShellView>
             <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
                 <AppErrorImage style={{ margin: '0 auto' }} />
                 <Stack mb="xxl" ta="center" align="center" gap="0">
@@ -59,7 +59,7 @@ export function ErrorScreen({ eventId }: { eventId?: string }) {
                     </Group>
                 </Stack>
             </Paper>
-        </StandaloneScreenShell>
+        </FocusedLayoutShellView>
     )
 }
 

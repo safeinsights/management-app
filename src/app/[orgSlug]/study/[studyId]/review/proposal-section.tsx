@@ -2,7 +2,7 @@
 
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
-import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import { proposalReviewHeading } from '@/lib/proposal-review'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { reviewerProposalNeedsReviewBanner } from '@/lib/study-banners'
@@ -34,8 +34,8 @@ function StatusBanner({ labName, reviewVersion, submittedAt }: StatusBannerProps
     )
 }
 
-export const proposalReviewStep = (reviewVersion: number): StudyHeaderStep => ({
-    label: 'STEP 1',
+export const proposalReviewStep = (reviewVersion: number): PageHeaderStep => ({
+    label: 'Step 1',
     heading: proposalReviewHeading(reviewVersion),
 })
 

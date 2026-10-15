@@ -1,6 +1,6 @@
 'use client'
 
-import { StandaloneScreenShell } from '@/components/layout/standalone-screen-shell'
+import { FocusedLayoutShellView } from '@/components/layout/focused-layout-shell-view'
 import { Routes } from '@/lib/routes'
 import { Button, Paper, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
@@ -18,7 +18,7 @@ export function NotFoundView() {
     }
 
     return (
-        <StandaloneScreenShell>
+        <FocusedLayoutShellView>
             <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={600} my={{ base: '1rem', lg: 0 }}>
                 <Stack mb="xxl" ta="center" align="center" gap="0">
                     <NotFoundImage style={{ margin: '0 auto' }} />
@@ -34,6 +34,6 @@ export function NotFoundView() {
                     </Button>
                 </Stack>
             </Paper>
-        </StandaloneScreenShell>
+        </FocusedLayoutShellView>
     )
 }

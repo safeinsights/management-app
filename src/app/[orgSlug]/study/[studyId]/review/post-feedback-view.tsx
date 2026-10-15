@@ -41,8 +41,8 @@ type PostFeedbackViewProps = {
 }
 
 const STEP_LABEL_BY_KIND: Record<PostFeedbackKind, string> = {
-    PROPOSAL: 'STEP 1',
-    CODE: 'STEP 2',
+    PROPOSAL: 'Step 1',
+    CODE: 'Step 2',
 }
 
 type DecisionBannerProps = {

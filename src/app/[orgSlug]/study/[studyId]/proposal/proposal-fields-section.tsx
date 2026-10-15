@@ -7,7 +7,7 @@ import { type HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import { DatasetMultiSelect } from '@/components/dataset-multi-select'
 import {
     SaveStatusAnnouncer,
@@ -37,7 +37,7 @@ interface ProposalFieldsSectionProps {
     yjsForm: ReturnType<typeof useYjsFormMap>
     websocketProvider: HocuspocusProviderWebsocket | null
     /** "Study proposal" on Step 2, "Edit proposal" on the revision page; the card is otherwise the same. */
-    step: StudyHeaderStep
+    step: PageHeaderStep
     orgName: string
     members: MemberOption[]
     researcherName: string

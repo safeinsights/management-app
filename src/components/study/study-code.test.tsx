@@ -405,8 +405,8 @@ describe('StudyCode component', () => {
             const header = await screen.findByTestId('proposal-section-header')
 
             // Exact string, not a substring: the "STEP 4 of 4" this replaced would satisfy a
-            // loose match against "STEP 3" once the number changed.
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            // loose match against "Step 3" once the number changed.
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
         })
 
         it('renders "Submit code" as the section title', async () => {

@@ -265,7 +265,7 @@ describe('OutputsFeedbackScreen', () => {
             screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
         ).toBeInTheDocument()
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 4')
+        expect(header).toHaveTextContent('Step 4')
         expect(header).toHaveTextContent('Verify outputs')
         expect(header).not.toHaveTextContent(study.title!)
     })

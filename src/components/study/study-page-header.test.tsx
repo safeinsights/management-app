@@ -15,7 +15,7 @@ describe('StudyPageHeader', () => {
     })
 
     it('names the current step in the level-1 heading', () => {
-        renderWithProviders(<StudyPageHeader study={study} step={{ label: 'STEP 3', heading: 'Submit code' }} />)
+        renderWithProviders(<StudyPageHeader study={study} step={{ label: 'Step 3', heading: 'Submit code' }} />)
 
         expect(
             screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Submit code` }),

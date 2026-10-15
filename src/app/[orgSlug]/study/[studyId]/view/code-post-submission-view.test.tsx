@@ -144,7 +144,7 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
 
             const title = study.title ?? ''

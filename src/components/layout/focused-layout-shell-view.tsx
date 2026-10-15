@@ -7,14 +7,14 @@ import { SafeInsightsLogo } from './svg/si-logo'
 // Session-free so it renders in isolation; ./focused-layout-shell wires up the real hooks.
 export type FocusedLayoutShellViewProps = {
     children: ReactNode
-    isSignInFlow: boolean
-    onHeaderClick: () => void
+    isSignInFlow?: boolean
+    onHeaderClick?: () => void
     activityContext?: ReactNode
 }
 
 export function FocusedLayoutShellView({
     children,
-    isSignInFlow,
+    isSignInFlow = false,
     onHeaderClick,
     activityContext,
 }: FocusedLayoutShellViewProps) {
@@ -27,7 +27,7 @@ export function FocusedLayoutShellView({
                     h="100%"
                     p="md"
                     style={{ cursor: isSignInFlow ? 'pointer' : '' }}
-                    onClick={() => isSignInFlow && onHeaderClick()}
+                    onClick={() => isSignInFlow && onHeaderClick?.()}
                 >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>

@@ -2,7 +2,7 @@ import { semanticColor } from '@/theme/tokens'
 import { AlertNotFound } from '@/components/errors'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { codeReviewHeading } from '@/lib/code-review'
 import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
@@ -53,7 +53,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     const reviewVersion = await codeRoundForJob(job.id)
     const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName
-    const step: StudyHeaderStep = { label: 'STEP 2', heading: codeReviewHeading(reviewVersion) }
+    const step: PageHeaderStep = { label: 'Step 2', heading: codeReviewHeading(reviewVersion) }
     const submittedAt = latestCodeSubmittedAt(job)
 
     return (

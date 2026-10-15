@@ -52,7 +52,7 @@ describe('ResubmitStudyCodePage', () => {
 
         renderWithProviders(page!)
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 3')
+        expect(header).toHaveTextContent('Step 3')
         expect(header).toHaveTextContent('Edit code')
         expect(header).not.toHaveTextContent(study.title!)
     })

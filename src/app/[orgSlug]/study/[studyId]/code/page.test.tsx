@@ -57,7 +57,7 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByText('STEP 3')).toBeInTheDocument()
+        expect(screen.getByText('Step 3')).toBeInTheDocument()
         expect(screen.getByTestId('video-duration-badge')).toHaveTextContent('10 min video')
 
         const previousLink = screen.getByRole('link', { name: /previous/i })

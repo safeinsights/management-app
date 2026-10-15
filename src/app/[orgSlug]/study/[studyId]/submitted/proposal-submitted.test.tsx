@@ -553,7 +553,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+            expect(within(header).getByText('Step 2')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
         })
 

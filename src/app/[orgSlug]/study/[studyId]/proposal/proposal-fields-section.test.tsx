@@ -158,7 +158,7 @@ describe('ProposalFieldsSection section header and body copy (OTTER-762)', () =>
         await renderSection({ step: EDIT_PROPOSAL_STEP })
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+        expect(within(header).getByText('Step 2')).toBeInTheDocument()
         expect(within(header).getByRole('heading', { level: 2, name: 'Edit proposal' })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
     })

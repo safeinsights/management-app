@@ -177,7 +177,7 @@ describe('Set Up page section header', () => {
         renderSetup(fixtures)
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(within(header).getByText('STEP 1')).toBeInTheDocument()
+        expect(within(header).getByText('Step 1')).toBeInTheDocument()
         expect(within(header).getByRole('heading', { name: 'Set up study', level: 2 })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
     })
@@ -196,7 +196,7 @@ describe('Set Up page header', () => {
         renderSetup(fixtures, { submittingLabName: 'Genius Lab' })
 
         expect(screen.getByText('Genius Lab')).toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'Untitled study', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Untitled study — Step 1: Set up study', level: 1 })).toBeInTheDocument()
     })
 
     it('mirrors the title into the heading as it is typed', async () => {
@@ -206,7 +206,7 @@ describe('Set Up page header', () => {
 
         await user.type(titleInput(), 'Highlighting and recall')
 
-        expect(screen.getByRole('heading', { name: 'Highlighting and recall', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Highlighting and recall — Step 1: Set up study', level: 1 })).toBeInTheDocument()
     })
 
     it('names the research lab once the study is persisted', async () => {
@@ -225,7 +225,7 @@ describe('Set Up page header', () => {
 
         expect(screen.getByText('Genius Lab')).toBeInTheDocument()
         expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
-        expect(screen.getByRole('heading', { name: 'A saved title', level: 1 })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'A saved title — Step 1: Set up study', level: 1 })).toBeInTheDocument()
     })
 
     it('keeps naming the research lab after a submission', async () => {

@@ -59,7 +59,7 @@ describe('EditResubmitForm proposal card (OTTER-762)', () => {
         renderForm(filledDraft)
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+        expect(within(header).getByText('Step 2')).toBeInTheDocument()
         expect(within(header).getByRole('heading', { level: 2, name: 'Edit proposal' })).toBeInTheDocument()
         expect(screen.queryByLabelText(/study title/i)).not.toBeInTheDocument()
         expect(screen.queryByText('A study title')).not.toBeInTheDocument()

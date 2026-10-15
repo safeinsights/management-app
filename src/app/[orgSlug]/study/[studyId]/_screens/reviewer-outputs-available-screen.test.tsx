@@ -104,7 +104,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         expect(
             screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
         ).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 

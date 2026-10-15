@@ -11,6 +11,7 @@ import { SetupForm } from './setup-form'
 import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
 import { PageHeader } from '@/components/page-header'
+import { SET_UP_STUDY_STEP } from '@/components/study/proposal-step-header'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
@@ -124,7 +125,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
 
     return (
         <Stack p="xl" gap="xl">
-            <PageHeader eyebrow={eyebrow} title={headingTitle} />
+            <PageHeader eyebrow={eyebrow} title={headingTitle} step={SET_UP_STUDY_STEP} />
             <SetupForm
                 form={form}
                 titleValue={titleValue}

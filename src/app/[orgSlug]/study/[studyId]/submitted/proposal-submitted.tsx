@@ -9,7 +9,7 @@ import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/stud
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import type { StudyHeaderStep } from '@/components/study/proposal-step-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
@@ -58,7 +58,7 @@ function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; fe
     )
 }
 
-const SUBMIT_PROPOSAL_STEP: StudyHeaderStep = { label: 'STEP 2', heading: 'Submit proposal' }
+const SUBMIT_PROPOSAL_STEP: PageHeaderStep = { label: 'Step 2', heading: 'Submit proposal' }
 
 export function ProposalSubmitted({
     orgSlug,
