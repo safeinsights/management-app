@@ -20,7 +20,7 @@ import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/s
 import clsx from 'clsx'
 import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
 import { SecurityScanPanel, isScanPending } from './security-scan-panel'
-import { Children, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
@@ -265,7 +265,7 @@ export type JobAnalysisPanelsProps = {
     expandToggle?: ReactNode
     // Blocks above the scan and summary; they count toward the collapsed preview.
     leadingBlocks?: SubmissionDetailBlock[]
-    children?: ReactNode
+    children: ReactNode
 }
 
 // The collapsed section previews whatever blocks come first, so adding, removing or reordering a
@@ -394,12 +394,7 @@ export function JobAnalysisPanels({
             ),
         },
         // The code viewer holds the section's closer, so it must never land in the preview.
-        {
-            key: 'code-files',
-            isVisible: Children.toArray(children).length > 0,
-            alwaysCollapsed: true,
-            content: children,
-        },
+        { key: 'code-files', alwaysCollapsed: true, content: children },
     ]
 
     return <SubmissionDetailBlocks blocks={blocks} detailsExpanded={detailsExpanded} expandToggle={expandToggle} />

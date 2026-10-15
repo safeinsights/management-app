@@ -342,7 +342,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const error = await screen.findByTestId('ai-summary-error')
@@ -360,7 +362,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date(Date.now() - 10 * 60_000)}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -384,7 +388,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await new Promise((resolve) => setTimeout(resolve, 80))
@@ -402,7 +408,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         expect(await screen.findByTestId('ai-summary-error')).toHaveTextContent('The AI summary failed to generate.')
@@ -419,7 +427,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -444,7 +454,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED') }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
@@ -462,7 +474,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
@@ -484,7 +498,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 submittedAt={new Date()}
                 summaryTimeoutMs={30}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await screen.findByTestId('ai-summary-error')
@@ -516,7 +532,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
             { queryClient },
         )
 
@@ -536,7 +554,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={longAgo}
                 summaryTimeoutMs={180_000}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
@@ -552,7 +572,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={blankFixture.job.createdAt}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
@@ -626,7 +648,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
@@ -649,7 +673,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
@@ -669,7 +695,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
         expect(screen.getByLabelText('Scan pending')).toBeInTheDocument()
@@ -690,7 +718,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
@@ -748,25 +778,6 @@ describe('SubmittedCodeSection collapsed preview', () => {
         expect(screen.getByTestId('ai-summary')).toBeVisible()
         expect(screen.getByRole('button', { name: 'Open details' })).toBeVisible()
         expect(screen.getByText('Code files block')).not.toBeVisible()
-    })
-
-    it('offers no opener when empty children leave nothing to collapse', async () => {
-        const fixture = await setupBaseFixture()
-        renderWithProviders(
-            <JobAnalysisPanels
-                studyJobId={fixture.job.id}
-                initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
-                submittedAt={new Date()}
-                detailsExpanded={false}
-                expandToggle={<button type="button">Open details</button>}
-            >
-                {false}
-            </JobAnalysisPanels>,
-        )
-
-        expect(screen.getByTestId('security-scan-results')).toBeVisible()
-        expect(screen.getByTestId('ai-summary')).toBeVisible()
-        expect(screen.queryByRole('button', { name: 'Open details' })).not.toBeInTheDocument()
     })
 })
 
