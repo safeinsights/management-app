@@ -157,8 +157,7 @@ export const ExternalLinks = {
     // Empty-state links on the study tables (OTTER-617); reviewProcess shares resourceCenter's page today.
     studyLifecycle: 'https://dev-docs.sandbox.safeinsights.org/researchers/start-here/study-lifecycle/',
     reviewProcess: 'https://dev-docs.sandbox.safeinsights.org/data-organizations/',
-    // TODO(OTTER-692): Support hub URL still owed by Micaela; the KB root stands in until then.
-    support: 'https://dev-docs.sandbox.safeinsights.org/',
+    support: 'https://r5fsm.share-na2.hsforms.com/2OY6Fbcx_SFCRNgC15mqqtg',
 } as const
 
 /**
