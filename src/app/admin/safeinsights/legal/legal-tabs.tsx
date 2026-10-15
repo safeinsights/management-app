@@ -17,19 +17,19 @@ export const LegalTabs: FC = () => (
             <Tabs.Tab value="ROPA">ROPA</Tabs.Tab>
             <Tabs.Tab value="SLA">{legalDocumentCollectionLabels.SLA}</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="TOS" pt="xl">
+        <Tabs.Panel value="TOS">
             <TosPnPanel doctype="TOS" />
         </Tabs.Panel>
-        <Tabs.Panel value="PN" pt="xl">
+        <Tabs.Panel value="PN">
             <TosPnPanel doctype="PN" />
         </Tabs.Panel>
-        <Tabs.Panel value="DOPA" pt="xl">
+        <Tabs.Panel value="DOPA">
             <ParticipationAgreements type="DOPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="ROPA" pt="xl">
+        <Tabs.Panel value="ROPA">
             <ParticipationAgreements type="ROPA" />
         </Tabs.Panel>
-        <Tabs.Panel value="SLA" pt="xl">
+        <Tabs.Panel value="SLA">
             <StudyAgreements />
         </Tabs.Panel>
     </Tabs>
