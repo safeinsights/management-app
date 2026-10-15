@@ -64,6 +64,18 @@ describe('LinkEditForm', () => {
         expect(described).toContain(INVALID_URL_MESSAGE)
     })
 
+    it('shows the error icon before the invalid-URL message', async () => {
+        const user = userEvent.setup()
+        const form = renderForm()
+
+        await user.clear(form.url)
+        await user.type(form.url, 'not a url')
+        await user.click(form.save)
+
+        const message = await screen.findByText(INVALID_URL_MESSAGE)
+        expect(message.previousElementSibling?.nodeName.toLowerCase()).toBe('svg')
+    })
+
     it('clears the error once the URL changes', async () => {
         const user = userEvent.setup()
         const form = renderForm()
@@ -86,7 +98,8 @@ describe('LinkEditForm', () => {
         await user.click(form.save)
 
         expect(form.onSave).not.toHaveBeenCalled()
-        expect(await screen.findByText(EMPTY_TEXT_MESSAGE)).toBeInTheDocument()
+        const message = await screen.findByText(EMPTY_TEXT_MESSAGE)
+        expect(message.previousElementSibling?.nodeName.toLowerCase()).toBe('svg')
     })
 
     it('trims what it saves, and refuses text that is only spaces', async () => {
