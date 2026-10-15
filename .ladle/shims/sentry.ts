@@ -41,7 +41,6 @@ export const withScope = (cb?: (s: typeof scope) => void) => {
 export const getCurrentScope = () => scope
 export const getClient = () => undefined
 export const setCurrentClient = noop
-export const replayIntegration = () => ({})
 export const browserTracingIntegration = () => ({})
 
 export default {
@@ -51,6 +50,5 @@ export default {
     withScope,
     getCurrentScope,
     setUser,
-    replayIntegration,
     browserTracingIntegration,
 }

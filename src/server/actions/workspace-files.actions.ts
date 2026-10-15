@@ -2,11 +2,12 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import type { DBExecutor } from '@/database'
 import { Action, z } from './action'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import { getStudyFilesPath } from '@/server/workspace-files'
 import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
-import { ensureRoundJobForUpload } from '@/server/db/mutations'
+import { ensureRoundJobForUpload, markStudyOpened } from '@/server/db/mutations'
 import { requireChangeableCodeFiles } from '@/server/study-code-gate'
 import {
     ACCEPTED_FILE_FORMATS_TEXT,
@@ -15,12 +16,12 @@ import {
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
 
-async function getStudyFilesPath(studyId: string) {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
-    return coderFilesPath
+// OTTER-617: the researcher's Last updated reads this; the data partner's does not. The editor has
+// seen their own edit, so it must not mark the study unread for them (OTTER-838).
+const stampLabEdit = async (db: DBExecutor, studyId: string, userId: string) => {
+    const editedAt = new Date()
+    await db.updateTable('study').set({ labEditedAt: editedAt }).where('id', '=', studyId).execute()
+    await markStudyOpened(db, { studyId, userId, seenAt: editedAt })
 }
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })
@@ -55,6 +56,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
             .insertInto('workspaceFileActivity')
             .values({ studyId, fileName, userId: session.user.id, action: 'UPLOADED' })
             .execute()
+        await stampLabEdit(db, studyId, session.user.id)
 
         return { fileName }
     })
@@ -88,12 +90,14 @@ export const setMainCodeFileAction = new Action('setMainCodeFileAction', { perfo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
-    .handler(async ({ db, params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName }, session }) => {
+        const editedAt = new Date()
         await db
             .updateTable('study')
-            .set({ mainCodeFileName: sanitizeFileName(fileName) })
+            .set({ mainCodeFileName: sanitizeFileName(fileName), labEditedAt: editedAt })
             .where('id', '=', studyId)
             .execute()
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
     })
 
 export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
@@ -128,7 +132,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
-    .handler(async ({ db, params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName }, session }) => {
         const coderFilesPath = await getStudyFilesPath(studyId)
         const sanitized = sanitizeFileName(fileName)
         const filePath = path.join(coderFilesPath, sanitized)
@@ -153,6 +157,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
                 throw e
             }
         }
+        await stampLabEdit(db, studyId, session.user.id)
 
         return { success: true }
     })

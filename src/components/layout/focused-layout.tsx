@@ -16,8 +16,9 @@ export async function FocusedLayout({ children }: Props) {
     const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
+    // Without `dynamic` Clerk drops the CSP nonce from clerk.browser.js (OTTER-679).
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} dynamic>
             <SentryUserProvider />
             <PostHogUserProvider />
             <FocusedLayoutShell>{children}</FocusedLayoutShell>

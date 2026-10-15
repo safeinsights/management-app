@@ -1,15 +1,18 @@
 // OTTER-556: a late CODE-SCANNED webhook can land as statusChanges[0], so reading the topmost row
 // would 404 a resubmittable study. The page gates on canResearcherResubmitCode instead.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
     insertTestStudyJobData,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
     within,
 } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import ResubmitStudyCodePage from './page'
 
 const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
@@ -52,7 +55,7 @@ describe('ResubmitStudyCodePage', () => {
 
         renderWithProviders(page!)
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 3')
+        expect(header).toHaveTextContent('Step 3')
         expect(header).toHaveTextContent('Edit code')
         expect(header).not.toHaveTextContent(study.title!)
     })
@@ -81,6 +84,75 @@ describe('ResubmitStudyCodePage', () => {
         expect(within(section).queryByTestId('your-files-divider')).not.toBeInTheDocument()
     })
 
+    it('offers View outputs when Edit code reopens the round from the outputs step', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await insertStatus(job.id, 'CODE-APPROVED')
+        await insertStatus(job.id, 'RUN-COMPLETE')
+        await insertStatus(job.id, 'FILES-REJECTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'View outputs' })).toBeInTheDocument()
+    })
+
+    it('hides View outputs when Edit code follows a code revision request', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
+    it('hides View outputs when a newer round asks for code changes after an outputs decision', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const second = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await insertStatus(second.id, 'CODE-SUBMITTED')
+
+        // The projection reads the round with the highest id. Two inserts can share a v7
+        // millisecond, so order the rounds by id instead of by insertion.
+        const [olderRound, newerRound] = [job.id, second.id].sort()
+        await insertStatus(olderRound, 'CODE-APPROVED')
+        await insertStatus(olderRound, 'RUN-COMPLETE')
+        await insertStatus(olderRound, 'FILES-REJECTED')
+        await insertStatus(newerRound, 'CODE-CHANGES-REQUESTED')
+
+        const page = await ResubmitStudyCodePage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        renderWithProviders(page!)
+        expect(screen.getByRole('button', { name: 'Resubmit code for review' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
+    })
+
     it('returns notFound when no resubmittable status exists in the job history', async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
@@ -95,5 +167,20 @@ describe('ResubmitStudyCodePage', () => {
         })
 
         expect(page).toBeUndefined()
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/resubmit for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
+
+        await expect(
+            ResubmitStudyCodePage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
     })
 })

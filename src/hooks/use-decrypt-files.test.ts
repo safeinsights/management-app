@@ -8,11 +8,10 @@ import {
     renderHook,
     waitFor,
 } from '@/tests/unit.helpers'
-import { wrapAesKey } from 'si-encryption/job-results/crypto'
-import { ResultsReader } from 'si-encryption/job-results/reader'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
@@ -20,12 +19,11 @@ const FILENAME = 'results.csv'
 const CONTENTS = 'participant_count,mean_score\n4128,72.4\n'
 const JOB_ID = '0193a1f0-0000-7000-8000-000000000001'
 const OTHER_JOB_ID = '0193a1f0-0000-7000-8000-000000000002'
-const OTHER_PRIVATE_KEY = 'invalid_private_key.pem'
 
 const toArrayBuffer = (text: string) => new TextEncoder().encode(text).buffer as ArrayBuffer
 
-const recipient = async (publicKeyFile = 'public_key.pem') => {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile(publicKeyFile))
+const recipient = async () => {
+    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     return { publicKey, fingerprint: await fingerprintKeyData(publicKey) }
 }
 
@@ -37,7 +35,7 @@ const asJobFile = async (archive: Blob): Promise<EncryptedJobFile> => ({
     recipientKeys: {},
 })
 
-const decrypt = async (file: EncryptedJobFile, privateKeyFile = 'private_key.pem') => {
+const decrypt = async (file: EncryptedJobFile, jobId = JOB_ID) => {
     let decrypted: JobFileInfo[] | undefined
     let failure: Error | undefined
 
@@ -45,7 +43,7 @@ const decrypt = async (file: EncryptedJobFile, privateKeyFile = 'private_key.pem
         () =>
             useDecryptFiles({
                 encryptedFiles: [file],
-                jobId: JOB_ID,
+                jobId,
                 onSuccess: (files) => {
                     decrypted = files
                 },
@@ -56,7 +54,7 @@ const decrypt = async (file: EncryptedJobFile, privateKeyFile = 'private_key.pem
         { wrapper: createTestQueryWrapper() },
     )
 
-    result.current.decrypt(await readTestSupportFile(privateKeyFile))
+    result.current.decrypt(await readTestSupportFile('private_key.pem'))
     await waitFor(() => expect(decrypted ?? failure).toBeDefined())
     if (failure) throw failure
 
@@ -69,18 +67,11 @@ const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) =
     return writer.generate()
 }
 
-// The reviewer's AES keys re-wrapped for the other key pair, the way approval grants a researcher access.
-const researcherJobFile = async () => {
-    const archive = await currentArchive()
-    const reviewerKey = pemToArrayBuffer(await readTestSupportFile('private_key.pem'))
-    const reviewer = new ResultsReader(archive, reviewerKey, (await recipient()).fingerprint)
-    const { publicKey } = await recipient('invalid_public_key.pem')
-
-    const recipientKeys: Record<string, string> = {}
-    for (const entry of await reviewer.extractFilesWithKeys()) {
-        recipientKeys[entry.path] = await wrapAesKey(entry.rawAesKey, publicKey)
-    }
-    return { ...(await asJobFile(archive)), recipientKeys }
+const archiveForAnotherKey = async () => {
+    const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
+    await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
+    return { archive: await writer.generate(), fingerprint }
 }
 
 const expectDecryptsToContents = (files: JobFileInfo[]) => {
@@ -112,18 +103,26 @@ describe('useDecryptFiles', () => {
         expectDecryptsToContents(await decrypt(await asJobFile(await currentArchive())))
     })
 
-    it('reads a current archive through keys re-wrapped for a researcher', async () => {
-        expectDecryptsToContents(await decrypt(await researcherJobFile(), OTHER_PRIVATE_KEY))
-    })
+    // A researcher is not in the manifest; the server hands over wraps made for their key at
+    // share time, mirroring what fetchEncryptedJobFilesAction returns.
+    it('reads a current archive as a researcher with wraps served alongside it', async () => {
+        const me = await recipient()
+        const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+        const writer = new ResultsWriter([{ publicKey, fingerprint }, me], { jobId: JOB_ID })
+        await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
 
-    it('reports a key the archive was not written for as a bad key rather than tampering', async () => {
-        await expect(decrypt(await asJobFile(await currentArchive()), OTHER_PRIVATE_KEY)).rejects.toThrow(
-            'Private key is not valid for these results',
-        )
-    })
+        const zip = await writer.generate()
+        const { manifest } = await openArchive(zip)
+        const myWrap = manifest.files[FILENAME].keys[me.fingerprint].crypt
+        const archive = await tamper(zip, {
+            manifest: (m) => {
+                delete m.files[FILENAME].keys[me.fingerprint]
+            },
+        })
+        const file = await asJobFile(archive)
+        file.recipientKeys = { [FILENAME]: myWrap }
 
-    it('reports a key the re-wrapped keys do not open as a bad key rather than tampering', async () => {
-        await expect(decrypt(await researcherJobFile())).rejects.toThrow('Private key is not valid for these results')
+        expectDecryptsToContents(await decrypt(file))
     })
 
     it('reports a dropped file as tampering rather than a bad key', async () => {
@@ -137,6 +136,56 @@ describe('useDecryptFiles', () => {
         const corrupted = await packArchive(manifest, [{ ...bodies[0], blob: await flipByte(bodies[0].blob) }])
 
         await expect(decrypt(await asJobFile(corrupted))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    // The key is a listed recipient, so a wrap of it that fails to unwrap was altered in the archive.
+    // Must not read as a wrong key: that would hide the signal and send the user off to replace a
+    // key that is fine.
+    it("reports a recipient's tampered wrapped key as tampering rather than a bad key", async () => {
+        const { fingerprint } = await recipient()
+        const other = await archiveForAnotherKey()
+        const { manifest: otherManifest } = await openArchive(other.archive)
+
+        const archive = await tamper(await currentArchive(), {
+            manifest: (m) => {
+                m.files[FILENAME].keys[fingerprint].crypt = otherManifest.files[FILENAME].keys[other.fingerprint].crypt
+            },
+        })
+
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    describe('a key the archive was not encrypted for', () => {
+        it('is rejected as a wrong key, not tampering, when absent from the manifest', async () => {
+            const { archive } = await archiveForAnotherKey()
+
+            const failure = await decrypt(await asJobFile(archive)).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // A researcher's wrapped keys are spliced in under whatever key they enter, so only the unwrap catches it.
+        it('is rejected as a wrong key, not tampering, when its wrapped key does not unwrap', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { [FILENAME]: manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            const failure = await decrypt(file).catch((err: Error) => err)
+            expect(failure).toBeInstanceOf(Error)
+            expect(failure).not.toBeInstanceOf(ArchiveIntegrityError)
+        })
+
+        // Wraps were served for the artifact but none names this file: the server's rows and the
+        // manifest disagree, which no key of the user's can fix.
+        it('is not blamed on the key when the wraps served do not cover the file', async () => {
+            const { archive, fingerprint } = await archiveForAnotherKey()
+            const { manifest } = await openArchive(archive)
+            const file = await asJobFile(archive)
+            file.recipientKeys = { 'some-other-file.csv': manifest.files[FILENAME].keys[fingerprint].crypt }
+
+            await expect(decrypt(file)).rejects.toThrow(ArchiveIntegrityError)
+        })
     })
 
     it('refuses an archive belonging to a different job', async () => {

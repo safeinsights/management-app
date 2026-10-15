@@ -14,7 +14,6 @@ import {
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -65,19 +64,22 @@ describe('OutputsAwaitingReviewScreen', () => {
         const { org, study } = await setupAwaitingReview()
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 4')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
     })
 
     it('names the reviewing data partner in the banner title and body', async () => {
-        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Openstax Data Partner' })
+        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Clinical Lab Network' })
         await renderScreen(study, org.slug)
 
-        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
+        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
         expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })
 

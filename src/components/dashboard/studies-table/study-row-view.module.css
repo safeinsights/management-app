@@ -1,5 +1,25 @@
-/* brand/accentalpha is the token the library describes as "BG for tables rows". */
-.row[data-highlighted] {
-    background-color: var(--si-color-brand-accentalpha);
-    font-weight: var(--si-font-weight-semibold);
+/* Inline-block, so only the title text is clickable, not the blank cell after a short title. */
+.title {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: bottom;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.titleCell {
+    position: relative;
+}
+
+/* Figma 4334:50496: an 8px dot in the first 8px of the cell's 16px left padding, so it adds no width. */
+.unreadDot {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    translate: 0 -50%;
+    width: rem(8px);
+    height: rem(8px);
+    border-radius: 50%;
+    background-color: var(--si-color-unread-dot);
 }

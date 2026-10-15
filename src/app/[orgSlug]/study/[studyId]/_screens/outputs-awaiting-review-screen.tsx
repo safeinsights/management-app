@@ -1,10 +1,9 @@
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { isAwaitingOutputsReviewOutcome, projectStudyState } from '@/lib/study-screen'
@@ -27,15 +26,15 @@ export async function OutputsAwaitingReviewScreen({
 
     // RUN-COMPLETE is what routed us here, so it dates both the finished run and the review window.
     const completedAt = latestStatusAt(datedStatusChanges(result.job.statusChanges), 'RUN-COMPLETE')
-    const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
+    const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
 
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
                 <ProposalStepHeader
-                    stepLabel="STEP 4"
-                    heading="Verify outputs"
+                    stepLabel={VERIFY_OUTPUTS_STEP.label}
+                    heading={VERIFY_OUTPUTS_STEP.heading}
                     banner={<DatedStatusBanner copy={copy} at={completedAt} />}
                 />
                 <StepNavigation nav={nav} />

@@ -26,7 +26,7 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
                 <Title order={3} ta="center">
                     You’re already signed in
                 </Title>
-                <Text size="md" ta="center" c="grey.7">
+                <Text size="md" ta="center" c={semanticColor('text.secondary')}>
                     {describeSession(email)} Continue to where you were headed, or sign in with a different account.
                 </Text>
                 <Stack gap="md">

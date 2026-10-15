@@ -7,25 +7,30 @@ vi.stubEnv('NEXT_SERVER_ACTIONS_ENCRYPTION_KEY', 'test-key')
 
 const { default: nextConfig } = await import('../../next.config')
 
-// The static headers are the only CSP an unauthenticated response is guaranteed to carry: the
-// nonce-based script-src is still report-only (see ./csp.ts), so anything asserted as enforced
-// has to live in next.config.ts rather than the proxy.
-const staticCsp = async () => {
+// The static headers are the only CSP that responses skipped by the proxy carry.
+const staticHeader = async (key: string) => {
     const [rule] = await nextConfig.headers!()
-    return rule.headers.find((h) => h.key === 'Content-Security-Policy')!.value
+    return rule.headers.find((h) => h.key === key)?.value ?? ''
 }
 
 describe('static security headers', () => {
     it('enforces the directives that have no default-src fallback', async () => {
-        const policy = await staticCsp()
+        const policy = await staticHeader('Content-Security-Policy')
 
         expect(policy).toContain("frame-ancestors 'none'")
         expect(policy).toContain("form-action 'self'")
         expect(policy).toContain("base-uri 'self'")
     })
 
-    it('enforces object-src rather than leaving it to the report-only policy', async () => {
-        expect(await staticCsp()).toContain("object-src 'none'")
+    it('forbids plugin embeds', async () => {
+        expect(await staticHeader('Content-Security-Policy')).toContain("object-src 'none'")
+    })
+
+    it('tells browsers to use https only', async () => {
+        const hsts = await staticHeader('Strict-Transport-Security')
+
+        expect(Number(hsts.match(/max-age=(\d+)/)?.[1])).toBeGreaterThan(0)
+        expect(hsts).toContain('includeSubDomains')
     })
 
     it('does not advertise the framework', () => {

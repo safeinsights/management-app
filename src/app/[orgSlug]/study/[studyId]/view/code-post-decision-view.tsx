@@ -3,23 +3,24 @@
 import { type FC } from 'react'
 import { Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { displayOrgName } from '@/lib/string'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeDecisionBanner, type BannerCopy } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
+import type { FileActivityByName } from '@/components/study/submitted-code-table-view'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
 
 interface CodePostDecisionViewProps {
     study: Submitted<SelectedStudy>
     job: LatestJobForStudy
+    activityByName: FileActivityByName
     entries: CodeReviewFeedbackEntry[]
     reviewingOrgName: string
     latestJobStatus: CodeDecisionStatus
@@ -51,6 +52,7 @@ const DecisionBanner: FC<{ copy: BannerCopy; decidedAt: Date | string | null }> 
 export function CodePostDecisionView({
     study,
     job,
+    activityByName,
     entries,
     reviewingOrgName,
     latestJobStatus,
@@ -58,18 +60,27 @@ export function CodePostDecisionView({
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
-    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
+    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: reviewingOrgName })
 
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
     return (
         <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} />
+            <StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />
 
             <Stack gap="xxl">
-                <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
+                <ProposalStepHeader
+                    stepLabel={SUBMIT_CODE_STEP.label}
+                    heading={SUBMIT_CODE_STEP.heading}
+                    banner={banner}
+                />
 
-                <SubmittedCodeFilesSection jobId={job.id} files={codeFiles} />
+                <SubmittedCodeFilesSection
+                    jobId={job.id}
+                    files={codeFiles}
+                    activityByName={activityByName}
+                    dataPartnerName={reviewingOrgName}
+                />
 
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />

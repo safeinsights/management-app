@@ -1,7 +1,6 @@
 'use client'
 
 import { Stack } from '@mantine/core'
-import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -10,6 +9,7 @@ import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/stud
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import type { StepNav } from '@/lib/study-screen'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
@@ -58,6 +58,8 @@ function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; fe
     )
 }
 
+const SUBMIT_PROPOSAL_STEP: PageHeaderStep = { label: 'Step 2', heading: 'Submit proposal' }
+
 export function ProposalSubmitted({
     orgSlug,
     study,
@@ -69,7 +71,7 @@ export function ProposalSubmitted({
 }: ProposalSubmittedProps) {
     const proposalStatus = effectiveProposalStatus(study)
     const bannerCopy = researcherProposalBanner(proposalStatus, {
-        dataPartner: displayOrgName(orgName),
+        dataPartner: orgName,
         version: studyVersion,
     })
 
@@ -79,15 +81,15 @@ export function ProposalSubmitted({
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyPageHeader study={study} />
+            <StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />
             <Stack gap="xxl">
                 {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
                     longer needs the "Initial request 2.0" counter (OTTER-762). */}
                 <ProposalRequest
                     study={study}
                     orgSlug={orgSlug}
-                    stepLabel="STEP 2"
-                    heading="Submit proposal"
+                    stepLabel={SUBMIT_PROPOSAL_STEP.label}
+                    heading={SUBMIT_PROPOSAL_STEP.heading}
                     banner={banner}
                     initialExpanded={false}
                 />

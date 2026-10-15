@@ -37,6 +37,14 @@ const STOCK_RAMPS = ['gray', 'dark', 'pink', 'grape', 'violet', 'indigo', 'cyan'
 // A ramp shade reads as theme-ish while pointing at a fixed rung.
 const RAMPS = [...SI_RAMPS, ...STOCK_RAMPS]
 const SHADE = new RegExp(`^(?:${RAMPS.join('|')})\\.[0-9]$`)
+// The same rung through Mantine's own variable. `var(--` alone would pass it as a token lookup.
+const SHADE_VAR = /var\(\s*--mantine-color-[a-z]+-[0-9]\s*\)/
+const isShade = (str) => SHADE.test(str) || SHADE_VAR.test(str)
+
+/** `theme.colors` or a destructured `colors`. */
+const isColorsObject = (node) =>
+    (node.type === 'Identifier' && node.name === 'colors') ||
+    (node.type === 'MemberExpression' && !node.computed && node.property.name === 'colors')
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/
 const PX = /(?:^|\s)\d*\.?\d+px(?:\s|$)/
@@ -52,9 +60,9 @@ const noRawStyleValues = {
         schema: [],
         messages: {
             inlineStyle:
-                'The inline `style` prop bypasses the theme. Move a component-wide convention into theme.components, or a genuinely local rule into a CSS module referencing --mantine-*/--si-* variables.',
+                'The inline `style` prop bypasses the theme. Move a component-wide convention into theme.components. Prefer a Mantine prop or component feature for a local rule. A CSS module is a last resort (see CLAUDE.md).',
             oneOffStyles:
-                'The one-off `styles` prop bypasses the theme. Move a component-wide convention into theme.components, or a genuinely local rule into a CSS module referencing --mantine-*/--si-* variables.',
+                'The one-off `styles` prop bypasses the theme. Move a component-wide convention into theme.components. Prefer a Mantine prop or component feature for a local rule. A CSS module is a last resort (see CLAUDE.md).',
             rawColor:
                 '"{{value}}" on `{{prop}}` is a raw colour. Use semanticColor(…) from @/theme/tokens so a retint happens in one place.',
             rawWeight:
@@ -63,7 +71,7 @@ const noRawStyleValues = {
             hexLiteral: '"{{value}}" is a hardcoded colour. Use semanticColor(…) from @/theme/tokens.',
             rawShade:
                 '"{{value}}" names a ramp rung directly. Use semanticColor(…) from @/theme/tokens so a retint reaches it.',
-            pxLiteral: '"{{value}}" hardcodes pixels. Use a theme scale key, or rem() in a CSS module.',
+            pxLiteral: '"{{value}}" hardcodes pixels. Use a theme scale key.',
             stockRamp:
                 '"{{value}}" is a Mantine stock ramp the theme does not define, so it paints from Mantine\'s palette and an SI retint never reaches it. Use an SI ramp ({{ramps}}) or semanticColor(…) from @/theme/tokens.',
         },
@@ -83,7 +91,7 @@ const noRawStyleValues = {
             if (node.type === 'CallExpression') return TOKEN_HELPERS.includes(node.callee?.name)
             if (node.type === 'MemberExpression') return node.object?.name === 'fontWeight'
             const str = stringValue(node)
-            return str !== null && CSS_VAR.test(str)
+            return str !== null && CSS_VAR.test(str) && !SHADE_VAR.test(str)
         }
 
         /** Same-file `const X = <literal>`, so hiding a raw value behind a name is not a bypass. */
@@ -119,7 +127,7 @@ const noRawStyleValues = {
                 // A shade/hex/px string is reported where it is defined, so reporting the use site
                 // too would double up. A number is invisible to that visitor, so it reports here.
                 const str = stringValue(init)
-                if (str !== null && (SHADE.test(str) || HEX.test(str) || PX.test(str))) return
+                if (str !== null && (isShade(str) || HEX.test(str) || PX.test(str))) return
                 check(init, node)
                 return
             }
@@ -166,7 +174,7 @@ const noRawStyleValues = {
 
                 const str = stringValue(node)
                 if (str === null || WIRED_COLOR_ALIASES.includes(str)) return
-                if (literalsReportedElsewhere && (SHADE.test(str) || HEX.test(str) || PX.test(str))) return
+                if (literalsReportedElsewhere && (isShade(str) || HEX.test(str) || PX.test(str))) return
 
                 context.report({ node: at, messageId: 'rawColor', data: { value: str, prop } })
             })
@@ -182,7 +190,7 @@ const noRawStyleValues = {
                 if (str === null) return
                 if (SI_RAMPS.includes(str) || WIRED_COLOR_ALIASES.includes(str) || CSS_COLOR_KEYWORDS.includes(str))
                     return
-                if (SHADE.test(str) || HEX.test(str) || PX.test(str)) return
+                if (isShade(str) || HEX.test(str) || PX.test(str)) return
 
                 if (STOCK_RAMPS.includes(str)) {
                     context.report({
@@ -241,6 +249,15 @@ const noRawStyleValues = {
                 if (SPACING_PROPS.includes(name)) return checkSpacing(node, name)
             },
 
+            // `theme.colors.green[7]` is 'green.7' read off the theme object instead of named.
+            MemberExpression(node) {
+                const { object: ramp, property: shade } = node
+                if (!node.computed || shade.type !== 'Literal' || typeof shade.value !== 'number') return
+                if (ramp.type !== 'MemberExpression' || ramp.computed || !isColorsObject(ramp.object)) return
+
+                context.report({ node, messageId: 'rawShade', data: { value: context.sourceCode.getText(node) } })
+            },
+
             // Object expressions only: a destructuring pattern's `{ c }` is the caller's value.
             Property(node) {
                 if (node.parent?.type !== 'ObjectExpression' || node.computed || node.shorthand) return
@@ -259,16 +276,16 @@ const noRawStyleValues = {
 
             Literal(node) {
                 if (typeof node.value !== 'string') return
-                // Already a token lookup: `1px solid var(--mantine-color-gray-3)` names a token
-                // colour, and a hairline border has no spacing key to move to.
-                if (CSS_VAR.test(node.value)) return
                 // A style prop reports its own, more specific message, however deep the literal
                 // sits inside the value (a ternary branch, a call argument).
                 if (isInsideStyleProp(node)) return
-                if (SHADE.test(node.value)) {
+                if (isShade(node.value)) {
                     context.report({ node, messageId: 'rawShade', data: { value: node.value } })
                     return
                 }
+                // Already a token lookup: `1px solid var(--si-color-border-default)` names a token
+                // colour, and a hairline border has no spacing key to move to.
+                if (CSS_VAR.test(node.value)) return
                 if (HEX.test(node.value)) {
                     context.report({ node, messageId: 'hexLiteral', data: { value: node.value } })
                     return

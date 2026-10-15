@@ -106,7 +106,7 @@ describe('ReviewFeedbackSection', () => {
 
         await screen.findByRole('textbox')
         const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
-        expect(surface.style.resize).toBe('vertical')
+        expect(surface).toHaveAttribute('data-resizable')
     })
 
     it('displays the character counter and updates it as the feedback changes', async () => {

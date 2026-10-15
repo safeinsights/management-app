@@ -2,7 +2,7 @@ import { useState, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import { useSession } from '@/hooks/session'
 import { useUser } from '@clerk/nextjs'
-import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Button, CopyButton, Group, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
@@ -20,7 +20,6 @@ type BackupCodesProps = {
 }
 
 const BackupCodes = ({ codes }: BackupCodesProps) => {
-    const theme = useMantineTheme()
     const { isLoaded } = useUser()
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
@@ -48,14 +47,16 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                     access your account <b>if you lose access</b> to your authentication device.
                 </Text>
 
-                <Box
-                    bg="gray.0"
+                <ScrollArea.Autosize
+                    mah={130}
+                    type="auto"
+                    bg={semanticColor('surface.sunken')}
                     py="md"
                     px="lg"
-                    style={{ border: `1px solid ${theme.colors?.grey[2]}`, maxHeight: 130, overflowY: 'auto' }}
+                    bd={`1px solid ${semanticColor('border.dark')}`}
                 >
                     {codes && codes.length ? (
-                        <Stack gap={2} style={{ overflowY: 'auto' }}>
+                        <Stack gap="xxs">
                             {codes.map((code, index) => (
                                 <Text key={index} size="sm">
                                     {code}
@@ -67,7 +68,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                             Generating recovery codes...
                         </Text>
                     )}
-                </Box>
+                </ScrollArea.Autosize>
 
                 <Stack gap="md" mt="xs">
                     <CopyButton value={codesAsText} timeout={1000}>
@@ -85,8 +86,8 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                     Copy codes
                                 </Button>
                                 {copied && (
-                                    <Group gap={6} justify="center" align="center">
-                                        <CheckIcon size={16} color={theme.colors.green[7]} />
+                                    <Group gap="xs" justify="center" align="center">
+                                        <CheckIcon size={16} color={semanticColor('success.text')} />
                                         <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
                                             Copied!
                                         </Text>

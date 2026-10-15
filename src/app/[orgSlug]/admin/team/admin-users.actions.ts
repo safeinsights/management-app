@@ -4,6 +4,7 @@ import { ActionFailure } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
+import { findOpenInvite } from '@/server/db/queries'
 import { inviteUserSchema, z } from './invite-user.schema'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -39,14 +40,10 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             }
         }
 
-        const existingPendingUser = await db
-            .selectFrom('pendingUser')
-            .select(['id'])
-            .where('email', '=', invite.email)
-            .where('orgId', '=', orgId)
-            .executeTakeFirst()
+        const existingPendingUser = await findOpenInvite(db, orgId, invite.email)
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
+            onUserInvited({ pendingId: existingPendingUser.id, isResend: true })
             return { alreadyInvited: true }
         }
 
@@ -61,7 +58,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
+        await sendInviteEmail({ emailTo: invite.email, inviteId: record.id })
+        onUserInvited({ pendingId: record.id, isResend: false })
         return { alreadyInvited: false }
     })
 
@@ -114,5 +112,6 @@ export const reInviteUserAction = new Action('reInviteUserAction')
             .where('pendingUser.id', '=', pendingUserId)
             .executeTakeFirstOrThrow()
 
-        onUserInvited({ invitedEmail: pending.email, pendingId: pending.id })
+        await sendInviteEmail({ emailTo: pending.email, inviteId: pending.id })
+        onUserInvited({ pendingId: pending.id, isResend: true })
     })

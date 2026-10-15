@@ -1,6 +1,6 @@
 'use client'
 
-import { semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Group, Stack, Title } from '@mantine/core'
 import { Link } from '@/components/links'
@@ -37,7 +37,7 @@ export function ResearcherProfileView({ header, orgSlug, studyId, profileData, o
                 </Group>
             </Link>
 
-            <Title order={2} size="h4" fw={500}>
+            <Title order={2} size="h4" fw={fontWeight.semibold}>
                 Researcher Profile
             </Title>
 

@@ -1,7 +1,6 @@
 import debug from 'debug'
 import * as Sentry from '@sentry/nextjs'
 import type { SeverityLevel } from '@sentry/nextjs'
-import { inspect } from 'util'
 
 const consoleMethodMap = {
     warn: console.warn,
@@ -25,6 +24,20 @@ function safeCapture(fn: () => void, warningMsg: string): void {
     }
 }
 
+// Not util.inspect: in the browser Next swaps in a util polyfill whose eval trips the CSP (OTTER-679).
+function circularSafeReplacer() {
+    // Only the current path counts, so an object that is merely repeated is not marked as circular.
+    const ancestors: object[] = []
+    return function (this: object, _key: string, value: unknown) {
+        if (typeof value === 'bigint') return `${value}n`
+        if (typeof value !== 'object' || value === null) return value
+        while (ancestors.length > 0 && ancestors.at(-1) !== this) ancestors.pop()
+        if (ancestors.includes(value)) return '[Circular]'
+        ancestors.push(value)
+        return value
+    }
+}
+
 function pretty(a: unknown): string {
     if (a === null) return 'null'
     if (a === undefined) return 'undefined'
@@ -38,8 +51,12 @@ function pretty(a: unknown): string {
         try {
             return JSON.stringify(a)
         } catch {
-            // circular or too deep for JSON
-            return inspect(a, { depth: null })
+            // A throwing getter or toJSON throws again here, and pretty() runs outside safeCapture.
+            try {
+                return JSON.stringify(a, circularSafeReplacer())
+            } catch {
+                return '[Unserializable]'
+            }
         }
     }
     return String(a)

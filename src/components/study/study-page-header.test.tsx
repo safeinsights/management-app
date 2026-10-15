@@ -4,7 +4,6 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 const study = {
     title: 'Impact of highlighting on student learning outcomes',
     submittingLabName: 'Genius Lab',
-    submittedByOrgSlug: 'genius',
     isTestStudy: false,
 }
 
@@ -15,16 +14,18 @@ describe('StudyPageHeader', () => {
         expect(screen.getByRole('heading', { level: 1, name: study.title })).toBeInTheDocument()
     })
 
+    it('names the current step in the level-1 heading', () => {
+        renderWithProviders(<StudyPageHeader study={study} step={{ label: 'Step 3', heading: 'Submit code' }} />)
+
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Submit code` }),
+        ).toBeInTheDocument()
+    })
+
     it('renders the submitting research lab as the eyebrow', () => {
         renderWithProviders(<StudyPageHeader study={study} />)
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
-    })
-
-    it('falls back to the submitting org slug when the lab name is missing', () => {
-        renderWithProviders(<StudyPageHeader study={{ ...study, submittingLabName: null }} />)
-
-        expect(screen.getByText('genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
     })
 
     it('marks a test study beside the title', () => {

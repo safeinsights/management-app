@@ -9,6 +9,9 @@ import {
     resolveScreenNav,
     resolveStepNav,
     codeSubmissionNav,
+    codeResubmissionNav,
+    editProposalPreviousStep,
+    setupStepNav,
     type NavCtx,
     type StepNav,
 } from './nav'
@@ -160,6 +163,38 @@ describe('resolveStepNav — proposal phase', () => {
             expect(nav.forward?.href).toBe(`${base}/view/code`)
         },
     )
+
+    // OTTER-673: reached by Edit code's "Previous step", Next step returns to Edit code while the
+    // round is still open, whether a code revision or an outputs decision reopened it.
+    it.each([
+        ['a code revision request', { codeDecision: 'CODE-CHANGES-REQUESTED' }],
+        [
+            'a feedback-only outputs decision',
+            { codeDecision: 'CODE-APPROVED', hasResults: true, resultsRejected: true },
+        ],
+    ] as const)('returns to Edit code after %s when the step back came from it', (_label, overrides) => {
+        const s = state({ ...submitted, status: 'APPROVED', hasSubmittedCode: true, ...overrides })
+        const nav = resolveStepNav('proposal-feedback', s, { ...ctx, from: 'edit-code' })
+        expect(nav.forward).toEqual({
+            label: 'Next step',
+            href: `${base}/resubmit`,
+            variant: 'solid',
+            testId: 'cta-next-step',
+        })
+        expect(solids(nav)).toBe(1)
+    })
+
+    it('ignores an Edit code origin once the round can no longer be resubmitted', () => {
+        const s = state({ ...submitted, status: 'APPROVED', hasSubmittedCode: true, codeDecision: 'CODE-APPROVED' })
+        const nav = resolveStepNav('proposal-feedback', s, { ...ctx, from: 'edit-code' })
+        expect(nav.forward?.href).toBe(`${base}/view/code`)
+    })
+
+    it('ignores an Edit proposal origin: only Step 1 returns to Edit proposal', () => {
+        const s = state({ ...submitted, status: 'CHANGE-REQUESTED' })
+        const nav = resolveStepNav('proposal-feedback', s, { ...ctx, from: 'edit-proposal' })
+        expect(nav.forward?.href).toBe(`${base}/edit-and-resubmit`)
+    })
 })
 
 describe('resolveStepNav — code phase', () => {
@@ -236,6 +271,98 @@ describe('codeSubmissionNav', () => {
         const nav = codeSubmissionNav('APPROVED', ctx)
         expect(solids(nav)).toBe(0)
         expect(labels(nav)).toEqual(['Previous step', undefined, undefined])
+    })
+})
+
+// /resubmit resolves its own nav too; it only adds "View outputs" when the round reopened from the
+// outputs step (OTTER-837).
+describe('codeResubmissionNav', () => {
+    const decided = { status: 'APPROVED', isDraft: false, codeDecision: 'CODE-APPROVED', hasResults: true } as const
+
+    it('offers an outline "View outputs" to the latest outputs page after a feedback-only decision', () => {
+        const nav = codeResubmissionNav(state({ ...decided, resultsRejected: true }), ctx)
+        expect(nav.secondary).toEqual({
+            label: 'View outputs',
+            href: `${base}/view`,
+            variant: 'outline',
+            testId: 'cta-view-outputs',
+        })
+    })
+
+    it.each([
+        ['shared outputs', { resultsApproved: true }],
+        ['an errored run with shared outputs', { resultsApproved: true, resultsErrored: true }],
+    ])('offers "View outputs" after %s', (_label, overrides) => {
+        const nav = codeResubmissionNav(state({ ...decided, ...overrides }), ctx)
+        expect(labels(nav)).toEqual(['Previous step', 'View outputs', undefined])
+    })
+
+    it('offers only Previous step when Edit code follows a code revision request', () => {
+        const s = state({
+            status: 'APPROVED',
+            isDraft: false,
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-CHANGES-REQUESTED',
+        })
+        expect(labels(codeResubmissionNav(s, ctx))).toEqual(['Previous step', undefined, undefined])
+    })
+
+    // OTTER-673: Edit code steps back past the code step it was opened from, to the approved proposal,
+    // and tells that page where the step came from so its Next step can return.
+    it.each([
+        ['a code revision request', { hasSubmittedCode: true, codeDecision: 'CODE-CHANGES-REQUESTED' }],
+        ['a feedback-only outputs decision', { ...decided, resultsRejected: true }],
+        ['shared outputs', { ...decided, resultsApproved: true }],
+    ] as const)('steps back to the approved proposal after %s', (_label, overrides) => {
+        const nav = codeResubmissionNav(state({ status: 'APPROVED', isDraft: false, ...overrides }), ctx)
+        expect(nav.back).toEqual({
+            label: 'Previous step',
+            href: `${base}/submitted?from=edit-code`,
+            variant: 'subtle',
+            testId: 'cta-previous-step',
+        })
+    })
+
+    it('never adds a solid action: Resubmit is form-owned', () => {
+        expect(solids(codeResubmissionNav(state({ ...decided, resultsApproved: true }), ctx))).toBe(0)
+    })
+})
+
+// Edit proposal's footer follows this; setupStepNav reads the origin back on Step 1 (OTTER-673).
+describe('editProposalPreviousStep', () => {
+    it('steps back to Step 1 and names Edit proposal as the origin', () => {
+        expect(editProposalPreviousStep(ctx)).toEqual({
+            label: 'Previous step',
+            href: `${base}/edit?from=edit-proposal`,
+            variant: 'subtle',
+            testId: 'cta-previous-step',
+        })
+    })
+})
+
+// /edit resolves its own nav as a form route; a submitted study's only action is "Next step" (OTTER-673).
+describe('setupStepNav', () => {
+    it('returns to Edit proposal when the step back came from it', () => {
+        expect(setupStepNav('CHANGE-REQUESTED', { ...ctx, from: 'edit-proposal' })).toEqual({
+            forward: {
+                label: 'Next step',
+                href: `${base}/edit-and-resubmit`,
+                variant: 'solid',
+                testId: 'cta-next-step',
+            },
+        })
+    })
+
+    it.each([
+        ['without an origin', 'CHANGE-REQUESTED', undefined],
+        ['once the proposal is decided', 'APPROVED', 'edit-proposal'],
+        ['for an Edit code origin', 'CHANGE-REQUESTED', 'edit-code'],
+    ] as const)('steps forward to the proposal status %s', (_label, status, from) => {
+        expect(setupStepNav(status, { ...ctx, from }).forward?.href).toBe(`${base}/submitted`)
+    })
+
+    it('gives a draft no action, since its CTA saves and continues', () => {
+        expect(setupStepNav('DRAFT', { ...ctx, from: 'edit-proposal' })).toEqual({})
     })
 })
 

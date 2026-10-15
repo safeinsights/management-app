@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Box, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, Divider, Group, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -26,6 +26,7 @@ import {
     TextFormatType,
 } from 'lexical'
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
+import { semanticColor } from '@/theme/tokens'
 import { isValidUrl } from './config'
 import { OPEN_LINK_CARD_COMMAND } from './link-card-node'
 import {
@@ -143,6 +144,10 @@ export const Toolbar = () => {
     // Unlinking dispatches after the read closes, through runOnEditor; opening the link editor is
     // the one command that should move focus (OTTER-647).
     const toggleLink = () => {
+        // The hover card owns an existing link, and this is the keyboard route into it. It also
+        // knows the caret Lexical moves off a link's end, which the check below cannot see.
+        if (editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)) return
+
         const selected = editor.getEditorState().read(() => {
             const selection = $getSelection()
             if (!$isRangeSelection(selection)) return null
@@ -155,10 +160,8 @@ export const Toolbar = () => {
         if (!selected) return
 
         if (selected.existingUrl) {
-            // The hover card owns an existing link, and this is the keyboard route into it. The
-            // older standalone editor mounts no card, so unlinking stays its fallback.
-            const openedCard = editor.dispatchCommand(OPEN_LINK_CARD_COMMAND, undefined)
-            if (!openedCard) runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
+            // The older standalone editor mounts no card, so unlinking stays its fallback.
+            runOnEditor(() => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null))
         } else {
             linkEditor.openLinkEditor(null)
         }
@@ -180,37 +183,33 @@ export const Toolbar = () => {
 
     return (
         <Box
-            p="xxs"
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
                     e.preventDefault()
                 }
             }}
-            style={{
-                borderTop: '1px solid var(--mantine-color-gray-3)',
-                display: 'flex',
-                gap: 4,
-                alignItems: 'center',
-            }}
         >
-            {linkEditor.isEditing ? (
-                <LinkInput
-                    url={linkEditor.url}
-                    onChange={linkEditor.setUrl}
-                    onSubmit={linkEditor.submitLink}
-                    onCancel={linkEditor.cancelLink}
-                    inputRef={linkEditor.inputRef}
-                />
-            ) : (
-                <FormatButtons
-                    formatState={formatState}
-                    onFormatText={formatText}
-                    onToggleLink={toggleLink}
-                    onToggleList={toggleList}
-                    onIndent={indent}
-                    onOutdent={outdent}
-                />
-            )}
+            <Divider />
+            <Group gap="xxs" p="xxs" wrap="nowrap">
+                {linkEditor.isEditing ? (
+                    <LinkInput
+                        url={linkEditor.url}
+                        onChange={linkEditor.setUrl}
+                        onSubmit={linkEditor.submitLink}
+                        onCancel={linkEditor.cancelLink}
+                        inputRef={linkEditor.inputRef}
+                    />
+                ) : (
+                    <FormatButtons
+                        formatState={formatState}
+                        onFormatText={formatText}
+                        onToggleLink={toggleLink}
+                        onToggleList={toggleList}
+                        onIndent={indent}
+                        onOutdent={outdent}
+                    />
+                )}
+            </Group>
         </Box>
     )
 }
@@ -229,7 +228,7 @@ function LinkInput({
     inputRef: React.RefObject<HTMLInputElement | null>
 }) {
     return (
-        <Box style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <Group gap="xxs" wrap="nowrap">
             <TextInput
                 ref={inputRef}
                 size="xs"
@@ -240,7 +239,7 @@ function LinkInput({
                     if (e.key === 'Escape') onCancel()
                 }}
                 placeholder="https://"
-                style={{ width: 200 }}
+                w={200}
             />
             <Tooltip label="Apply">
                 <ActionIcon size="sm" variant="subtle" color="green" onClick={onSubmit} aria-label="Apply link">
@@ -252,7 +251,7 @@ function LinkInput({
                     <XIcon size={14} />
                 </ActionIcon>
             </Tooltip>
-        </Box>
+        </Group>
     )
 }
 
@@ -275,7 +274,7 @@ function FormatButtons({
         <>
             <ActionIcon
                 variant={formatState.isBold ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('bold')}
                 aria-label="Bold"
@@ -284,7 +283,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isItalic ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('italic')}
                 aria-label="Italic"
@@ -293,7 +292,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isUnderline ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('underline')}
                 aria-label="Underline"
@@ -302,7 +301,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isLink ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onToggleLink}
                 aria-label="Link"
@@ -311,7 +310,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'bullet' ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onToggleList('bullet')}
                 aria-label="Bullet list"
@@ -320,7 +319,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'number' ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onToggleList('number')}
                 aria-label="Numbered list"
@@ -329,7 +328,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant="subtle"
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onIndent}
                 aria-label="Indent"
@@ -339,7 +338,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant="subtle"
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onOutdent}
                 aria-label="Outdent"

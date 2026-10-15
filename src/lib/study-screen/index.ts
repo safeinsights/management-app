@@ -18,11 +18,20 @@ export {
     resolveReviewerCodeScreen,
     resolveDashboardAction,
 } from './resolve'
-export { resolvePillStatus, resolvePillId, resolveRowHighlight } from './pill'
+export { resolvePillStatus, resolvePillId } from './pill'
 export type { PillOrgNames, PillRuleEntry } from './pill'
 export { RESEARCHER_PILL_RULES } from './researcher-pill-rules'
 export { REVIEWER_PILL_RULES } from './reviewer-pill-rules'
-export { resolveStepNav, resolveReviewerStepNav, resolveScreenNav, phasedStepNav, codeSubmissionNav } from './nav'
+export {
+    resolveStepNav,
+    resolveReviewerStepNav,
+    resolveScreenNav,
+    phasedStepNav,
+    codeSubmissionNav,
+    codeResubmissionNav,
+    editProposalPreviousStep,
+    setupStepNav,
+} from './nav'
 export type { StepNav, NavAction, NavCtx, NavVariant, PhasedStepNav } from './nav'
 export {
     canResearcherResubmitCode,

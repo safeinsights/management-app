@@ -19,26 +19,25 @@ export const DASHBOARD_RULES: DashboardRule[] = [
     // Must precede the plain-DRAFT rule below (OTTER-572).
     {
         when: (s) => s.isDraft && s.hasStep2Progress,
-        action: (ctx) => ({ label: 'Edit', href: Routes.studyProposal(ctx), secondaryAction: 'delete-draft' }),
+        action: (ctx) => ({ href: Routes.studyProposal(ctx), secondaryAction: 'delete-draft' }),
     },
     {
         when: (s) => s.isDraft,
-        action: (ctx) => ({ label: 'Edit', href: Routes.studyEdit(ctx), secondaryAction: 'delete-draft' }),
+        action: (ctx) => ({ href: Routes.studyEdit(ctx), secondaryAction: 'delete-draft' }),
     },
 
-    // The label stays "View" for every non-draft destination, even /code and /submitted.
     {
         when: (s) => s.status === 'APPROVED' && s.hasAnyJob && !s.hasSubmittedCode,
-        action: (ctx) => ({ label: 'View', href: Routes.studyCode(ctx) }),
+        action: (ctx) => ({ href: Routes.studyCode(ctx) }),
     },
-    { when: (s) => s.hasAnyJob, action: (ctx) => ({ label: 'View', href: Routes.studyView(ctx) }) },
+    { when: (s) => s.hasAnyJob, action: (ctx) => ({ href: Routes.studyView(ctx) }) },
     {
         when: (s) => s.status === 'APPROVED' && s.researcherAgreementsAcked,
-        action: (ctx) => ({ label: 'View', href: Routes.studyCode(ctx) }),
+        action: (ctx) => ({ href: Routes.studyCode(ctx) }),
     },
     {
         when: (s) => POST_SUBMISSION_STATUSES.includes(s.status),
-        action: (ctx) => ({ label: 'View', href: Routes.studySubmitted(ctx) }),
+        action: (ctx) => ({ href: Routes.studySubmitted(ctx) }),
     },
-    { when: () => true, action: (ctx) => ({ label: 'View', href: Routes.studyView(ctx) }) },
+    { when: () => true, action: (ctx) => ({ href: Routes.studyView(ctx) }) },
 ]

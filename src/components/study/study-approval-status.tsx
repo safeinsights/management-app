@@ -3,13 +3,13 @@ import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ status, date }) => {
     const allowedStatuses: StudyStatus[] = ['APPROVED', 'REJECTED']
     if (!date || !status || !allowedStatuses.includes(status)) return null
 
-    const color = status === 'APPROVED' ? 'green.7' : 'red.7'
+    const color = semanticColor(status === 'APPROVED' ? 'success.text' : 'error.text')
     const statusDisplay = status === 'APPROVED' ? 'Approved' : 'Rejected'
 
     return (

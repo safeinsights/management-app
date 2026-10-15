@@ -101,8 +101,10 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 
@@ -214,7 +216,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('replaces the available banner with the review-before-sharing warning', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Review the outputs before sharing')
@@ -259,7 +261,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
         const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
 
         fireEvent.click(screen.getByTestId('outputs-submit-decision'))
 

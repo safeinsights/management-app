@@ -1,3 +1,4 @@
+import { getStudyFilesPath } from '@/server/workspace-files'
 import {
     coderWorkspaceAgentLogsPath,
     coderWorkspaceBuildByIdPath,
@@ -30,7 +31,7 @@ import type {
 } from './types'
 import { getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from '../db/queries'
+import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
 import { db, type DBExecutor } from '@/database'
 import { fetchFileContents } from '../storage'
@@ -181,7 +182,7 @@ async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     }
 }
 
-async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
+async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchCodeEnvForStudyId>>) {
     const environment = [...(codeEnv.settings?.environment || [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
@@ -231,7 +232,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
     const workspaceName = generateWorkspaceName(studyId)
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId)
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -337,7 +338,7 @@ export const copyStarterCodeIntoWorkspace = async (
 ): Promise<string | null> => {
     const logCtx = `[coder-init study=${studyId}]`
 
-    const codeEnv = await fetchLatestCodeEnvForStudyIdOrNull(studyId)
+    const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId)
     if (!codeEnv) {
         logger.info(`${logCtx} no code environment, nothing to copy`)
         return null
@@ -346,8 +347,7 @@ export const copyStarterCodeIntoWorkspace = async (
     const starterFiles = codeEnv.starterCodeFileNames ?? []
     if (starterFiles.length === 0) return null
 
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     // The card names the first starter file Main.{x} after the language; any others keep their own
     // name and carry no badge.
@@ -397,14 +397,13 @@ export const copyStarterCodeIntoWorkspace = async (
     return templateName
 }
 
-const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
+export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
-    const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const studyDir = path.join(coderBaseFilePath, studyId)
+    const studyDir = await getStudyFilesPath(studyId)
 
     await copyStarterCodeIntoWorkspace(studyId)
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId)
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 

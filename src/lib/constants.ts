@@ -28,6 +28,8 @@ export const APP_SHELL = {
     mainMaxWidth: 1600,
 } as const
 
+export const APP_TITLE = 'SafeInsights'
+
 // Spread onto each shell's <main> so useRouteFocus has one target. tabIndex -1 takes scripted
 // focus without joining the tab order; the outline rule lives in globals.css.
 export const MAIN_CONTENT_ID = 'main-content'

@@ -1,4 +1,6 @@
-import { renderHook, act, type Mock } from '@/tests/unit.helpers'
+import { renderHook, act, createTestQueryClient, QueryClientProvider, type Mock } from '@/tests/unit.helpers'
+import type { ReactNode } from 'react'
+import { CURRENT_USER_INFO_KEY } from '@/hooks/session'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
@@ -14,6 +16,13 @@ const mockSignedInUser = (email: string | null = 'ada@example.com') =>
         isLoaded: true,
         isSignedIn: true,
         user: email ? { primaryEmailAddress: { emailAddress: email } } : {},
+    })
+
+const renderAlreadySignedIn = (queryClient = createTestQueryClient()) =>
+    renderHook(() => useAlreadySignedIn(), {
+        wrapper: ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
     })
 
 const mockSignedOutUser = () => (useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false, user: null })
@@ -41,7 +50,7 @@ describe('useAlreadySignedIn', () => {
     it('reports loading until Clerk has loaded', () => {
         ;(useUser as Mock).mockReturnValue({ isLoaded: false, isSignedIn: undefined, user: undefined })
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('loading')
     })
@@ -49,7 +58,7 @@ describe('useAlreadySignedIn', () => {
     it('latches signed-in when a session is active and no redirect_url is present', () => {
         mockSignedInUser('ada@example.com')
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-in')
         expect(result.current.email).toBe('ada@example.com')
@@ -65,7 +74,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('redirecting')
         expect(navigate).toHaveBeenCalledWith('/openstax/dashboard')
@@ -81,7 +90,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-out')
         expect(navigate).not.toHaveBeenCalled()
@@ -94,7 +103,7 @@ describe('useAlreadySignedIn', () => {
         ;(useUser as Mock).mockReturnValue({ isLoaded: false, isSignedIn: undefined, user: undefined })
         const navigate = spyOnHardNavigation()
 
-        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        const { result, rerender } = renderAlreadySignedIn()
         expect(result.current.status).toBe('loading')
 
         mockSignedInUser()
@@ -111,7 +120,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-in')
         expect(navigate).not.toHaveBeenCalled()
@@ -124,7 +133,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-in')
         expect(navigate).not.toHaveBeenCalled()
@@ -134,7 +143,7 @@ describe('useAlreadySignedIn', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=https%3A%2F%2Fevil.example')
         mockSignedInUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-in')
         expect(memoryRouter.asPath).toBe('/account/signin?redirect_url=https%3A%2F%2Fevil.example')
@@ -144,7 +153,7 @@ describe('useAlreadySignedIn', () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Faccount%2Fsignin')
         mockSignedInUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-in')
     })
@@ -152,7 +161,7 @@ describe('useAlreadySignedIn', () => {
     it('latches signed-out when no session is active on load', () => {
         mockSignedOutUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
 
         expect(result.current.status).toBe('signed-out')
         expect(result.current.email).toBeNull()
@@ -163,7 +172,7 @@ describe('useAlreadySignedIn', () => {
     it('reveals the form when the session is lost after latching signed-in', () => {
         mockSignedInUser()
 
-        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        const { result, rerender } = renderAlreadySignedIn()
         expect(result.current.status).toBe('signed-in')
 
         mockSignedOutUser()
@@ -178,7 +187,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         spyOnHardNavigation()
 
-        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        const { result, rerender } = renderAlreadySignedIn()
         expect(result.current.status).toBe('redirecting')
 
         mockSignedOutUser()
@@ -190,7 +199,7 @@ describe('useAlreadySignedIn', () => {
     it('keeps the prompt closed when a sign-in completes through the form', () => {
         mockSignedOutUser()
 
-        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        const { result, rerender } = renderAlreadySignedIn()
         expect(result.current.status).toBe('signed-out')
 
         mockSignedInUser()
@@ -205,7 +214,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result, rerender } = renderHook(() => useAlreadySignedIn())
+        const { result, rerender } = renderAlreadySignedIn()
         expect(result.current.status).toBe('signed-in')
 
         act(() => memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fopenstax%2Fdashboard'))
@@ -220,7 +229,7 @@ describe('useAlreadySignedIn', () => {
         mockSignedInUser()
         const navigate = spyOnHardNavigation()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
         act(() => result.current.continueToApp())
 
         expect(navigate).toHaveBeenCalledWith(Routes.dashboard)
@@ -232,7 +241,7 @@ describe('useAlreadySignedIn', () => {
         const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
         mockSignedInUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
         await act(async () => {
             await result.current.switchAccount()
         })
@@ -243,6 +252,21 @@ describe('useAlreadySignedIn', () => {
         expect(result.current.isSwitching).toBe(false)
     })
 
+    // Signing back in as the same Clerk user would otherwise show the org list cached before.
+    it('switchAccount drops the cached org list', async () => {
+        ;(useClerk as Mock).mockReturnValue({ signOut: vi.fn().mockResolvedValue(undefined), openUserProfile: vi.fn() })
+        mockSignedInUser()
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+
+        const { result } = renderAlreadySignedIn(queryClient)
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeUndefined()
+    })
+
     // The switch button awaits nothing, so a rejection has to be handled here or it escapes as an
     // unhandled rejection, and a session the server has already dropped is exactly where Clerk's
     // signOut is most likely to fail. The user asked for the form either way.
@@ -251,7 +275,7 @@ describe('useAlreadySignedIn', () => {
         ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
         mockSignedInUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
         await act(async () => {
             await result.current.switchAccount()
         })
@@ -268,7 +292,7 @@ describe('useAlreadySignedIn', () => {
         ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
         mockSignedInUser()
 
-        const { result } = renderHook(() => useAlreadySignedIn())
+        const { result } = renderAlreadySignedIn()
         let switching: Promise<void> | undefined
         act(() => {
             switching = result.current.switchAccount()
@@ -287,5 +311,59 @@ describe('useAlreadySignedIn', () => {
         const [toast] = (notifications.show as Mock).mock.calls[0]
         expect(toast.title).toBe('Failed to sign out while switching accounts')
         expect(toast.message).toMatch(/^Signing out took too long\. Your connection may be down\./)
+    })
+
+    // OTTER-790: offline, the session cannot end, so the form would only hit session_exists and send
+    // the user back in as the same account. signOut mirrors Clerk's offline shape: a server action
+    // rejecting with no handler, which fails the run if anything calls it.
+    it('switchAccount keeps the panel and skips Clerk while offline', async () => {
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+        const signOut = vi.fn(() => {
+            void Promise.reject(new TypeError('Failed to fetch'))
+            return new Promise<void>(() => {})
+        })
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
+        mockSignedInUser()
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+
+        const { result } = renderAlreadySignedIn(queryClient)
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(signOut).not.toHaveBeenCalled()
+        expect(resetPosthog).not.toHaveBeenCalled()
+        expect(result.current.status).toBe('signed-in')
+        expect(result.current.isSwitching).toBe(false)
+        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeDefined()
+        const [toast] = (notifications.show as Mock).mock.calls[0]
+        expect(toast.title).toBe('Failed to sign out while switching accounts')
+        // Exact, so a Sentry reference that offline can never be delivered would fail it.
+        expect(toast.message).toBe('You appear to be offline. Check your connection and try again.')
+    })
+
+    it('switchAccount signs out on retry once back online', async () => {
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValueOnce(false)
+        const signOut = vi.fn().mockResolvedValue(undefined)
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderAlreadySignedIn()
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+        expect(result.current.status).toBe('signed-in')
+
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(signOut).toHaveBeenCalledOnce()
+        expect(result.current.status).toBe('signed-out')
+        // The offline error toast never auto-closes, so the retry has to take it down.
+        const [offlineToast] = (notifications.show as Mock).mock.calls[0]
+        expect(notifications.hide).toHaveBeenCalledWith(offlineToast.id)
     })
 })

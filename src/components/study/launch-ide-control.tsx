@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC } from 'react'
-import { Button, HoverCard, Stack, Text } from '@mantine/core'
+import { Button, Group, HoverCard, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyCodeIDE } from '@/hooks/use-ide-files'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -25,19 +25,12 @@ const UnclaimedHelperText: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Text size="xs" c={semanticColor('text.secondary')}>
-            <Text
-                span
-                inherit
-                c={semanticColor('warning.text')}
-                mr="xxs"
-                display="inline-flex"
-                style={{ verticalAlign: 'middle' }}
-            >
-                <WarningIcon size={12} weight="fill" aria-hidden />
+        <Group gap="xxs" wrap="nowrap">
+            <WarningIcon size={12} weight="fill" color={semanticColor('warning.text')} aria-hidden />
+            <Text size="xs" c={semanticColor('text.secondary')}>
+                {UNCLAIMED_HELPER}
             </Text>
-            {UNCLAIMED_HELPER}
-        </Text>
+        </Group>
     )
 }
 
@@ -53,6 +46,8 @@ type LaunchIdeControlProps = {
     onLaunch: () => void
     /** Right in a card header, left in the empty state's panel — the caller owns its own layout. */
     align?: 'flex-start' | 'flex-end'
+    /** False on Edit code, whose design omits the lock warning (OTTER-778). */
+    showLockHelper?: boolean
 }
 
 /**
@@ -68,6 +63,7 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
     isLaunching,
     onLaunch,
     align = 'flex-end',
+    showLockHelper = true,
 }) => {
     if (!isVisible) return null
 
@@ -95,15 +91,20 @@ export const LaunchIdeControl: FC<LaunchIdeControlProps> = ({
                     <LaunchHoverCardBody canLaunch={canLaunch} ideOwnerName={ideOwnerName} />
                 </HoverCard.Dropdown>
             </HoverCard>
-            <UnclaimedHelperText isVisible={!isClaimed} />
+            <UnclaimedHelperText isVisible={showLockHelper && !isClaimed} />
         </Stack>
     )
 }
 
 /** The header Launch IDE, mapped from the hook in one place so its two callers cannot drift. */
-export const IdeLaunchAction: FC<{ ide: StudyCodeIDE; isVisible: boolean }> = ({ ide, isVisible }) => (
+export const IdeLaunchAction: FC<{ ide: StudyCodeIDE; isVisible: boolean; showLockHelper?: boolean }> = ({
+    ide,
+    isVisible,
+    showLockHelper,
+}) => (
     <LaunchIdeControl
         isVisible={isVisible}
+        showLockHelper={showLockHelper}
         isClaimed={ide.isIdeClaimed}
         canLaunch={ide.canEditInIde}
         ideOwnerName={ide.ideOwnerName}

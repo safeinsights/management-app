@@ -20,7 +20,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
-import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import {
+    JobAnalysisPanels,
+    splitPreviewBlocks,
+    splitVisibleFiles,
+    truncateFileName,
+} from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
 import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
 
@@ -42,13 +47,15 @@ vi.mock('@/server/storage', async () => {
 
 const ORG_SLUG = 'test-org-submitted'
 
-const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
-    trivy,
-    sonarqube,
+const SCAN_DETAILS = 'R and Python files analyzed: 1\n  main.r\n\nFor review, not failing the gate:\n  main.r:28  INFO'
+
+const scanResult = (semgrep: JobScanResult['semgrep'], details: string | null = SCAN_DETAILS): JobScanResult => ({
+    semgrep,
+    details,
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 
-const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
+const scanInProgress: JobScanResult = { semgrep: null, details: null, logFile: null }
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -335,7 +342,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const error = await screen.findByTestId('ai-summary-error')
@@ -353,7 +362,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date(Date.now() - 10 * 60_000)}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -377,7 +388,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await new Promise((resolve) => setTimeout(resolve, 80))
@@ -395,7 +408,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         expect(await screen.findByTestId('ai-summary-error')).toHaveTextContent('The AI summary failed to generate.')
@@ -412,7 +427,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -428,16 +445,18 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertPendingStudyReview(pollFixture.job.id, new Date())
         const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
         vi.mocked(getJobAnalysisAction).mockResolvedValue(
-            actionResult({ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }),
+            actionResult({ review: pendingReview, scan: scanResult('PASSED') }),
         )
 
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={pollFixture.job.id}
-                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }}
+                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED') }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
@@ -455,7 +474,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
@@ -468,7 +489,7 @@ describe('SubmittedCodeSection — AI summary', () => {
     // report that was already in the database until a reload (OTTER-775 review).
     it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -477,14 +498,16 @@ describe('SubmittedCodeSection — AI summary', () => {
                 submittedAt={new Date()}
                 summaryTimeoutMs={30}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await screen.findByTestId('ai-summary-error')
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
 
         expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -509,7 +532,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
             { queryClient },
         )
 
@@ -529,7 +554,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={longAgo}
                 summaryTimeoutMs={180_000}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
@@ -545,7 +572,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={blankFixture.job.createdAt}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
@@ -564,21 +593,54 @@ describe('SubmittedCodeSection — AI summary', () => {
     })
 })
 
-describe('SubmittedCodeSection — Security scan log', () => {
-    it('does not render the security scan log section', async () => {
+describe('SubmittedCodeSection — Security scan results', () => {
+    it.each(['PASSED', 'FAILED', 'INDETERMINATE', 'NOT-RUN'] as const)(
+        'renders %s scan results before the summary',
+        async (status) => {
+            const fixture = await setupBaseFixture()
+            await renderSection(fixture, scanResult(status))
+            const scan = screen.getByTestId('security-scan-results')
+            const summary = screen.getByTestId('ai-summary')
+            expect(scan.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            if (status === 'PASSED') expect(within(scan).getByLabelText('Passed')).toBeInTheDocument()
+            if (status === 'FAILED') expect(within(scan).getByLabelText('Failed')).toBeInTheDocument()
+            if (status === 'INDETERMINATE') expect(scan).toHaveTextContent('indeterminate')
+            if (status === 'NOT-RUN') expect(scan).toHaveTextContent('did not run')
+        },
+    )
+
+    it('shows the scan log clamped, and expands it on toggle', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
-        expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
+        await renderSection(fixture, scanResult('PASSED'))
+        const body = screen.getByTestId('scan-details-body')
+        expect(body).toHaveTextContent('main.r:28 INFO')
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
+
+        await userEvent.setup().click(screen.getByTestId('scan-details-toggle'))
+
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
+        expect(screen.getByTestId('scan-details-toggle')).toHaveTextContent('Hide full scan details')
+    })
+
+    it('shows no details box when the log has nothing past its status line', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED', null))
+        expect(screen.queryByTestId('scan-details-body')).not.toBeInTheDocument()
+    })
+
+    it('shows a spinner while the scan is pending', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanInProgress)
+        expect(within(screen.getByTestId('security-scan-results')).getByLabelText('Scan pending')).toBeInTheDocument()
     })
 })
 
 describe('SubmittedCodeSection — Analysis polling', () => {
-    it('stops polling once the summary has arrived', async () => {
+    it('stops polling once both the summary and scan have arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('PASSED') }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -586,24 +648,24 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
         // Sampled after several poll intervals of real time: comparing the count to itself inside
         // waitFor is satisfied on the first attempt, so it passes even against a poll that never
-        // stops — the regression this test is named for. The scan never settles here, which used
-        // to hold the interval open on its own (OTTER-694).
+        // stops — the regression this test is named for.
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
         await new Promise((resolve) => setTimeout(resolve, 200))
 
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 
-    // Nothing renders a scan verdict, so asking for one would buy an S3 read on every tick.
-    it('never asks the server for the scan', async () => {
+    it('polls analysis for the current job', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -611,19 +673,44 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
-        // Exact, not toMatchObject: the point is that no scan flag is sent at all.
         for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
             expect(args).toEqual({ studyJobId: fixture.job.id })
         }
     })
 
+    it('keeps polling after the summary arrives until the scan settles', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        expect(screen.getByLabelText('Scan pending')).toBeInTheDocument()
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('FAILED') }))
+        await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
+        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+    })
+
     it('keeps polling until the summary arrives', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -631,13 +718,66 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
         const afterFirst = vi.mocked(getJobAnalysisAction).mock.calls.length
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterFirst))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
+    })
+})
+
+describe('SubmittedCodeSection collapsed preview', () => {
+    it('keeps the first two blocks visible and collapses the rest behind the opener', async () => {
+        const fixture = await setupBaseFixture()
+        const analysis = await jobAnalysisForJob(fixture.job)
+        renderWithProviders(
+            <SubmittedCodeSection
+                orgSlug={ORG_SLUG}
+                study={fixture.study}
+                job={fixture.job}
+                analysis={{ ...analysis, scan: scanResult('PASSED') }}
+                detailsExpanded={false}
+                onExpand={vi.fn()}
+                onCollapse={vi.fn()}
+            />,
+        )
+
+        expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+        expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
+        const opener = screen.getByTestId('study-code-toggle')
+        expect(opener).toHaveTextContent('View full submission details')
+        expect(
+            screen.getByTestId('security-scan-results').compareDocumentPosition(opener) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
+    })
+
+    it('previews whichever blocks are present first', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
+                submittedAt={new Date()}
+                detailsExpanded={false}
+                expandToggle={<button type="button">Open details</button>}
+                leadingBlocks={[{ key: 'retired', isVisible: false, content: <p>Retired block</p> }]}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+
+        expect(screen.queryByText('Retired block')).not.toBeInTheDocument()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Open details' })).toBeVisible()
+        expect(screen.getByText('Code files block')).not.toBeVisible()
     })
 })
 
@@ -663,7 +803,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         const fixture = await setupFilesFixture(['main.R', 'extra.R'])
         await renderSection(fixture)
         const tabs = screen.getByTestId('study-code-file-tabs')
-        expect(tabs).toHaveStyle({ overflow: 'hidden' })
+        expect(tabs).toHaveClass('clip')
     })
 
     it('renders the main code file first and active by default', async () => {
@@ -891,6 +1031,33 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
+    const block = (key: string, isVisible?: boolean) => ({ key, isVisible, content: key })
+
+    it('splitPreviewBlocks previews the first blocks and leaves the rest', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b'), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest.map((b) => b.key)).toEqual(['c', 'd'])
+    })
+
+    it('splitPreviewBlocks moves the next block up when one is not visible', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'c'])
+        expect(rest.map((b) => b.key)).toEqual(['d'])
+    })
+
+    it('splitPreviewBlocks leaves nothing to collapse when there are too few blocks', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest).toEqual([])
+    })
+
+    it('splitPreviewBlocks keeps an always-collapsed block out of the preview', () => {
+        const closer = { key: 'closer', alwaysCollapsed: true, content: 'closer' }
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), closer], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a'])
+        expect(rest.map((b) => b.key)).toEqual(['closer'])
+    })
+
     it('truncateFileName leaves short names alone', () => {
         expect(truncateFileName('short.R')).toBe('short.R')
     })

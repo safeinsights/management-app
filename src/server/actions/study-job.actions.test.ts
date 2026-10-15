@@ -10,28 +10,27 @@ import {
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     createTestProposalDraft,
+    flushDeferred,
+    postHogCaptures,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
-    approveStudyJobFilesAction,
     fetchEncryptedJobFilesAction,
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
-    rejectStudyJobFilesAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
-import { flushDeferred } from '@/tests/vitest.setup'
 import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study.actions'
-import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
-import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { projectStudyState, resolvePillId } from '@/lib/study-screen'
 import logger from '@/lib/logger'
 
@@ -307,87 +306,6 @@ describe('Study Job Actions', () => {
         })
     })
 
-    describe('result decision actions', () => {
-        test('creates FILES-REJECTED status and emails the lab', async () => {
-            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job, study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-
-            await rejectStudyJobFilesAction({
-                studyJobId: job.id,
-                orgSlug: org.slug,
-            })
-
-            const statusChanges = await db
-                .selectFrom('jobStatusChange')
-                .select('status')
-                .where('studyJobId', '=', job.id)
-                .orderBy('createdAt', 'desc')
-                .execute()
-
-            expect(statusChanges.find((sc) => sc.status === 'FILES-REJECTED')).toBeTruthy()
-            expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledWith(study.id)
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select('reviewerId')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.reviewerId).toBe(user.id)
-        })
-
-        test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
-            const { enclave, file, job, lab, researcher, reviewer, sharedFiles, study } =
-                await setupResultApprovalFixture()
-
-            actionResult(
-                await approveStudyJobFilesAction({
-                    orgSlug: enclave.slug,
-                    studyJobId: job.id,
-                    sharedFiles,
-                }),
-            )
-
-            const updatedStudy = await db
-                .selectFrom('study')
-                .select('reviewerId')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updatedStudy.reviewerId).toBe(reviewer.id)
-
-            mockClerkSession({
-                clerkUserId: researcher.clerkId,
-                orgSlug: lab.slug,
-                userId: researcher.id,
-                orgId: lab.id,
-                orgType: 'lab',
-            })
-            const studies = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
-            const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
-            const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
-            expect(state.resultsApproved).toBe(true)
-            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
-
-            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
-            expect(files).toHaveLength(1)
-            expect(files[0]).toMatchObject({
-                studyJobFileId: file.id,
-                recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
-            })
-        })
-
-        test('permission denied for non-enclave user', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-
-            const result = await rejectStudyJobFilesAction({
-                studyJobId: job.id,
-                orgSlug: org.slug,
-            })
-
-            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-        })
-    })
-
     describe('markOutputsDecisionViewedAction', () => {
         type Fixture = Awaited<ReturnType<typeof setupResultApprovalFixture>>
 
@@ -400,7 +318,15 @@ describe('Study Job Actions', () => {
                 .execute()
 
         const approve = async ({ enclave, job, sharedFiles }: Fixture) =>
-            actionResult(await approveStudyJobFilesAction({ orgSlug: enclave.slug, studyJobId: job.id, sharedFiles }))
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'Ready to share.',
+                    sharedFiles,
+                }),
+            )
 
         const signInAsResearcher = ({ researcher, lab }: Fixture) =>
             mockClerkSession({
@@ -507,10 +433,63 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(1)
+
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual({
+                distinctId: reviewer.id,
+                event: 'study_results_outputs_shared',
+                properties: expect.objectContaining({
+                    study_id: study.id,
+                    study_job_id: job.id,
+                    user_role: 'reviewer',
+                }),
+            })
+        })
+
+        test('OTTER-635: approval makes results ready and accessible to the researcher', async () => {
+            const { enclave, file, job, lab, researcher, reviewer, sharedFiles, study } =
+                await setupResultApprovalFixture()
+
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-outputs',
+                    feedback: 'The outputs look clean and contain no PII.',
+                    sharedFiles,
+                }),
+            )
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select('reviewerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.reviewerId).toBe(reviewer.id)
+
+            mockClerkSession({
+                clerkUserId: researcher.clerkId,
+                orgSlug: lab.slug,
+                userId: researcher.id,
+                orgId: lab.id,
+                orgType: 'lab',
+            })
+            const studies = actionResult(await fetchStudiesForOrgAction({ orgSlug: lab.slug }))
+            const dashboardStudy = studies.find((candidate) => candidate.id === study.id)!
+            const state = projectStudyState(dashboardRawStateFromRow(dashboardStudy as StudyRow))
+            expect(state.resultsApproved).toBe(true)
+            expect(resolvePillId('researcher', state)).toBe('outputs-need-review')
+
+            const files = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+            expect(files).toHaveLength(1)
+            expect(files[0]).toMatchObject({
+                studyJobFileId: file.id,
+                recipientKeys: { 'results.csv': 'wrapped-for-researcher' },
+            })
         })
 
         test('sharing feedback only rejects the files and shares no keys', async () => {
-            const { enclave, file, job, study } = await setupResultApprovalFixture()
+            const { enclave, file, job, reviewer, study } = await setupResultApprovalFixture()
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -531,6 +510,22 @@ describe('Study Job Actions', () => {
                 .where('studyJobFileId', '=', file.id)
                 .execute()
             expect(keys).toHaveLength(0)
+
+            await flushDeferred()
+            expect(postHogCaptures()).toContainEqual(
+                expect.objectContaining({
+                    event: 'study_results_outputs_not_shared',
+                    properties: expect.objectContaining({ study_id: study.id, study_job_id: job.id }),
+                }),
+            )
+            expect(sendLabOutputsNeedReviewEmail).toHaveBeenCalledWith(study.id)
+
+            const decided = await db
+                .selectFrom('study')
+                .select('reviewerId')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(decided.reviewerId).toBe(reviewer.id)
         })
 
         test.each(['share-outputs', 'share-feedback-only'] as const)(
@@ -894,9 +889,7 @@ describe('Study Job Actions', () => {
                 ])
                 .execute()
 
-        // A scan costs an S3 fetch, and nothing has rendered a verdict since OTTER-694, so the
-        // default must not pay for one.
-        test('returns the review without a scan by default', async () => {
+        test('returns the scan alongside the review', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of this round')
@@ -904,20 +897,7 @@ describe('Study Job Actions', () => {
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toBeNull()
-        })
-
-        // The panel is parked pending a new scanning tool (OTTER-775), not gone: the pair must
-        // still come back in one round-trip for whoever rebuilds it.
-        test('returns the scan alongside the review when asked', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await insertReview(job.id, 'Summary of this round')
-
-            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
-
-            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })
+            expect(analysis.scan).toEqual({ semgrep: null, details: null, logFile: null })
         })
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there

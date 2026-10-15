@@ -8,16 +8,6 @@ import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-const EDITOR_SKELETON_HEIGHT = 600
-
-const contentStyle = {
-    minHeight: 600,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '1rem',
-    lineHeight: 1.6,
-} as const
-
 type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     submittingLabName: string
@@ -73,8 +63,8 @@ function FeedbackEditor({
             docName={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
             inputId="review-feedback"
             ariaLabel="Initial request review feedback"
-            contentStyle={contentStyle}
-            skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            contentHeight={600}
+            fz="md"
             isResizable
             onProviderReady={publishProvider}
         />

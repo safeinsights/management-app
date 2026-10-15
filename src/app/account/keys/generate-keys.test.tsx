@@ -5,7 +5,7 @@ import type { Route } from 'next'
 import router from 'next-router-mock'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { GenerateKeys } from './generate-keys'
+import { GenerateKeys, postKeyRedirect } from './generate-keys'
 
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
@@ -33,7 +33,7 @@ const renderPage = (props: { isRegenerating?: boolean; firstKeyRedirect?: Route 
     mockClerkSession({ userId: 'user-id', clerkUserId: 'clerk-user-id', orgSlug: 'dev' })
     vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
     renderWithProviders(<GenerateKeys {...props} />)
-    return screen.findByText(/security key/i, { selector: 'h3' })
+    return screen.findByRole('heading', { level: 1, name: /security key/i })
 }
 
 const storeKey = async (confirmLabel = 'Yes, I have stored my key') => {
@@ -119,7 +119,7 @@ describe('Security key generation', () => {
         mockClipboard(true)
         await renderPage({ isRegenerating: true })
 
-        expect(screen.getByText('New security key', { selector: 'h3' })).toBeDefined()
+        expect(screen.getByRole('heading', { level: 1, name: 'New security key' })).toBeDefined()
         expect(screen.getByText(/It replaces your existing key\./)).toBeDefined()
         expect(screen.getByText(/A new key cannot decrypt your current outputs\. It works only/).tagName).toBe('B')
         expect(screen.queryByText(/This is your security key\. You will need it/)).toBeNull()
@@ -204,5 +204,21 @@ describe('Security key generation', () => {
 
         await waitFor(() => expect(screen.getByText(/Copy did not work/)).toBeDefined())
         expect(screen.queryByText('Copied!')).toBeNull()
+    })
+})
+
+describe('postKeyRedirect', () => {
+    const fallback = '/openstax-lab/dashboard' as Route
+
+    // OTTER-788. searchParams.get() hands safeRedirectUrl an already-decoded path, and the linking
+    // screen takes no query of its own, so the key detour forwards to it untouched.
+    it('forwards a first key to the email-linking screen', () => {
+        const linkEmail = '/account/invitation/019f38c6-804c-70ac-b02a-a4b87d432bc2/link-email'
+
+        expect(postKeyRedirect(false, linkEmail, fallback)).toBe(linkEmail)
+    })
+
+    it('sends a regenerated key to the dashboard rather than the linking screen', () => {
+        expect(postKeyRedirect(true, '/account/invitation/abc/link-email', fallback)).toBe('/dashboard')
     })
 })

@@ -21,7 +21,6 @@ import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import type { RawStudyState } from '@/lib/study-screen'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -262,9 +261,11 @@ describe('OutputsFeedbackScreen', () => {
         const { org, study, raw } = await setupFeedbackOnly()
         await renderScreen(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+        ).toBeInTheDocument()
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 4')
+        expect(header).toHaveTextContent('Step 4')
         expect(header).toHaveTextContent('Verify outputs')
         expect(header).not.toHaveTextContent(study.title!)
     })
@@ -274,7 +275,7 @@ describe('OutputsFeedbackScreen', () => {
             const { org, study, raw } = await setupFeedbackOnly()
             await renderScreen(study, raw, org.slug)
 
-            const copy = copyFor(false, displayOrgName(org.name))
+            const copy = copyFor(false, org.name)
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', copy.variant)
             expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
@@ -363,7 +364,7 @@ describe('OutputsFeedbackScreen', () => {
             expect(alert).toHaveAttribute('data-variant', copy.variant)
             expect(alert).toHaveTextContent(`${copy.title} • ${dayjs(DECIDED_AT).format('MMM DD, YYYY')}`)
             expect(alert).toHaveTextContent(copy.body)
-            expect(alert).not.toHaveTextContent(displayOrgName(org.name))
+            expect(alert).not.toHaveTextContent(org.name)
             expect(document.body).not.toHaveTextContent(copyFor(false).title)
         })
 

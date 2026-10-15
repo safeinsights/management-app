@@ -83,6 +83,7 @@ function renderView(
         <CodePostSubmissionView
             study={study}
             job={job}
+            activityByName={{}}
             reviewingOrgName={overrides.reviewingOrgName ?? REVIEWING_ORG_NAME}
             nav={overrides.nav ?? NAV}
             submissionVersion={overrides.submissionVersion ?? 1}
@@ -143,12 +144,14 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
 
             const title = study.title ?? ''
             expect(title).not.toBe('')
-            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${title} — Step 3: Submit code` }),
+            ).toBeInTheDocument()
             expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(header).not.toHaveTextContent(title)
         })

@@ -12,7 +12,7 @@ import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { useCompleteSignIn } from '../signin/use-complete-sign-in'
 import { PASSWORD_REQUIREMENTS, usePasswordRequirements } from './password-requirements'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const verificationFormSchema = z
     .object({
@@ -169,20 +169,15 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                     />
                     {verificationError && <InputError error={verificationError} />}
                     <Button
-                        variant="subtle"
-                        c={canResend ? 'blue.7' : 'gray.5'}
+                        variant="transparent"
+                        c={canResend ? semanticColor('link.default') : semanticColor('text.disabled')}
                         fw={fontWeight.semibold}
                         size="xs"
+                        w="fit-content"
+                        p={0}
                         loading={isResending}
                         onClick={handleResend}
                         disabled={isResending || !canResend}
-                        styles={{
-                            root: {
-                                width: 'fit-content',
-                                background: 'transparent',
-                                padding: 0,
-                            },
-                        }}
                     >
                         Resend verification code
                     </Button>

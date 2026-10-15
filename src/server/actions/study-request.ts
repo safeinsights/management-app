@@ -1,4 +1,6 @@
 'use server'
+
+import { getStudyFilesPath } from '@/server/workspace-files'
 import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
@@ -9,17 +11,24 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
-import { getOrCreateCurrentRoundJob, nextVersionForStudyComment } from '@/server/db/mutations'
-import { codeSubmissionVersion, fetchUserFullName, getInfoForStudyId, getOrgIdFromSlug } from '@/server/db/queries'
+import { getOrCreateCurrentRoundJob, markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
+import {
+    codeSubmissionVersion,
+    fetchUserFullName,
+    getInfoForStudyId,
+    getOrgIdFromSlug,
+    selectCodeEnvSnapshot,
+} from '@/server/db/queries'
 import { db as database } from '@/database'
 import {
     deferred,
-    onStudyReviewRequested,
     onStudyCodeSubmitted,
-    onStudyCreated,
+    onStudyDraftCreated,
     onStudyProposalResubmitted,
+    onStudyProposalSubmitted,
+    onStudyReviewRequested,
 } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteStudyCompletely } from '@/server/qa-cleanup'
@@ -42,7 +51,7 @@ import {
     resubmissionNoteIsBlank,
 } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
 import { requireStudyAgreement } from '@/server/study-agreement'
-import { requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
+import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
@@ -150,6 +159,17 @@ async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
     return Number(counts.submitted) > Number(counts.requested)
 }
 
+// Frozen so a Data Partner editing or replacing a code env later cannot change what the study runs:
+// its image, command lines, variables and data paths all come from this copy.
+async function snapshotCodeEnv(db: Kysely<DB>, studyId: string) {
+    const codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
+    await db
+        .updateTable('study')
+        .set({ codeEnvSnapshot: codeEnv ?? null })
+        .where('id', '=', studyId)
+        .execute()
+}
+
 async function markCodeSubmitted(db: Kysely<DB>, { studyJobId, userId }: { studyJobId: string; userId: string }) {
     if (await roundIsAlreadySubmitted(db, studyJobId)) return
     await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
@@ -212,6 +232,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .returning('id')
             .executeTakeFirstOrThrow()
 
+        await snapshotCodeEnv(db, studyId)
+        onStudyDraftCreated({ studyId, userId })
+
         return { studyId }
     })
 
@@ -262,11 +285,14 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
         )
 
+        const before = await db.selectFrom('study').select('language').where('id', '=', studyId).executeTakeFirst()
+
+        const editedAt = new Date()
         const verified =
             Object.keys(updateValues).length > 0
                 ? await db
                       .updateTable('study')
-                      .set(updateValues)
+                      .set({ ...updateValues, labEditedAt: editedAt })
                       .where('id', '=', studyId)
                       .where('status', 'in', ['DRAFT', 'CHANGE-REQUESTED'])
                       .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -282,6 +308,13 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
 
         if (!verified) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
+        }
+        // A person's own save must not mark the study unread for them (OTTER-838).
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
+
+        // Autosave resends the language every time, so only an actual change may replace the snapshot.
+        if (studyInfo.language !== undefined && studyInfo.language !== before?.language) {
+            await snapshotCodeEnv(db, studyId)
         }
 
         return { studyId }
@@ -345,7 +378,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, afterCommit }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -440,7 +473,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
-        onStudyCreated({ userId, studyId })
+        onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
@@ -533,6 +566,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     // enforced here rather than left to markCodeSubmitted, which swallowed a second one (OTTER-693).
     // A resubmission goes through resubmitStudyCodeAction, which requires a resubmission note.
     .middleware(requireUnsubmittedCodeRound(({ params }) => params.studyId))
+    .middleware(requireOpenedCodeRound(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
             throw new Error('No files provided')
@@ -555,10 +589,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         for (const fileName of fileNames) {
             const sanitizedName = sanitizeFileName(fileName)
@@ -575,9 +606,9 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
 
         if (status === 'APPROVED') {
-            onStudyCodeSubmitted({ userId, studyId })
+            onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
         } else {
-            onStudyCreated({ userId, studyId })
+            onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
         }
 
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
@@ -601,7 +632,7 @@ const proposalUpdatableFields = [
     'additionalNotes',
 ] as const
 
-// Mirrors resubmitNoteSchema: the proposal flow submits Lexical JSON, the code flow plain text.
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
 const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
@@ -714,7 +745,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
-        onStudyProposalResubmitted({ studyId })
+        onStudyProposalResubmitted({ studyId, userId })
 
         return {
             studyId,
@@ -728,7 +759,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmissionNoteDraftAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(10_000) }))
+    // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
+    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
@@ -741,9 +773,10 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
 
         // The 0-row check turns a cross-lab attempt into a hard failure instead of letting the
         // client's autosave indicator report "saved" when nothing persisted.
+        const editedAt = new Date()
         const saved = await db
             .updateTable('study')
-            .set({ codeResubmissionNoteDraft: note })
+            .set({ codeResubmissionNoteDraft: note, labEditedAt: editedAt })
             .where('id', '=', studyId)
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
             .returning(['id'])
@@ -752,6 +785,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
         if (!saved) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
 
         return { studyId, savedAt: new Date().toISOString() }
     })
@@ -768,9 +802,10 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
             .filter((org) => org.type === 'lab')
             .map((org) => org.id)
 
+        const editedAt = new Date()
         const saved = await db
             .updateTable('study')
-            .set({ proposalResubmissionNoteDraft: note })
+            .set({ proposalResubmissionNoteDraft: note, labEditedAt: editedAt })
             .where('id', '=', studyId)
             .where('status', '=', 'CHANGE-REQUESTED')
             .where('submittedByOrgId', 'in', userLabOrgIds.length > 0 ? userLabOrgIds : [''])
@@ -780,6 +815,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
         if (!saved) {
             throw new ActionFailure({ submission: 'Study is not editable or you do not have access' })
         }
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
 
         return { studyId, savedAt: new Date().toISOString() }
     })
@@ -818,8 +854,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         )
         sweepDiscardedScanLogs(discardedScanLogPaths)
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) coderFilesPath += `/${studyId}`
+        const coderFilesPath = await getStudyFilesPath(studyId)
         // Runs inside the Action transaction, so a later rollback can leave orphaned S3 objects.
         for (const fileName of fileNames) {
             const sanitized = sanitizeFileName(fileName)
@@ -867,7 +902,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .where('id', '=', studyId)
             .execute()
 
-        onStudyCodeSubmitted({ userId, studyId })
+        onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
         revalidatePath('/dashboard')

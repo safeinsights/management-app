@@ -25,7 +25,8 @@ import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { StepNav } from '@/lib/study-screen'
 import type { Route } from 'next'
-import { vi } from 'vitest'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import { vi, type Mock } from 'vitest'
 import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
@@ -48,13 +49,13 @@ const backNav = (href: string): StepNav => ({
     back: { label: 'Previous step', href: href as Route, variant: 'subtle', testId: 'cta-previous-step' },
 })
 
-const setupStudy = async (orgSlug = 'openstax') => {
+const setupStudy = async (orgSlug = 'openstax-lab') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
     const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
     return { study }
 }
 
-const renderPage = async (orgSlug = 'openstax') => {
+const renderPage = async (orgSlug = 'openstax-lab') => {
     const { study } = await setupStudy(orgSlug)
     renderWithProviders(
         <CodeUploadPage
@@ -123,7 +124,7 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            expect(screen.getByText('Step 3')).toBeInTheDocument()
             // By role: the footer button and the confirmation modal CTA share this label.
             expect(screen.getByRole('heading', { name: 'Submit code', level: 2 })).toBeInTheDocument()
             expect(screen.getByText(/write and test your code in ide/i)).toBeInTheDocument()
@@ -162,7 +163,7 @@ describe('CodeUploadPage', () => {
 
         renderWithProviders(
             <CodeUploadPage
-                orgSlug="openstax"
+                orgSlug="openstax-lab"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}
@@ -200,8 +201,8 @@ describe('CodeUploadPage', () => {
         ])
     })
 
-    it.skipIf(!s3Available)('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
-        const orgSlug = 'openstax'
+    it.skipIf(!s3Available)('routes to /view and broadcasts code-submitted after successful submit', async () => {
+        const orgSlug = 'openstax-lab'
         const { study } = await setupStudy(orgSlug)
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
@@ -231,7 +232,13 @@ describe('CodeUploadPage', () => {
         })
 
         await waitFor(() => {
-            expect(memoryRouter.asPath).toBe(`/openstax/study/${study.id}/view`)
+            expect(memoryRouter.asPath).toBe(`/openstax-lab/study/${study.id}/view`)
+        })
+        // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
+        const { __instances } = HocuspocusProvider as unknown as { __instances: { sendStateless: Mock }[] }
+        expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
+            type: 'code-submitted',
+            studyId: study.id,
         })
     })
 
@@ -248,7 +255,7 @@ describe('CodeUploadPage', () => {
 
         renderWithProviders(
             <CodeUploadPage
-                orgSlug="openstax"
+                orgSlug="openstax-lab"
                 studyId={study.id}
                 dataPartnerName={DATA_PARTNER}
                 isFirstVisit={false}

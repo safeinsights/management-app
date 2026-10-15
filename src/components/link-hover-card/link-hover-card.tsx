@@ -77,7 +77,7 @@ export function LinkHoverCard({
     return (
         <Stack gap="sm">
             <LinkHoverCardTitle preview={preview} />
-            <Divider color={semanticColor('border.default')} />
+            <Divider />
             <Group gap="md">
                 <CopyLinkAction href={preview.href} actionRef={firstActionRef} />
                 <LinkCardAction
@@ -187,7 +187,7 @@ function CopyLinkAction({ href, actionRef }: { href: string; actionRef?: Ref<HTM
     const clipboard = useClipboard({ timeout: COPIED_RESET_MS })
     const tooltip = clipboard.copied ? LINK_CARD_LABELS.copied : LINK_CARD_LABELS.copy
     const icon = clipboard.copied ? (
-        <CheckIcon size={ICON_SIZE} color="var(--mantine-color-green-9)" />
+        <CheckIcon size={ICON_SIZE} color={semanticColor('success.text')} />
     ) : (
         <CopyIcon size={ICON_SIZE} />
     )
@@ -240,7 +240,7 @@ function LinkCardAction({ isVisible = true, label, ariaLabel, icon, actionRef, o
                 ref={actionRef}
                 className={classes.action}
                 variant="subtle"
-                color="charcoal.7"
+                color={semanticColor('icon.dark')}
                 size={28}
                 radius="sm"
                 aria-label={ariaLabel ?? label}

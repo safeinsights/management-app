@@ -146,8 +146,8 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     </Button>
                                 )}
                             </Stack>
-                            <Divider my="xs" c={semanticColor('border.default')} />
-                            <Text size="md" c="grey.7">
+                            <Divider my="xs" />
+                            <Text size="md" c={semanticColor('text.secondary')}>
                                 Can’t access your MFA device?
                             </Text>
                             <Button

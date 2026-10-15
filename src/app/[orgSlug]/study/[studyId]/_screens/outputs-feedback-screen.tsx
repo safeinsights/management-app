@@ -3,7 +3,7 @@ import { Box, Stack } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
@@ -31,11 +31,11 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
                 <MarkOutputsDecisionViewed studyId={study.id} />
                 <ProposalStepHeader
-                    stepLabel="STEP 4"
-                    heading="Verify outputs"
+                    stepLabel={VERIFY_OUTPUTS_STEP.label}
+                    heading={VERIFY_OUTPUTS_STEP.heading}
                     banner={<DatedStatusBanner copy={banner} at={decidedAt} />}
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />

@@ -3,6 +3,7 @@ import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
 import { CSP_HEADER, CSP_NONCE_HEADER, REPORTING_ENDPOINTS_HEADER } from '@/lib/csp'
+import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import { continueWithNonce } from './proxy'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 
@@ -41,6 +42,22 @@ describe('continueWithNonce', () => {
             'csp-report="https://o11.ingest.us.sentry.io/api/22/security/?sentry_key=abc123"',
         )
         expect(res.headers.get(CSP_HEADER)).toContain('report-to csp-report')
+    })
+
+    it('forwards the request path to server components without CSP', () => {
+        const res = continueWithNonce(new NextRequest('https://example.test/acme/study/1/review?tab=code'))
+
+        expect(forwardedHeader(res, REQUEST_PATH_HEADER)).toBe('/acme/study/1/review?tab=code')
+    })
+
+    it('overwrites a request path the client sent', () => {
+        vi.stubEnv('NODE_ENV', 'production')
+
+        const res = continueWithNonce(
+            new NextRequest('https://example.test/acme/dashboard', { headers: { [REQUEST_PATH_HEADER]: '/forged' } }),
+        )
+
+        expect(forwardedHeader(res, REQUEST_PATH_HEADER)).toBe('/acme/dashboard')
     })
 })
 

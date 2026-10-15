@@ -1,4 +1,5 @@
-import { sql, Selectable } from 'kysely'
+import { selectUserOrgRows } from './session-user'
+import { type Expression, sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
@@ -6,15 +7,23 @@ import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction, WorkspaceFileAction } from '@/database/types'
+import { FileType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
-import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import {
+    CODE_DECISION_JOB_STATUSES,
+    CODE_ROUND_CLOSING_JOB_STATUSES,
+    ROUND_CLOSING_JOB_STATUSES,
+} from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { CodeEnvSnapshot } from '@/database/types-manual'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
+
+// A study id, or a reference to the outer query's study.id for a correlated subquery.
+type StudyIdOperand = string | Expression<string>
 
 export type SiUser = ClerkUser & {
     id: string
@@ -174,8 +183,8 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
 
 // Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
 // first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
-// rather than FILES-* rows, because rejectStudyJobFilesAction writes the status with no comment and
-// counting it would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
+// rather than FILES-* rows, because older rejections wrote the status with no comment and counting
+// them would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
 // Count and insert are separate, and the unique constraint backing them is per job, so a caller that
 // writes the counted round must lock the study row first (see submitOutputsDecisionAction).
 export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
@@ -295,6 +304,77 @@ export const getUsersForOrgId = async (orgId: string) => {
         .execute()
 }
 
+// Users who wrote one of `statuses` on any job of the study; enclave run statuses have no user.
+function jobStatusUserIds(db: DBExecutor, studyId: StudyIdOperand, statuses: readonly StudyJobStatus[]) {
+    return db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .select((eb) => eb.ref('jobStatusChange.userId').$notNull().as('userId'))
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', 'in', statuses)
+        .where('jobStatusChange.userId', 'is not', null)
+}
+
+// The lab members on a study, shared by My studies and the lab emails: the creator, the PI, and anyone who
+// submitted a version of the proposal or, with withCodeSubmitters, the code. A PI without an account is left out.
+export function studyLabMemberIds(db: DBExecutor, studyId: StudyIdOperand, { withCodeSubmitters = true } = {}) {
+    // researcherId is only the draft's creator. Any lab member can submit or re-finalize it, recorded only
+    // by onStudyProposalSubmitted's CREATED audit row; an edit-and-resubmit is recorded only by its note's author.
+    // Aliased so a correlated `study.id` still names the outer row, not this one.
+    const proposalMembers = db
+        .selectFrom('study as memberStudy')
+        .select('memberStudy.researcherId as userId')
+        .where('memberStudy.id', '=', studyId)
+        .union(
+            db
+                .selectFrom('study as memberStudy')
+                .select((eb) => eb.ref('memberStudy.piUserId').$notNull().as('userId'))
+                .where('memberStudy.id', '=', studyId)
+                .where('memberStudy.piUserId', 'is not', null),
+        )
+        .union(
+            db
+                .selectFrom('audit')
+                .select('userId')
+                .where('recordType', '=', 'STUDY')
+                .where('recordId', '=', studyId)
+                .where('eventType', '=', 'CREATED'),
+        )
+        .union(
+            db
+                .selectFrom('studyProposalComment')
+                .select('authorId as userId')
+                .where('studyId', '=', studyId)
+                .where('entryType', '=', 'RESUBMISSION-NOTE'),
+        )
+    return withCodeSubmitters
+        ? proposalMembers.union(jobStatusUserIds(db, studyId, ['CODE-SUBMITTED']))
+        : proposalMembers
+}
+
+// Everyone who decided on a version of the proposal, plus the code and outputs deciders when asked,
+// shared by My studies and the Data Partner emails. Code decisions come from job statuses because
+// studyReviewComment has no rows for decisions made before it existed.
+export function studyDeciderIds(
+    db: DBExecutor,
+    studyId: StudyIdOperand,
+    { withCodeDeciders = true, withOutputsDeciders = true } = {},
+) {
+    let deciders = db
+        .selectFrom('studyProposalComment')
+        .select('authorId as userId')
+        .where('studyId', '=', studyId)
+        .where('entryType', '=', 'REVIEWER-FEEDBACK')
+        .where('decision', 'is not', null)
+    if (withCodeDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, CODE_DECISION_JOB_STATUSES))
+    }
+    if (withOutputsDeciders) {
+        deciders = deciders.union(jobStatusUserIds(db, studyId, ROUND_CLOSING_JOB_STATUSES))
+    }
+    return deciders
+}
+
 // Some callers come from the API, which lacks a user; do not use siUser inside this.
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await Action.db
@@ -357,6 +437,17 @@ export const getUserById = async (userId: string) => {
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
+// A claimed invite resumes email linking for its claimer only (OTTER-788), so re-sending it would
+// hand a different owner of this address a dead link. Callers create a fresh invite instead.
+export const findOpenInvite = async (db: DBExecutor, orgId: string, email: string) =>
+    await db
+        .selectFrom('pendingUser')
+        .select(['id', 'isAdmin'])
+        .where('email', '=', email)
+        .where('orgId', '=', orgId)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
 // The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
 // actions were asking for it the same way.
 export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
@@ -364,21 +455,26 @@ export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.
     return user.fullName
 }
 
-export const getOrgNameFromId = async (orgId: string) => {
-    const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
-    return result.name
-}
-
 export const getOrgInfoForUserId = async (userId: string) => {
-    const orgs = await Action.db
-        .selectFrom('orgUser')
-        .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
-        .where('userId', '=', userId)
-        .execute()
-
-    return orgs
+    const rows = await selectUserOrgRows(userId, Action.db).execute()
+    return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
+
+// Both actions that grant the membership do it in the claim's transaction, so joinedAt is the claim time.
+// The membership join also drops an org the account has since left.
+export const getLatestClaimedInviteOrg = async (userId: string) =>
+    await Action.db
+        .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
+        .innerJoin('orgUser', (join) =>
+            join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
+        )
+        .select('org.slug')
+        .where('pendingUser.claimedByUserId', '=', userId)
+        .orderBy('orgUser.joinedAt', 'desc')
+        .orderBy('orgUser.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {
     return await Action.db
@@ -456,35 +552,64 @@ export async function getStudyJobFileOfType(
     return file
 }
 
-export async function fetchLatestCodeEnvForStudyId(studyId: string) {
-    return await Action.db
+// The one rule for which code env a study runs: the org's newest non-testing env for its language.
+export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
+    return db
         .selectFrom('study')
         .innerJoin('orgCodeEnv', (join) =>
             join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
         )
-        .innerJoin('org', 'org.id', 'study.orgId')
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
-        .select([
-            'orgCodeEnv.id',
-            'orgCodeEnv.identifier',
-            'orgCodeEnv.language',
-            'orgCodeEnv.dataSourceType',
-            'orgCodeEnv.url',
-            'orgCodeEnv.settings',
-            'orgCodeEnv.starterCodeFileNames',
-            'orgCodeEnv.sampleDataPath',
-            'org.slug',
-            'study.orgId',
-        ])
-        .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
 
-export async function fetchLatestCodeEnvForStudyIdOrNull(studyId: string) {
+// Everything a study takes from its code env, in the shape kept on study.codeEnvSnapshot.
+export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
+    return latestCodeEnvForStudyQuery(db, studyId).select([
+        'orgCodeEnv.id',
+        'orgCodeEnv.language',
+        'orgCodeEnv.dataSourceType',
+        'orgCodeEnv.url',
+        'orgCodeEnv.settings',
+        'orgCodeEnv.commandLines',
+    ])
+}
+
+// The parts of a code env that name things an edit replaces: the sample database (named from the
+// identifier) and the starter code and sample data in S3. They are never frozen.
+const currentCodeEnvResources = (db: DBExecutor, codeEnvId: string) =>
+    db
+        .selectFrom('orgCodeEnv')
+        .select(['identifier', 'starterCodeFileNames', 'sampleDataPath'])
+        .where('id', '=', codeEnvId)
+        .executeTakeFirst()
+
+// The code env a study runs: the copy frozen when its language was chosen, with the resources it names
+// read as they are now. A study made before studies kept a copy, or whose frozen code env has since
+// been deleted (taking its database and files with it), gets the org's current code env instead.
+export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
+    const study = await db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['study.codeEnvSnapshot', 'study.orgId', 'org.slug'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow(() => new Error(`no study found for studyId: ${studyId}`))
+
+    let codeEnv: CodeEnvSnapshot | undefined = study.codeEnvSnapshot ?? undefined
+    let resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    if (!codeEnv || !resources) {
+        codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
+        resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    }
+    if (!codeEnv || !resources) throw new Error(`no code environment found for studyId: ${studyId}`)
+    return { ...codeEnv, ...resources, slug: study.slug, orgId: study.orgId }
+}
+
+export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {
     try {
-        return await fetchLatestCodeEnvForStudyId(studyId)
+        return await fetchCodeEnvForStudyId(studyId)
     } catch {
         return null
     }
@@ -607,11 +732,16 @@ export type WorkspaceFileActivityRow = {
     actorName: string
 }
 
-export async function latestActivityPerWorkspaceFile(studyId: string): Promise<WorkspaceFileActivityRow[]> {
+// `before` bounds it to a submission, so edits from a later round never show against older files.
+export async function latestActivityPerWorkspaceFile(
+    studyId: string,
+    { before }: { before?: Date } = {},
+): Promise<WorkspaceFileActivityRow[]> {
     return await Action.db
         .selectFrom('workspaceFileActivity')
         .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
         .where('workspaceFileActivity.studyId', '=', studyId)
+        .$if(before !== undefined, (qb) => qb.where('workspaceFileActivity.createdAt', '<=', before!))
         .select([
             'workspaceFileActivity.fileName',
             'workspaceFileActivity.action',
@@ -623,6 +753,21 @@ export async function latestActivityPerWorkspaceFile(studyId: string): Promise<W
         .orderBy('workspaceFileActivity.createdAt', 'desc')
         .orderBy('workspaceFileActivity.id', 'desc')
         .execute()
+}
+
+// Scoped to the study so a job id from another study yields nothing.
+export async function latestCodeSubmissionAt(studyId: string, jobId: string): Promise<Date | undefined> {
+    const row = await Action.db
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.id', '=', jobId)
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select('jobStatusChange.createdAt')
+        .orderBy('jobStatusChange.createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt
 }
 
 // Rows can exist while the round is still open, and removing a researcher from the lab never
@@ -651,48 +796,45 @@ export type StudyReviewWithMeta = {
     files: { name: string; fileType: FileType }[]
 }
 
-// PASSED only on an explicit clean signal. INDETERMINATE covers "reported, but no verdict": Trivy
-// has no R analyzer, so a successful scan of an R submission clears nothing (OTTER-649).
-export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE'
+// INDETERMINATE means the tool reported without a verdict. NOT-RUN means its header is absent.
+export type ScanToolStatus = 'PASSED' | 'FAILED' | 'INDETERMINATE' | 'NOT-RUN'
 
 export type JobScanResult = {
-    // null when the scan hasn't reported yet (no readable plaintext log).
-    trivy: ScanToolStatus | null
-    sonarqube: ScanToolStatus | null
+    // null means no readable log. NOT-RUN means the readable log has no header for this tool.
+    semgrep: ScanToolStatus | null
+    // The scan log for the reviewer, without a status line the verdict already shows.
+    details: string | null
     // Present only when a downloadable plaintext scan log exists (ZIPs are not offered).
     logFile: { id: string; name: string; path: string } | null
 }
 
 // Unrecognized text is indeterminate, not FAILED: treating it as FAILED surfaced a scan that never
-// ran as a vulnerability finding. A Map, not an object literal, so `constructor` cannot look truthy.
-const TRIVY_VERDICTS = new Map<string, ScanToolStatus>([
-    ['no vulnerabilities found', 'PASSED'],
-    ['vulnerabilities found', 'FAILED'],
+// ran as a vulnerability finding. Maps, not object literals, so `constructor` cannot look truthy.
+const SEMGREP_VERDICTS = new Map<string, ScanToolStatus>([
+    ['no findings', 'PASSED'],
+    ['findings found', 'FAILED'],
 ])
+const SEMGREP_STATUS_LINE = /^semgrep scan:/i
 
-const TRIVY_STATUS_LINE = /^trivy (?:filesystem|image) scan:/i
-const TRIVY_LEGACY_FINDINGS_HEADER = /^trivy (?:filesystem|image) scan results$/i
+const trimmedLines = (log: string | string[]) =>
+    typeof log === 'string' ? log.split('\n').map((line) => line.trim()) : log
 
-// Anchored to a whole trimmed line: a scanned path or CVE title containing the header phrase would
-// otherwise decide the verdict.
-export function parseTrivyStatus(log: string): ScanToolStatus {
-    const lines = log.split('\n').map((line) => line.trim())
-
-    const statusLine = lines.find((line) => TRIVY_STATUS_LINE.test(line))
-    if (statusLine) {
-        const phrase = statusLine.replace(TRIVY_STATUS_LINE, '').trim().toLowerCase()
-        return TRIVY_VERDICTS.get(phrase) ?? 'INDETERMINATE'
-    }
-
-    // Logs predating the status phrase headed findings with this label.
-    if (lines.some((line) => TRIVY_LEGACY_FINDINGS_HEADER.test(line))) return 'FAILED'
-    return 'INDETERMINATE'
+export function parseSemgrepStatus(log: string | string[]): ScanToolStatus {
+    // Only the first non-empty line can supply a verdict; paths and finding details cannot.
+    const statusLine = trimmedLines(log).find((line) => line.length > 0)
+    if (!statusLine || !SEMGREP_STATUS_LINE.test(statusLine)) return 'NOT-RUN'
+    const phrase = statusLine.replace(SEMGREP_STATUS_LINE, '').trim().toLowerCase()
+    return SEMGREP_VERDICTS.get(phrase) ?? 'INDETERMINATE'
 }
 
-// Anything but an OK quality gate means human review, so there is deliberately no INDETERMINATE.
-export function parseSonarqubeStatus(log: string): ScanToolStatus {
-    const match = log.match(/sonarqube quality gate:\s*(\S+)/i)
-    return match?.[1]?.toUpperCase() === 'OK' ? 'PASSED' : 'FAILED'
+// A pass or fail status line is already shown as the verdict. Any other first line says why there
+// is no verdict, so it stays.
+export function scanLogDetails(log: string): string | null {
+    const lines = log.split('\n')
+    const status = parseSemgrepStatus(log)
+    const statusIndex = lines.findIndex((line) => line.trim().length > 0)
+    const rest = status === 'PASSED' || status === 'FAILED' ? lines.slice(statusIndex + 1) : lines
+    return rest.join('\n').trim() || null
 }
 
 // No log row yet, or an unreadable file, is treated as "not reported".
@@ -707,16 +849,16 @@ export async function jobScanResultForJob(studyJobId: string): Promise<JobScanRe
         .limit(1)
         .executeTakeFirst()
 
-    if (!logFile) return { trivy: null, sonarqube: null, logFile: null }
+    if (!logFile) return { semgrep: null, details: null, logFile: null }
 
     try {
         const blob = await fetchFileContents(logFile.path)
-        const contents = await blob.text()
-        return { trivy: parseTrivyStatus(contents), sonarqube: parseSonarqubeStatus(contents), logFile }
+        const log = await blob.text()
+        return { semgrep: parseSemgrepStatus(trimmedLines(log)), details: scanLogDetails(log), logFile }
     } catch {
         // The download route serves the file from the DB row + a signed URL, so keep it available
         // with unknown statuses rather than pretending the scan is pending.
-        return { trivy: null, sonarqube: null, logFile }
+        return { semgrep: null, details: null, logFile }
     }
 }
 
@@ -756,16 +898,9 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
     return row ? { ...row, isStale: isStudyReviewStale(row) } : null
 }
 
-export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult | null }
+export type JobAnalysis = { review: StudyReviewWithMeta | null; scan: JobScanResult }
 
-// `withScan` because a scan costs an S3 fetch and two parses, while the summary is one row: a
-// caller that does not render a verdict should not pay for one. No surface renders one today —
-// OTTER-694 took the panel off the review page and the feature is parked until the replacement
-// scanning tool is chosen (OTTER-775) — so every current caller leaves it off and `scan` is null.
-export async function jobAnalysisForJob(job: JobForRound, { withScan = false } = {}): Promise<JobAnalysis> {
-    const [review, scan] = await Promise.all([
-        getStudyReviewForJob(job),
-        withScan ? jobScanResultForJob(jobRowId(job)) : Promise.resolve(null),
-    ])
+export async function jobAnalysisForJob(job: JobForRound): Promise<JobAnalysis> {
+    const [review, scan] = await Promise.all([getStudyReviewForJob(job), jobScanResultForJob(jobRowId(job))])
     return { review, scan }
 }

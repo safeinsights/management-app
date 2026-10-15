@@ -1,9 +1,9 @@
 'use client'
 
 import { forwardRef } from 'react'
-import { Anchor, type MantineColor, type MantineSpacing } from '@mantine/core'
+import { Anchor, Group, type MantineColor, type MantineSpacing } from '@mantine/core'
 import { ToggleChevron } from '@/components/icons'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type CollapseToggleLinkProps = {
     label: string
@@ -19,7 +19,7 @@ type CollapseToggleLinkProps = {
 }
 
 export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLinkProps>(function CollapseToggleLink(
-    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'navy.5' },
+    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = semanticColor('brand.default') },
     ref,
 ) {
     if (!isVisible) return null
@@ -38,13 +38,14 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             onClick={onClick}
             display="inline-flex"
             w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
             aria-expanded={isExpanded}
             data-testid={testId}
             ref={ref}
         >
-            {label}
-            <ToggleChevron isExpanded={isExpanded} />
+            <Group component="span" gap="xxs" wrap="nowrap">
+                {label}
+                <ToggleChevron isExpanded={isExpanded} />
+            </Group>
         </Anchor>
     )
 })

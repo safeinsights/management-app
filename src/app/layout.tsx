@@ -8,6 +8,7 @@ const globalFont = Open_Sans({
 import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
+import '@/styles/mantine-datatable.css'
 import '@mantine/dropzone/styles.layer.css'
 // The layered build only: the plain stylesheet sits outside the cascade layer and would outrank the
 // theme's Notification override.
@@ -21,8 +22,8 @@ import { GlobalLoading } from '@/components/layout/global-loading'
 import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
-
-const APP_TITLE = 'SafeInsights'
+import { clientUserInfoSnapshotForRequest } from '@/server/session'
+import { APP_TITLE } from '@/lib/constants'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -46,12 +47,18 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     await connection()
+    const { userInfo, updatedAt } = await clientUserInfoSnapshotForRequest()
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
         <html lang="en" translate="no" className={globalFont.className}>
             <body>
-                <Providers singleUserEditing={SINGLE_USER_EDITING} posthogProjectToken={postHogProjectToken}>
+                <Providers
+                    singleUserEditing={SINGLE_USER_EDITING}
+                    posthogProjectToken={postHogProjectToken}
+                    userInfo={userInfo}
+                    userInfoUpdatedAt={updatedAt}
+                >
                     <Suspense fallback={<GlobalLoading />}>
                         {children}
                         <HydrationMarker />

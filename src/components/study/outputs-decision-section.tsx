@@ -5,7 +5,7 @@ import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } 
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -16,16 +16,6 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
-
-const EDITOR_SKELETON_HEIGHT = 260
-
-const contentStyle = {
-    minHeight: 260,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '14px',
-    lineHeight: 1.6,
-} as const
 
 // Worded as "nothing that can be shared" rather than "no output files": the branch is also
 // reached by jobs holding files this screen cannot offer (OTTER-524).
@@ -96,7 +86,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
             description={option.description}
             error={error}
             disabled={option.disabled}
-            styles={DECISION_RADIO_STYLES}
+            isProminent
             testId={`outputs-decision-${option.value}`}
         />
     ))
@@ -175,7 +165,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     </Text>
                     <RequiredIndicator fz={20} fw={fontWeight.bold} />
                 </Group>
-                <Divider color={semanticColor('border.default')} />
+                <Divider />
                 <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />
                 <Editor
                     id={outputsReviewFeedbackDocName(jobId)}
@@ -183,7 +173,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     studyId={studyId}
                     websocketProvider={websocketProvider}
                     onProviderReady={publishProvider}
-                    contentStyle={contentStyle}
+                    contentHeight={260}
+                    fz="sm"
                     onChange={onFeedbackChange}
                     error={feedbackError}
                     ariaLabel="Decision feedback"
@@ -193,7 +184,6 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasDescription: false,
                         hasCounter: true,
                     })}
-                    skeletonHeight={EDITOR_SKELETON_HEIGHT}
                     isResizable
                     // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}

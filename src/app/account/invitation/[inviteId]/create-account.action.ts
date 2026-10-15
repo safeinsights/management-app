@@ -90,6 +90,31 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             .executeTakeFirstOrThrow()
     })
 
+// The counterpart to getOrgInfoForInviteAction, for after the claim: that one resolves unclaimed
+// invites only, so it cannot serve the linking screen. Scoped to the claimer, so it discloses
+// nothing the caller was not already sent. Returns the org too, so the screen needs no redirect_url.
+export const getClaimedInviteAction = new Action('getClaimedInviteAction')
+    .params(
+        z.object({
+            inviteId: z.string(),
+        }),
+    )
+    .handler(async function ({ params: { inviteId }, db, session }) {
+        // No requireAbilityTo: the claimer is not yet a member of the inviting org, so no ability
+        // rule covers them. The claimedByUserId match below is the authorization.
+        if (!session) {
+            throw new ActionFailure({ permission_denied: 'cannot read this invite' })
+        }
+
+        return await db
+            .selectFrom('pendingUser')
+            .innerJoin('org', 'org.id', 'pendingUser.orgId')
+            .select(['pendingUser.email', 'org.slug as orgSlug', 'org.name as orgName'])
+            .where('pendingUser.id', '=', inviteId)
+            .where('pendingUser.claimedByUserId', '=', session.user.id)
+            .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
+    })
+
 // Declining is strictly weaker than accepting, so bearing the id authorizes it. Claimed invites
 // are spent — org admin only.
 export const onRevokeInviteAction = new Action('onRevokeInviteAction')
@@ -192,10 +217,9 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: false })
 
-        // Checked here too: the client RequireUserKey guard reads Clerk metadata, which can be
-        // stale right after this server-side update.
+        // Read from the database: Clerk metadata can be stale right after this server-side update.
         const needsUserKey = !(await getUserPublicKey(siUser.id))
 
         return { ...siUser, needsUserKey }
@@ -327,7 +351,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         })
 
         await updateClerkUserMetadata(siUser.id)
-        onUserAcceptInvite(siUser.id)
+        onUserAcceptInvite({ userId: siUser.id, inviteId, isNewAccount: true })
 
         return { userId: siUser.id }
     })

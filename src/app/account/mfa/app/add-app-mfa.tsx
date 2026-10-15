@@ -2,31 +2,18 @@
 
 import { useForm, useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
-import { Link } from '@/components/links'
+import { BackLink } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
 import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import {
-    ActionIcon,
-    Anchor,
-    Box,
-    Button,
-    CopyButton,
-    Group,
-    Paper,
-    rgba,
-    Stack,
-    Text,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
-import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
+import { ActionIcon, Anchor, Box, Button, CopyButton, Group, Paper, rgba, Stack, Text, Title } from '@mantine/core'
+import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
 import OtpInput from '@/components/otp-input'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -39,7 +26,6 @@ function AddTotpScreenContent({
     setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
     setBackupCodes: React.Dispatch<React.SetStateAction<string[] | null>>
 }) {
-    const theme = useMantineTheme()
     const { user } = useUser()
     const createBackupCode = useReverification(() => user?.createBackupCode())
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
@@ -114,7 +100,7 @@ function AddTotpScreenContent({
             <Stack align="center" gap="xs">
                 {totp && displayFormat === 'qr' && (
                     <>
-                        <Box bg={rgba(theme.colors.grey[0], 0.3)} p={6}>
+                        <Box bg={rgba(semanticColor('surface.page'), 0.3)} p="xs">
                             <QRCodeSVG value={totp?.uri || ''} size={150} />
                         </Box>
                         {secret && (
@@ -132,7 +118,7 @@ function AddTotpScreenContent({
                                                 {copied ? (
                                                     <CheckIcon size={24} />
                                                 ) : (
-                                                    <CopyIcon size={24} color={theme.colors.gray[8]} />
+                                                    <CopyIcon size={24} color={semanticColor('icon.dark')} />
                                                 )}
                                             </ActionIcon>
                                         </InfoTooltip>
@@ -141,15 +127,14 @@ function AddTotpScreenContent({
                             </Group>
                         )}
                         <Text size="sm">
-                            <span style={{ color: theme.colors.grey[7] }}>Having trouble?</span>{' '}
+                            <Box component="span" c={semanticColor('text.secondary')}>
+                                Having trouble?
+                            </Box>{' '}
                             <Anchor
                                 component="button"
                                 c={semanticColor('link.default')}
                                 underline="always"
-                                style={{
-                                    opacity: canRegenerate ? 1 : 0.4,
-                                    cursor: canRegenerate ? 'pointer' : 'not-allowed',
-                                }}
+                                opacity={canRegenerate ? 1 : 0.4}
                                 disabled={!canRegenerate}
                                 onClick={async () => {
                                     try {
@@ -195,17 +180,7 @@ function AddTotpScreenContent({
                     >
                         Verify code
                     </Button>
-                    <Link
-                        href={Routes.accountMfa}
-                        mt="md"
-                        c="purple.5"
-                        fw={fontWeight.semibold}
-                        fz="md"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                    >
-                        <CaretLeftIcon size={20} />
-                        Back to options
-                    </Link>
+                    <BackLink href={Routes.accountMfa}>Back to options</BackLink>
                 </Stack>
             </form>
         </Stack>

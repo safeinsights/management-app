@@ -5,6 +5,7 @@ import { Group, Paper, Stack, Text } from '@mantine/core'
 import { Dropzone, PDF_MIME_TYPE } from '@mantine/dropzone'
 import { FileArrowUpIcon, FilePdfIcon, UploadIcon } from '@phosphor-icons/react/dist/ssr'
 import { MAX_LEGAL_DOCUMENT_BYTES, MAX_LEGAL_DOCUMENT_SIZE_TEXT } from '@/schema/legal-document'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const REJECTION_MESSAGE = `That file was not accepted. Upload a single PDF smaller than ${MAX_LEGAL_DOCUMENT_SIZE_TEXT}.`
 
@@ -23,7 +24,7 @@ const RejectionNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
 
     return (
-        <Text size="sm" c="red" pt="sm">
+        <Text size="sm" c={semanticColor('error.text')} pt="sm">
             {REJECTION_MESSAGE}
         </Text>
     )
@@ -43,7 +44,7 @@ export const PdfDropzone: FC<{ label: string; file: File | null; onChange: (file
 
     return (
         <Stack gap="xxs">
-            <Text size="sm" fw={500}>
+            <Text size="sm" fw={fontWeight.semibold}>
                 {label}
             </Text>
             <Paper withBorder>

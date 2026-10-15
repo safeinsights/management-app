@@ -1,5 +1,7 @@
 'use server'
 
+import { getStudyFilesPath } from '@/server/workspace-files'
+
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { Action, z } from './action'
@@ -9,11 +11,16 @@ import {
     getCoderWorkspaceLaunchStatus,
     type WorkspaceLaunchStatus,
 } from '../coder'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
-import { getInfoForStudyId, latestActivityPerWorkspaceFile, latestSubmittedJobForStudy } from '@/server/db/queries'
-import { ensureRoundJobForLaunch, getOrCreateCurrentRoundJob } from '@/server/db/mutations'
+import { CODER_DISABLED } from '@/server/config'
+import {
+    getInfoForStudyId,
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
+import { ensureRoundJobForLaunch } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
-import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
 import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
@@ -22,10 +29,7 @@ import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-co
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
 async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
-    let coderFilesPath = await getConfigValue('CODER_FILES')
-    if (!CODER_DISABLED) {
-        coderFilesPath += `/${studyId}`
-    }
+    const coderFilesPath = await getStudyFilesPath(studyId)
 
     let entries: string[]
     try {
@@ -48,22 +52,35 @@ async function studyHasWorkspaceFiles(studyId: string): Promise<boolean> {
     return false
 }
 
+async function workspaceFileActivityEntries(studyId: string, before?: Date) {
+    return (await latestActivityPerWorkspaceFile(studyId, { before })).map(
+        (row): [string, WorkspaceFileActivitySummary] => [
+            row.fileName,
+            { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
+        ],
+    )
+}
+
+// Read by the post-submission table, which lists the job's files from S3 rather than the
+// workspace. Bounded by the job's submission so it describes the files the table shows.
+export const listWorkspaceFileActivityAction = new Action('listWorkspaceFileActivityAction', {})
+    .params(z.object({ studyId: z.string(), jobId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ params: { studyId, jobId } }) => {
+        const submittedAt = await latestCodeSubmissionAt(studyId, jobId)
+        if (!submittedAt) return {}
+        return Object.fromEntries(await workspaceFileActivityEntries(studyId, submittedAt))
+    })
+
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
-        const activityByFile = new Map(
-            (await latestActivityPerWorkspaceFile(studyId)).map((row) => [
-                row.fileName,
-                { actorName: row.actorName, action: row.action, createdAt: row.createdAt.toISOString() },
-            ]),
-        )
+        const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
 
-        let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!CODER_DISABLED) {
-            coderFilesPath += `/${studyId}`
-        }
+        const coderFilesPath = await getStudyFilesPath(studyId)
 
         let entries: string[] = []
         try {
@@ -167,13 +184,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     })
 
 /**
- * OTTER-693: puts the Data Partner's template in the workspace before anyone launches an IDE, so
- * the Submit code page opens on a starred Main.{x} row rather than the empty state.
- *
- * Copies only into an empty workspace, which is what keeps it from resurrecting a template the
- * researcher replaced — and they cannot empty it by deleting the template, since a main file cannot
- * be deleted. The round job is ensured either way: the Template badge and the submit gate both
- * compare file mtimes against that baseline.
+ * OTTER-693: copies the Data Partner's template into an empty workspace and stars it, so /code
+ * opens on Main.{x}. Empty-only, so a replaced template never comes back. Opens no round job: a job
+ * reads as "Code draft", which only a launch or upload may start (OTTER-698).
  */
 export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePreloadAction', {
     performsMutations: true,
@@ -182,12 +195,9 @@ export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePrelo
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
-        // Skipped rather than refused: the page calls this on every load, and getOrCreateCurrentRoundJob
-        // would otherwise mint a round job for a closed round as a side effect of merely looking.
+        // Skipped, not refused: the page calls this on every load, view-only visits included.
         const state = await studyCodeStateFor(db, studyId)
         if (!state || !canResearcherChangeCodeFiles(state)) return { preloaded: false }
-
-        await getOrCreateCurrentRoundJob(db, studyId)
 
         const templateName = CODER_DISABLED
             ? await copyStarterCodeIntoDevWorkspace(studyId, db)
@@ -252,8 +262,8 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
-        const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
-        const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+        const { fetchCodeEnvForStudyId } = await import('@/server/db/queries')
+        const codeEnv = await fetchCodeEnvForStudyId(studyId)
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [], templateFileName: null }
 

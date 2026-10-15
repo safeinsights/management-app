@@ -5,12 +5,16 @@ import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
 import { useClerk, useUser } from '@clerk/nextjs'
 import type { Route } from 'next'
 import { reportError } from '@/components/errors'
+import { showToast } from '@/components/toast-notifications'
+import { useQueryClient } from '@/common'
+import { CURRENT_USER_INFO_KEY } from '@/hooks/session'
 import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { DOWNLOAD_PREFIX } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
 import { TimeoutError, withTimeout } from '@/lib/with-timeout'
+import { notifications } from '@mantine/notifications'
 import posthog from 'posthog-js'
 
 export type AlreadySignedInStatus = 'loading' | 'redirecting' | 'signed-in' | 'signed-out'
@@ -67,6 +71,9 @@ function hasProxyBounceMark(searchParams: ReadonlyURLSearchParams): boolean {
 }
 
 const SIGN_OUT_TIMEOUT_MESSAGE = 'Signing out took too long. Your connection may be down.'
+const SIGN_OUT_OFFLINE_MESSAGE = 'You appear to be offline. Check your connection and try again.'
+const SWITCH_FAILED_TITLE = 'Failed to sign out while switching accounts'
+const OFFLINE_TOAST_ID = 'switch-account-offline'
 
 // reportError renders an Error through String(), which glues the constructor name onto the message.
 // The timeout text is a sentence written for the user, so it reports as text; anything else keeps
@@ -81,6 +88,7 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     const { isLoaded, isSignedIn, user } = useUser()
     const { signOut } = useClerk()
     const searchParams = useSearchParams()
+    const queryClient = useQueryClient()
 
     const [status, setStatus] = useState<AlreadySignedInStatus>('loading')
     const [isSwitching, setIsSwitching] = useState(false)
@@ -140,22 +148,38 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
     // downgrade above waits for Clerk to flip isSignedIn, while this one reaches the form however
     // the sign-out ends, timeout included.
     const switchAccount = useCallback(async () => {
+        // Clerk's signOut fires a server action whose offline failure escapes unhandled (OTTER-790).
+        // The session survives, so the panel stays (the form would only meet session_exists), and
+        // Sentry is skipped: it cannot deliver offline, so a toast reference would lead nowhere.
+        if (!navigator.onLine) {
+            showToast({
+                category: 'error',
+                id: OFFLINE_TOAST_ID,
+                title: SWITCH_FAILED_TITLE,
+                message: SIGN_OUT_OFFLINE_MESSAGE,
+            })
+            return
+        }
+        // Error toasts never auto-close, so the offline one would outlive a retry that succeeds.
+        notifications.hide(OFFLINE_TOAST_ID)
         setIsSwitching(true)
         try {
             posthog.reset()
-            // Offline, signOut settles neither way, which left this catch and finally unreachable
-            // and the panel stuck on its spinner (OTTER-745).
+            // A connection that reports online can still fail, and then signOut settles neither way,
+            // which left this catch and finally unreachable and the panel on its spinner (OTTER-745).
             await withTimeout(signOut(), SIGN_OUT_TIMEOUT_MS, SIGN_OUT_TIMEOUT_MESSAGE)
         } catch (error) {
             // The button awaits nothing, so a rejection escaping here would land as an unhandled
             // rejection, and a session the server has already dropped is where Clerk is most likely
             // to reject. Reaching the form is what the user asked for; the finally below does that.
-            reportError(displayableSignOutError(error), 'Failed to sign out while switching accounts')
+            reportError(displayableSignOutError(error), SWITCH_FAILED_TITLE)
         } finally {
+            // Signing back in as the same Clerk user would otherwise show the org list cached before.
+            queryClient.removeQueries({ queryKey: CURRENT_USER_INFO_KEY })
             setIsSwitching(false)
             setStatus('signed-out')
         }
-    }, [signOut])
+    }, [signOut, queryClient])
 
     return {
         status,
