@@ -49,11 +49,6 @@ export class Action<
     private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
     private options: ActionOptions
 
-    static get db() {
-        const ctx = localStorageContext.getStore()
-        return ctx?.db || db
-    }
-
     constructor(
         private actionName: string,
         options: ActionOptions = {},

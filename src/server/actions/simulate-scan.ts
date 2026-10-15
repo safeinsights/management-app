@@ -11,7 +11,7 @@ const completeFakeCodeScan = deferred(async (codeEnvId: string) => {
         .execute()
 })
 
-export async function insertFakeCodeScan(codeEnvId: string, executor: DBExecutor = db) {
+export async function insertFakeCodeScan(codeEnvId: string, executor: DBExecutor) {
     await executor.insertInto('codeScan').values({ codeEnvId, status: 'SCAN-PENDING' }).execute()
     completeFakeCodeScan(codeEnvId)
 }

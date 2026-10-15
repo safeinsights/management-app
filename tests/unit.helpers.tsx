@@ -327,7 +327,7 @@ export const testEmail = (provider = 'test.com') => {
 export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
 
 export const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, db)
     if (!raw) throw new Error(`no raw study state for study ${studyId}`)
     return raw
 }

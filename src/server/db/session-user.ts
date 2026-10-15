@@ -1,4 +1,5 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
+import { currentDb } from '@/server/request-context'
 
 // No Next.js dependencies, so bin scripts can use it too.
 
@@ -10,7 +11,7 @@ export const orgsBySlug = (rows: OrgRow[]): UserInfo['orgs'] =>
 // The token's user.id is only a claim: both ids must match, or a stale value could name another
 // person's row. Null means no such user. One round trip covers the check and the org list.
 export async function sessionUserOrgs(userId: string, clerkUserId: string): Promise<UserInfo['orgs'] | null> {
-    const rows = await selectUserOrgRows(userId).where('user.clerkId', '=', clerkUserId).execute()
+    const rows = await selectUserOrgRows(userId, currentDb()).where('user.clerkId', '=', clerkUserId).execute()
     if (rows.length === 0) return null
 
     return orgsBySlug(
@@ -18,7 +19,7 @@ export async function sessionUserOrgs(userId: string, clerkUserId: string): Prom
     )
 }
 
-export function selectUserOrgRows(userId: string, executor: DBExecutor = db) {
+export function selectUserOrgRows(userId: string, executor: DBExecutor) {
     return executor
         .selectFrom('user')
         .leftJoin('orgUser', 'orgUser.userId', 'user.id')

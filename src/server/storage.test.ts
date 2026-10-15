@@ -150,7 +150,7 @@ test("discards the previous round's scan log row and its object", async () => {
     const [{ path }] = await scanLogRows(info.studyJobId)
     expect(await objectExists(path)).toBe(true)
 
-    const discarded = await discardStaleScanLogRows(info.studyJobId)
+    const discarded = await discardStaleScanLogRows(info.studyJobId, db)
 
     expect(await scanLogRows(info.studyJobId)).toHaveLength(0)
     // The object is the caller's to delete once it has committed, so the row can never be rolled
@@ -178,7 +178,7 @@ test('leaves a scan log whose keys are already wrapped for recipients', async ()
         })
         .execute()
 
-    const discarded = await discardStaleScanLogRows(info.studyJobId)
+    const discarded = await discardStaleScanLogRows(info.studyJobId, db)
 
     const [remaining] = await scanLogRows(info.studyJobId)
     expect(remaining).toBeDefined()
@@ -204,7 +204,7 @@ test('keeps every scan log for the job when one of them is already shared', asyn
         })
         .execute()
 
-    const discarded = await discardStaleScanLogRows(info.studyJobId)
+    const discarded = await discardStaleScanLogRows(info.studyJobId, db)
 
     expect(discarded).toEqual([])
     // Both halves survive: the plaintext row going alone is what leaves the next scan unable to
@@ -223,7 +223,7 @@ test('leaves code and result artifacts alone', async () => {
     await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
     await storeStudyEncryptedResultsFile(info, logFile('results.zip'))
 
-    await discardStaleScanLogRows(info.studyJobId)
+    await discardStaleScanLogRows(info.studyJobId, db)
 
     expect(await jobLogRows(info.studyJobId)).toHaveLength(1)
     const results = await db

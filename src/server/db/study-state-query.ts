@@ -1,13 +1,9 @@
-import { db as defaultDb, jsonArrayFrom, type DBExecutor } from '@/database'
+import { jsonArrayFrom, type DBExecutor } from '@/database'
 import type { RawStudyState } from '@/lib/study-screen'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 
-// The optional executor lets a mutation action run this gate on its own handler transaction.
-export async function rawStudyStateForStudy(
-    studyId: string,
-    db: DBExecutor = defaultDb,
-): Promise<RawStudyState | null> {
-    const row = await db
+export async function rawStudyStateForStudy(studyId: string, executor: DBExecutor): Promise<RawStudyState | null> {
+    const row = await executor
         .selectFrom('study')
         .where('study.id', '=', studyId)
         .select([

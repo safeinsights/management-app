@@ -5,6 +5,7 @@ import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
 import { recordJobStatus } from '@/server/job-status'
 import { roundIsClosed } from '@/server/storage'
 import logger from '@/lib/logger'
+import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -47,7 +48,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     const change = schema.parse(json)
 
     // A failure reported after the Data Partner has decided the outputs would reopen a closed round.
-    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id))) {
+    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id, currentDb()))) {
         logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
         return new NextResponse('ok', { status: 200 })
     }

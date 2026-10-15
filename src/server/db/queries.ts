@@ -16,7 +16,6 @@ import {
 } from '@/lib/study-job-status'
 import { codeRoundForJob } from './code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
-import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
 import type { CodeEnvSnapshot } from '@/database/types-manual'
@@ -46,7 +45,7 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
 }
 
 export async function getStudyJobInfo(studyJobId: string) {
-    return await Action.db
+    return await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
@@ -80,7 +79,7 @@ export async function getStudyJobInfo(studyJobId: string) {
 
 export const getUserPublicKey = async (userId: string) => {
     // user_public_key has a unique constraint on user_id, so there is at most one row per user.
-    const result = await Action.db
+    const result = await currentDb()
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey', 'userPublicKey.updatedAt'])
         .where('userPublicKey.userId', '=', userId)
@@ -92,7 +91,7 @@ export const getUserPublicKey = async (userId: string) => {
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 
 function latestJobForStudyQuery(studyId: string) {
-    return Action.db
+    return currentDb()
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -153,7 +152,7 @@ export async function latestRecordedJobFailureReason(studyJobId: string): Promis
     const knownReasons: string[] = [...JOB_FAILURE_REASONS]
     if (knownReasons.length === 0) return null
 
-    const row = await Action.db
+    const row = await currentDb()
         .selectFrom('jobStatusChange')
         .select('message')
         .where('studyJobId', '=', studyJobId)
@@ -170,7 +169,7 @@ export async function latestRecordedJobFailureReason(studyJobId: string): Promis
 // Counted across ALL jobs: a per-job count would reset to v1 after a results decision opens a fresh
 // job, hiding prior rounds' feedback (OTTER-556/558). CODE-REJECTED is omitted because reject is
 // terminal; if it becomes resubmittable, count it here and in canResearcherResubmitCode (OTTER-638).
-export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+export const codeSubmissionVersion = async (studyId: string, db: DBExecutor): Promise<number> => {
     const row = await db
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
@@ -187,7 +186,7 @@ export const codeSubmissionVersion = async (studyId: string, db: DBExecutor = Ac
 // them would leave the first visible entry labeled v2.0 with no v1.0 anywhere.
 // Count and insert are separate, and the unique constraint backing them is per job, so a caller that
 // writes the counted round must lock the study row first (see submitOutputsDecisionAction).
-export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = Action.db): Promise<number> => {
+export const outputsDecisionVersion = async (studyId: string, db: DBExecutor): Promise<number> => {
     const row = await db
         .selectFrom('studyReviewComment')
         .where('studyId', '=', studyId)
@@ -201,7 +200,7 @@ export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = A
 // max(version) rather than ordering by createdAt so simultaneous reviewer submissions cannot
 // tie-break wrong.
 export const currentReviewVersion = async (studyId: string): Promise<number> => {
-    const row = await Action.db
+    const row = await currentDb()
         .selectFrom('studyProposalComment')
         .select((eb) => eb.fn.max('version').as('version'))
         .where('studyId', '=', studyId)
@@ -214,12 +213,12 @@ export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<
 
 export const getProposalFeedbackForStudy = async (studyId: string) => {
     const [study, entries] = await Promise.all([
-        Action.db
+        currentDb()
             .selectFrom('study')
             .select(['orgId', 'submittedByOrgId', 'status'])
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study')),
-        Action.db
+        currentDb()
             .selectFrom('studyProposalComment')
             .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
             .select([
@@ -242,7 +241,7 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
 }
 
 export const getDataSourcesForOrg = async (orgId: string) => {
-    return Action.db
+    return currentDb()
         .selectFrom('orgDataSource')
         .select((eb) => [
             'orgDataSource.id',
@@ -262,7 +261,7 @@ export const getDataSourcesForOrg = async (orgId: string) => {
 }
 
 export const getUsersForOrgId = async (orgId: string) => {
-    return Action.db
+    return currentDb()
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .distinctOn('user.id')
@@ -344,7 +343,7 @@ export function studyDeciderIds(
 
 // Some callers come from the API, which lacks a user; do not use siUser inside this.
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
-    const res = await Action.db
+    const res = await currentDb()
         .selectFrom('study')
         .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
         .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
@@ -378,14 +377,14 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
 
 /**
  * OTTER-817: the Coder account a workspace is provisioned under is the researcher who claimed the
- * IDE, not whoever submitted the proposal. Action.db is load-bearing — ensureWorkspaceAction claims
+ * IDE, not whoever submitted the proposal. currentDb() is load-bearing — ensureWorkspaceAction claims
  * ideOwnerId inside its transaction and reads it back through here before the commit.
  *
  * Null covers both "no such study" and "unclaimed": by the time any Coder code runs, requireIdeOwner
  * has already passed, so either one is equally a bug.
  */
 export const getIdeOwnerForStudy = async (studyId: string) => {
-    const owner = await Action.db
+    const owner = await currentDb()
         .selectFrom('study')
         .innerJoin('user as ideOwner', 'ideOwner.id', 'study.ideOwnerId')
         .select(['ideOwner.id as userId', 'ideOwner.email', 'ideOwner.fullName'])
@@ -396,7 +395,7 @@ export const getIdeOwnerForStudy = async (studyId: string) => {
 }
 
 export const getUserById = async (userId: string) => {
-    return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
+    return await currentDb().selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
 type OrgIdForSlug = { orgId: string; orgType: OrgType }
@@ -438,20 +437,20 @@ export const findOpenInvite = async (db: DBExecutor, orgId: string, email: strin
 
 // The name a peer's tab shows for whoever closed a round. Only the server can supply it, and four
 // actions were asking for it the same way.
-export const fetchUserFullName = async (userId: string, db: DBExecutor = Action.db) => {
+export const fetchUserFullName = async (userId: string, db: DBExecutor) => {
     const user = await db.selectFrom('user').select('fullName').where('id', '=', userId).executeTakeFirstOrThrow()
     return user.fullName
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
-    const rows = await selectUserOrgRows(userId, Action.db).execute()
+    const rows = await selectUserOrgRows(userId, currentDb()).execute()
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
 // Both actions that grant the membership do it in the claim's transaction, so joinedAt is the claim time.
 // The membership join also drops an org the account has since left.
 export const getLatestClaimedInviteOrg = async (userId: string) =>
-    await Action.db
+    await currentDb()
         .selectFrom('pendingUser')
         .innerJoin('org', 'org.id', 'pendingUser.orgId')
         .innerJoin('orgUser', (join) =>
@@ -523,7 +522,7 @@ export async function getStudyJobFileOfType(
     fileType: FileType,
     throwIfNotFound = true,
 ): Promise<Selectable<JobDetails> | undefined> {
-    const file = await Action.db
+    const file = await currentDb()
         .selectFrom('studyJobFile')
         .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -578,7 +577,7 @@ const currentCodeEnvResources = (db: DBExecutor, codeEnvId: string) =>
 // The code env a study runs: the copy frozen when its language was chosen, with the resources it names
 // read as they are now. A study made before studies kept a copy, or whose frozen code env has since
 // been deleted (taking its database and files with it), gets the org's current code env instead.
-export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
+export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor) {
     const study = await db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -598,14 +597,14 @@ export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = A
 
 export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {
     try {
-        return await fetchCodeEnvForStudyId(studyId)
+        return await fetchCodeEnvForStudyId(studyId, currentDb())
     } catch {
         return null
     }
 }
 
 export async function getOrgIdForJobId(jobId: string) {
-    const job = await Action.db
+    const job = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .where('studyJob.id', '=', jobId)
@@ -616,7 +615,7 @@ export async function getOrgIdForJobId(jobId: string) {
 }
 
 export async function getOrgPublicKeysRaw(orgId: string) {
-    return await Action.db
+    return await currentDb()
         .selectFrom('orgUser')
         .innerJoin('userPublicKey', 'userPublicKey.userId', 'orgUser.userId')
         .select(['userPublicKey.publicKey', 'userPublicKey.fingerprint'])
@@ -634,7 +633,7 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
 }
 
 const labOrgIdForJob = async (jobId: string) =>
-    await Action.db
+    await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select('study.submittedByOrgId')
@@ -647,7 +646,7 @@ export async function getLabPublicKeysForJob(jobId: string): Promise<PublicKey[]
 }
 
 export async function getLabPublicKeysForStudy(studyId: string): Promise<PublicKey[]> {
-    const { submittedByOrgId } = await Action.db
+    const { submittedByOrgId } = await currentDb()
         .selectFrom('study')
         .select('submittedByOrgId')
         .where('id', '=', studyId)
@@ -668,7 +667,7 @@ export type JobFileActivity = {
 // Scoped to one side of the study: the Data Partner never sees the lab's activity and vice versa
 // (OTTER-783).
 export async function latestActivityPerJobFile(jobId: string, orgId: string): Promise<JobFileActivity[]> {
-    return await Action.db
+    return await currentDb()
         .selectFrom('studyJobFileActivity')
         .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileActivity.studyJobFileId')
         .innerJoin('user', 'user.id', 'studyJobFileActivity.userId')
@@ -697,7 +696,7 @@ export async function latestActivityPerJobFile(jobId: string, orgId: string): Pr
  * against the metadata subject.
  */
 export async function hasViewedSubmitCodeFaq(userId: string): Promise<boolean> {
-    const row = await Action.db
+    const row = await currentDb()
         .selectFrom('audit')
         // recordId rather than userId: the same value here, but recordId is the event's subject and
         // it is the indexed column.
@@ -726,7 +725,7 @@ export async function latestActivityPerWorkspaceFile(
     studyId: string,
     { before }: { before?: Date } = {},
 ): Promise<WorkspaceFileActivityRow[]> {
-    return await Action.db
+    return await currentDb()
         .selectFrom('workspaceFileActivity')
         .innerJoin('user', 'user.id', 'workspaceFileActivity.userId')
         .where('workspaceFileActivity.studyId', '=', studyId)
@@ -746,7 +745,7 @@ export async function latestActivityPerWorkspaceFile(
 
 // Scoped to the study so a job id from another study yields nothing.
 export async function latestCodeSubmissionAt(studyId: string, jobId: string): Promise<Date | undefined> {
-    const row = await Action.db
+    const row = await currentDb()
         .selectFrom('jobStatusChange')
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .where('studyJob.id', '=', jobId)
@@ -762,7 +761,7 @@ export async function latestCodeSubmissionAt(studyId: string, jobId: string): Pr
 // Rows can exist while the round is still open, and removing a researcher from the lab never
 // retroactively unshares.
 export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
-    const rows = await Action.db
+    const rows = await currentDb()
         .selectFrom('studyJobFileRecipientKey')
         .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
         .where('studyJobFile.studyJobId', '=', jobId)
@@ -828,7 +827,7 @@ export function scanLogDetails(log: string): string | null {
 
 // No log row yet, or an unreadable file, is treated as "not reported".
 export async function jobScanResultForJob(studyJobId: string): Promise<JobScanResult> {
-    const logFile = await Action.db
+    const logFile = await currentDb()
         .selectFrom('studyJobFile')
         .select(['id', 'name', 'path'])
         .where('studyJobId', '=', studyJobId)
@@ -862,8 +861,8 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
     const studyJobId = jobRowId(job)
     // A resubmit reuses the job, so the id alone matches every round it has been through. Only the
     // summary written for the code now on the job is current (OTTER-779).
-    const round = await codeRoundForJob(studyJobId, Action.db)
-    const row = await Action.db
+    const round = await codeRoundForJob(studyJobId, currentDb())
+    const row = await currentDb()
         .selectFrom('studyReview')
         .select((eb) => [
             eb.ref('report').$castTo<AnalysisReport | null>().as('report'),

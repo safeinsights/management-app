@@ -39,6 +39,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { writeAgentContext } from '../context-writer'
 import { templateFileNameFor } from '@/lib/languages'
+import { currentDb } from '@/server/request-context'
 
 async function generateWorkspaceUrl(user: CoderUser, studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -232,7 +233,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
     const workspaceName = generateWorkspaceName(studyId)
 
-    const codeEnv = await fetchCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -332,10 +333,7 @@ async function studyDirHasFiles(dir: string): Promise<boolean> {
  *
  * Returns the template's name when it copied, and null when there was nothing to do.
  */
-export const copyStarterCodeIntoWorkspace = async (
-    studyId: string,
-    executor: DBExecutor = db,
-): Promise<string | null> => {
+export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DBExecutor): Promise<string | null> => {
     const logCtx = `[coder-init study=${studyId}]`
 
     const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId)
@@ -401,9 +399,9 @@ export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<voi
     const logCtx = `[coder-init study=${studyId}]`
     const studyDir = await getStudyFilesPath(studyId)
 
-    await copyStarterCodeIntoWorkspace(studyId)
+    await copyStarterCodeIntoWorkspace(studyId, currentDb())
 
-    const codeEnv = await fetchCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
     const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 

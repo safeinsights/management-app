@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { Action, ActionFailure } from './action'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
+import { currentDb } from '@/server/request-context'
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -199,6 +200,20 @@ describe('Action Builder', () => {
             const action = new Action('middleware-error-test').handler(mockHandler)
             const result = await action()
             expect(result).toEqual({ error: 'hi' })
+        })
+    })
+
+    describe('currentDb', () => {
+        it('is the action transaction inside a mutating handler', async () => {
+            const action = new Action('ambient-mutating', { performsMutations: true }).handler(
+                async () => currentDb().isTransaction,
+            )
+            expect(await action()).toBe(true)
+        })
+
+        it('is the root connection inside a non-mutating handler', async () => {
+            const action = new Action('ambient-read').handler(async () => currentDb().isTransaction)
+            expect(await action()).toBe(false)
         })
     })
 
