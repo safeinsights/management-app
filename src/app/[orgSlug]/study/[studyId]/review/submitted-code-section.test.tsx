@@ -20,7 +20,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
-import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import {
+    JobAnalysisPanels,
+    splitPreviewBlocks,
+    splitVisibleFiles,
+    truncateFileName,
+} from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
 import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
 
@@ -695,6 +700,55 @@ describe('SubmittedCodeSection — Analysis polling', () => {
     })
 })
 
+describe('SubmittedCodeSection collapsed preview', () => {
+    it('keeps the first two blocks visible and collapses the rest behind the opener', async () => {
+        const fixture = await setupBaseFixture()
+        const analysis = await jobAnalysisForJob(fixture.job)
+        renderWithProviders(
+            <SubmittedCodeSection
+                orgSlug={ORG_SLUG}
+                study={fixture.study}
+                job={fixture.job}
+                analysis={{ ...analysis, scan: scanResult('PASSED') }}
+                detailsExpanded={false}
+                onExpand={vi.fn()}
+                onCollapse={vi.fn()}
+            />,
+        )
+
+        expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+        expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
+        const opener = screen.getByTestId('study-code-toggle')
+        expect(opener).toHaveTextContent('View full submission details')
+        expect(
+            screen.getByTestId('security-scan-results').compareDocumentPosition(opener) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
+    })
+
+    it('previews whichever blocks are present first', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
+                submittedAt={new Date()}
+                detailsExpanded={false}
+                leadingBlocks={[{ key: 'retired', isVisible: false, content: <p>Retired block</p> }]}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+
+        expect(screen.queryByText('Retired block')).not.toBeInTheDocument()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).toBeVisible()
+        expect(screen.getByText('Code files block')).not.toBeVisible()
+    })
+})
+
 describe("SubmittedCodeSection — Displaying RL's code", () => {
     async function setupFilesFixture(fileNames: string[]) {
         const fixture = await setupBaseFixture()
@@ -945,6 +999,26 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
+    const block = (key: string, isVisible?: boolean) => ({ key, isVisible, content: key })
+
+    it('splitPreviewBlocks previews the first blocks and leaves the rest', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b'), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest.map((b) => b.key)).toEqual(['c', 'd'])
+    })
+
+    it('splitPreviewBlocks moves the next block up when one is not visible', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'c'])
+        expect(rest.map((b) => b.key)).toEqual(['d'])
+    })
+
+    it('splitPreviewBlocks leaves nothing to collapse when there are too few blocks', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest).toEqual([])
+    })
+
     it('truncateFileName leaves short names alone', () => {
         expect(truncateFileName('short.R')).toBe('short.R')
     })
