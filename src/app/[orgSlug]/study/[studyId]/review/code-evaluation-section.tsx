@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Alert, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Alert, Center, Divider, Flex, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -121,12 +121,9 @@ function AgreementNote({ note }: { note: string | undefined }) {
     if (!note) return null
     return (
         <InfoTooltip label={note}>
-            <InfoIcon
-                size={14}
-                weight="fill"
-                aria-label={note}
-                style={{ marginLeft: 4, verticalAlign: 'text-bottom' }}
-            />
+            <Center component="span">
+                <InfoIcon size={14} weight="fill" aria-label={note} />
+            </Center>
         </InfoTooltip>
     )
 }
@@ -155,9 +152,9 @@ const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
                     Study Agreement
                 </CriterionLink>
                 {/* The inline SVG is a line-break opportunity; keep the icon on the "?" line. */}
-                <span style={{ whiteSpace: 'nowrap' }}>
+                <Flex component="span" display="inline-flex" align="center" gap="xxs">
                     ?<AgreementNote note={isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined} />
-                </span>
+                </Flex>
             </>
         ),
     },

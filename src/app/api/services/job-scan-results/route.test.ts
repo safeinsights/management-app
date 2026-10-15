@@ -314,7 +314,7 @@ describe('a delivery that names a round', () => {
         const jobId = await resubmittedJob()
 
         const resp = await apiHandler.POST(
-            authedRequest({ jobId, status: 'CODE-SCANNED', round: 1, plaintextLog: 'Trivy scan: no issues.' }),
+            authedRequest({ jobId, status: 'CODE-SCANNED', round: 1, plaintextLog: 'Semgrep Scan: no findings' }),
         )
 
         expect(resp.ok).toBe(true)

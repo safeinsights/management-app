@@ -124,7 +124,7 @@ export const LostKeyPopover = () => {
                     <ActionIcon
                         ref={triggerRef}
                         variant="transparent"
-                        color="charcoal.4"
+                        color={semanticColor('icon.light')}
                         size={20}
                         onClick={popover.onTriggerClick}
                         onFocus={popover.onTriggerFocus}

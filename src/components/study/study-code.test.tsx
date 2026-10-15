@@ -131,7 +131,7 @@ const renderIDE = async (
         acknowledged?: boolean
     } = {},
 ) => {
-    const { study } = await setupStudy(studyOrgSlug, { acknowledged })
+    const { study, user } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
@@ -155,7 +155,7 @@ const renderIDE = async (
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
-    return { study, previousHref, dataPartnerName }
+    return { study, user, previousHref, dataPartnerName }
 }
 
 /**
@@ -405,8 +405,8 @@ describe('StudyCode component', () => {
             const header = await screen.findByTestId('proposal-section-header')
 
             // Exact string, not a substring: the "STEP 4 of 4" this replaced would satisfy a
-            // loose match against "STEP 3" once the number changed.
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            // loose match against "Step 3" once the number changed.
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
         })
 
         it('renders "Submit code" as the section title', async () => {
@@ -519,24 +519,31 @@ describe('StudyCode component', () => {
         })
 
         it('records the visit on mount, without waiting for the reader to touch it', async () => {
-            const { study } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            const { study, user } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
 
             await waitFor(async () => {
                 const rows = await db
                     .selectFrom('audit')
                     .select('id')
                     .where('recordType', '=', 'USER')
+                    .where('recordId', '=', user.id)
                     .where('eventType', '=', 'VIEWED')
                     .execute()
                 expect(rows).toHaveLength(1)
             })
+            await waitForPendingMutations()
             expect(study).toBeDefined()
         })
 
         it('records nothing on a return visit', async () => {
-            await renderIDE()
+            const { user } = await renderIDE()
 
-            const rows = await db.selectFrom('audit').select('id').where('eventType', '=', 'VIEWED').execute()
+            const rows = await db
+                .selectFrom('audit')
+                .select('id')
+                .where('recordId', '=', user.id)
+                .where('eventType', '=', 'VIEWED')
+                .execute()
             expect(rows).toHaveLength(0)
         })
 
@@ -1697,17 +1704,25 @@ describe('StudyCode component', () => {
         /**
          * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
          * renames the first starter file after the code env's language, and the badge matches that
-         * derived name. `pristine` decides whether it still counts as untouched — the badge keys off
+         * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
          * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
-        const renderWithTemplate = async ({ pristine, isMain = false }: { pristine: boolean; isMain?: boolean }) => {
+        const renderWithTemplate = async ({
+            baseline,
+            isMain = false,
+        }: {
+            baseline: 'pristine' | 'edited' | 'none'
+            isMain?: boolean
+        }) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-            await insertTestBaselineJob(study.id, {
-                createdAt: new Date(Date.now() + (pristine ? 60_000 : -60_000)),
-            })
+            if (baseline !== 'none') {
+                await insertTestBaselineJob(study.id, {
+                    createdAt: new Date(Date.now() + (baseline === 'pristine' ? 60_000 : -60_000)),
+                })
+            }
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1736,7 +1751,7 @@ describe('StudyCode component', () => {
         // The card's "star pre-selected by default": the pre-load writes study.mainCodeFileName, so
         // the researcher lands on a starred template without touching anything.
         it('renders the template starred when the pre-load has set it as main', async () => {
-            await renderWithTemplate({ pristine: true, isMain: true })
+            await renderWithTemplate({ baseline: 'pristine', isMain: true })
 
             await waitFor(() => {
                 expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
@@ -1744,23 +1759,27 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
 
-        it('badges the untouched starter file, and only that file', async () => {
-            await renderWithTemplate({ pristine: true })
+        // 'none' is the first visit: the pre-load opens no round job, so there is no baseline (OTTER-698).
+        it.each(['pristine', 'none'] as const)(
+            'badges the untouched starter file, and only that file (baseline: %s)',
+            async (baseline) => {
+                await renderWithTemplate({ baseline })
 
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
+                await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+                expect(screen.getAllByText('Template')).toHaveLength(1)
+                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                expect(templateRow).toHaveTextContent('Template')
+            },
+        )
 
         it('drops the badge once the starter file has been edited or replaced', async () => {
-            await renderWithTemplate({ pristine: false })
+            await renderWithTemplate({ baseline: 'edited' })
 
             expect(screen.queryByText('Template')).not.toBeInTheDocument()
         })
 
         it('explains the template on hover, in the same words as the FAQ', async () => {
-            await renderWithTemplate({ pristine: true })
+            await renderWithTemplate({ baseline: 'pristine' })
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
 
             const copy = () => screen.queryAllByText(/It is a template from Test Data Partner that connects to their/)

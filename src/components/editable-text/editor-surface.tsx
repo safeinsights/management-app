@@ -1,16 +1,8 @@
 'use client'
 
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type CSSProperties,
-    type MouseEvent,
-    type ReactNode,
-    type RefObject,
-} from 'react'
-import { Box, Paper, Text } from '@mantine/core'
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react'
+import clsx from 'clsx'
+import { Box, Paper, Text, type MantineFontSize } from '@mantine/core'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
@@ -20,25 +12,13 @@ import type { WidgetBlurProps } from '@/components/form-field'
 
 export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
-// `contentStyle.minHeight` is a fallback because callers predating `contentHeight` express the
-// same thing that way.
-export const resolveContentHeight = (contentHeight?: number, contentStyle?: CSSProperties) =>
-    contentHeight ?? contentStyle?.minHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
-
-/** Absorbs the slack when the box is dragged taller, so the measured content stays its own size. */
-const SCROLL_AREA_STYLE: CSSProperties = { position: 'relative', flex: 1, overflow: 'auto' }
-
-const PLACEHOLDER_BASE_STYLE: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    pointerEvents: 'none',
-}
+// Shared by the editable surface and its placeholder so the two sit exactly on top of each other.
+const TEXT_METRICS = { px: 'md', py: 'xs', lh: 1.6 } as const
 
 // A drag may not shrink the field below its content (OTTER-691). Applied as `min-height` so it
 // coexists with the inline `height` a native drag writes; measuring the scroll container instead
 // of `contentRef` would feed the floor its own value.
-function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef: RefObject<HTMLDivElement | null>) {
+function useEditorHeightFloor(contentHeight: number, hostRef: RefObject<HTMLDivElement | null>) {
     const contentRef = useRef<HTMLDivElement>(null)
     const chromeRef = useRef<HTMLDivElement>(null)
     const [floor, setFloor] = useState<number | undefined>(undefined)
@@ -64,13 +44,16 @@ function useEditorHeightFloor(contentHeight: CSSProperties['minHeight'], hostRef
         return () => observer.disconnect()
     }, [contentHeight, hostRef])
 
-    return { contentRef, chromeRef, floor }
+    // Mantine turns numbers and px strings into rem, which stops matching a pixel measurement once
+    // the browser's base font size is not 16px; calc() passes through unconverted.
+    return { contentRef, chromeRef, floor: floor === undefined ? undefined : `calc(${floor}px)` }
 }
 
 export interface EditorSurfaceProps {
     inputId?: string
     contentClassName?: string
-    contentStyle?: CSSProperties
+    /** The surface owns padding and line height; callers pick only the text size. */
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     ariaDescribedBy?: string
@@ -90,19 +73,18 @@ export interface EditorSurfaceProps {
 export function EditorSurface({
     inputId,
     contentClassName,
-    contentStyle,
+    fz,
     placeholder,
     ariaLabel,
     ariaDescribedBy,
     ariaRequired,
     error,
     widgetBlur,
-    contentHeight,
+    contentHeight = DEFAULT_EDITOR_CONTENT_HEIGHT,
     isResizable = false,
     children,
 }: EditorSurfaceProps) {
-    const startingHeight = resolveContentHeight(contentHeight, contentStyle)
-    const { contentRef, chromeRef, floor } = useEditorHeightFloor(startingHeight, widgetBlur.ref)
+    const { contentRef, chromeRef, floor } = useEditorHeightFloor(contentHeight, widgetBlur.ref)
 
     // Dragging the box taller leaves slack under the text where a click would otherwise do
     // nothing. Presses landing on the text itself keep their own caret placement.
@@ -114,26 +96,26 @@ export function EditorSurface({
         [contentRef],
     )
 
-    const surfaceStyle: CSSProperties = {
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        minHeight: floor,
-        resize: isResizable ? 'vertical' : 'none',
-        borderColor: error ? 'var(--mantine-color-error)' : undefined,
-    }
-    const editableStyle: CSSProperties = { ...contentStyle, minHeight: startingHeight }
-
     return (
-        <Paper p={0} className="collaborative-editor-container" style={surfaceStyle} {...widgetBlur}>
-            <div style={SCROLL_AREA_STYLE} onMouseDown={focusFromSlack}>
+        <Paper
+            p={0}
+            className="collaborative-editor-container"
+            mih={floor}
+            data-resizable={isResizable || undefined}
+            data-error={error ? true : undefined}
+            {...widgetBlur}
+        >
+            <Box className="editable-text-scroll">
                 <div ref={contentRef}>
                     <RichTextPlugin
                         contentEditable={
-                            <ContentEditable
+                            <Box
+                                component={ContentEditable}
                                 id={inputId}
-                                className={contentClassName}
-                                style={editableStyle}
+                                className={clsx('editable-text-content', contentClassName)}
+                                {...TEXT_METRICS}
+                                fz={fz}
+                                mih={contentHeight}
                                 // Lexical sets no tabindex. Browsers still focus a contenteditable
                                 // but happy-dom does not, so tests would silently no-op.
                                 tabIndex={0}
@@ -143,35 +125,27 @@ export function EditorSurface({
                                 ariaRequired={ariaRequired}
                             />
                         }
-                        placeholder={<EditorPlaceholder text={placeholder} contentStyle={contentStyle} />}
+                        placeholder={<EditorPlaceholder text={placeholder} fz={fz} />}
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                 </div>
-            </div>
+            </Box>
             {children}
             {/* Inside the field on purpose: a card in a portal would read as a blur (OTTER-647),
                 and this position puts it before the toolbar in the tab order. */}
             <LinkHoverCardPlugin />
-            <Box ref={chromeRef} p="xxs">
+            <Box ref={chromeRef} p="xxs" onMouseDown={focusFromSlack}>
                 <Toolbar />
             </Box>
         </Paper>
     )
 }
 
-const EditorPlaceholder = ({ text, contentStyle }: { text?: string; contentStyle?: CSSProperties }) => {
+const EditorPlaceholder = ({ text, fz }: { text?: string; fz?: MantineFontSize }) => {
     if (!text) return null
 
-    // Mirrors the editable surface's own text metrics so the two sit exactly on top of each other.
-    const style: CSSProperties = {
-        ...PLACEHOLDER_BASE_STYLE,
-        padding: contentStyle?.padding,
-        fontSize: contentStyle?.fontSize,
-        lineHeight: contentStyle?.lineHeight,
-    }
-
     return (
-        <Text c="dimmed" style={style}>
+        <Text c="dimmed" pos="absolute" top={0} left={0} {...TEXT_METRICS} fz={fz} className="click-through">
             {text}
         </Text>
     )

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { AccessDeniedAlert } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
+import { isLabOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect } from 'next/navigation'
@@ -24,6 +25,11 @@ export default async function RequestStudyPage(props: { params: Promise<{ orgSlu
     const org = await getOrgFromSlugAction({ orgSlug })
     if (isActionError(org)) {
         redirect(Routes.notFound)
+    }
+
+    // No study exists yet, so the route org is the persona: a Data Partner slug is never a submitting lab.
+    if (!isLabOrg(org)) {
+        redirect(Routes.orgDashboard({ orgSlug }))
     }
 
     return <StudyProposal submittingLabName={org.name} />

@@ -1,7 +1,6 @@
 'use client'
 
-import { ActionIcon, Box, Divider, Paper, TextInput, Tooltip } from '@mantine/core'
-import { semanticColor } from '@/theme/tokens'
+import { ActionIcon, Divider, Group, Paper, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -27,6 +26,7 @@ import {
     TextFormatType,
 } from 'lexical'
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
+import { semanticColor } from '@/theme/tokens'
 import { isValidUrl } from './config'
 import { OPEN_LINK_CARD_COMMAND } from './link-card-node'
 import {
@@ -183,40 +183,36 @@ export const Toolbar = () => {
 
     return (
         <Paper
-            withBorder
             shadow="md"
             radius="xs"
-            p="xxs"
+            w="fit-content"
+            bd={`1px solid ${semanticColor('border.default')}`}
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
                     e.preventDefault()
                 }
             }}
-            style={{
-                borderColor: semanticColor('border.default'),
-                display: 'inline-flex',
-                gap: 4,
-                alignItems: 'center',
-            }}
         >
-            {linkEditor.isEditing ? (
-                <LinkInput
-                    url={linkEditor.url}
-                    onChange={linkEditor.setUrl}
-                    onSubmit={linkEditor.submitLink}
-                    onCancel={linkEditor.cancelLink}
-                    inputRef={linkEditor.inputRef}
-                />
-            ) : (
-                <FormatButtons
-                    formatState={formatState}
-                    onFormatText={formatText}
-                    onToggleLink={toggleLink}
-                    onToggleList={toggleList}
-                    onIndent={indent}
-                    onOutdent={outdent}
-                />
-            )}
+            <Group gap="xxs" p="xxs" wrap="nowrap">
+                {linkEditor.isEditing ? (
+                    <LinkInput
+                        url={linkEditor.url}
+                        onChange={linkEditor.setUrl}
+                        onSubmit={linkEditor.submitLink}
+                        onCancel={linkEditor.cancelLink}
+                        inputRef={linkEditor.inputRef}
+                    />
+                ) : (
+                    <FormatButtons
+                        formatState={formatState}
+                        onFormatText={formatText}
+                        onToggleLink={toggleLink}
+                        onToggleList={toggleList}
+                        onIndent={indent}
+                        onOutdent={outdent}
+                    />
+                )}
+            </Group>
         </Paper>
     )
 }
@@ -235,7 +231,7 @@ function LinkInput({
     inputRef: React.RefObject<HTMLInputElement | null>
 }) {
     return (
-        <Box style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <Group gap="xxs" wrap="nowrap">
             <TextInput
                 ref={inputRef}
                 size="xs"
@@ -246,7 +242,7 @@ function LinkInput({
                     if (e.key === 'Escape') onCancel()
                 }}
                 placeholder="https://"
-                style={{ width: 200 }}
+                w={200}
             />
             <Tooltip label="Apply">
                 <ActionIcon size="sm" variant="subtle" color="green" onClick={onSubmit} aria-label="Apply link">
@@ -258,7 +254,7 @@ function LinkInput({
                     <XIcon size={14} />
                 </ActionIcon>
             </Tooltip>
-        </Box>
+        </Group>
     )
 }
 
@@ -281,7 +277,7 @@ function FormatButtons({
         <>
             <ActionIcon
                 variant={formatState.isBold ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('bold')}
                 aria-label="Bold"
@@ -290,7 +286,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isItalic ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('italic')}
                 aria-label="Italic"
@@ -299,7 +295,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.isUnderline ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onFormatText('underline')}
                 aria-label="Underline"
@@ -309,7 +305,7 @@ function FormatButtons({
             <Divider orientation="vertical" />
             <ActionIcon
                 variant={formatState.isLink ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onToggleLink}
                 aria-label="Link"
@@ -318,7 +314,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'bullet' ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onToggleList('bullet')}
                 aria-label="Bullet list"
@@ -327,7 +323,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant={formatState.listType === 'number' ? 'filled' : 'subtle'}
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={() => onToggleList('number')}
                 aria-label="Numbered list"
@@ -337,7 +333,7 @@ function FormatButtons({
             <Divider orientation="vertical" />
             <ActionIcon
                 variant="subtle"
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onIndent}
                 aria-label="Indent"
@@ -347,7 +343,7 @@ function FormatButtons({
             </ActionIcon>
             <ActionIcon
                 variant="subtle"
-                color="charcoal.4"
+                color={semanticColor('icon.light')}
                 size="sm"
                 onClick={onOutdent}
                 aria-label="Outdent"

@@ -1,6 +1,6 @@
 import { describe, expect, it, renderWithProviders, screen, within } from '@/tests/unit.helpers'
 import { ExternalLinks, Routes } from '@/lib/routes'
-import type { NavOrg } from '@/lib/nav/side-nav'
+import { NOTHING_UNREAD, type NavOrg } from '@/lib/nav/side-nav'
 import { SideNavView } from './side-nav-view'
 
 const partner: NavOrg = { id: '1', name: 'Open Data Partner', slug: 'partner', type: 'enclave', isAdmin: true }
@@ -8,7 +8,14 @@ const lab: NavOrg = { id: '2', name: 'Rice Lab', slug: 'lab', type: 'lab', isAdm
 
 describe('SideNavView', () => {
     it('lists My studies first, then the orgs by name with their type badge and admin label', () => {
-        renderWithProviders(<SideNavView orgs={[partner, lab]} focusedOrgSlug={null} pathname={Routes.dashboard} />)
+        renderWithProviders(
+            <SideNavView
+                orgs={[partner, lab]}
+                focusedOrgSlug={null}
+                pathname={Routes.dashboard}
+                unread={NOTHING_UNREAD}
+            />,
+        )
 
         const nav = screen.getByRole('navigation', { name: 'Main' })
         const links = within(nav).getAllByRole('link')
@@ -27,7 +34,14 @@ describe('SideNavView', () => {
 
     // The design fills the D square and only outlines the R one, so the two icons must not share a shape.
     it('draws a different icon for each org type', () => {
-        renderWithProviders(<SideNavView orgs={[partner, lab]} focusedOrgSlug={null} pathname={Routes.dashboard} />)
+        renderWithProviders(
+            <SideNavView
+                orgs={[partner, lab]}
+                focusedOrgSlug={null}
+                pathname={Routes.dashboard}
+                unread={NOTHING_UNREAD}
+            />,
+        )
 
         const iconPath = (name: string) =>
             screen.getByRole('img', { name }).querySelector('svg path')?.getAttribute('d') ?? ''
@@ -43,6 +57,7 @@ describe('SideNavView', () => {
                 orgs={[partner, lab]}
                 focusedOrgSlug="partner"
                 pathname={Routes.studyRequest({ orgSlug: 'partner' })}
+                unread={NOTHING_UNREAD}
             />,
         )
 
@@ -57,7 +72,9 @@ describe('SideNavView', () => {
     })
 
     it('links the external pages in new tabs based on the org types the user belongs to', () => {
-        renderWithProviders(<SideNavView orgs={[lab]} focusedOrgSlug={null} pathname={Routes.dashboard} />)
+        renderWithProviders(
+            <SideNavView orgs={[lab]} focusedOrgSlug={null} pathname={Routes.dashboard} unread={NOTHING_UNREAD} />,
+        )
 
         const catalog = screen.getByRole('link', { name: /Data catalog/ })
         expect(catalog).toHaveAttribute('href', ExternalLinks.dataCatalog)
@@ -68,8 +85,59 @@ describe('SideNavView', () => {
     })
 
     it('sends the logo to My studies', () => {
-        renderWithProviders(<SideNavView orgs={[]} focusedOrgSlug={null} pathname={Routes.legal} />)
+        renderWithProviders(
+            <SideNavView orgs={[]} focusedOrgSlug={null} pathname={Routes.legal} unread={NOTHING_UNREAD} />,
+        )
 
         expect(screen.getByRole('link', { name: /SafeInsights/ })).toHaveAttribute('href', Routes.dashboard)
+    })
+
+    describe('unread dot (OTTER-838)', () => {
+        it('marks My studies and the org group rows that hold unread studies, never their children', () => {
+            renderWithProviders(
+                <SideNavView
+                    orgs={[partner, lab]}
+                    focusedOrgSlug="lab"
+                    pathname={Routes.orgDashboard({ orgSlug: 'lab' })}
+                    unread={{ myStudies: { researcher: true, reviewer: false }, orgSlugs: ['lab'] }}
+                />,
+            )
+
+            const nav = screen.getByRole('navigation', { name: 'Main' })
+            expect(within(nav).getByRole('link', { name: /^My studies/ })).toHaveTextContent('Updated')
+            expect(within(nav).getByRole('link', { name: /Rice Lab/ })).toHaveTextContent('Updated')
+            expect(within(nav).getByRole('link', { name: /Open Data Partner/ })).not.toHaveTextContent('Updated')
+            expect(within(nav).getByRole('link', { name: 'Dashboard' })).not.toHaveTextContent('Updated')
+            expect(within(nav).getAllByText('Updated')).toHaveLength(2)
+        })
+
+        // Selecting a row clears nothing; only opening a study does. The reviewer tab alone lights it.
+        it('keeps the dot on the selected My studies row', () => {
+            renderWithProviders(
+                <SideNavView
+                    orgs={[lab]}
+                    focusedOrgSlug={null}
+                    pathname={Routes.dashboard}
+                    unread={{ myStudies: { researcher: false, reviewer: true }, orgSlugs: [] }}
+                />,
+            )
+
+            const myStudies = screen.getByRole('link', { name: /^My studies/ })
+            expect(myStudies).toHaveAttribute('aria-current', 'page')
+            expect(myStudies).toHaveTextContent('Updated')
+        })
+
+        it('shows no dot when nothing is unread', () => {
+            renderWithProviders(
+                <SideNavView
+                    orgs={[partner, lab]}
+                    focusedOrgSlug={null}
+                    pathname={Routes.dashboard}
+                    unread={NOTHING_UNREAD}
+                />,
+            )
+
+            expect(screen.queryByText('Updated')).toBeNull()
+        })
     })
 })

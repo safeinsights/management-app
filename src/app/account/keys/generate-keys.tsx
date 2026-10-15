@@ -27,7 +27,7 @@ interface Keys {
     fingerprint: string
 }
 
-// Keyed off account state, not the parameter's presence, because RequireUserKey passes none.
+// Keyed off account state, not the parameter's presence: the key gate omits it for "My dashboard".
 // firstKeyRedirect is the fallback so a malformed redirect_url cannot demote a first key
 // to Routes.dashboard (OTTER-655).
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
@@ -89,7 +89,6 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     isRegenerating = false,
     firstKeyRedirect = Routes.dashboard,
 }) => {
-    const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     // Reveal Next after any copy attempt so a blocked clipboard doesn't trap the user.
@@ -119,7 +118,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
-                <Title order={3} fz={22}>
+                <Title order={1} fz={22}>
                     {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
@@ -129,15 +128,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
                     <Text fz={14} fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
-                    <Code
-                        block
-                        style={{
-                            maxHeight: 160,
-                            border: `1px solid ${theme.colors.grey[7]}`,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
-                    >
+                    <Code block mah={160} bd={`1px solid ${semanticColor('border.dark')}`} className="pre-wrap">
                         {keys.privateKey}
                     </Code>
                 </Stack>

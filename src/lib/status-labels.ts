@@ -23,9 +23,6 @@ export type PillPresentation = {
 // The five families of the "Study status badges" frame in the SI UI Component Library. Yellow is the
 // only one that fills with a saturated shade instead of a light tint, so it pairs with body text
 // rather than a tinted text.
-//
-// Figma's `status/warning/bg-dark` currently reads yellow.4 while the token of that name resolves to
-// yellow.5; the badge keeps reading the token so a correction in tokens.ts reaches it (OTTER-698 D7).
 const COLORS = {
     gray: { bg: semanticColor('surface.page'), c: semanticColor('text.secondary') },
     blue: { bg: semanticColor('info.bg.light'), c: semanticColor('info.text') },

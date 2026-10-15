@@ -10,6 +10,7 @@ import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
 import { connection } from 'next/server'
 import PostHogUserProvider from '../posthog-user-provider'
+import { requireUserKey } from '@/server/user-key-gate'
 
 type Props = {
     children: ReactNode
@@ -28,9 +29,11 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
     if (user.twoFactorEnabled === false) {
         redirect('/account/mfa')
     }
+    await requireUserKey()
 
+    // Without `dynamic` Clerk drops the CSP nonce from clerk.browser.js (OTTER-679).
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} dynamic>
             <SentryUserProvider />
             <PostHogUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>

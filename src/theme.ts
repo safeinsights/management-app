@@ -1,5 +1,7 @@
 import {
+    Accordion,
     Badge,
+    type BadgeProps,
     type ButtonProps,
     type ButtonVariant,
     Checkbox,
@@ -8,11 +10,16 @@ import {
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Divider,
     Input,
     type InputProps,
     MantineColorsTuple,
+    Modal,
     Notification,
     Radio,
+    rem,
+    Tabs,
+    Typography,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -210,6 +217,8 @@ export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<
         ...DISABLED_VARS,
         ...buttonSizeVars(props.size),
         ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+        // A text-only button keeps no tile when disabled, as with ActionIcon.
+        ...(props.variant === 'transparent' ? { '--mantine-color-disabled': 'transparent' } : {}),
     },
 })
 
@@ -264,10 +273,17 @@ export const theme = createTheme({
         ...uiThemeComponents,
         // No SI badge design uses Mantine's uppercase, bold default. Outline keeps its border colour but
         // takes text/Sub-labels, since a border shade like grey/5 is too faint for text. Badges never
-        // truncate: Mantine's ellipsis cut dashboard status labels to "Pro…" in narrow columns.
+        // truncate: Mantine's ellipsis cut dashboard status labels to "Pro…" in narrow columns. Mantine's
+        // cursor: default would also land on badges that act as links or buttons.
         Badge: Badge.extend({
             defaultProps: { tt: 'none', fw: fontWeight.semibold },
-            styles: { root: { minWidth: 'max-content' } },
+            // Badge is polymorphic, so its props type omits what an `a` or click handler brings.
+            styles: (_theme, props: BadgeProps & { onClick?: unknown; href?: unknown }) => ({
+                root: {
+                    minWidth: 'max-content',
+                    ...(props.onClick || props.href ? { cursor: 'pointer' } : {}),
+                },
+            }),
             vars: (_theme, { variant }) => ({
                 root: variant === 'outline' ? { '--badge-color': semanticColor('text.secondary') } : {},
             }),
@@ -291,6 +307,15 @@ export const theme = createTheme({
         Radio: Radio.extend({
             defaultProps: { color: semanticColor('surface.selected') },
         }),
+        // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
+        Divider: Divider.extend({
+            defaultProps: { color: semanticColor('border.default') },
+        }),
+        // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
+        // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
+        Typography: Typography.extend({
+            styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
+        }),
         Table: {
             styles: () => ({
                 th: {
@@ -309,6 +334,34 @@ export const theme = createTheme({
             },
             vars: buttonVars,
         },
+        // Header keeps its own inline padding so `padding={0}` can flush just the body, e.g. a file preview.
+        Modal: Modal.extend({
+            defaultProps: { padding: 'xxl' },
+            styles: {
+                header: {
+                    paddingBlock: 0,
+                    paddingInline: 'var(--mantine-spacing-xxl)',
+                    backgroundColor: semanticColor('surface.sunken'),
+                },
+                body: { padding: 'var(--mb-padding)' },
+                close: {
+                    backgroundColor: semanticColor('icon.light'),
+                    color: semanticColor('text.white'),
+                    borderRadius: '100%',
+                    height: rem(16),
+                    width: rem(16),
+                    minHeight: rem(16),
+                    minWidth: rem(16),
+                },
+                title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold },
+            },
+        }),
+        // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
+        Accordion: Accordion.extend({
+            styles: { content: { padding: 'var(--mantine-spacing-lg) var(--mantine-spacing-md)' } },
+        }),
+        // Figma puts 32px between a tab strip and its panel's card.
+        TabsPanel: Tabs.Panel.extend({ defaultProps: { pt: 'xl' } }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
             // toast would otherwise present an unlabelled dismiss control. Matches how the modals in

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type FC } from 'react'
+import { useCallback, useRef, useState, type FC, type ReactNode } from 'react'
 import { type StudyCodeIDE, useIDEFiles } from '@/hooks/use-ide-files'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -12,14 +12,11 @@ import { blocksStudyWork } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from '@/components/legal/require-study-agreement'
 import { StepNavigation } from './step-navigation'
 import { SUBMIT_CODE_ERROR_ID } from './submit-code-error'
-import { ProposalStepHeader } from './proposal-step-header'
+import { ProposalStepHeader, SUBMIT_CODE_STEP } from './proposal-step-header'
 import { SubmitCodeFaq } from './submit-code-faq'
 import { YourFilesSection } from './your-files-section'
 import { fontWeight } from '@/theme/tokens'
 import { submitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
-
-const STEP_LABEL = 'STEP 3'
-const SECTION_TITLE = 'Submit code'
 
 interface StudyCodeProps {
     studyId: string
@@ -34,6 +31,8 @@ interface StudyCodeProps {
     isEditable: boolean
     nav: StepNav
     onSubmitSuccess?: () => void
+    /** "Also editing" badges for the step header (OTTER-753). */
+    presence?: ReactNode
 }
 
 const SubmitCodeIntro: FC<{ dataPartnerName: string }> = ({ dataPartnerName }) => (
@@ -121,6 +120,7 @@ export const StudyCode = ({
     isEditable,
     nav,
     onSubmitSuccess,
+    presence,
 }: StudyCodeProps) => {
     const [confirmOpen, { open: openConfirm, close: closeConfirm }] = useDisclosure(false)
     const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -170,7 +170,11 @@ export const StudyCode = ({
             <Stack gap="xxl">
                 {/* No studyTitle: the card forbids repeating the title as body text here. The
                     header's rule only draws when something follows it, which the children below do. */}
-                <ProposalStepHeader stepLabel={STEP_LABEL} heading={SECTION_TITLE}>
+                <ProposalStepHeader
+                    stepLabel={SUBMIT_CODE_STEP.label}
+                    heading={SUBMIT_CODE_STEP.heading}
+                    action={presence}
+                >
                     <Stack gap="lg">
                         <SubmitCodeIntro dataPartnerName={dataPartnerName} />
                         <SubmitCodeFaq

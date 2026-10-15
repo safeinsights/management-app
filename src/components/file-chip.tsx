@@ -2,6 +2,7 @@ import { Badge, BadgeProps } from '@mantine/core'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 import { truncate } from '@/lib/string'
+import { semanticColor } from '@/theme/tokens'
 import { InfoTooltip } from './tooltip'
 
 type FileChipProps = Omit<BadgeProps, 'component' | 'href'> & {
@@ -15,13 +16,12 @@ export const FileChip: FC<FileChipProps> = ({ href, filename, ...badgeProps }) =
 
     const badge = (
         <Badge
-            color="#D4D1F3"
-            c="black"
+            color={semanticColor('brand.light')}
+            c={semanticColor('text.primary')}
             component="a"
             href={href}
             target="_blank"
             rightSection={<DownloadIcon />}
-            style={{ cursor: 'pointer' }}
             {...badgeProps}
         >
             {truncatedText}

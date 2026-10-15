@@ -1,33 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-    actionResult,
-    db,
-    mockSessionWithTestData,
-    renderWithProviders,
-    waitFor,
-    userEvent,
-} from '@/tests/unit.helpers'
+import { renderWithProviders, waitFor, userEvent } from '@/tests/unit.helpers'
 import { JOINED_ORG_STORAGE_KEY, markOrgJoined } from '@/lib/joined-org'
-import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { JoinedOrgBanner } from './joined-org-banner'
-
-// insertTestUser only seeds a public key for enclave orgs, so orgType picks the key state:
-// 'enclave' is keyed, 'lab' is the keyless user RequireUserKey bounces to key setup.
-const KEYED = 'enclave'
-const KEYLESS = 'lab'
 
 describe('JoinedOrgBanner', () => {
     beforeEach(() => sessionStorage.clear())
 
-    it('renders nothing when no org was just joined', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
+    it('renders nothing when no org was just joined', () => {
         const { queryByTestId } = renderWithProviders(<JoinedOrgBanner />)
 
         expect(queryByTestId('joined-org-banner')).toBeNull()
     })
 
-    it('reveals the banner and clears the flag once the user is keyed', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
+    it('reveals the banner and clears the flag', async () => {
         sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, 'ASU Research Lab')
         const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
 
@@ -35,30 +20,9 @@ describe('JoinedOrgBanner', () => {
         expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBeNull()
     })
 
-    it('keeps the flag for a keyless user awaiting key setup, then reveals on the real landing', async () => {
-        const { user } = await mockSessionWithTestData({ orgType: KEYLESS })
-        sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, 'ASU Research Lab')
-
-        const transient = renderWithProviders(<JoinedOrgBanner />)
-        // The component awaits this same check, so an intact flag below is the settled result.
-        expect(actionResult(await userKeyExistsAction())).toBe(false)
-        expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBe('ASU Research Lab')
-        expect(transient.queryByTestId('joined-org-banner')).toBeNull()
-        transient.unmount()
-
-        await db
-            .insertInto('userPublicKey')
-            .values({ userId: user.id, publicKey: Buffer.from('testPublicKey1'), fingerprint: 'testFingerprint1' })
-            .executeTakeFirstOrThrow()
-
-        const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
-        await waitFor(() => expect(getByTestId('joined-org-banner')).toHaveTextContent('ASU Research Lab'))
-    })
-
     // OTTER-788. The linking step overwrites the flag, so the banner is the one place that reports
     // both the membership and the newly linked address.
     it('names the linked address when an invited email was merged into the account', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
         markOrgJoined('ASU Research Lab', 'invited@example.com')
         const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
 
@@ -70,7 +34,6 @@ describe('JoinedOrgBanner', () => {
     })
 
     it('keeps the plain copy when nothing was linked', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
         markOrgJoined('ASU Research Lab')
         const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
 
@@ -80,7 +43,6 @@ describe('JoinedOrgBanner', () => {
     })
 
     it('reads a legacy bare org name even when it parses as JSON', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
         sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, '2024')
         const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
 
@@ -89,7 +51,6 @@ describe('JoinedOrgBanner', () => {
     })
 
     it('dismisses when the close button is clicked', async () => {
-        await mockSessionWithTestData({ orgType: KEYED })
         sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, 'ASU Research Lab')
         const { getByTestId, queryByTestId } = renderWithProviders(<JoinedOrgBanner />)
 

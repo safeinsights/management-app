@@ -7,7 +7,7 @@ import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreemen
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
@@ -98,7 +98,11 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                 <Box bg={semanticColor('surface.page')}>
                     <Stack px="xl" gap="xxl" py="xl">
                         {header}
-                        <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
+                        <ProposalStepHeader
+                            stepLabel={REVIEW_OUTPUTS_STEP.label}
+                            heading={REVIEW_OUTPUTS_STEP.heading}
+                            banner={banner}
+                        />
                         <StudyAgreementPreparingNotice
                             studyId={studyId}
                             consequence="You cannot release these outputs"

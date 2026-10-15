@@ -62,8 +62,7 @@ type SubmittedCodeSectionProps = {
     job: Pick<LatestJobForStudy, 'id' | 'files' | 'createdAt' | 'statusChanges'>
     analysis: JobAnalysis
     codeInitiallyExpanded?: boolean
-    // When the parent owns expand/collapse, datasets stay mounted and this hides the AI summary
-    // and code files.
+    // When the parent owns expand/collapse, the first two blocks stay visible and the rest collapse.
     detailsExpanded?: boolean
     // When set, the parent owns expand/collapse. The code viewer then always shows its files and
     // its toggle becomes the section's "Hide full submission details" closer.
@@ -121,24 +120,20 @@ export function SubmittedCodeSection({
             <Stack gap="md">
                 <SubmittedCodeHeader proposalHref={proposalHref} />
                 <Divider />
-                <DatasetPills names={datasetNames} />
-                <Divider />
                 <JobAnalysisPanels
                     studyJobId={job.id}
                     initialAnalysis={analysis}
                     submittedAt={submittedAt}
                     detailsExpanded={detailsExpanded}
                     expandToggle={expandToggle}
+                    leadingBlocks={[{ key: 'datasets', content: <DatasetPills names={datasetNames} /> }]}
                 >
-                    <Stack gap="xxl">
-                        <Divider />
-                        <StudyCodeViewer
-                            studyJobId={job.id}
-                            files={codeFiles}
-                            initialExpanded={codeInitiallyExpanded}
-                            onCollapse={onCollapse}
-                        />
-                    </Stack>
+                    <StudyCodeViewer
+                        studyJobId={job.id}
+                        files={codeFiles}
+                        initialExpanded={codeInitiallyExpanded}
+                        onCollapse={onCollapse}
+                    />
                 </JobAnalysisPanels>
             </Stack>
         </Paper>

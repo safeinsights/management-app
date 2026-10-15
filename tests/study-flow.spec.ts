@@ -49,7 +49,7 @@ const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
 
 // OTTER-690: Step 1 is one card, and the study title is entered here rather than on Step 2.
 async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = /openstax/i) {
-    await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+    await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Set up study', level: 2 })).toBeVisible()
 
     await page.getByLabel(/Study title/).fill(studyTitle)
@@ -102,7 +102,7 @@ async function navigateToProposeStudy(page: Page, studyTitle: string) {
     await confirmStep1(page)
 
     await page.waitForURL(/\/proposal$/)
-    await expect(page.getByText('STEP 2')).toBeVisible()
+    await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
 }
 
 // Not `getByPlaceholder`: Step 2 renders no placeholder text (OTTER-691), so the locator this
@@ -635,7 +635,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
@@ -675,13 +675,13 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // submission, which is what makes the permanent lock outrank state 2's editable title.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText(/^STEP 1$/)).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
-        await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Save & continue' })).toHaveCount(0)
 
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
@@ -733,7 +733,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // The revisit CTA saves and moves straight on. Reaching Step 2 is itself the proof that the
         // confirmation modal was skipped: it belongs to the first visit, where the Data Partner and
         // the language were still open to change, and an open modal would hold the navigation.
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
@@ -747,7 +747,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
         await page.waitForURL(/\/proposal$/)
-        await expect(page.getByText('STEP 2')).toBeVisible()
+        await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
     })
 })
 
@@ -899,7 +899,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await clickViewLink(page, studyRow)
 
-        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         // The page heading is the study title; "Review proposal" is the section header.
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
@@ -954,7 +954,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // again from there. Every field is a locked group by now, so none of them holds a control.
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
@@ -981,7 +981,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
         await clickViewLink(page, studyRow)
 
-        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
 
         const feedbackEditor = page.getByTestId('review-feedback-section').locator('[contenteditable="true"]')
         await expect(feedbackEditor).toBeVisible()
@@ -1023,7 +1023,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('cta-back-to-my-studies')).toHaveCount(0)
         await page.getByRole('link', { name: /Previous step/i }).click()
         await page.waitForURL(/\/edit(\?.*)?$/)
-        await expect(page.getByText('STEP 1')).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await expectLockedSetupField(page, 'Study title', studyTitle)
         await expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
         await expectLockedSetupField(page, 'Programming language', 'R')
@@ -1037,6 +1037,14 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
 
         await page.getByRole('link', { name: /^Edit proposal$/i }).click()
+        await page.waitForURL(/\/edit-and-resubmit$/)
+
+        // OTTER-673: Edit proposal steps back to Step 1, whose Next step returns to Edit proposal
+        // rather than to the proposal status it was opened from.
+        await page.getByRole('button', { name: /^Previous step$/i }).click()
+        await page.waitForURL(/\/edit\?from=edit-proposal$/)
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Next step' }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
@@ -1155,8 +1163,18 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await studyRow.getByRole('link').first().click()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
-        await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
+
+        // OTTER-673: Edit code steps back past the code step to the approved proposal, whose Next
+        // step returns to Edit code.
+        await page.getByTestId('cta-edit-code').click()
+        await page.waitForURL(/\/resubmit$/)
+        await page.getByRole('button', { name: /^Previous step$/i }).click()
+        await page.waitForURL(/\/submitted\?from=edit-code$/)
+        await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
+        await page.getByRole('link', { name: /^Next step$/i }).click()
+        await page.waitForURL(/\/resubmit$/)
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
     })
@@ -1279,7 +1297,7 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
         // straight to the study (the seed gives us its id) instead of dashboard → View.
         await visitAsRole(page, `/openstax/study/${studyId}/review`)
 
-        await expect(page.getByText('STEP 1', { exact: true })).toBeVisible()
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         // The page heading is the study title; "Review proposal" is the section header.
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeVisible()
@@ -1371,7 +1389,7 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // ...and confirming moves on to Step 2.
         await confirmStep1(page)
         await page.waitForURL(/\/proposal$/)
-        await expect(page.getByText('STEP 2')).toBeVisible()
+        await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
 
         // Step 2 no longer owns the title, and OTTER-691 removed its placeholders. Asserted on the
         // controls themselves: `getByPlaceholder(...).toHaveCount(0)` also passes when the field is

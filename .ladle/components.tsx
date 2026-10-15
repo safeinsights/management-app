@@ -2,13 +2,14 @@ import type { GlobalProvider } from '@ladle/react'
 import { Box, MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 // Import the EXACT same stylesheets, in the same order, as src/app/layout.tsx so
-// Ladle renders through the app's real styling pipeline (Panda globals + Mantine
+// Ladle renders through the app's real styling pipeline (globals.css + Mantine
 // layer CSS) — not a separate, non-real stylesheet. Keep this list in sync with
 // layout.tsx. Ladle uses Vite, not Next, so layout.tsx's imports are never seen here.
 import './fonts.css'
 import '../src/app/globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
+import '@/styles/mantine-datatable.css'
 import '@mantine/dropzone/styles.layer.css'
 import '@mantine/notifications/styles.layer.css'
 import './ladle.css'

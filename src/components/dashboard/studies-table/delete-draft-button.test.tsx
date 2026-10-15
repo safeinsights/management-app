@@ -41,7 +41,7 @@ describe('DeleteDraftButton', () => {
         expect(screen.getByRole('button', { name: /^cancel$/i })).toBeInTheDocument()
     })
 
-    it('renders the delete confirm button with a red.6 background', async () => {
+    it('renders the delete confirm button with the theme error variant', async () => {
         const { studyId, user } = await createTestProposalDraft({
             enclaveSlug: 'delete-draft-red-color-enclave',
             studyInfo: { title: 'Red Draft' },
@@ -55,9 +55,8 @@ describe('DeleteDraftButton', () => {
         await user1.click(screen.getByLabelText(/delete draft study/i))
         const confirm = await screen.findByRole('button', { name: /yes, delete proposal draft/i })
 
-        // Mantine v7 maps `color="red.6"` to an inline CSS variable, so the resolved color is
-        // not assertable.
-        expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--mantine-color-red-6)')
+        // The variant writes inline CSS variables, so the resolved colours are not assertable.
+        expect(confirm.getAttribute('style') || '').toContain('--button-bg: var(--mantine-color-error-filled)')
     })
 
     it('closes the modal when the header X close button is clicked', async () => {

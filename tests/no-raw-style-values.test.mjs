@@ -50,6 +50,12 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         `notifications.show({ color: 'green', message: 'Saved' })`,
         `const CONFIG = { done: { color: 'green', label: 'Done' } }`,
         `const MUTED = { c: 'dimmed' }`,
+        // Mantine's variant variables are what the theme rewires to tokens; only a numbered rung is raw.
+        '<Box bg="var(--mantine-color-red-light)" />',
+        '<Box bd="1px solid var(--si-color-border-default)" />',
+        // A whole ramp, or one picked by a variable, is the theme's own plumbing rather than a choice.
+        'const ramp = theme.colors.green',
+        'const shade = theme.colors[family][Number(index)]',
     ],
     invalid: [
         {
@@ -175,6 +181,36 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: `<Alert styles={{ icon: { color: 'teal' } }} />`,
             errors: [{ messageId: 'oneOffStyles' }],
+        },
+        // A rung through Mantine's own variable is still a rung; `var(--` alone does not make a token.
+        {
+            code: '<CheckIcon color="var(--mantine-color-gray-6)" />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Text c="var(--mantine-color-red-7)" />',
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: `const BORDER = '1px solid var(--mantine-color-gray-3)'`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        // Read off the theme object, a shade has no string for the literal checks to see.
+        {
+            code: '<CheckIcon color={theme.colors.green[7]} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Box bg={rgba(theme.colors.grey[0], 0.3)} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const color = theme.colors.blue[7]; const I = () => <FileIcon color={color} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const { colors } = useMantineTheme(); const I = () => <Text c={colors.red[7]} />',
+            errors: [{ messageId: 'rawShade' }],
         },
     ],
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
-import { Accordion, Badge, Divider, Group, Stack, Text } from '@mantine/core'
+import { Accordion, Badge, Divider, Group, Stack, Text, rem } from '@mantine/core'
 import {
     CaretRightIcon,
     CaretUpDownIcon,
@@ -26,24 +26,11 @@ const FAQ_HEADER = 'New to SafeInsights IDE? Start here.'
 
 const QUESTION_ICON_SIZE = 16
 const SECTION_ICON_SIZE = 14
+const SECTION_ICON_GAP = 'xs'
 /** Figma `body/sm` and `label/md` are both 14px here. */
 const SECTION_FONT_SIZE = 14
-/** Icon width plus the 8px gap beside it, so an answer lines up under its question. */
-const ANSWER_INDENT = 22
-
-/**
- * Figma's `alpha/blue30`. Left as the literal token value because the theme has no blue this
- * light — `blue.0` is several steps darker — and adding a scale step is a wider change than
- * this card.
- */
-const PANEL_BACKGROUND = 'rgba(231, 241, 254, 0.3)'
-
-const ACCORDION_STYLES = {
-    item: { borderColor: 'var(--mantine-color-charcoal-1)' },
-    control: { backgroundColor: 'var(--mantine-color-grey-0)' },
-    panel: { backgroundColor: PANEL_BACKGROUND },
-    content: { paddingInline: 16, paddingBlock: 24 },
-} as const
+// Lines the answer up under the question's text, past the icon and the gap beside it.
+const ANSWER_INDENT = `calc(${rem(SECTION_ICON_SIZE)} + var(--mantine-spacing-${SECTION_ICON_GAP}))`
 
 type FaqEntry = {
     icon: ReactNode
@@ -98,7 +85,7 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
     // Keyed on the question so a test can pair a heading with its own answer without walking the
     // DOM; the two are separate nodes, and the template answer is split by an emphasised span.
     <Stack gap={0} data-testid={`faq-section-${question}`}>
-        <Group gap="xs" wrap="nowrap">
+        <Group gap={SECTION_ICON_GAP} wrap="nowrap">
             {icon}
             <Text fz={SECTION_FONT_SIZE} fw={fontWeight.bold} lh={1.2} c={semanticColor('text.primary')}>
                 {question}
@@ -171,12 +158,12 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
             disableChevronRotation
             variant="contained"
             radius="md"
-            styles={ACCORDION_STYLES}
             data-testid="submit-code-faq"
         >
-            <Accordion.Item value={FAQ_ITEM_VALUE}>
+            <Accordion.Item value={FAQ_ITEM_VALUE} bd={`1px solid ${semanticColor('border.default')}`}>
                 <Accordion.Control
-                    icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color="var(--mantine-color-blue-7)" />}
+                    bg={semanticColor('surface.page')}
+                    icon={<QuestionIcon size={QUESTION_ICON_SIZE} weight="fill" color={semanticColor('info.text')} />}
                 >
                     <Group gap="md" wrap="nowrap">
                         <Text component="span" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
@@ -185,10 +172,10 @@ export const SubmitCodeFaq: FC<SubmitCodeFaqProps> = ({ dataPartnerName, isFirst
                         <VideoDurationBadge minutes={videoDurationMinutes} />
                     </Group>
                 </Accordion.Control>
-                <Accordion.Panel>
+                <Accordion.Panel bg={semanticColor('brand.accentalpha')}>
                     <Stack gap="md">
                         <OnboardingVideo isVisible={openValue !== null} />
-                        <Divider color={semanticColor('border.default')} />
+                        <Divider />
                         {entries.map((entry) => (
                             <FaqSection key={entry.question} {...entry} />
                         ))}

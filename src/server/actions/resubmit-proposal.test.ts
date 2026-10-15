@@ -488,6 +488,37 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
         expect(row.proposalResubmissionNoteDraft).toBe('In-progress note')
     })
 
+    // OTTER-838: the save moves Last updated, so it must also count as the saver having seen it.
+    it('does not mark the study unread for the person saving, only for their co-authors', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-seen', orgType: 'lab' })
+        const { user: coAuthor } = await insertTestUser({ org })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'CHANGE-REQUESTED' })
+        const earlier = new Date(Date.now() - 60 * 60 * 1000)
+        await db
+            .insertInto('studyLastOpened')
+            .values([user, coAuthor].map(({ id }) => ({ studyId: study.id, userId: id, openedAt: earlier })))
+            .execute()
+
+        actionResult(await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: 'In-progress note' }))
+
+        const { labEditedAt } = await db
+            .selectFrom('study')
+            .select('labEditedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        const openedAt = async (userId: string) =>
+            (
+                await db
+                    .selectFrom('studyLastOpened')
+                    .select('openedAt')
+                    .where('studyId', '=', study.id)
+                    .where('userId', '=', userId)
+                    .executeTakeFirstOrThrow()
+            ).openedAt
+        expect((await openedAt(user.id)).getTime()).toBeGreaterThanOrEqual(labEditedAt!.getTime())
+        expect(await openedAt(coAuthor.id)).toEqual(earlier)
+    })
+
     it('lets a lab co-author overwrite the draft (last-write-wins)', async () => {
         const { org } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-2', orgType: 'lab' })
         const { user: originalAuthor } = await insertTestUser({ org })

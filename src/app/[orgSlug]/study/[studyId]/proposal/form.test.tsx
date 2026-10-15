@@ -65,7 +65,7 @@ describe('ProposalForm section header and body copy (OTTER-691)', () => {
         renderForm()
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+        expect(within(header).getByText('Step 2')).toBeInTheDocument()
         expect(within(header).getByRole('heading', { name: 'Study proposal' })).toBeInTheDocument()
         expect(screen.getByTestId('proposal-header-divider')).toBeInTheDocument()
     })

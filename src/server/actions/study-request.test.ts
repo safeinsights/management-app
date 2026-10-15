@@ -8,6 +8,8 @@ import {
     db,
     expectStudyJobRecords,
     getAuditEntries,
+    insertTestCodeEnv,
+    type InsertTestCodeEnvOptions,
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
@@ -45,8 +47,15 @@ import {
 } from '@/server/actions/study-request'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { getStudyReviewForJob, latestJobForStudy } from '@/server/db/queries'
+import {
+    fetchCodeEnvForStudyId,
+    fetchCodeEnvForStudyIdOrNull,
+    getStudyReviewForJob,
+    latestJobForStudy,
+} from '@/server/db/queries'
 import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
+import { studyCodeStateFor } from '@/server/study-code-gate'
+import { resolvePillId } from '@/lib/study-screen'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { flushDeferred } from '@/tests/vitest.setup'
 
@@ -156,6 +165,153 @@ describe('Request Study Actions', () => {
             .where('submittedByOrgId', '=', victimLab.id)
             .executeTakeFirst()
         expect(smuggled).toBeUndefined()
+    })
+
+    describe('code env snapshot', () => {
+        const studySnapshot = async (studyId: string) =>
+            (await db.selectFrom('study').select('codeEnvSnapshot').where('id', '=', studyId).executeTakeFirstOrThrow())
+                .codeEnvSnapshot
+
+        // Every insert in a test shares one transaction and so one now(); backdating gives an order.
+        const insertOlderCodeEnv = async (options: InsertTestCodeEnvOptions) => {
+            const codeEnv = await insertTestCodeEnv(options)
+            await db
+                .updateTable('orgCodeEnv')
+                .set({ createdAt: new Date(Date.now() - 60_000) })
+                .where('id', '=', codeEnv.id)
+                .execute()
+            return codeEnv
+        }
+
+        const saveDraft = async (enclaveSlug: string, labSlug: string, language: 'R' | 'PYTHON') =>
+            actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclaveSlug,
+                    studyInfo: { title: 'Snapshot Study', piName: 'PI', language },
+                    submittingOrgSlug: labSlug,
+                }),
+            ).studyId
+
+        it('freezes the newest non-testing code env for the language, image included, when the study is created', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-create' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            const older = await insertOlderCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:older' })
+            const chosen = await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'R',
+                url: 'example.com/r:chosen',
+                commandLines: { r: 'Rscript --chosen %f' },
+                environment: [{ name: 'K', value: 'chosen' }],
+            })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R', isTesting: true, url: 'example.com/r:testing' })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'PYTHON', url: 'example.com/python:1' })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            expect(await studySnapshot(studyId)).toEqual({
+                id: chosen.id,
+                language: 'R',
+                dataSourceType: null,
+                url: 'example.com/r:chosen',
+                settings: { environment: [{ name: 'K', value: 'chosen' }] },
+                commandLines: { r: 'Rscript --chosen %f' },
+            })
+            expect(older.id).not.toBe(chosen.id)
+
+            // The data partner edits the chosen env in place, then adds a newer one that replaces it.
+            await db
+                .updateTable('orgCodeEnv')
+                .set({
+                    url: 'example.com/r:edited',
+                    commandLines: { r: 'Rscript --edited %f' },
+                    settings: { environment: [{ name: 'K', value: 'edited' }] },
+                    identifier: 'renamed',
+                    starterCodeFileNames: ['edited.R'],
+                    sampleDataPath: 'edited-data',
+                })
+                .where('id', '=', chosen.id)
+                .execute()
+            await db
+                .updateTable('orgCodeEnv')
+                .set({ createdAt: new Date(Date.now() - 30_000) })
+                .where('id', '=', chosen.id)
+                .execute()
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:replacement' })
+
+            const codeEnv = await fetchCodeEnvForStudyId(studyId)
+            expect(codeEnv).toMatchObject({
+                id: chosen.id,
+                url: 'example.com/r:chosen',
+                commandLines: { r: 'Rscript --chosen %f' },
+                settings: { environment: [{ name: 'K', value: 'chosen' }] },
+                // Not frozen: they name the sample database and the S3 files the edit replaced.
+                identifier: 'renamed',
+                starterCodeFileNames: ['edited.R'],
+                sampleDataPath: 'edited-data',
+                slug: enclave.slug,
+                orgId: enclave.id,
+            })
+        })
+
+        it('stores null when the data partner has no code env for the language, and then reads the live env', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-none' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'R' })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'PYTHON')
+            expect(await studySnapshot(studyId)).toBeNull()
+            expect(await fetchCodeEnvForStudyIdOrNull(studyId)).toBeNull()
+
+            const added = await insertTestCodeEnv({
+                orgId: enclave.id,
+                language: 'PYTHON',
+                url: 'example.com/python:added',
+            })
+            expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
+                id: added.id,
+                url: 'example.com/python:added',
+            })
+        })
+
+        it('falls back to the current code env once the frozen one is deleted', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-deleted' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const frozen = await insertOlderCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:frozen' })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            const current = await insertTestCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:current' })
+            await db.deleteFrom('orgCodeEnv').where('id', '=', frozen.id).execute()
+
+            expect((await studySnapshot(studyId))?.id).toBe(frozen.id)
+            expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
+                id: current.id,
+                url: 'example.com/r:current',
+                identifier: current.identifier,
+            })
+        })
+
+        it('re-snapshots only when a draft changes language', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'snapshot-language' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+            const rEnv = await insertTestCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:1' })
+            await insertTestCodeEnv({ orgId: enclave.id, language: 'PYTHON', url: 'example.com/python:1' })
+
+            const studyId = await saveDraft(enclave.slug, lab.slug, 'R')
+            await db.updateTable('orgCodeEnv').set({ url: 'example.com/r:2' }).where('id', '=', rEnv.id).execute()
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { title: 'Renamed', language: 'R' } }))
+            expect((await studySnapshot(studyId))?.url).toBe('example.com/r:1')
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { language: 'PYTHON' } }))
+            expect((await studySnapshot(studyId))?.url).toBe('example.com/python:1')
+
+            actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: { language: 'R' } }))
+            expect((await studySnapshot(studyId))?.url).toBe('example.com/r:2')
+        })
     })
 
     it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {
@@ -1160,6 +1316,7 @@ describe('Request Study Actions', () => {
         it('creates job files, uploads workspace files, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1208,6 +1365,7 @@ describe('Request Study Actions', () => {
         it('rejects a main file that is not in the workspace file list', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide-reject')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1229,6 +1387,7 @@ describe('Request Study Actions', () => {
         it('refuses a second submission on a round already under review', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
             const root = await createWorkspaceDir('submit-ide-twice')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
@@ -1246,6 +1405,30 @@ describe('Request Study Actions', () => {
 
             expectCodeLocked(second)
             expect(aws.storeS3File).not.toHaveBeenCalled()
+        })
+
+        // Spec rows 8 and 9: the pre-loaded template sits in the workspace before any round exists,
+        // and only a launch or an upload may open one (OTTER-698).
+        it('refuses to submit before a launch or an upload has opened the round', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const root = await createWorkspaceDir('submit-ide-unopened')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'Main.R': 'print("template")' })
+
+            const result = await submitStudyCodeAction({
+                studyId: study.id,
+                mainFileName: 'Main.R',
+                fileNames: ['Main.R'],
+            })
+
+            expect(result).toMatchObject({ error: { code: expect.stringContaining('has not been started') } })
+            expect(aws.storeS3File).not.toHaveBeenCalled()
+            const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobs).toHaveLength(0)
+            const state = (await studyCodeStateFor(db, study.id))!
+            expect(resolvePillId('researcher', state)).toBe('proposal-approved')
+            expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
     })
 
@@ -2197,6 +2380,7 @@ describe('Request Study Actions', () => {
 
             const { user: researcher } = await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
             await seedAcknowledgedStudyAgreement(draft.studyId)
+            await ensureRoundJobForLaunch(db, draft.studyId)
             const root = await createWorkspaceDir('roundtrip-ide')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, draft.studyId, { 'main.R': 'print("main")' })

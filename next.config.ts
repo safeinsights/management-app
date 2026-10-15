@@ -1,7 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs/config'
 import type { NextConfig } from 'next'
 import path from 'node:path'
-import { OBJECT_SRC_DIRECTIVE } from './src/lib/csp'
+import { STATIC_CSP_DIRECTIVES } from './src/lib/csp'
 
 const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
@@ -52,34 +52,25 @@ const securityHeaders = [
     // We never want this app embedded in a frame; DENY is stricter than SAMEORIGIN.
     // It only governs framing *of* this app, so the embedded Vimeo player is unaffected.
     { key: 'X-Frame-Options', value: 'DENY' },
-    // Defense-in-depth equivalent of X-Frame-Options for modern browsers.
-    // frame-ancestors/form-action/base-uri have no fallback to default-src, so they
-    // must be listed explicitly (SIINFOSEC-769/1460/1461, ZAP-10055). Only request-independent
-    // directives belong here. script-src is nonce-based and therefore per-request, so
-    // it is emitted from src/proxy.ts — under the report-only header name while that
-    // policy's rollout is measured (see src/lib/csp.ts for why the names differ).
-    {
-        key: 'Content-Security-Policy',
-        value: [
-            "frame-ancestors 'none'",
-            "form-action 'self'",
-            "base-uri 'self'",
-            // Enforced here because the nonce policy that also lists it is still report-only
-            // (SIINFOSEC-1460/1461). We embed no plugins, so nothing changes for users. ZAP 10055-4
-            // and 10038-3 stay open until that policy is enforced.
-            OBJECT_SRC_DIRECTIVE,
-        ].join('; '),
-    },
+    // Covers responses the proxy skips. Pages get the full nonce policy from src/proxy.ts instead,
+    // which replaces this header (see STATIC_CSP_DIRECTIVES).
+    { key: 'Content-Security-Policy', value: STATIC_CSP_DIRECTIVES.join('; ') },
     // Prevent MIME-sniffing-based content-type confusion.
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     // Limit referrer leakage to cross-origin destinations.
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    // Stops SSL-stripping downgrades after the first visit (OTTER-678). Browsers ignore it over plain
+    // http, so local dev is unaffected. No preload: that is a hard-to-undo commitment for the whole domain.
+    { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
 ]
 
 const nextConfig: NextConfig = {
     cacheComponents: false,
     // Don't advertise the framework in responses (SIINFOSEC-771, ZAP-40025).
     poweredByHeader: false,
+    // Matching every UA turns off streaming metadata, so a navigation commits its <title> with the
+    // page. Streamed, the title lands a chunk later and Next's route announcer reads the H1 (OTTER-823).
+    htmlLimitedBots: /.*/,
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',

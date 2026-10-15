@@ -2,6 +2,7 @@
 import { type ReactElement } from 'react'
 import { describe, it, expect } from 'vitest'
 import { insertTestStudyJobData, insertTestUser, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import StudyEditAndResubmitRoute from './page'
 import { EditResubmitForm } from './form'
 
@@ -33,6 +34,24 @@ describe('StudyEditAndResubmitRoute', () => {
         const props = formProps(page as ReactElement)
         expect(props.isDraftCreator).toBe(true)
         expect(props.studyTitle).toBe('Stored on Step 1')
+    })
+
+    // OTTER-673: the step back tells Step 1 to send its Next step here again.
+    it('hands the form a step back to Step 1 that names Edit proposal as its origin', async () => {
+        const { org, user: researcher } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: researcher.id,
+            studyStatus: 'CHANGE-REQUESTED',
+        })
+
+        const page = await StudyEditAndResubmitRoute({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
+        })
+
+        expect(formProps(page as ReactElement).previousStep.href).toBe(
+            Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
+        )
     })
 
     it('does not mark a same-lab teammate as the draft creator', async () => {

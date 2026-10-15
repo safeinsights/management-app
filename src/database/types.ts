@@ -3,7 +3,7 @@
  * Please do not edit it manually.
  */
 
-import type { CommandLines, OrgCodeEnvSettings } from './types-manual'
+import type { CodeEnvSnapshot, CommandLines, OrgCodeEnvSettings } from './types-manual'
 import type { ColumnType } from 'kysely'
 
 export type AuditEventType =
@@ -262,6 +262,7 @@ export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
+    codeEnvSnapshot: CodeEnvSnapshot | null
     codeResubmissionNoteDraft: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>
@@ -330,6 +331,13 @@ export interface StudyJobFileRecipientKey {
     fingerprint: string
     id: Generated<string>
     studyJobFileId: string
+}
+
+export interface StudyLastOpened {
+    id: Generated<string>
+    openedAt: Generated<Timestamp>
+    studyId: string
+    userId: string
 }
 
 export interface StudyProposalComment {
@@ -427,6 +435,7 @@ export interface DB {
     studyJobFile: StudyJobFile
     studyJobFileActivity: StudyJobFileActivity
     studyJobFileRecipientKey: StudyJobFileRecipientKey
+    studyLastOpened: StudyLastOpened
     studyProposalComment: StudyProposalComment
     studyReview: StudyReview
     studyReviewComment: StudyReviewComment

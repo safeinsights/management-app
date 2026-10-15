@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import {
     insertTestBaselineJob,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDualRoleSessionWithTestData,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -343,8 +346,10 @@ describe('StudyViewPage', () => {
                 })
 
                 renderWithProviders(page!)
-                expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+                expect(
+                    screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+                ).toBeInTheDocument()
+                expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 4')
                 expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
                 expect(screen.getByTestId('status-alert')).toBeInTheDocument()
             },
@@ -780,5 +785,37 @@ describe('StudyViewPage', () => {
 
             expect(page?.type).toBe(CodePostDecisionView)
         })
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/view for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
+
+        await expect(
+            StudyReviewPage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
+    })
+
+    // The URL picks the persona, so a dual-role user whose lab submitted the study keeps /view.
+    it('lets a dual-role user whose lab submitted the study stay on the page', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: labOrg,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: labOrg.slug, studyId: study.id }) })
+
+        expect(page?.type).toBe(CodePostSubmissionView)
+        expect(redirect).not.toHaveBeenCalled()
     })
 })

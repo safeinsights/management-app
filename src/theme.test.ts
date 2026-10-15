@@ -2,7 +2,7 @@ import type { ButtonVariant } from '@mantine/core'
 import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
-import { semanticCssVariables, semanticShades } from './theme/tokens'
+import { semanticColor, semanticCssVariables, semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
 // hand-copied from its Variables panel, so drift would otherwise be invisible in review.
@@ -34,6 +34,12 @@ describe('palette', () => {
         expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
     })
 
+    // The yellow status badges fill with it (OTTER-698).
+    it('fills status/warning/bg-dark with the library value', () => {
+        const [family, shade] = semanticShades['warning.bg.dark'].split('.')
+        expect(theme.colors?.[family]?.[Number(shade)]).toBe('#f0bc62')
+    })
+
     it('publishes border/SideNav as navy/0 at 30 percent', () => {
         const vars = semanticCssVariables(mergeMantineTheme(DEFAULT_THEME, theme))
         expect(vars['--si-color-border-sidenav']).toBe('#e6e9ef4d')
@@ -46,6 +52,12 @@ describe('palette', () => {
 describe('textarea', () => {
     it('turns no resize handle on by default', () => {
         expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
+    })
+})
+
+describe('dividers', () => {
+    it('draws the line in border/default', () => {
+        expect(theme.components?.Divider?.defaultProps?.color).toBe(semanticColor('border.default'))
     })
 })
 
@@ -104,6 +116,13 @@ describe('buttons', () => {
         })
     })
 
+    it('paints a disabled transparent button with no tile', () => {
+        expect(buttonVars({}, { variant: 'transparent' }).root).toMatchObject({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#595959',
+        })
+    })
+
     it('no longer ships button colours through a styles callback', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
@@ -118,6 +137,21 @@ describe('buttons', () => {
 
     it('falls back to the md geometry for an unsized button', () => {
         expect(buttonVars({}, {}).root['--button-height']).toBe('42px')
+    })
+})
+
+describe('badges', () => {
+    const badgeRoot = (props: object) => theme.components?.Badge?.styles(DEFAULT_THEME, props).root
+
+    it.each([
+        ['onClick', { onClick: () => {} }],
+        ['href', { href: '/x' }],
+    ])('gives a badge with %s a pointer', (_, props) => {
+        expect(badgeRoot(props)).toMatchObject({ cursor: 'pointer' })
+    })
+
+    it('leaves a static badge on the default cursor', () => {
+        expect(badgeRoot({})).not.toHaveProperty('cursor')
     })
 })
 

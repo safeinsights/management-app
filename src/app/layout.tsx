@@ -8,6 +8,7 @@ const globalFont = Open_Sans({
 import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
+import '@/styles/mantine-datatable.css'
 import '@mantine/dropzone/styles.layer.css'
 // The layered build only: the plain stylesheet sits outside the cascade layer and would outrank the
 // theme's Notification override.
@@ -22,8 +23,7 @@ import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
 import { clientUserInfoSnapshotForRequest } from '@/server/session'
-
-const APP_TITLE = 'SafeInsights'
+import { APP_TITLE } from '@/lib/constants'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {

@@ -15,7 +15,7 @@ import {
 } from './coder'
 import logger from '@/lib/logger'
 import { getConfigValue } from './config'
-import { getIdeOwnerForStudy, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
+import { getIdeOwnerForStudy, siUser, fetchCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
 import { fetchFileContents } from './storage'
 import { getAgentContextAction } from './actions/agent-context.actions'
 
@@ -26,8 +26,8 @@ vi.mock('./config', () => ({
 vi.mock('./db/queries', () => ({
     getIdeOwnerForStudy: vi.fn(),
     siUser: vi.fn(),
-    fetchLatestCodeEnvForStudyId: vi.fn(),
-    fetchLatestCodeEnvForStudyIdOrNull: vi.fn(),
+    fetchCodeEnvForStudyId: vi.fn(),
+    fetchCodeEnvForStudyIdOrNull: vi.fn(),
     getDataSourcesForOrg: vi.fn(),
 }))
 
@@ -63,7 +63,7 @@ global.fetch = vi.fn()
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getIdeOwnerForStudyMock = getIdeOwnerForStudy as unknown as Mock
 const siUserMock = siUser as unknown as Mock
-const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
+const fetchCodeEnvForStudyIdMock = fetchCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
 const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
@@ -333,7 +333,7 @@ describe('createUserAndWorkspace', () => {
             email: 'john@example.com',
             fullName: 'John Doe',
         })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+        fetchCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
             identifier: 'test_env',
             slug: 'test-org',
@@ -435,7 +435,7 @@ describe('createUserAndWorkspace', () => {
             email: 'john@example.com',
             fullName: 'John Doe',
         })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+        fetchCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
             identifier: 'test_env',
             dataSourceType: 'athena',
@@ -529,7 +529,7 @@ describe('createUserAndWorkspace', () => {
             email: 'john@example.com',
             fullName: 'John Doe',
         })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+        fetchCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
             identifier: 'test_env',
             dataSourceType: 'postgres',
@@ -583,7 +583,7 @@ describe('createUserAndWorkspace', () => {
             email: 'john@example.com',
             fullName: 'John Doe',
         })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+        fetchCodeEnvForStudyIdMock.mockResolvedValue({
             id: 'env-123',
             identifier: 'test_env',
             slug: 'test-org',
@@ -968,7 +968,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
 
         beforeEach(() => {
             ;(global.fetch as unknown as Mock).mockImplementation(routeReady)
-            fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({ language: 'R', orgId: 'org-1' })
+            fetchCodeEnvForStudyIdMock.mockResolvedValue({ language: 'R', orgId: 'org-1' })
             getDataSourcesForOrgMock.mockResolvedValue([])
         })
 

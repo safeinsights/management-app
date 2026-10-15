@@ -1,18 +1,16 @@
 'use client'
 
 import { Paper, ScrollArea, Typography } from '@mantine/core'
+import clsx from 'clsx'
 import { memo, type FC } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// Panda's preflight zeroes list-style globally; values match .editable-text-ul/-ol in globals.css.
+// The rich-text editor's list classes from globals.css, so legal documents indent lists the same way
+// instead of taking Typography's wider default.
 const MARKDOWN_LIST_COMPONENTS: Components = {
-    ul: ({ node: _node, ...props }) => (
-        <ul style={{ listStyleType: 'disc', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
-    ),
-    ol: ({ node: _node, ...props }) => (
-        <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5em', margin: '0.25em 0' }} {...props} />
-    ),
+    ul: ({ node: _node, className, ...props }) => <ul className={clsx('editable-text-ul', className)} {...props} />,
+    ol: ({ node: _node, className, ...props }) => <ol className={clsx('editable-text-ol', className)} {...props} />,
 }
 
 type Props = {
@@ -34,7 +32,7 @@ const REMARK_PLUGINS = [remarkGfm]
 
 // No `rehype-raw`: this content reaches every user, so embedded HTML stays escaped.
 const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
-    <Typography fz="sm">
+    <Typography variant="legal" fz="sm">
         <Markdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_LIST_COMPONENTS}>
             {content}
         </Markdown>
@@ -42,7 +40,7 @@ const DocumentMarkdown: FC<{ content: string }> = ({ content }) => (
 )
 
 const BoundedMarkdown: FC<BoundedProps> = ({ content, maxHeight, label }) => (
-    <ScrollArea.Autosize mah={maxHeight} type="auto" aria-label={label} tabIndex={0}>
+    <ScrollArea.Autosize mah={maxHeight} type="auto" offsetScrollbars="present" aria-label={label} tabIndex={0}>
         <DocumentMarkdown content={content} />
     </ScrollArea.Autosize>
 )

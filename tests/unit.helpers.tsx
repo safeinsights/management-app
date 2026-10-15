@@ -488,6 +488,7 @@ type MinimalTestOrg = { slug: string; id: string; type: 'enclave' | 'lab' }
 
 export const insertTestStudyJobData = async ({
     org,
+    submittedByOrg,
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
@@ -502,6 +503,8 @@ export const insertTestStudyJobData = async ({
     withStudyAgreement = true,
 }: {
     org?: MinimalTestOrg
+    // See insertTestStudyOnly: puts the Data Partner and the Research Lab on different orgs.
+    submittedByOrg?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
@@ -519,14 +522,14 @@ export const insertTestStudyJobData = async ({
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        const { user } = await insertTestUser({ org: org })
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
             orgId: org.id,
-            submittedByOrgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
             containerLocation: 'test-container',
             title: title ?? 'my 1st study',
             researcherId: researcherId,
@@ -994,12 +997,18 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, restoreSession, ...mocks }
 }
 
+// Only enclave members get a key from insertTestUser, so lab sessions need no helper to be keyless.
+export async function mockKeylessSession(options: MockSessionWithTestDataOptions = {}) {
+    const session = await mockSessionWithTestData(options)
+    await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
+    return session
+}
+
 // A signed-in user holding no key, with a live invite to a second org. Every sign-in screen has to
 // accept the invite before the key detour redirects, or the membership is lost. Pass invitedEmail to
 // build the OTTER-788 case, where the invite was addressed to something the account does not own yet.
 export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?: string } = {}) {
     const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
-    await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
 
     const email = invitedEmail ?? user.email!
     const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -1010,6 +1019,29 @@ export async function insertKeylessInvitedUser({ invitedEmail }: { invitedEmail?
         .executeTakeFirstOrThrow()
 
     return { user, org, invitingOrg, invite, invitedEmail: email }
+}
+
+// An invite the account has already accepted, which is what records the org that invited it.
+export async function insertClaimedInvite({
+    userId,
+    orgId,
+    createdAt,
+}: {
+    userId: string
+    orgId: string
+    createdAt?: Date
+}) {
+    return await db
+        .insertInto('pendingUser')
+        .values({
+            email: testEmail(),
+            orgId,
+            isAdmin: false,
+            claimedByUserId: userId,
+            createdAt,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 }
 
 type MockDualRoleSessionOptions = {
@@ -1039,6 +1071,14 @@ export async function mockDualRoleSessionWithTestData(options: MockDualRoleSessi
     })
 
     return { user, labOrg, enclaveOrg, ...mocks }
+}
+
+// A signed-in Data Partner member, and a study their org reviews for a lab they do not belong to.
+export async function mockDataPartnerSessionWithLabStudy({ studyStatus }: { studyStatus: StudyStatus }) {
+    const { org: enclave } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+    const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus })
+    return { enclave, lab, study }
 }
 
 type CreateTestProposalDraftOptions = {

@@ -4,8 +4,10 @@ import { FC, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { Stack } from '@mantine/core'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import type { NavAction } from '@/lib/study-screen'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { EDIT_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
@@ -33,6 +35,7 @@ interface EditResubmitFormProps {
     studyTitle?: string | null
     /** Whether the viewer is the researcher who created the study. Gates the Researcher row. */
     isDraftCreator?: boolean
+    previousStep: NavAction
 }
 
 export const EditResubmitForm: FC<EditResubmitFormProps> = ({
@@ -47,6 +50,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
     initialNote,
     studyTitle,
     isDraftCreator = false,
+    previousStep,
 }) => {
     const { studyId, form, noteForm, isSavingNote, noteLastSavedAt, websocketProvider, yjsForm, tabSessionId } =
         useEditResubmit()
@@ -74,7 +78,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     form={form}
                     yjsForm={yjsForm}
                     websocketProvider={websocketProvider}
-                    heading="Edit proposal"
+                    step={EDIT_PROPOSAL_STEP}
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}
@@ -100,6 +104,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     enclaveOrgSlug={enclaveOrgSlug}
                     orgName={orgName}
                     studyTitle={studyTitle}
+                    previousStep={previousStep}
                 />
             </Stack>
         </StudyKickOutProvider>

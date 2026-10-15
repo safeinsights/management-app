@@ -1,6 +1,7 @@
 import { BLANK_UUID, describe, expect, it, renderWithProviders, screen, userEvent, within } from '@/tests/unit.helpers'
 import { EditResubmitProvider, type EditResubmitDraftData } from '@/contexts/edit-resubmit'
 import { lexicalJson } from '@/lib/lexical'
+import { editProposalPreviousStep } from '@/lib/study-screen'
 import { DRAFT_REQUIRED_ERRORS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { DATASETS_FIELD_ID, PI_SELECT_ID, textFieldInputId } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from './schema'
@@ -44,6 +45,7 @@ const renderForm = (draft: EditResubmitDraftData, initialNote = '') =>
                 feedbackEntries={[]}
                 noteVersion={2}
                 initialNote={initialNote}
+                previousStep={editProposalPreviousStep({ orgSlug: 'lab-1', studyId: STUDY_ID })}
             />
         </EditResubmitProvider>,
         { singleUserEditing: true },
@@ -59,7 +61,7 @@ describe('EditResubmitForm proposal card (OTTER-762)', () => {
         renderForm(filledDraft)
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+        expect(within(header).getByText('Step 2')).toBeInTheDocument()
         expect(within(header).getByRole('heading', { level: 2, name: 'Edit proposal' })).toBeInTheDocument()
         expect(screen.queryByLabelText(/study title/i)).not.toBeInTheDocument()
         expect(screen.queryByText('A study title')).not.toBeInTheDocument()

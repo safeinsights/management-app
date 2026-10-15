@@ -1,6 +1,14 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import { ExternalLinks, Routes } from '@/lib/routes'
-import { externalNavLinks, orderNavOrgs, orgSubnav, selectedSubnavUrl, type NavOrg } from './side-nav'
+import {
+    externalNavLinks,
+    NOTHING_UNREAD,
+    orderNavOrgs,
+    orgSubnav,
+    selectedSubnavUrl,
+    withScopeUnread,
+    type NavOrg,
+} from './side-nav'
 
 const org = (name: string, type: NavOrg['type'], isAdmin = false): NavOrg => ({
     id: name,
@@ -78,5 +86,23 @@ describe('selectedSubnavUrl', () => {
 
     it('falls back to the dashboard anywhere else inside the org, study pages included', () => {
         expect(selectedSubnavUrl(Routes.studyRequest({ orgSlug }), partner)).toBe(Routes.orgDashboard({ orgSlug }))
+    })
+})
+
+describe('withScopeUnread', () => {
+    it('sets only the My studies tab the table shows', () => {
+        const nav = withScopeUnread(NOTHING_UNREAD, { scope: 'user', audience: 'reviewer', orgSlug: 'lab' }, true)
+
+        expect(nav).toEqual({ myStudies: { researcher: false, reviewer: true }, orgSlugs: [] })
+    })
+
+    it('adds and removes only the table org, leaving the other orgs alone', () => {
+        const nav = { ...NOTHING_UNREAD, orgSlugs: ['partner'] }
+        const scope = { scope: 'org', audience: 'researcher', orgSlug: 'lab' } as const
+
+        const marked = withScopeUnread(nav, scope, true)
+        expect(marked.orgSlugs).toEqual(['partner', 'lab'])
+        expect(withScopeUnread(marked, scope, true).orgSlugs).toEqual(['partner', 'lab'])
+        expect(withScopeUnread(marked, scope, false).orgSlugs).toEqual(['partner'])
     })
 })
