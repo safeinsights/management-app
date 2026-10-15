@@ -3,6 +3,7 @@ import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import logger from '@/lib/logger'
+import { localStorageContext } from '@/server/actions/action'
 import { capturePostHogEvent, type PostHogEventName } from '@/server/posthog'
 import { CLERK_ADMIN_ORG_SLUG, isLabOrg, UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
@@ -14,20 +15,32 @@ import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { getOrgInfoForUserId, siUser } from './db/queries'
 import * as email from './mailer'
 
-// These run after the calling action has completed; the caller's success must not depend on them.
+// These run after the calling action has completed, and inside a performsMutations action only once
+// its transaction commits; the caller's success must not depend on them.
 
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
-        // captureException only enqueues; without an awaited flush the instance can freeze first.
-        after(async () => {
-            try {
-                await handler(...args)
-            } catch (error: unknown) {
-                logger.error(error)
-                Sentry.captureException(error)
-                await Sentry.flush(2_000)
-            }
-        })
+        const schedule = () =>
+            // captureException only enqueues; without an awaited flush the instance can freeze first.
+            after(async () => {
+                try {
+                    await handler(...args)
+                } catch (error: unknown) {
+                    logger.error(error)
+                    Sentry.captureException(error)
+                    await Sentry.flush(2_000)
+                }
+            })
+
+        // after() cannot be unscheduled, so inside a performsMutations action wait for the commit: a
+        // rollback drops afterCommit hooks. A caller's own db.transaction() is not detected here, so
+        // call events after it returns (OTTER-841).
+        const ctx = localStorageContext.getStore()
+        if (ctx?.afterCommit && ctx.db?.isTransaction) {
+            ctx.afterCommit(async () => schedule())
+        } else {
+            schedule()
+        }
     }
 }
 
@@ -54,8 +67,8 @@ type CodeEnvAuditArgs = {
     name?: string
 }
 
-// Not deferred(), unlike the other handlers: after() does not unschedule on error, so a failed
-// mutation would still emit an audit row claiming success.
+// Not deferred(), unlike the other handlers: the audit row joins the caller's transaction, so it
+// commits or rolls back with the change it records.
 const auditCodeEnv = async (
     eventType: Extract<AuditEventType, 'CREATED' | 'UPDATED' | 'DELETED'>,
     { db: executor, codeEnvId, userId, changes, starterCodeReplaced, name }: CodeEnvAuditArgs,

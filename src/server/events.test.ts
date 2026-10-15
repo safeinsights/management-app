@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
+import { Action } from '@/server/actions/action'
+import { deliver } from '@/server/mailgun'
 import {
     db,
     flushDeferred,
     getAuditEntries,
     getAuditEntriesWithMetadata,
+    insertTestStudyJobData,
     insertTestUser,
     mockSessionWithTestData,
     postHogCaptures,
@@ -13,14 +16,24 @@ import {
 vi.mock('@sentry/nextjs', () => ({
     captureException: vi.fn(),
     flush: vi.fn(async () => true),
+    // Called by Action when it has a session.
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+}))
+
+// Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
 }))
 
 const captureExceptionMock = Sentry.captureException as unknown as Mock
 const flushMock = Sentry.flush as unknown as Mock
+const deliverMock = deliver as unknown as Mock
 
 describe('deferred', () => {
     it('captures and flushes to Sentry when the handler rejects', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         const boom = new Error('handler exploded')
         const run = deferred(async () => {
             throw boom
@@ -34,7 +47,7 @@ describe('deferred', () => {
     })
 
     it('does not report when the handler resolves', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         const run = deferred(async () => undefined)
 
         run()
@@ -46,7 +59,7 @@ describe('deferred', () => {
 
 describe('user event captures', () => {
     it('onUserLogIn captures user_logged_in for the user', async () => {
-        const { onUserLogIn } = await import('./events')
+        const { onUserLogIn } = await import('@/server/events')
         const { user } = await mockSessionWithTestData()
 
         onUserLogIn({ userId: user.id })
@@ -58,7 +71,7 @@ describe('user event captures', () => {
     })
 
     it('onUserInvited captures invited for the inviter, with the invite org and role', async () => {
-        const { onUserInvited } = await import('./events')
+        const { onUserInvited } = await import('@/server/events')
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave', isAdmin: true })
         const invite = await db
             .insertInto('pendingUser')
@@ -89,7 +102,7 @@ describe('user event captures', () => {
     })
 
     it('onUserAcceptInvite records the invite and captures accepted_invite with the membership role', async () => {
-        const { onUserAcceptInvite } = await import('./events')
+        const { onUserAcceptInvite } = await import('@/server/events')
         // An admin accepting a contributor invite stays admin, so the capture reads the membership.
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
         const invite = await db
@@ -117,7 +130,7 @@ describe('user event captures', () => {
     })
 
     it('onUserRoleUpdate audits and captures as the admin who made the change', async () => {
-        const { onUserRoleUpdate } = await import('./events')
+        const { onUserRoleUpdate } = await import('@/server/events')
         const { user: admin, org } = await mockSessionWithTestData({ orgType: 'enclave', isAdmin: true })
         const { user: member } = await insertTestUser({ org })
 
@@ -147,5 +160,122 @@ describe('user event captures', () => {
             recordId: member.id,
             userId: admin.id,
         })
+    })
+})
+
+const APPROVED_TEMPLATE = 'vb - research proposal approved'
+
+async function setupPendingStudy() {
+    const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+    return { user, study }
+}
+
+const approvalAction = ({ studyId, userId, failAfter }: { studyId: string; userId: string; failAfter: boolean }) =>
+    new Action('approval', { performsMutations: true }).handler(async ({ db }) => {
+        const { onStudyApproved } = await import('@/server/events')
+        await db
+            .updateTable('study')
+            .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: userId })
+            .where('id', '=', studyId)
+            .execute()
+        onStudyApproved({ studyId, userId })
+        if (failAfter) throw new Error('a later step failed')
+        return 'committed'
+    })
+
+const approvalSideEffects = async (studyId: string, userEmail: string | null) => ({
+    audits: (await getAuditEntries(studyId, 'STUDY')).filter((entry) => entry.eventType === 'APPROVED'),
+    captures: postHogCaptures().filter((capture) => capture.event === 'study_proposal_approved'),
+    emails: deliverMock.mock.calls.filter(
+        ([message]) => message.template === APPROVED_TEMPLATE && message.to === userEmail,
+    ),
+})
+
+describe('deferred inside an action', () => {
+    it('drops the email, audit row and PostHog event of a rolled-back action', async () => {
+        const { user, study } = await setupPendingStudy()
+
+        const result = await approvalAction({ studyId: study.id, userId: user.id, failAfter: true })()
+        await flushDeferred()
+
+        expect(result).toEqual({ error: 'a later step failed' })
+        const row = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
+        expect(row.status).toBe('PENDING-REVIEW')
+        expect(await approvalSideEffects(study.id, user.email)).toEqual({ audits: [], captures: [], emails: [] })
+    })
+
+    it('runs them exactly once after the action commits', async () => {
+        const { user, study } = await setupPendingStudy()
+
+        const result = await approvalAction({ studyId: study.id, userId: user.id, failAfter: false })()
+        await flushDeferred()
+
+        expect(result).toBe('committed')
+        const { audits, captures, emails } = await approvalSideEffects(study.id, user.email)
+        expect(audits).toEqual([{ eventType: 'APPROVED', recordType: 'STUDY', recordId: study.id, userId: user.id }])
+        expect(captures).toHaveLength(1)
+        expect(captures[0]).toMatchObject({ distinctId: user.id })
+        expect(emails).toHaveLength(1)
+    })
+
+    it('does not start the handler before the action commits', async () => {
+        const { deferred } = await import('@/server/events')
+        await mockSessionWithTestData()
+        const probe = vi.fn(async () => undefined)
+        const run = deferred(probe)
+        let calledBeforeCommit: boolean | undefined
+
+        const action = new Action('before-commit', { performsMutations: true }).handler(async () => {
+            run()
+            calledBeforeCommit = probe.mock.calls.length > 0
+            return 'committed'
+        })
+
+        expect(await action()).toBe('committed')
+        await flushDeferred()
+        expect(calledBeforeCommit).toBe(false)
+        expect(probe).toHaveBeenCalledOnce()
+    })
+
+    it('still runs in an action without a transaction when the handler later throws', async () => {
+        const { deferred } = await import('@/server/events')
+        await mockSessionWithTestData()
+        const probe = vi.fn(async () => undefined)
+        const run = deferred(probe)
+
+        const action = new Action('no-transaction').handler(async () => {
+            run()
+            throw new Error('read failed')
+        })
+
+        expect(await action()).toEqual({ error: 'read failed' })
+        await flushDeferred()
+        expect(probe).toHaveBeenCalledOnce()
+    })
+
+    it('schedules a call made from an afterCommit hook directly, not back onto the hook list', async () => {
+        const { deferred } = await import('@/server/events')
+        await mockSessionWithTestData()
+        const order: string[] = []
+        const probe = vi.fn(async () => {
+            order.push('handler')
+        })
+        const run = deferred(probe)
+
+        const action = new Action('from-hook', { performsMutations: true }).handler(async ({ afterCommit }) => {
+            afterCommit(async () => {
+                order.push('hook start')
+                run()
+                order.push('hook end')
+            })
+            return 'committed'
+        })
+
+        expect(await action()).toBe('committed')
+        await flushDeferred()
+        // A requeued call would run after the hook finished, as a later entry of the same drain.
+        expect(order).toEqual(['hook start', 'handler', 'hook end'])
+        expect(probe).toHaveBeenCalledOnce()
     })
 })
