@@ -30,13 +30,27 @@ type ConfirmationModalProps = {
     orgName: string
 }
 
+function useSkipInvitation() {
+    const router = useRouter()
+    const [isSkipping, setIsSkipping] = useState(false)
+
+    const skipInvitation = (orgName: string) => {
+        if (isSkipping) return
+        setIsSkipping(true)
+        markInvitationNotice({ kind: 'skip', orgName })
+        router.push(Routes.dashboard)
+    }
+
+    return { isSkipping, skipInvitation }
+}
+
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
     const reloadOrgList = useReloadOrgList()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
-    const [isSkipping, setIsSkipping] = useState(false)
+    const { isSkipping, skipInvitation } = useSkipInvitation()
 
     const {
         data: org,
@@ -76,13 +90,6 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         },
         onError: reportMutationError('Unable to decline invitation'),
     })
-
-    const skipInvitation = () => {
-        if (isSkipping) return
-        setIsSkipping(true)
-        markInvitationNotice({ kind: 'skip', orgName: org!.name })
-        router.push(Routes.dashboard)
-    }
 
     // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
     // so without this the spinner never stops.
@@ -137,7 +144,13 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     isLoading={isRevoking}
                     orgName={org.name}
                 />
-                <Button variant="subtle" size="lg" loading={isSkipping} w="100%" onClick={skipInvitation}>
+                <Button
+                    variant="subtle"
+                    size="lg"
+                    loading={isSkipping}
+                    w="100%"
+                    onClick={() => skipInvitation(org.name)}
+                >
                     Skip for now
                 </Button>
             </Flex>
