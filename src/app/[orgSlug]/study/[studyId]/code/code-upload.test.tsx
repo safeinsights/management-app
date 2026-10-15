@@ -25,7 +25,8 @@ import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { StepNav } from '@/lib/study-screen'
 import type { Route } from 'next'
-import { vi } from 'vitest'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import { vi, type Mock } from 'vitest'
 import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
@@ -200,7 +201,7 @@ describe('CodeUploadPage', () => {
         ])
     })
 
-    it.skipIf(!s3Available)('routes to /{orgSlug}/study/{studyId}/view after successful submit', async () => {
+    it.skipIf(!s3Available)('routes to /view and broadcasts code-submitted after successful submit', async () => {
         const orgSlug = 'openstax-lab'
         const { study } = await setupStudy(orgSlug)
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
@@ -232,6 +233,12 @@ describe('CodeUploadPage', () => {
 
         await waitFor(() => {
             expect(memoryRouter.asPath).toBe(`/openstax-lab/study/${study.id}/view`)
+        })
+        // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
+        const { __instances } = HocuspocusProvider as unknown as { __instances: { sendStateless: Mock }[] }
+        expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
+            type: 'code-submitted',
+            studyId: study.id,
         })
     })
 

@@ -1,7 +1,4 @@
 import { showToast } from '@/components/toast-notifications'
-import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMantineTheme } from '@mantine/core'
-import React from 'react'
 import { FileWithPath } from '@mantine/dropzone'
 
 export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
@@ -18,19 +15,4 @@ export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: Fi
     }
 
     return duplicateFound
-}
-
-export const useFileUploadIcons = () => {
-    const theme = useMantineTheme()
-    const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
-        const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdfIcon key="pdf" size={14} color={color} />],
-        ]
-        const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
-    }
-    return { getFileUploadIcon }
 }

@@ -1,11 +1,12 @@
 'use client'
 
-import { Box, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { Box, Radio, Stack, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import type { useReviewDecision } from '@/hooks/use-review-decision'
 import type { Decision } from '@/lib/review-decision'
 import { isSubmittedProposalReviewStatus } from '@/lib/proposal-review'
 import { useWidgetBlur } from '@/components/form-field'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import type { StudyForReview } from './review-types'
 import { buildDecisionOptions } from './review-types'
 
@@ -13,11 +14,6 @@ type ReviewDecisionSectionProps = {
     decision: ReturnType<typeof useReviewDecision>
     study: StudyForReview
     labName: string
-}
-
-const RADIO_STYLES = {
-    label: { fontWeight: 600, fontSize: 16 },
-    description: { fontSize: 14 },
 }
 
 export const DECISION_RADIO_NAME = 'review-decision'
@@ -46,16 +42,12 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
     const errorNode = decision.error ? <InputError error={decision.error} /> : undefined
 
     const radioOptions = buildDecisionOptions(labName).map((option) => (
-        <Radio
+        <DecisionRadio
             key={option.value}
             value={option.value}
             label={option.label}
-            description={
-                <Text component="span" size="sm" c="grey.7">
-                    {option.description}
-                </Text>
-            }
-            styles={RADIO_STYLES}
+            isProminent
+            description={option.description}
         />
     ))
 
@@ -71,7 +63,8 @@ function DecisionPanel({ decision, labName, isVisible }: DecisionPanelProps) {
                 name={DECISION_RADIO_NAME}
                 label={<VisuallyHidden>Decision</VisuallyHidden>}
                 // VisuallyHidden clips the text; position:absolute collapses Mantine's wrapper div.
-                styles={{ label: { position: 'absolute' }, error: { marginBottom: 24 } }}
+                labelProps={{ pos: 'absolute' }}
+                errorProps={{ mb: 'lg' }}
                 error={errorNode}
                 inputWrapperOrder={['label', 'description', 'error', 'input']}
             >

@@ -62,7 +62,7 @@ export function TimedProgressBar<T>({
     const details =
         isSpyMode && children ? (
             <details>
-                <summary style={{ cursor: 'pointer' }}>
+                <summary className="clickable">
                     <Text span size="xs" c="dimmed">
                         {caption ?? label}
                     </Text>
@@ -78,7 +78,7 @@ export function TimedProgressBar<T>({
         )
 
     return (
-        <Stack gap={2}>
+        <Stack gap="xxs">
             {/* value is a 0–1 fraction; Mantine's Progress expects a 0–100 percentage */}
             <Progress value={value * 100} size="lg" striped animated aria-label={label} />
             {details}

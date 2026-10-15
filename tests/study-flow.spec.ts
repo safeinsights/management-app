@@ -635,7 +635,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
@@ -681,7 +681,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await expectLockedSetupField(page, 'Programming language', 'R')
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveCount(0)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
-        await expect(page.getByRole('button', { name: 'Save and continue' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Save & continue' })).toHaveCount(0)
 
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
@@ -733,7 +733,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // The revisit CTA saves and moves straight on. Reaching Step 2 is itself the proof that the
         // confirmation modal was skipped: it belongs to the first visit, where the Data Partner and
         // the language were still open to change, and an open modal would hold the navigation.
-        const saveAndContinue = page.getByRole('button', { name: 'Save and continue' })
+        const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
         await page.waitForURL(/\/proposal$/)
@@ -1039,6 +1039,14 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await page.getByRole('link', { name: /^Edit proposal$/i }).click()
         await page.waitForURL(/\/edit-and-resubmit$/)
 
+        // OTTER-673: Edit proposal steps back to Step 1, whose Next step returns to Edit proposal
+        // rather than to the proposal status it was opened from.
+        await page.getByRole('button', { name: /^Previous step$/i }).click()
+        await page.waitForURL(/\/edit\?from=edit-proposal$/)
+        await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Next step' }).click()
+        await page.waitForURL(/\/edit-and-resubmit$/)
+
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Edit proposal', level: 2 })).toBeVisible()
         // Step 1 owns the title, so this page no longer offers a field for it (OTTER-762).
@@ -1155,8 +1163,18 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await studyRow.getByRole('link').first().click()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
-        await expect(page.getByTestId('cta-edit-code')).toBeVisible()
         studyId = page.url().match(/\/study\/([^/]+)/)![1]
+
+        // OTTER-673: Edit code steps back past the code step to the approved proposal, whose Next
+        // step returns to Edit code.
+        await page.getByTestId('cta-edit-code').click()
+        await page.waitForURL(/\/resubmit$/)
+        await page.getByRole('button', { name: /^Previous step$/i }).click()
+        await page.waitForURL(/\/submitted\?from=edit-code$/)
+        await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
+        await page.getByRole('link', { name: /^Next step$/i }).click()
+        await page.waitForURL(/\/resubmit$/)
+        await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
     })

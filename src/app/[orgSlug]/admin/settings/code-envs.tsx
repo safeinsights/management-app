@@ -27,7 +27,7 @@ import { CodeViewer, FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -64,7 +64,7 @@ const CodeEnvDetailPanel: React.FC<{
     const commandLines = (image.commandLines ?? {}) as Record<string, string>
 
     return (
-        <Box p="md" bg="gray.0">
+        <Box p="md" bg={semanticColor('surface.sunken')}>
             <Stack gap="xs">
                 <DetailRow label="Identifier">{image.identifier}</DetailRow>
                 <DetailRow label="URL">{image.url}</DetailRow>
@@ -278,13 +278,7 @@ const CodeEnvRow: React.FC<{
                     <LoadingMessage message="Loading starter code..." />
                 )}
             </AppModal>
-            <AppModal
-                isOpen={scanResultsOpened}
-                onClose={closeScanResults}
-                title="Scan Results"
-                size="xl"
-                styles={{ body: { padding: 0 } }}
-            >
+            <AppModal isOpen={scanResultsOpened} onClose={closeScanResults} title="Scan Results" size="xl" padding={0}>
                 <FileViewer path="scan-results.txt" text={image.latestScanResults || 'No results available.'} />
             </AppModal>
             <AppModal isOpen={historyOpened} onClose={closeHistory} title={`History: ${image.name}`} size="xl">

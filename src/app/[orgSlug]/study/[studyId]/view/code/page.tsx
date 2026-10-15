@@ -4,6 +4,7 @@ import { actionResult } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderResearcherCodeStep } from '../../_screens/render-screen'
+import { researcherPageGuard } from '../../researcher-page-guard'
 
 export const metadata: Metadata = { title: 'Study code' }
 
@@ -12,6 +13,9 @@ export default async function StudyViewCode(props: { params: Promise<{ studyId: 
     const { studyId, orgSlug } = await props.params
 
     const study = actionResult(await getStudyAction({ studyId }))
+    const guard = await researcherPageGuard(study, studyId)
+    if (!guard.ok) return guard.render
+
     const rawStudyState = await rawStudyStateForStudy(studyId)
     if (!rawStudyState) notFound()
 

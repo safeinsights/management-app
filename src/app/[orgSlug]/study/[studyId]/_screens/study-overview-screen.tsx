@@ -12,7 +12,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
             <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
+                        <Title order={2} size="xl" flex={1} miw={0}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
@@ -28,7 +28,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Code
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">No code has been uploaded yet.</Text>
                 </Stack>
             </Paper>
@@ -40,7 +40,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Status
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">Status will be available after code is uploaded.</Text>
                 </Stack>
             </Paper>

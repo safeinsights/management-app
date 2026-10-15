@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, faker, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    actionResult,
+    faker,
+    insertClaimedInvite,
+    insertTestOrg,
+    mockKeylessSession,
+    readTestSupportFile,
+} from '@/tests/unit.helpers'
 import {
     getKeyPageStateAction,
     getUserPublicKeyAction,
@@ -8,6 +16,7 @@ import {
 } from './user-keys.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 
 async function validTestKey() {
@@ -132,48 +141,103 @@ describe('User Keys Actions', () => {
 })
 
 describe('getKeyPageStateAction', () => {
-    const keylessSession = async (options: Parameters<typeof mockSessionWithTestData>[0] = {}) => {
-        const session = await mockSessionWithTestData(options)
-        await db.deleteFrom('userPublicKey').where('userId', '=', session.user.id).execute()
-        return session
+    const joinOrg = async (userId: string) => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await db.insertInto('orgUser').values({ userId, orgId: org.id, isAdmin: false }).execute()
+        return org
     }
 
-    it('returns the org dashboard when the account belongs to exactly one org', async () => {
-        const { org } = await keylessSession()
+    const setJoinedAt = async (userId: string, orgId: string, joinedAt: Date) => {
+        await db
+            .updateTable('orgUser')
+            .set({ joinedAt })
+            .where('userId', '=', userId)
+            .where('orgId', '=', orgId)
+            .executeTakeFirstOrThrow()
+    }
+
+    it('returns the dashboard of the org whose invite the account claimed', async () => {
+        const { user, org } = await mockKeylessSession()
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
     it('returns the org dashboard for a lab account the same way it does for an enclave account', async () => {
-        const { org } = await keylessSession({ orgType: 'lab' })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
 
         expect(actionResult(await getKeyPageStateAction())).toEqual({
             hasKey: false,
-            firstKeyRedirect: `/${org.slug}/dashboard`,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
         })
     })
 
-    it('falls back to My studies when the account belongs to more than one org', async () => {
-        const { user } = await keylessSession()
-        const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
-        await db.insertInto('orgUser').values({ userId: user.id, orgId: otherOrg.id, isAdmin: false }).execute()
+    it('returns the inviting org for an account that belongs to more than one org', async () => {
+        const { user } = await mockKeylessSession()
+        const invitingOrg = await joinOrg(user.id)
+        await insertClaimedInvite({ userId: user.id, orgId: invitingOrg.id })
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: invitingOrg.slug }),
+        })
+    })
+
+    it('prefers the org whose invite the account accepted last, not the newest invite', async () => {
+        const { user, org } = await mockKeylessSession()
+        const newerInviteOrg = await joinOrg(user.id)
+        await insertClaimedInvite({ userId: user.id, orgId: org.id, createdAt: new Date('2026-01-01') })
+        await insertClaimedInvite({ userId: user.id, orgId: newerInviteOrg.id, createdAt: new Date('2026-01-02') })
+        await setJoinedAt(user.id, newerInviteOrg.id, new Date('2026-01-03'))
+        await setJoinedAt(user.id, org.id, new Date('2026-01-04'))
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
+        })
+    })
+
+    it('skips a claimed invite to an org the account has since left', async () => {
+        const { user, org } = await mockKeylessSession()
+        const leftOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        await insertClaimedInvite({ userId: user.id, orgId: org.id })
+        await insertClaimedInvite({ userId: user.id, orgId: leftOrg.id })
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.orgDashboard({ orgSlug: org.slug }),
+        })
+    })
+
+    it('falls back to My studies for a single-org account with no claimed invite', async () => {
+        await mockKeylessSession()
+
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 
     it('falls back to My studies when the account belongs to no org', async () => {
-        const { user } = await keylessSession()
+        const { user } = await mockKeylessSession()
         await db.deleteFrom('orgUser').where('userId', '=', user.id).execute()
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: false, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: false,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 
     it('reports an existing key and skips the org resolution', async () => {
         await mockSessionWithTestData()
 
-        expect(actionResult(await getKeyPageStateAction())).toEqual({ hasKey: true, firstKeyRedirect: '/dashboard' })
+        expect(actionResult(await getKeyPageStateAction())).toEqual({
+            hasKey: true,
+            firstKeyRedirect: Routes.dashboard,
+        })
     })
 })

@@ -33,7 +33,49 @@
     display: block;
 }
 
-/* EditableText (Lexical) formatting classes */
+/* Shared rules Mantine's style props cannot express. Reach for these before adding a CSS module. */
+.pre-wrap {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.clip {
+    overflow: hidden;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+/* A layer over interactive content: presses fall through to whatever sits underneath. */
+.click-through {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* A quarter-turn anticlockwise while data-rotated is set, e.g. a disclosure chevron. */
+.rotatable {
+    transition: transform 200ms ease;
+}
+
+.rotatable[data-rotated] {
+    transform: rotate(-90deg);
+}
+
+/* Figma icon/light-default, darkening to icon/light-hover. */
+.icon-light {
+    color: var(--si-color-icon-light);
+}
+
+.icon-light:hover {
+    color: var(--si-color-icon-light-hover);
+}
+
+/* Lexical formatting classes, named by lexicalTheme in editable-text/config.ts */
 .editable-text-paragraph {
     margin: 0;
 }
@@ -106,15 +148,39 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Collaborative editor focus border */
+/* Rich-text editor frame around EditorSurface */
 .collaborative-editor-container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid var(--mantine-color-gray-4);
     transition: border-color 0.15s;
     border-radius: var(--mantine-radius-sm);
 }
 
+.collaborative-editor-container[data-resizable] {
+    resize: vertical;
+}
+
 .collaborative-editor-container:focus-within {
     border-color: var(--mantine-color-blue-filled);
+}
+
+/* After :focus-within, so an invalid field keeps its error border while focused. */
+.collaborative-editor-container[data-error] {
+    border-color: var(--mantine-color-error);
+}
+
+/* Absorbs the slack when the frame is dragged taller, so the measured content stays its own size. */
+.editable-text-scroll {
+    position: relative;
+    flex: 1;
+    overflow: auto;
+}
+
+/* The frame shows focus on its border instead. */
+.editable-text-content {
+    outline: none;
 }
 
 /* Yjs collaboration cursor styles */
@@ -147,13 +213,4 @@ button:disabled {
 html {
     scroll-padding-top: var(--app-shell-header-offset, 0px);
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
-}
-
-/* mantine-datatable keeps its empty state mounted over a populated table at opacity 0, which screen
-   readers still announce; visibility takes it out of the accessibility tree. */
-.mantine-datatable-empty-state:not([data-active]) {
-    visibility: hidden;
-    transition:
-        opacity 0.2s,
-        visibility 0.2s;
 }

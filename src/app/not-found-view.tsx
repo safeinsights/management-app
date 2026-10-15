@@ -19,17 +19,17 @@ export function NotFoundView() {
 
     return (
         <FocusedLayoutShellView>
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={600} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={600} m="auto">
                 <Stack mb="xxl" ta="center" align="center" gap="0">
-                    <NotFoundImage style={{ margin: '0 auto' }} />
-                    <Title order={1} fw={800} mt="sm">
+                    <NotFoundImage />
+                    <Title order={1} mt="sm">
                         Page Not Found
                     </Title>
-                    <Text size="md" fw={fontWeight.regular} c="grey.6" mt="md">
+                    <Text size="md" fw={fontWeight.regular} c={semanticColor('text.secondary')} mt="md">
                         The page you are trying to open does not exist. <br />
                         The page address may have been mistyped, or the page <br /> has been moved to another URL.
                     </Text>
-                    <Button size="md" loading={loading} onClick={goHome} mt="xl" style={{ margin: '0 auto' }}>
+                    <Button size="md" loading={loading} onClick={goHome} mt="xl">
                         Take me back
                     </Button>
                 </Stack>

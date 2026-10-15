@@ -1,5 +1,6 @@
 import type { OrgType } from '@/database/types'
 import { ExternalLinks, Routes } from '@/lib/routes'
+import type { StudyRole } from '@/lib/study-screen/state.types'
 
 export type NavOrg = {
     id: string
@@ -7,6 +8,26 @@ export type NavOrg = {
     slug: string
     type: OrgType
     isAdmin: boolean
+}
+
+// Which side nav rows carry the unread dot (OTTER-838). The query adds the user id, so writes that
+// change it invalidate by this prefix.
+export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
+
+// My studies has one flag per tab, so either tab's table can patch its own half.
+export type NavUnread = { myStudies: Record<StudyRole, boolean>; orgSlugs: string[] }
+
+export const NOTHING_UNREAD: NavUnread = { myStudies: { researcher: false, reviewer: false }, orgSlugs: [] }
+
+export const hasMyStudiesUnread = (unread: NavUnread) => unread.myStudies.researcher || unread.myStudies.reviewer
+
+type NavScope = { scope: 'org' | 'user'; audience: StudyRole; orgSlug: string }
+
+// A table's fresh rows answer its own scope's dot, so it patches that one instead of refetching all.
+export function withScopeUnread(nav: NavUnread, { scope, audience, orgSlug }: NavScope, isUnread: boolean): NavUnread {
+    if (scope === 'user') return { ...nav, myStudies: { ...nav.myStudies, [audience]: isUnread } }
+    const otherOrgs = nav.orgSlugs.filter((slug) => slug !== orgSlug)
+    return { ...nav, orgSlugs: isUnread ? [...otherOrgs, orgSlug] : otherOrgs }
 }
 
 export type NavIcon = 'house' | 'dashboard' | 'settings' | 'team' | 'legal' | 'catalog' | 'resources' | 'support'

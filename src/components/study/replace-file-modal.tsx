@@ -37,7 +37,7 @@ export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve })
                     <Button variant="outline" onClick={() => onResolve('keepBoth')}>
                         Keep both
                     </Button>
-                    <Button color="red.7" onClick={() => onResolve('replace')}>
+                    <Button variant="error" onClick={() => onResolve('replace')}>
                         Replace
                     </Button>
                 </Group>

@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { Anchor, Box, Group, Text } from '@mantine/core'
 import { isHttpUrl } from '@/schema/url'
+import { fontWeight } from '@/theme/tokens'
 import { SettingsCard, SettingsCardRow } from './settings-card'
 
 // Presentational only: the body and per-row action node are injected so these render without a
@@ -53,9 +54,9 @@ export function DataSourceRowView({ name, codeEnvNames, description, urls, actio
     return (
         <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
-                <Box style={{ minWidth: 0, flex: 1 }}>
+                <Box miw={0} flex={1}>
                     <Group gap="sm" wrap="nowrap">
-                        <Text fw={500}>{name}</Text>
+                        <Text fw={fontWeight.semibold}>{name}</Text>
                         <Text c="dimmed" size="sm">
                             {codeEnvNames}
                         </Text>

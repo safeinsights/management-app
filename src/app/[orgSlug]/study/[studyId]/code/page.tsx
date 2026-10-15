@@ -16,6 +16,7 @@ import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.acti
 import logger from '@/lib/logger'
 import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
 import { fetchVideoDurationMinutes } from '@/server/vimeo'
+import { researcherPageGuard } from '../researcher-page-guard'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study code' }
@@ -29,6 +30,9 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     if ('error' in result) {
         redirect(Routes.studyView({ orgSlug, studyId }))
     }
+
+    const guard = await researcherPageGuard(result, studyId)
+    if (!guard.ok) return guard.render
 
     if (!result.language) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))

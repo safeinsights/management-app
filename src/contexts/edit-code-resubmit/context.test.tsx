@@ -1,8 +1,9 @@
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
-import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import { fireEvent, mockClerkSession, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
-import { saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
 
 vi.mock('@/server/actions/study-request', () => ({
     resubmitStudyCodeAction: vi.fn(),
@@ -17,10 +18,13 @@ vi.mock('@/components/errors', () => ({
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) {
-    const { noteForm, saveDraft } = useEditCodeResubmit()
+    const { noteForm, saveDraft, resubmit } = useEditCodeResubmit()
 
     return (
         <>
+            <button type="button" onClick={() => resubmit({ mainFileName: 'main.r', fileNames: ['main.r'] })}>
+                Resubmit
+            </button>
             <textarea
                 aria-label="Resubmission note"
                 value={noteForm.values.resubmissionNote}
@@ -96,5 +100,28 @@ describe('EditCodeResubmitProvider', () => {
         expect(saveDraftAction).toHaveBeenCalledTimes(2)
         expect(saveDraftAction).toHaveBeenNthCalledWith(1, { studyId: STUDY_ID, note })
         expect(saveDraftAction).toHaveBeenNthCalledWith(2, { studyId: STUDY_ID, note })
+    })
+
+    // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
+    it('broadcasts code-submitted from the code room after a successful resubmit', async () => {
+        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
+        mockClerkSession({ clerkUserId: 'user_erin', userId: STUDY_ID, orgSlug: 'lab-1', firstName: 'Erin' })
+        vi.mocked(resubmitStudyCodeAction).mockResolvedValue({ studyId: STUDY_ID } as never)
+
+        renderWithProviders(
+            <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="fixed the loop">
+                <Harness onSaveResult={vi.fn()} />
+            </EditCodeResubmitProvider>,
+        )
+        const { __instances } = HocuspocusProvider as unknown as { __instances: { sendStateless: Mock }[] }
+        await waitFor(() => expect(__instances).toHaveLength(1))
+
+        fireEvent.click(screen.getByRole('button', { name: 'Resubmit' }))
+
+        await waitFor(() => expect(__instances[0].sendStateless).toHaveBeenCalledTimes(1))
+        expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
+            type: 'code-submitted',
+            studyId: STUDY_ID,
+        })
     })
 })

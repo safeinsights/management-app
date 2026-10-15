@@ -34,7 +34,7 @@ export const SubmittedCodeFilesSection: FC<SubmittedCodeFilesSectionProps> = ({
                 <Title order={3} fz="lg" c={semanticColor('text.primary')}>
                     {SECTION_TITLE}
                 </Title>
-                <Divider color={semanticColor('border.default')} />
+                <Divider />
                 <SubmittedCodeTable
                     jobId={jobId}
                     files={files}

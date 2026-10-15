@@ -25,11 +25,8 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            // Keyless roles land on the security-key page instead of My studies.
-            await page
-                .getByRole('heading', { name: /my studies|security key/i })
-                .first()
-                .waitFor({ state: 'visible' })
+            // Every seeded role holds a key; a keyless one would be sent to key setup instead.
+            await page.getByRole('heading', { name: 'My studies' }).waitFor({ state: 'visible' })
         })
     }
 })

@@ -1,4 +1,4 @@
-import { Modal, ModalProps, useMantineTheme } from '@mantine/core'
+import { Modal, ModalProps } from '@mantine/core'
 import React, { useEffect } from 'react'
 import { closeOpenLinkCard, useIsLinkCardOpen } from '@/components/link-hover-card/link-card-interactions'
 
@@ -31,11 +31,9 @@ export function AppModal({
     closeOnClickOutside = true,
     closeOnEscape = true,
     trapFocus = true,
-    styles,
     closeButtonProps,
     ...rest
 }: AppModalProps) {
-    const theme = useMantineTheme()
     const linkCardTakesEscape = useLinkCardTakesEscape(isOpen)
 
     return (
@@ -48,32 +46,6 @@ export function AppModal({
             closeOnClickOutside={closeOnClickOutside}
             closeOnEscape={closeOnEscape && !linkCardTakesEscape}
             trapFocus={trapFocus}
-            styles={{
-                header: {
-                    padding: '0px 40px',
-                    backgroundColor: theme.colors.charcoal[0],
-                    ...styles?.header,
-                },
-                body: {
-                    padding: '40px',
-                    ...styles?.body,
-                },
-                close: {
-                    backgroundColor: theme.colors.charcoal[4],
-                    color: 'white',
-                    borderRadius: '100%',
-                    height: '16px',
-                    width: '16px',
-                    minHeight: '16px',
-                    minWidth: '16px',
-                    ...styles?.close,
-                },
-                title: {
-                    fontSize: '20px',
-                    fontWeight: 600,
-                    ...styles?.title,
-                },
-            }}
             // Mantine's CloseButton ships with no accessible name.
             closeButtonProps={{ 'aria-label': 'Close', ...closeButtonProps }}
             {...rest}

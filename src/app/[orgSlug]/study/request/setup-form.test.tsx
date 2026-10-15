@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { Route } from 'next'
 import { memoryRouter } from 'next-router-mock'
 import {
     beforeEach,
@@ -72,7 +73,7 @@ const setupFixtures = async () => {
     return { lab, user, singleLanguagePartner, multiLanguagePartner, pythonOnlyPartner, retiredPartner }
 }
 
-// A real DRAFT row for the revisit state, so a Save and continue click runs the actual update
+// A real DRAFT row for the revisit state, so a Save & continue click runs the actual update
 // action. The row is submitted by the lab, which is what `update Study` is scoped to; its `orgSlug`
 // names the Data Partner for the locked display only.
 const insertRevisitableDraft = async (fixtures: Fixtures, overrides: Partial<DraftStudyData> = {}) => {
@@ -117,6 +118,7 @@ const renderSetup = (
         studyId?: string
         draftData?: DraftStudyData | null
         submittingLabName?: string | null
+        nextStepHref?: Route
     } = {},
     queryClient?: ReturnType<typeof createTestQueryClient>,
 ) =>
@@ -149,8 +151,6 @@ const titleInput = () => screen.getByLabelText(/study title/i)
 // Field assertions scope to the field so they cannot pass on the heading alone.
 const lockedFieldValue = (label: string) => screen.getByText(label).parentElement?.lastElementChild
 const continueButton = () => screen.getByRole('button', { name: 'Save & continue' })
-// The revisit and submitted states carry their own CTA copy, exact per OTTER-764.
-const saveAndContinueButton = () => screen.getByRole('button', { name: 'Save and continue' })
 const nextStepButton = () => screen.getByRole('button', { name: 'Next step' })
 
 const selectPartner = async (user: ReturnType<typeof userEvent.setup>, partnerName: string) => {
@@ -969,7 +969,7 @@ describe('Locked fields', () => {
         await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
         expect(screen.getByText('R')).toBeInTheDocument()
 
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         // Reaching Step 2 proves the persisted language survived the partner's language set emptying.
         await waitFor(() =>
@@ -986,7 +986,7 @@ describe('Locked fields', () => {
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         await waitFor(() => expect(titleInput()).toHaveValue(''))
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
         expect(document.activeElement).toBe(titleInput())
@@ -999,18 +999,15 @@ describe('Locked fields', () => {
         const fixtures = await setupFixtures()
         const overLimitTitle = 'a'.repeat(61)
         const draftData = submittedDraft(fixtures, { title: overLimitTitle })
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
+        const nextStepHref = Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        renderSetup(fixtures, { studyId: draftData.id, draftData, nextStepHref })
 
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent(overLimitTitle))
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
 
         await user.click(nextStepButton())
 
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
-            ),
-        )
+        await waitFor(() => expect(memoryRouter.asPath).toBe(nextStepHref))
         expect(screen.queryByText(OVER_LIMIT_ERROR)).not.toBeInTheDocument()
     })
 })
@@ -1041,13 +1038,12 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         expect(screen.getByText(INTRO)).toBeInTheDocument()
     })
 
-    it('titles the CTA Save and continue, and offers no left action', async () => {
+    it('titles the CTA Save & continue, like the first visit, and offers no left action', async () => {
         const fixtures = await setupFixtures()
         const { draftData } = await insertRevisitableDraft(fixtures)
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        expect(saveAndContinueButton()).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
+        expect(continueButton()).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
@@ -1065,7 +1061,7 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await user.clear(titleInput())
         await typeTitle(user, 'A title changed on the way back')
 
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(screen.queryByText('Continue to the next step?')).not.toBeInTheDocument()
@@ -1098,7 +1094,7 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         await waitFor(() =>
             expect(memoryRouter.asPath).toBe(Routes.studyProposal({ orgSlug: fixtures.lab.slug, studyId: study.id })),
@@ -1134,7 +1130,7 @@ describe('Step 1 navigation state: revisiting a draft', () => {
 
         await waitFor(() => expect(titleInput()).toHaveValue('A previously saved title'))
         await user.clear(titleInput())
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         expect(await screen.findByText(BLANK_TITLE_ERROR)).toBeInTheDocument()
         expect(memoryRouter.asPath).toBe('/start')
@@ -1151,7 +1147,7 @@ describe('Step 1 navigation state: revisiting a draft', () => {
         await user.clear(titleInput())
         await typeTitle(user, 'a'.repeat(61))
 
-        await user.click(saveAndContinueButton())
+        await user.click(continueButton())
 
         expect(await screen.findByText(OVER_LIMIT_ERROR)).toBeInTheDocument()
         expect(memoryRouter.asPath).toBe('/start')
@@ -1204,7 +1200,6 @@ describe('Step 1 navigation state: a submitted proposal', () => {
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
         expect(nextStepButton()).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Discard study' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
@@ -1212,33 +1207,30 @@ describe('Step 1 navigation state: a submitted proposal', () => {
 
     // Nothing here is editable, so there is nothing to validate and nothing to save. The click is a
     // step forward and no more.
-    it('steps forward to the submitted record with no validation and no modal', async () => {
+    // The page resolves the target from the nav table (setupStepNav); the form only follows it.
+    it('steps forward to the target the page resolved, with no validation and no modal', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
         const draftData = submittedDraft(fixtures)
-        renderSetup(fixtures, { studyId: draftData.id, draftData })
+        const nextStepHref = Routes.studyEditAndResubmit({ orgSlug: fixtures.lab.slug, studyId: draftData.id })
+        renderSetup(fixtures, { studyId: draftData.id, draftData, nextStepHref })
 
         await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                Routes.studySubmitted({ orgSlug: fixtures.lab.slug, studyId: draftData.id }),
-            ),
-        )
+        await waitFor(() => expect(memoryRouter.asPath).toBe(nextStepHref))
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
         expect(screen.queryByText(BLANK_TITLE_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(PARTNER_ERROR)).not.toBeInTheDocument()
         expect(screen.queryByText(LANGUAGE_ERROR)).not.toBeInTheDocument()
     })
 
-    it('reaches the submitted record for a decided proposal too', async () => {
+    it('steps forward to the proposal status when the page resolved no target', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()
-        const draftData = submittedDraft(fixtures, { status: 'CHANGE-REQUESTED' })
+        const draftData = submittedDraft(fixtures)
         renderSetup(fixtures, { studyId: draftData.id, draftData })
 
-        await waitFor(() => expect(lockedFieldValue('Study title')).toHaveTextContent('A previously saved title'))
         await user.click(nextStepButton())
 
         await waitFor(() =>
@@ -1257,7 +1249,7 @@ describe('Step 1 navigation state: the CTA across states', () => {
         const { draftData } = await insertRevisitableDraft(fixtures)
 
         const { unmount } = renderSetup(fixtures, { studyId: draftData.id, draftData })
-        await waitFor(() => expect(saveAndContinueButton()).toHaveTextContent('Save and continue'))
+        await waitFor(() => expect(continueButton()).toHaveTextContent('Save & continue'))
         expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
         unmount()
 
@@ -1265,7 +1257,6 @@ describe('Step 1 navigation state: the CTA across states', () => {
         renderSetup(fixtures, { studyId: submitted.id, draftData: submitted })
 
         await waitFor(() => expect(nextStepButton()).toHaveTextContent('Next step'))
-        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
     })
 
@@ -1274,7 +1265,6 @@ describe('Step 1 navigation state: the CTA across states', () => {
         renderSetup(fixtures)
 
         expect(continueButton()).toHaveTextContent('Save & continue')
-        expect(screen.queryByRole('button', { name: 'Save and continue' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Next step' })).not.toBeInTheDocument()
     })
 })

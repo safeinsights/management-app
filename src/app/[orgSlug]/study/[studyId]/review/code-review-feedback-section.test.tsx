@@ -92,7 +92,7 @@ describe('CodeReviewFeedbackSection', () => {
 
         await screen.findByLabelText('Code review feedback')
         const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
-        expect(surface.style.resize).toBe('vertical')
+        expect(surface).toHaveAttribute('data-resizable')
     })
 })
 

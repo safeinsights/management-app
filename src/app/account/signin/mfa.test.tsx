@@ -64,7 +64,7 @@ describe('RequestMFA', () => {
             ),
         )
 
-        // The banner is deferred until the user is keyed (OTTER-639), so the flag must survive the
+        // The layout keeps a keyless user off the dashboard (OTTER-743), so the flag must survive the
         // key detour.
         expect(readJoinedOrg()).toEqual({ orgName: invitingOrg.name })
     })

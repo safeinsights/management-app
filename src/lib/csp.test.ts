@@ -19,7 +19,7 @@ describe('csp', () => {
         expect(cspHeaderValue('abc123')).toContain("script-src 'nonce-abc123'")
     })
 
-    it('allows blob workers so Sentry session replay keeps working', () => {
+    it('allows the blob worker that Clerk session polling uses', () => {
         expect(cspHeaderValue('abc123')).toContain("worker-src 'self' blob:")
     })
 
