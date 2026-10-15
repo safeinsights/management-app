@@ -35,12 +35,6 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
     deliver: vi.fn(),
 }))
 
-vi.mock('@/server/aws', () => ({
-    storeS3File: vi.fn(),
-    fetchS3File: vi.fn(),
-    signedUrlForFile: vi.fn(),
-}))
-
 async function getJobStatusRows(jobId: string) {
     return await db
         .selectFrom('jobStatusChange')
