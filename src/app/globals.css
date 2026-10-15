@@ -214,3 +214,8 @@ html {
     scroll-padding-top: var(--app-shell-header-offset, 0px);
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
 }
+
+/* Legal documents: a code block wraps instead of widening its box (OTTER-836). */
+.mantine-Typography-root[data-variant='legal'] pre {
+    white-space: pre-wrap;
+}

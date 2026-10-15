@@ -19,6 +19,7 @@ import {
     Radio,
     rem,
     Tabs,
+    Typography,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -309,6 +310,11 @@ export const theme = createTheme({
         // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
         Divider: Divider.extend({
             defaultProps: { color: semanticColor('border.default') },
+        }),
+        // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
+        // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
+        Typography: Typography.extend({
+            styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
         }),
         Table: {
             styles: () => ({
