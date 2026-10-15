@@ -33,7 +33,7 @@ import { getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from '
 import { generateWorkspaceName } from './utils'
 import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -402,7 +402,7 @@ export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<voi
     await copyStarterCodeIntoWorkspace(studyId, currentDb())
 
     const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
-    const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
+    const baselineCreatedAt = await latestStudyJobCreatedAt(currentDb(), studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
     // Refreshed every launch so a relaunch picks up context changes even when starter code is untouched.

@@ -1,9 +1,9 @@
 import { headers } from 'next/headers'
 
-import { db } from '@/database'
 import jwt from 'jsonwebtoken'
 import { isEnclaveOrg } from '@/lib/types'
 import { Org } from '@/schema/org'
+import { currentDb } from '@/server/request-context'
 
 export const orgFromAuthToken = async (): Promise<Org> => {
     const authHeader = (await headers()).get('Authorization') || ''
@@ -21,7 +21,7 @@ export const orgFromAuthToken = async (): Promise<Org> => {
         throw new Error('Missing org slug')
     }
 
-    const org = await db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirst()
+    const org = await currentDb().selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirst()
     if (!org) {
         throw new Error('Org not found')
     }

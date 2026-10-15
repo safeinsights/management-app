@@ -1,6 +1,6 @@
 'use server'
 
-import { db as database, type DBExecutor, jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { sql, type ExpressionBuilder } from 'kysely'
 import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { ActionSuccessType } from '@/lib/types'
@@ -57,6 +57,7 @@ import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { currentDb } from '@/server/request-context'
 
 const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
     const study = await db
@@ -673,7 +674,7 @@ async function insertReviewerProposalComment({
 const purgeReviewFeedbackYjsDocAfterSubmit = deferred(
     async (args: { studyId: string; version: number; beforeAt: Date }) => {
         await sleep({ 5: 'seconds' })
-        await purgeReviewFeedbackYjsDocBeforeAt(database, args)
+        await purgeReviewFeedbackYjsDocBeforeAt(currentDb(), args)
     },
 )
 
@@ -768,7 +769,7 @@ export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedback
 const CODE_REVIEW_PURGE_DELAY_MS = MAX_SAVE_INTERVAL_MS + 5_000
 const purgeCodeReviewFeedbackYjsDocAfterSubmit = deferred(async (args: { jobId: string }) => {
     await sleep({ [CODE_REVIEW_PURGE_DELAY_MS]: 'ms' })
-    await purgeCodeReviewFeedbackYjsDoc(database, args)
+    await purgeCodeReviewFeedbackYjsDoc(currentDb(), args)
 })
 
 async function claimInitialCodeReviewJob({ studyId }: { studyId: string }) {

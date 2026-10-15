@@ -1,13 +1,13 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { cache } from 'react'
 import { capitalize } from 'remeda'
-import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 import { fullUserInfo, publicMetadata } from '@/lib/clerk'
 import { orgsBySlug } from './db/session-user'
+import { currentDb } from '@/server/request-context'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -50,7 +50,11 @@ export async function calculateUserPublicMetadata(userId: string): Promise<UserI
 
 // Returns the full info with orgs: callers build the session from it.
 export const updateClerkUserMetadata = async (userId: string) => {
-    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
+    const { clerkId } = await currentDb()
+        .selectFrom('user')
+        .select('clerkId')
+        .where('id', '=', userId)
+        .executeTakeFirstOrThrow()
     const client = await clerkClient()
 
     const metadata = await calculateUserPublicMetadata(userId)
@@ -66,7 +70,11 @@ export const updateClerkUserMetadata = async (userId: string) => {
 }
 
 export const updateClerkUserName = async (userId: string, firstName: string, lastName: string) => {
-    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
+    const { clerkId } = await currentDb()
+        .selectFrom('user')
+        .select('clerkId')
+        .where('id', '=', userId)
+        .executeTakeFirstOrThrow()
     const client = await clerkClient()
     await client.users.updateUser(clerkId, { firstName, lastName })
 }

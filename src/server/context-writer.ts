@@ -1,12 +1,12 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { createHash } from 'node:crypto'
-import { db } from '@/database'
 import type { Language } from '@/database/types'
 import { ContextName, getAgentContext } from '@/lib/agent-context'
 import { errorToString, isActionError } from '@/lib/errors'
 import { generateDataSourcesContextString } from '@/server/utils'
 import logger from '@/lib/logger'
+import { currentDb } from '@/server/request-context'
 
 const CONTEXT_FILE_NAME = 'CLAUDE.md'
 // Holds the hash of the last generated content, so a user-edited CLAUDE.md is distinguishable.
@@ -22,7 +22,7 @@ async function buildContextString(language: Language, orgId: string, logCtx: str
     for (const contextName of workspaceContexts) {
         let response
         try {
-            response = await getAgentContext(db, { name: contextName, orgId: null })
+            response = await getAgentContext(currentDb(), { name: contextName, orgId: null })
         } catch (error) {
             logger.error(`${logCtx} failed fetching agent context "${contextName}":`, error)
             throw error

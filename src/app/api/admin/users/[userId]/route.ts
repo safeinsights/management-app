@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/database'
 import { requireQaAuth, requireAdminOfOrgs, orgSlugsForUser, findUser, deleteUserCompletely } from '@/server/qa-cleanup'
 import { qaErrorResponse, qaRefusedResponse } from '@/app/api/qa/responses'
 import { auditQaOperation } from '@/app/api/qa/audit'
+import { currentDb } from '@/server/request-context'
 
 /**
  * DELETE /api/admin/users/[userId] — permanently delete a REAL account.
@@ -22,6 +22,7 @@ import { auditQaOperation } from '@/app/api/qa/audit'
  * The `userId` segment accepts a user id or a URL-encoded email address.
  */
 export const DELETE = async (_req: Request, { params }: { params: Promise<{ userId: string }> }) => {
+    const executor = currentDb()
     const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
@@ -32,7 +33,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
         // Resolved first so the attempt is audited against the real user id, and so a 404
         // is answered before anything is written to the audit trail. findUser rather than
         // findQaUser: this route is deliberately not QA-restricted.
-        const target = await findUser(db, userId)
+        const target = await findUser(executor, userId)
         const entry = {
             actorUserId: auth.user.id,
             eventType: 'DELETED',
@@ -42,7 +43,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
             metadata: { email: target.email },
         } as const
 
-        const authorized = await requireAdminOfOrgs(db, auth, await orgSlugsForUser(db, target.id))
+        const authorized = await requireAdminOfOrgs(executor, auth, await orgSlugsForUser(executor, target.id))
         if (!authorized.ok) {
             return await qaRefusedResponse(entry, authorized)
         }
@@ -53,7 +54,7 @@ export const DELETE = async (_req: Request, { params }: { params: Promise<{ user
             return NextResponse.json({ error: 'cannot delete your own account' }, { status: 400 })
         }
 
-        await auditQaOperation(entry, () => deleteUserCompletely(db, target))
+        await auditQaOperation(entry, () => deleteUserCompletely(executor, target))
     } catch (error) {
         return qaErrorResponse(error)
     }

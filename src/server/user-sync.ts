@@ -1,5 +1,6 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import logger from '@/lib/logger'
+import { withTransaction, currentDb } from '@/server/request-context'
 import { PROD_ENV } from './config'
 
 export type UserSyncAttrs = {
@@ -126,9 +127,7 @@ export async function syncUserToDatabaseWithConflictResolution(
     attrs: UserSyncAttrs,
     onConflictResolved?: (previousUserId: string) => Promise<void>,
 ): Promise<SyncResult> {
-    const result = await db.transaction().execute(async (trx) => {
-        return syncUserToDatabase(attrs, trx)
-    })
+    const result = await withTransaction(currentDb(), (trx) => syncUserToDatabase(attrs, trx))
 
     if (result.emailConflictResolved && onConflictResolved) {
         try {

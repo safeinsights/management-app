@@ -21,7 +21,6 @@ import {
     findOrgIdBySlug,
     selectCodeEnvSnapshot,
 } from '@/server/db/queries'
-import { db as database } from '@/database'
 import {
     deferred,
     onStudyCodeSubmitted,
@@ -53,20 +52,21 @@ import {
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
+import { currentDb } from '@/server/request-context'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round, database))) return
-    await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
+    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) return
+    await currentDb().insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
 // A Hocuspocus persist can commit after the in-tx delete; re-delete rows
 // older than the captured submit timestamp.
 const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
-    await purgeProposalYjsDocsBeforeAt(database, args)
+    await purgeProposalYjsDocsBeforeAt(currentDb(), args)
 })
 
 // Runs after the response, so the rows these objects belonged to are committed as deleted. Doing it

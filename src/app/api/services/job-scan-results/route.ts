@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import logger from '@/lib/logger'
@@ -30,7 +29,7 @@ export const POST = createWebhookHandler({
     schema,
     entityNotFoundMessage: 'job-not-found',
     handler: async (body) => {
-        const job = await db
+        const job = await currentDb()
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
             .innerJoin('org', 'org.id', 'study.orgId')

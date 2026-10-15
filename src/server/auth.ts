@@ -1,8 +1,8 @@
 import { sessionFromClerk } from '@/server/clerk'
 import { toRecord } from '@/lib/permissions'
-import { db } from '@/database'
 import { userAcknowledgedVersion, type LegalDocumentAudience } from '@/server/db/legal-document'
 import type { StudyStatus } from '@/database/types'
+import { currentDb } from '@/server/request-context'
 
 // `status` gates the reviewer path only: unsubmitted drafts are private to the submitting lab,
 // whose own path stays status-agnostic (OTTER-596).
@@ -42,5 +42,5 @@ export async function canDownloadLegalDocument(doc: LegalDocumentAudience) {
     // more than the study-agreement gate already did when it presigned the URL itself.
     if (session.can('acknowledge', toRecord('LegalDocument', { audienceOrgIds }))) return true
 
-    return userAcknowledgedVersion(db, { versionId: doc.versionId, userId: session.user.id })
+    return userAcknowledgedVersion(currentDb(), { versionId: doc.versionId, userId: session.user.id })
 }

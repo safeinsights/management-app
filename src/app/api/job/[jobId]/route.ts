@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
@@ -26,14 +25,14 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const alreadyCompleted = await db
+    const alreadyCompleted = await currentDb()
         .selectFrom('jobStatusChange')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
         .executeTakeFirst()
     if (alreadyCompleted) return new NextResponse('job is already complete', { status: 422 })
 
-    const job = await db
+    const job = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
         .where('studyJob.id', '=', jobId)

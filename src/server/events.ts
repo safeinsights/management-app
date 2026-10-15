@@ -1,4 +1,4 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
@@ -114,7 +114,7 @@ const roleInOrg = (memberships: Awaited<ReturnType<typeof getOrgInfoForUserId>>,
 const actorRoleProps = async (userId: string, orgId: string) => roleInOrg(await getOrgInfoForUserId(userId), orgId)
 
 const selectStudyForCapture = (studyId: string) =>
-    db
+    currentDb()
         .selectFrom('study')
         .select(['orgId', 'submittedByOrgId', 'isTestStudy', 'language', 'submittedAt', 'approvedAt'])
         .where('id', '=', studyId)
@@ -222,7 +222,7 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
         // From the first submission, so the lab's revision time counts. Read from the earliest CREATED
         // row: finalizing a CHANGE-REQUESTED study moves submittedAt, resubmitProposalAction does not.
         extra: async (study, role) => {
-            const firstSubmission = await db
+            const firstSubmission = await currentDb()
                 .selectFrom('audit')
                 .select((eb) => eb.fn.min('createdAt').as('at'))
                 .where('recordType', '=', 'STUDY')
@@ -341,7 +341,7 @@ type Invite = { pendingId: string; isResend: boolean }
 // reaches the admin.
 export const onUserInvited = deferred(async ({ pendingId, isResend }: Invite) => {
     const user = await siUser()
-    const invite = await db
+    const invite = await currentDb()
         .selectFrom('pendingUser')
         .select(['email', 'orgId', 'isAdmin'])
         .where('id', '=', pendingId)
@@ -381,7 +381,7 @@ export const onUserAcceptInvite = deferred(async ({ userId, inviteId, isNewAccou
         event: 'accepted_invite',
         properties: async () => {
             // The membership's role, not the invite's: accepting never demotes an existing admin.
-            const membership = await db
+            const membership = await currentDb()
                 .selectFrom('pendingUser')
                 .innerJoin('orgUser', (join) =>
                     join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
