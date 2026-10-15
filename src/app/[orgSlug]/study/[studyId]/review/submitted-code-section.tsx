@@ -8,7 +8,7 @@ import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
-import { JobAnalysisPanels, StudyCodeViewer, type SubmissionDetailBlock } from './submitted-code-interactive'
+import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
 import { filterAndOrderCodeFiles } from './study-code-files'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { fontWeight } from '@/theme/tokens'
@@ -114,7 +114,6 @@ export function SubmittedCodeSection({
     const expandToggle = (
         <SubmissionDetailsExpandToggle isVisible={showExpandToggle} onClick={onExpand} toggleRef={expandToggleRef} />
     )
-    const leadingBlocks: SubmissionDetailBlock[] = [{ key: 'datasets', content: <DatasetPills names={datasetNames} /> }]
 
     return (
         <Paper p="xxl" data-testid="submitted-code-section">
@@ -127,7 +126,7 @@ export function SubmittedCodeSection({
                     submittedAt={submittedAt}
                     detailsExpanded={detailsExpanded}
                     expandToggle={expandToggle}
-                    leadingBlocks={leadingBlocks}
+                    leadingBlocks={[{ key: 'datasets', content: <DatasetPills names={datasetNames} /> }]}
                 >
                     <StudyCodeViewer
                         studyJobId={job.id}
