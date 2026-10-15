@@ -33,7 +33,7 @@ const deliverMock = deliver as unknown as Mock
 
 describe('deferred', () => {
     it('captures and flushes to Sentry when the handler rejects', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         const boom = new Error('handler exploded')
         const run = deferred(async () => {
             throw boom
@@ -47,7 +47,7 @@ describe('deferred', () => {
     })
 
     it('does not report when the handler resolves', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         const run = deferred(async () => undefined)
 
         run()
@@ -59,7 +59,7 @@ describe('deferred', () => {
 
 describe('user event captures', () => {
     it('onUserLogIn captures user_logged_in for the user', async () => {
-        const { onUserLogIn } = await import('./events')
+        const { onUserLogIn } = await import('@/server/events')
         const { user } = await mockSessionWithTestData()
 
         onUserLogIn({ userId: user.id })
@@ -71,7 +71,7 @@ describe('user event captures', () => {
     })
 
     it('onUserInvited captures invited for the inviter, with the invite org and role', async () => {
-        const { onUserInvited } = await import('./events')
+        const { onUserInvited } = await import('@/server/events')
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave', isAdmin: true })
         const invite = await db
             .insertInto('pendingUser')
@@ -102,7 +102,7 @@ describe('user event captures', () => {
     })
 
     it('onUserAcceptInvite records the invite and captures accepted_invite with the membership role', async () => {
-        const { onUserAcceptInvite } = await import('./events')
+        const { onUserAcceptInvite } = await import('@/server/events')
         // An admin accepting a contributor invite stays admin, so the capture reads the membership.
         const { user, org } = await mockSessionWithTestData({ orgType: 'lab', isAdmin: true })
         const invite = await db
@@ -130,7 +130,7 @@ describe('user event captures', () => {
     })
 
     it('onUserRoleUpdate audits and captures as the admin who made the change', async () => {
-        const { onUserRoleUpdate } = await import('./events')
+        const { onUserRoleUpdate } = await import('@/server/events')
         const { user: admin, org } = await mockSessionWithTestData({ orgType: 'enclave', isAdmin: true })
         const { user: member } = await insertTestUser({ org })
 
@@ -171,10 +171,9 @@ async function setupPendingStudy() {
     return { user, study }
 }
 
-// Approves inside the action transaction and fires onStudyApproved, then optionally fails afterwards.
 const approvalAction = ({ studyId, userId, failAfter }: { studyId: string; userId: string; failAfter: boolean }) =>
     new Action('approval', { performsMutations: true }).handler(async ({ db }) => {
-        const { onStudyApproved } = await import('./events')
+        const { onStudyApproved } = await import('@/server/events')
         await db
             .updateTable('study')
             .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: userId })
@@ -221,7 +220,7 @@ describe('deferred inside an action', () => {
     })
 
     it('does not start the handler before the action commits', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         await mockSessionWithTestData()
         const probe = vi.fn(async () => undefined)
         const run = deferred(probe)
@@ -240,7 +239,7 @@ describe('deferred inside an action', () => {
     })
 
     it('still runs in an action without a transaction when the handler later throws', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         await mockSessionWithTestData()
         const probe = vi.fn(async () => undefined)
         const run = deferred(probe)
@@ -256,7 +255,7 @@ describe('deferred inside an action', () => {
     })
 
     it('schedules a call made from an afterCommit hook directly, not back onto the hook list', async () => {
-        const { deferred } = await import('./events')
+        const { deferred } = await import('@/server/events')
         await mockSessionWithTestData()
         const order: string[] = []
         const probe = vi.fn(async () => {
