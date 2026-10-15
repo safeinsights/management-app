@@ -20,6 +20,7 @@ import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
+import { withTransaction } from '@/server/request-context'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -192,16 +193,6 @@ export async function findQaUser(db: Kysely<DB>, idOrEmail: string) {
     // real user's id cannot bypass it.
     assertQaEmail(user.email, `user ${decodeURIComponent(idOrEmail)}`)
     return user
-}
-
-// Mutation Actions already run their handlers inside a transaction (see action.ts)
-// and Kysely does not support nesting, so reuse the caller's transaction when given one.
-export async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
-    if (db.isTransaction) {
-        await fn(db)
-        return
-    }
-    await db.transaction().execute(fn)
 }
 
 async function deleteStudyRows(db: Kysely<DB>, studyId: string) {

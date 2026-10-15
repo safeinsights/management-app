@@ -3,7 +3,7 @@ import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import logger from '@/lib/logger'
-import { localStorageContext } from '@/server/actions/action'
+import { localStorageContext } from '@/server/request-context'
 import { capturePostHogEvent, type PostHogEventName } from '@/server/posthog'
 import { CLERK_ADMIN_ORG_SLUG, isLabOrg, UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
@@ -31,9 +31,9 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
                 }
             })
 
-        // after() cannot be unscheduled, so inside a performsMutations action wait for the commit: a
-        // rollback drops afterCommit hooks. A caller's own db.transaction() is not detected here, so
-        // call events after it returns (OTTER-841).
+        // after() cannot be unscheduled, so inside a transaction wait for the commit of the action or
+        // withTransaction() that opened it; a rollback drops afterCommit hooks. Inside a transaction
+        // withTransaction() was handed but does not own, afterCommit throws (OTTER-841).
         const ctx = localStorageContext.getStore()
         if (ctx?.afterCommit && ctx.db?.isTransaction) {
             ctx.afterCommit(async () => schedule())

@@ -1,7 +1,6 @@
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import { wrapApiOrgAction } from '@/server/api-wrappers'
-import { apiRequestingOrg } from '@/server/api-context'
+import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()

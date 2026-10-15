@@ -1,7 +1,7 @@
 import 'dotenv/config' // must precede other imports, matching Next.js
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
-import { localStorageContext } from '@/server/actions/action'
+import { localStorageContext } from '@/server/request-context'
 import { createTempDir } from '@/tests/temp-dir'
 import fs from 'fs'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
@@ -44,7 +44,7 @@ const mockState = vi.hoisted(() => {
 })
 
 mockState.setRunWithLocalStorage((cb) => {
-    localStorageContext.run({ db: undefined as never }, cb)
+    localStorageContext.run({}, cb)
 })
 
 // Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
