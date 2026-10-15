@@ -343,9 +343,12 @@ function SubmissionDetailBlocks({
     expandToggle?: ReactNode
 }) {
     const { preview, rest } = splitPreviewBlocks(blocks, SUBMISSION_DETAILS_PREVIEW_COUNT)
+    // Figma sets the divider above the collapsed opener tighter (lg) than the gap between blocks (xl).
     return (
-        <Stack gap="xl">
-            <DividedBlocks blocks={preview} />
+        <Stack gap={detailsExpanded ? 'xl' : 'lg'}>
+            <Stack gap="xl">
+                <DividedBlocks blocks={preview} />
+            </Stack>
             <CollapsibleRest
                 isVisible={rest.length > 0}
                 blocks={rest}
