@@ -15,8 +15,8 @@ import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { getOrgInfoForUserId, siUser } from './db/queries'
 import * as email from './mailer'
 
-// These run after the calling action has completed, and only once its transaction commits; the
-// caller's success must not depend on them.
+// These run after the calling action has completed, and inside a performsMutations action only once
+// its transaction commits; the caller's success must not depend on them.
 
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
@@ -32,8 +32,9 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
                 }
             })
 
-        // after() cannot be unscheduled, so inside a transaction wait for the commit: a rollback
-        // drops afterCommit hooks. Outside one the writes are already committed (OTTER-841).
+        // after() cannot be unscheduled, so inside a performsMutations action wait for the commit: a
+        // rollback drops afterCommit hooks. A caller's own db.transaction() is not detected here, so
+        // call events after it returns (OTTER-841).
         const ctx = localStorageContext.getStore()
         if (ctx?.afterCommit && ctx.db?.isTransaction) {
             ctx.afterCommit(async () => schedule())

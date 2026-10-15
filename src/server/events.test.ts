@@ -173,7 +173,7 @@ async function setupPendingStudy() {
 
 // Approves inside the action transaction and fires onStudyApproved, then optionally fails afterwards.
 const approvalAction = ({ studyId, userId, failAfter }: { studyId: string; userId: string; failAfter: boolean }) =>
-    new Action('otter-841-approval', { performsMutations: true }).handler(async ({ db }) => {
+    new Action('approval', { performsMutations: true }).handler(async ({ db }) => {
         const { onStudyApproved } = await import('./events')
         await db
             .updateTable('study')
@@ -227,7 +227,7 @@ describe('deferred inside an action', () => {
         const run = deferred(probe)
         let calledBeforeCommit: boolean | undefined
 
-        const action = new Action('otter-841-before-commit', { performsMutations: true }).handler(async () => {
+        const action = new Action('before-commit', { performsMutations: true }).handler(async () => {
             run()
             calledBeforeCommit = probe.mock.calls.length > 0
             return 'committed'
@@ -245,7 +245,7 @@ describe('deferred inside an action', () => {
         const probe = vi.fn(async () => undefined)
         const run = deferred(probe)
 
-        const action = new Action('otter-841-no-transaction').handler(async () => {
+        const action = new Action('no-transaction').handler(async () => {
             run()
             throw new Error('read failed')
         })
@@ -264,16 +264,14 @@ describe('deferred inside an action', () => {
         })
         const run = deferred(probe)
 
-        const action = new Action('otter-841-from-hook', { performsMutations: true }).handler(
-            async ({ afterCommit }) => {
-                afterCommit(async () => {
-                    order.push('hook start')
-                    run()
-                    order.push('hook end')
-                })
-                return 'committed'
-            },
-        )
+        const action = new Action('from-hook', { performsMutations: true }).handler(async ({ afterCommit }) => {
+            afterCommit(async () => {
+                order.push('hook start')
+                run()
+                order.push('hook end')
+            })
+            return 'committed'
+        })
 
         expect(await action()).toBe('committed')
         await flushDeferred()
