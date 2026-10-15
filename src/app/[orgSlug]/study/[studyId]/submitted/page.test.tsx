@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -63,5 +65,23 @@ describe('StudySubmittedRoute (/submitted)', () => {
         const params = { orgSlug: org.slug, studyId: study.id }
         const expected = target === 'edit-code' ? Routes.studyResubmit(params) : Routes.studyViewCode(params)
         expect(screen.getByTestId('cta-next-step')).toHaveAttribute('href', expected)
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/submitted for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
+
+        await expect(
+            StudySubmittedRoute({
+                params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }),
+                searchParams: Promise.resolve({}),
+            }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
     })
 })

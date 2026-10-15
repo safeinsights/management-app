@@ -8,6 +8,7 @@ import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
 import { ProposalProvider } from '@/contexts/proposal'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { STUDY_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
 
@@ -48,7 +49,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyPageHeader study={result} />
+            <StudyPageHeader study={result} step={STUDY_PROPOSAL_STEP} />
             <ProposalProvider
                 studyId={studyId}
                 draftData={{

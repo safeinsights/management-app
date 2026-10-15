@@ -1,8 +1,6 @@
 'use client'
 
 import { JOINED_ORG_STORAGE_KEY, readJoinedOrg, type JoinedOrg } from '@/lib/joined-org'
-import { actionResult } from '@/lib/utils'
-import { userKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { Alert, Text } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
@@ -16,25 +14,13 @@ const bannerMessage = ({ orgName, linkedEmail }: JoinedOrg) =>
 export function JoinedOrgBanner() {
     const [joinedOrg, setJoinedOrg] = useState<JoinedOrg | null>(null)
 
-    // A keyless user mounts the dashboard transiently before RequireUserKey redirects them, so
-    // the one-shot flag waits on that same key check rather than a delay (OTTER-639).
     useEffect(() => {
         const joined = readJoinedOrg()
         if (!joined) return
 
-        let cancelled = false
-        const revealOnceKeyed = async () => {
-            const hasKey = actionResult(await userKeyExistsAction())
-            if (!hasKey || cancelled) return
-
-            sessionStorage.removeItem(JOINED_ORG_STORAGE_KEY)
-            setJoinedOrg(joined)
-        }
-        // Anything short of a definite key leaves the flag for the dashboard they land on.
-        revealOnceKeyed().catch(() => {})
-        return () => {
-            cancelled = true
-        }
+        sessionStorage.removeItem(JOINED_ORG_STORAGE_KEY)
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage is client-only
+        setJoinedOrg(joined)
     }, [])
 
     if (!joinedOrg) return null

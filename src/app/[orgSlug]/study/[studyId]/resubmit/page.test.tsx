@@ -1,15 +1,18 @@
 // OTTER-556: a late CODE-SCANNED webhook can land as statusChanges[0], so reading the topmost row
 // would 404 a resubmittable study. The page gates on canResearcherResubmitCode instead.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { redirect } from 'next/navigation'
 import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
     insertTestStudyJobData,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
     within,
 } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import ResubmitStudyCodePage from './page'
 
 const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
@@ -52,7 +55,7 @@ describe('ResubmitStudyCodePage', () => {
 
         renderWithProviders(page!)
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 3')
+        expect(header).toHaveTextContent('Step 3')
         expect(header).toHaveTextContent('Edit code')
         expect(header).not.toHaveTextContent(study.title!)
     })
@@ -164,5 +167,20 @@ describe('ResubmitStudyCodePage', () => {
         })
 
         expect(page).toBeUndefined()
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/resubmit for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
+
+        await expect(
+            ResubmitStudyCodePage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
     })
 })

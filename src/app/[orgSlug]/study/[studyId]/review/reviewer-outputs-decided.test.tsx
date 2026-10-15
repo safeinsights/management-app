@@ -60,8 +60,10 @@ describe('ReviewerOutputsDecided', () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 

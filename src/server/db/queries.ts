@@ -19,6 +19,7 @@ import { isStudyReviewStale } from '@/lib/study-review'
 import { Action } from '../actions/action'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
+import type { CodeEnvSnapshot } from '@/database/types-manual'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
 
 // A study id, or a reference to the outer query's study.id for a correlated subquery.
@@ -459,6 +460,22 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return rows.flatMap(({ id, slug, type, isAdmin }) => (id && slug && type ? [{ id, slug, type, isAdmin }] : []))
 }
 
+// Both actions that grant the membership do it in the claim's transaction, so joinedAt is the claim time.
+// The membership join also drops an org the account has since left.
+export const getLatestClaimedInviteOrg = async (userId: string) =>
+    await Action.db
+        .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
+        .innerJoin('orgUser', (join) =>
+            join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
+        )
+        .select('org.slug')
+        .where('pendingUser.claimedByUserId', '=', userId)
+        .orderBy('orgUser.joinedAt', 'desc')
+        .orderBy('orgUser.id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
 export const getInfoForStudyJobId = async (studyJobId: string) => {
     return await Action.db
         .selectFrom('studyJob')
@@ -535,35 +552,64 @@ export async function getStudyJobFileOfType(
     return file
 }
 
-export async function fetchLatestCodeEnvForStudyId(studyId: string) {
-    return await Action.db
+// The one rule for which code env a study runs: the org's newest non-testing env for its language.
+export function latestCodeEnvForStudyQuery(db: DBExecutor, studyId: string) {
+    return db
         .selectFrom('study')
         .innerJoin('orgCodeEnv', (join) =>
             join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
         )
-        .innerJoin('org', 'org.id', 'study.orgId')
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
-        .select([
-            'orgCodeEnv.id',
-            'orgCodeEnv.identifier',
-            'orgCodeEnv.language',
-            'orgCodeEnv.dataSourceType',
-            'orgCodeEnv.url',
-            'orgCodeEnv.settings',
-            'orgCodeEnv.starterCodeFileNames',
-            'orgCodeEnv.sampleDataPath',
-            'org.slug',
-            'study.orgId',
-        ])
-        .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
 
-export async function fetchLatestCodeEnvForStudyIdOrNull(studyId: string) {
+// Everything a study takes from its code env, in the shape kept on study.codeEnvSnapshot.
+export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
+    return latestCodeEnvForStudyQuery(db, studyId).select([
+        'orgCodeEnv.id',
+        'orgCodeEnv.language',
+        'orgCodeEnv.dataSourceType',
+        'orgCodeEnv.url',
+        'orgCodeEnv.settings',
+        'orgCodeEnv.commandLines',
+    ])
+}
+
+// The parts of a code env that name things an edit replaces: the sample database (named from the
+// identifier) and the starter code and sample data in S3. They are never frozen.
+const currentCodeEnvResources = (db: DBExecutor, codeEnvId: string) =>
+    db
+        .selectFrom('orgCodeEnv')
+        .select(['identifier', 'starterCodeFileNames', 'sampleDataPath'])
+        .where('id', '=', codeEnvId)
+        .executeTakeFirst()
+
+// The code env a study runs: the copy frozen when its language was chosen, with the resources it names
+// read as they are now. A study made before studies kept a copy, or whose frozen code env has since
+// been deleted (taking its database and files with it), gets the org's current code env instead.
+export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor = Action.db) {
+    const study = await db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['study.codeEnvSnapshot', 'study.orgId', 'org.slug'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow(() => new Error(`no study found for studyId: ${studyId}`))
+
+    let codeEnv: CodeEnvSnapshot | undefined = study.codeEnvSnapshot ?? undefined
+    let resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    if (!codeEnv || !resources) {
+        codeEnv = await selectCodeEnvSnapshot(db, studyId).executeTakeFirst()
+        resources = codeEnv && (await currentCodeEnvResources(db, codeEnv.id))
+    }
+    if (!codeEnv || !resources) throw new Error(`no code environment found for studyId: ${studyId}`)
+    return { ...codeEnv, ...resources, slug: study.slug, orgId: study.orgId }
+}
+
+export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {
     try {
-        return await fetchLatestCodeEnvForStudyId(studyId)
+        return await fetchCodeEnvForStudyId(studyId)
     } catch {
         return null
     }

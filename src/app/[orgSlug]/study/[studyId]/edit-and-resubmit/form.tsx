@@ -7,6 +7,7 @@ import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { NavAction } from '@/lib/study-screen'
 import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
+import { EDIT_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { CollaborativeResubmissionNoteSection } from '@/components/study/collaborative-resubmission-note-section'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
@@ -77,7 +78,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     form={form}
                     yjsForm={yjsForm}
                     websocketProvider={websocketProvider}
-                    heading="Edit proposal"
+                    step={EDIT_PROPOSAL_STEP}
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}

@@ -64,8 +64,10 @@ describe('OutputsAwaitingReviewScreen', () => {
         const { org, study } = await setupAwaitingReview()
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 4')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
     })
 

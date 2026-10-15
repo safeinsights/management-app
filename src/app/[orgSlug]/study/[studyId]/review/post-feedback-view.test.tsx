@@ -130,7 +130,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 1: Review proposal` }),
+            ).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
         })
 
@@ -383,7 +385,7 @@ describe('PostFeedbackView', () => {
                 <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
             )
 
-            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByText('Step 2')).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
         })
 

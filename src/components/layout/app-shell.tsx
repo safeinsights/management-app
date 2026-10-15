@@ -13,7 +13,6 @@ import { RequireUser } from '../require-user'
 
 import { ActivityContext } from '../activity-context'
 import { MarkStudyOpened } from '../study/mark-study-opened'
-import { RequireUserKey } from '../require-user-key'
 import { AppNav } from './app-nav'
 import { TopNav } from './top-nav/top-nav'
 
@@ -37,7 +36,6 @@ export function AppShell({ children }: Props) {
         >
             <RequireUser />
             <RequireMFA />
-            <RequireUserKey />
             <RequireLegalAcknowledgement />
             <ActivityContext />
             <MarkStudyOpened />

@@ -59,12 +59,18 @@ const securityHeaders = [
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     // Limit referrer leakage to cross-origin destinations.
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    // Stops SSL-stripping downgrades after the first visit (OTTER-678). Browsers ignore it over plain
+    // http, so local dev is unaffected. No preload: that is a hard-to-undo commitment for the whole domain.
+    { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
 ]
 
 const nextConfig: NextConfig = {
     cacheComponents: false,
     // Don't advertise the framework in responses (SIINFOSEC-771, ZAP-40025).
     poweredByHeader: false,
+    // Matching every UA turns off streaming metadata, so a navigation commits its <title> with the
+    // page. Streamed, the title lands a chunk later and Next's route announcer reads the H1 (OTTER-823).
+    htmlLimitedBots: /.*/,
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',
     output: 'standalone',

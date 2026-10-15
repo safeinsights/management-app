@@ -6,6 +6,7 @@ import { Stack } from '@mantine/core'
 import { useProposal } from '@/contexts/proposal'
 import { useSubmissionRedirectListener } from '@/hooks/use-submission-redirect-listener'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
+import { STUDY_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { DraftProposalFooter } from './footer'
 import { ProposalFieldsSection, type MemberOption } from './proposal-fields-section'
 
@@ -58,7 +59,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     form={form}
                     yjsForm={yjsForm}
                     websocketProvider={websocketProvider}
-                    heading="Study proposal"
+                    step={STUDY_PROPOSAL_STEP}
                     orgName={orgName}
                     members={members}
                     researcherName={researcherName}

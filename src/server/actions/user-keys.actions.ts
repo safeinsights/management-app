@@ -1,6 +1,6 @@
 'use server'
 
-import { getOrgInfoForUserId, getUserPublicKey } from '@/server/db/queries'
+import { getLatestClaimedInviteOrg, getUserPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Routes } from '@/lib/routes'
@@ -26,7 +26,7 @@ export const userKeyExistsAction = new Action('userKeyExistsAction')
         return Boolean(key)
     })
 
-// Anything ambiguous returns "My studies" rather than guessing which org invited the account.
+// A first key lands on the org whose invite the account claimed, never one guessed from membership.
 export const getKeyPageStateAction = new Action('getKeyPageStateAction')
     .requireAbilityTo('view', 'UserKey')
     .handler(async ({ session }) => {
@@ -34,12 +34,11 @@ export const getKeyPageStateAction = new Action('getKeyPageStateAction')
 
         if (hasKey) return { hasKey, firstKeyRedirect: Routes.dashboard }
 
-        // Not session.orgs: that Clerk metadata is stale right after a signup or invite accept.
-        const orgs = await getOrgInfoForUserId(session.user.id)
+        const invitingOrg = await getLatestClaimedInviteOrg(session.user.id)
 
-        if (orgs.length !== 1) return { hasKey, firstKeyRedirect: Routes.dashboard }
+        if (!invitingOrg) return { hasKey, firstKeyRedirect: Routes.dashboard }
 
-        return { hasKey, firstKeyRedirect: Routes.orgDashboard({ orgSlug: orgs[0].slug }) }
+        return { hasKey, firstKeyRedirect: Routes.orgDashboard({ orgSlug: invitingOrg.slug }) }
     })
 
 // No `fingerprint` field: derived server-side, since a mismatched one would make senders wrap to

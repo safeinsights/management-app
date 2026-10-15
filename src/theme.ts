@@ -18,6 +18,8 @@ import {
     Notification,
     Radio,
     rem,
+    Tabs,
+    Typography,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -309,6 +311,11 @@ export const theme = createTheme({
         Divider: Divider.extend({
             defaultProps: { color: semanticColor('border.default') },
         }),
+        // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
+        // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
+        Typography: Typography.extend({
+            styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
+        }),
         Table: {
             styles: () => ({
                 th: {
@@ -353,6 +360,8 @@ export const theme = createTheme({
         Accordion: Accordion.extend({
             styles: { content: { padding: 'var(--mantine-spacing-lg) var(--mantine-spacing-md)' } },
         }),
+        // Figma puts 32px between a tab strip and its panel's card.
+        TabsPanel: Tabs.Panel.extend({ defaultProps: { pt: 'xl' } }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
             // toast would otherwise present an unlabelled dismiss control. Matches how the modals in

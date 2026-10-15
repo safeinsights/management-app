@@ -124,7 +124,7 @@ describe('CodeUploadPage', () => {
         await renderPage()
 
         await waitFor(() => {
-            expect(screen.getByText('STEP 3')).toBeInTheDocument()
+            expect(screen.getByText('Step 3')).toBeInTheDocument()
             // By role: the footer button and the confirmation modal CTA share this label.
             expect(screen.getByRole('heading', { name: 'Submit code', level: 2 })).toBeInTheDocument()
             expect(screen.getByText(/write and test your code in ide/i)).toBeInTheDocument()

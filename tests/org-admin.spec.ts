@@ -1,5 +1,15 @@
 import { faker } from '@faker-js/faker'
-import { authFileFor, expect, goto, test, TestingUsers, visitAsRole, path } from './e2e.helpers'
+import {
+    authFileFor,
+    expect,
+    expectLegalLayoutToMatchDesign,
+    LEGAL_DESIGN_VIEWPORT,
+    goto,
+    test,
+    TestingUsers,
+    visitAsRole,
+    path,
+} from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
@@ -188,5 +198,37 @@ test.describe('Organization Admin', () => {
         await expect(participationTab).toBeVisible()
         await participationTab.click()
         await expect(page.getByRole('heading', { name: 'Data Organization Participation Agreement' })).toBeVisible()
+    })
+
+    test('legal center shows the sort icon beside the column label', async ({ page }) => {
+        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+
+        const header = page.getByRole('button', { name: /^study title/i })
+        const label = header.locator('.mantine-datatable-header-cell-sortable-text')
+        const icon = header.getByLabel(/sorted/i)
+        await expect(label).toBeVisible()
+        await expect(icon).toBeVisible()
+
+        // The label element can stretch up to the icon, so measure where its text actually ends. Read
+        // both rects in one evaluate: rows loading in between would resize the columns.
+        const gap = await header.evaluate((th) => {
+            const text = th.querySelector('.mantine-datatable-header-cell-sortable-text')
+            const sortIcon = th.querySelector('[role="img"][aria-label*="sorted" i]')
+            if (!text || !sortIcon) return Infinity
+            const range = document.createRange()
+            range.selectNodeContents(text)
+            return sortIcon.getBoundingClientRect().left - range.getBoundingClientRect().right
+        })
+        expect(gap).toBeGreaterThanOrEqual(0)
+        expect(gap).toBeLessThanOrEqual(8)
+    })
+
+    test.describe('at the design frame width', () => {
+        test.use({ viewport: LEGAL_DESIGN_VIEWPORT })
+
+        test('legal center layout matches the design', async ({ page }) => {
+            await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+            await expectLegalLayoutToMatchDesign(page)
+        })
     })
 })

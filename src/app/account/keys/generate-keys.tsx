@@ -27,7 +27,7 @@ interface Keys {
     fingerprint: string
 }
 
-// Keyed off account state, not the parameter's presence, because RequireUserKey passes none.
+// Keyed off account state, not the parameter's presence: the key gate omits it for "My dashboard".
 // firstKeyRedirect is the fallback so a malformed redirect_url cannot demote a first key
 // to Routes.dashboard (OTTER-655).
 export function postKeyRedirect(isRegenerating: boolean, redirectParam: string | null, firstKeyRedirect: Route): Route {
@@ -118,7 +118,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
-                <Title order={3} fz={22}>
+                <Title order={1} fz={22}>
                     {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
