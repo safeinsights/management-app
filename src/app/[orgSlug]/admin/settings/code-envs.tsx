@@ -34,6 +34,15 @@ type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 // Module-level, so a render that has no data yet does not mint a new array identity each time.
 const NO_CODE_ENVS: CodeEnv[] = []
 
+// Data source rows list their code envs, so a code env change must refresh them too.
+const useInvalidateCodeEnvs = (orgSlug: string) => {
+    const queryClient = useQueryClient()
+    return () => {
+        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+    }
+}
+
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
 
@@ -151,6 +160,7 @@ const CodeEnvRow: React.FC<{
 }> = ({ image, canDelete, isDefault }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
+    const invalidateCodeEnvs = useInvalidateCodeEnvs(orgSlug)
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
     const [scanResultsOpened, { open: openScanResults, close: closeScanResults }] = useDisclosure(false)
@@ -162,9 +172,7 @@ const CodeEnvRow: React.FC<{
     const deleteMutation = useMutation({
         mutationFn: deleteOrgCodeEnvAction,
         onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: ['orgCodeEnvs', orgSlug],
-            })
+            invalidateCodeEnvs()
             showToast({ category: 'success', title: 'Success', message: 'Code environment was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete code environment'),
@@ -177,12 +185,10 @@ const CodeEnvRow: React.FC<{
         isError: isHistoryError,
     } = useCodeEnvHistory(orgSlug, image.id, historyOpened)
 
-    // Data source rows list their code envs, so a save that links or unlinks one must refresh them too.
     const handleEditComplete = () => {
         closeEditModal()
-        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
+        invalidateCodeEnvs()
         queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
     }
 
     const handleViewCode = async (fileName?: string) => {
@@ -345,8 +351,7 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
 
 export const CodeEnvs: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-
-    const queryClient = useQueryClient()
+    const invalidateCodeEnvs = useInvalidateCodeEnvs(orgSlug)
 
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
@@ -357,8 +362,7 @@ export const CodeEnvs: React.FC = () => {
 
     const handleFormComplete = () => {
         closeAddModal()
-        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+        invalidateCodeEnvs()
     }
 
     const codeEnvs = query.data ?? NO_CODE_ENVS
