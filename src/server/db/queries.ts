@@ -377,7 +377,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
 
 /**
  * OTTER-817: the Coder account a workspace is provisioned under is the researcher who claimed the
- * IDE, not whoever submitted the proposal. currentDb() is load-bearing — ensureWorkspaceAction claims
+ * IDE, not whoever submitted the proposal. currentDb() is load-bearing: ensureWorkspaceAction claims
  * ideOwnerId inside its transaction and reads it back through here before the commit.
  *
  * Null covers both "no such study" and "unclaimed": by the time any Coder code runs, requireIdeOwner
