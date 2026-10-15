@@ -8,6 +8,7 @@ import {
     type BrowserType,
     type Locator,
     type Page,
+    expect,
     test as baseTest,
 } from '@playwright/test'
 import fs from 'fs'
@@ -268,4 +269,34 @@ export const fillPinInput = async (page: Page, pinCode: string, testId: string) 
     for (let i = 0; i < pin.length; i++) {
         await pinInputs.nth(i).fill(pin[i])
     }
+}
+
+// The legal pages against their hi-fi (Figma WGMNNhD9OFDmFEMOAZoIEr, frame 351:11432). Callers use
+// LEGAL_DESIGN_VIEWPORT, that frame's size. Re-read inside toPass: the layout settles over several
+// frames after hydration, and one evaluate per attempt keeps every check on the same layout.
+export const LEGAL_DESIGN_VIEWPORT = { width: 1440, height: 900 }
+
+export async function expectLegalLayoutToMatchDesign(page: Page) {
+    const card = page.getByRole('tabpanel').locator('.mantine-Paper-root').first()
+    await expect(card).toBeVisible()
+
+    await expect(async () => {
+        const layout = await card.evaluate((cardEl) => {
+            const tabs = document.querySelector('[role="tablist"]')!.getBoundingClientRect()
+            // The tab list spans the content column. Main's content box is symmetric within the
+            // design's available space beside the nav, so equal margins there mean centred.
+            const main = cardEl.closest('main')!
+            const style = getComputedStyle(main)
+            const area = main.getBoundingClientRect()
+            return {
+                gap: cardEl.getBoundingClientRect().top - tabs.bottom,
+                width: tabs.width,
+                left: tabs.left - (area.left + parseFloat(style.paddingLeft)),
+                right: area.right - parseFloat(style.paddingRight) - tabs.right,
+            }
+        })
+        expect(Math.round(layout.gap)).toBe(32)
+        expect(Math.round(layout.width)).toBe(1036)
+        expect(Math.abs(layout.left - layout.right)).toBeLessThanOrEqual(2)
+    }).toPass()
 }

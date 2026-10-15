@@ -18,6 +18,7 @@ import {
     Notification,
     Radio,
     rem,
+    Tabs,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -353,6 +354,8 @@ export const theme = createTheme({
         Accordion: Accordion.extend({
             styles: { content: { padding: 'var(--mantine-spacing-lg) var(--mantine-spacing-md)' } },
         }),
+        // Figma puts 32px between a tab strip and its panel's card.
+        TabsPanel: Tabs.Panel.extend({ defaultProps: { pt: 'xl' } }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
             // toast would otherwise present an unlabelled dismiss control. Matches how the modals in
