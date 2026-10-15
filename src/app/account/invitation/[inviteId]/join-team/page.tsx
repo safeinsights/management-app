@@ -44,6 +44,21 @@ function useSkipInvitation() {
     return { isSkipping, skipInvitation }
 }
 
+function useDeclineInvitation(inviteId: string) {
+    const router = useRouter()
+
+    const { mutate, isPending } = useMutation({
+        mutationFn: (_orgName: string) => onRevokeInviteAction({ inviteId }),
+        onSuccess: (_result, orgName) => {
+            markInvitationNotice({ kind: 'decline', orgName })
+            router.push(Routes.dashboard)
+        },
+        onError: reportMutationError('Unable to decline invitation'),
+    })
+
+    return { isDeclining: isPending, declineInvitation: mutate }
+}
+
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
@@ -51,6 +66,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const { isSkipping, skipInvitation } = useSkipInvitation()
+    const { isDeclining, declineInvitation } = useDeclineInvitation(inviteId)
 
     const {
         data: org,
@@ -80,15 +96,6 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onError: (error) => {
             reportError(error, 'Unable to join team')
         },
-    })
-
-    const { mutate: revokeInvite, isPending: isRevoking } = useMutation({
-        mutationFn: () => onRevokeInviteAction({ inviteId }),
-        onSuccess: () => {
-            markInvitationNotice({ kind: 'decline', orgName: org!.name })
-            router.push(Routes.dashboard)
-        },
-        onError: reportMutationError('Unable to decline invitation'),
     })
 
     // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
@@ -133,15 +140,15 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 >
                     Accept invitation
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isRevoking}>
+                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isDeclining}>
                     Decline invitation
                 </Button>
 
                 <ConfirmationModal
                     isOpen={confirmOpen}
                     onClose={() => setConfirmOpen(false)}
-                    onConfirm={() => revokeInvite()}
-                    isLoading={isRevoking}
+                    onConfirm={() => declineInvitation(org.name)}
+                    isLoading={isDeclining}
                     orgName={org.name}
                 />
                 <Button

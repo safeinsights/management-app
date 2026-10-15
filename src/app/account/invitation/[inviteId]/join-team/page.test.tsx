@@ -5,6 +5,7 @@ import {
     expect,
     faker,
     insertTestOrg,
+    mockPathname,
     it,
     mockSessionWithTestData,
     createTestQueryClient,
@@ -18,7 +19,7 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
-import { takeInvitationNotice } from '@/lib/invitation-notice'
+import { INVITATION_NOTICE_STORAGE_KEY, takeInvitationNotice } from '@/lib/invitation-notice'
 import { Routes } from '@/lib/routes'
 import { useAuth } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
@@ -33,6 +34,8 @@ const renderInviteFrom = async (orgName: string) => {
         .values({ email: user.email!, orgId: invitingOrg.id, isAdmin: false })
         .returning('id')
         .executeTakeFirstOrThrow()
+    // A previous test may have left the router on the dashboard, which would satisfy the URL wait early.
+    mockPathname(Routes.accountInvitationJoinTeam({ inviteId: invite.id }))
 
     await act(async () => {
         renderWithProviders(
@@ -101,5 +104,22 @@ describe('AddTeam', () => {
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
         expect(takeInvitationNotice()).toEqual({ kind: 'decline', orgName })
+    })
+
+    it('still leaves for the dashboard after a decline when storage is unavailable', async () => {
+        await renderInviteFrom(faker.company.name())
+        const setItem = sessionStorage.setItem.bind(sessionStorage)
+        vi.spyOn(sessionStorage, 'setItem').mockImplementation((key, value) => {
+            if (key === INVITATION_NOTICE_STORAGE_KEY) throw new DOMException('Quota exceeded', 'QuotaExceededError')
+            setItem(key, value)
+        })
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Decline invitation' }))
+        await userEvent.click(
+            within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline invitation' }),
+        )
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
+        expect(takeInvitationNotice()).toBeNull()
     })
 })

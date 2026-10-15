@@ -1,5 +1,5 @@
 import { notifications } from '@mantine/notifications'
-import { describe, expect, it, mockPathname, renderHook } from '@/tests/unit.helpers'
+import { describe, expect, it, mockPathname, renderHook, vi } from '@/tests/unit.helpers'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { INVITATION_NOTICE_STORAGE_KEY, markInvitationNotice } from '@/lib/invitation-notice'
 import { Routes } from '@/lib/routes'
@@ -16,6 +16,7 @@ describe('useInvitationNotices', () => {
                 title: 'You have opted to skip the invitation to Test Org. The invitation can be found in your inbox and is valid for 7 days.',
             }),
         )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
         expect(sessionStorage.getItem(INVITATION_NOTICE_STORAGE_KEY)).toBeNull()
     })
 
@@ -27,6 +28,7 @@ describe('useInvitationNotices', () => {
         expect(notifications.show).toHaveBeenCalledWith(
             expect.objectContaining({ id: 'decline-invitation', title: "You've declined Test Org's invitation." }),
         )
+        expect(notifications.show).toHaveBeenCalledTimes(1)
         expect(sessionStorage.getItem(INVITATION_NOTICE_STORAGE_KEY)).toBeNull()
     })
 
@@ -54,5 +56,15 @@ describe('useInvitationNotices', () => {
 
         expect(notifications.show).not.toHaveBeenCalled()
         expect(sessionStorage.getItem(INVITATION_NOTICE_STORAGE_KEY)).toBeNull()
+    })
+
+    it('shows no toast when storage cannot be read', () => {
+        vi.spyOn(sessionStorage, 'getItem').mockImplementationOnce(() => {
+            throw new DOMException('Access denied', 'SecurityError')
+        })
+
+        renderHook(() => useInvitationNotices())
+
+        expect(notifications.show).not.toHaveBeenCalled()
     })
 })
