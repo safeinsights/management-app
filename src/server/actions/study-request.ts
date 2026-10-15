@@ -18,7 +18,7 @@ import {
     codeSubmissionVersion,
     fetchUserFullName,
     getInfoForStudyId,
-    getOrgIdFromSlug,
+    findOrgIdBySlug,
     selectCodeEnvSnapshot,
 } from '@/server/db/queries'
 import { db as database } from '@/database'
@@ -185,9 +185,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     .params(onSaveDraftStudyActionArgsSchema)
     // Resolving here puts submittedByOrgId in the ability subject, so `create Study` enforces lab
     // membership via CASL — otherwise a caller could stamp another lab's id on a study (OTTER-719).
-    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
-        ...(await getOrgIdFromSlug({ orgSlug })),
-        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    .middleware(async ({ db, params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await findOrgIdBySlug(db, orgSlug, true)),
+        submittedByOrgId: (await findOrgIdBySlug(db, submittingOrgSlug, true)).orgId,
     }))
     .requireAbilityTo('create', 'Study')
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {

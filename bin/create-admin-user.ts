@@ -5,7 +5,7 @@ import 'dotenv/config'
 import { createClerkClient } from '@clerk/backend'
 import prompts from 'prompts'
 import { db } from '@/database'
-import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/mutations'
+import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/db/mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 function isValidEmail(email: string): boolean {

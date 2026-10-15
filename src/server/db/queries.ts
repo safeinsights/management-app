@@ -5,9 +5,9 @@ import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
-import { wasCalledFromAPI } from '@/server/request-context'
+import { currentDb, wasCalledFromAPI } from '@/server/request-context'
 import { findOrCreateSiUserId } from './mutations'
-import { FileType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
+import { FileType, OrgType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import {
     CODE_DECISION_JOB_STATUSES,
@@ -198,23 +198,6 @@ export const outputsDecisionVersion = async (studyId: string, db: DBExecutor = A
     return Number(row?.count ?? 0) + 1
 }
 
-export const jobInfoForJobId = async (jobId: string) => {
-    return await Action.db
-        .selectFrom('studyJob')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('org', 'org.id', 'study.orgId')
-        .select([
-            'studyId',
-            'studyJob.id as studyJobId',
-            'org.slug as orgSlug',
-            'org.id as orgId',
-            'study.submittedByOrgId',
-            'study.status',
-        ])
-        .where('studyJob.id', '=', jobId)
-        .executeTakeFirstOrThrow()
-}
-
 // max(version) rather than ordering by createdAt so simultaneous reviewer submissions cannot
 // tie-break wrong.
 export const currentReviewVersion = async (studyId: string): Promise<number> => {
@@ -256,22 +239,6 @@ export const getProposalFeedbackForStudy = async (studyId: string) => {
     ])
 
     return { study, entries }
-}
-
-export const studyInfoForStudyId = async (studyId: string) => {
-    return await Action.db
-        .selectFrom('study')
-        .innerJoin('org', 'study.orgId', 'org.id')
-        .select([
-            'study.id as studyId',
-            'org.id as orgId',
-            'org.slug as orgSlug',
-            'study.submittedByOrgId',
-            'study.language',
-            'study.status',
-        ])
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
 }
 
 export const getDataSourcesForOrg = async (orgId: string) => {
@@ -432,10 +399,31 @@ export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
-// executeTakeFirst, NOT ...OrThrow: an unknown slug must leave orgId ABSENT from the CASL subject so
-// the mongo $in conditions fail CLOSED. Throwing would distinguish "no such org" from "not yours".
+type OrgIdForSlug = { orgId: string; orgType: OrgType }
+
+export async function findOrgIdBySlug(
+    executor: DBExecutor,
+    orgSlug: string,
+    throwIfNotFound: true,
+): Promise<OrgIdForSlug>
+export async function findOrgIdBySlug(
+    executor: DBExecutor,
+    orgSlug: string,
+    throwIfNotFound: false,
+): Promise<OrgIdForSlug | undefined>
+export async function findOrgIdBySlug(
+    executor: DBExecutor,
+    orgSlug: string,
+    throwIfNotFound: boolean,
+): Promise<OrgIdForSlug | undefined> {
+    const query = executor.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug)
+    return throwIfNotFound ? await query.executeTakeFirstOrThrow() : await query.executeTakeFirst()
+}
+
+// Not throwing: an unknown slug must leave orgId ABSENT from the CASL subject so the mongo $in
+// conditions fail CLOSED. Throwing would distinguish "no such org" from "not yours".
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
-    await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
+    await findOrgIdBySlug(db, orgSlug, false)
 
 // A claimed invite resumes email linking for its claimer only (OTTER-788), so re-sending it would
 // hand a different owner of this address a dead link. Callers create a fresh invite instead.
@@ -477,7 +465,7 @@ export const getLatestClaimedInviteOrg = async (userId: string) =>
         .executeTakeFirst()
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {
-    return await Action.db
+    return await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -485,6 +473,7 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
             'org.id as orgId',
             'org.slug as orgSlug',
             'study.id as studyId',
+            'studyJob.id as studyJobId',
             'study.submittedByOrgId',
             'study.status',
         ])
@@ -492,11 +481,12 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .executeTakeFirstOrThrow()
 }
 
-export const getInfoForStudyId = async (studyId: string) => {
-    return await Action.db
+const studyInfoQuery = (studyId: string) =>
+    currentDb()
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
         .select([
+            'study.id as studyId',
             'orgId',
             'org.slug as orgSlug',
             'study.researcherId',
@@ -506,15 +496,14 @@ export const getInfoForStudyId = async (studyId: string) => {
             // permission_denied, so a title selected here would leak to a guessed study id (MA-6).
         ])
         .where('study.id', '=', studyId)
-        .executeTakeFirstOrThrow()
-}
 
-export const getOrgIdFromSlug = async ({ orgSlug }: { orgSlug: string }) => {
-    return Action.db
-        .selectFrom('org')
-        .select(['org.id as orgId', 'org.slug as orgSlug'])
-        .where('slug', '=', orgSlug)
-        .executeTakeFirstOrThrow()
+type StudyInfo = Awaited<ReturnType<ReturnType<typeof studyInfoQuery>['executeTakeFirstOrThrow']>>
+
+export async function getInfoForStudyId(studyId: string, throwIfNotFound?: true): Promise<StudyInfo>
+export async function getInfoForStudyId(studyId: string, throwIfNotFound: false): Promise<StudyInfo | undefined>
+export async function getInfoForStudyId(studyId: string, throwIfNotFound = true): Promise<StudyInfo | undefined> {
+    const query = studyInfoQuery(studyId)
+    return throwIfNotFound ? await query.executeTakeFirstOrThrow() : await query.executeTakeFirst()
 }
 
 type JobDetails = { id: string; name: string; path: string }

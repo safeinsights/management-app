@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { urlForFile } from '@/server/storage'
-import { getStudyJobFileOfType, jobInfoForJobId } from '@/server/db/queries'
+import { getStudyJobFileOfType, getInfoForStudyJobId } from '@/server/db/queries'
 import { canViewStudyJob } from '@/server/auth'
 import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 
@@ -14,7 +14,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
 
     // Authorize before touching the file: an unknown job and an unauthorized one both return 401,
     // so a denied requester learns nothing about another org's job.
-    const job = await jobInfoForJobId(jobId).catch(() => null)
+    const job = await getInfoForStudyJobId(jobId).catch(() => null)
 
     if (!job || !(await canViewStudyJob(job))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })

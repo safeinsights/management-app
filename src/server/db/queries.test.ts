@@ -21,8 +21,9 @@ import {
     getOrgPublicKeysRaw,
     getUserPublicKey,
     getUsersForOrgId,
-    jobInfoForJobId,
-    studyInfoForStudyId,
+    getInfoForStudyJobId,
+    getInfoForStudyId,
+    findOrgIdBySlug,
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
     getIdeOwnerForStudy,
@@ -74,28 +75,51 @@ describe('getUserPublicKey', () => {
     })
 })
 
-describe('jobInfoForJobId', () => {
+describe('getInfoForStudyJobId', () => {
     it('returns job info when jobId is valid', async () => {
-        const { job1, org1 } = await insertRecords()
-        const jobInfo = await jobInfoForJobId(job1.id)
-        expect(jobInfo).not.toBeNull()
-        expect(jobInfo?.studyJobId).toBe(job1.id)
-        expect(jobInfo?.orgSlug).toBe(org1.slug)
+        const { job1, study1, org1 } = await insertRecords()
+        const jobInfo = await getInfoForStudyJobId(job1.id)
+        expect(jobInfo.studyJobId).toBe(job1.id)
+        expect(jobInfo.studyId).toBe(study1.id)
+        expect(jobInfo.orgSlug).toBe(org1.slug)
+    })
+
+    it('rejects an unknown jobId', async () => {
+        await expect(getInfoForStudyJobId(BLANK_UUID)).rejects.toThrow()
     })
 })
 
-describe('studyInfoForStudyId', () => {
+describe('getInfoForStudyId', () => {
     it('returns study info when studyId is valid', async () => {
         const { study1, org1 } = await insertRecords()
-        const studyInfo = await studyInfoForStudyId(study1.id)
-        expect(studyInfo).not.toBeNull()
+        const studyInfo = await getInfoForStudyId(study1.id, false)
         expect(studyInfo?.studyId).toBe(study1.id)
         expect(studyInfo?.orgSlug).toBe(org1.slug)
     })
 
-    it('returns null when studyId is invalid', async () => {
-        const studyInfo = await studyInfoForStudyId(BLANK_UUID)
-        expect(studyInfo).toBeUndefined()
+    it('returns undefined for an unknown studyId when not throwing', async () => {
+        expect(await getInfoForStudyId(BLANK_UUID, false)).toBeUndefined()
+    })
+
+    it('rejects an unknown studyId by default', async () => {
+        await expect(getInfoForStudyId(BLANK_UUID)).rejects.toThrow()
+    })
+})
+
+describe('findOrgIdBySlug', () => {
+    it('returns the org id and type for a known slug', async () => {
+        const org = await insertTestOrg({ slug: 'find-org-by-slug', type: 'lab' })
+        const expected = { orgId: org.id, orgType: 'lab' }
+        expect(await findOrgIdBySlug(db, org.slug, false)).toEqual(expected)
+        expect(await findOrgIdBySlug(db, org.slug, true)).toEqual(expected)
+    })
+
+    it('returns undefined for an unknown slug when not throwing', async () => {
+        expect(await findOrgIdBySlug(db, 'nope', false)).toBeUndefined()
+    })
+
+    it('rejects an unknown slug when throwing', async () => {
+        await expect(findOrgIdBySlug(db, 'nope', true)).rejects.toThrow()
     })
 })
 
