@@ -736,6 +736,7 @@ describe('SubmittedCodeSection collapsed preview', () => {
                 initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
                 submittedAt={new Date()}
                 detailsExpanded={false}
+                expandToggle={<button type="button">Open details</button>}
                 leadingBlocks={[{ key: 'retired', isVisible: false, content: <p>Retired block</p> }]}
             >
                 <p>Code files block</p>
@@ -745,7 +746,27 @@ describe('SubmittedCodeSection collapsed preview', () => {
         expect(screen.queryByText('Retired block')).not.toBeInTheDocument()
         expect(screen.getByTestId('security-scan-results')).toBeVisible()
         expect(screen.getByTestId('ai-summary')).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Open details' })).toBeVisible()
         expect(screen.getByText('Code files block')).not.toBeVisible()
+    })
+
+    it('offers no opener when empty children leave nothing to collapse', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
+                submittedAt={new Date()}
+                detailsExpanded={false}
+                expandToggle={<button type="button">Open details</button>}
+            >
+                {false}
+            </JobAnalysisPanels>,
+        )
+
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).toBeVisible()
+        expect(screen.queryByRole('button', { name: 'Open details' })).not.toBeInTheDocument()
     })
 })
 
@@ -1017,6 +1038,13 @@ describe('SubmittedCodeSection — pure helpers', () => {
         const { preview, rest } = splitPreviewBlocks([block('a'), block('b')], 2)
         expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
         expect(rest).toEqual([])
+    })
+
+    it('splitPreviewBlocks keeps an always-collapsed block out of the preview', () => {
+        const closer = { key: 'closer', alwaysCollapsed: true, content: 'closer' }
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), closer], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a'])
+        expect(rest.map((b) => b.key)).toEqual(['closer'])
     })
 
     it('truncateFileName leaves short names alone', () => {

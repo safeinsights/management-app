@@ -20,7 +20,7 @@ import { CaretRightIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/s
 import clsx from 'clsx'
 import { AnalysisPanel, ExpandableDetails } from './analysis-panel'
 import { SecurityScanPanel, isScanPending } from './security-scan-panel'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Children, useEffect, useState, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useMutation, useQuery, useQueryClient } from '@/common'
@@ -272,11 +272,17 @@ export type JobAnalysisPanelsProps = {
 // block never needs a change here (OTTER-865).
 const SUBMISSION_DETAILS_PREVIEW_COUNT = 2
 
-export type SubmissionDetailBlock = { key: string; isVisible?: boolean; content: ReactNode }
+export type SubmissionDetailBlock = {
+    key: string
+    isVisible?: boolean
+    alwaysCollapsed?: boolean
+    content: ReactNode
+}
 
 export function splitPreviewBlocks(blocks: SubmissionDetailBlock[], previewCount: number) {
     const shown = blocks.filter((block) => block.isVisible !== false)
-    return { preview: shown.slice(0, previewCount), rest: shown.slice(previewCount) }
+    const preview = shown.filter((block) => !block.alwaysCollapsed).slice(0, previewCount)
+    return { preview, rest: shown.filter((block) => !preview.includes(block)) }
 }
 
 function BlockDivider({ isVisible }: { isVisible: boolean }) {
@@ -384,7 +390,13 @@ export function JobAnalysisPanels({
                 />
             ),
         },
-        { key: 'code-files', isVisible: children != null, content: children },
+        // The code viewer holds the section's closer, so it must never land in the preview.
+        {
+            key: 'code-files',
+            isVisible: Children.toArray(children).length > 0,
+            alwaysCollapsed: true,
+            content: children,
+        },
     ]
 
     return <SubmissionDetailBlocks blocks={blocks} detailsExpanded={detailsExpanded} expandToggle={expandToggle} />
