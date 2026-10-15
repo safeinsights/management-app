@@ -41,8 +41,8 @@ type PostFeedbackViewProps = {
 }
 
 const STEP_LABEL_BY_KIND: Record<PostFeedbackKind, string> = {
-    PROPOSAL: 'STEP 1',
-    CODE: 'STEP 2',
+    PROPOSAL: 'Step 1',
+    CODE: 'Step 2',
 }
 
 type DecisionBannerProps = {
@@ -123,7 +123,7 @@ export function PostFeedbackView({
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={{ label: stepLabel, heading }} />
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}

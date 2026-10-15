@@ -3,6 +3,7 @@ import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { EDIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { canResearcherResubmitCode, codeResubmissionNav, projectStudyState } from '@/lib/study-screen'
 import { fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
@@ -41,7 +42,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={EDIT_CODE_STEP} />
                 <EditCodeResubmitProvider
                     studyId={studyId}
                     orgName={study.orgName}

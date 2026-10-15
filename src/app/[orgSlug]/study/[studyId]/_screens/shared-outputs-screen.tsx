@@ -5,6 +5,7 @@ import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import {
     isErroredOutputsSharedOutcome,
@@ -67,7 +68,7 @@ export async function SharedOutputsScreen({
     return (
         <Box bg={semanticColor('surface.page')}>
             <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
                 <MarkOutputsDecisionViewed studyId={study.id} />
                 <SharedOutputsPanel
                     decidedAt={decidedAt}

@@ -58,7 +58,9 @@ describe('ReviewerOutputsPendingScreen', () => {
         const { org, study } = await setupApproved(['CODE-APPROVED', 'JOB-READY'])
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
         const previous = screen.getByRole('link', { name: /previous step/i })
         expect(previous).toHaveAttribute('href', `/${org.slug}/study/${study.id}/review/code`)
         expect(previous).toHaveAttribute('data-variant', 'subtle')

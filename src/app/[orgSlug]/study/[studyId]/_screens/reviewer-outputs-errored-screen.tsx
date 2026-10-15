@@ -3,6 +3,7 @@ import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/component
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
@@ -48,7 +49,7 @@ export async function ReviewerOutputsErroredScreen({
             studyId={study.id}
             job={job}
             labName={labName}
-            header={<StudyPageHeader study={study} />}
+            header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             nav={phasedNav}

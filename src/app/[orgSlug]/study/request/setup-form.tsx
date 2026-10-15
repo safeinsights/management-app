@@ -3,7 +3,7 @@
 import { FC, type ChangeEvent } from 'react'
 import { Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, SET_UP_STUDY_STEP } from '@/components/study/proposal-step-header'
 import { StudyProposalFormValues } from './form-schemas'
 import { StudyTitleField } from './fields/study-title-field'
 import { DataPartnerField } from './fields/data-partner-field'
@@ -42,7 +42,7 @@ export const SetupForm: FC<SetupFormProps> = ({
     lockedLanguageLabel,
     isIntroVisible,
 }) => (
-    <ProposalStepHeader stepLabel="STEP 1" heading="Set up study">
+    <ProposalStepHeader stepLabel={SET_UP_STUDY_STEP.label} heading={SET_UP_STUDY_STEP.heading}>
         <Stack gap="lg">
             <SetupIntro isVisible={isIntroVisible} />
             <Stack gap="xl">

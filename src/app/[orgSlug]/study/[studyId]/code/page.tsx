@@ -3,6 +3,7 @@
 import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { getDraftStudyAction } from '@/server/actions/study-request'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
@@ -63,7 +64,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     return (
         <Stack p="xl" gap="xl">
-            <StudyPageHeader study={result} />
+            <StudyPageHeader study={result} step={SUBMIT_CODE_STEP} />
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}

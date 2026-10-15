@@ -23,8 +23,7 @@ import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
 import { clientUserInfoSnapshotForRequest } from '@/server/session'
-
-const APP_TITLE = 'SafeInsights'
+import { APP_TITLE } from '@/lib/constants'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {

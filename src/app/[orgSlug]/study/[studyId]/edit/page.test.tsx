@@ -77,7 +77,9 @@ describe('StudyEditPage', () => {
         await renderPage(org.slug, study.id)
 
         expect(screen.getByRole('button', { name: 'Next step' })).toBeInTheDocument()
-        expect(screen.getByRole('heading', { level: 1, name: 'A submitted study' })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: 'A submitted study — Step 1: Set up study' }),
+        ).toBeInTheDocument()
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Save & continue' })).not.toBeInTheDocument()
     })

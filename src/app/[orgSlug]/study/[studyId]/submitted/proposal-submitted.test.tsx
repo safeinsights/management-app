@@ -449,7 +449,9 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
             expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 2: Submit proposal` }),
+            ).toBeInTheDocument()
             expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
@@ -551,7 +553,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+            expect(within(header).getByText('Step 2')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
         })
 

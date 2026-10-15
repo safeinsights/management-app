@@ -55,7 +55,9 @@ describe('study page header across personas', () => {
         })) as ReactElement
         renderWithProviders(reviewerPage)
 
-        expect(screen.getByRole('heading', { level: 1, name: STUDY_TITLE })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${STUDY_TITLE} — Step 1: Review proposal` }),
+        ).toBeInTheDocument()
         expect(pageHeaderEyebrow()).toBe(LAB_NAME)
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })

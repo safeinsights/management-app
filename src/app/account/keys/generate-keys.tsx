@@ -118,7 +118,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
-                <Title order={3} fz={22}>
+                <Title order={1} fz={22}>
                     {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 

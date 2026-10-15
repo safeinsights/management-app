@@ -1,4 +1,5 @@
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { currentExecutionStage, latestStatusAt } from '@/lib/study-job-status'
 import { SecondaryAnalysisView } from '../review/secondary-analysis-view'
 import { guardSubmittedJob } from './submitted-job-guard'
@@ -17,7 +18,7 @@ export async function ReviewerOutputsPendingScreen({ study, nav }: Pick<ScreenCo
     }
     return (
         <SecondaryAnalysisView
-            header={<StudyPageHeader study={study} />}
+            header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             stageStatus={stage.status}
             stageStartedAt={stage.startedAt}
             nav={nav}
