@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
 import { showToast } from '@/components/toast-notifications'
 import { useMutation } from '@/common'
-import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
+import { finalizeStudySubmissionAction } from '@/server/actions/study-proposal.actions'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 

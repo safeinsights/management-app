@@ -14,7 +14,7 @@ import {
     onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/study-proposal.actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')

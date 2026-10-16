@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
-import { getDraftStudyAction } from '@/server/actions/study-request'
+import { getDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import { getUsersForOrgId } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { notFound, redirect } from 'next/navigation'

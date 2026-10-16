@@ -39,7 +39,7 @@ import {
 } from './review-feedback.actions'
 import { submitCodeReviewDecisionAction } from './code-review.actions'
 import { submitProposalReviewAction } from './proposal-review.actions'
-import { finalizeStudySubmissionAction, resubmitProposalAction } from './study-request'
+import { finalizeStudySubmissionAction, resubmitProposalAction } from './study-proposal.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'

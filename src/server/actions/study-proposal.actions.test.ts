@@ -44,7 +44,7 @@ import {
     saveCodeResubmissionNoteDraftAction,
     saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/study-proposal.actions'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import {
