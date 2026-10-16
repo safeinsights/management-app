@@ -263,6 +263,58 @@ describe('getOrCreateCoderUserFor', () => {
 
         await expect(resolveCoderIdentity('study123')).rejects.toThrow(/has no email address/)
     })
+
+    describe('user status', () => {
+        const identity = { userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' }
+        const lookupResponse = (status: string) => ({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ username: 'ann-x-edu-2222', email: 'ann@x.edu', status }] }),
+        })
+        const putCalls = () =>
+            (global.fetch as unknown as Mock).mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+
+        beforeEach(() => {
+            getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        })
+
+        it('reactivates a dormant user and returns the activated user', async () => {
+            const activated = { username: 'ann-x-edu-2222', email: 'ann@x.edu', status: 'active' }
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch
+                .mockResolvedValueOnce(lookupResponse('dormant'))
+                .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(activated) })
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result).toEqual(activated)
+            expect(putCalls()).toHaveLength(1)
+            expect(putCalls()[0][0]).toBe('https://api.coder.com/api/v2/users/ann-x-edu-2222/status/activate')
+            expect(logger.info).toHaveBeenCalledWith(
+                expect.stringContaining('Reactivating dormant Coder user ann-x-edu-2222'),
+            )
+        })
+
+        it('returns an active user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('active'))
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result.username).toBe('ann-x-edu-2222')
+            expect(putCalls()).toHaveLength(0)
+        })
+
+        // Suspension is a deliberate admin action, so a launch must not undo it.
+        it('rejects a suspended user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('suspended'))
+
+            await expect(getOrCreateCoderUserFor(identity)).rejects.toThrow(
+                'Coder account ann-x-edu-2222 is suspended; an admin must reactivate it',
+            )
+            expect(putCalls()).toHaveLength(0)
+        })
+    })
 })
 
 describe('createUserAndWorkspace', () => {
