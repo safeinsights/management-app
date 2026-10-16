@@ -37,7 +37,11 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
         return null
     }
 
-    const userId = await findOrCreateSiUserId(clerkUser.id, clerkUser)
+    const userId = await findOrCreateSiUserId(clerkUser.id, {
+        firstName: clerkUser.firstName,
+        lastName: clerkUser.lastName,
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+    })
     return {
         ...clerkUser,
         id: userId,
@@ -463,8 +467,8 @@ export const getLatestClaimedInviteOrg = async (userId: string) =>
         .limit(1)
         .executeTakeFirst()
 
-export const getInfoForStudyJobId = async (studyJobId: string) => {
-    return await currentDb()
+const studyJobInfoQuery = (studyJobId: string) =>
+    currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -477,7 +481,20 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
             'study.status',
         ])
         .where('studyJob.id', '=', studyJobId)
-        .executeTakeFirstOrThrow()
+
+type StudyJobInfo = Awaited<ReturnType<ReturnType<typeof studyJobInfoQuery>['executeTakeFirstOrThrow']>>
+
+export async function getInfoForStudyJobId(studyJobId: string, throwIfNotFound?: true): Promise<StudyJobInfo>
+export async function getInfoForStudyJobId(
+    studyJobId: string,
+    throwIfNotFound: false,
+): Promise<StudyJobInfo | undefined>
+export async function getInfoForStudyJobId(
+    studyJobId: string,
+    throwIfNotFound = true,
+): Promise<StudyJobInfo | undefined> {
+    const query = studyJobInfoQuery(studyJobId)
+    return throwIfNotFound ? await query.executeTakeFirstOrThrow() : await query.executeTakeFirst()
 }
 
 const studyInfoQuery = (studyId: string) =>
@@ -595,9 +612,9 @@ export async function fetchCodeEnvForStudyId(studyId: string, db: DBExecutor) {
     return { ...codeEnv, ...resources, slug: study.slug, orgId: study.orgId }
 }
 
-export async function fetchCodeEnvForStudyIdOrNull(studyId: string) {
+export async function fetchCodeEnvForStudyIdOrNull(studyId: string, executor: DBExecutor) {
     try {
-        return await fetchCodeEnvForStudyId(studyId, currentDb())
+        return await fetchCodeEnvForStudyId(studyId, executor)
     } catch {
         return null
     }

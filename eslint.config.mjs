@@ -150,24 +150,38 @@ const eslintConfig = [
         },
     },
     // One way to get a database handle: currentDb() or a required executor. Only the two files
-    // that open transactions at the root may touch the global db or call .transaction().
+    // that bind the root connection may import the global db, and only withTransaction() may call
+    // .transaction().
     {
         files: ['src/**/*.{ts,tsx}'],
         ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/server/actions/action.ts'],
         rules: {
             'no-restricted-imports': [
                 'error',
-                ...restrictedImportPaths,
                 {
-                    name: '@/database',
-                    importNames: ['db'],
-                    message: 'Use currentDb() from @/server/request-context, or take a required executor.',
+                    paths: restrictedImportPaths,
+                    patterns: [
+                        {
+                            // The alias and any relative path to src/database.ts.
+                            regex: '^(@|\\.\\.?)(/.*)?/database$',
+                            importNames: ['db'],
+                            message: 'Use currentDb() from @/server/request-context, or take a required executor.',
+                        },
+                    ],
                 },
             ],
+        },
+    },
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts'],
+        rules: {
             'no-restricted-syntax': [
                 'error',
                 {
-                    selector: "CallExpression[callee.property.name='transaction']",
+                    selector:
+                        'CallExpression[callee.property.name=/^(transaction|startTransaction)$/], ' +
+                        'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
                     message: 'Open transactions with withTransaction() from @/server/request-context.',
                 },
             ],

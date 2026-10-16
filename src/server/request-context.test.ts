@@ -243,6 +243,19 @@ describe('withTransaction', () => {
             await flushDeferred()
             expect(handler).toHaveBeenCalledOnce()
         })
+
+        it("runs a mutating action's event in the action's store, settled back to the root", async () => {
+            await mockSessionWithTestData()
+            const seen = vi.fn()
+            const event = deferred(async () => {
+                seen(currentDb().isTransaction, Boolean(localStorageContext.getStore()?.session))
+            })
+            const action = new Action('settled-event', { performsMutations: true }).handler(async () => event())
+
+            await action()
+            await flushDeferred()
+            expect(seen).toHaveBeenCalledWith(false, true)
+        })
     })
 
     describe('when a transaction is already ambient', () => {

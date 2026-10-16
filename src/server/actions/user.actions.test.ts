@@ -36,24 +36,6 @@ describe('User Actions', () => {
         expect(userId).toEqual(foundUser.id)
     })
 
-    it('findOrCreateSiUserId inserts only the name and email of a Clerk-like user object', async () => {
-        const clerkId = faker.string.uuid()
-        const clerkUser = {
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            email: `${clerkId}@example.com`,
-            imageUrl: 'https://example.com/a.png',
-            primaryEmailAddressId: 'idn_123',
-        }
-        const userId = await findOrCreateSiUserId(clerkId, clerkUser)
-        const created = await db
-            .selectFrom('user')
-            .select(['id', 'firstName', 'lastName', 'email'])
-            .where('clerkId', '=', clerkId)
-            .executeTakeFirstOrThrow()
-        expect(created).toEqual({ id: userId, firstName: 'Ada', lastName: 'Lovelace', email: clerkUser.email })
-    })
-
     test('onUserSignInAction should create a new user and redirect to reviewer key page', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
 

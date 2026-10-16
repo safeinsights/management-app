@@ -10,7 +10,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'no job id or file name provided' }, { status: 400 })
     }
 
-    const job = await getInfoForStudyJobId(jobId)
+    const job = await getInfoForStudyJobId(jobId, false)
 
     if (!job) {
         console.error(`Job not found for jobId: ${jobId}`)

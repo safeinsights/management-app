@@ -1,10 +1,10 @@
 import { onJobErrored, onRunCompleted } from '@/server/events'
 
 import { NextResponse } from 'next/server'
-import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { roundIsClosed, storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 import logger from '@/lib/logger'
-import { withTransaction, currentDb } from '@/server/request-context'
+import { apiRequestingOrg, withTransaction, currentDb } from '@/server/request-context'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()

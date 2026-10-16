@@ -25,7 +25,6 @@ import { type DBExecutor } from '@/database'
 import { templateFileNameFor } from '@/lib/languages'
 import { canResearcherChangeCodeFiles } from '@/lib/study-screen'
 import { requireChangeableCodeFiles, studyCodeStateFor } from '@/server/study-code-gate'
-import { currentDb } from '@/server/request-context'
 
 // Mirrors listWorkspaceFilesAction's filtering, so "has files" matches what the table shows and
 // what submit-enable is computed from.
@@ -262,9 +261,9 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId } }) => {
+    .handler(async ({ params: { studyId }, db }) => {
         const { fetchCodeEnvForStudyId } = await import('@/server/db/queries')
-        const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
+        const codeEnv = await fetchCodeEnvForStudyId(studyId, db)
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [], templateFileName: null }
 

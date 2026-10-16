@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
-import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { recordJobStatus } from '@/server/job-status'
 import { roundIsClosed } from '@/server/storage'
 import logger from '@/lib/logger'
-import { currentDb } from '@/server/request-context'
+import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 const schema = z.object({
     message: z.string().optional(),

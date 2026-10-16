@@ -14,7 +14,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
 
     // Authorize before touching the file: an unknown job and an unauthorized one both return 401,
     // so a denied requester learns nothing about another org's job.
-    const job = await getInfoForStudyJobId(jobId).catch(() => null)
+    const job = await getInfoForStudyJobId(jobId, false)
 
     if (!job || !(await canViewStudyJob(job))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })

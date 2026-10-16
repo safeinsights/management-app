@@ -14,6 +14,7 @@ vi.mock('./config', async (importOriginal) => {
 })
 
 import { syncUserToDatabase, syncUserToDatabaseWithConflictResolution } from './user-sync'
+import { withTransaction } from '@/server/request-context'
 
 describe('syncUserToDatabase', () => {
     it('should create new user when clerkId does not exist', async () => {
@@ -214,6 +215,52 @@ describe('syncUserToDatabaseWithConflictResolution', () => {
         await expect(syncUserToDatabaseWithConflictResolution(attrs, onConflictResolved)).resolves.toBeDefined()
 
         expect(onConflictResolved).toHaveBeenCalledWith(existingUser.id)
+    })
+
+    it("waits for an enclosing transaction's commit before calling onConflictResolved", async () => {
+        const org = await insertTestOrg()
+        const { user: existingUser } = await insertTestUser({ org })
+        const onConflictResolved = vi.fn()
+        const attrs = {
+            clerkId: faker.string.alpha(10),
+            firstName: 'New',
+            lastName: 'User',
+            email: existingUser.email!,
+        }
+
+        await withTransaction(db, async () => {
+            await syncUserToDatabaseWithConflictResolution(attrs, onConflictResolved)
+            expect(onConflictResolved).not.toHaveBeenCalled()
+        })
+
+        expect(onConflictResolved).toHaveBeenCalledWith(existingUser.id)
+    })
+
+    it('does not call onConflictResolved when the enclosing transaction rolls back', async () => {
+        const org = await insertTestOrg()
+        const { user: existingUser } = await insertTestUser({ org })
+        const onConflictResolved = vi.fn()
+        const attrs = {
+            clerkId: faker.string.alpha(10),
+            firstName: 'New',
+            lastName: 'User',
+            email: existingUser.email!,
+        }
+
+        await expect(
+            withTransaction(db, async () => {
+                await syncUserToDatabaseWithConflictResolution(attrs, onConflictResolved)
+                throw new Error('outer rollback')
+            }),
+        ).rejects.toThrow('outer rollback')
+
+        expect(onConflictResolved).not.toHaveBeenCalled()
+        const user = await db
+            .selectFrom('user')
+            .select('clerkId')
+            .where('id', '=', existingUser.id)
+            .executeTakeFirstOrThrow()
+        expect(user.clerkId).toBe(existingUser.clerkId)
     })
 })
 

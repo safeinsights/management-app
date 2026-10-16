@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
-import { currentDb } from '@/server/request-context'
+import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
+import type { Org } from '@/schema/org'
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -279,5 +280,17 @@ describe('Action Builder', () => {
             expect(warnSpy).toHaveBeenCalledTimes(1)
             expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
         })
+    })
+
+    describe('API org', () => {
+        it.each([true, false])(
+            'keeps the org of the route that called it (performsMutations: %s)',
+            async (performsMutations) => {
+                const org = (await insertTestOrg()) as Org
+                const action = new Action('api-org', { performsMutations }).handler(async () => apiRequestingOrg().id)
+
+                expect(await localStorageContext.run({ org }, () => action())).toBe(org.id)
+            },
+        )
     })
 })

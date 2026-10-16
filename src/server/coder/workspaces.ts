@@ -336,7 +336,7 @@ async function studyDirHasFiles(dir: string): Promise<boolean> {
 export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DBExecutor): Promise<string | null> => {
     const logCtx = `[coder-init study=${studyId}]`
 
-    const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId)
+    const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId, executor)
     if (!codeEnv) {
         logger.info(`${logCtx} no code environment, nothing to copy`)
         return null

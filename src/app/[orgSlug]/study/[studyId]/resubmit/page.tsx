@@ -38,7 +38,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     if ('error' in feedbackResult) return notFound()
     const feedbackEntries = feedbackResult
 
-    const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId)) != null
+    const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId, currentDb())) != null
 
     return (
         <Box bg={semanticColor('surface.page')}>

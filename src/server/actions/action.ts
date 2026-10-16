@@ -11,6 +11,7 @@ import { setSentryFromSession } from '@/lib/sentry'
 import {
     afterCommitQueue,
     localStorageContext,
+    withTransaction,
     type AfterCommitFn,
     type RequestContext,
 } from '@/server/request-context'
@@ -111,8 +112,6 @@ export class Action<
         const middlewareFns = [...this.middlewareFns]
 
         const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
-            let actionCtx: ActionContext | undefined
-
             try {
                 let args: Args
                 if (schema) {
@@ -134,48 +133,40 @@ export class Action<
                 } else {
                     args = raw as Args
                 }
-                const session = await sessionFromClerk()
+                const session = (await sessionFromClerk()) ?? undefined
+                // An action run from a wrapApiOrgAction route keeps its org, as it did when that had its own store.
+                const org = localStorageContext.getStore()?.org
+
+                // Reads db and afterCommit from the store, which withTransaction() binds for a mutating action.
+                const execute = async (): Promise<Res> => {
+                    let ctx = { ...localStorageContext.getStore() } as Ctx & { params: Args }
+                    for (const mw of middlewareFns) {
+                        const more = await mw(ctx)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ctx = { ...ctx, ...(more as any[]) }
+                    }
+
+                    if (session) {
+                        setSentryFromSession(session)
+                    }
+
+                    return handlerFn(ctx)
+                }
+
+                // A fresh store, so an action called from inside another action's transaction still
+                // opens its own, as it did before withTransaction() existed.
+                if (this.options.performsMutations) {
+                    return await localStorageContext.run({ params: args, session, org }, () =>
+                        withTransaction(db, execute),
+                    )
+                }
 
                 const { afterCommit, run: runAfterCommitFns } = afterCommitQueue()
-
-                const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                    let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
-                    actionCtx = ctx
-
-                    return localStorageContext.run(ctx, async () => {
-                        for (const mw of middlewareFns) {
-                            const more = await mw(ctx)
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ctx = { ...ctx, ...(more as any[]) }
-                        }
-
-                        if (session) {
-                            setSentryFromSession(session)
-                        }
-
-                        return handlerFn(ctx)
-                    })
-                }
-
-                let result: Res
-
-                if (this.options.performsMutations) {
-                    result = await db.transaction().execute(execute)
-                } else {
-                    result = await execute(db)
-                }
-
-                if (actionCtx) actionCtx.db = db
-
-                // Only reached once the writes are committed, so a rolled-back handler's queue is dropped.
-                // Inside the store, with db already swapped off the committed transaction, so a hook
-                // reads the same context its handler did rather than an empty one.
-                await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())
-
+                const store: RequestContext = { params: args, session, org, db, afterCommit }
+                const result = await localStorageContext.run(store, execute)
+                await localStorageContext.run(store, runAfterCommitFns)
                 return result
             } catch (error) {
-                if (actionCtx) actionCtx.db = db
-
                 // ActionFailure is the expected validation / permission path; only the rest is a bug.
                 if (error instanceof ActionFailure) {
                     return { error: error.error }

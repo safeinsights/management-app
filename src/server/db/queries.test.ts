@@ -7,9 +7,12 @@ import {
     insertTestStudyJobUsers,
     insertTestStudyOnly,
     insertTestUser,
+    mockClerkSession,
     readTestSupportFile,
+    testEmail,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
+import { faker } from '@faker-js/faker'
 import {
     codeSubmissionVersion,
     outputsDecisionVersion,
@@ -27,6 +30,7 @@ import {
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
     getIdeOwnerForStudy,
+    siUser,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -75,6 +79,30 @@ describe('getUserPublicKey', () => {
     })
 })
 
+describe('siUser', () => {
+    it("creates a missing user from the Clerk user's name and primary email", async () => {
+        const clerkUserId = faker.string.uuid()
+        const email = testEmail()
+        mockClerkSession({
+            clerkUserId,
+            userId: faker.string.uuid(),
+            orgSlug: 'si-user-org',
+            email,
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+        })
+
+        const user = await siUser()
+
+        const created = await db
+            .selectFrom('user')
+            .select(['id', 'firstName', 'lastName', 'email'])
+            .where('clerkId', '=', clerkUserId)
+            .executeTakeFirstOrThrow()
+        expect(created).toEqual({ id: user.id, firstName: 'Ada', lastName: 'Lovelace', email })
+    })
+})
+
 describe('getInfoForStudyJobId', () => {
     it('returns job info when jobId is valid', async () => {
         const { job1, study1, org1 } = await insertRecords()
@@ -84,7 +112,11 @@ describe('getInfoForStudyJobId', () => {
         expect(jobInfo.orgSlug).toBe(org1.slug)
     })
 
-    it('rejects an unknown jobId', async () => {
+    it('returns undefined for an unknown jobId when not throwing', async () => {
+        expect(await getInfoForStudyJobId(BLANK_UUID, false)).toBeUndefined()
+    })
+
+    it('rejects an unknown jobId by default', async () => {
         await expect(getInfoForStudyJobId(BLANK_UUID)).rejects.toThrow()
     })
 })

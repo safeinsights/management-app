@@ -262,7 +262,7 @@ describe('Request Study Actions', () => {
 
             const studyId = await saveDraft(enclave.slug, lab.slug, 'PYTHON')
             expect(await studySnapshot(studyId)).toBeNull()
-            expect(await fetchCodeEnvForStudyIdOrNull(studyId)).toBeNull()
+            expect(await fetchCodeEnvForStudyIdOrNull(studyId, db)).toBeNull()
 
             const added = await insertTestCodeEnv({
                 orgId: enclave.id,

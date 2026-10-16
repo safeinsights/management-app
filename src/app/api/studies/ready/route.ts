@@ -1,7 +1,7 @@
 import { sql } from '@/database'
-import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { NextResponse } from 'next/server'
-import { currentDb } from '@/server/request-context'
+import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 export const GET = wrapApiOrgAction(async () => {
     const org = apiRequestingOrg()
