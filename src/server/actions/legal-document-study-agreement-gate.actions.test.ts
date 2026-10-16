@@ -17,7 +17,7 @@ import {
 import { requireStudyAgreementAcknowledged } from '@/server/study-agreement'
 import { acknowledgeLegalDocumentAction, fetchStudyAgreementStatusAction } from './legal-document.actions'
 import { submitCodeReviewDecisionAction } from './code-review.actions'
-import { resubmitStudyCodeAction, submitStudyCodeAction } from './study-proposal.actions'
+import { resubmitStudyCodeAction, submitStudyCodeAction } from './study-code.actions'
 import { submitOutputsDecisionAction } from './study-job.actions'
 
 beforeEach(resetLegalDocuments)

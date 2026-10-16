@@ -3,9 +3,9 @@ import { type Mock, describe, expect, it, vi } from 'vitest'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { fireEvent, mockClerkSession, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
-import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-proposal.actions'
+import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 
-vi.mock('@/server/actions/study-proposal.actions', () => ({
+vi.mock('@/server/actions/study-code.actions', () => ({
     resubmitStudyCodeAction: vi.fn(),
     saveCodeResubmissionNoteDraftAction: vi.fn(),
 }))
