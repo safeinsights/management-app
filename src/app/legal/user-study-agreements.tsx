@@ -8,7 +8,7 @@ import {
     studyAgreementDisplayTitle,
     type UserStudyAgreementSort,
 } from '@/schema/legal-document'
-import { fetchUserStudyAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchUserStudyAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import { agreementDateColumns, AgreementsPanel } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'

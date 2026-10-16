@@ -8,7 +8,7 @@ import {
     type ParticipationAgreementType,
     type UserParticipationAgreementSort,
 } from '@/schema/legal-document'
-import { fetchUserParticipationAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchUserParticipationAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import { agreementDateColumns, AgreementsPanel } from '@/components/legal/agreements-table'
 

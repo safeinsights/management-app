@@ -1,5 +1,7 @@
-import type { LegalDocumentFormat } from '@/database/types'
+import type { LegalDocumentFormat, LegalDocumentType } from '@/database/types'
+import { legalDocumentFormats, type LegalDocumentBody } from '@/schema/legal-document'
 import { signedUrlForFile } from '@/server/aws'
+import { fetchFileContents } from '@/server/storage'
 
 const legalDocumentMimeTypes: Record<LegalDocumentFormat, string> = {
     pdf: 'application/pdf',
@@ -22,3 +24,20 @@ export const urlForLegalDocumentVersion = ({
         // S3 echoes this into the response header verbatim.
         ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
     })
+
+export const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+
+// A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
+// it names the download (the S3 key is a bare uuid).
+export const bodyForVersion = async ({
+    type,
+    filePath,
+    fileName,
+}: {
+    type: LegalDocumentType
+    filePath: string
+    fileName: string
+}): Promise<LegalDocumentBody> =>
+    legalDocumentFormats[type] === 'pdf'
+        ? { format: 'pdf', url: await urlForLegalDocumentVersion({ filePath, fileName, format: 'pdf' }) }
+        : { format: 'markdown', content: await contentOf(filePath) }
