@@ -29,7 +29,7 @@ import {
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
-import { fetchStudiesForOrgAction } from './study.actions'
+import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { projectStudyState, resolvePillId } from '@/lib/study-screen'
@@ -45,7 +45,7 @@ vi.mock('@/server/mailer', () => ({
     sendLabCodeErroredEmail: vi.fn(),
 }))
 
-// Spy on the generation trigger only; study-request.ts depends on the rest of the module.
+// Spy on the generation trigger only; the study submission actions depend on the rest of the module.
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
     onStudyReviewRequested: vi.fn(),

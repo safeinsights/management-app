@@ -25,7 +25,8 @@ import {
     insertTestUser,
 } from '@/tests/unit.helpers'
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/schema/resubmission-note'
-import { submitCodeReviewDecisionAction, submitProposalReviewAction } from '@/server/actions/study.actions'
+import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
+import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
@@ -40,12 +41,16 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+} from '@/server/actions/study-proposal.actions'
+import {
     resubmitProposalAction,
+    saveProposalResubmissionNoteDraftAction,
+} from '@/server/actions/proposal-resubmission.actions'
+import {
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
-    saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/study-code.actions'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import {

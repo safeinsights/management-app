@@ -3,7 +3,8 @@ import type { StudyJobStatus } from '@/database/types'
 import { datedStatusChanges, latestStatusAt } from '@/lib/study-job-status'
 import { latestJob, projectStudyState, type RawJob, type RawStudyState, type StudyState } from '@/lib/study-screen'
 import { isSubmittedStudy } from '@/schema/study'
-import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type GuardSuccess = {

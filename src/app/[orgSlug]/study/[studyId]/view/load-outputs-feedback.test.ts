@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { loadOutputsFeedback } from './load-outputs-feedback'
 
 const mockAction = vi.fn()
-vi.mock('@/server/actions/study.actions', () => ({
+vi.mock('@/server/actions/review-feedback.actions', () => ({
     getOutputsDecisionFeedbackAction: (...args: unknown[]) => mockAction(...args),
 }))
 

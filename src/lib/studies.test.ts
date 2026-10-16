@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { decisionTimestampForProposalHeader, draftHasStep2Progress } from './studies'
 
 const submittedAt = new Date('2025-04-16T10:00:00Z')

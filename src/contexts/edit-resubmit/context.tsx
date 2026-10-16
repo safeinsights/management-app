@@ -22,7 +22,7 @@ import {
     type ResubmitNoteValue,
     initialResubmitNoteValue,
 } from '@/schema/resubmission-note'
-import { saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { saveProposalResubmissionNoteDraftAction } from '@/server/actions/proposal-resubmission.actions'
 
 export type EditResubmitDraftData = Partial<ProposalFormValues>
 

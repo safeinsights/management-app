@@ -25,22 +25,22 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
+import { ackAgreementsAction, markStudyOpenedAction, getStudyAction, softDeleteStudyAction } from './study.actions'
 import {
-    ackAgreementsAction,
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     fetchNavUnreadAction,
+} from './study-dashboard.actions'
+import {
     getCodeReviewFeedbackAction,
-    markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
     getProposalFeedbackForStudyAction,
-    getStudyAction,
-    softDeleteStudyAction,
-    submitCodeReviewDecisionAction,
-    submitProposalReviewAction,
-} from './study.actions'
-import { finalizeStudySubmissionAction, resubmitProposalAction } from './study-request'
+} from './review-feedback.actions'
+import { submitCodeReviewDecisionAction } from './code-review.actions'
+import { submitProposalReviewAction } from './proposal-review.actions'
+import { finalizeStudySubmissionAction } from './study-proposal.actions'
+import { resubmitProposalAction } from './proposal-resubmission.actions'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'
 import { REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'

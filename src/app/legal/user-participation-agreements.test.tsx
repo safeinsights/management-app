@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { actionResult, mockSessionWithTestData, renderWithProviders, testUploadFile } from '@/tests/unit.helpers'
+import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import {
-    acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'

@@ -10,7 +10,7 @@ import {
     studyAgreementDisplayTitle,
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
-import { fetchOrgStudyAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchOrgStudyAgreementsAction } from '@/server/actions/org-legal.actions'
 import { ackedAtColumn, AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Stack, Text } from '@mantine/core'

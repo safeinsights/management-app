@@ -1,6 +1,7 @@
 import type { Route } from 'next'
 import type { StudyJobStatus } from '@/database/types'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
 import { effectiveProposalStatus } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'

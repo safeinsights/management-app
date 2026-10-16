@@ -15,15 +15,17 @@ import {
 } from '@/tests/unit.helpers'
 import {
     acknowledgeLegalDocumentAction,
+    fetchNextPendingLegalAcknowledgementAction,
+    fetchGlobalLegalDocumentsAction,
+} from './legal-acknowledgement.actions'
+import {
     createLegalDocumentDraftAction,
     fetchLegalDocumentAcknowledgementsAction,
     fetchLegalDocumentContentAction,
     fetchLegalDocumentVersionsAction,
-    fetchNextPendingLegalAcknowledgementAction,
-    fetchGlobalLegalDocumentsAction,
-    fetchParticipationAgreementFromInviteIdAction,
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
+import { fetchParticipationAgreementFromInviteIdAction } from './participation-agreement.actions'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()

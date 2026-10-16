@@ -5,7 +5,7 @@ import {
     finalizeStudySubmissionAction,
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/study-proposal.actions'
 import { designateTestLabs, isDesignatedTestLab, undesignateTestLab } from './test-lab'
 
 const insertParties = async () => {

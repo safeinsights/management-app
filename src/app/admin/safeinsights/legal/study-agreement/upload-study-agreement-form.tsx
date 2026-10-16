@@ -6,7 +6,7 @@ import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-
 import {
     fetchStudiesAwaitingStudyAgreementAction,
     fetchStudyAgreementsAction,
-} from '@/server/actions/legal-document.actions'
+} from '@/server/actions/study-agreement.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import * as R from 'remeda'
 import { PdfDropzone } from '../pdf-dropzone'

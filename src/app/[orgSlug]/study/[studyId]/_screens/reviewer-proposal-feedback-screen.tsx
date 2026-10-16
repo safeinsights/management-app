@@ -3,7 +3,7 @@ import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
 import { proposalReviewDecision } from '@/lib/review-decision'
 import { currentReviewVersion } from '@/server/db/queries'
-import { getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
+import { getProposalFeedbackForStudyAction } from '@/server/actions/review-feedback.actions'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
 
