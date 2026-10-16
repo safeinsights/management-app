@@ -56,17 +56,9 @@ import { SIMULATE_CODE_BUILD } from '../config'
 import { bareExtension } from '@/lib/paths'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
+import { withStudyAccessSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { currentDb } from '@/server/request-context'
-
-const studyViewMiddleware = async ({ params: { studyId }, db }: { params: { studyId: string }; db: DBExecutor }) => {
-    const study = await db
-        .selectFrom('study')
-        .select(['orgId', 'submittedByOrgId', 'status'])
-        .where('id', '=', studyId)
-        .executeTakeFirstOrThrow(throwNotFound('study'))
-    return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-}
 
 // Soft-delete applies to DRAFTs only and is scoped to dashboard listings; direct reads by id stay
 // lifecycle-agnostic, so stale editor tabs and bookmarked URLs remain a known gap.
@@ -388,7 +380,7 @@ export const fetchNavUnreadAction = new Action('fetchNavUnreadAction')
 // write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
 export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(studyViewMiddleware)
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
         await markStudyOpened(db, { studyId, userId: session.user.id })
@@ -396,8 +388,10 @@ export const markStudyOpenedAction = new Action('markStudyOpenedAction', { perfo
 
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await fetchStudyQuery(db)
+    .middleware(withStudyAccessSubject)
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { studyId }, db }) => {
+        return await fetchStudyQuery(db)
             .where('study.id', '=', studyId)
             .innerJoin('org', 'org.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
@@ -412,11 +406,6 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.language',
             ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ study }) => {
-        return study
     })
 
 export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
@@ -456,17 +445,15 @@ export const ackAgreementsAction = new Action('ackAgreementsAction', { performsM
 
 export const softDeleteStudyAction = new Action('softDeleteStudyAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
+    .middleware(withStudyAccessSubject)
+    .requireAbilityTo('delete', 'Study')
+    .handler(async ({ db, params: { studyId }, session }) => {
         const study = await db
             .selectFrom('study')
             .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
             .where('id', '=', studyId)
             .where('deletedAt', 'is', null)
             .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
-    })
-    .requireAbilityTo('delete', 'Study')
-    .handler(async ({ db, study, params: { studyId }, session }) => {
         if (study.status !== 'DRAFT') {
             throw new ActionFailure({ study: 'only draft studies can be deleted' })
         }
@@ -755,12 +742,9 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
 export const getProposalFeedbackForStudyAction = new Action('getProposalFeedbackForStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => {
-        const { study, entries } = await getProposalFeedbackForStudy(studyId)
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status, entries }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ entries }) => entries)
+    .handler(async ({ params: { studyId } }) => (await getProposalFeedbackForStudy(studyId)).entries)
 
 export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 
@@ -926,7 +910,7 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(studyViewMiddleware)
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadCodeReviewFeedbackThread(db, studyId))
 
@@ -936,7 +920,7 @@ export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeed
 // outputs screens: reviewer decisions alone, with no code-phase resubmission notes (OTTER-766).
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
     .params(z.object({ studyId: z.string().uuid() }))
-    .middleware(studyViewMiddleware)
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {
         const rows = await db

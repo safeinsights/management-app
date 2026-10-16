@@ -23,7 +23,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import type { StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
 import {
     ackAgreementsAction,
@@ -34,6 +34,7 @@ import {
     getCodeReviewFeedbackAction,
     markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
+    getProposalFeedbackForStudyAction,
     getStudyAction,
     softDeleteStudyAction,
     submitCodeReviewDecisionAction,
@@ -2986,6 +2987,132 @@ describe('softDeleteStudyAction', () => {
         await mockSessionWithTestData({ orgType: 'lab' })
         await expect(softDeleteStudyAction({ studyId: BLANK_UUID })).resolves.toMatchObject({
             error: expect.objectContaining({ user: expect.stringMatching(/not found/i) }),
+        })
+    })
+})
+
+describe('study subjects carry ids only (MA-6)', () => {
+    const permissionDenied = (result: unknown) =>
+        (result as { error: { permission_denied: string } }).error.permission_denied
+
+    const seedStudy = async (studyStatus: StudyStatus = 'PENDING-REVIEW') => {
+        const enclave = await insertTestOrg({ slug: 'ma6-study-enclave', type: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'ma6-study-lab', type: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            title: 'Confidential cohort study',
+            studyStatus,
+        })
+        const descriptionDocPath = `studies/${study.id}/confidential-description.pdf`
+        await db.updateTable('study').set({ descriptionDocPath }).where('id', '=', study.id).execute()
+        const { user: reviewer } = await insertTestUser({ org: enclave })
+        return { enclave, lab, study, descriptionDocPath, reviewer }
+    }
+
+    const actAsReviewer = (reviewer: { id: string; clerkId: string }, enclave: { id: string; slug: string }) =>
+        mockClerkSession({
+            clerkUserId: reviewer.clerkId,
+            userId: reviewer.id,
+            orgSlug: enclave.slug,
+            orgId: enclave.id,
+            orgType: 'enclave',
+        })
+
+    const insertFeedback = async (studyId: string, authorId: string, text: string, createdAt: Date) =>
+        db
+            .insertInto('studyProposalComment')
+            .values({
+                studyId,
+                authorId,
+                authorRole: 'REVIEWER',
+                entryType: 'REVIEWER-FEEDBACK',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.stringify({ text }),
+                version: 1,
+                createdAt,
+            })
+            .execute()
+
+    it('returns the proposal feedback newest first to a reviewer', async () => {
+        const { enclave, study, reviewer } = await seedStudy()
+        await insertFeedback(study.id, reviewer.id, 'first round notes', new Date(Date.now() - 60_000))
+        await insertFeedback(study.id, reviewer.id, 'second round notes', new Date())
+        actAsReviewer(reviewer, enclave)
+
+        const entries = actionResult(await getProposalFeedbackForStudyAction({ studyId: study.id }))
+
+        expect(entries.map((entry) => JSON.stringify(entry.body))).toEqual([
+            expect.stringContaining('second round notes'),
+            expect.stringContaining('first round notes'),
+        ])
+    })
+
+    it('gives a refused caller of getProposalFeedbackForStudyAction no feedback body', async () => {
+        const { study, reviewer } = await seedStudy()
+        await insertFeedback(study.id, reviewer.id, 'confidential reviewer notes', new Date())
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await getProposalFeedbackForStudyAction({ studyId: study.id }))
+
+        expect(denied).toContain(study.id)
+        expect(denied).not.toContain('confidential reviewer notes')
+    })
+
+    it('gives a refused caller of getStudyAction no title or document path', async () => {
+        const { study, descriptionDocPath } = await seedStudy()
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await getStudyAction({ studyId: study.id }))
+
+        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain(descriptionDocPath)
+    })
+
+    it('still refuses an enclave reviewer the study of an unsubmitted draft', async () => {
+        const { enclave, study, reviewer } = await seedStudy('DRAFT')
+        actAsReviewer(reviewer, enclave)
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await getStudyAction({ studyId: study.id }))
+
+        expect(denied).toContain('cannot view Study')
+        expect(denied).not.toContain(study.title)
+    })
+
+    it('still lets an SI admin outside both orgs read the study', async () => {
+        const { study } = await seedStudy()
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(actionResult(await getStudyAction({ studyId: study.id }))).toMatchObject({
+            id: study.id,
+            title: study.title,
+        })
+    })
+
+    it('gives a refused caller of softDeleteStudyAction no title', async () => {
+        const { studyId } = await createTestProposalDraft({
+            enclaveSlug: 'ma6-soft-delete-enclave',
+            studyInfo: { title: 'Confidential draft title' },
+        })
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await softDeleteStudyAction({ studyId }))
+
+        expect(denied).toContain(studyId)
+        expect(denied).not.toContain('Confidential draft title')
+    })
+
+    it('still keeps an SI admin who is not the author from deleting a draft', async () => {
+        const { studyId } = await createTestProposalDraft({ enclaveSlug: 'ma6-soft-delete-admin-enclave' })
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(await softDeleteStudyAction({ studyId })).toMatchObject({
+            error: expect.objectContaining({ user: 'only the draft author can delete this proposal' }),
         })
     })
 })

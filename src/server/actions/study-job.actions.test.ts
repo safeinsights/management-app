@@ -18,6 +18,7 @@ import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     fetchEncryptedJobFilesAction,
+    fetchSharedFileIdsAction,
     fetchStudyJobCodeFileAction,
     loadStudyJobAction,
     getJobAnalysisAction,
@@ -1093,5 +1094,74 @@ describe('draft code files are private to the Research Lab (OTTER-596)', () => {
         await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
         const result = actionResult(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' }))
         expect(result).toMatchObject({ fileName: 'main.r' })
+    })
+})
+
+describe('job subjects carry ids only (MA-6)', () => {
+    const permissionDenied = (result: unknown) =>
+        (result as { error: { permission_denied: string } }).error.permission_denied
+
+    const seedCodeJob = async () => {
+        const enclave = await insertTestOrg({ slug: 'ma6-enclave', type: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'ma6-lab', type: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            title: 'Confidential cohort study',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const path = `code/${study.id}/confidential-main.r`
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path, fileType: 'MAIN-CODE' })
+            .execute()
+        return { enclave, lab, study, job, path }
+    }
+
+    test('a refused caller of fetchStudyJobCodeFileAction gets no title or file path', async () => {
+        const { study, job, path } = await seedCodeJob()
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
+
+        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain(path)
+    })
+
+    test('the submitting lab is still refused the shared file ids', async () => {
+        const { lab, job } = await seedCodeJob()
+        const { user } = await insertTestUser({ org: lab })
+        mockClerkSession({
+            clerkUserId: user.clerkId,
+            userId: user.id,
+            orgSlug: lab.slug,
+            orgId: lab.id,
+            orgType: 'lab',
+        })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        expect(await fetchSharedFileIdsAction({ jobId: job.id })).toEqual({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
+    })
+
+    test('an SI admin outside both orgs can still fetch a code file', async () => {
+        const { job } = await seedCodeJob()
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(
+            actionResult(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' })),
+        ).toMatchObject({ fileName: 'main.r' })
+    })
+
+    test('an unknown job keeps its not-found text', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        const studyJobId = '00000000-0000-7000-8000-000000000000'
+
+        expect(await loadStudyJobAction({ studyJobId })).toEqual({
+            error: { user: `job for study job id ${studyJobId} was not found` },
+        })
     })
 })

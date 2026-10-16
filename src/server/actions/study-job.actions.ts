@@ -1,6 +1,6 @@
 'use server'
 
-import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
 import { isOutputsDecided, latestJob, projectStudyState } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { assertDecisionFeedback } from './decision-feedback'
@@ -21,7 +21,6 @@ import {
     getUserPublicKey,
     getSharedFileIdsForJob,
     getStudyJobFileOfType,
-    getStudyJobInfo,
     jobAnalysisForJob,
     latestJobForStudy,
     fetchUserFullName,
@@ -34,6 +33,7 @@ import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested 
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
@@ -70,10 +70,7 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
 // Derived from the re-wrapped key rows, so empty before approval.
 export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
     .params(z.object({ jobId: z.string() }))
-    .middleware(async ({ params: { jobId } }) => {
-        const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
+    .middleware(withReviewerStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { jobId } }) => {
         return await getSharedFileIdsForJob(jobId)
@@ -94,12 +91,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             sharedFiles: z.array(sharedFileSchema),
         }),
     )
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
+    .middleware(withReviewerStudyJobSubject)
     .requireAbilityTo('review', 'Study')
-    .middleware(requireStudyAgreement(({ studyJob }) => studyJob.studyId))
+    .middleware(requireStudyAgreement(({ studyId }) => studyId))
+    .middleware(loadStudyJob)
     .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
@@ -203,11 +198,9 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
     .handler(async ({ studyJob }) => {
         return studyJob
     })
@@ -226,19 +219,13 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
 // The summary and scan share one authorization and submission lookup.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob }) => await jobAnalysisForJob(studyJob))
+    .handler(async ({ studyJobId }) => await jobAnalysisForJob({ studyJobId }))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
         // Only this round's row is touched; an earlier round's rows are that round's history.
@@ -266,11 +253,9 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
 
     .handler(async ({ studyJob }) => {
         const approvedJobFiles = studyJob.files.filter(
@@ -293,11 +278,9 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
 
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
     .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
     .handler(async ({ studyJob, params: { fileName } }) => {
         const file = studyJob.files.find(
             (f) => f.name === fileName && (f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE'),
@@ -312,10 +295,7 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
 
 export const fetchScanLogAction = new Action('fetchScanLogAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId } }) => {
         // Newest row of the type, so the viewer shows the same log the displayed
@@ -336,13 +316,11 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             type: z.enum(['researcher', 'reviewer']),
         }),
     )
-    .middleware(async ({ params: { jobId } }) => {
-        const studyJob = await getStudyJobInfo(jobId)
-        // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
-        // re-wrapped result files, not just enclave reviewers.
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
+    // re-wrapped result files, not just enclave reviewers.
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
 
     .handler(async ({ params: { type }, studyJob, session, db }) => {
         const userKey = await getUserPublicKey(session.user.id)
@@ -409,14 +387,7 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
         // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
