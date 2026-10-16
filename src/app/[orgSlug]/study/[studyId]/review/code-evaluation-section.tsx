@@ -71,6 +71,7 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
             label={option.label}
             error={error}
             errorId={sectionErrorId}
+            fw={fontWeight.semibold}
         />
     ))
 
@@ -82,8 +83,7 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // Mantine consumes Radio.Group's `id` for internal ids and never renders it, so
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
-            {/* A div, since a criterion link renders its card inline and the card holds block elements.
-                No fixed label column (Figma): the label takes what the radio group leaves. */}
+            {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
             <Text id={labelId} component="div" fz={14} flex={1}>
                 {label}
             </Text>
@@ -95,8 +95,9 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
                 {...widgetBlur}
                 name={fieldId}
                 labelProps={{ id: labelId }}
+                flex={1}
             >
-                <Group gap="xl" wrap="nowrap">
+                <Group justify="space-between" wrap="nowrap">
                     {radioOptions}
                 </Group>
             </Radio.Group>
@@ -225,7 +226,10 @@ export function CodeEvaluationSection({
                         error={hasCriteriaError ? CODE_EVALUATION_CRITERIA_ERROR : null}
                         isLive
                     />
-                    <Stack gap="md">{criterionRows}</Stack>
+                    {/* Figma's 720px list; label and radios split it evenly, so the radios start where Figma has them. */}
+                    <Stack gap="md" maw={720}>
+                        {criterionRows}
+                    </Stack>
                 </Stack>
             </Stack>
         </Paper>
