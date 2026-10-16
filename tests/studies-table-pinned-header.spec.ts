@@ -1,4 +1,4 @@
-import { Routes } from '@/lib/routes'
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, goto, test, type Page } from './e2e.helpers'
 import { ENCLAVE_SLUG, seedProposalPendingReview } from './e2e.seed'
 
