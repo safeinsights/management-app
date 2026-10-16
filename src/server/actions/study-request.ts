@@ -10,17 +10,12 @@ import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
 import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { withStudyAccessSubject, withStudySubject } from '@/server/actions/study-subject'
 import { codeBuildRepositoryUrl, deleteFolderContents, storeS3File, triggerScanForStudyJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
 import { getOrCreateCurrentRoundJob, markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
-import {
-    codeSubmissionVersion,
-    fetchUserFullName,
-    getInfoForStudyId,
-    findOrgIdBySlug,
-    selectCodeEnvSnapshot,
-} from '@/server/db/queries'
+import { codeSubmissionVersion, fetchUserFullName, findOrgIdBySlug, selectCodeEnvSnapshot } from '@/server/db/queries'
 import {
     deferred,
     onStudyCodeSubmitted,
@@ -241,7 +236,7 @@ const onUpdateDraftStudyActionArgsSchema = z.object({
 
 export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', { performsMutations: true })
     .params(onUpdateDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session, status, submittedByOrgId }) => {
         // The row filter below repeats CASL's lab scope so a caller holding a broader grant
@@ -329,7 +324,7 @@ const finalizeStudySubmissionInfoSchema = z
 
 export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
         const userId = session.user.id
@@ -441,7 +436,9 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
 export const getDraftStudyAction = new Action('getDraftStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ db, params: { studyId } }) => {
+    .middleware(withStudyAccessSubject)
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ db, params: { studyId } }) => {
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -475,10 +472,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.id', '=', studyId)
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ db, study }) => {
+
         const studyJob = await db
             .selectFrom('studyJob')
             .select('id')
@@ -504,7 +498,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
     // The confirmation modal promises no changes after submitting, so the round's one submission is
@@ -595,7 +589,7 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             resubmissionNote: resubmissionNoteParam,
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
         const userId = session.user.id
@@ -706,7 +700,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
 })
     // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
     .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
     // eligibility comes from the same projected state the resubmit page renders from.
@@ -740,7 +734,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 })
     // Serialized Lexical JSON: heavy per-word formatting inflates a 300-word note (OTTER-658).
     .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note }, session }) => {
         const userLabOrgIds = Object.values(session.orgs)
@@ -774,7 +768,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             resubmissionNote: resubmissionNoteParam,
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
     // Also locks the study row, so a co-author's concurrent resubmit of the same round stops here

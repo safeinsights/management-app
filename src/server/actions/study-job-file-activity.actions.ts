@@ -2,8 +2,9 @@
 
 import type { DBExecutor } from '@/database'
 import { getOrgBySlug, type UserSession } from '@/lib/types'
-import { getStudyJobInfo, latestActivityPerJobFile } from '@/server/db/queries'
+import { latestActivityPerJobFile } from '@/server/db/queries'
 import { Action, ActionFailure, z } from './action'
+import { withStudyJobSubject } from './study-subject'
 
 const jobFileRefSchema = z.object({ studyJobFileId: z.string(), filePath: z.string() })
 
@@ -16,28 +17,32 @@ const jobFileActivitySchema = z.object({
     action: z.enum(['VIEWED', 'DOWNLOADED']),
 })
 
-const loadStudyJob = async ({ params: { jobId } }: { params: { jobId: string } }) => {
-    const studyJob = await getStudyJobInfo(jobId)
-    return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-}
-
 type ActivityOrgContext = {
     params: { orgSlug: string }
     session: UserSession
-    studyJob: { studyJobId: string; orgId: string; submittedByOrgId: string }
+    studyJobId: string
+    orgId: string
+    submittedByOrgId: string
     db: DBExecutor
 }
 
 // The URL org is the caller's claim about which side of the study they act for. Pinned to the
 // study's two parties AND the caller's own memberships, or a lab member could name the Data
 // Partner's slug and read its reviewers' activity (OTTER-783).
-const resolveActivityOrg = async ({ params: { orgSlug }, session, studyJob, db }: ActivityOrgContext) => {
+const resolveActivityOrg = async ({
+    params: { orgSlug },
+    session,
+    studyJobId,
+    orgId,
+    submittedByOrgId,
+    db,
+}: ActivityOrgContext) => {
     const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirst()
-    const isParty = org?.id === studyJob.orgId || org?.id === studyJob.submittedByOrgId
+    const isParty = org?.id === orgId || org?.id === submittedByOrgId
     const isMember = Boolean(getOrgBySlug(session, orgSlug)) || session.user.isSiAdmin
     if (!org || !isParty || !isMember) {
         throw new ActionFailure({
-            permission_denied: `org ${orgSlug} is not a party to job ${studyJob.studyJobId} that the caller belongs to`,
+            permission_denied: `org ${orgSlug} is not a party to job ${studyJobId} that the caller belongs to`,
         })
     }
     return { activityOrgId: org.id }
@@ -47,7 +52,7 @@ const resolveActivityOrg = async ({ params: { orgSlug }, session, studyJob, db }
 // what a viewer is allowed to do (OTTER-675).
 export const recordJobFileActivityAction = new Action('recordJobFileActivityAction', { performsMutations: true })
     .params(jobFileActivitySchema)
-    .middleware(loadStudyJob)
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .middleware(resolveActivityOrg)
     .handler(async ({ params: { jobId, files, action }, session, db, activityOrgId }) => {
@@ -81,7 +86,7 @@ export const recordJobFileActivityAction = new Action('recordJobFileActivityActi
 
 export const fetchJobFileActivityAction = new Action('fetchJobFileActivityAction')
     .params(z.object({ jobId: z.string(), orgSlug: z.string() }))
-    .middleware(loadStudyJob)
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .middleware(resolveActivityOrg)
     .handler(async ({ params: { jobId }, activityOrgId }) => {

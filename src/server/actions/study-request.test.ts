@@ -32,6 +32,7 @@ import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
 import { mockClient } from 'aws-sdk-client-mock'
 import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import logger from '@/lib/logger'
 import {
     getDraftStudyAction,
     onSaveDraftStudyAction,
@@ -2412,5 +2413,29 @@ describe('Request Study Actions', () => {
             expect(afterResubmit.status).toBe('APPROVED')
             expect(afterResubmit.submittedAt).toEqual(approved.submittedAt)
         })
+    })
+})
+
+describe('getDraftStudyAction subject (MA-6)', () => {
+    // OTTER-596: the Data Partner may not read an unsubmitted proposal, not even through the error.
+    it('gives a reviewer of the study enclave no draft content on a DRAFT', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({
+            enclaveSlug: 'ma6-draft-enclave',
+            studyInfo: { title: 'Confidential draft title' },
+        })
+        await db
+            .updateTable('study')
+            .set({ researchQuestions: lexicalJson('Confidential research question') })
+            .where('id', '=', studyId)
+            .execute()
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const result = await getDraftStudyAction({ studyId })
+        const denied = (result as { error: { permission_denied: string } }).error.permission_denied
+
+        expect(denied).toContain(studyId)
+        expect(denied).not.toContain('Confidential draft title')
+        expect(denied).not.toContain('Confidential research question')
     })
 })
