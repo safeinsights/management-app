@@ -72,6 +72,7 @@ export const legalDocumentDownloadURL = (versionId: string) => `${DOWNLOAD_PREFI
 export const SCAN_LOG_FILE_NAME = 'security-scan-log.txt'
 
 export const coderUserInfoPath = (username: CoderUsername) => `/api/v2/users/${username}`
+export const coderUserActivatePath = (username: CoderUsername) => `/api/v2/users/${username}/status/activate`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`
 export const coderTemplateId = () => `/api/v2/templates`

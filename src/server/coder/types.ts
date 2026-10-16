@@ -109,9 +109,12 @@ export interface CoderUserQueryResponse {
     users: CoderUser[]
 }
 
+export type CoderUserStatus = 'active' | 'dormant' | 'suspended'
+
 export interface CoderUser {
     username: CoderUsername
     email?: string
+    status?: CoderUserStatus
 }
 
 /** The SafeInsights researcher a study's Coder account belongs to — its IDE owner (OTTER-817). */

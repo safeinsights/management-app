@@ -1,4 +1,4 @@
-import { coderUsersPath } from '@/lib/paths'
+import { coderUserActivatePath, coderUsersPath } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { getIdeOwnerForStudy } from '../db/queries'
 import { coderFetch } from './client'
@@ -68,6 +68,23 @@ export async function getCoderUserFor(identity: CoderIdentity): Promise<CoderUse
     return match
 }
 
+// Activity through the admin token isn't the user's own, so BMA-only users go dormant after 90 days.
+async function ensureCoderUserActive(user: CoderUser): Promise<CoderUser> {
+    if (user.status === 'suspended') {
+        throw new Error(`Coder account ${user.username} is suspended; an admin must reactivate it`)
+    }
+    if (user.status === 'dormant') {
+        logger.info(`Reactivating dormant Coder user ${user.username}`)
+        return coderFetch<CoderUser>(coderUserActivatePath(user.username), {
+            method: 'PUT',
+            errorMessage: 'Failed to reactivate dormant user',
+        })
+    }
+    return user
+}
+
 export async function getOrCreateCoderUserFor(identity: CoderIdentity): Promise<CoderUser> {
-    return (await getCoderUserFor(identity)) ?? (await createCoderUser(identity))
+    const existing = await getCoderUserFor(identity)
+    // A new user is created with user_status 'active', so only an existing one needs the check.
+    return existing ? ensureCoderUserActive(existing) : createCoderUser(identity)
 }
