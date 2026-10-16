@@ -4,9 +4,9 @@ import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.he
 import { lexicalJson } from '@/lib/lexical'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { EditResubmitProvider, useEditResubmit } from './context'
-import { resubmitProposalAction, saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { resubmitProposalAction, saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-proposal.actions'
 
-vi.mock('@/server/actions/study-request', () => ({
+vi.mock('@/server/actions/study-proposal.actions', () => ({
     resubmitProposalAction: vi.fn(),
     saveProposalResubmissionNoteDraftAction: vi.fn(),
 }))
