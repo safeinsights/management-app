@@ -45,7 +45,7 @@ vi.mock('@/server/mailer', () => ({
     sendLabCodeErroredEmail: vi.fn(),
 }))
 
-// Spy on the generation trigger only; study-request.ts depends on the rest of the module.
+// Spy on the generation trigger only; the study submission actions depend on the rest of the module.
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
     onStudyReviewRequested: vi.fn(),

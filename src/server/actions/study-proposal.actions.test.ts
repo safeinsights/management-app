@@ -41,12 +41,16 @@ import {
     onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+} from '@/server/actions/study-proposal.actions'
+import {
     resubmitProposalAction,
+    saveProposalResubmissionNoteDraftAction,
+} from '@/server/actions/proposal-resubmission.actions'
+import {
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
-    saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
-} from '@/server/actions/study-proposal.actions'
+} from '@/server/actions/study-code.actions'
 import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import {

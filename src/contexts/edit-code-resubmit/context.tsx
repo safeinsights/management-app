@@ -18,7 +18,7 @@ import {
     resubmitNoteSchema,
     type ResubmitNoteValue,
 } from '@/schema/resubmission-note'
-import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-proposal.actions'
+import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 import { useCodeSubmissionPresence, type CodeSubmissionPresence } from '@/hooks/use-code-submission-presence'
 
 interface EditCodeResubmitContextValue {

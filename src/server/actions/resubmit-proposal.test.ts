@@ -10,11 +10,11 @@ import {
 import { flushDeferred } from '@/tests/vitest.setup'
 import { deliver } from '@/server/mailgun'
 import { describe, expect, it, vi } from 'vitest'
+import { onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import {
-    onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
-} from '@/server/actions/study-proposal.actions'
+} from '@/server/actions/proposal-resubmission.actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
