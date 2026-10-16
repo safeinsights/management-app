@@ -1,7 +1,6 @@
-import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
-import { apiRequestingOrg } from '@/server/api-context'
+import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -10,7 +9,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const status = await db
+    const status = await currentDb()
         .selectFrom('jobStatusChange')
         .where('studyJobId', '=', jobId)
         .orderBy('createdAt', 'desc')

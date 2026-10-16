@@ -1,5 +1,6 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import logger from '@/lib/logger'
+import { withTransaction, currentDb, localStorageContext } from '@/server/request-context'
 import { PROD_ENV } from './config'
 
 export type UserSyncAttrs = {
@@ -126,20 +127,27 @@ export async function syncUserToDatabaseWithConflictResolution(
     attrs: UserSyncAttrs,
     onConflictResolved?: (previousUserId: string) => Promise<void>,
 ): Promise<SyncResult> {
-    const result = await db.transaction().execute(async (trx) => {
-        return syncUserToDatabase(attrs, trx)
-    })
-
-    if (result.emailConflictResolved && onConflictResolved) {
-        try {
-            await onConflictResolved(result.emailConflictResolved.previousUserId)
-        } catch (error) {
-            // The user might not exist in Clerk any more, so this must not fail the sync.
-            logger.warn(
-                `Failed to handle conflict resolution callback for user ${result.emailConflictResolved.previousUserId}: ${error}`,
-            )
+    return await withTransaction(currentDb(), async (trx) => {
+        const result = await syncUserToDatabase(attrs, trx)
+        const previousUserId = result.emailConflictResolved?.previousUserId
+        if (previousUserId && onConflictResolved) {
+            // Clerk is told only once the merge commits; inside a caller's transaction, that is its commit.
+            localStorageContext
+                .getStore()
+                ?.afterCommit?.(() => notifyConflictResolved(previousUserId, onConflictResolved))
         }
-    }
+        return result
+    })
+}
 
-    return result
+async function notifyConflictResolved(
+    previousUserId: string,
+    onConflictResolved: (previousUserId: string) => Promise<void>,
+) {
+    try {
+        await onConflictResolved(previousUserId)
+    } catch (error) {
+        // The user might not exist in Clerk any more, so this must not fail the sync.
+        logger.warn(`Failed to handle conflict resolution callback for user ${previousUserId}: ${error}`)
+    }
 }

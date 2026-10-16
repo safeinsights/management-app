@@ -1,10 +1,10 @@
 import { onJobErrored, onRunCompleted } from '@/server/events'
 
-import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { roundIsClosed, storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 import logger from '@/lib/logger'
+import { apiRequestingOrg, withTransaction, currentDb } from '@/server/request-context'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -13,7 +13,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const alreadyReceived = await db
+    const alreadyReceived = await currentDb()
         .selectFrom('jobStatusChange')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
@@ -33,7 +33,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     }
 
     // The join is a security check: the job must be owned by the requesting org.
-    const info = await db
+    const info = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id))
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -67,7 +67,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     // OTTER-642: a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer
     // email. Serialized on the job row; the lock is taken after the uploads and released before the
     // email, so no S3 or SMTP call runs inside the transaction.
-    const announcement = await db.transaction().execute(async (trx) => {
+    const announcement = await withTransaction(currentDb(), async (trx) => {
         await trx.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
 
         // JOB-ERRORED is shared with the scanner, the containerizer and PUT /api/job/[jobId], so a

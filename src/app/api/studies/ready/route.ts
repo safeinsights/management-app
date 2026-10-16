@@ -1,6 +1,7 @@
-import { db, sql } from '@/database'
-import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
+import { sql } from '@/database'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { NextResponse } from 'next/server'
+import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 export const GET = wrapApiOrgAction(async () => {
     const org = apiRequestingOrg()
@@ -8,7 +9,7 @@ export const GET = wrapApiOrgAction(async () => {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const jobs = await db
+    const jobs = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.on('orgId', '=', org.id).onRef('study.id', '=', 'studyJob.studyId'))
         .innerJoin(

@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { isKnownFailureReason, type JobFailureReason } from '@/lib/job-error-details'
 import { storeStudyLogFile } from '@/server/storage'
@@ -6,6 +5,7 @@ import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
 import { recordJobStatus } from '@/server/job-status'
+import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
     jobId: z.string(),
@@ -25,7 +25,7 @@ export const POST = createWebhookHandler({
     schema,
     entityNotFoundMessage: 'job-not-found',
     handler: async (body) => {
-        const job = await db
+        const job = await currentDb()
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -71,7 +71,11 @@ export const POST = createWebhookHandler({
         // record it rather than lose it to the status dedup. A classification is never overwritten,
         // but unclassified text — never displayed — is.
         if (failureReason && !isKnownFailureReason(last.message)) {
-            await db.updateTable('jobStatusChange').set({ message: failureReason }).where('id', '=', last.id).execute()
+            await currentDb()
+                .updateTable('jobStatusChange')
+                .set({ message: failureReason })
+                .where('id', '=', last.id)
+                .execute()
         }
     },
 })

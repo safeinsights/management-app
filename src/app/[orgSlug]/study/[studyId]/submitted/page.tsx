@@ -7,6 +7,7 @@ import { AlertNotFound } from '@/components/errors'
 import { isSubmittedStudy } from '@/schema/study'
 import { renderScreenById } from '../_screens/render-screen'
 import { researcherPageGuard } from '../researcher-page-guard'
+import { currentDb } from '@/server/request-context'
 
 export const metadata: Metadata = { title: 'Submit proposal' }
 
@@ -33,7 +34,7 @@ export default async function StudySubmittedRoute(props: {
         return <AlertNotFound title="Study was not found" message="This study has not been submitted yet" />
     }
 
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
     if (!raw) {
         return <AlertNotFound title="Study was not found" message="No such study exists" />
     }

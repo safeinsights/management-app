@@ -13,7 +13,7 @@ describe('rawStudyStateForStudy', () => {
         const { study, job } = await insertTestStudyJobData({ studyStatus: 'APPROVED', jobStatus: 'CODE-SUBMITTED' })
         await db.insertInto('jobStatusChange').values({ status: 'CODE-APPROVED', studyJobId: job.id }).execute()
 
-        const raw = await rawStudyStateForStudy(study.id)
+        const raw = await rawStudyStateForStudy(study.id, db)
         expect(raw).not.toBeNull()
         expect(raw!.status).toBe('APPROVED')
         expect(raw!.jobs.length).toBeGreaterThanOrEqual(1)
@@ -23,7 +23,7 @@ describe('rawStudyStateForStudy', () => {
     })
 
     it('returns null for an unknown study id', async () => {
-        expect(await rawStudyStateForStudy('01900000-0000-7000-8000-0000000000ff')).toBeNull()
+        expect(await rawStudyStateForStudy('01900000-0000-7000-8000-0000000000ff', db)).toBeNull()
     })
 
     // The collaborative documents are the only trace of unflushed Step 2 edits (OTTER-572).
@@ -42,7 +42,7 @@ describe('rawStudyStateForStudy', () => {
 
         it('is false for a draft with no collaborative document', async () => {
             const study = await insertDraft()
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
@@ -50,7 +50,7 @@ describe('rawStudyStateForStudy', () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, proposalFieldsDocName(study.id))
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(true)
         })
 
@@ -58,7 +58,7 @@ describe('rawStudyStateForStudy', () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, proposalTextFieldDocName(study.id, 'researchQuestions'))
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(true)
         })
 
@@ -67,7 +67,7 @@ describe('rawStudyStateForStudy', () => {
             const other = await insertDraft()
             await insertYjsDoc(other.id, proposalFieldsDocName(other.id))
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
@@ -78,7 +78,7 @@ describe('rawStudyStateForStudy', () => {
             const other = await insertDraft()
             await insertYjsDoc(other.id, proposalFieldsDocName(study.id))
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
@@ -86,7 +86,7 @@ describe('rawStudyStateForStudy', () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, `review-feedback-${study.id}-v1`)
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
 
@@ -95,7 +95,7 @@ describe('rawStudyStateForStudy', () => {
             const study = await insertDraft()
             await insertYjsDoc(study.id, proposalResubmissionNoteDocNameForVersion(study.id, 1))
 
-            const raw = await rawStudyStateForStudy(study.id)
+            const raw = await rawStudyStateForStudy(study.id, db)
             expect(raw!.hasStep2CollabDoc).toBe(false)
         })
     })

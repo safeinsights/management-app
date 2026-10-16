@@ -239,7 +239,7 @@ describe('Request Study Actions', () => {
                 .execute()
             await insertTestCodeEnv({ orgId: enclave.id, language: 'R', url: 'example.com/r:replacement' })
 
-            const codeEnv = await fetchCodeEnvForStudyId(studyId)
+            const codeEnv = await fetchCodeEnvForStudyId(studyId, db)
             expect(codeEnv).toMatchObject({
                 id: chosen.id,
                 url: 'example.com/r:chosen',
@@ -262,14 +262,14 @@ describe('Request Study Actions', () => {
 
             const studyId = await saveDraft(enclave.slug, lab.slug, 'PYTHON')
             expect(await studySnapshot(studyId)).toBeNull()
-            expect(await fetchCodeEnvForStudyIdOrNull(studyId)).toBeNull()
+            expect(await fetchCodeEnvForStudyIdOrNull(studyId, db)).toBeNull()
 
             const added = await insertTestCodeEnv({
                 orgId: enclave.id,
                 language: 'PYTHON',
                 url: 'example.com/python:added',
             })
-            expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
+            expect(await fetchCodeEnvForStudyId(studyId, db)).toMatchObject({
                 id: added.id,
                 url: 'example.com/python:added',
             })
@@ -286,7 +286,7 @@ describe('Request Study Actions', () => {
             await db.deleteFrom('orgCodeEnv').where('id', '=', frozen.id).execute()
 
             expect((await studySnapshot(studyId))?.id).toBe(frozen.id)
-            expect(await fetchCodeEnvForStudyId(studyId)).toMatchObject({
+            expect(await fetchCodeEnvForStudyId(studyId, db)).toMatchObject({
                 id: current.id,
                 url: 'example.com/r:current',
                 identifier: current.identifier,

@@ -1,8 +1,8 @@
-import { db } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
+import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
     codeEnvId: z.string(),
@@ -15,18 +15,22 @@ export const POST = createWebhookHandler({
     schema,
     entityNotFoundMessage: 'code-env-not-found',
     handler: async (body) => {
-        await db
+        const executor = currentDb()
+        await executor
             .selectFrom('orgCodeEnv')
             .where('orgCodeEnv.id', '=', body.codeEnvId)
             .select('orgCodeEnv.id')
             .executeTakeFirstOrThrow(throwNotFound('code environment'))
 
         if (body.status === 'SCAN-RUNNING') {
-            await db.insertInto('codeScan').values({ codeEnvId: body.codeEnvId, status: 'SCAN-RUNNING' }).execute()
+            await executor
+                .insertInto('codeScan')
+                .values({ codeEnvId: body.codeEnvId, status: 'SCAN-RUNNING' })
+                .execute()
             return
         }
 
-        const result = await db
+        const result = await executor
             .updateTable('codeScan')
             .set({ status: body.status, results: body.plaintextLog ?? null })
             .where('codeEnvId', '=', body.codeEnvId)
@@ -37,7 +41,7 @@ export const POST = createWebhookHandler({
             logger.error(
                 `code-env-scan-results: received ${body.status} for codeEnvId=${body.codeEnvId} but no SCAN-RUNNING row found`,
             )
-            await db
+            await executor
                 .insertInto('codeScan')
                 .values({ codeEnvId: body.codeEnvId, status: body.status, results: body.plaintextLog ?? null })
                 .execute()

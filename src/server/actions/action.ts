@@ -4,36 +4,31 @@ import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 
 import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
-import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 import { setSentryFromSession } from '@/lib/sentry'
+import {
+    afterCommitQueue,
+    localStorageContext,
+    withTransaction,
+    type AfterCommitFn,
+    type RequestContext,
+} from '@/server/request-context'
 
 type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
-// Queues work that must not run until the handler's writes are visible to anyone else. A mutating
-// handler runs inside a transaction, so anything it hands to another process from inside the
-// handler can read the round before it exists (OTTER-799).
-export type AfterCommitFn = (fn: () => Promise<unknown>) => void
-
-// Optional here, required on a handler's own context: this type is also the async-local store,
-// which is populated outside an action in tests and in Action.db.
-export type ActionContext<Args = unknown> = {
-    session?: UserSessionWithAbility
+export type ActionContext<Args = unknown> = RequestContext & {
     db: DBExecutor
     params?: Args
-    afterCommit?: AfterCommitFn
 }
 
 export type ActionOptions = {
     performsMutations?: boolean
 }
-
-export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
 export async function currentSession<T extends boolean>(
     throwIfNotFound?: T,
@@ -59,11 +54,6 @@ export class Action<
     private schema?: ZodType<Args>
     private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
     private options: ActionOptions
-
-    static get db() {
-        const ctx = localStorageContext.getStore()
-        return ctx?.db || db
-    }
 
     constructor(
         private actionName: string,
@@ -99,7 +89,7 @@ export class Action<
 
             // Lands in the permission_denied message returned to a refused caller, so middleware
             // must return ids and slugs only — never a whole row, never secrets (OTTER-724 / MA-6).
-            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit']) }
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit', 'org']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,8 +112,6 @@ export class Action<
         const middlewareFns = [...this.middlewareFns]
 
         const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
-            let actionCtx: ActionContext | undefined
-
             try {
                 let args: Args
                 if (schema) {
@@ -145,62 +133,41 @@ export class Action<
                 } else {
                     args = raw as Args
                 }
-                const session = await sessionFromClerk()
+                // Kept so apiRequestingOrg() still works in an action that a wrapApiOrgAction route calls.
+                const org = localStorageContext.getStore()?.org
+                // Outside any caller's transaction: a user sync commits on its own before Clerk hears of it.
+                const session = (await localStorageContext.run({ org }, () => sessionFromClerk())) ?? undefined
 
-                const afterCommitFns: (() => Promise<unknown>)[] = []
-                const afterCommit: AfterCommitFn = (fn) => {
-                    afterCommitFns.push(fn)
-                }
-
-                const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                    let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
-                    actionCtx = ctx
-
-                    return localStorageContext.run(ctx, async () => {
-                        for (const mw of middlewareFns) {
-                            const more = await mw(ctx)
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ctx = { ...ctx, ...(more as any[]) }
-                        }
-
-                        if (session) {
-                            setSentryFromSession(session)
-                        }
-
-                        return handlerFn(ctx)
-                    })
-                }
-
-                let result: Res
-
-                if (this.options.performsMutations) {
-                    result = await db.transaction().execute(execute)
-                } else {
-                    result = await execute(db)
-                }
-
-                if (actionCtx) actionCtx.db = db
-
-                // Only reached once the writes are committed. A handler that threw never gets here,
-                // so work queued by a rolled-back handler is dropped with it. One hook failing must
-                // not fail the action: the mutation the caller asked for already happened.
-                const runAfterCommitFns = async () => {
-                    for (const fn of afterCommitFns) {
-                        try {
-                            await fn()
-                        } catch (error: unknown) {
-                            logger.error(error)
-                        }
+                // Reads db and afterCommit from the store, which withTransaction() binds for a mutating action.
+                const execute = async (): Promise<Res> => {
+                    let ctx = { ...localStorageContext.getStore() } as Ctx & { params: Args }
+                    for (const mw of middlewareFns) {
+                        const more = await mw(ctx)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ctx = { ...ctx, ...(more as any[]) }
                     }
-                }
-                // Inside the store, with db already swapped off the committed transaction, so a hook
-                // reads the same context its handler did rather than an empty one.
-                await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())
 
+                    if (session) {
+                        setSentryFromSession(session)
+                    }
+
+                    return handlerFn(ctx)
+                }
+
+                // A fresh store, so an action called inside another transaction opens its own instead of
+                // joining one whose commit it cannot see.
+                if (this.options.performsMutations) {
+                    return await localStorageContext.run({ params: args, session, org }, () =>
+                        withTransaction(db, execute),
+                    )
+                }
+
+                const { afterCommit, run: runAfterCommitFns } = afterCommitQueue()
+                const store: RequestContext = { params: args, session, org, db, afterCommit }
+                const result = await localStorageContext.run(store, execute)
+                await localStorageContext.run(store, runAfterCommitFns)
                 return result
             } catch (error) {
-                if (actionCtx) actionCtx.db = db
-
                 // ActionFailure is the expected validation / permission path; only the rest is a bug.
                 if (error instanceof ActionFailure) {
                     return { error: error.error }

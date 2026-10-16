@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo, studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
 import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
@@ -9,10 +8,11 @@ import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_AGREEMENTS_EMAIL } from './mailgun'
+import { currentDb } from '@/server/request-context'
 
 async function getOrgMembers(orgId: string) {
     return (
-        db
+        currentDb()
             .selectFrom('user')
             .innerJoin('orgUser', 'user.id', 'orgUser.userId')
             .distinctOn('user.id')
@@ -27,7 +27,7 @@ async function getOrgMembers(orgId: string) {
 
 // SI admin is org_user.is_admin on the safe-insights org, the same row Clerk's metadata is built from.
 async function getSiAdmins() {
-    return db
+    return currentDb()
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
@@ -64,7 +64,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
 
 // submittedAt stays at the first submission; each revision is recorded only by its resubmission note.
 async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
-    const latest = await db
+    const latest = await currentDb()
         .selectFrom('studyProposalComment')
         .select('createdAt')
         .where('studyId', '=', studyId)
@@ -96,20 +96,20 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
 
 // People who have since left the Data Partner are still included.
 async function getStudyDeciders(studyId: string, { withCodeDeciders = false } = {}) {
-    return db
+    return currentDb()
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', studyDeciderIds(db, studyId, { withCodeDeciders, withOutputsDeciders: false }))
+        .where('id', 'in', studyDeciderIds(currentDb(), studyId, { withCodeDeciders, withOutputsDeciders: false }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
 }
 
 async function getStudyLabAudience(studyId: string, { withCodeSubmitters = false } = {}) {
-    return db
+    return currentDb()
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', studyLabMemberIds(db, studyId, { withCodeSubmitters }))
+        .where('id', 'in', studyLabMemberIds(currentDb(), studyId, { withCodeSubmitters }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
@@ -146,7 +146,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
 // onStudyProposalSubmitted is the only writer of CREATED/STUDY and audits before it mails, so the row for
 // this submission is already there: a second one means the lab has submitted before.
 const isResubmission = async (studyId: string) => {
-    const { submissions } = await db
+    const { submissions } = await currentDb()
         .selectFrom('audit')
         .select((eb) => eb.fn.countAll().as('submissions'))
         .where('recordType', '=', 'STUDY')
@@ -167,7 +167,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 
     // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
     // reaches here too, and its gate only passes once one is acknowledged.
-    if (await findLegalDocument(db, { type: 'SLA', studyId })) return
+    if (await findLegalDocument(currentDb(), { type: 'SLA', studyId })) return
 
     // The same proposal coming back is already on the admins' list.
     if (await isResubmission(studyId)) return

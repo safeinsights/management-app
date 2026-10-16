@@ -3,6 +3,7 @@
 import type { DBExecutor } from '@/database'
 import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { withTransaction } from '@/server/request-context'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
@@ -171,7 +172,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             throw new ActionFailure({ user: 'does not exist' })
         }
 
-        const siUser = await db.transaction().execute(async (trx) => {
+        const siUser = await withTransaction(db, async (trx) => {
             // Claim first, atomically: concurrent accepts race on this row, and a failure below
             // rolls the claim back with the membership.
             const invite = await trx
@@ -285,7 +286,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             }
         }
 
-        const siUser = await db.transaction().execute(async (trx) => {
+        const siUser = await withTransaction(db, async (trx) => {
             const existing = await trx
                 .selectFrom('user')
                 .select(['id', 'clerkId'])

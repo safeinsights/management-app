@@ -582,7 +582,7 @@ describe('Study Job Actions', () => {
                     { studyJobId: job.id, status: 'CODE-APPROVED' },
                 ])
                 .execute()
-            expect(await codeSubmissionVersion(study.id)).toBe(2)
+            expect(await codeSubmissionVersion(study.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({

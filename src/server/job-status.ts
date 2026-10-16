@@ -1,6 +1,6 @@
-import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import { onJobErrored } from './events'
+import { currentDb } from '@/server/request-context'
 
 type RecordedJobStatus = { recorded: true } | { recorded: false; last: { id: string; message: string | null } }
 
@@ -10,7 +10,7 @@ export async function recordJobStatus(
     job: { id: string; studyId: string },
     values: { status: StudyJobStatus; userId?: string; message?: string | null },
 ): Promise<RecordedJobStatus> {
-    const last = await db
+    const last = await currentDb()
         .selectFrom('jobStatusChange')
         .select(['id', 'status', 'message'])
         .where('studyJobId', '=', job.id)
@@ -21,7 +21,7 @@ export async function recordJobStatus(
 
     if (last?.status === values.status) return { recorded: false, last }
 
-    await db
+    await currentDb()
         .insertInto('jobStatusChange')
         .values({ studyJobId: job.id, ...values })
         .execute()

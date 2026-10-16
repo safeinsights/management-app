@@ -1,4 +1,5 @@
 import { audit } from '@/server/events'
+import { currentDb } from '@/server/request-context'
 import { ENVIRONMENT_ID } from '@/server/config'
 import type { AuditEventType, AuditRecordType } from '@/database/types'
 
@@ -37,13 +38,18 @@ export async function auditQaInvocation({
     via = 'qa-api',
     metadata,
 }: QaAuditEntry) {
-    await audit({
-        userId: actorUserId,
-        eventType,
-        recordType,
-        recordId,
-        metadata: { ...metadata, outcome, via, environment: ENVIRONMENT_ID },
-    })
+    const executor = currentDb()
+    if (executor.isTransaction) throw new Error('QA audit rows must be written outside any transaction')
+    await audit(
+        {
+            userId: actorUserId,
+            eventType,
+            recordType,
+            recordId,
+            metadata: { ...metadata, outcome, via, environment: ENVIRONMENT_ID },
+        },
+        executor,
+    )
 }
 
 /**

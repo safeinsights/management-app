@@ -8,7 +8,8 @@ import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { pathForInvitation } from '@/lib/paths'
 import { APP_BASE_URL } from '@/server/config'
 import { findOpenInvite } from '@/server/db/queries'
-import { findQaUser, withTransaction, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
+import { findQaUser, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
+import { withTransaction } from '@/server/request-context'
 
 export class QaConflictError extends Error {}
 

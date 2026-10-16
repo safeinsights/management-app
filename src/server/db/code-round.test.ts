@@ -15,8 +15,8 @@ describe('codeRoundForJob', () => {
         const { study, job } = await insertTestStudyJobData({})
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
 
-        expect(await codeRoundForJob(job.id)).toBe(1)
-        expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
+        expect(await codeRoundForJob(job.id, db)).toBe(1)
+        expect(await codeRoundForJob(job.id, db)).toBe(await codeSubmissionVersion(study.id, db))
     })
 
     // The distinction from codeSubmissionVersion: that version moves on at the reviewer's decision,
@@ -26,8 +26,8 @@ describe('codeRoundForJob', () => {
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
 
-        expect(await codeRoundForJob(job.id)).toBe(1)
-        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        expect(await codeRoundForJob(job.id, db)).toBe(1)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
     })
 
     it('advances to round 2 once the resubmit lands', async () => {
@@ -36,8 +36,8 @@ describe('codeRoundForJob', () => {
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(1))
 
-        expect(await codeRoundForJob(job.id)).toBe(2)
-        expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
+        expect(await codeRoundForJob(job.id, db)).toBe(2)
+        expect(await codeRoundForJob(job.id, db)).toBe(await codeSubmissionVersion(study.id, db))
     })
 
     // createdAt defaults to now(), which is fixed for a whole transaction, so a change request ties
@@ -50,8 +50,8 @@ describe('codeRoundForJob', () => {
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', tied)
         await addStatus(job.id, 'CODE-SUBMITTED', tied)
 
-        expect(await codeRoundForJob(job.id)).toBe(2)
-        expect(await codeRoundForJob(job.id)).toBe(await codeSubmissionVersion(study.id))
+        expect(await codeRoundForJob(job.id, db)).toBe(2)
+        expect(await codeRoundForJob(job.id, db)).toBe(await codeSubmissionVersion(study.id, db))
     })
 
     // A results decision opens a fresh job; the round must not reset to 1 there (OTTER-556/558).
@@ -67,9 +67,9 @@ describe('codeRoundForJob', () => {
             .executeTakeFirstOrThrow()
         await addStatus(secondJob.id, 'CODE-SUBMITTED', minutesAgo(10))
 
-        expect(await codeRoundForJob(firstJob.id)).toBe(1)
-        expect(await codeRoundForJob(secondJob.id)).toBe(2)
-        expect(await codeRoundForJob(secondJob.id)).toBe(await codeSubmissionVersion(study.id))
+        expect(await codeRoundForJob(firstJob.id, db)).toBe(1)
+        expect(await codeRoundForJob(secondJob.id, db)).toBe(2)
+        expect(await codeRoundForJob(secondJob.id, db)).toBe(await codeSubmissionVersion(study.id, db))
     })
 
     // The mirror of the boundary above: a decision on a job opened later belongs to a later round,
@@ -90,8 +90,8 @@ describe('codeRoundForJob', () => {
         await addStatus(secondJob.id, 'CODE-SUBMITTED', minutesAgo(20))
         await addStatus(secondJob.id, 'CODE-CHANGES-REQUESTED', minutesAgo(10))
 
-        expect(await codeRoundForJob(firstJob.id)).toBe(2)
-        expect(await codeRoundForJob(secondJob.id)).toBe(3)
+        expect(await codeRoundForJob(firstJob.id, db)).toBe(2)
+        expect(await codeRoundForJob(secondJob.id, db)).toBe(3)
     })
 
     it('falls back to the study-wide version for a job with no submission yet', async () => {
@@ -105,8 +105,8 @@ describe('codeRoundForJob', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        expect(await codeRoundForJob(openedJob.id)).toBe(2)
-        expect(await codeRoundForJob(openedJob.id)).toBe(await codeSubmissionVersion(study.id))
+        expect(await codeRoundForJob(openedJob.id, db)).toBe(2)
+        expect(await codeRoundForJob(openedJob.id, db)).toBe(await codeSubmissionVersion(study.id, db))
     })
 })
 
@@ -117,7 +117,7 @@ describe('isCurrentCodeRound', () => {
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(1))
 
-        expect(await isCurrentCodeRound(job.id, 1)).toBe(false)
-        expect(await isCurrentCodeRound(job.id, 2)).toBe(true)
+        expect(await isCurrentCodeRound(job.id, 1, db)).toBe(false)
+        expect(await isCurrentCodeRound(job.id, 2, db)).toBe(true)
     })
 })

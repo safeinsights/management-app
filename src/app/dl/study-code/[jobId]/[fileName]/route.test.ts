@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { urlForStudyJobCodeFile } from '@/server/storage'
-import { createTestProposalDraft, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
+import { BLANK_UUID, createTestProposalDraft, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
 
 // The route only reads the DB row for auth + path; stub the signed-URL helper so no S3 is needed.
 vi.mock('@/server/storage', async () => {
@@ -24,6 +24,15 @@ async function seedCodeJob(studyId: string) {
 }
 
 describe('GET /dl/study-code/[jobId]/[fileName] (OTTER-596)', () => {
+    it('returns 404 for an unknown job', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        const resp = await apiHandler.GET(request(), {
+            params: Promise.resolve({ jobId: BLANK_UUID, fileName: 'main.r' }),
+        })
+
+        expect(resp.status).toBe(404)
+    })
+
     it('returns 401 to a Data Organization member while the study is an unsubmitted draft', async () => {
         const { enclave, studyId } = await createTestProposalDraft({ enclaveSlug: 'dl-code-draft-enclave' })
         const jobId = await seedCodeJob(studyId)

@@ -157,7 +157,7 @@ describe('mailgun email functions', () => {
     // Any lab member can finalize a draft someone else created; only the CREATED audit row names them.
     it('sendStudyProposalApprovedEmail reaches a co-author who submitted the proposal', async () => {
         const { study, user2: coAuthor } = await insertTestOrgStudyJobUsers()
-        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id })
+        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id }, db)
 
         await mailgun.sendStudyProposalApprovedEmail(study.id)
 

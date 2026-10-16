@@ -261,9 +261,9 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId } }) => {
+    .handler(async ({ params: { studyId }, db }) => {
         const { fetchCodeEnvForStudyId } = await import('@/server/db/queries')
-        const codeEnv = await fetchCodeEnvForStudyId(studyId)
+        const codeEnv = await fetchCodeEnvForStudyId(studyId, db)
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [], templateFileName: null }
 

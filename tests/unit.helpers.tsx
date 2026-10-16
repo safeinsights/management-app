@@ -6,7 +6,7 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { findOrCreateOrgMembership } from '@/server/mutations'
+import { findOrCreateOrgMembership } from '@/server/db/mutations'
 import { writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
@@ -327,7 +327,7 @@ export const testEmail = (provider = 'test.com') => {
 export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
 
 export const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, db)
     if (!raw) throw new Error(`no raw study state for study ${studyId}`)
     return raw
 }

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
+import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
+import type { Org } from '@/schema/org'
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -202,6 +204,20 @@ describe('Action Builder', () => {
         })
     })
 
+    describe('currentDb', () => {
+        it('is the action transaction inside a mutating handler', async () => {
+            const action = new Action('ambient-mutating', { performsMutations: true }).handler(
+                async () => currentDb().isTransaction,
+            )
+            expect(await action()).toBe(true)
+        })
+
+        it('is the root connection inside a non-mutating handler', async () => {
+            const action = new Action('ambient-read').handler(async () => currentDb().isTransaction)
+            expect(await action()).toBe(false)
+        })
+    })
+
     describe('afterCommit', () => {
         it('drops the hooks of a handler that throws, since its writes were rolled back', async () => {
             const hook = vi.fn().mockResolvedValue(undefined)
@@ -264,5 +280,17 @@ describe('Action Builder', () => {
             expect(warnSpy).toHaveBeenCalledTimes(1)
             expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
         })
+    })
+
+    describe('API org', () => {
+        it.each([true, false])(
+            'keeps the org of the route that called it (performsMutations: %s)',
+            async (performsMutations) => {
+                const org = (await insertTestOrg()) as Org
+                const action = new Action('api-org', { performsMutations }).handler(async () => apiRequestingOrg().id)
+
+                expect(await localStorageContext.run({ org }, () => action())).toBe(org.id)
+            },
+        )
     })
 })

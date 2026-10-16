@@ -21,6 +21,9 @@ import { MarkStudyOpened } from './mark-study-opened'
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
     captureException: vi.fn(),
+    // Called by Action when it has a session.
+    setUser: vi.fn(),
+    setTag: vi.fn(),
 }))
 
 const onRoute = (params: { orgSlug: string; studyId?: string }) => (useParams as Mock).mockReturnValue(params)

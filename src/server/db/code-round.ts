@@ -1,4 +1,4 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
@@ -12,7 +12,7 @@ import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 // it triggered carry byte-identical timestamps whenever one transaction writes both, and the change
 // request drops out of that comparison. Submissions and change requests strictly alternate on a job
 // (markCodeSubmitted enforces it), so its Nth submission follows N-1 of its own change requests.
-export async function codeRoundForJob(studyJobId: string, executor: DBExecutor = db): Promise<number> {
+export async function codeRoundForJob(studyJobId: string, executor: DBExecutor): Promise<number> {
     // One query rather than a lookup and an aggregate, because the review screen derives the round
     // on every render. `sibling` widens the rows to every job of the study; grouping on the job
     // makes a missing id an empty result instead of a row of zeroes.
@@ -53,10 +53,6 @@ export async function codeRoundForJob(studyJobId: string, executor: DBExecutor =
     return 1 + Number(counts.closedElsewhere) + Math.max(0, Number(counts.submissions) - 1)
 }
 
-export async function isCurrentCodeRound(
-    studyJobId: string,
-    round: number,
-    executor: DBExecutor = db,
-): Promise<boolean> {
+export async function isCurrentCodeRound(studyJobId: string, round: number, executor: DBExecutor): Promise<boolean> {
     return (await codeRoundForJob(studyJobId, executor)) === round
 }

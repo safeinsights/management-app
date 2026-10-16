@@ -18,10 +18,9 @@ import {
     codeSubmissionVersion,
     fetchUserFullName,
     getInfoForStudyId,
-    getOrgIdFromSlug,
+    findOrgIdBySlug,
     selectCodeEnvSnapshot,
 } from '@/server/db/queries'
-import { db as database } from '@/database'
 import {
     deferred,
     onStudyCodeSubmitted,
@@ -53,20 +52,21 @@ import {
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
+import { currentDb } from '@/server/request-context'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round, database))) return
-    await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
+    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) return
+    await currentDb().insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
 // A Hocuspocus persist can commit after the in-tx delete; re-delete rows
 // older than the captured submit timestamp.
 const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
-    await purgeProposalYjsDocsBeforeAt(database, args)
+    await purgeProposalYjsDocsBeforeAt(currentDb(), args)
 })
 
 // Runs after the response, so the rows these objects belonged to are committed as deleted. Doing it
@@ -185,9 +185,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     .params(onSaveDraftStudyActionArgsSchema)
     // Resolving here puts submittedByOrgId in the ability subject, so `create Study` enforces lab
     // membership via CASL — otherwise a caller could stamp another lab's id on a study (OTTER-719).
-    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
-        ...(await getOrgIdFromSlug({ orgSlug })),
-        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    .middleware(async ({ db, params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await findOrgIdBySlug(db, orgSlug, true)),
+        submittedByOrgId: (await findOrgIdBySlug(db, submittingOrgSlug, true)).orgId,
     }))
     .requireAbilityTo('create', 'Study')
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {

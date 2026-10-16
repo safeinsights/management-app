@@ -7,9 +7,12 @@ import {
     insertTestStudyJobUsers,
     insertTestStudyOnly,
     insertTestUser,
+    mockClerkSession,
     readTestSupportFile,
+    testEmail,
 } from '@/tests/unit.helpers'
 import { db } from '@/database'
+import { faker } from '@faker-js/faker'
 import {
     codeSubmissionVersion,
     outputsDecisionVersion,
@@ -21,11 +24,13 @@ import {
     getOrgPublicKeysRaw,
     getUserPublicKey,
     getUsersForOrgId,
-    jobInfoForJobId,
-    studyInfoForStudyId,
+    getInfoForStudyJobId,
+    getInfoForStudyId,
+    findOrgIdBySlug,
     getDataSourcesForOrg,
     getSharedFileIdsForJob,
     getIdeOwnerForStudy,
+    siUser,
 } from './queries'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
@@ -74,28 +79,79 @@ describe('getUserPublicKey', () => {
     })
 })
 
-describe('jobInfoForJobId', () => {
-    it('returns job info when jobId is valid', async () => {
-        const { job1, org1 } = await insertRecords()
-        const jobInfo = await jobInfoForJobId(job1.id)
-        expect(jobInfo).not.toBeNull()
-        expect(jobInfo?.studyJobId).toBe(job1.id)
-        expect(jobInfo?.orgSlug).toBe(org1.slug)
+describe('siUser', () => {
+    it("creates a missing user from the Clerk user's name and primary email", async () => {
+        const clerkUserId = faker.string.uuid()
+        const email = testEmail()
+        mockClerkSession({
+            clerkUserId,
+            userId: faker.string.uuid(),
+            orgSlug: 'si-user-org',
+            email,
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+        })
+
+        const user = await siUser()
+
+        const created = await db
+            .selectFrom('user')
+            .select(['id', 'firstName', 'lastName', 'email'])
+            .where('clerkId', '=', clerkUserId)
+            .executeTakeFirstOrThrow()
+        expect(created).toEqual({ id: user.id, firstName: 'Ada', lastName: 'Lovelace', email })
     })
 })
 
-describe('studyInfoForStudyId', () => {
+describe('getInfoForStudyJobId', () => {
+    it('returns job info when jobId is valid', async () => {
+        const { job1, study1, org1 } = await insertRecords()
+        const jobInfo = await getInfoForStudyJobId(job1.id)
+        expect(jobInfo.studyJobId).toBe(job1.id)
+        expect(jobInfo.studyId).toBe(study1.id)
+        expect(jobInfo.orgSlug).toBe(org1.slug)
+    })
+
+    it('returns undefined for an unknown jobId when not throwing', async () => {
+        expect(await getInfoForStudyJobId(BLANK_UUID, false)).toBeUndefined()
+    })
+
+    it('rejects an unknown jobId by default', async () => {
+        await expect(getInfoForStudyJobId(BLANK_UUID)).rejects.toThrow()
+    })
+})
+
+describe('getInfoForStudyId', () => {
     it('returns study info when studyId is valid', async () => {
         const { study1, org1 } = await insertRecords()
-        const studyInfo = await studyInfoForStudyId(study1.id)
-        expect(studyInfo).not.toBeNull()
+        const studyInfo = await getInfoForStudyId(study1.id, false)
         expect(studyInfo?.studyId).toBe(study1.id)
         expect(studyInfo?.orgSlug).toBe(org1.slug)
     })
 
-    it('returns null when studyId is invalid', async () => {
-        const studyInfo = await studyInfoForStudyId(BLANK_UUID)
-        expect(studyInfo).toBeUndefined()
+    it('returns undefined for an unknown studyId when not throwing', async () => {
+        expect(await getInfoForStudyId(BLANK_UUID, false)).toBeUndefined()
+    })
+
+    it('rejects an unknown studyId by default', async () => {
+        await expect(getInfoForStudyId(BLANK_UUID)).rejects.toThrow()
+    })
+})
+
+describe('findOrgIdBySlug', () => {
+    it('returns the org id and type for a known slug', async () => {
+        const org = await insertTestOrg({ slug: 'find-org-by-slug', type: 'lab' })
+        const expected = { orgId: org.id, orgType: 'lab' }
+        expect(await findOrgIdBySlug(db, org.slug, false)).toEqual(expected)
+        expect(await findOrgIdBySlug(db, org.slug, true)).toEqual(expected)
+    })
+
+    it('returns undefined for an unknown slug when not throwing', async () => {
+        expect(await findOrgIdBySlug(db, 'nope', false)).toBeUndefined()
+    })
+
+    it('rejects an unknown slug when throwing', async () => {
+        await expect(findOrgIdBySlug(db, 'nope', true)).rejects.toThrow()
     })
 })
 
@@ -483,12 +539,12 @@ describe('codeSubmissionVersion', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        expect(await codeSubmissionVersion(study.id)).toBe(1)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(1)
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
             .execute()
-        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
     })
 
     it('v3 after two change-request rounds on the same job', async () => {
@@ -505,7 +561,7 @@ describe('codeSubmissionVersion', () => {
                 { studyJobId: job.id, status: 'CODE-SUBMITTED' },
             ])
             .execute()
-        expect(await codeSubmissionVersion(study.id)).toBe(3)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(3)
     })
 
     it('is unaffected by extra CODE-SUBMITTED rows with no new round', async () => {
@@ -514,7 +570,7 @@ describe('codeSubmissionVersion', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-SUBMITTED' }).execute()
-        expect(await codeSubmissionVersion(study.id)).toBe(1)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(1)
     })
 
     // Must not reset to v1 across a job boundary, or prior feedback is hidden (OTTER-556/558).
@@ -524,7 +580,7 @@ describe('codeSubmissionVersion', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         await db.insertInto('jobStatusChange').values({ studyJobId: firstJob.id, status: 'FILES-REJECTED' }).execute()
-        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
 
         const newJob = await db
             .insertInto('studyJob')
@@ -533,12 +589,12 @@ describe('codeSubmissionVersion', () => {
             .executeTakeFirstOrThrow()
         await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
 
-        expect(await codeSubmissionVersion(study.id)).toBe(2)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
         await db
             .insertInto('jobStatusChange')
             .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
             .execute()
-        expect(await codeSubmissionVersion(study.id)).toBe(3)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(3)
     })
 })
 
@@ -570,15 +626,15 @@ describe('outputsDecisionVersion', () => {
             ])
             .execute()
 
-        expect(await codeSubmissionVersion(study.id)).toBe(2)
-        expect(await outputsDecisionVersion(study.id)).toBe(1)
+        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
+        expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })
 
     it('climbs to v2 once one outputs decision exists', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
         await givenOutputsDecision(study.id, job.id, study.researcherId, 1)
 
-        expect(await outputsDecisionVersion(study.id)).toBe(2)
+        expect(await outputsDecisionVersion(study.id, db)).toBe(2)
     })
 
     // Older rejections wrote the status with no comment; counting them would leave the first visible
@@ -587,7 +643,7 @@ describe('outputsDecisionVersion', () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
         await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
 
-        expect(await outputsDecisionVersion(study.id)).toBe(1)
+        expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })
 
     it('ignores code-review decisions and other studies', async () => {
@@ -609,7 +665,7 @@ describe('outputsDecisionVersion', () => {
         const other = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
         await givenOutputsDecision(other.study.id, other.job.id, other.study.researcherId, 1)
 
-        expect(await outputsDecisionVersion(study.id)).toBe(1)
+        expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })
 })
 

@@ -1,11 +1,10 @@
-import { db } from '@/database'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
-import { apiRequestingOrg } from '@/server/api-context'
 import { recordJobStatus } from '@/server/job-status'
 import { roundIsClosed } from '@/server/storage'
 import logger from '@/lib/logger'
+import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -26,14 +25,14 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const alreadyCompleted = await db
+    const alreadyCompleted = await currentDb()
         .selectFrom('jobStatusChange')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
         .executeTakeFirst()
     if (alreadyCompleted) return new NextResponse('job is already complete', { status: 422 })
 
-    const job = await db
+    const job = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
         .where('studyJob.id', '=', jobId)
@@ -48,7 +47,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     const change = schema.parse(json)
 
     // A failure reported after the Data Partner has decided the outputs would reopen a closed round.
-    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id))) {
+    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id, currentDb()))) {
         logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
         return new NextResponse('ok', { status: 200 })
     }

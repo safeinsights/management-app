@@ -15,6 +15,7 @@ import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/st
 import { CodeReviewClient } from './code-review-client'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
+import { currentDb } from '@/server/request-context'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -50,7 +51,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
 
     // The round of the code on this job, not codeSubmissionVersion: that counts a change request
     // from the moment it is written, which would label this page as the next iteration.
-    const reviewVersion = await codeRoundForJob(job.id)
+    const reviewVersion = await codeRoundForJob(job.id, currentDb())
     const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName
     const step: PageHeaderStep = { label: 'Step 2', heading: codeReviewHeading(reviewVersion) }

@@ -1,4 +1,5 @@
-import { Action } from '../actions/action'
+import { currentDb } from '@/server/request-context'
+import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
@@ -10,22 +11,68 @@ type SiUserOptionalAttrs = {
 }
 
 export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptionalAttrs = {}) => {
-    let user = await Action.db.selectFrom('user').select('id').where('clerkId', '=', clerkId).executeTakeFirst()
+    const executor = currentDb()
+    let user = await executor.selectFrom('user').select('id').where('clerkId', '=', clerkId).executeTakeFirst()
 
     if (!user) {
-        user = await Action.db
+        user = await executor
             .insertInto('user')
             .values({
                 clerkId,
                 lastName: attrs.lastName,
                 email: attrs.email,
-                firstName: attrs.firstName ?? 'Unknown',
+                firstName: attrs.firstName ?? 'Unknown', // unlike clerk, we require users to have some sort of name for showing in reports
             })
             .returningAll()
             .executeTakeFirstOrThrow()
     }
 
     return user.id
+}
+
+export async function findOrCreateOrgMembership({
+    userId,
+    slug,
+    isAdmin = false,
+}: {
+    userId: string
+    slug: string
+    isAdmin?: boolean
+}) {
+    const executor = currentDb()
+    const orgInfo = await executor
+        .selectFrom('orgUser')
+        .innerJoin('org', (join) => join.on('org.slug', '=', slug).onRef('org.id', '=', 'orgUser.orgId'))
+        .select(['org.id', 'org.slug', 'org.name', 'org.type', 'orgUser.id as orgUserId', 'orgUser.isAdmin'])
+        .where('orgUser.userId', '=', userId)
+        .executeTakeFirst()
+
+    if (orgInfo) {
+        if (orgInfo.isAdmin != isAdmin) {
+            await executor
+                .updateTable('orgUser')
+                .set({ isAdmin })
+                .where('id', '=', orgInfo.orgUserId)
+                .executeTakeFirstOrThrow()
+        }
+        return { ...orgInfo, isAdmin }
+    } else {
+        const org = await executor
+            .selectFrom('org')
+            .select(['org.id', 'org.slug', 'org.name', 'org.type'])
+            .where('org.slug', '=', slug)
+            .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
+
+        await executor
+            .insertInto('orgUser')
+            .values({
+                userId,
+                isAdmin,
+                orgId: org.id,
+            })
+            .executeTakeFirstOrThrow()
+        return { ...org, isAdmin }
+    }
 }
 
 export type RoundJob = {
