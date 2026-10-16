@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -229,6 +230,28 @@ describe('Action Builder', () => {
 
             expect(await action()).toBe('committed')
             expect(laterHook).toHaveBeenCalledOnce()
+        })
+    })
+
+    describe('error reporting', () => {
+        it('does not report expected ActionFailure', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const action = new Action('expected-failure').handler(async () => {
+                throw new ActionFailure({ user: 'nope' })
+            })
+            expect(await action()).toEqual({ error: { user: 'nope' } })
+            expect(errorSpy).not.toHaveBeenCalled()
+        })
+
+        it('reports unexpected errors once', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const boom = new Error('boom')
+            const action = new Action('unexpected-failure').handler(async () => {
+                throw boom
+            })
+            expect(await action()).toEqual({ error: 'boom' })
+            expect(errorSpy).toHaveBeenCalledTimes(1)
+            expect(errorSpy).toHaveBeenCalledWith(boom)
         })
     })
 })

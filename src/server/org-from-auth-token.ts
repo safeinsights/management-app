@@ -9,10 +9,7 @@ export const orgFromAuthToken = async (): Promise<Org> => {
     const authHeader = (await headers()).get('Authorization') || ''
 
     if (!authHeader.startsWith('Bearer ')) {
-        const availableHeaders = Array.from((await headers()).entries())
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n')
-        throw new Error(`'Authorization' header missing or not well formed.  Headers are:\n${availableHeaders}`)
+        throw new Error(`'Authorization' header missing or not well formed.`)
     }
 
     const token = authHeader.replace('Bearer ', '')

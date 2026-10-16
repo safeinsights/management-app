@@ -73,7 +73,6 @@ async function sendPostHogEvent({ properties, ...event }: PostHogEvent): Promise
         if (failure) throw failure
     } catch (error: unknown) {
         logger.error(error)
-        Sentry.captureException(error)
         await Sentry.flush(2_000)
     }
 }

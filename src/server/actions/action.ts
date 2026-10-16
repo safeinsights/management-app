@@ -1,6 +1,5 @@
 import { ZodType, ZodError, z } from 'zod'
 import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from '@/lib/permissions'
-import * as Sentry from '@sentry/nextjs'
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 
@@ -107,9 +106,8 @@ export class Action<
             if (!session.ability.can(action, abilitySubject as any)) {
                 const msg =
                     `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
-                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                    `session: ${JSON.stringify(omit(session, ['ability']), null, 2)}\n`
-                logger.error(msg)
+                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n`
+                logger.info(`user ${session.user.id} ${msg}`)
                 throw new ActionFailure({ permission_denied: msg })
             }
 
@@ -203,14 +201,11 @@ export class Action<
             } catch (error) {
                 if (actionCtx) actionCtx.db = db
 
-                Sentry.captureException(error)
-
+                // ActionFailure is the expected validation / permission path; only the rest is a bug.
                 if (error instanceof ActionFailure) {
                     return { error: error.error }
                 }
-                if (error instanceof AccessDeniedError) {
-                    return { error: `Access denied: ${error.message}` }
-                }
+                logger.error(error)
 
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
                 return { error: errorMessage }
