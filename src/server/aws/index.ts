@@ -23,7 +23,7 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { Signer } from '@aws-sdk/rds-signer'
 import PG from 'pg'
 import type { LegalDocumentType } from '@/database/types'
-import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from '../config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import {
     pathForCodeEnvScanArtifacts,

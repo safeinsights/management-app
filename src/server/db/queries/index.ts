@@ -1,4 +1,4 @@
-import { selectUserOrgRows } from './session-user'
+import { selectUserOrgRows } from '../session-user'
 import { type Expression, sql, Selectable } from 'kysely'
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
@@ -6,7 +6,7 @@ import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { currentDb, wasCalledFromAPI } from '@/server/request-context'
-import { findOrCreateSiUserId } from './mutations'
+import { findOrCreateSiUserId } from '../mutations'
 import { FileType, OrgType, StudyJobFileAction, StudyJobStatus, WorkspaceFileAction } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
 import {
@@ -14,7 +14,7 @@ import {
     CODE_ROUND_CLOSING_JOB_STATUSES,
     ROUND_CLOSING_JOB_STATUSES,
 } from '@/lib/study-job-status'
-import { codeRoundForJob } from './code-round'
+import { codeRoundForJob } from '../code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { fetchFileContents } from '@/server/storage'
 import type { PublicKey } from 'si-encryption/job-results/types'
