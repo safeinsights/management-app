@@ -57,6 +57,17 @@
     user-select: none;
 }
 
+/* Hides rows scrolling through the gap above a pinned table header. On each th, not thead: a box in
+   thead becomes an anonymous first row, and fixed layout takes the column widths from it. */
+table[data-pinned] > thead > tr > th::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: calc(var(--table-sticky-header-offset) - var(--app-shell-header-offset, 0rem));
+    background-color: var(--si-color-surface-raised);
+}
+
 /* A quarter-turn anticlockwise while data-rotated is set, e.g. a disclosure chevron. */
 .rotatable {
     transition: transform 200ms ease;
