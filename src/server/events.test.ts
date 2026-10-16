@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
 import { Action } from '@/server/actions/action'
 import { deliver } from '@/server/mailgun'
@@ -28,18 +28,12 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
     deliver: vi.fn(),
 }))
 
-// logger reports to Sentry itself; it is loaded before this file's mock, so assert on it directly.
-const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 const flushMock = Sentry.flush as unknown as Mock
 const deliverMock = deliver as unknown as Mock
 
 describe('deferred', () => {
-    beforeEach(() => {
-        loggerErrorSpy.mockClear()
-        flushMock.mockClear()
-    })
-
     it('reports and flushes to Sentry when the handler rejects', async () => {
+        const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { deferred } = await import('@/server/events')
         const boom = new Error('handler exploded')
         const run = deferred(async () => {
@@ -54,6 +48,7 @@ describe('deferred', () => {
     })
 
     it('does not report when the handler resolves', async () => {
+        const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { deferred } = await import('@/server/events')
         const run = deferred(async () => undefined)
 

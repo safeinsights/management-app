@@ -253,5 +253,16 @@ describe('Action Builder', () => {
             expect(errorSpy).toHaveBeenCalledTimes(1)
             expect(errorSpy).toHaveBeenCalledWith(boom)
         })
+
+        it('reports a permission denial once as a warning, without the user email', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            const { user } = await mockSessionWithTestData()
+            const action = new Action('denied').requireAbilityTo('manage', 'all').handler(async () => 'ok')
+            expect(await action()).toEqual({ error: { permission_denied: expect.any(String) } })
+            expect(errorSpy).not.toHaveBeenCalled()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
+        })
     })
 })
