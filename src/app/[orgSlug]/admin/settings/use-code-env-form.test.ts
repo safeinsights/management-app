@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { createTestQueryWrapper } from '@/tests/unit.helpers'
 import { useCodeEnvForm } from './use-code-env-form'
 
-vi.mock('./code-envs.actions', () => ({
+vi.mock('@/server/actions/code-envs.actions', () => ({
     createOrgCodeEnvAction: vi.fn(),
     updateOrgCodeEnvAction: vi.fn(),
     getStarterCodeUploadUrlAction: vi.fn(),
@@ -20,7 +20,7 @@ import {
     updateOrgCodeEnvAction,
     getStarterCodeUploadUrlAction,
     getSampleDataUploadUrlAction,
-} from './code-envs.actions'
+} from '@/server/actions/code-envs.actions'
 import { uploadFiles } from '@/hooks/upload'
 
 const TEST_ORG_SLUG = 'test-org'

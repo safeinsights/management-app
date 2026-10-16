@@ -15,7 +15,11 @@ import { actionResult } from '@/lib/utils'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
+import {
+    getOrgInfoForInviteAction,
+    onJoinTeamAccountAction,
+    onRevokeInviteAction,
+} from '@/server/actions/create-account.actions'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
 
 type InviteProps = {

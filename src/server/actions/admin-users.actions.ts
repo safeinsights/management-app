@@ -5,7 +5,7 @@ import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
 import { findOpenInvite } from '@/server/db/queries'
-import { inviteUserSchema, z } from './invite-user.schema'
+import { inviteUserSchema, z } from '@/schema/invite-user'
 import { clerkClient } from '@clerk/nextjs/server'
 
 export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')

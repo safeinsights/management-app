@@ -12,7 +12,7 @@ import {
     getSampleDataUploadUrlAction,
     getStarterCodeUploadUrlAction,
     createAthenaTablesAction,
-} from './code-envs.actions'
+} from '@/server/actions/code-envs.actions'
 import {
     ENV_VAR_KEY_ERROR,
     envVarKeyRegex,
@@ -20,7 +20,7 @@ import {
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
-} from './code-envs.schema'
+} from '@/schema/code-env'
 import { ActionSuccessType, type DataSourceType } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'

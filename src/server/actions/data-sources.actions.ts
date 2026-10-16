@@ -7,7 +7,7 @@ import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
+import { createOrgDataSourceSchema, editOrgDataSourceSchema } from '@/schema/data-source'
 
 type DataSourceUrlDetails = {
     id: string

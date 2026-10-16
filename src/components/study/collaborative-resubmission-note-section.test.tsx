@@ -13,7 +13,7 @@ import {
     resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { CollaborativeResubmissionNoteSection } from './collaborative-resubmission-note-section'
 import { overCharacterLimitError } from '@/lib/field-limits'
 

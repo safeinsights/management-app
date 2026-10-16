@@ -7,7 +7,7 @@ import {
     proposalFormSchema,
     initialProposalValues,
 } from './schema'
-import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 

@@ -21,7 +21,7 @@ import {
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
     initialResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { saveProposalResubmissionNoteDraftAction } from '@/server/actions/study-request'
 
 export type EditResubmitDraftData = Partial<ProposalFormValues>
