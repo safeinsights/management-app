@@ -13,7 +13,7 @@ import type { GetToken } from '@clerk/types'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '@/server/actions/create-account.actions'
 
 // A stale token matters far less than losing the invite or the key detour that follow it, so a
 // refresh failure is logged rather than thrown.

@@ -10,7 +10,7 @@ import { ReadOnlyField } from '@/components/read-only-field'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { Language } from '@/database/types'
-import { StudyProposalFormValues } from '../form-schemas'
+import { StudyProposalFormValues } from '@/schema/study-request'
 import { LANGUAGE_FIELD_ID } from './field-ids'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 

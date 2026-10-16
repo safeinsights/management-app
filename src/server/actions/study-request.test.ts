@@ -24,7 +24,7 @@ import {
     writeWorkspaceFiles,
     insertTestUser,
 } from '@/tests/unit.helpers'
-import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/schema/resubmission-note'
 import { submitCodeReviewDecisionAction, submitProposalReviewAction } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -43,7 +43,7 @@ import {
     saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
 } from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     fetchCodeEnvForStudyId,

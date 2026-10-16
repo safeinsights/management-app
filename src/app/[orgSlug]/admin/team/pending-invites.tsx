@@ -1,11 +1,11 @@
-import { onRevokeInviteAction } from '@/app/account/invitation/[inviteId]/create-account.action'
+import { onRevokeInviteAction } from '@/server/actions/create-account.actions'
 import { reportMutationError } from '@/components/errors'
 import { ActionIcon, Button } from '@mantine/core'
 import { showToast } from '@/components/toast-notifications'
 import { XIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { FC } from 'react'
-import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
+import { getPendingUsersAction, reInviteUserAction } from '@/server/actions/admin-users.actions'
 import { PendingInvitesView } from './pending-invites-view'
 
 interface PendingUsersProps {

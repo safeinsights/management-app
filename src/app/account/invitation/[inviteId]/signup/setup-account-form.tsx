@@ -20,7 +20,7 @@ import {
     fetchGlobalLegalDocumentsAction,
     fetchParticipationAgreementFromInviteIdAction,
 } from '@/server/actions/legal-document.actions'
-import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { onCreateAccountAction, onPendingUserLoginAction } from '@/server/actions/create-account.actions'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 

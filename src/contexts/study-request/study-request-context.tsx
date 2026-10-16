@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react'
 import { useForm, zodResolver } from '@/common'
-import { step1FieldsSchema, type StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
+import { step1FieldsSchema, type StudyProposalFormValues } from '@/schema/study-request'
 import {
     type StudyRequestContextValue,
     type DraftStudyData,
