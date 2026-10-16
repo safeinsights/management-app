@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
-import { insertTestOrg, insertTestStudyJobData, insertTestStudyOnly } from '@/tests/unit.helpers'
+import { insertTestOrg, insertTestStudyJobData, insertTestStudyOnly, insertTestUser } from '@/tests/unit.helpers'
+import { NotFoundError } from '@/lib/errors'
 import type { StudyJobStatus } from '@/database/types'
-import { ensureRoundJobForLaunch, ensureRoundJobForUpload, getOrCreateCurrentRoundJob } from './mutations'
+import {
+    ensureRoundJobForLaunch,
+    ensureRoundJobForUpload,
+    findOrCreateOrgMembership,
+    getOrCreateCurrentRoundJob,
+} from './mutations'
 
 const jobsForStudy = (studyId: string) =>
     db.selectFrom('studyJob').select(['id', 'createdAt']).where('studyId', '=', studyId).orderBy('createdAt').execute()
@@ -298,5 +304,41 @@ describe('ensureRoundJobForUpload (OTTER-601)', () => {
         const after = await jobsForStudy(study.id)
         expect(after).toHaveLength(1)
         expect(after[0].id).toBe(job.id)
+    })
+})
+
+describe('findOrCreateOrgMembership', () => {
+    const membershipsFor = (userId: string, orgId: string) =>
+        db
+            .selectFrom('orgUser')
+            .select(['id', 'joinedAt', 'isAdmin'])
+            .where('userId', '=', userId)
+            .where('orgId', '=', orgId)
+            .execute()
+
+    it('creates the membership, then flips isAdmin on the same row', async () => {
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const target = await insertTestOrg()
+
+        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: false })
+        const [created] = await membershipsFor(user.id, target.id)
+
+        const result = await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true })
+
+        expect(result).toMatchObject({ id: target.id, slug: target.slug, isAdmin: true })
+        expect(await membershipsFor(user.id, target.id)).toEqual([
+            { id: created.id, joinedAt: created.joinedAt, isAdmin: true },
+        ])
+    })
+
+    it('rejects an unknown slug and adds no membership', async () => {
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+
+        await expect(findOrCreateOrgMembership({ userId: user.id, slug: 'does-not-exist' })).rejects.toBeInstanceOf(
+            NotFoundError,
+        )
+
+        const rows = await db.selectFrom('orgUser').select('id').where('userId', '=', user.id).execute()
+        expect(rows).toHaveLength(1)
     })
 })

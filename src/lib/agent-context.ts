@@ -35,10 +35,14 @@ export const getAgentContextString = async (
     { language, orgId }: { language: Language; orgId: string | null },
 ): Promise<string> => {
     const names: ContextName[] = ['SYSTEM', language]
-    const parts: string[] = []
-    for (const name of names) {
-        const { content } = await getAgentContext(db, { name, orgId })
-        if (content) parts.push(content)
-    }
-    return parts.join('\n')
+    const rows = await db
+        .selectFrom('agentContext')
+        .select(['name', 'content'])
+        .where('name', 'in', names)
+        .where('orgId', orgId === null ? 'is' : '=', orgId)
+        .execute()
+    return names
+        .map((name) => rows.find((row) => row.name === name)?.content)
+        .filter(Boolean)
+        .join('\n')
 }

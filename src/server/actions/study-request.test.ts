@@ -57,6 +57,7 @@ import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mu
 import { studyCodeStateFor } from '@/server/study-code-gate'
 import { resolvePillId } from '@/lib/study-screen'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
+import { pathForStudyJobCodeFile } from '@/lib/paths'
 import { flushDeferred } from '@/tests/vitest.setup'
 
 vi.mock('@/server/aws', async () => {
@@ -1360,6 +1361,40 @@ describe('Request Study Actions', () => {
                     is_resubmission: false,
                 }),
             })
+        })
+
+        it('writes a row for the main file and every supplemental file', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
+            const root = await createWorkspaceDir('submit-ide-many')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, {
+                'main.R': 'print("main")',
+                'helper.R': 'print("helper")',
+                'plots.R': 'print("plots")',
+            })
+
+            const { studyJobId } = actionResult(
+                await submitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R', 'helper.R', 'plots.R'],
+                }),
+            )
+
+            const rows = await db
+                .selectFrom('studyJobFile')
+                .select(['name', 'fileType', 'path'])
+                .where('studyJobId', '=', studyJobId)
+                .orderBy('name')
+                .execute()
+            const jobPath = { orgSlug: org.slug, studyId: study.id, studyJobId }
+            expect(rows).toEqual([
+                { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE', path: pathForStudyJobCodeFile(jobPath, 'helper.R') },
+                { name: 'main.R', fileType: 'MAIN-CODE', path: pathForStudyJobCodeFile(jobPath, 'main.R') },
+                { name: 'plots.R', fileType: 'SUPPLEMENTAL-CODE', path: pathForStudyJobCodeFile(jobPath, 'plots.R') },
+            ])
         })
 
         it('rejects a main file that is not in the workspace file list', async () => {
