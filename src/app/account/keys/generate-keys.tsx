@@ -4,7 +4,7 @@ import { useMutation } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { Button, Code, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Button, Code, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { CheckIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
@@ -13,7 +13,7 @@ import { FC, useEffect, useRef, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight, semanticColor, type SemanticToken } from '@/theme/tokens'
 import {
     KEY_RESET_CONFIRM_COLOR,
     KEY_RESET_MODAL_BODY,
@@ -43,12 +43,22 @@ type GenerateKeysProps = {
 
 const COPIED_VISIBLE_MS = 2000
 
-type CopyIndication = { hue: 'green' | 'red'; Icon: typeof CheckIcon; fw?: number; text: string }
+type CopyIndication = {
+    tone: Extract<SemanticToken, 'success.text' | 'error.text'>
+    Icon: typeof CheckIcon
+    fw?: string
+    text: string
+}
 
-const COPY_SUCCEEDED: CopyIndication = { hue: 'green', Icon: CheckIcon, fw: 500, text: 'Copied!' }
+const COPY_SUCCEEDED: CopyIndication = {
+    tone: 'success.text',
+    Icon: CheckIcon,
+    fw: fontWeight.semibold,
+    text: 'Copied!',
+}
 
 const COPY_FAILED: CopyIndication = {
-    hue: 'red',
+    tone: 'error.text',
     Icon: XIcon,
     text: 'Copy did not work. Select the key above and copy it manually.',
 }
@@ -177,14 +187,13 @@ const NextButton: FC<{ isVisible: boolean; onClick: () => void }> = ({ isVisible
 }
 
 const CopyIndicator: FC<{ indication: CopyIndication | null }> = ({ indication }) => {
-    const theme = useMantineTheme()
     if (!indication) return null
 
-    const { hue, Icon, fw, text } = indication
+    const { tone, Icon, fw, text } = indication
     return (
         <Group gap="xs">
-            <Icon size={16} color={theme.colors[hue][9]} />
-            <Text c={`${hue}.9`} fz={14} fw={fw}>
+            <Icon size={16} color={semanticColor(tone)} />
+            <Text c={semanticColor(tone)} fz={14} fw={fw}>
                 {text}
             </Text>
         </Group>
