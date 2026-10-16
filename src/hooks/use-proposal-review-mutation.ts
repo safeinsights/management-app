@@ -11,7 +11,7 @@ import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
-import { submitProposalReviewAction } from '@/server/actions/study.actions'
+import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
 import { actionResult } from '@/lib/utils'
 
 export type SubmitReviewArgs = { decision: Decision; feedback: string }

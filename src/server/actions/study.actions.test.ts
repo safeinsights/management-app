@@ -25,21 +25,20 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
+import { ackAgreementsAction, markStudyOpenedAction, getStudyAction, softDeleteStudyAction } from './study.actions'
 import {
-    ackAgreementsAction,
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
     fetchNavUnreadAction,
+} from './study-dashboard.actions'
+import {
     getCodeReviewFeedbackAction,
-    markStudyOpenedAction,
     getOutputsDecisionFeedbackAction,
     getProposalFeedbackForStudyAction,
-    getStudyAction,
-    softDeleteStudyAction,
-    submitCodeReviewDecisionAction,
-    submitProposalReviewAction,
-} from './study.actions'
+} from './review-feedback.actions'
+import { submitCodeReviewDecisionAction } from './code-review.actions'
+import { submitProposalReviewAction } from './proposal-review.actions'
 import { finalizeStudySubmissionAction, resubmitProposalAction } from './study-request'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { lexicalJson } from '@/lib/lexical'

@@ -12,7 +12,7 @@ import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
-import { submitCodeReviewDecisionAction } from '@/server/actions/study.actions'
+import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
 
 export type SubmitCodeReviewArgs = {

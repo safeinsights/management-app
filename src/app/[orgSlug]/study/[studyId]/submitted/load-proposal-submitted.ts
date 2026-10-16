@@ -1,9 +1,6 @@
 import { captureException } from '@sentry/nextjs'
-import {
-    getProposalFeedbackForStudyAction,
-    type ProposalFeedbackEntry,
-    SelectedStudy,
-} from '@/server/actions/study.actions'
+import { getProposalFeedbackForStudyAction, type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import { SelectedStudy } from '@/server/actions/study.actions'
 import { deriveStudyVersion } from '@/lib/studies'
 import { isActionError } from '@/lib/errors'
 import type { Submitted } from '@/schema/study'
