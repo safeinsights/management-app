@@ -31,7 +31,7 @@ import {
     getSharedFileIdsForJob,
     getIdeOwnerForStudy,
     siUser,
-} from './queries'
+} from '.'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { ResultsReader } from 'si-encryption/job-results/reader'
