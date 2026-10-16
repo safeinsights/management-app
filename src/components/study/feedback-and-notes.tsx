@@ -73,7 +73,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
 
     return (
         <Stack gap="sm" data-testid={`feedback-entry-${entry.id}`}>
-            <Text fw={fontWeight.bold} fz={14}>
+            <Text fw={fontWeight.bold} fz="sm">
                 {title}
             </Text>
             <Box bg={semanticColor('surface.sunken')} p="lg">
@@ -156,7 +156,7 @@ export function FeedbackAndNotesSection({
     return (
         <Paper p="xxl" data-testid="feedback-and-notes-section">
             <Stack gap="md">
-                <Title order={3} fz={20} c={semanticColor('text.primary')} pb="xxs">
+                <Title order={3} fz="xl" c={semanticColor('text.primary')} pb="xxs">
                     Feedback and notes
                 </Title>
                 <Divider />

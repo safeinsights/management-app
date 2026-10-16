@@ -128,14 +128,14 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <Stack gap="lg">
-                <Title order={1} fz={22}>
+                <Title order={1} fz="var(--si-font-size-22)">
                     {isRegenerating ? 'New security key' : 'Security key'}
                 </Title>
 
                 <KeyIntro isRegenerating={isRegenerating} />
 
                 <Stack gap="md">
-                    <Text fz={14} fw={fontWeight.semibold}>
+                    <Text fz="sm" fw={fontWeight.semibold}>
                         Copy and store your security key
                     </Text>
                     <Code block mah={160} bd={`1px solid ${semanticColor('border.dark')}`} className="pre-wrap">
@@ -165,7 +165,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({
 
 // A direct visit by a key holder used to read as a first-time setup (OTTER-741).
 const KeyIntro: FC<{ isRegenerating: boolean }> = ({ isRegenerating }) => (
-    <Text fz={16}>
+    <Text fz="md">
         {isRegenerating
             ? 'This is your new security key. It replaces your existing key. It is shown only once. Copy and store it somewhere safe, like a password manager, before you continue.'
             : 'This is your security key. You will need it to access your study outputs across every organization you belong to.'}{' '}
@@ -193,7 +193,7 @@ const CopyIndicator: FC<{ indication: CopyIndication | null }> = ({ indication }
     return (
         <Group gap="xs">
             <Icon size={16} color={semanticColor(tone)} />
-            <Text c={semanticColor(tone)} fz={14} fw={fw}>
+            <Text c={semanticColor(tone)} fz="sm" fw={fw}>
                 {text}
             </Text>
         </Group>
@@ -230,7 +230,7 @@ const ConfirmationModal: FC<{
             title={isRegenerating ? KEY_RESET_MODAL_TITLE : 'Have you stored your security key?'}
         >
             <Stack>
-                <Text fz={16} mb="md">
+                <Text fz="md" mb="md">
                     {isRegenerating
                         ? KEY_RESET_MODAL_BODY
                         : 'SafeInsights does not store your key. If you lose it, you will not be able to access your study outputs.'}

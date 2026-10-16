@@ -114,7 +114,7 @@ const StudyCell: FC<{ column: ColumnId } & CellProps> = ({ column, row, DeleteDr
 
 export function StudyRowView({ row, columns, DeleteDraft }: { columns: ColumnDef[] } & CellProps) {
     return (
-        <TableTr fz={14}>
+        <TableTr fz="sm">
             {columns.map((column) => (
                 <StudyCell key={column.id} column={column.id} row={row} DeleteDraft={DeleteDraft} />
             ))}

@@ -41,7 +41,7 @@ const LastActivityCell: FC<{ activity: JobFileActivity | null; state: ActivitySt
 
     if (state === 'unavailable') {
         return (
-            <Text fz={14} c="dimmed">
+            <Text fz="sm" c="dimmed">
                 Unavailable
             </Text>
         )
@@ -49,14 +49,14 @@ const LastActivityCell: FC<{ activity: JobFileActivity | null; state: ActivitySt
 
     if (!activity) {
         return (
-            <Text fz={14} c={semanticColor('text.primary')}>
+            <Text fz="sm" c={semanticColor('text.primary')}>
                 No activity yet
             </Text>
         )
     }
 
     return (
-        <Text fz={14} c={semanticColor('text.primary')}>
+        <Text fz="sm" c={semanticColor('text.primary')}>
             {activity.actorName}
             <VisuallyHidden>, </VisuallyHidden>
             <span aria-hidden="true"> · </span>
@@ -92,7 +92,7 @@ export const OutputsFileRow: FC<OutputsFileRowProps> = ({ row, onView, onDownloa
                         aria-label={fileNameLabel}
                         data-testid={`outputs-file-name-${row.key}`}
                     >
-                        <Text component="span" fz={14} c={semanticColor('text.primary')} inherit>
+                        <Text component="span" fz="sm" c={semanticColor('text.primary')} inherit>
                             {truncateFileName(row.name)}
                         </Text>
                     </UnstyledButton>
