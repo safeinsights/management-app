@@ -36,10 +36,12 @@ const {
     orgSlugsForUser,
     deleteUserById,
     deleteStudyById,
+    deleteStudyCompletely,
     QaCleanupNotFoundError,
     QaForbiddenError,
     assertQaEmail,
 } = await import('./qa-cleanup')
+const { Action } = await import('@/server/actions/action')
 
 beforeEach(() => {
     configState.PROD_ENV = false
@@ -324,6 +326,36 @@ describe('deleteStudyById', () => {
 
     it('throws for an unknown study', async () => {
         await expect(deleteStudyById(db, faker.string.uuid())).rejects.toBeInstanceOf(QaCleanupNotFoundError)
+    })
+})
+
+describe('deleteStudyCompletely inside a mutating action', () => {
+    it('leaves the S3 folder alone when the action rolls back', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { studyId } = await insertTestStudyData({ org })
+        const action = new Action('delete-then-fail', { performsMutations: true }).handler(async ({ db }) => {
+            await deleteStudyCompletely(db, org.slug, studyId)
+            throw new Error('rolled back')
+        })
+
+        expect(await action()).toEqual({ error: 'rolled back' })
+
+        expect(deleteFolderContents).not.toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study?.id).toBe(studyId)
+    })
+
+    it('deletes the S3 folder only once the action commits', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { studyId } = await insertTestStudyData({ org })
+        const action = new Action('delete-then-commit', { performsMutations: true }).handler(async ({ db }) => {
+            await deleteStudyCompletely(db, org.slug, studyId)
+            expect(deleteFolderContents).not.toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+        })
+
+        expect(await action()).toBeUndefined()
+
+        expect(deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
     })
 })
 

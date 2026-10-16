@@ -20,7 +20,7 @@ import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { withTransaction } from '@/server/request-context'
+import { localStorageContext, withTransaction } from '@/server/request-context'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -236,8 +236,14 @@ async function deleteStudyAgreementRows(db: Kysely<DB>, studyId: string) {
  * then its S3 folder once the rows are committed.
  */
 export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, studyId: string) {
+    const deleteFolder = () => deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     await withTransaction(db, (trx) => deleteStudyRows(trx, studyId))
-    await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
+    if (!db.isTransaction) return await deleteFolder()
+
+    // Joined to a caller's transaction, the rows are not gone until that caller commits.
+    const ctx = localStorageContext.getStore()
+    if (ctx?.db !== db || !ctx.afterCommit) throw new Error('cannot tell when this transaction commits')
+    ctx.afterCommit(deleteFolder)
 }
 
 /**

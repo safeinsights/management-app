@@ -133,9 +133,10 @@ export class Action<
                 } else {
                     args = raw as Args
                 }
-                const session = (await sessionFromClerk()) ?? undefined
                 // An action run from a wrapApiOrgAction route keeps its org, as it did when that had its own store.
                 const org = localStorageContext.getStore()?.org
+                // Outside any caller's transaction: a user sync commits on its own before Clerk hears of it.
+                const session = (await localStorageContext.run({ org }, () => sessionFromClerk())) ?? undefined
 
                 // Reads db and afterCommit from the store, which withTransaction() binds for a mutating action.
                 const execute = async (): Promise<Res> => {
