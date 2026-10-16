@@ -169,7 +169,18 @@ export function analyzeSource(filePath: string, content: string): { errors: stri
         }
     }
 
-    if (!hasUseServerDirective(sourceFile)) {
+    const isServerModule = hasUseServerDirective(sourceFile)
+    if (filePath.startsWith('src/server/actions/')) {
+        const isActionsName = filePath.endsWith('.actions.ts')
+        if (isServerModule && !isActionsName) {
+            errors.push(`server action modules must be named *.actions.ts`)
+        }
+        if (!isServerModule && isActionsName) {
+            errors.push(`*.actions.ts modules must start with a 'use server' directive`)
+        }
+    }
+
+    if (!isServerModule) {
         return { errors, actions }
     }
 

@@ -108,6 +108,26 @@ describe('analyzeSource', () => {
     })
 })
 
+describe('analyzeSource file names in src/server/actions', () => {
+    it('rejects a use server module without the .actions.ts suffix', () => {
+        expect(errorsFor('src/server/actions/foo.ts', serverModule(guarded))).toEqual([
+            'server action modules must be named *.actions.ts',
+        ])
+    })
+
+    // No 'use server' text at all: the rule must run before the module-directive early return.
+    it('rejects an .actions.ts module without the directive', () => {
+        expect(errorsFor(ACTIONS_PATH, `import { Action } from './action'\n${guarded}`)).toEqual([
+            "*.actions.ts modules must start with a 'use server' directive",
+        ])
+    })
+
+    it('accepts a test file and a helper module without the directive', () => {
+        expect(errorsFor('src/server/actions/foo.actions.test.ts', `import { it } from 'vitest'`)).toEqual([])
+        expect(errorsFor('src/server/actions/study-subject.ts', `export const withStudySubject = 1`)).toEqual([])
+    })
+})
+
 describe('findStaleExceptions', () => {
     const [key, ...otherKeys] = Object.keys(ABILITY_CHECK_EXCEPTIONS)
     const others = otherKeys.map((k) => ({ key: k, guarded: false }))
