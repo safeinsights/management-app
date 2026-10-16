@@ -40,6 +40,7 @@ export default defineConfig({
             'services/**/*.(test).{js,jsx,ts,tsx}',
             // custom ESLint rules live in tests/ as plain .mjs
             'tests/**/*.(test).mjs',
+            'tests/**/*.(test).ts',
         ],
         allowOnly: !IS_CI,
         coverage: {

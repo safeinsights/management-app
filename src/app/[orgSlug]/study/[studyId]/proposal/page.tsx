@@ -10,7 +10,7 @@ import { ProposalProvider } from '@/contexts/proposal'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { STUDY_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/schema/study-request'
 
 export const metadata: Metadata = { title: 'Study proposal' }
 

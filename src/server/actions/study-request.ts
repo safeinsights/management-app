@@ -41,14 +41,14 @@ import {
     STUDY_TITLE_MAX_CHARACTERS,
     STUDY_TITLE_OVER_LIMIT_ERROR,
     draftStudyApiSchema,
-} from '@/app/[orgSlug]/study/request/form-schemas'
+} from '@/schema/study-request'
 import {
     RESUBMIT_NOTE_FIELD_TITLE,
     RESUBMIT_NOTE_MAX_CHARACTERS,
     resubmissionNoteToLexicalJson,
     resubmissionNoteCharacterCount,
     resubmissionNoteIsBlank,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'

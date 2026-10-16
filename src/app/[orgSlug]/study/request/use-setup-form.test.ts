@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { useForm } from '@/common'
 import { renderHook } from '@/tests/unit.helpers'
 import { initialFormValues } from '@/contexts/study-request'
-import type { StudyProposalFormValues } from './form-schemas'
+import type { StudyProposalFormValues } from '@/schema/study-request'
 import { useSetupForm } from './use-setup-form'
 
 const renderSetupForm = ({ initialTitle, formTitle = '' }: { initialTitle?: string; formTitle?: string }) =>

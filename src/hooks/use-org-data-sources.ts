@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useQuery } from '@/common'
 import { isActionError } from '@/lib/errors'
-import { fetchOrgDataSourcesAction } from '@/app/[orgSlug]/admin/settings/data-sources.actions'
+import { fetchOrgDataSourcesAction } from '@/server/actions/data-sources.actions'
 
 export function useOrgDataSources(orgSlugOverride?: string) {
     const params = useParams<{ orgSlug: string }>()

@@ -28,6 +28,12 @@ const restrictedImportPaths = [
     },
 ]
 
+const serverBoundaryZone = {
+    target: './src/server',
+    from: ['./src/app', './src/components'],
+    message: 'Server code must not import from src/app or src/components. Move shared logic to src/lib or src/schema.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -122,6 +128,11 @@ const eslintConfig = [
                 },
             },
         },
+    },
+    // A later object that sets this rule replaces these zones, so list every zone here.
+    {
+        files: ['**/*.{ts,tsx,mjs}'],
+        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone] }] },
     },
     // Custom rules and project-specific configuration
     {
