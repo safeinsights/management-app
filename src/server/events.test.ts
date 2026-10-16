@@ -12,6 +12,7 @@ import {
     mockSessionWithTestData,
     postHogCaptures,
 } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 
 vi.mock('@sentry/nextjs', () => ({
     captureException: vi.fn(),
@@ -27,12 +28,12 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
     deliver: vi.fn(),
 }))
 
-const captureExceptionMock = Sentry.captureException as unknown as Mock
 const flushMock = Sentry.flush as unknown as Mock
 const deliverMock = deliver as unknown as Mock
 
 describe('deferred', () => {
-    it('captures and flushes to Sentry when the handler rejects', async () => {
+    it('reports and flushes to Sentry when the handler rejects', async () => {
+        const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { deferred } = await import('@/server/events')
         const boom = new Error('handler exploded')
         const run = deferred(async () => {
@@ -41,18 +42,19 @@ describe('deferred', () => {
 
         run()
         await flushDeferred()
-        expect(captureExceptionMock).toHaveBeenCalledWith(boom)
+        expect(loggerErrorSpy).toHaveBeenCalledWith(boom)
         // Without the flush the event is dropped when the instance freezes after the response.
         expect(flushMock).toHaveBeenCalled()
     })
 
     it('does not report when the handler resolves', async () => {
+        const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { deferred } = await import('@/server/events')
         const run = deferred(async () => undefined)
 
         run()
         await flushDeferred()
-        expect(captureExceptionMock).not.toHaveBeenCalled()
+        expect(loggerErrorSpy).not.toHaveBeenCalled()
         expect(flushMock).not.toHaveBeenCalled()
     })
 })

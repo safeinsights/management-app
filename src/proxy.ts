@@ -7,7 +7,6 @@ import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from './lib/types'
-import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { UUID_RE } from '@/lib/collaboration-documents'
@@ -22,7 +21,6 @@ import {
     isCspEnabled,
     reportingEndpointsValue,
 } from '@/lib/csp'
-import * as Sentry from '@sentry/nextjs'
 
 const ANON_ROUTES: Array<string> = [
     '/about',
@@ -37,11 +35,7 @@ function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
 }
 
 function redirectToDashboard(request: NextRequest, route: string, session: UserSession) {
-    log.warn(
-        `Blocking unauthorized ${route} route access to: `,
-        request.url,
-        JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
-    )
+    log.warn(`Blocking unauthorized ${route} route access to: `, request.url, `user: ${session.user.id}`)
     return NextResponse.redirect(new URL('/dashboard', request.url))
 }
 
@@ -126,14 +120,12 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     try {
         session = await marshalSession(clerkUserId, sessionClaims)
     } catch (error) {
-        Sentry.captureException(error)
         log.error('Failed to marshal session:', error)
         // marshalSession only throws for a user Clerk still considers authenticated, so stale
         // metadata is recoverable: regenerate rather than bouncing them to signin.
         try {
             session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
         } catch (retryError) {
-            Sentry.captureException(retryError)
             log.error('Failed to marshal session after forced metadata re-sync:', retryError)
             // session stays null; the branch below falls back to BLANK_SESSION
         }

@@ -27,7 +27,6 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
                     await handler(...args)
                 } catch (error: unknown) {
                     logger.error(error)
-                    Sentry.captureException(error)
                     await Sentry.flush(2_000)
                 }
             })

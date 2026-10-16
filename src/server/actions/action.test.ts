@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -229,6 +230,39 @@ describe('Action Builder', () => {
 
             expect(await action()).toBe('committed')
             expect(laterHook).toHaveBeenCalledOnce()
+        })
+    })
+
+    describe('error reporting', () => {
+        it('does not report expected ActionFailure', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const action = new Action('expected-failure').handler(async () => {
+                throw new ActionFailure({ user: 'nope' })
+            })
+            expect(await action()).toEqual({ error: { user: 'nope' } })
+            expect(errorSpy).not.toHaveBeenCalled()
+        })
+
+        it('reports unexpected errors once', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const boom = new Error('boom')
+            const action = new Action('unexpected-failure').handler(async () => {
+                throw boom
+            })
+            expect(await action()).toEqual({ error: 'boom' })
+            expect(errorSpy).toHaveBeenCalledTimes(1)
+            expect(errorSpy).toHaveBeenCalledWith(boom)
+        })
+
+        it('reports a permission denial once as a warning, without the user email', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            const { user } = await mockSessionWithTestData()
+            const action = new Action('denied').requireAbilityTo('manage', 'all').handler(async () => 'ok')
+            expect(await action()).toEqual({ error: { permission_denied: expect.any(String) } })
+            expect(errorSpy).not.toHaveBeenCalled()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
         })
     })
 })

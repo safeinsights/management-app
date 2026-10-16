@@ -148,10 +148,10 @@ describe('Study Actions', () => {
             userId: otherUser.id,
             orgId: otherOrg.id,
         })
-        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
         const result = await getStudyAction({ studyId })
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
     })
 
     describe('proposal-only studies (no job)', () => {
