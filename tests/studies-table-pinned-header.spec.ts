@@ -36,9 +36,11 @@ test.describe('studies table pinned header', () => {
         page,
         studyFeatures,
     }) => {
-        await seedProposalPendingReview(studyFeatures.uniqueTitle('pinned header'))
+        const title = studyFeatures.uniqueTitle('pinned header')
+        await seedProposalPendingReview(title)
         await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
-        await expect(page.getByRole('table').getByRole('row').nth(1)).toBeVisible()
+        // The loading skeleton is a table too, with equal columns; wait for the studies to replace it.
+        await expect(page.getByRole('table').getByText(title)).toBeVisible()
 
         // Unpinned, the band would sit over the content above the table.
         let restingWidths: number[] = []
