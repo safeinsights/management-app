@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import * as apiHandler from './route'
-import { BLANK_UUID, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { BLANK_UUID, describe, expect, it, mockSessionWithTestData } from '@/tests/unit.helpers'
 
 describe('GET /dl/results/[jobId]/[fileName]', () => {
     it('returns 404 for an unknown job', async () => {

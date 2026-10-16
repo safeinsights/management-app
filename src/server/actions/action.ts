@@ -133,7 +133,7 @@ export class Action<
                 } else {
                     args = raw as Args
                 }
-                // An action run from a wrapApiOrgAction route keeps its org, as it did when that had its own store.
+                // Kept so apiRequestingOrg() still works in an action that a wrapApiOrgAction route calls.
                 const org = localStorageContext.getStore()?.org
                 // Outside any caller's transaction: a user sync commits on its own before Clerk hears of it.
                 const session = (await localStorageContext.run({ org }, () => sessionFromClerk())) ?? undefined
@@ -154,8 +154,8 @@ export class Action<
                     return handlerFn(ctx)
                 }
 
-                // A fresh store, so an action called from inside another action's transaction still
-                // opens its own, as it did before withTransaction() existed.
+                // A fresh store, so an action called inside another transaction opens its own instead of
+                // joining one whose commit it cannot see.
                 if (this.options.performsMutations) {
                     return await localStorageContext.run({ params: args, session, org }, () =>
                         withTransaction(db, execute),
