@@ -41,31 +41,19 @@ export function afterCommitQueue() {
     return { afterCommit, run }
 }
 
-// The owner of a borrowed transaction decides when it commits, so nothing here can promise "after commit".
-const refuseAfterCommit: AfterCommitFn = () => {
-    throw new Error('cannot queue after-commit work in a transaction this call does not own')
-}
-
 // Binds currentDb() to the transaction while it is open; work captured inside must not keep it afterward.
 export async function withTransaction<T>(executor: DBExecutor, fn: (trx: Transaction) => Promise<T>): Promise<T> {
     const outer = localStorageContext.getStore()
     if (outer?.db?.isTransaction && executor !== outer.db) {
         throw new Error('a transaction is already open here; pass currentDb() so this work joins it')
     }
-    const settledDb = outer?.db ?? db
-
+    // Only withTransaction() opens one, and it always binds it, so an unbound one leaked out of its context.
     if (executor.isTransaction) {
-        const trx = executor as Transaction
-        if (outer?.db === trx) return fn(trx)
-        const borrowed: RequestContext = { ...outer, db: trx, afterCommit: refuseAfterCommit }
-        try {
-            return await localStorageContext.run(borrowed, () => fn(trx))
-        } finally {
-            borrowed.db = settledDb
-            borrowed.afterCommit = outer?.afterCommit
-        }
+        if (outer?.db !== executor) throw new Error('this transaction is not bound here; pass currentDb()')
+        return fn(executor as Transaction)
     }
 
+    const settledDb = outer?.db ?? db
     const queue = afterCommitQueue()
     const owned: RequestContext = { ...outer, afterCommit: queue.afterCommit }
     const settle = () => {

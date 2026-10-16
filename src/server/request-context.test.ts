@@ -39,14 +39,12 @@ describe('withTransaction', () => {
         })
     })
 
-    it('binds a borrowed transaction that is not ambient, and unbinds it afterward', async () => {
-        await db.transaction().execute(async (trx) => {
-            await withTransaction(trx, async (inner) => {
-                expect(inner).toBe(trx)
-                expect(currentDb()).toBe(trx)
-            })
-            expect(currentDb()).toBe(db)
-        })
+    it('refuses a transaction that is not bound to the store', async () => {
+        const fn = vi.fn(async () => undefined)
+        await expect(db.transaction().execute((trx) => withTransaction(trx, fn))).rejects.toThrow(
+            'this transaction is not bound here; pass currentDb()',
+        )
+        expect(fn).not.toHaveBeenCalled()
     })
 
     it('joins the ambient transaction', async () => {
@@ -103,34 +101,17 @@ describe('withTransaction', () => {
             expect(later().isTransaction).toBe(false)
         })
 
-        it('sees the root once a borrowed transaction returns', async () => {
-            let later = () => currentDb()
-            await db.transaction().execute(async (trx) => {
-                await withTransaction(trx, async () => {
-                    later = AsyncResource.bind(() => currentDb())
-                })
-            })
-            expect(later().isTransaction).toBe(false)
-        })
-
         it('gets the enclosing afterCommit back once the transaction ends', async () => {
             const outerSpy = vi.fn()
-            let ownedLater = captureAfterCommit()
-            let borrowedLater = captureAfterCommit()
+            let later = captureAfterCommit()
 
-            await localStorageContext.run({ afterCommit: outerSpy }, async () => {
-                await withTransaction(currentDb(), async () => {
-                    ownedLater = captureAfterCommit()
-                })
-                await db.transaction().execute((trx) =>
-                    withTransaction(trx, async () => {
-                        borrowedLater = captureAfterCommit()
-                    }),
-                )
-            })
+            await localStorageContext.run({ afterCommit: outerSpy }, () =>
+                withTransaction(currentDb(), async () => {
+                    later = captureAfterCommit()
+                }),
+            )
 
-            expect(ownedLater()).toBe(outerSpy)
-            expect(borrowedLater()).toBe(outerSpy)
+            expect(later()).toBe(outerSpy)
         })
 
         it('has no afterCommit once the transaction ends without an enclosing store', async () => {
@@ -193,21 +174,6 @@ describe('withTransaction', () => {
             expect(result).toBe('committed')
             expect(laterHook).toHaveBeenCalledOnce()
         })
-    })
-
-    it('refuses after-commit work inside a borrowed transaction', async () => {
-        const outerSpy = vi.fn()
-        await localStorageContext.run({ afterCommit: outerSpy }, () =>
-            db.transaction().execute((trx) =>
-                withTransaction(trx, async () => {
-                    expect(currentDb()).toBe(trx)
-                    expect(() => queueAfterCommit(async () => undefined)).toThrow(
-                        'cannot queue after-commit work in a transaction this call does not own',
-                    )
-                }),
-            ),
-        )
-        expect(outerSpy).not.toHaveBeenCalled()
     })
 
     describe('deferred events', () => {

@@ -32,8 +32,7 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
             })
 
         // after() cannot be unscheduled, so inside a transaction wait for the commit of the action or
-        // withTransaction() that opened it; a rollback drops afterCommit hooks. Inside a transaction
-        // withTransaction() was handed but does not own, afterCommit throws (OTTER-841).
+        // withTransaction() that opened it; a rollback drops afterCommit hooks (OTTER-841).
         const ctx = localStorageContext.getStore()
         if (ctx?.afterCommit && ctx.db?.isTransaction) {
             ctx.afterCommit(async () => schedule())
