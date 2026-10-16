@@ -35,11 +35,11 @@ export const ABILITY_CHECK_EXCEPTIONS: Record<string, AbilityCheckException> = {
         kind: 'checked-in-handler',
         reason: 'Returns UNAVAILABLE without a session; access to each route is checked inline.',
     },
-    'src/server/actions/legal-document.actions.ts#fetchGlobalLegalDocumentsAction': {
+    'src/server/actions/legal-acknowledgement.actions.ts#fetchGlobalLegalDocumentsAction': {
         kind: 'public',
         reason: 'Readable without a session: the invitation signup form renders these before an account exists.',
     },
-    'src/server/actions/legal-document.actions.ts#fetchParticipationAgreementFromInviteIdAction': {
+    'src/server/actions/participation-agreement.actions.ts#fetchParticipationAgreementFromInviteIdAction': {
         kind: 'public',
         reason: 'Unauthenticated by necessity: the signup form has only the invite id.',
     },

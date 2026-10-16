@@ -3,7 +3,7 @@
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import { legalDocumentCollectionLabels, legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchStudyAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchStudyAgreementsAction } from '@/server/actions/study-agreement.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
