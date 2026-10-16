@@ -18,6 +18,7 @@ import {
     Notification,
     Radio,
     rem,
+    Table,
     Tabs,
     Typography,
     type VariantColorsResolver,
@@ -316,13 +317,20 @@ export const theme = createTheme({
         Typography: Typography.extend({
             styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
         }),
-        Table: {
-            styles: () => ({
-                th: {
-                    backgroundColor: semanticColor('surface.tableheader'),
-                },
+        // The header tint is 50% alpha; a pinned header lays it over white to hide the rows beneath.
+        Table: Table.extend({
+            defaultProps: {
+                stickyHeaderOffset: 'calc(var(--app-shell-header-offset, 0rem) + var(--mantine-spacing-xl))',
+            },
+            styles: (_theme, props) => ({
+                th: props.stickyHeader
+                    ? {
+                          backgroundColor: semanticColor('surface.raised'),
+                          backgroundImage: `linear-gradient(${semanticColor('surface.tableheader')}, ${semanticColor('surface.tableheader')})`,
+                      }
+                    : { backgroundColor: semanticColor('surface.tableheader') },
             }),
-        },
+        }),
         ActionIcon: {
             vars: actionIconVars,
         },
