@@ -53,9 +53,26 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         // Mantine's variant variables are what the theme rewires to tokens; only a numbered rung is raw.
         '<Box bg="var(--mantine-color-red-light)" />',
         '<Box bd="1px solid var(--si-color-border-default)" />',
-        // A whole ramp, or one picked by a variable, is the theme's own plumbing rather than a choice.
+        // A whole ramp is the theme's own plumbing rather than a choice.
         'const ramp = theme.colors.green',
-        'const shade = theme.colors[family][Number(index)]',
+        'const { [hue]: ramp } = theme.colors',
+        // A caller's colour is the caller's to answer for.
+        'const T = ({ color }) => <Text c={color} />',
+        '<Text fz="sm" />',
+        '<Title fz="h3" />',
+        // Figma's 10px and 22px have no scale key; their variables are the token.
+        '<Text fz="var(--si-font-size-10)" />',
+        '<Title fz="var(--si-font-size-22)" />',
+        `<Text fz={isProminent ? 'sm' : undefined} />`,
+        'const T = ({ fz }) => <Text fz={fz} />',
+        `const LABEL = { fw: fontWeight.semibold, fz: 'sm' }`,
+        '<List spacing="xxs" />',
+        '<Table verticalSpacing="sm" horizontalSpacing="md" />',
+        '<Skeleton radius="sm" />',
+        '<Paper radius={0} bdrs="xs" />',
+        `const CARD = { p: 'md', gap: 'xs', radius: 'sm' }`,
+        // A key that shares a prop's name is not always a style: a seed's language → command map.
+        `const RUN = { py: 'python main.py', r: 'Rscript main.r' }`,
     ],
     invalid: [
         {
@@ -211,6 +228,82 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: 'const { colors } = useMantineTheme(); const I = () => <Text c={colors.red[7]} />',
             errors: [{ messageId: 'rawShade' }],
+        },
+        // A ramp or rung picked by a variable is still a fixed rung, just one the rule cannot read.
+        {
+            code: '<CheckIcon color={theme.colors[hue][9]} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const shade = theme.colors.green[level]',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Text c={`${hue}.9`} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: '<Text c={color ? `${color}.6` : "dimmed"} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: '<Badge color={`${ramp}.5`} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: 'const MAP = { done: { bg: `${hue}.0` } }',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: `<Text c={hue + '.9'} />`,
+            errors: [{ messageId: 'builtColor' }],
+        },
+        // Mantine reads a numeric `fz` as px.
+        {
+            code: '<Text fz={14} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Text fz="13px" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: 'const SECTION_FONT_SIZE = 14; const S = () => <Text fz={SECTION_FONT_SIZE} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // 14px has a scale key, so its variable is a second name for `sm`.
+        {
+            code: '<Text fz="var(--si-font-size-14)" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // Typography in a prop object or config map is the same raw value one step removed.
+        {
+            code: `const LABEL = { fw: 600, fz: 14 }`,
+            errors: [{ messageId: 'rawWeight' }, { messageId: 'rawFontSize' }],
+        },
+        {
+            code: `const LABEL = { fz: '13px' }`,
+            errors: [{ messageId: 'pxLiteral' }],
+        },
+        {
+            code: `const CARD = { p: 16, radius: 4 }`,
+            errors: [{ messageId: 'rawSpacing' }, { messageId: 'rawRadius' }],
+        },
+        {
+            code: '<List spacing={4} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Table verticalSpacing={4} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Skeleton radius={4} />',
+            errors: [{ messageId: 'rawRadius' }],
+        },
+        {
+            code: '<Box bdrs="12px" />',
+            errors: [{ messageId: 'rawRadius' }],
         },
     ],
 })

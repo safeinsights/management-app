@@ -84,7 +84,7 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         // focusFirstInvalid targets this wrapper instead.
         <Group id={fieldId} gap="xl" wrap="nowrap" align="flex-start" data-testid={`criteria-row-${criterionKey}`}>
             {/* A div, since a criterion link renders its card inline and the card holds block elements. */}
-            <Text id={labelId} component="div" fz={14} flex={1}>
+            <Text id={labelId} component="div" fz="sm" flex={1}>
                 {label}
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
@@ -202,10 +202,10 @@ export function CodeEvaluationSection({
         <Paper p="xxl" data-testid="code-evaluation-section">
             <Stack gap="lg">
                 <Group gap="xxs" align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Code evaluation
                     </Text>
-                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                    <RequiredIndicator fz="xl" fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <Alert
@@ -216,7 +216,7 @@ export function CodeEvaluationSection({
                     This checklist is for guidance only. The final decision is yours, based on your professional
                     judgment along with your organization&apos;s data and policies.
                 </Alert>
-                <Text fz={16} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                <Text fz="md" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     Evaluation criteria
                 </Text>
                 {/* gap only when flagged so the empty live region does not open space above the rows. */}

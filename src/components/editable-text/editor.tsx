@@ -68,7 +68,7 @@ export function Editor({ websocketProvider, ...props }: EditorProps) {
     if (!mounted || !websocketProvider)
         return (
             <Stack gap="xxs">
-                <Skeleton h={placeholderHeight} radius={4} />
+                <Skeleton h={placeholderHeight} radius="sm" />
                 <EditorFooterArea left={props.footerLeft} right={props.footerRight} />
             </Stack>
         )

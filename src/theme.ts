@@ -246,8 +246,8 @@ export const theme = createTheme({
         fontWeight: '700',
     },
     // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Five of those line up
-    // with Mantine's xs-xl scale, which is what existing call sites pass; the rest reach components
-    // as --si-font-size-* rather than being bolted onto Mantine keys design never named.
+    // with Mantine's xs-xl scale, which `fz` props must use; the rest reach components as
+    // --si-font-size-* rather than being bolted onto Mantine keys design never named.
     fontSizes: {
         xs: '0.75rem',
         sm: '0.875rem',

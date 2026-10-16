@@ -16,7 +16,7 @@ import { fontWeight } from '@/theme/tokens'
 function SubmittedCodeHeader({ proposalHref }: { proposalHref: string }) {
     return (
         <Group justify="space-between" align="center" wrap="nowrap" data-testid="submitted-code-header">
-            <Title order={3} fz={18} fw={fontWeight.bold}>
+            <Title order={3} fz="lg" fw={fontWeight.bold}>
                 Submission details
             </Title>
             <Button

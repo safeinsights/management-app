@@ -28,7 +28,7 @@ const QUESTION_ICON_SIZE = 16
 const SECTION_ICON_SIZE = 14
 const SECTION_ICON_GAP = 'xs'
 /** Figma `body/sm` and `label/md` are both 14px here. */
-const SECTION_FONT_SIZE = 14
+const SECTION_FONT_SIZE = 'sm'
 // Lines the answer up under the question's text, past the icon and the gap beside it.
 const ANSWER_INDENT = `calc(${rem(SECTION_ICON_SIZE)} + var(--mantine-spacing-${SECTION_ICON_GAP}))`
 
@@ -106,8 +106,8 @@ const VideoDurationBadge: FC<{ minutes: number | null }> = ({ minutes }) => {
         <Badge
             component="span"
             leftSection={<PlayIcon size={10} weight="fill" aria-hidden />}
-            radius={2}
-            fz={10}
+            radius="xs"
+            fz="var(--si-font-size-10)"
             bg={semanticColor('highlight.bg.light')}
             c={semanticColor('highlight.text')}
             data-testid="video-duration-badge"

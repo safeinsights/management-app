@@ -12,7 +12,7 @@ export function logViewer(_path: string, text: string): ReactNode | null {
 
     return (
         <ScrollArea h={500}>
-            <Table withRowBorders={false} verticalSpacing={4}>
+            <Table withRowBorders={false} verticalSpacing="xxs">
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th w={100}>Time</Table.Th>

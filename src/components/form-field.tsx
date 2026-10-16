@@ -3,15 +3,7 @@ import { Box, Group, Input } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
 import { InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
-
-const formFieldLabelStyles = {
-    labelProps: { fw: 600, fz: 'sm' },
-    styles: {
-        // OTTER-691: Mantine adds no gap under a label, so set it here.
-        label: { marginBottom: 4 },
-        description: { marginBottom: 'var(--mantine-spacing-xs)' },
-    },
-} as const
+import { fontWeight } from '@/theme/tokens'
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
@@ -192,13 +184,14 @@ export const FormField: FC<FormFieldProps> = ({
                 label={label}
                 withAsterisk={required}
                 description={description}
-                descriptionProps={{ id: fieldDescriptionId(inputId) }}
+                // Mantine adds no gap under a label, so set it here.
+                labelProps={{ fw: fontWeight.semibold, fz: 'sm', mb: 'xxs' }}
+                descriptionProps={{ id: fieldDescriptionId(inputId), mb: 'xs' }}
                 // ARIA only: omitting 'error' from inputWrapperOrder keeps the visible message in
                 // FieldFooterRow beside the counter rather than rendered twice.
                 error={error}
                 errorProps={{ id: fieldErrorId(inputId) }}
                 inputWrapperOrder={['label', 'description', 'input']}
-                {...formFieldLabelStyles}
             >
                 {children}
             </Input.Wrapper>
