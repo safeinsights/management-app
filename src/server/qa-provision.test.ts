@@ -53,6 +53,36 @@ describe('provisionQaUser', () => {
         expect(rows[0].isAdmin).toBe(true)
     })
 
+    it('keeps the last entry when one request lists the same slug twice', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, isAdmin: false, email: qaEmail() })
+
+        await provisionQaUser(db, user.id, {
+            orgs: [
+                { slug: org.slug, isAdmin: false },
+                { slug: org.slug, isAdmin: true },
+            ],
+        })
+
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: true }])
+    })
+
+    it('adds several new memberships in one request', async () => {
+        const home = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const orgA = await insertTestOrg({ slug: `a${faker.string.alpha(10)}`, type: 'lab' })
+        const orgB = await insertTestOrg({ slug: `b${faker.string.alpha(10)}`, type: 'enclave' })
+        const { user } = await insertTestUser({ org: home, email: qaEmail() })
+
+        await provisionQaUser(db, user.id, {
+            orgs: [{ slug: orgA.slug, isAdmin: true }, { slug: orgB.slug }],
+        })
+
+        expect(await orgSlugsFor(user.id)).toEqual([
+            { slug: orgA.slug, isAdmin: true },
+            { slug: orgB.slug, isAdmin: false },
+        ])
+    })
+
     it('removes every membership when given an empty orgs array', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
