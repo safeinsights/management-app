@@ -34,6 +34,15 @@ const serverBoundaryZone = {
     message: 'Server code must not import from src/app or src/components. Move shared logic to src/lib or src/schema.',
 }
 
+const indexOnlyZone = (folder) => ({
+    target: ['./src', './tests', './bin'],
+    from: `./src/server/${folder}`,
+    except: ['./index.ts'],
+    message: `Import @/server/${folder} (its index.ts), never an inner module: test mocks target the index.`,
+})
+const awsIndexZone = indexOnlyZone('aws')
+const queriesIndexZone = indexOnlyZone('db/queries')
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -129,10 +138,21 @@ const eslintConfig = [
             },
         },
     },
-    // A later object that sets this rule replaces these zones, so list every zone here.
+    // A later object that sets this rule replaces the earlier zones for its files, so each object
+    // lists every zone that applies there. Inside each folder, siblings may import each other.
     {
         files: ['**/*.{ts,tsx,mjs}'],
-        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone] }] },
+        rules: {
+            'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone, queriesIndexZone] }],
+        },
+    },
+    {
+        files: ['src/server/aws/**'],
+        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, queriesIndexZone] }] },
+    },
+    {
+        files: ['src/server/db/queries/**'],
+        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone] }] },
     },
     // Custom rules and project-specific configuration
     {
