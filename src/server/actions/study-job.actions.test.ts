@@ -28,7 +28,7 @@ import {
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
-import { fetchStudiesForOrgAction } from './study.actions'
+import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { projectStudyState, resolvePillId } from '@/lib/study-screen'

@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
