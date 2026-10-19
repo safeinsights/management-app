@@ -54,10 +54,7 @@ function assertSharesEveryArtifact(
 
 export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
-        return { orgId: study.orgId }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId } }) => {
         return await getLabPublicKeysForStudy(studyId)

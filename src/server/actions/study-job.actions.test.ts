@@ -18,6 +18,7 @@ import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     fetchEncryptedJobFilesAction,
+    fetchLabPublicKeysAction,
     fetchStudyJobCodeFileAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
@@ -1128,6 +1129,14 @@ describe('job subjects carry ids only (MA-6)', () => {
 
         expect(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' })).toEqual({
             error: { user: `job for study job id ${studyJobId} was not found` },
+        })
+    })
+
+    test('an unknown study on fetchLabPublicKeysAction is not found', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        expect(await fetchLabPublicKeysAction({ studyId: '00000000-0000-7000-8000-000000000000' })).toEqual({
+            error: { user: 'study was not found' },
         })
     })
 })

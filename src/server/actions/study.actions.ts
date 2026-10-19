@@ -669,14 +669,7 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             reviewVersion: z.number().int().positive(),
         }),
     )
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('review', 'Study')
     .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
         const userId = session.user.id

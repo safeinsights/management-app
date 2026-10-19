@@ -1,4 +1,4 @@
-import { throwNotFound } from '@/lib/errors'
+import { NotFoundError, throwNotFound } from '@/lib/errors'
 import { getInfoForStudyId, getInfoForStudyJobId, getStudyJobInfo } from '@/server/db/queries'
 import { currentDb } from '@/server/request-context'
 
@@ -8,7 +8,7 @@ const jobIdFrom = (params: JobIdParams) => ('jobId' in params ? params.jobId : p
 
 export async function withStudySubject({ params: { studyId } }: { params: { studyId: string } }) {
     const study = await getInfoForStudyId(studyId, false)
-    if (!study) throw throwNotFound('study')()
+    if (!study) throw new NotFoundError({ user: 'study was not found' })
     return study
 }
 
@@ -25,7 +25,7 @@ export const withStudyAccessSubject = async ({ params: { studyId } }: { params: 
 export async function withStudyJobSubject({ params }: { params: JobIdParams }) {
     const studyJobId = jobIdFrom(params)
     const job = await getInfoForStudyJobId(studyJobId, false)
-    if (!job) throw throwNotFound(`job for study job id ${studyJobId}`)()
+    if (!job) throw new NotFoundError({ user: `job for study job id ${studyJobId} was not found` })
     return job
 }
 
