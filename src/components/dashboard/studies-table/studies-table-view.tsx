@@ -1,9 +1,8 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { Route } from 'next'
 import { Divider, Group, Paper, Stack, Table, TableTbody, Text, Title } from '@mantine/core'
-import { useWindowEvent } from '@mantine/hooks'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { ButtonLink } from '@/components/links'
 import { ErrorAlert } from '@/components/errors'
@@ -38,18 +37,6 @@ type StudiesTableBodyProps = Pick<
     'rows' | 'columns' | 'sort' | 'onSort' | 'audience' | 'isError' | 'errorMessage' | 'DeleteDraft'
 >
 
-// Unpinned, the gap band would cover the content above the table.
-function useIsHeaderPinned() {
-    const tableRef = useRef<HTMLTableElement>(null)
-    const [isPinned, setIsPinned] = useState(false)
-    useWindowEvent('scroll', () => {
-        const table = tableRef.current
-        if (!table?.tHead) return
-        setIsPinned(table.tHead.getBoundingClientRect().top > table.getBoundingClientRect().top)
-    })
-    return { tableRef, isPinned }
-}
-
 function StudiesTableBody({
     rows,
     columns,
@@ -60,8 +47,6 @@ function StudiesTableBody({
     errorMessage,
     DeleteDraft,
 }: StudiesTableBodyProps) {
-    const { tableRef, isPinned } = useIsHeaderPinned()
-
     if (isError) {
         return <ErrorAlert error={`Failed to load studies: ${errorMessage}`} />
     }
@@ -70,13 +55,11 @@ function StudiesTableBody({
     return (
         <>
             <Table
-                ref={tableRef}
                 layout="fixed"
                 verticalSpacing="md"
                 horizontalSpacing="md"
                 highlightOnHover
                 stickyHeader
-                data-pinned={isPinned || undefined}
                 miw={tableMinWidth(columns)}
             >
                 <TableHeader columns={columns} sort={sort} onSort={onSort} />

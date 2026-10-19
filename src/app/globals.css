@@ -57,9 +57,9 @@
     user-select: none;
 }
 
-/* Hides rows scrolling through the gap above a pinned table header. On each th, not thead: a box in
-   thead becomes an anonymous first row, and fixed layout takes the column widths from it. */
-table[data-pinned] > thead > tr > th::before {
+/* Hides rows scrolling through the gap above a pinned table header; the table's overflow clip hides it at
+   rest. On each th, not thead: a box in thead becomes an anonymous first row that sets fixed-layout widths. */
+thead[data-sticky] > tr > th::before {
     content: '';
     position: absolute;
     inset-inline: 0;
