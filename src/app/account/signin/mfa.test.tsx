@@ -11,7 +11,8 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { readJoinedOrg } from '@/lib/joined-org'
-import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import router from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
 import { RequestMFA } from './mfa'

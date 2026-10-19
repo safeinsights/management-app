@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudiesTable } from './index'
 
 import { useUser } from '@clerk/nextjs'
-import { UseUserReturn } from '@clerk/types'
+import { UseUserReturn } from '@clerk/nextjs/types'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 
 vi.mock('@/server/actions/org.actions', () => ({
