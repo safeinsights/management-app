@@ -1,8 +1,23 @@
-import * as path from 'path'
 import * as ts from 'typescript'
 
-export const IGNORE = new Set(['non-production.tsx', 'layout.tsx', 'page.tsx', 'focused-layout.tsx', 'user-layout.tsx'])
+// Server components with a module-level 'use server' and no actions. Listed by full path, so a new file
+// with one of these names is still checked.
+export const IGNORE = new Set([
+    'src/app/[orgSlug]/dashboard/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/agreements/researcher/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/agreements/reviewer/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/code/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/review/code/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/review/page.tsx',
+    'src/app/[orgSlug]/study/[studyId]/review/proposal/page.tsx',
+    'src/app/[orgSlug]/study/request/page.tsx',
+    'src/components/layout/focused-layout.tsx',
+    'src/components/layout/user-layout.tsx',
+    'src/components/non-production.tsx',
+])
 
+// public: callable without a session. checked-in-handler: the handler authorizes the caller inline.
+// session-scoped: acts only on the caller's own session.
 type AbilityCheckException = {
     kind: 'public' | 'checked-in-handler' | 'session-scoped'
     reason: string
@@ -44,12 +59,12 @@ export const ABILITY_CHECK_EXCEPTIONS: Record<string, AbilityCheckException> = {
         reason: 'Unauthenticated by necessity: the signup form has only the invite id.',
     },
     'src/server/actions/user.actions.ts#onUserSignInAction': {
-        kind: 'public',
-        reason: 'Establishes the session itself.',
+        kind: 'session-scoped',
+        reason: 'Throws without a Clerk session; it only records the sign-in of that session user.',
     },
     'src/server/actions/user.actions.ts#currentUserInfoAction': {
         kind: 'session-scoped',
-        reason: 'Read-only: the client asks for its org list here when the root layout did not pass one.',
+        reason: 'Read-only: returns the caller its own org list, or null without a session.',
     },
 }
 
@@ -170,7 +185,7 @@ export function analyzeSource(filePath: string, content: string): { errors: stri
         }
     }
 
-    if (!hasUseServerDirective(sourceFile) || IGNORE.has(path.basename(filePath))) {
+    if (!hasUseServerDirective(sourceFile) || IGNORE.has(filePath)) {
         return { errors, actions }
     }
 

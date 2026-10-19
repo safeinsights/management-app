@@ -1,7 +1,8 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { ABILITY_CHECK_EXCEPTIONS, analyzeSource, findStaleExceptions } from './action-file-rules'
+import { ABILITY_CHECK_EXCEPTIONS, IGNORE, analyzeSource, findStaleExceptions } from './action-file-rules'
 
 const ACTIONS_PATH = 'src/server/actions/foo.actions.ts'
+const [IGNORED_PAGE] = IGNORE
 
 const serverModule = (body: string) => `'use server'\nimport { Action } from './action'\n${body}`
 
@@ -83,15 +84,20 @@ describe('analyzeSource', () => {
         )
     })
 
-    it('skips the module rules for a basename on IGNORE', () => {
-        expect(errorsFor('src/app/x/page.tsx', `'use server'\nexport default async function Page() {}`)).toEqual([])
+    it('skips the module rules only for a full path on IGNORE', () => {
+        const source = `'use server'\nexport async function saveAction() {}`
+        expect(errorsFor(IGNORED_PAGE, source)).toEqual([])
+        expect(errorsFor('src/app/x/page.tsx', source)).toEqual([
+            'server action modules belong in src/server/actions',
+            expect.stringContaining('unsupported export form'),
+        ])
     })
 
     it.each([
         ['an exported function', 'src/server/foo.ts', `export async function fooAction() { 'use server'; return 1 }`],
         [
             'an inline action in a page on IGNORE',
-            'src/app/x/page.tsx',
+            IGNORED_PAGE,
             `export default function Page() {\n  async function save() { 'use server' }\n  return <form action={save} />\n}`,
         ],
         ['an arrow function', 'src/server/foo.ts', `const f = async () => { 'use server' }`],
