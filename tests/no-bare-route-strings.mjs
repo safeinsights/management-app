@@ -1,9 +1,11 @@
 // custom-rules/no-bare-route-strings.mjs
+const ROUTE_CALLEES = new Set(['redirect', 'permanentRedirect', 'revalidatePath'])
+
 const noBareRouteStrings = {
     meta: {
         type: 'problem',
         docs: {
-            description: 'Disallow bare strings in route navigation - use Routes object instead',
+            description: 'Disallow bare strings in route navigation and revalidation - use Routes object instead',
             recommended: true,
         },
         schema: [],
@@ -12,6 +14,7 @@ const noBareRouteStrings = {
             bareRouterPush: 'Use Routes object instead of bare string in router.push(). Import from "@/lib/routes".',
             bareRouterReplace:
                 'Use Routes object instead of bare string in router.replace(). Import from "@/lib/routes".',
+            bareCallString: 'Use Routes object instead of bare string in {{callee}}(). Import from "@/lib/routes".',
         },
     },
     create(context) {
@@ -48,7 +51,15 @@ const noBareRouteStrings = {
         function templateStartsWithSlash(node) {
             if (node.type !== 'TemplateLiteral') return false
             const firstQuasi = node.quasis[0]
-            return firstQuasi && firstQuasi.value.raw.startsWith('/')
+            return Boolean(firstQuasi) && isInternalRoute(firstQuasi.value.raw)
+        }
+
+        function isBareRoute(arg) {
+            return (
+                Boolean(arg) &&
+                ((isLiteralString(arg) && isInternalRoute(arg.value)) ||
+                    (isTemplateLiteral(arg) && templateStartsWithSlash(arg)))
+            )
         }
 
         return {
@@ -91,8 +102,20 @@ const noBareRouteStrings = {
                 }
             },
 
-            // Check router.push() and router.replace() calls
+            // Check redirect(), permanentRedirect(), revalidatePath(), router.push() and router.replace() calls
             CallExpression(node) {
+                if (
+                    node.callee.type === 'Identifier' &&
+                    ROUTE_CALLEES.has(node.callee.name) &&
+                    isBareRoute(node.arguments[0])
+                ) {
+                    context.report({
+                        node: node.arguments[0],
+                        messageId: 'bareCallString',
+                        data: { callee: node.callee.name },
+                    })
+                }
+
                 if (
                     node.callee.type === 'MemberExpression' &&
                     node.callee.object.type === 'Identifier' &&
@@ -102,35 +125,23 @@ const noBareRouteStrings = {
                     const methodName = node.callee.property.name
                     const arg = node.arguments[0]
 
-                    // Check router.push() with bare string or template literal
-                    if (methodName === 'push' && arg) {
-                        if (isLiteralString(arg) && isInternalRoute(arg.value)) {
-                            context.report({
-                                node: arg,
-                                messageId: 'bareRouterPush',
-                            })
-                        } else if (isTemplateLiteral(arg) && templateStartsWithSlash(arg)) {
-                            context.report({
-                                node: arg,
-                                messageId: 'bareRouterPush',
-                            })
-                        }
+                    if (methodName === 'push' && isBareRoute(arg)) {
+                        context.report({ node: arg, messageId: 'bareRouterPush' })
                     }
 
-                    // Check router.replace() with bare string or template literal
-                    if (methodName === 'replace' && arg) {
-                        if (isLiteralString(arg) && isInternalRoute(arg.value)) {
-                            context.report({
-                                node: arg,
-                                messageId: 'bareRouterReplace',
-                            })
-                        } else if (isTemplateLiteral(arg) && templateStartsWithSlash(arg)) {
-                            context.report({
-                                node: arg,
-                                messageId: 'bareRouterReplace',
-                            })
-                        }
+                    if (methodName === 'replace' && isBareRoute(arg)) {
+                        context.report({ node: arg, messageId: 'bareRouterReplace' })
                     }
+                }
+            },
+
+            'NewExpression[callee.name="URL"]'(node) {
+                if (isBareRoute(node.arguments[0])) {
+                    context.report({
+                        node: node.arguments[0],
+                        messageId: 'bareCallString',
+                        data: { callee: 'new URL' },
+                    })
                 }
             },
         }
