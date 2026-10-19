@@ -1,5 +1,6 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import {
+    GlueClient,
     CreateDatabaseCommand,
     DeleteDatabaseCommand,
     CreateTableCommand,
@@ -8,10 +9,19 @@ import {
     type DatabaseInput,
     type Column,
 } from '@aws-sdk/client-glue'
+import { fromIni } from '@aws-sdk/credential-providers'
 import { parseCsv } from '@/lib/file-content-helpers'
-import { getGlueClient, getS3Client } from './clients'
+import { getS3Client } from './clients'
 import { sanitizeColumnName } from './naming'
 import { s3BucketName, withS3Prefix } from './s3'
+
+let _glueClient: GlueClient | null = null
+const getGlueClient = () =>
+    _glueClient ||
+    (_glueClient = new GlueClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
 
 export async function createAthenaDatabase(dbName: string) {
     const input: DatabaseInput = { Name: dbName }

@@ -1,5 +1,4 @@
 import { S3Client } from '@aws-sdk/client-s3'
-import { GlueClient } from '@aws-sdk/client-glue'
 import { AWS_ACCOUNT_ENVIRONMENT } from '../config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import { strToAscii } from '@/lib/string'
@@ -29,13 +28,5 @@ export const getS3BrowserClient = () =>
         region: process.env.AWS_REGION || 'us-east-1',
         forcePathStyle: true,
         endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
-    }))
-
-let _glueClient: GlueClient | null = null
-export const getGlueClient = () =>
-    _glueClient ||
-    (_glueClient = new GlueClient({
-        region: process.env.AWS_REGION || 'us-east-1',
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
