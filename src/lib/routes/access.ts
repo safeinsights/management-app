@@ -27,6 +27,7 @@ function subtreeRoot(path: string): string {
 // and silently matches nothing, which is how MA-11 left a guard dead.
 const SI_ADMIN_PREFIX: string = Routes.adminSafeinsights
 const RESEARCHER_PREFIX = subtreeRoot(Routes.researcherProfile)
+const ACCOUNT_PREFIX = subtreeRoot(Routes.accountSignin)
 const ORG_ADMIN_SECTION = pathUnderOrg(Routes.adminSettings({ orgSlug: ORG_SLUG_TOKEN }), ORG_SLUG_TOKEN).split('/')[0]
 
 export function isSiAdminPath(pathname: string): boolean {
@@ -35,6 +36,11 @@ export function isSiAdminPath(pathname: string): boolean {
 
 export function isResearcherPath(pathname: string): boolean {
     return pathname.startsWith(RESEARCHER_PREFIX)
+}
+
+/** The whole `/account` subtree, not the pages a signed-out user may open (`ANON_ROUTES` in `proxy.ts`). */
+export function isAccountSubtree(pathname: string): boolean {
+    return pathname.startsWith(ACCOUNT_PREFIX)
 }
 
 /** False for a path with no org slug, so `/admin/safeinsights` is not read as an org admin page. */
