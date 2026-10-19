@@ -365,7 +365,7 @@ const finalizeStudySubmissionInfoSchema = z
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
         // No field displays this, so submit is the only enforcement point (OTTER-647).
-        piUserId: z.string().uuid().nullable().optional(),
+        piUserId: z.uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),
@@ -760,7 +760,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     performsMutations: true,
 })
     // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
+    .params(z.object({ studyId: z.uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
@@ -794,7 +794,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
     performsMutations: true,
 })
     // Serialized Lexical JSON: heavy per-word formatting inflates a 300-word note (OTTER-658).
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
+    .params(z.object({ studyId: z.uuid(), note: z.string().max(100_000) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note }, session }) => {
@@ -823,7 +823,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
 export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string().uuid(),
+            studyId: z.uuid(),
             mainFileName: z.string(),
             fileNames: z.array(z.string()),
             resubmissionNote: resubmissionNoteParam,

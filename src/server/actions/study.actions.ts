@@ -387,7 +387,7 @@ export const fetchNavUnreadAction = new Action('fetchNavUnreadAction')
 // Recorded from the client on entering and leaving a study, not during its render: a render-time
 // write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
 export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {
@@ -796,7 +796,7 @@ const codeReviewCriteriaSchema = z.object({
 export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisionAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string().uuid(),
+            studyId: z.uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
             decision: z.enum(['approve', 'needs-clarification']),
@@ -925,7 +925,7 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
 }
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadCodeReviewFeedbackThread(db, studyId))
@@ -935,7 +935,7 @@ export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeed
 // The whole outputs thread, for the reviewer's post-review page and for all three researcher
 // outputs screens: reviewer decisions alone, with no code-phase resubmission notes (OTTER-766).
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(studyViewMiddleware)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {

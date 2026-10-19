@@ -31,7 +31,7 @@ export const RedirectSearchParams = z.object({
 })
 
 export const InviteSearchParams = z.object({
-    invite_id: z.string().uuid().optional(),
+    invite_id: z.uuid().optional(),
     redirect_url: z
         .string()
         .optional()
