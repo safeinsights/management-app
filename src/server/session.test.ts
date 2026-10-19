@@ -11,6 +11,7 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { clientUserInfo, clientUserInfoForRequest, marshalSession } from './session'
 
@@ -156,7 +157,7 @@ describe('clientUserInfoForRequest', () => {
     it('lets a Next.js control-flow error through', async () => {
         const { redirect } = await vi.importActual<typeof import('next/navigation')>('next/navigation')
         const { auth } = mockClerkSession({ clerkUserId: 'c1', userId: 'u1', orgSlug: 'any-org' })!
-        auth.mockImplementation(() => redirect('/account/signin'))
+        auth.mockImplementation(() => redirect(Routes.accountSignin))
         ;(await headers()).set('x-clerk-auth-status', 'signed-in')
         const logError = vi.spyOn(logger, 'error')
 

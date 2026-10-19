@@ -36,7 +36,7 @@ function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
 
 function redirectToDashboard(request: NextRequest, route: string, session: UserSession) {
     log.warn(`Blocking unauthorized ${route} route access to: `, request.url, `user: ${session.user.id}`)
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL(Routes.dashboard, request.url))
 }
 
 function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
@@ -140,7 +140,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         if (clerkUserId) {
             session = BLANK_SESSION
         } else {
-            const signInUrl = new URL('/account/signin', req.url)
+            const signInUrl = new URL(Routes.accountSignin, req.url)
             const intended = safeRedirectUrl(pathname + req.nextUrl.search, Routes.home)
             signInUrl.searchParams.set('redirect_url', intended)
             // This branch is the only place that refuses a session, so the mark tells the signin page

@@ -9,6 +9,7 @@ import { AppShell } from './app-shell'
 import { connection } from 'next/server'
 import PostHogUserProvider from '../posthog-user-provider'
 import { requireUserKey } from '@/server/user-key-gate'
+import { Routes } from '@/lib/routes'
 
 type Props = {
     children: ReactNode
@@ -22,10 +23,10 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
 
     const user = await currentUser()
     if (!user) {
-        redirect('/account/signin')
+        redirect(Routes.accountSignin)
     }
     if (user.twoFactorEnabled === false) {
-        redirect('/account/mfa')
+        redirect(Routes.accountMfa)
     }
     await requireUserKey()
 

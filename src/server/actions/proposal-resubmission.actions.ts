@@ -1,6 +1,7 @@
 'use server'
 
 import { countCharacters } from '@/lib/field-limits'
+import { Routes } from '@/lib/routes'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudySubject } from '@/server/actions/study-subject'
 import { markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
@@ -24,7 +25,7 @@ const proposalUpdatableFields = [
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string(),
+            studyId: z.string().uuid(),
             studyInfo: draftStudyApiSchema,
             resubmissionNote: resubmissionNoteParam,
         }),
@@ -119,9 +120,9 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
 
-        revalidatePath('/dashboard')
-        revalidatePath(`/${orgSlug}/dashboard`)
-        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+        revalidatePath(Routes.dashboard)
+        revalidatePath(Routes.orgDashboard({ orgSlug }))
+        revalidatePath(Routes.studyReview({ orgSlug, studyId }))
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: resubmittedAt })
         onStudyProposalResubmitted({ studyId, userId })

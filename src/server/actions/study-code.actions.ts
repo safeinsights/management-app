@@ -6,6 +6,7 @@ import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { isPgUniqueViolation } from '@/lib/errors'
 import { pathForStudyJobCodeFile } from '@/lib/paths'
+import { Routes } from '@/lib/routes'
 import { sanitizeFileName } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudySubject } from '@/server/actions/study-subject'
@@ -26,7 +27,7 @@ import {
 } from '@/server/study-submission'
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
+    .params(z.object({ studyId: z.string().uuid(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(withStudySubject)
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
@@ -81,8 +82,8 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
 
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
-        revalidatePath('/dashboard')
-        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+        revalidatePath(Routes.dashboard)
+        revalidatePath(Routes.studyReview({ orgSlug, studyId }))
 
         triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
@@ -209,8 +210,8 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
         onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
 
-        revalidatePath('/dashboard')
-        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+        revalidatePath(Routes.dashboard)
+        revalidatePath(Routes.studyReview({ orgSlug, studyId }))
 
         triggerCodeScan(studyJobId, orgSlug, studyId, round)
 
