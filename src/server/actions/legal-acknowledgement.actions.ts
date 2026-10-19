@@ -7,11 +7,11 @@ import {
     type GlobalLegalDocument,
     type PendingLegalDocument,
 } from '@/schema/legal-document'
-import { bodyForVersion } from '../legal-document'
-import { studyAgreementStatusFor } from '../study-agreement'
+import { bodyForVersion } from '@/server/legal-document'
+import { studyAgreementStatusFor } from '@/server/study-agreement'
 import { Action, ActionFailure } from './action'
 import { globalDocumentScope, scopeFromStudyId, scopeFromVersionId } from './legal-document-scope'
-import { latestGlobalVersions, latestOwedVersions } from '../db/legal-document-versions'
+import { latestGlobalVersions, latestOwedVersions } from '@/server/db/legal-document-versions'
 
 export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocumentAction', {
     performsMutations: true,

@@ -12,10 +12,10 @@ import {
     legalDocumentVersionParams,
     publishLegalDocumentVersionSchema,
 } from '@/schema/legal-document'
-import { storeS3File } from '../aws'
-import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-document'
-import { bodyForVersion, urlForLegalDocumentVersion } from '../legal-document'
-import { onStudyAgreementPublished } from '../events'
+import { storeS3File } from '@/server/aws'
+import { findLegalDocument, findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { bodyForVersion, urlForLegalDocumentVersion } from '@/server/legal-document'
+import { onStudyAgreementPublished } from '@/server/events'
 import { Action, ActionFailure } from './action'
 import { scopeFromVersionId } from './legal-document-scope'
 

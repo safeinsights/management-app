@@ -7,8 +7,8 @@ import {
     participationAgreementOrgTypes,
     inviteParams,
 } from '@/schema/legal-document'
-import { orgParticipationAgreement } from '../db/legal-document'
-import { bodyForVersion, urlForLegalDocumentVersion } from '../legal-document'
+import { orgParticipationAgreement } from '@/server/db/legal-document'
+import { bodyForVersion, urlForLegalDocumentVersion } from '@/server/legal-document'
 import { Action } from './action'
 import { noDocumentScope } from './legal-document-scope'
 

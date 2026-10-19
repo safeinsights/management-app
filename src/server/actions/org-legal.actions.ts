@@ -1,8 +1,8 @@
 'use server'
 
 import { orgLegalParams, orgStudyAgreementParams, participationAgreementTypeForOrgType } from '@/schema/legal-document'
-import { orgParticipationAgreement, orgStudyAgreements } from '../db/legal-document'
-import { orgIdFromSlug } from '../db/queries'
+import { orgParticipationAgreement, orgStudyAgreements } from '@/server/db/legal-document'
+import { orgIdFromSlug } from '@/server/db/queries'
 import { requireResolvedOrg } from './org-context'
 import { Action } from './action'
 

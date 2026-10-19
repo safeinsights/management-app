@@ -1,6 +1,6 @@
 'use server'
 
-import { urlForLegalDocumentVersion } from '../legal-document'
+import { urlForLegalDocumentVersion } from '@/server/legal-document'
 import { Action } from './action'
 import { noDocumentScope } from './legal-document-scope'
 

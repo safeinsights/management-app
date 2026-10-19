@@ -6,10 +6,10 @@ import {
     globalDocumentTypeParams,
     type ResolvedLegalDocument,
 } from '@/schema/legal-document'
-import { userParticipationAgreements, userStudyAgreements } from '../db/legal-document'
-import { bodyForVersion } from '../legal-document'
+import { userParticipationAgreements, userStudyAgreements } from '@/server/db/legal-document'
+import { bodyForVersion } from '@/server/legal-document'
 import { Action } from './action'
-import { latestVersionsOfTypes } from '../db/legal-document-versions'
+import { latestVersionsOfTypes } from '@/server/db/legal-document-versions'
 
 export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreementsAction')
     .params(userStudyAgreementParams)
