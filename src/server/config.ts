@@ -4,19 +4,8 @@ export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
 export const CI_ENV = !!process && !!process.env.CI
 
-export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
-
-export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
-
 export const SIMULATE_CODE_BUILD =
     process.env.SIMULATE_CODE_BUILD === 't' || (process.env.SIMULATE_CODE_BUILD != 'f' && DEV_ENV)
-
-export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
-    '337909745635', // prod
-    '536697261124', // staging
-    '084375557107', // dev
-    '354918363956', // sandbox
-]
 
 export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '533267019973': 'Production',
@@ -30,8 +19,6 @@ export const ENVIRONMENT_ID = process.env.ENVIRONMENT_ID || 'local'
 export const PROD_BUILD = process.env.NODE_ENV === 'production'
 
 export const PROD_ENV = ENVIRONMENT_ID == 'production'
-export const STAGING_ENV = ENVIRONMENT_ID == 'staging'
-
 // Not NEXT_PUBLIC_: the build is shared across environments, so a build-time inlined flag could
 // not vary per-env. Threaded to the client via the websocket provider.
 export const SINGLE_USER_EDITING = process.env.SINGLE_USER_EDITING === 't'

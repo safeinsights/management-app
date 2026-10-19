@@ -28,7 +28,6 @@ import {
     getInfoForStudyId,
     findOrgIdBySlug,
     getDataSourcesForOrg,
-    getSharedFileIdsForJob,
     getIdeOwnerForStudy,
     siUser,
 } from './queries'
@@ -320,72 +319,6 @@ describe('currentReviewVersion', () => {
             })
             .execute()
         await expect(currentReviewVersion(study1.id)).resolves.toBe(1)
-    })
-})
-
-describe('getSharedFileIdsForJob', () => {
-    const insertFile = (jobId: string, fileType: 'ENCRYPTED-RESULT' | 'ENCRYPTED-CODE-RUN-LOG') =>
-        db
-            .insertInto('studyJobFile')
-            .values({
-                studyJobId: jobId,
-                name: 'encrypted-results.zip',
-                path: `results/${fileType}.zip`,
-                fileType,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-    const shareFile = (studyJobFileId: string, filePath: string, fingerprint: string) =>
-        db
-            .insertInto('studyJobFileRecipientKey')
-            .values({ studyJobFileId, filePath, fingerprint, crypt: 'wrapped-key' })
-            .execute()
-
-    it('returns [] when nothing has been shared', async () => {
-        const { job } = await insertTestStudyJobData()
-        await insertFile(job.id, 'ENCRYPTED-RESULT')
-        expect(await getSharedFileIdsForJob(job.id)).toEqual([])
-    })
-
-    it('returns each artifact that has a re-wrapped key, results and logs alike', async () => {
-        const { job } = await insertTestStudyJobData()
-        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        const log = await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
-        await shareFile(result.id, 'results.csv', 'fp-researcher')
-        await shareFile(log.id, 'run.log', 'fp-researcher')
-
-        const ids = await getSharedFileIdsForJob(job.id)
-        expect(ids.sort()).toEqual([result.id, log.id].sort())
-    })
-
-    it('excludes artifacts that have no re-wrapped key', async () => {
-        const { job } = await insertTestStudyJobData()
-        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await insertFile(job.id, 'ENCRYPTED-CODE-RUN-LOG')
-        await shareFile(result.id, 'results.csv', 'fp-researcher')
-
-        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
-    })
-
-    it('returns an artifact once even when shared with multiple researchers', async () => {
-        const { job } = await insertTestStudyJobData()
-        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await shareFile(result.id, 'results.csv', 'fp-a')
-        await shareFile(result.id, 'results.csv', 'fp-b')
-
-        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
-    })
-
-    // Guards against anyone reintroducing a membership join into getSharedFileIdsForJob.
-    it('stays shared after the lab researchers are removed from the org', async () => {
-        const { org, job } = await insertTestStudyJobData()
-        const result = await insertFile(job.id, 'ENCRYPTED-RESULT')
-        await shareFile(result.id, 'results.csv', 'fp-researcher')
-
-        await db.deleteFrom('orgUser').where('orgId', '=', org.id).execute()
-
-        expect(await getSharedFileIdsForJob(job.id)).toEqual([result.id])
     })
 })
 

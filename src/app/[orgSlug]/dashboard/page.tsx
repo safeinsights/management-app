@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'

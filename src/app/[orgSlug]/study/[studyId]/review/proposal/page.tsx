@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { proposalReviewDecision } from '@/lib/review-decision'

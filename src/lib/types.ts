@@ -1,7 +1,7 @@
 import type { ActionResponse } from '@/lib/errors'
 import { FileEntry } from 'si-encryption/job-results/types'
 import { z } from 'zod'
-import type { FileType, Language, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
+import type { FileType, Language, OrgType, StudyJobStatus } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -171,8 +171,6 @@ export const DATA_SOURCE_TYPES = {
 
 export type DataSourceType = keyof typeof DATA_SOURCE_TYPES
 
-export type AllStatus = StudyJobStatus | StudyStatus
-
 export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
@@ -225,12 +223,6 @@ export type JobFileInfo = FileEntry & {
     // SECURITY: unlocks the file body. Kept in-memory for the client-side re-wrap at approve time
     // and must never be sent to the server or persisted.
     rawAesKey?: ArrayBuffer
-}
-
-export type JobFile = {
-    contents: ArrayBuffer
-    path: string
-    fileType: FileType
 }
 
 export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false) : false
