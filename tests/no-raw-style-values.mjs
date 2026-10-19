@@ -55,6 +55,13 @@ const SHADE = new RegExp(`^(?:${RAMPS.join('|')})\\.[0-9]$`)
 // The same rung through Mantine's own variable. `var(--` alone would pass it as a token lookup.
 const SHADE_VAR = /var\(\s*--mantine-color-[a-z]+-[0-9]\s*\)/
 const isShade = (str) => SHADE.test(str) || SHADE_VAR.test(str)
+const RUNG = /^\.[0-9]$/
+const RAMP_HEAD = new RegExp(`^(?:${RAMPS.join('|')})\\.$`)
+
+// Casts that leave the value as it was.
+const TS_WRAPPERS = ['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression']
+// Wrappers eachValue sees through; isInsideStyleProp must climb the same ones or a literal reports twice.
+const PASS_THROUGH = ['ConditionalExpression', 'LogicalExpression', ...TS_WRAPPERS]
 
 /** `theme.colors` or a destructured `colors`. */
 const isColorsObject = (node) =>
@@ -116,6 +123,15 @@ const noRawStyleValues = {
             (node.type === 'TemplateLiteral' && node.expressions.length > 0) ||
             (node.type === 'BinaryExpression' && node.operator === '+')
 
+        // A rung with its ramp or level picked at runtime: `${hue}.9`, `green.${level}`, `hue + '.9'`.
+        const isBuiltShade = (node) => {
+            if (node.type === 'TemplateLiteral' && node.expressions.length === 1) {
+                const [head, tail] = node.quasis.map((q) => q.value.cooked)
+                return (head === '' && RUNG.test(tail)) || (RAMP_HEAD.test(head) && tail === '')
+            }
+            return node.type === 'BinaryExpression' && node.operator === '+' && RUNG.test(stringValue(node.right) ?? '')
+        }
+
         /**
          * A value already routed through the token layer. Narrow on purpose: anything that merely
          * *has a name* is not a token, or moving a banned literal into a constant would launder it.
@@ -143,8 +159,9 @@ const noRawStyleValues = {
         }
 
         /**
-         * Runs `check` over a prop value, seeing through `{…}`, both ternary branches, and a
-         * same-file constant — the shapes a migration teaches people to hide a literal in.
+         * Runs `check` over a prop value, seeing through `{…}`, both ternary branches, both sides of
+         * `??`/`||`/`&&`, a TS cast, and a same-file constant — the shapes a migration teaches
+         * people to hide a literal in.
          * Reports at the use site so each offending prop is flagged where it is applied.
          */
         const eachValue = (value, check) => {
@@ -155,13 +172,21 @@ const noRawStyleValues = {
                 eachValue(node.alternate, check)
                 return
             }
+            if (node.type === 'LogicalExpression') {
+                eachValue(node.left, check)
+                eachValue(node.right, check)
+                return
+            }
+            if (TS_WRAPPERS.includes(node.type)) return eachValue(node.expression, check)
             if (node.type === 'Identifier') {
                 const init = resolveConstant(node)
                 if (!init) return
-                // A shade/hex/px string is reported where it is defined, so reporting the use site
-                // too would double up. A number is invisible to that visitor, so it reports here.
+                // A shade (built or literal), hex or px string is reported where it is defined, so
+                // reporting the use site too would double up. A number is invisible to that visitor,
+                // so it reports here.
                 const str = stringValue(init)
                 if (str !== null && (isShade(str) || HEX.test(str) || PX.test(str))) return
+                if (isBuiltShade(init)) return
                 check(init, node)
                 return
             }
@@ -169,9 +194,9 @@ const noRawStyleValues = {
         }
 
         /**
-         * True when a style prop's own check already covers this literal. Only `{…}` and ternary
-         * branches qualify — the shapes `eachValue` walks. A literal buried in a call argument is
-         * beyond its reach, so the generic visitor must still report it.
+         * True when a style prop's own check already covers this literal. Only the shapes
+         * `eachValue` walks qualify. A literal buried in a call argument is beyond its reach, so
+         * the generic visitor must still report it.
          */
         const isInsideStyleProp = (node) => {
             let cur = node
@@ -184,7 +209,7 @@ const noRawStyleValues = {
                         [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw'].includes(name) || isFontSizeAttr(attr)
                     )
                 }
-                if (parent.type !== 'ConditionalExpression') return false
+                if (!PASS_THROUGH.includes(parent.type)) return false
                 cur = parent
             }
             return false
@@ -202,11 +227,12 @@ const noRawStyleValues = {
             return false
         }
 
-        // An object key has no isInsideStyleProp guard, so a shade/hex/px there is already the
-        // Literal visitor's report and must not be doubled here.
+        // An object key has no isInsideStyleProp guard, so a shade/hex/px there, built or literal,
+        // is already a generic visitor's report and must not be doubled here.
         function checkColor(value, prop, { literalsReportedElsewhere = false } = {}) {
             eachValue(value, (node, at) => {
                 if (isTokenReference(node)) return
+                if (literalsReportedElsewhere && isBuiltShade(node)) return
                 if (isBuiltString(node)) {
                     context.report({ node: at, messageId: 'builtColor', data: { prop } })
                     return
@@ -221,10 +247,12 @@ const noRawStyleValues = {
         }
 
         // `color` resolves through Mantine's palette, so an SI ramp name is a lookup and a stock
-        // ramp name is the bug. Shades, hex and px are the Literal visitor's to report.
+        // ramp name is the bug. Shades (built ones too), hex and px are the generic visitors' to
+        // report.
         function checkRampColor(value, prop) {
             eachValue(value, (node, at) => {
                 if (isTokenReference(node)) return
+                if (isBuiltShade(node)) return
                 if (isBuiltString(node)) {
                     context.report({ node: at, messageId: 'builtColor', data: { prop } })
                     return
@@ -362,6 +390,12 @@ const noRawStyleValues = {
 
                 if (RAMP_COLOR_PROPS.includes(key)) return checkRampColor(node.value, key)
                 checkColor(node.value, key, { literalsReportedElsewhere: true })
+            },
+
+            // Wherever the rung is assembled: a helper's return value never reaches a prop check.
+            'TemplateLiteral, BinaryExpression'(node) {
+                if (isInsideStyleProp(node) || !isBuiltShade(node)) return
+                context.report({ node, messageId: 'rawShade', data: { value: context.sourceCode.getText(node) } })
             },
 
             Literal(node) {

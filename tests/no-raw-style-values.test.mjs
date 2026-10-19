@@ -1,4 +1,5 @@
 import { RuleTester } from 'eslint'
+import typescriptEslint from 'typescript-eslint'
 import { describe, it } from 'vitest'
 import noRawStyleValues from './no-raw-style-values.mjs'
 
@@ -38,6 +39,7 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         'const Row = ({ gap }) => <Stack gap={gap} />',
         // Both ternary branches are tokens.
         '<Text c={isActive ? semanticColor("text.white") : semanticColor("text.secondary")} />',
+        '<Text c={x ?? semanticColor("text.secondary")} />',
         // Mantine's `color` prop takes a ramp name; the theme maps the SI ramps' variants to tokens.
         '<Alert color="red" />',
         '<Badge color="grey" variant="light" />',
@@ -78,6 +80,9 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         `const CARD = { p: 'md', gap: 'xs', radius: 'sm' }`,
         // A key that shares a prop's name is not always a style: a seed's language → command map.
         `const RUN = { py: 'python main.py', r: 'Rscript main.r' }`,
+        // A dotted string with a runtime part is only a rung when the rest names one.
+        'const file = `${name}.${ext}`',
+        'const label = `${count}.`',
     ],
     invalid: [
         {
@@ -251,17 +256,67 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
             code: '<Text c={color ? `${color}.6` : "dimmed"} />',
             errors: [{ messageId: 'builtColor' }],
         },
+        // On `color` and object keys a built shade is the shade visitor's, as a literal one is.
         {
             code: '<Badge color={`${ramp}.5`} />',
-            errors: [{ messageId: 'builtColor' }],
+            errors: [{ messageId: 'rawShade' }],
         },
         {
             code: 'const MAP = { done: { bg: `${hue}.0` } }',
-            errors: [{ messageId: 'builtColor' }],
+            errors: [{ messageId: 'rawShade' }],
         },
         {
             code: `<Text c={hue + '.9'} />`,
             errors: [{ messageId: 'builtColor' }],
+        },
+        // A rung built away from the prop: in a helper, a constant, or with the level picked.
+        {
+            code: 'const shade = (h) => `${h}.9`; const T = () => <Text c={shade(hue)} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: `const toShade = (h) => h + '.9'`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const S = `${hue}.9`; const T = () => <Text c={S} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const accent = `green.${level}`',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        // A fallback or cast is still the value the prop receives.
+        {
+            code: '<Text c={x ?? `${hue}.9`} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: `<Text c={x || 'charcoal.9'} />`,
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: `<Badge color={x ?? 'teal.5'} />`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Stack p={gap ?? 16} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Text c={`${hue}.9` as MantineColor} />',
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: `<Text c={'charcoal.9' satisfies MantineColor} />`,
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: '<Stack p={(gap ?? 16)!} />',
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawSpacing' }],
         },
         // Mantine reads a numeric `fz` as px.
         {
