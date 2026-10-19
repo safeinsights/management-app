@@ -60,9 +60,8 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         'const T = ({ color }) => <Text c={color} />',
         '<Text fz="sm" />',
         '<Title fz="h3" />',
-        // Figma's 10px and 22px have no scale key; their variables are the token.
+        // Figma's 10px has no scale key; its variable is the token.
         '<Text fz="var(--si-font-size-10)" />',
-        '<Title fz="var(--si-font-size-22)" />',
         '<Text size="sm" />',
         '<Title order={2} size="h4" />',
         '<List size="md" />',
@@ -277,9 +276,13 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
             code: 'const SECTION_FONT_SIZE = 14; const S = () => <Text fz={SECTION_FONT_SIZE} />',
             errors: [{ messageId: 'rawFontSize' }],
         },
-        // 14px has a scale key, so its variable is a second name for `sm`.
+        // 14px has a scale key, so its variable is a second name for `sm`; 22px is `h3`.
         {
             code: '<Text fz="var(--si-font-size-14)" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Title fz="var(--si-font-size-22)" />',
             errors: [{ messageId: 'rawFontSize' }],
         },
         // Mantine reads `size` on Text, Title, Anchor and List as `fz`.

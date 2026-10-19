@@ -1,5 +1,5 @@
 import type { ButtonVariant } from '@mantine/core'
-import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
+import { DEFAULT_THEME, mergeMantineTheme, rem } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
 import { semanticColor, semanticCssVariables, semanticShades } from './theme/tokens'
@@ -52,6 +52,17 @@ describe('palette', () => {
 describe('textarea', () => {
     it('turns no resize handle on by default', () => {
         expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
+    })
+})
+
+describe('headings', () => {
+    // noRawStyleValues rejects --si-font-size-22/26/34 on `fz` because these keys equal them.
+    it.each([
+        ['h1', 34],
+        ['h2', 26],
+        ['h3', 22],
+    ] as const)('keeps %s at the Figma %ipx size', (heading, px) => {
+        expect(mergeMantineTheme(DEFAULT_THEME, theme).headings.sizes[heading].fontSize).toBe(rem(px))
     })
 })
 

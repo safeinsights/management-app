@@ -66,7 +66,7 @@ const PX = /(?:^|\s)\d*\.?\d+px(?:\s|$)/
 const CSS_VAR = /var\(\s*--/
 // Figma font sizes with no scale key reach `fz` as --si-font-size-N; one that has a key must use it.
 // Keep in step with typographyCssVariables in src/theme/tokens.ts, which this file cannot import.
-const OFF_SCALE_FONT_SIZES = ['10', '22', '26', '34', '40']
+const OFF_SCALE_FONT_SIZES = ['10', '40']
 const FONT_SIZE_VAR = /var\(\s*--si-font-size-(\d+)\s*\)/
 
 const noRawStyleValues = {
