@@ -85,13 +85,6 @@ export function plural(count: number, noun: string, pluralNoun = `${noun}s`): st
     return `${count} ${count === 1 ? noun : pluralNoun}`
 }
 
-export function toSentence(items: string[], conjunction: string = 'and'): string {
-    if (items.length === 0) return ''
-    if (items.length === 1) return items[0]
-    if (items.length === 2) return `${items[0]} ${conjunction} ${items[1]}`
-    return `${items.slice(0, -1).join(', ')}, ${conjunction} ${items[items.length - 1]}`
-}
-
 export function stringifyJson(value: Json | null | undefined): string | null {
     if (value == null) return null
     return typeof value === 'string' ? value : JSON.stringify(value)

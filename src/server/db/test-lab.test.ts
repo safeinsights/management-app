@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
-import { actionResult, faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    faker,
+    insertTestBaselineJob,
+    insertTestOrg,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { finalizeStudySubmissionAction, onSaveDraftStudyAction } from '@/server/actions/study-request'
 import { designateTestLabs, isDesignatedTestLab, undesignateTestLab } from './test-lab'
 
@@ -74,6 +80,7 @@ describe('stamping is_test_study at study creation', () => {
         const { studyId, isTestStudy } = await createDraft(enclave.slug, lab.slug)
         expect(isTestStudy).toBe(true)
 
+        await insertTestBaselineJob(studyId)
         actionResult(await finalizeStudySubmissionAction({ studyId }))
 
         const study = await db.selectFrom('study').select('status').where('id', '=', studyId).executeTakeFirstOrThrow()

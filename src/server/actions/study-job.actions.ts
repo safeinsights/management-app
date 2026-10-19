@@ -63,7 +63,6 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
         return await getLabPublicKeysForStudy(studyId)
     })
 
-// Derived from the re-wrapped key rows, so empty before approval.
 // Feedback and the files decision land together so the reviewer's rationale can never be orphaned
 // from the status that acted on it (OTTER-675).
 export const submitOutputsDecisionAction = new Action('submitOutputsDecisionAction', { performsMutations: true })

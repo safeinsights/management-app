@@ -771,20 +771,6 @@ export async function latestCodeSubmissionAt(studyId: string, jobId: string): Pr
     return row?.createdAt
 }
 
-// Rows can exist while the round is still open, and removing a researcher from the lab never
-// retroactively unshares.
-export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
-    const rows = await currentDb()
-        .selectFrom('studyJobFileRecipientKey')
-        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
-        .where('studyJobFile.studyJobId', '=', jobId)
-        .select('studyJobFileRecipientKey.studyJobFileId')
-        .distinct()
-        .execute()
-
-    return rows.map((r) => r.studyJobFileId)
-}
-
 export type StudyReviewWithMeta = {
     // null on a failure row (summaryFailedAt set), and on a pending row, where generation has
     // claimed the round but has not finished.
