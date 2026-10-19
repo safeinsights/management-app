@@ -7,9 +7,6 @@ export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
     'JOB-ERRORED',
 ]
 
-export const isStudyResultsStatus = (status: StudyJobStatus | undefined): boolean =>
-    !!status && STUDY_RESULTS_JOB_STATUSES.includes(status)
-
 // In pipeline order; furthestStage below depends on it.
 const STAGE_PROGRESSION = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'] as const
 

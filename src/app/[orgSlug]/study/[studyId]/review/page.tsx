@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'

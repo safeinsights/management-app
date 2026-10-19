@@ -30,7 +30,6 @@ import {
     onStudyReviewRequested,
 } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { deleteStudyCompletely } from '@/server/qa-cleanup'
 import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
@@ -320,46 +319,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         return { studyId }
     })
 
-const onSubmitDraftStudyActionArgsSchema = z.object({
-    studyId: z.string(),
-    mainCodeFileName: z.string(),
-    codeFileNames: z.array(z.string()),
-})
-
-export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', { performsMutations: true })
-    .params(onSubmitDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
-        const userId = session.user.id
-
-        const study = await db
-            .selectFrom('study')
-            .select(['id', 'status'])
-            .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
-            .executeTakeFirst()
-
-        if (!study) {
-            throw new Error('Study not found or access denied')
-        }
-
-        if (study.status !== 'DRAFT' && study.status !== 'APPROVED') {
-            throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
-        }
-
-        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
-            db,
-            studyId,
-            orgSlug,
-            mainCodeFileName,
-            codeFileNames,
-        )
-        sweepDiscardedScanLogs(discardedScanLogPaths)
-
-        return { studyId, studyJobId }
-    })
-
 const finalizeStudySubmissionInfoSchema = z
     .object({
         title: z.string().nullable().optional(),
@@ -547,14 +506,6 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             mainCodeFileName: codeFiles.find((f) => f.fileType === 'MAIN-CODE')?.name,
             additionalCodeFileNames: codeFiles.filter((f) => f.fileType === 'SUPPLEMENTAL-CODE').map((f) => f.name),
         }
-    })
-
-export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('delete', 'Study')
-    .handler(async ({ db, orgSlug, params: { studyId } }) => {
-        await deleteStudyCompletely(db, orgSlug, studyId)
     })
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })

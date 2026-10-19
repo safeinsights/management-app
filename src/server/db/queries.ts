@@ -398,10 +398,6 @@ export const getIdeOwnerForStudy = async (studyId: string) => {
     return owner ?? null
 }
 
-export const getUserById = async (userId: string) => {
-    return await currentDb().selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
-}
-
 type OrgIdForSlug = { orgId: string; orgType: OrgType }
 
 export async function findOrgIdBySlug(

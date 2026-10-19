@@ -13,7 +13,7 @@ import {
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
-    insertTestStudyData,
+    insertTestBaselineJob,
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
@@ -34,9 +34,7 @@ import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import {
     getDraftStudyAction,
-    onDeleteStudyAction,
     onSaveDraftStudyAction,
-    onSubmitDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
     resubmitProposalAction,
@@ -314,7 +312,7 @@ describe('Request Study Actions', () => {
         })
     })
 
-    it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {
+    it('finalizeStudySubmissionAction converts a draft to PENDING-REVIEW', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-submit' })
 
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
@@ -339,19 +337,7 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study?.status).toEqual('DRAFT')
 
-        const submitResult = actionResult(
-            await onSubmitDraftStudyAction({
-                studyId: draftResult.studyId,
-                mainCodeFileName: 'main.R',
-                codeFileNames: ['helpers.R'],
-            }),
-        )
-
-        expect(submitResult.studyId).toEqual(draftResult.studyId)
-        expect(submitResult.studyJobId).toBeDefined()
-
-        study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
-        expect(study?.status).toEqual('DRAFT')
+        await insertTestBaselineJob(draftResult.studyId)
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
@@ -372,9 +358,7 @@ describe('Request Study Actions', () => {
                 submittingOrgSlug: lab.slug,
             }),
         )
-        const { studyJobId } = actionResult(
-            await onSubmitDraftStudyAction({ studyId: draft.studyId, mainCodeFileName: 'main.R', codeFileNames: [] }),
-        )
+        const { id: studyJobId } = await insertTestBaselineJob(draft.studyId)
 
         const visibleWhenSent: boolean[] = []
         const sqsMock = mockClient(SQSClient)
@@ -414,64 +398,17 @@ describe('Request Study Actions', () => {
             }),
         )
 
-        const submitResult = actionResult(
-            await onSubmitDraftStudyAction({
-                studyId: draftResult.studyId,
-                mainCodeFileName: 'main.py',
-                codeFileNames: ['helpers.py'],
-            }),
-        )
-
-        expect(submitResult.studyId).toBeDefined()
-        expect(submitResult.studyJobId).toBeDefined()
+        await insertTestBaselineJob(draftResult.studyId)
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
         const study = await db
             .selectFrom('study')
             .selectAll('study')
-            .where('id', '=', submitResult.studyId)
+            .where('id', '=', draftResult.studyId)
             .executeTakeFirst()
         expect(study?.language).toEqual('PYTHON')
         expect(study?.status).toEqual('PENDING-REVIEW')
-    })
-
-    it('onSubmitDraftStudyAction rejects non-draft studies', async () => {
-        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { studyId } = await insertTestStudyData({ org })
-
-        const result = await onSubmitDraftStudyAction({
-            studyId,
-            mainCodeFileName: 'main.R',
-            codeFileNames: [],
-        })
-
-        expect(result).toHaveProperty('error')
-        expect((result as { error: string }).error).toMatch(/expected status DRAFT|not found/)
-    })
-
-    it('onDeleteStudyAction deletes a study', async () => {
-        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { studyId } = await insertTestStudyData({ org })
-
-        await onDeleteStudyAction({ studyId })
-
-        const study = await db.selectFrom('study').selectAll('study').where('id', '=', studyId).executeTakeFirst()
-        expect(study).toBeUndefined()
-
-        expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
-    })
-
-    it('onDeleteStudyAction rejects a cross-lab user and leaves the study intact', async () => {
-        const { org: labA } = await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-A', orgType: 'lab' })
-        const { studyId } = await insertTestStudyData({ org: labA })
-
-        await mockSessionWithTestData({ orgSlug: 'lab-delete-cross-B', orgType: 'lab' })
-        const result = await onDeleteStudyAction({ studyId })
-        expect(result).toHaveProperty('error')
-
-        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
-        expect(study?.id).toBe(studyId)
     })
 
     const submitDraftProposal = async (slugPrefix: string) => {

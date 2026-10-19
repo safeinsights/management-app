@@ -1,5 +1,3 @@
-'use server'
-
 import { ErrorAlert } from '../errors'
 import PostHogUserProvider from '../posthog-user-provider'
 import SentryUserProvider from '../sentry-user-provider'
