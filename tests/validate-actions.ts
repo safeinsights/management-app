@@ -48,7 +48,7 @@ function analyzeDirectory(directoryPath: string): void {
     }
 
     // A narrower scan would report every exception outside it as stale.
-    if (path.normalize(directoryPath) === DEFAULT_TARGET) {
+    if (path.relative(process.cwd(), directoryPath) === DEFAULT_TARGET) {
         const stale = findStaleExceptions(seen)
         if (stale.length) {
             errorLogs.push(

@@ -1,19 +1,21 @@
 import * as ts from 'typescript'
 
-// Server components with a module-level 'use server' and no actions. Listed by full path, so a new file
-// with one of these names is still checked.
-export const IGNORE = new Set([
-    'src/app/[orgSlug]/dashboard/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/agreements/researcher/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/agreements/reviewer/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/code/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/review/code/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/review/page.tsx',
-    'src/app/[orgSlug]/study/[studyId]/review/proposal/page.tsx',
-    'src/app/[orgSlug]/study/request/page.tsx',
-    'src/components/layout/focused-layout.tsx',
-    'src/components/layout/user-layout.tsx',
-    'src/components/non-production.tsx',
+const PAGE_EXPORTS = ['default', 'generateMetadata']
+
+// Server components with a module-level 'use server' and no actions, with the exports each may have.
+// Next.js treats every export of such a module as a server function, so any other export fails.
+// Listed by full path, so a new file with one of these names is still checked.
+export const IGNORE = new Map<string, string[]>([
+    ['src/app/[orgSlug]/dashboard/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/agreements/researcher/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/agreements/reviewer/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/code/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/review/code/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/review/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/[studyId]/review/proposal/page.tsx', PAGE_EXPORTS],
+    ['src/app/[orgSlug]/study/request/page.tsx', PAGE_EXPORTS],
+    ['src/components/layout/focused-layout.tsx', ['FocusedLayout']],
+    ['src/components/layout/user-layout.tsx', ['UserLayout']],
 ])
 
 // public: callable without a session. checked-in-handler: the handler authorizes the caller inline.
@@ -102,6 +104,41 @@ function isTypeOnlyExport(node: ts.ExportDeclaration) {
     return !!clause && ts.isNamedExports(clause) && clause.elements.every((el) => el.isTypeOnly)
 }
 
+function runtimeExportNames(sourceFile: ts.SourceFile): string[] {
+    const names: string[] = []
+    for (const statement of sourceFile.statements) {
+        if (ts.isExportDeclaration(statement)) {
+            if (isTypeOnlyExport(statement)) continue
+            const clause = statement.exportClause
+            if (clause && ts.isNamedExports(clause)) {
+                names.push(...clause.elements.filter((el) => !el.isTypeOnly).map((el) => el.name.text))
+            } else {
+                names.push('*')
+            }
+            continue
+        }
+        if (ts.isExportAssignment(statement)) {
+            names.push('default')
+            continue
+        }
+        if (!hasExportModifier(statement)) continue
+        if (ts.isTypeAliasDeclaration(statement) || ts.isInterfaceDeclaration(statement)) continue
+        if (ts.isVariableStatement(statement)) {
+            names.push(...statement.declarationList.declarations.map((decl) => decl.name.getText(sourceFile)))
+            continue
+        }
+        const isDefault =
+            ts.canHaveModifiers(statement) &&
+            !!ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)
+        const declared =
+            ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement)
+                ? statement.name?.text
+                : undefined
+        names.push(isDefault ? 'default' : (declared ?? '<unnamed>'))
+    }
+    return names
+}
+
 // Walks `new Action('<name>').a(...).b(...).handler(...)` from the outside in.
 function actionChain(initializer: ts.Expression) {
     if (
@@ -185,7 +222,19 @@ export function analyzeSource(filePath: string, content: string): { errors: stri
         }
     }
 
-    if (!hasUseServerDirective(sourceFile) || IGNORE.has(filePath)) {
+    if (!hasUseServerDirective(sourceFile)) {
+        return { errors, actions }
+    }
+
+    const allowedExports = IGNORE.get(filePath)
+    if (allowedExports) {
+        for (const name of runtimeExportNames(sourceFile)) {
+            if (!allowedExports.includes(name)) {
+                errors.push(
+                    `${name} is not a listed export of this ignored 'use server' module; move it to src/server/actions`,
+                )
+            }
+        }
         return { errors, actions }
     }
 
