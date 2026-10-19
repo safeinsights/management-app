@@ -4,8 +4,6 @@ export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
 export const CI_ENV = !!process && !!process.env.CI
 
-export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
-
 export const SIMULATE_CODE_BUILD =
     process.env.SIMULATE_CODE_BUILD === 't' || (process.env.SIMULATE_CODE_BUILD != 'f' && DEV_ENV)
 
