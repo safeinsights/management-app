@@ -1,8 +1,7 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { ABILITY_CHECK_EXCEPTIONS, IGNORE, analyzeSource, findStaleExceptions } from './action-file-rules'
+import { ABILITY_CHECK_EXCEPTIONS, analyzeSource, findStaleExceptions } from './action-file-rules'
 
 const ACTIONS_PATH = 'src/server/actions/foo.actions.ts'
-const [IGNORED_PAGE] = IGNORE.keys()
 
 const serverModule = (body: string) => `'use server'\nimport { Action } from './action'\n${body}`
 
@@ -84,18 +83,7 @@ describe('analyzeSource', () => {
         )
     })
 
-    it('allows only the listed exports in a file on IGNORE', () => {
-        const page = `'use server'\nexport async function generateMetadata() {}\nexport default async function Page() {}`
-        expect(errorsFor(IGNORED_PAGE, page)).toEqual([])
-        expect(errorsFor(IGNORED_PAGE, `${page}\nexport async function saveAction() {}`)).toEqual([
-            expect.stringContaining('saveAction is not a listed export'),
-        ])
-        expect(errorsFor(IGNORED_PAGE, `${page}\nexport { save as saveAction }`)).toEqual([
-            expect.stringContaining('saveAction is not a listed export'),
-        ])
-    })
-
-    it('applies the module rules to a path not on IGNORE', () => {
+    it('applies the module rules to a page with a module-level directive', () => {
         const source = `'use server'\nexport async function saveAction() {}`
         expect(errorsFor('src/app/x/page.tsx', source)).toEqual([
             'server action modules belong in src/server/actions',
@@ -106,8 +94,8 @@ describe('analyzeSource', () => {
     it.each([
         ['an exported function', 'src/server/foo.ts', `export async function fooAction() { 'use server'; return 1 }`],
         [
-            'an inline action in a page on IGNORE',
-            IGNORED_PAGE,
+            'an inline action in a page',
+            'src/app/x/page.tsx',
             `export default function Page() {\n  async function save() { 'use server' }\n  return <form action={save} />\n}`,
         ],
         ['an arrow function', 'src/server/foo.ts', `const f = async () => { 'use server' }`],
