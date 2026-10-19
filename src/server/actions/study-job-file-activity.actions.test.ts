@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import {
     actionResult,
     db,
@@ -10,6 +10,7 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    vi,
 } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
 import { fetchJobFileActivityAction, recordJobFileActivityAction } from './study-job-file-activity.actions'
