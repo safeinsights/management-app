@@ -149,7 +149,11 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     error,
     errorLive,
 }) => {
-    const message = error ? <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error> : null
+    const message = error ? (
+        <Box id={fieldErrorId(inputId)}>
+            <InputError error={error} />
+        </Box>
+    ) : null
 
     // Polite, never assertive: a character-limit message re-fires on every keystroke past the
     // cap, and an assertive region would interrupt the user mid-word.
