@@ -1,7 +1,7 @@
 import type { ActionResponse } from '@/lib/errors'
 import { FileEntry } from 'si-encryption/job-results/types'
 import { z } from 'zod'
-import type { FileType, Language, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
+import type { FileType, Language, OrgType, StudyJobStatus } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
