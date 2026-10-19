@@ -14,9 +14,8 @@ import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
-import { studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
+import { fetchStudyQuery, studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
 import { Action, z } from './action'
-import { fetchStudyQuery } from '@/server/db/study-query'
 
 // Newest saved Yjs edit among the documents whose names start with one of `prefixes`.
 const yjsEditedAtSql = (prefixes: string[]) =>

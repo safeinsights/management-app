@@ -6,7 +6,7 @@ import { markStudyOpened } from '@/server/db/mutations'
 import { toRecord } from '@/lib/permissions'
 import { Action, z } from './action'
 import { withStudyAccessSubject } from './study-subject'
-import { fetchStudyQuery } from '@/server/db/study-query'
+import { fetchStudyQuery } from '@/server/db/queries'
 
 // Recorded from the client on entering and leaving a study, not during its render: a render-time
 // write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
