@@ -117,27 +117,21 @@ async function attachCodeToRoundJob(
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
+    const codeFiles = [
+        { name: mainCodeFileName, fileType: 'MAIN-CODE' as const },
+        ...codeFileNames.map((name) => ({ name, fileType: 'SUPPLEMENTAL-CODE' as const })),
+    ]
     await db
         .insertInto('studyJobFile')
-        .values({
-            name: mainCodeFileName,
-            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, mainCodeFileName),
-            studyJobId,
-            fileType: 'MAIN-CODE',
-        })
-        .executeTakeFirstOrThrow()
-
-    for (const fileName of codeFileNames) {
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: fileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName),
+        .values(
+            codeFiles.map(({ name, fileType }) => ({
+                name,
+                fileType,
                 studyJobId,
-                fileType: 'SUPPLEMENTAL-CODE',
-            })
-            .executeTakeFirstOrThrow()
-    }
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, name),
+            })),
+        )
+        .execute()
 
     return { studyJobId, discardedScanLogPaths }
 }
