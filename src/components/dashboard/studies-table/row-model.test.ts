@@ -156,6 +156,71 @@ describe('buildRowModel', () => {
             expect(row.reviewedBy.name).toBeNull()
         })
 
+        it('shows Not submitted for a code draft even though the proposal was submitted', () => {
+            const row = model({
+                status: 'APPROVED',
+                jobStatusChanges: changes('INITIATED'),
+                proposalAuditName: 'Avery',
+                proposalAuditAt: new Date('2026-09-01'),
+            })
+            expect(row.submittedBy.name).toBeNull()
+            expect(row.submittedBy.lines).toEqual(['Proposal: Avery', 'Code: Not submitted'])
+        })
+
+        const earlierDeciders = {
+            proposalReviewerName: 'Dana',
+            proposalReviewedAt: new Date('2026-09-01'),
+            codeReviewerName: 'Eli',
+            codeReviewedAt: new Date('2026-09-04'),
+            outputsReviewerName: 'Fran',
+            outputsReviewedAt: new Date('2026-09-06'),
+        }
+
+        it.each<[string, Partial<StudyRow>, string[]]>([
+            [
+                'a resubmitted proposal',
+                { status: 'PENDING-REVIEW' },
+                ['Proposal: Not reviewed', 'Code: Eli', 'Outputs: Fran'],
+            ],
+            [
+                'resubmitted code',
+                { jobStatusChanges: changes('INITIATED', 'CODE-SUBMITTED') },
+                ['Proposal: Dana', 'Code: Not reviewed', 'Outputs: Fran'],
+            ],
+            [
+                "a new run's outputs",
+                {
+                    jobStatusChanges: changes(
+                        'INITIATED',
+                        'CODE-SUBMITTED',
+                        'CODE-APPROVED',
+                        'JOB-PACKAGING',
+                        'JOB-RUNNING',
+                        'RUN-COMPLETE',
+                    ),
+                },
+                ['Proposal: Dana', 'Code: Eli', 'Outputs: Not reviewed'],
+            ],
+            [
+                'an errored run',
+                {
+                    jobStatusChanges: changes(
+                        'INITIATED',
+                        'CODE-SUBMITTED',
+                        'CODE-APPROVED',
+                        'JOB-PACKAGING',
+                        'JOB-RUNNING',
+                        'JOB-ERRORED',
+                    ),
+                },
+                ['Proposal: Dana', 'Code: Eli', 'Outputs: Not reviewed'],
+            ],
+        ])('shows Not reviewed while %s awaits a decision', (_, overrides, lines) => {
+            const row = model({ ...earlierDeciders, ...overrides }, 'reviewer')
+            expect(row.reviewedBy.name).toBeNull()
+            expect(row.reviewedBy.lines).toEqual(lines)
+        })
+
         it('reads Belongs to as the lab for researchers and the data partner for reviewers', () => {
             const overrides = { submittingLabName: 'Kinetic', orgName: 'OpenStax', submittedByOrgSlug: 'kinetic' }
             expect(model(overrides).belongsTo).toBe('Kinetic')
