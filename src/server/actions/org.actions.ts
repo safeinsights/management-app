@@ -1,5 +1,6 @@
 'use server'
 
+import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
@@ -215,8 +216,8 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
 
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
-        revalidatePath(`/admin/team/${orgSlug}`)
+        revalidatePath(Routes.adminSettings({ orgSlug }))
+        revalidatePath(Routes.adminTeam({ orgSlug }))
 
         return { success: true, message: 'Organization settings updated successfully.' }
     })
