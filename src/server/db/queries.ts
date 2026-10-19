@@ -480,7 +480,9 @@ export async function getInfoForStudyJobId(
     throwIfNotFound = true,
 ): Promise<StudyJobInfo | undefined> {
     const query = studyJobInfoQuery(studyJobId)
-    return throwIfNotFound ? await query.executeTakeFirstOrThrow() : await query.executeTakeFirst()
+    return throwIfNotFound
+        ? await query.executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
+        : await query.executeTakeFirst()
 }
 
 const studyInfoQuery = (studyId: string) =>
@@ -505,7 +507,9 @@ export async function getInfoForStudyId(studyId: string, throwIfNotFound?: true)
 export async function getInfoForStudyId(studyId: string, throwIfNotFound: false): Promise<StudyInfo | undefined>
 export async function getInfoForStudyId(studyId: string, throwIfNotFound = true): Promise<StudyInfo | undefined> {
     const query = studyInfoQuery(studyId)
-    return throwIfNotFound ? await query.executeTakeFirstOrThrow() : await query.executeTakeFirst()
+    return throwIfNotFound
+        ? await query.executeTakeFirstOrThrow(throwNotFound('study'))
+        : await query.executeTakeFirst()
 }
 
 type JobDetails = { id: string; name: string; path: string }

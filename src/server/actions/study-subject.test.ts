@@ -54,6 +54,19 @@ describe('withReviewerStudyJobSubject', () => {
 })
 
 describe('withStudySubject', () => {
+    it('returns ids, researcherId and the study status only', async () => {
+        const { enclave, lab, study } = await seedJob()
+
+        expect(await withStudySubject({ params: { studyId: study.id } })).toStrictEqual({
+            studyId: study.id,
+            orgId: enclave.id,
+            orgSlug: enclave.slug,
+            researcherId: study.researcherId,
+            status: study.status,
+            submittedByOrgId: lab.id,
+        })
+    })
+
     it('rejects an unknown study with a not-found error', async () => {
         const result = withStudySubject({ params: { studyId: UNKNOWN_ID } })
         await expect(result).rejects.toBeInstanceOf(NotFoundError)
