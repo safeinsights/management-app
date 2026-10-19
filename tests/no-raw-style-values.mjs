@@ -20,6 +20,9 @@ const RADIUS_PROPS = ['radius', 'bdrs']
 /** theme.fontSizes keys, plus Mantine's heading sizes. */
 const FONT_SIZE_SCALE = ['xs', 'sm', 'md', 'lg', 'xl', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
+// Mantine reads `size` on these as a font size, the same as `fz`; on icons it is a dimension.
+const TEXT_SIZE_ELEMENTS = ['Text', 'Title', 'Anchor', 'List']
+
 const COLOR_PROPS = ['c', 'bg']
 
 // Mantine's theme-colour prop on Badge, Alert, Button, ActionIcon, ThemeIcon, Burger, Loader…
@@ -101,6 +104,10 @@ const noRawStyleValues = {
         /** Unwraps `{expr}` to the expression, leaving bare literals alone. */
         const unwrap = (value) => (value?.type === 'JSXExpressionContainer' ? value.expression : value)
 
+        const isFontSizeAttr = (attr) =>
+            attr?.name?.name === 'fz' ||
+            (attr?.name?.name === 'size' && TEXT_SIZE_ELEMENTS.includes(attr.parent?.name?.name))
+
         const stringValue = (node) => (node?.type === 'Literal' && typeof node.value === 'string' ? node.value : null)
 
         // `${hue}.9` or `hue + '.9'` names a rung the rule cannot read, so it must not pass for
@@ -173,7 +180,9 @@ const noRawStyleValues = {
                 if (parent.type === 'JSXExpressionContainer' || parent.type === 'JSXAttribute') {
                     const attr = parent.type === 'JSXAttribute' ? parent : parent.parent
                     const name = attr?.name?.name
-                    return [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw', 'fz'].includes(name)
+                    return (
+                        [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw'].includes(name) || isFontSizeAttr(attr)
+                    )
                 }
                 if (parent.type !== 'ConditionalExpression') return false
                 cur = parent
@@ -320,7 +329,7 @@ const noRawStyleValues = {
                 if (COLOR_PROPS.includes(name)) return checkColor(node.value, name)
                 if (RAMP_COLOR_PROPS.includes(name)) return checkRampColor(node.value, name)
                 if (name === 'fw') return checkWeight(node.value)
-                if (name === 'fz') return checkFontSize(node.value)
+                if (isFontSizeAttr(node)) return checkFontSize(node.value)
                 if (SPACING_PROPS.includes(name)) return checkSpacing(node.value, name)
                 if (RADIUS_PROPS.includes(name)) return checkRadius(node.value, name)
             },

@@ -63,6 +63,12 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         // Figma's 10px and 22px have no scale key; their variables are the token.
         '<Text fz="var(--si-font-size-10)" />',
         '<Title fz="var(--si-font-size-22)" />',
+        '<Text size="sm" />',
+        '<Title order={2} size="h4" />',
+        '<List size="md" />',
+        // On an icon or ActionIcon, `size` is a dimension, not a font size.
+        '<CheckIcon size={16} />',
+        '<ActionIcon size={28} />',
         `<Text fz={isProminent ? 'sm' : undefined} />`,
         'const T = ({ fz }) => <Text fz={fz} />',
         `const LABEL = { fw: fontWeight.semibold, fz: 'sm' }`,
@@ -274,6 +280,27 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         // 14px has a scale key, so its variable is a second name for `sm`.
         {
             code: '<Text fz="var(--si-font-size-14)" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // Mantine reads `size` on Text, Title, Anchor and List as `fz`.
+        {
+            code: '<Text size={13} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Title size={22} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Text size="13px" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Anchor size={13} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<List size={13} />',
             errors: [{ messageId: 'rawFontSize' }],
         },
         // Typography in a prop object or config map is the same raw value one step removed.
