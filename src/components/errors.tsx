@@ -153,7 +153,7 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     // `component="span"` so this stays valid as a Mantine `error`, which renders inside a `<p>`
     // where a `<div>` is a React nesting error.
     return (
-        <Group component="span" gap="xs">
+        <Group component="span" gap="xs" wrap="nowrap" align="flex-start">
             <WarningCircleIcon size={14} color="var(--mantine-color-error)" weight="fill" />
             <Text c="var(--mantine-color-error)" size="sm" component="span">
                 {error}

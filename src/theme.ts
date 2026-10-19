@@ -291,8 +291,14 @@ export const theme = createTheme({
         // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
+        // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
         InputWrapper: Input.Wrapper.extend({
             styles: { required: { color: red[7] } },
+            vars: () => ({
+                label: {},
+                description: {},
+                error: { '--input-error-size': 'var(--mantine-font-size-sm)' },
+            }),
         }),
         // Mantine fades disabled inputs to 0.6 opacity, which would wash the disabled tokens out.
         Input: Input.extend({

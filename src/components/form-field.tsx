@@ -150,9 +150,9 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     errorLive,
 }) => {
     const message = error ? (
-        <Box id={fieldErrorId(inputId)}>
+        <Input.Error id={fieldErrorId(inputId)}>
             <InputError error={error} />
-        </Box>
+        </Input.Error>
     ) : null
 
     // Polite, never assertive: a character-limit message re-fires on every keystroke past the

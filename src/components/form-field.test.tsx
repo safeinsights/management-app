@@ -53,6 +53,15 @@ describe('FormField', () => {
         expect(asterisk).toHaveStyle({ color: '#7e241e' })
     })
 
+    // OTTER-880: set in the theme, so it also covers inputs that render their own error.
+    it('sizes Mantine input errors at 14px', () => {
+        renderWithProviders(<TextInput label="Study title" error="This is required." />)
+
+        expect(screen.getByText('This is required.').style.getPropertyValue('--input-error-size')).toBe(
+            'var(--mantine-font-size-sm)',
+        )
+    })
+
     it('renders no error node when there is no error', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title">
