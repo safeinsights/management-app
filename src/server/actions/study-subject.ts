@@ -1,22 +1,19 @@
-import type { DBExecutor } from '@/database'
 import { throwNotFound } from '@/lib/errors'
 import { getInfoForStudyId, getInfoForStudyJobId, getStudyJobInfo } from '@/server/db/queries'
+import { currentDb } from '@/server/request-context'
 
 type JobIdParams = { jobId: string } | { studyJobId: string }
 
 const jobIdFrom = (params: JobIdParams) => ('jobId' in params ? params.jobId : params.studyJobId)
 
-export const withStudySubject = async ({ params: { studyId } }: { params: { studyId: string } }) =>
-    await getInfoForStudyId(studyId)
+export async function withStudySubject({ params: { studyId } }: { params: { studyId: string } }) {
+    const study = await getInfoForStudyId(studyId, false)
+    if (!study) throw throwNotFound('study')()
+    return study
+}
 
-export const withStudyAccessSubject = async ({
-    params: { studyId },
-    db,
-}: {
-    params: { studyId: string }
-    db: DBExecutor
-}) => {
-    const study = await db
+export const withStudyAccessSubject = async ({ params: { studyId } }: { params: { studyId: string } }) => {
+    const study = await currentDb()
         .selectFrom('study')
         .select(['orgId', 'submittedByOrgId', 'status'])
         .where('id', '=', studyId)

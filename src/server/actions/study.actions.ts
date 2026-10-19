@@ -412,24 +412,17 @@ export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
 export const ackAgreementsAction = new Action('ackAgreementsAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), role: z.enum(['researcher', 'reviewer']) }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['id', 'orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ study, params: { studyId, role }, db, session }) => {
+    .handler(async ({ orgId, submittedByOrgId, params: { studyId, role }, db, session }) => {
         const userOrgIds = new Set(Object.values(session?.orgs ?? {}).map((org) => org.id))
 
         // Scoped to the rendered role: a user in both orgs would otherwise ack both columns at
         // once, silently consuming the reviewer's gate (OTTER-546).
-        const requiredOrgId = role === 'reviewer' ? study.orgId : study.submittedByOrgId
+        const requiredOrgId = role === 'reviewer' ? orgId : submittedByOrgId
         // SI admins review studies for orgs they do not belong to; the researcher path stays
         // membership-only.
-        const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId: study.orgId }))
+        const canReviewStudy = role === 'reviewer' && session.can('review', toRecord('Study', { orgId }))
         if (!userOrgIds.has(requiredOrgId) && !canReviewStudy) {
             throw new ActionFailure({ user: `not a member of the study ${role} org` })
         }
@@ -450,7 +443,7 @@ export const softDeleteStudyAction = new Action('softDeleteStudyAction', { perfo
     .handler(async ({ db, params: { studyId }, session }) => {
         const study = await db
             .selectFrom('study')
-            .select(['id', 'status', 'title', 'researcherId', 'orgId', 'submittedByOrgId'])
+            .select(['status', 'title', 'researcherId'])
             .where('id', '=', studyId)
             .where('deletedAt', 'is', null)
             .executeTakeFirstOrThrow(throwNotFound('study'))
@@ -744,7 +737,7 @@ export const getProposalFeedbackForStudyAction = new Action('getProposalFeedback
     .params(z.object({ studyId: z.string() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId } }) => (await getProposalFeedbackForStudy(studyId)).entries)
+    .handler(async ({ params: { studyId } }) => getProposalFeedbackForStudy(studyId))
 
 export type ProposalFeedbackEntry = ActionSuccessType<typeof getProposalFeedbackForStudyAction>[number]
 

@@ -215,34 +215,24 @@ export const currentReviewVersion = async (studyId: string): Promise<number> => 
 export const upcomingResubmissionNoteVersion = async (studyId: string): Promise<number> =>
     (await currentReviewVersion(studyId)) + 1
 
-export const getProposalFeedbackForStudy = async (studyId: string) => {
-    const [study, entries] = await Promise.all([
-        currentDb()
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study')),
-        currentDb()
-            .selectFrom('studyProposalComment')
-            .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
-            .select([
-                'studyProposalComment.id',
-                'studyProposalComment.authorId',
-                'studyProposalComment.authorRole',
-                'studyProposalComment.entryType',
-                'studyProposalComment.decision',
-                'studyProposalComment.body',
-                'studyProposalComment.createdAt',
-                'studyProposalComment.version',
-                'author.fullName as authorName',
-            ])
-            .where('studyProposalComment.studyId', '=', studyId)
-            .orderBy('studyProposalComment.createdAt', 'desc')
-            .execute(),
-    ])
-
-    return { study, entries }
-}
+export const getProposalFeedbackForStudy = async (studyId: string) =>
+    currentDb()
+        .selectFrom('studyProposalComment')
+        .innerJoin('user as author', 'author.id', 'studyProposalComment.authorId')
+        .select([
+            'studyProposalComment.id',
+            'studyProposalComment.authorId',
+            'studyProposalComment.authorRole',
+            'studyProposalComment.entryType',
+            'studyProposalComment.decision',
+            'studyProposalComment.body',
+            'studyProposalComment.createdAt',
+            'studyProposalComment.version',
+            'author.fullName as authorName',
+        ])
+        .where('studyProposalComment.studyId', '=', studyId)
+        .orderBy('studyProposalComment.createdAt', 'desc')
+        .execute()
 
 export const getDataSourcesForOrg = async (orgId: string) => {
     return currentDb()

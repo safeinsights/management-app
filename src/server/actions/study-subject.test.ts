@@ -1,6 +1,11 @@
 import { NotFoundError } from '@/lib/errors'
-import { db, describe, expect, insertTestOrg, insertTestStudyJobData, it } from '@/tests/unit.helpers'
-import { withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
+import { describe, expect, insertTestOrg, insertTestStudyJobData, it } from '@/tests/unit.helpers'
+import {
+    withReviewerStudyJobSubject,
+    withStudyAccessSubject,
+    withStudyJobSubject,
+    withStudySubject,
+} from './study-subject'
 
 const UNKNOWN_ID = '00000000-0000-7000-8000-000000000000'
 
@@ -48,11 +53,19 @@ describe('withReviewerStudyJobSubject', () => {
     })
 })
 
+describe('withStudySubject', () => {
+    it('rejects an unknown study with a not-found error', async () => {
+        const result = withStudySubject({ params: { studyId: UNKNOWN_ID } })
+        await expect(result).rejects.toBeInstanceOf(NotFoundError)
+        await expect(result).rejects.toThrow('study was not found')
+    })
+})
+
 describe('withStudyAccessSubject', () => {
     it('returns orgId, submittedByOrgId and status only', async () => {
         const { enclave, lab, study } = await seedJob()
 
-        expect(await withStudyAccessSubject({ params: { studyId: study.id }, db })).toStrictEqual({
+        expect(await withStudyAccessSubject({ params: { studyId: study.id } })).toStrictEqual({
             orgId: enclave.id,
             submittedByOrgId: lab.id,
             status: study.status,
@@ -60,8 +73,6 @@ describe('withStudyAccessSubject', () => {
     })
 
     it('rejects an unknown study', async () => {
-        await expect(withStudyAccessSubject({ params: { studyId: UNKNOWN_ID }, db })).rejects.toThrow(
-            'study was not found',
-        )
+        await expect(withStudyAccessSubject({ params: { studyId: UNKNOWN_ID } })).rejects.toThrow('study was not found')
     })
 })
