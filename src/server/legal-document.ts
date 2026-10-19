@@ -25,7 +25,7 @@ export const urlForLegalDocumentVersion = ({
         ResponseContentDisposition: `inline; filename="${fileName.replace(/[\r\n]+/g, ' ').replace(/["\\]/g, '_')}"`,
     })
 
-export const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
+const contentOf = async (filePath: string) => await (await fetchFileContents(filePath)).text()
 
 // A pdf gets a signed url, markdown gets inlined content. fileName only rides the pdf branch, where
 // it names the download (the S3 key is a bare uuid).

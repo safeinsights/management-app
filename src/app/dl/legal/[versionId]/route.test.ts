@@ -18,7 +18,8 @@ import {
 
 // The route only resolves the version row; stub the presign so no S3 is needed. The headers it
 // builds are covered in storage.test.ts.
-vi.mock('@/server/legal-document', () => ({
+vi.mock('@/server/legal-document', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/legal-document')>()),
     urlForLegalDocumentVersion: vi.fn(async () => 'https://signed.example/agreement.pdf'),
 }))
 

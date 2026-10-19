@@ -1,6 +1,7 @@
 'use server'
 
 import { v7 as uuidv7 } from 'uuid'
+import type { LegalDocumentType } from '@/database/types'
 import { pathForLegalDocumentVersion } from '@/lib/paths'
 import {
     createLegalDocumentDraftSchema,
@@ -16,7 +17,10 @@ import { findLegalDocument, findOrCreateLegalDocument } from '../db/legal-docume
 import { bodyForVersion, urlForLegalDocumentVersion } from '../legal-document'
 import { onStudyAgreementPublished } from '../events'
 import { Action, ActionFailure } from './action'
-import { requiresSignedAt, scopeFromVersionId } from './legal-document-scope'
+import { scopeFromVersionId } from './legal-document-scope'
+
+// Only these carry an out-of-app signature; tos/pn are published, not signed.
+const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
 
 export const createLegalDocumentDraftAction = new Action('createLegalDocumentDraftAction', {
     performsMutations: true,

@@ -113,6 +113,9 @@ describe('analyzeSource file names in src/server/actions', () => {
         expect(errorsFor('src/server/actions/foo.ts', serverModule(guarded))).toEqual([
             'server action modules must be named *.actions.ts',
         ])
+        expect(errorsFor('src/server/actions/nested/foo.ts', serverModule(guarded))).toEqual([
+            'server action modules must be named *.actions.ts',
+        ])
     })
 
     // No 'use server' text at all: the rule must run before the module-directive early return.

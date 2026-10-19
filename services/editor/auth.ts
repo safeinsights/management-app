@@ -133,7 +133,7 @@ export type StudyEditabilitySnapshot = {
 // this so stale clients cannot keep streaming updates after a status flip.
 // Job-keyed review docs are not status-gated here: the management-app action layer
 // is the single enforcer of code-review versioning (see
-// claimInitialCodeReviewJob in study.actions.ts), and per-document room
+// claimInitialCodeReviewJob in code-review.actions.ts), and per-document room
 // isolation in Hocuspocus prevents stale-round writes from polluting a
 // different round's persisted state. Outputs-review feedback is exempt here too, but for a
 // narrower reason: what bounds it is the job's files decision, not the STUDY status this snapshot

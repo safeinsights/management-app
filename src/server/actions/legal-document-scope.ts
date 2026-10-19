@@ -2,10 +2,7 @@ import type { DBExecutor } from '@/database'
 import type { LegalDocumentType } from '@/database/types'
 import { GlobalLegalDocumentType, globalLegalDocumentTypes } from '@/schema/legal-document'
 
-// Only these carry an out-of-app signature; tos/pn are published, not signed.
-export const requiresSignedAt = (type: LegalDocumentType) => type !== 'TOS' && type !== 'PN'
-
-export const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
+const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
     (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
 
 // An unknown versionId yields no audience, so every condition fails closed.
