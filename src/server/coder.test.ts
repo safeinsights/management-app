@@ -921,6 +921,26 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         expect(status.agentLogLines).toEqual(['agent up'])
         expect(status.agentStatus).toEqual({ lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' })
         expect(status.cursors).toEqual({ build: 2, agent: 5 })
+        const methods = (global.fetch as unknown as Mock).mock.calls.map(([, init]) => (init as RequestInit).method)
+        expect(methods).not.toContain('PUT')
+    })
+
+    it('reactivates a user flagged dormant mid-launch and keeps polling', async () => {
+        const fetchMock = global.fetch as unknown as Mock
+        const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+        fetchMock.mockImplementation((url: string, init: RequestInit) => {
+            if (url.includes('/users?'))
+                return ok({ users: [{ username: 'john-doe', email: 'john@example.com', status: 'dormant' }] })
+            if (init.method === 'PUT') return ok({ username: 'john-doe', email: 'john@example.com', status: 'active' })
+            return routeFetch({})(url)
+        })
+
+        const status = await getCoderWorkspaceLaunchStatus('study-1')
+
+        const puts = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+        expect(puts.map(([url]) => url)).toEqual(['https://api.coder.com/api/v2/users/john-doe/status/activate'])
+        expect(fetchMock.mock.calls.map(([url]) => url)).toContainEqual(expect.stringContaining('/john-doe/workspace/'))
+        expect(status.buildStatus).toBe('running')
     })
 
     it('only requests logs after the provided cursors', async () => {

@@ -69,7 +69,7 @@ export async function getCoderUserFor(identity: CoderIdentity): Promise<CoderUse
 }
 
 // Activity through the admin token isn't the user's own, so BMA-only users go dormant after 90 days.
-async function ensureCoderUserActive(user: CoderUser): Promise<CoderUser> {
+export async function ensureCoderUserActive(user: CoderUser): Promise<CoderUser> {
     if (user.status === 'suspended') {
         throw new Error(`Coder account ${user.username} is suspended; an admin must reactivate it`)
     }
