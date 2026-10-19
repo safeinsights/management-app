@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import logger from '@/lib/logger'
 import { extractTextFromLexical } from '@/lib/lexical'
 import { plural } from '@/lib/string'
@@ -10,6 +9,7 @@ import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
 import { STUDY_REVIEW_GENERATION_DEADLINE_MS, STUDY_REVIEW_STALE_AFTER_MS } from '@/lib/study-review'
+import { currentDb } from '@/server/request-context'
 
 // Booleans are deliberately false so the UI renders red badges: a missing review must not look
 // like a passing one.
@@ -34,7 +34,7 @@ export const PLACEHOLDER = '(none provided)'
 type SkippedFile = { name: string; reason: string }
 
 async function fetchCodeFiles(studyJobId: string) {
-    const files = await db
+    const files = await currentDb()
         .selectFrom('studyJobFile')
         .select(['name', 'path'])
         .where('studyJobId', '=', studyJobId)
@@ -78,7 +78,7 @@ function lexicalFieldToText(value: unknown): string {
 async function assembleReviewContent(
     studyJobId: string,
 ): Promise<{ content: ReviewContent; agentContext: string; skippedFiles: SkippedFile[] } | null> {
-    const job = await db
+    const job = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select([
@@ -113,7 +113,7 @@ async function assembleReviewContent(
 
     const dataDocs = await generateDataSourcesContextString(job.orgId)
 
-    const agentContext = await getAgentContextString(db, { language: job.language, orgId: null })
+    const agentContext = await getAgentContextString(currentDb(), { language: job.language, orgId: null })
 
     const content: ReviewContent = {
         proposal: proposalParts.join('\n\n') || PLACEHOLDER,
@@ -142,7 +142,7 @@ async function claimRound(studyJobId: string, round: number): Promise<Date | nul
     const startedAt = new Date()
     const staleBefore = new Date(startedAt.getTime() - STUDY_REVIEW_STALE_AFTER_MS)
 
-    const claimed = await db
+    const claimed = await currentDb()
         .insertInto('studyReview')
         .values({ studyJobId, round, report: null, summaryFailedAt: null, summaryStartedAt: startedAt })
         .onConflict((oc) =>
@@ -170,7 +170,7 @@ export async function generateAndStoreStudyReview(studyJobId: string, round: num
 
     // Generation takes minutes, so the code it was started for can already have been replaced.
     // Checked again before each write, since the resubmit can also land mid-run (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round))) {
+    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) {
         logger.info(`Study review round is no longer current, skipping`, { studyJobId, round })
         return
     }
@@ -228,7 +228,7 @@ async function runStudyReview(studyJobId: string, round: number, claimedAt: Date
 // dropped rather than stored (OTTER-779). Its claim stays behind on that round as the record of a
 // run that produced nothing; only the current round's row is ever read back.
 async function roundWasSuperseded(studyJobId: string, round: number): Promise<boolean> {
-    if (await isCurrentCodeRound(studyJobId, round)) return false
+    if (await isCurrentCodeRound(studyJobId, round, currentDb())) return false
     logger.warn(`Discarding a study review for a superseded round`, { studyJobId, round })
     return true
 }
@@ -244,7 +244,7 @@ async function persistReport(
 ): Promise<void> {
     if (await roundWasSuperseded(studyJobId, round)) return
 
-    await db
+    await currentDb()
         .insertInto('studyReview')
         .values({
             studyJobId,
@@ -265,7 +265,7 @@ async function persistReport(
 async function persistFailure(studyJobId: string, round: number, claimedAt: Date): Promise<void> {
     if (await roundWasSuperseded(studyJobId, round)) return
 
-    await db
+    await currentDb()
         .insertInto('studyReview')
         .values({ studyJobId, round, report: null, summaryFailedAt: new Date(), summaryStartedAt: claimedAt })
         .onConflict((oc) =>

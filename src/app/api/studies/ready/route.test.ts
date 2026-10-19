@@ -9,7 +9,7 @@ test('missing JWT is rejected', async () => {
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
     expect(await resp.json()).toEqual({
-        error: "Token error: Error: 'Authorization' header missing or not well formed.  Headers are:\n",
+        error: "Token error: Error: 'Authorization' header missing or not well formed.",
     })
 })
 

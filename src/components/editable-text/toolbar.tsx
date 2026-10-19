@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Box, Divider, Group, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Divider, Group, Paper, TextInput, Tooltip } from '@mantine/core'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
     CheckIcon,
@@ -182,14 +182,17 @@ export const Toolbar = () => {
     const outdent = () => runOnEditor(() => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined))
 
     return (
-        <Box
+        <Paper
+            shadow="md"
+            radius="xs"
+            w="fit-content"
+            bd={`1px solid ${semanticColor('border.default')}`}
             onMouseDown={(e: React.MouseEvent) => {
                 if (!(e.target instanceof HTMLInputElement)) {
                     e.preventDefault()
                 }
             }}
         >
-            <Divider />
             <Group gap="xxs" p="xxs" wrap="nowrap">
                 {linkEditor.isEditing ? (
                     <LinkInput
@@ -210,7 +213,7 @@ export const Toolbar = () => {
                     />
                 )}
             </Group>
-        </Box>
+        </Paper>
     )
 }
 
@@ -299,6 +302,7 @@ function FormatButtons({
             >
                 <TextUnderlineIcon size={16} weight={formatState.isUnderline ? 'bold' : 'regular'} />
             </ActionIcon>
+            <Divider orientation="vertical" />
             <ActionIcon
                 variant={formatState.isLink ? 'filled' : 'subtle'}
                 color={semanticColor('icon.light')}
@@ -326,6 +330,7 @@ function FormatButtons({
             >
                 <ListNumbersIcon size={16} weight={formatState.listType === 'number' ? 'bold' : 'regular'} />
             </ActionIcon>
+            <Divider orientation="vertical" />
             <ActionIcon
                 variant="subtle"
                 color={semanticColor('icon.light')}

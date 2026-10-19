@@ -21,7 +21,7 @@ import { useUser } from '@clerk/nextjs'
 import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { notifications } from '@mantine/notifications'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
-import { findOrCreateOrgMembership } from '@/server/mutations'
+import { findOrCreateOrgMembership } from '@/server/db/mutations'
 import { CURRENT_USER_INFO_KEY, useReloadOrgList, useSession } from './session'
 
 type TestQueryClient = ReturnType<typeof createTestQueryClient>

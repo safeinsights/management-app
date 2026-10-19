@@ -8,7 +8,8 @@ import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
 import { pathForInvitation } from '@/lib/paths'
 import { APP_BASE_URL } from '@/server/config'
 import { findOpenInvite } from '@/server/db/queries'
-import { findQaUser, withTransaction, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
+import { findQaUser, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
+import { withTransaction } from '@/server/request-context'
 
 export class QaConflictError extends Error {}
 
@@ -40,8 +41,6 @@ async function resolveOrgs(db: Kysely<DB>, orgs: QaOrgMembership[]) {
     )
 }
 
-// org_user has no unique constraint on (org_id, user_id), so this selects before inserting
-// rather than relying on onConflict.
 async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awaited<ReturnType<typeof resolveOrgs>>) {
     const keptOrgIds = resolved.map((org) => org.orgId)
     let removals = db.deleteFrom('orgUser').where('userId', '=', userId)
@@ -50,20 +49,16 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
     }
     await removals.execute()
 
-    for (const { orgId, isAdmin } of resolved) {
-        const existing = await db
-            .selectFrom('orgUser')
-            .select(['id'])
-            .where('userId', '=', userId)
-            .where('orgId', '=', orgId)
-            .executeTakeFirst()
-
-        if (existing) {
-            await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', existing.id).execute()
-        } else {
-            await db.insertInto('orgUser').values({ userId, orgId, isAdmin }).execute()
-        }
-    }
+    // Deduped, last entry winning, because one upsert cannot touch the same (org_id, user_id) row twice.
+    const memberships = [...new Map(resolved.map((org) => [org.orgId, org])).values()]
+    if (!memberships.length) return
+    await db
+        .insertInto('orgUser')
+        .values(memberships.map(({ orgId, isAdmin }) => ({ userId, orgId, isAdmin })))
+        .onConflict((oc) =>
+            oc.columns(['orgId', 'userId']).doUpdateSet((eb) => ({ isAdmin: eb.ref('excluded.isAdmin') })),
+        )
+        .execute()
 }
 
 // The fingerprint is derived, not accepted from the caller: a mismatched one would make senders

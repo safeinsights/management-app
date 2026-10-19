@@ -1,4 +1,3 @@
-import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 import {
     CopyObjectCommand,
     DeleteObjectCommand,
@@ -23,7 +22,7 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { Signer } from '@aws-sdk/rds-signer'
 import PG from 'pg'
 import type { LegalDocumentType } from '@/database/types'
-import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import {
     pathForCodeEnvScanArtifacts,
@@ -339,26 +338,6 @@ export const completePathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDa
 
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
     return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`
-}
-
-export const getAWSInfo = async () => {
-    const region = process.env.AWS_REGION || 'us-east-1'
-    if (TEST_ENV) {
-        return { accountId: '000000000000', region }
-    }
-    if (process.env.AWS_ACCOUNT_ID) {
-        return { accountId: process.env.AWS_ACCOUNT_ID, region }
-    }
-    const client = new STSClient({})
-    const command = new GetCallerIdentityCommand({})
-    const response = await client.send(command)
-    const accountId = response.Account
-    if (!accountId) throw new Error('Failed to get AWS account ID')
-
-    return {
-        accountId,
-        region,
-    }
 }
 
 export const storeS3File = async (

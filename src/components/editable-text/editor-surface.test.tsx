@@ -1,5 +1,5 @@
 import { rem } from '@mantine/core'
-import { renderWithProviders, screen, describe, it, expect, waitFor } from '@/tests/unit.helpers'
+import { renderWithProviders, screen, describe, it, expect, waitFor, fireEvent } from '@/tests/unit.helpers'
 import { SingleUserEditor } from './single-user-editor'
 
 // Driven through SingleUserEditor because the surface only works inside a LexicalComposer.
@@ -55,6 +55,15 @@ describe('EditorSurface', () => {
         expect(editable().tabIndex).toBe(0)
 
         editable().focus()
+        expect(document.activeElement).toBe(editable())
+    })
+
+    it('focuses the editor when the toolbar row is pressed beside the toolbar', () => {
+        renderWithProviders(<SingleUserEditor id="doc-toolbar-row" ariaLabel="Impact" />)
+
+        const toolbarRow = screen.getByRole('button', { name: 'Bold' }).closest('.mantine-Paper-root')!.parentElement!
+        fireEvent.mouseDown(toolbarRow)
+
         expect(document.activeElement).toBe(editable())
     })
 

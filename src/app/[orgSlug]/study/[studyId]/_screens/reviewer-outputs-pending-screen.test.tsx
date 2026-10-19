@@ -21,7 +21,7 @@ import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, db)
     if (!raw) throw new Error('raw study state missing')
     return raw
 }

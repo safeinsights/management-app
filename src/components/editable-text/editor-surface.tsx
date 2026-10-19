@@ -105,7 +105,7 @@ export function EditorSurface({
             data-error={error ? true : undefined}
             {...widgetBlur}
         >
-            <Box className="editable-text-scroll" onMouseDown={focusFromSlack}>
+            <Box className="editable-text-scroll">
                 <div ref={contentRef}>
                     <RichTextPlugin
                         contentEditable={
@@ -134,9 +134,9 @@ export function EditorSurface({
             {/* Inside the field on purpose: a card in a portal would read as a blur (OTTER-647),
                 and this position puts it before the toolbar in the tab order. */}
             <LinkHoverCardPlugin />
-            <div ref={chromeRef}>
+            <Box ref={chromeRef} p="xxs" onMouseDown={focusFromSlack}>
                 <Toolbar />
-            </div>
+            </Box>
         </Paper>
     )
 }

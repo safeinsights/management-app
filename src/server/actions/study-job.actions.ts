@@ -4,7 +4,7 @@ import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
 import { isOutputsDecided, latestJob, projectStudyState } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { assertDecisionFeedback } from './decision-feedback'
-import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
+import { isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
@@ -13,21 +13,17 @@ import {
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
-import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
+import { sharedFileSchema, type SharedFile } from '@/lib/types'
 import { isSessionOrgMember } from '@/lib/utils'
 import type { FileType } from '@/database/types'
 import {
     getLabPublicKeysForStudy,
     getUserPublicKey,
-    getSharedFileIdsForJob,
-    getStudyJobFileOfType,
     getStudyJobInfo,
     jobAnalysisForJob,
-    latestJobForStudy,
     fetchUserFullName,
     outputsDecisionVersion,
 } from '@/server/db/queries'
-import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
 import { codeRoundForJob } from '@/server/db/code-round'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -65,18 +61,6 @@ export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId } }) => {
         return await getLabPublicKeysForStudy(studyId)
-    })
-
-// Derived from the re-wrapped key rows, so empty before approval.
-export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
-    .params(z.object({ jobId: z.string() }))
-    .middleware(async ({ params: { jobId } }) => {
-        const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { jobId } }) => {
-        return await getSharedFileIdsForJob(jobId)
     })
 
 // Feedback and the files decision land together so the reviewer's rationale can never be orphaned
@@ -201,28 +185,6 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         return { submitterFullName }
     })
 
-export const loadStudyJobAction = new Action('loadStudyJobAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob }) => {
-        return studyJob
-    })
-
-export const latestJobForStudyAction = new Action('latestJobForStudyAction')
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-
-        const studyJob = await latestJobForStudy(studyId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob }) => studyJob)
-
 // The summary and scan share one authorization and submission lookup.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
     .params(z.object({ studyJobId: z.string() }))
@@ -264,33 +226,6 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
         return { status: 'restarted' as const }
     })
 
-export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-
-    .handler(async ({ studyJob }) => {
-        const approvedJobFiles = studyJob.files.filter(
-            (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
-        )
-
-        const jobFiles: JobFile[] = []
-        for (const jobFile of approvedJobFiles) {
-            const blob = await fetchFileContents(jobFile.path)
-            const contents = await blob.arrayBuffer()
-            jobFiles.push({
-                contents,
-                path: jobFile.name,
-                fileType: jobFile.fileType,
-            })
-        }
-
-        return jobFiles
-    })
-
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
     .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
@@ -308,23 +243,6 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         const blob = await fetchFileContents(file.path)
         const contents = await blob.arrayBuffer()
         return { fileName: file.name, contents }
-    })
-
-export const fetchScanLogAction = new Action('fetchScanLogAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }) => {
-        // Newest row of the type, so the viewer shows the same log the displayed
-        // scan statuses were parsed from and the download link serves.
-        const file = await getStudyJobFileOfType(studyJobId, 'SECURITY-SCAN-LOG', false)
-        if (!file) throw new ActionFailure({ file: 'No security scan log found for this job' })
-
-        const blob = await fetchFileContents(file.path)
-        return { fileName: SCAN_LOG_FILE_NAME, contents: await blob.text() }
     })
 
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')

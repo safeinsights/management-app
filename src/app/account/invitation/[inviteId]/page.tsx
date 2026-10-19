@@ -1,5 +1,4 @@
 import type { Metadata, Route } from 'next'
-import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
@@ -9,14 +8,16 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
 import { Flex, Paper, Text, Title } from '@mantine/core'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { currentDb } from '@/server/request-context'
 
 export const metadata: Metadata = { title: 'Invitation' }
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
+    const executor = currentDb()
     const { inviteId } = await params
     const session = await sessionFromClerk()
 
-    const pendingInvite = await db
+    const pendingInvite = await executor
         .selectFrom('pendingUser')
         .innerJoin('org', 'pendingUser.orgId', 'org.id')
         .leftJoin('user', 'user.email', 'pendingUser.email')
@@ -39,7 +40,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
             ? `${pendingInvite.firstName} ${pendingInvite.lastName}`
             : undefined
 
-    const claimedInvite = await db
+    const claimedInvite = await executor
         .selectFrom('pendingUser')
         .select('claimedByUserId')
         .where('claimedByUserId', 'is not', null)
@@ -67,7 +68,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [pendingInvite.email] })
 
         if (clerkUsers.data.length > 0) {
-            const userWithClerkId = await db
+            const userWithClerkId = await executor
                 .selectFrom('user')
                 .select(['id'])
                 .where('clerkId', '=', clerkUsers.data[0].id)

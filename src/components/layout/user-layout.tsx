@@ -1,5 +1,3 @@
-'use server'
-
 import { ClerkProvider } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
 import { LoadingOverlay } from '@mantine/core'

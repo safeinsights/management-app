@@ -16,7 +16,7 @@ describe('get keys', () => {
 
         expect(response.status).toBe(401)
         expect(await response.json()).toStrictEqual({
-            error: "Token error: Error: 'Authorization' header missing or not well formed.  Headers are:\n",
+            error: "Token error: Error: 'Authorization' header missing or not well formed.",
         })
     })
 

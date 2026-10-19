@@ -20,6 +20,7 @@ import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
+import { localStorageContext, withTransaction } from '@/server/request-context'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -194,16 +195,6 @@ export async function findQaUser(db: Kysely<DB>, idOrEmail: string) {
     return user
 }
 
-// Mutation Actions already run their handlers inside a transaction (see action.ts)
-// and Kysely does not support nesting, so reuse the caller's transaction when given one.
-export async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
-    if (db.isTransaction) {
-        await fn(db)
-        return
-    }
-    await db.transaction().execute(fn)
-}
-
 async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
     const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
     if (jobs.length > 0) {
@@ -245,8 +236,14 @@ async function deleteStudyAgreementRows(db: Kysely<DB>, studyId: string) {
  * then its S3 folder once the rows are committed.
  */
 export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, studyId: string) {
+    const deleteFolder = () => deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     await withTransaction(db, (trx) => deleteStudyRows(trx, studyId))
-    await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
+    if (!db.isTransaction) return await deleteFolder()
+
+    // Joined to a caller's transaction, the rows are not gone until that caller commits.
+    const ctx = localStorageContext.getStore()
+    if (ctx?.db !== db || !ctx.afterCommit) throw new Error('cannot tell when this transaction commits')
+    ctx.afterCommit(deleteFolder)
 }
 
 /**

@@ -1,9 +1,9 @@
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
 import type { AuditFieldChange } from '@/lib/audit-diff'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import logger from '@/lib/logger'
-import { localStorageContext } from '@/server/actions/action'
+import { localStorageContext, currentDb } from '@/server/request-context'
 import { capturePostHogEvent, type PostHogEventName } from '@/server/posthog'
 import { CLERK_ADMIN_ORG_SLUG, isLabOrg, UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
@@ -27,14 +27,12 @@ export function deferred<Args extends unknown[], R>(handler: (...args: Args) => 
                     await handler(...args)
                 } catch (error: unknown) {
                     logger.error(error)
-                    Sentry.captureException(error)
                     await Sentry.flush(2_000)
                 }
             })
 
-        // after() cannot be unscheduled, so inside a performsMutations action wait for the commit: a
-        // rollback drops afterCommit hooks. A caller's own db.transaction() is not detected here, so
-        // call events after it returns (OTTER-841).
+        // after() cannot be unscheduled, so inside a transaction wait for the commit of the action or
+        // withTransaction() that opened it; a rollback drops afterCommit hooks (OTTER-841).
         const ctx = localStorageContext.getStore()
         if (ctx?.afterCommit && ctx.db?.isTransaction) {
             ctx.afterCommit(async () => schedule())
@@ -53,7 +51,7 @@ type AuditEntry = {
 }
 
 // Pass an executor to enlist the audit row in the caller's transaction.
-export const audit = async (entry: AuditEntry, executor: DBExecutor = db): Promise<void> => {
+export const audit = async (entry: AuditEntry, executor: DBExecutor): Promise<void> => {
     logger.info(`${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
     await executor.insertInto('audit').values(entry).execute()
 }
@@ -115,7 +113,7 @@ const roleInOrg = (memberships: Awaited<ReturnType<typeof getOrgInfoForUserId>>,
 const actorRoleProps = async (userId: string, orgId: string) => roleInOrg(await getOrgInfoForUserId(userId), orgId)
 
 const selectStudyForCapture = (studyId: string) =>
-    db
+    currentDb()
         .selectFrom('study')
         .select(['orgId', 'submittedByOrgId', 'isTestStudy', 'language', 'submittedAt', 'approvedAt'])
         .where('id', '=', studyId)
@@ -170,7 +168,7 @@ export const onStudyDraftCreated = deferred(async ({ studyId, userId }: StudyEve
 
 export const onStudyProposalSubmitted = deferred(
     async ({ studyId, userId, isResubmission }: StudyEvent & { isResubmission: boolean }) => {
-        await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId })
+        await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
         await email.sendStudyProposalEmails(studyId)
         await email.sendStudyAgreementPreparationEmail(studyId)
@@ -179,7 +177,7 @@ export const onStudyProposalSubmitted = deferred(
 
 // Its own handler: the CREATED/STUDY row and the agreement request are for the first submission only.
 export const onStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
-    await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
     await email.sendStudyProposalEmails(studyId)
 })
@@ -207,7 +205,7 @@ export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
 export const onStudyCodeSubmitted = deferred(
     async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-        await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId })
+        await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
         await email.sendStudyCodeSubmittedEmail(studyId)
     },
@@ -215,7 +213,7 @@ export const onStudyCodeSubmitted = deferred(
 
 export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_approved', {
         studyId,
         userId,
@@ -223,7 +221,7 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
         // From the first submission, so the lab's revision time counts. Read from the earliest CREATED
         // row: finalizing a CHANGE-REQUESTED study moves submittedAt, resubmitProposalAction does not.
         extra: async (study, role) => {
-            const firstSubmission = await db
+            const firstSubmission = await currentDb()
                 .selectFrom('audit')
                 .select((eb) => eb.fn.min('createdAt').as('at'))
                 .where('recordType', '=', 'STUDY')
@@ -245,28 +243,28 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_declined', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalRejectedEmail(studyId)
 })
 
 export const onStudyNeedsClarification = deferred(async ({ studyId, userId }: StudyEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalNeedsRevisionEmail(studyId)
 })
 
 export const onStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_approved', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeApprovedEmail(studyId)
 })
 
 export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-    await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId })
+    await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeNeedsRevisionEmail(studyId)
 })
@@ -289,7 +287,7 @@ const emailLabOutputsDecision = (studyId: string, errored = false) =>
 export const onStudyResultsApproved = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-        await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
+        await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
         await emailLabOutputsDecision(studyId, errored)
     },
@@ -298,7 +296,7 @@ export const onStudyResultsApproved = deferred(
 export const onStudyResultsRejected = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
         revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
-        await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
+        await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_results_outputs_not_shared', {
             studyId,
             userId,
@@ -310,7 +308,7 @@ export const onStudyResultsRejected = deferred(
 )
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
-    await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId })
+    await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId }, currentDb())
     capturePostHogEvent({ distinctId: userId, event: 'user_logged_in' })
 })
 
@@ -332,7 +330,7 @@ export const onUserViewedSubmitCodeFaq = async ({ db: executor, userId }: { db: 
 }
 
 export const onUserResetPW = deferred(async (userId: string) => {
-    await audit({ userId, eventType: 'RESET_PASSWORD', recordType: 'USER', recordId: userId })
+    await audit({ userId, eventType: 'RESET_PASSWORD', recordType: 'USER', recordId: userId }, currentDb())
 })
 
 type Invite = { pendingId: string; isResend: boolean }
@@ -342,19 +340,22 @@ type Invite = { pendingId: string; isResend: boolean }
 // reaches the admin.
 export const onUserInvited = deferred(async ({ pendingId, isResend }: Invite) => {
     const user = await siUser()
-    const invite = await db
+    const invite = await currentDb()
         .selectFrom('pendingUser')
         .select(['email', 'orgId', 'isAdmin'])
         .where('id', '=', pendingId)
         .executeTakeFirstOrThrow()
 
-    await audit({
-        userId: user.id,
-        eventType: 'INVITED',
-        recordType: 'USER',
-        recordId: pendingId,
-        metadata: { invitedEmail: invite.email, isResend },
-    })
+    await audit(
+        {
+            userId: user.id,
+            eventType: 'INVITED',
+            recordType: 'USER',
+            recordId: pendingId,
+            metadata: { invitedEmail: invite.email, isResend },
+        },
+        currentDb(),
+    )
     capturePostHogEvent({
         distinctId: user.id,
         event: 'invited',
@@ -370,13 +371,16 @@ export const onUserInvited = deferred(async ({ pendingId, isResend }: Invite) =>
 type AcceptedInvite = { userId: string; inviteId: string; isNewAccount: boolean }
 
 export const onUserAcceptInvite = deferred(async ({ userId, inviteId, isNewAccount }: AcceptedInvite) => {
-    await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId, metadata: { inviteId } })
+    await audit(
+        { userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId, metadata: { inviteId } },
+        currentDb(),
+    )
     capturePostHogEvent({
         distinctId: userId,
         event: 'accepted_invite',
         properties: async () => {
             // The membership's role, not the invite's: accepting never demotes an existing admin.
-            const membership = await db
+            const membership = await currentDb()
                 .selectFrom('pendingUser')
                 .innerJoin('orgUser', (join) =>
                     join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').on('orgUser.userId', '=', userId),
@@ -400,13 +404,16 @@ type RoleUpdate = { userId: string; actorId: string; orgId: string; before: User
 // userId is the actor, as on every other audit row, so the team list's last-activity date stays
 // the admin's rather than moving for the user they changed.
 export const onUserRoleUpdate = deferred(async ({ userId, actorId, orgId, before, after }: RoleUpdate) => {
-    await audit({
-        userId: actorId,
-        eventType: 'UPDATED',
-        recordType: 'USER',
-        recordId: userId,
-        metadata: { roles: { before, after } },
-    })
+    await audit(
+        {
+            userId: actorId,
+            eventType: 'UPDATED',
+            recordType: 'USER',
+            recordId: userId,
+            metadata: { roles: { before, after } },
+        },
+        currentDb(),
+    )
     capturePostHogEvent({
         distinctId: actorId,
         event: 'role_updated',
@@ -421,9 +428,9 @@ export const onUserRoleUpdate = deferred(async ({ userId, actorId, orgId, before
 })
 
 export const onUserPublicKeyCreated = deferred(async ({ userId }: { userId: string }) => {
-    await audit({ userId, eventType: 'CREATED', recordType: 'USER', recordId: userId })
+    await audit({ userId, eventType: 'CREATED', recordType: 'USER', recordId: userId }, currentDb())
 })
 
 export const onUserPublicKeyUpdated = deferred(async ({ userId }: { userId: string }) => {
-    await audit({ userId, eventType: 'UPDATED', recordType: 'USER', recordId: userId })
+    await audit({ userId, eventType: 'UPDATED', recordType: 'USER', recordId: userId }, currentDb())
 })

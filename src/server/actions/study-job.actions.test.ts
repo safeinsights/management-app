@@ -19,7 +19,6 @@ import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     fetchEncryptedJobFilesAction,
     fetchStudyJobCodeFileAction,
-    loadStudyJobAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
@@ -97,21 +96,6 @@ async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJ
 }
 
 describe('Study Job Actions', () => {
-    test('loadStudyJobAction', async () => {
-        const { org } = await mockSessionWithTestData()
-        const { job, study } = await insertTestStudyJobData({ org })
-
-        const result = actionResult(await loadStudyJobAction({ studyJobId: job.id }))
-
-        expect(result).toMatchObject({
-            studyJobId: job.id,
-            studyId: study.id,
-            createdAt: expect.any(Date),
-            studyTitle: expect.any(String),
-            orgSlug: expect.any(String),
-        })
-    })
-
     test('fetchEncryptedJobFilesAction returns the whole-zip artifacts to an enclave reviewer', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
@@ -582,7 +566,7 @@ describe('Study Job Actions', () => {
                     { studyJobId: job.id, status: 'CODE-APPROVED' },
                 ])
                 .execute()
-            expect(await codeSubmissionVersion(study.id)).toBe(2)
+            expect(await codeSubmissionVersion(study.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({

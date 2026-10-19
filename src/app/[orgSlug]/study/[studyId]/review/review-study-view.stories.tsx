@@ -1,22 +1,17 @@
 import type { Story } from '@ladle/react'
 import type { ReactNode } from 'react'
-import { Box, Button, Divider, Flex, Group, Paper, Radio, Stack, Table, Text, Textarea, Title } from '@mantine/core'
-import { CaretLeftIcon, DownloadSimpleIcon, EyeIcon, TrophyIcon } from '@phosphor-icons/react/dist/ssr'
+import { Box, Button, Divider, Group, Paper, Radio, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { Routes } from '@/lib/routes'
 import { pageBackgroundArgTypes } from '~ladle/backgrounds'
 import { ProposalReviewLayoutView } from './proposal-review-layout-view'
-import { StudyDetailsReviewerView } from './study-details-reviewer-view'
 
 // The View components own page chrome only, so session-free fixtures stand in for the
 // data-driven sections.
 const meta = { title: 'Pages / Review study', argTypes: pageBackgroundArgTypes }
 export default meta
 
-const ORG_SLUG = 'mars-university'
 // One title for the page: the header and the proposal body describe the same study.
 const PROPOSAL_STUDY_TITLE = 'Reading comprehension cohort analysis'
-const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
 function LabelValue({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -155,120 +150,4 @@ export const ReviewProposal: Story = () => (
         decision={<DecisionFixture />}
         actions={<ProposalActionsFixture />}
     />
-)
-
-type ResultFile = { type: string; name: string; size: string }
-
-const RESULT_FILES: ResultFile[] = [
-    { type: 'Security Scan Log', name: 'security-scan.log', size: '12.4 KB' },
-    { type: 'Results', name: 'results.csv', size: '1.2 MB' },
-]
-
-function ApprovedBadge() {
-    return (
-        <Flex
-            align="center"
-            gap={4}
-            bg="green.0"
-            c="green.7"
-            bdrs={100}
-            px={16}
-            py={4}
-            style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}
-        >
-            <TrophyIcon size={12} weight="fill" />
-            <Text size="xs" fw={500}>
-                Approved
-            </Text>
-        </Flex>
-    )
-}
-
-function ResultsFilesTable() {
-    const rows = RESULT_FILES.map((file) => (
-        <Table.Tr key={file.name}>
-            <Table.Td>{file.type}</Table.Td>
-            <Table.Td>{file.name}</Table.Td>
-            <Table.Td>{file.size}</Table.Td>
-            <Table.Td>
-                <Button variant="light" size="xs" leftSection={<EyeIcon weight="fill" />}>
-                    View
-                </Button>
-            </Table.Td>
-            <Table.Td>
-                <Button variant="subtle" size="xs" color="gray" leftSection={<DownloadSimpleIcon weight="fill" />}>
-                    Download
-                </Button>
-            </Table.Td>
-        </Table.Tr>
-    ))
-    return (
-        <Table>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th>File Type</Table.Th>
-                    <Table.Th>Name</Table.Th>
-                    <Table.Th>Size</Table.Th>
-                    <Table.Th>View</Table.Th>
-                    <Table.Th>Download</Table.Th>
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{rows}</Table.Tbody>
-        </Table>
-    )
-}
-
-function ResultsBodyFixture() {
-    return (
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Group justify="space-between" align="center">
-                    <Title order={4} size="xl">
-                        Study Status
-                    </Title>
-                    <ApprovedBadge />
-                </Group>
-                <Divider c="dimmed" />
-                <Text>
-                    The code was successfully processed! Review results and security logs to decide if these can be
-                    released to the researcher.
-                </Text>
-                <ResultsFilesTable />
-                <Stack>
-                    <Textarea
-                        label={<Text mb="sm">Enter Reviewer key to view security scan log</Text>}
-                        placeholder="Enter your Reviewer key to access encrypted content."
-                        resize="vertical"
-                    />
-                    <Group>
-                        <Button>Decrypt Files</Button>
-                    </Group>
-                </Stack>
-            </Stack>
-        </Paper>
-    )
-}
-
-export const ReviewResults: Story = () => (
-    <StudyDetailsReviewerView previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}>
-        <ResultsBodyFixture />
-    </StudyDetailsReviewerView>
-)
-
-export const PreviousLinkChrome: Story = () => (
-    <StudyDetailsReviewerView previousHref={Routes.studyReview({ orgSlug: ORG_SLUG, studyId: STUDY_ID })}>
-        <Paper bg="white" p="xxl">
-            <Stack>
-                <Title order={4} size="xl">
-                    Study Status
-                </Title>
-                <Divider c="dimmed" />
-                <Group>
-                    <Button variant="subtle" leftSection={<CaretLeftIcon />} disabled>
-                        Awaiting decryption
-                    </Button>
-                </Group>
-            </Stack>
-        </Paper>
-    </StudyDetailsReviewerView>
 )

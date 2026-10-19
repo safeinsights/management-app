@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -17,6 +15,7 @@ import logger from '@/lib/logger'
 import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
 import { fetchVideoDurationMinutes } from '@/server/vimeo'
 import { researcherPageGuard } from '../researcher-page-guard'
+import { currentDb } from '@/server/request-context'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study code' }
@@ -40,7 +39,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
 
     // OTTER-693: a submitted round is view-only, because the confirmation modal promised it would be.
     // study.status stays APPROVED through submission, so the answer lives on the job statuses.
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
     const isEditable = !!raw && canResearcherSubmitCodeForReview(projectStudyState(raw))
 
     // OTTER-693: the Data Partner's template has to be in the workspace before the table renders.

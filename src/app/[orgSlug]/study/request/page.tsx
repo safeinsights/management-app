@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { AccessDeniedAlert } from '@/components/errors'
 import { isActionError } from '@/lib/errors'

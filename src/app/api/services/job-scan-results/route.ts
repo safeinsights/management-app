@@ -1,4 +1,3 @@
-import { db } from '@/database'
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import logger from '@/lib/logger'
@@ -8,6 +7,7 @@ import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
 import { recordJobStatus } from '@/server/job-status'
+import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
     jobId: z.string(),
@@ -29,7 +29,7 @@ export const POST = createWebhookHandler({
     schema,
     entityNotFoundMessage: 'job-not-found',
     handler: async (body) => {
-        const job = await db
+        const job = await currentDb()
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -51,7 +51,7 @@ export const POST = createWebhookHandler({
         // predating this change can still be current for. That keeps the guard closed against a
         // caller that omits the round, rather than leaving it permanently disabled for one.
         const round = body.round ?? 1
-        if (!(await isCurrentCodeRound(job.jobId, round))) {
+        if (!(await isCurrentCodeRound(job.jobId, round, currentDb()))) {
             logger.warn(
                 `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
             )

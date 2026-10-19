@@ -92,13 +92,11 @@ function isActionsFile(filePath: string) {
 
 const IS_SERVER = /['"]use server['"]/
 
-const IGNORE = new Set(['non-production.tsx', 'layout.tsx', 'page.tsx', 'focused-layout.tsx', 'user-layout.tsx'])
 function analyzeFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf8')
     let success = true
     const logs: string[] = []
-    const filename = path.basename(filePath)
-    if (!IS_SERVER.test(content) || IGNORE.has(filename)) {
+    if (!IS_SERVER.test(content)) {
         return { success, logs }
     }
 

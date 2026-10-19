@@ -18,10 +18,9 @@ import {
     codeSubmissionVersion,
     fetchUserFullName,
     getInfoForStudyId,
-    getOrgIdFromSlug,
+    findOrgIdBySlug,
     selectCodeEnvSnapshot,
 } from '@/server/db/queries'
-import { db as database } from '@/database'
 import {
     deferred,
     onStudyCodeSubmitted,
@@ -31,7 +30,6 @@ import {
     onStudyReviewRequested,
 } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
-import { deleteStudyCompletely } from '@/server/qa-cleanup'
 import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
@@ -53,20 +51,21 @@ import {
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { requireOpenedCodeRound, requireResubmittableCode, requireUnsubmittedCodeRound } from '@/server/study-code-gate'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
+import { currentDb } from '@/server/request-context'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round, database))) return
-    await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
+    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) return
+    await currentDb().insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
 // A Hocuspocus persist can commit after the in-tx delete; re-delete rows
 // older than the captured submit timestamp.
 const purgeProposalYjsDocsAfterFinalize = deferred(async (args: { studyId: string; beforeAt: Date }) => {
     await sleep({ 5: 'seconds' })
-    await purgeProposalYjsDocsBeforeAt(database, args)
+    await purgeProposalYjsDocsBeforeAt(currentDb(), args)
 })
 
 // Runs after the response, so the rows these objects belonged to are committed as deleted. Doing it
@@ -117,27 +116,21 @@ async function attachCodeToRoundJob(
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
 
+    const codeFiles = [
+        { name: mainCodeFileName, fileType: 'MAIN-CODE' as const },
+        ...codeFileNames.map((name) => ({ name, fileType: 'SUPPLEMENTAL-CODE' as const })),
+    ]
     await db
         .insertInto('studyJobFile')
-        .values({
-            name: mainCodeFileName,
-            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, mainCodeFileName),
-            studyJobId,
-            fileType: 'MAIN-CODE',
-        })
-        .executeTakeFirstOrThrow()
-
-    for (const fileName of codeFileNames) {
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: fileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName),
+        .values(
+            codeFiles.map(({ name, fileType }) => ({
+                name,
+                fileType,
                 studyJobId,
-                fileType: 'SUPPLEMENTAL-CODE',
-            })
-            .executeTakeFirstOrThrow()
-    }
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, name),
+            })),
+        )
+        .execute()
 
     return { studyJobId, discardedScanLogPaths }
 }
@@ -185,9 +178,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     .params(onSaveDraftStudyActionArgsSchema)
     // Resolving here puts submittedByOrgId in the ability subject, so `create Study` enforces lab
     // membership via CASL — otherwise a caller could stamp another lab's id on a study (OTTER-719).
-    .middleware(async ({ params: { orgSlug, submittingOrgSlug } }) => ({
-        ...(await getOrgIdFromSlug({ orgSlug })),
-        submittedByOrgId: (await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })).orgId,
+    .middleware(async ({ db, params: { orgSlug, submittingOrgSlug } }) => ({
+        ...(await findOrgIdBySlug(db, orgSlug, true)),
+        submittedByOrgId: (await findOrgIdBySlug(db, submittingOrgSlug, true)).orgId,
     }))
     .requireAbilityTo('create', 'Study')
     .handler(async ({ db, params: { orgSlug, studyInfo }, session, orgId, submittedByOrgId }) => {
@@ -318,46 +311,6 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         }
 
         return { studyId }
-    })
-
-const onSubmitDraftStudyActionArgsSchema = z.object({
-    studyId: z.string(),
-    mainCodeFileName: z.string(),
-    codeFileNames: z.array(z.string()),
-})
-
-export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', { performsMutations: true })
-    .params(onSubmitDraftStudyActionArgsSchema)
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
-        const userId = session.user.id
-
-        const study = await db
-            .selectFrom('study')
-            .select(['id', 'status'])
-            .where('id', '=', studyId)
-            .where('researcherId', '=', userId)
-            .executeTakeFirst()
-
-        if (!study) {
-            throw new Error('Study not found or access denied')
-        }
-
-        if (study.status !== 'DRAFT' && study.status !== 'APPROVED') {
-            throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
-        }
-
-        const { studyJobId, discardedScanLogPaths } = await attachCodeToRoundJob(
-            db,
-            studyId,
-            orgSlug,
-            mainCodeFileName,
-            codeFileNames,
-        )
-        sweepDiscardedScanLogs(discardedScanLogPaths)
-
-        return { studyId, studyJobId }
     })
 
 const finalizeStudySubmissionInfoSchema = z
@@ -547,14 +500,6 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             mainCodeFileName: codeFiles.find((f) => f.fileType === 'MAIN-CODE')?.name,
             additionalCodeFileNames: codeFiles.filter((f) => f.fileType === 'SUPPLEMENTAL-CODE').map((f) => f.name),
         }
-    })
-
-export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('delete', 'Study')
-    .handler(async ({ db, orgSlug, params: { studyId } }) => {
-        await deleteStudyCompletely(db, orgSlug, studyId)
     })
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })

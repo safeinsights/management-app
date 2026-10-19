@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { db } from '@/database'
 import { requireQaAuth, requireAdminOfOrgs } from '@/server/qa-cleanup'
 import { createQaInvite } from '@/server/qa-provision'
 import { qaErrorResponse, qaRefusedResponse } from '../responses'
 import { auditQaInvocation } from '../audit'
+import { currentDb } from '@/server/request-context'
 
 const createInviteSchema = z.object({
     email: z.string().nonempty().email(),
@@ -23,7 +23,7 @@ export const POST = async (req: Request) => {
 
         // The invite names the org it grants membership of, so that is the target: an org
         // admin must not invite an account (least of all an admin one) into another org.
-        const authorized = await requireAdminOfOrgs(db, auth, [invite.orgSlug])
+        const authorized = await requireAdminOfOrgs(currentDb(), auth, [invite.orgSlug])
         if (!authorized.ok) {
             // No invite row exists yet, so the refusal is filed against the caller.
             return await qaRefusedResponse(
@@ -38,7 +38,7 @@ export const POST = async (req: Request) => {
             )
         }
 
-        const result = await createQaInvite(db, invite, auth.user.id)
+        const result = await createQaInvite(currentDb(), invite, auth.user.id)
 
         await auditQaInvocation({
             actorUserId: auth.user.id,

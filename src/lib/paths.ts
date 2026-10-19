@@ -7,9 +7,6 @@ export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlu
 
 export const pathForStudyJob = (parts: MinimalJobInfo) => `${pathForStudy(parts)}/jobs/${parts.studyJobId}`
 
-export const pathForStudyJobFile = (parts: MinimalJobInfo, file: { path: string }) =>
-    `${pathForStudyJob(parts)}/${file.path}`
-
 export const pathForStudyJobCode = (parts: MinimalJobInfo) => `${pathForStudyJob(parts)}/code`
 
 export const pathForStudyJobCodeFile = (parts: MinimalJobInfo, fileName: string) =>
@@ -53,15 +50,10 @@ export const pathForInvitation = (inviteId: string) => `/account/invitation/${in
 // navigate (rather than link) have to know about: the browser keeps the current page mounted.
 export const DOWNLOAD_PREFIX = '/dl/'
 
-export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
-    `${DOWNLOAD_PREFIX}results/${job.id}/${job.resultsPath}`
-
 export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileName: string) =>
     `${DOWNLOAD_PREFIX}study-documents/${studyId}/${type}/${fileName}`
 
 export const studyCodeURL = (jobId: string, fileName: string) => `${DOWNLOAD_PREFIX}study-code/${jobId}/${fileName}`
-
-export const scanLogDownloadURL = (jobId: string) => `${DOWNLOAD_PREFIX}scan-log/${jobId}`
 
 // The version id alone: the route presigns on request, so a table can list a hundred agreements
 // without minting a hundred signatures that expire in an hour.
@@ -71,7 +63,7 @@ export const legalDocumentDownloadURL = (versionId: string) => `${DOWNLOAD_PREFI
 // Content-Disposition and as the in-app viewer's title — is supplied here rather than by storage.
 export const SCAN_LOG_FILE_NAME = 'security-scan-log.txt'
 
-export const coderUserInfoPath = (username: CoderUsername) => `/api/v2/users/${username}`
+export const coderUserActivatePath = (username: CoderUsername) => `/api/v2/users/${username}/status/activate`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`
 export const coderTemplateId = () => `/api/v2/templates`

@@ -1,11 +1,10 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { proposalReviewDecision } from '@/lib/review-decision'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderScreenById, renderStudyScreen } from '../../_screens/render-screen'
 import { reviewerPageGuard } from '../reviewer-page-guard'
+import { currentDb } from '@/server/request-context'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Review proposal' }
@@ -20,7 +19,7 @@ export default async function ReviewProposalPage(props: { params: Promise<{ orgS
     if (!guard.ok) return guard.render
     const { study } = guard
 
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
     if (!raw) return <AlertNotFound title="Study was not found" message="No such study exists" />
 
     if (!proposalReviewDecision(study)) {
