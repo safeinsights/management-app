@@ -1,5 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3'
-import { AWS_ACCOUNT_ENVIRONMENT } from '../config'
+import { AWS_ACCOUNT_ENVIRONMENT } from '@/server/config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import { strToAscii } from '@/lib/string'
 

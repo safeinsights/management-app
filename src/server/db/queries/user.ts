@@ -1,11 +1,11 @@
-import { selectUserOrgRows } from '../session-user'
+import { selectUserOrgRows } from '@/server/db/session-user'
 import { sql } from 'kysely'
 import { type DBExecutor } from '@/database'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { AccessDeniedError } from '@/lib/errors'
 import { currentDb, wasCalledFromAPI } from '@/server/request-context'
-import { findOrCreateSiUserId } from '../mutations'
+import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 export type SiUser = ClerkUser & {
     id: string

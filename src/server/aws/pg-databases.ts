@@ -1,6 +1,6 @@
 import { Signer } from '@aws-sdk/rds-signer'
 import PG from 'pg'
-import { getConfigValue } from '../config'
+import { getConfigValue } from '@/server/config'
 import { fromIni } from '@aws-sdk/credential-providers'
 
 async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {

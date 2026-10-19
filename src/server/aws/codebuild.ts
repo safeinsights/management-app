@@ -1,5 +1,5 @@
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
-import { ENVIRONMENT_ID, getConfigValue } from '../config'
+import { ENVIRONMENT_ID, getConfigValue } from '@/server/config'
 import { pathForCodeEnvScanArtifacts, pathForJobScanArtifacts, pathForStudyJobCode } from '@/lib/paths'
 import { substituteEntryPointFile } from '@/lib/string'
 import { MinimalJobInfo, MinimalStudyInfo } from '@/lib/types'

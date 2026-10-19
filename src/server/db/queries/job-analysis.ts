@@ -1,7 +1,7 @@
 import { jsonArrayFrom } from '@/database'
 import { currentDb } from '@/server/request-context'
 import { FileType } from '@/database/types'
-import { codeRoundForJob } from '../code-round'
+import { codeRoundForJob } from '@/server/db/code-round'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { fetchFileContents } from '@/server/storage'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
