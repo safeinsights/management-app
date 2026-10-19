@@ -40,39 +40,19 @@ export async function findOrCreateOrgMembership({
     isAdmin?: boolean
 }) {
     const executor = currentDb()
-    const orgInfo = await executor
-        .selectFrom('orgUser')
-        .innerJoin('org', (join) => join.on('org.slug', '=', slug).onRef('org.id', '=', 'orgUser.orgId'))
-        .select(['org.id', 'org.slug', 'org.name', 'org.type', 'orgUser.id as orgUserId', 'orgUser.isAdmin'])
-        .where('orgUser.userId', '=', userId)
-        .executeTakeFirst()
+    const org = await executor
+        .selectFrom('org')
+        .select(['org.id', 'org.slug', 'org.name', 'org.type'])
+        .where('org.slug', '=', slug)
+        .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
 
-    if (orgInfo) {
-        if (orgInfo.isAdmin != isAdmin) {
-            await executor
-                .updateTable('orgUser')
-                .set({ isAdmin })
-                .where('id', '=', orgInfo.orgUserId)
-                .executeTakeFirstOrThrow()
-        }
-        return { ...orgInfo, isAdmin }
-    } else {
-        const org = await executor
-            .selectFrom('org')
-            .select(['org.id', 'org.slug', 'org.name', 'org.type'])
-            .where('org.slug', '=', slug)
-            .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
+    await executor
+        .insertInto('orgUser')
+        .values({ userId, orgId: org.id, isAdmin })
+        .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
+        .execute()
 
-        await executor
-            .insertInto('orgUser')
-            .values({
-                userId,
-                isAdmin,
-                orgId: org.id,
-            })
-            .executeTakeFirstOrThrow()
-        return { ...org, isAdmin }
-    }
+    return { ...org, isAdmin }
 }
 
 export type RoundJob = {

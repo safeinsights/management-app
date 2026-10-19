@@ -63,6 +63,7 @@ export const legalDocumentDownloadURL = (versionId: string) => `${DOWNLOAD_PREFI
 // Content-Disposition and as the in-app viewer's title — is supplied here rather than by storage.
 export const SCAN_LOG_FILE_NAME = 'security-scan-log.txt'
 
+export const coderUserActivatePath = (username: CoderUsername) => `/api/v2/users/${username}/status/activate`
 export const coderUsersPath = () => `/api/v2/users`
 export const coderOrgsPath = () => `/api/v2/organizations`
 export const coderTemplateId = () => `/api/v2/templates`
