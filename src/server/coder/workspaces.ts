@@ -29,7 +29,7 @@ import type {
     WorkspaceLaunchStatus,
     JobStatus,
 } from './types'
-import { getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
+import { ensureCoderUserActive, getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
 import { generateWorkspaceName } from './utils'
 import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
@@ -99,8 +99,10 @@ export async function getCoderWorkspaceLaunchStatus(
 
     // Resolved once and reused for finalizeWorkspaceLaunch below: the poll runs every few seconds,
     // and re-resolving would mean a second lookup per tick against both the DB and Coder.
-    const user = await getCoderUserFor(await resolveCoderIdentity(studyId))
-    if (!user) throw new Error('Coder user not found')
+    const found = await getCoderUserFor(await resolveCoderIdentity(studyId))
+    if (!found) throw new Error('Coder user not found')
+    // Coder's 15-minute dormancy job can re-flag the user mid-launch, since activation leaves last_seen_at old.
+    const user = await ensureCoderUserActive(found)
     const workspaceName = generateWorkspaceName(studyId)
 
     const workspace = await coderFetch<CoderWorkspaceEvent>(coderWorkspaceDataPath(user.username, workspaceName), {

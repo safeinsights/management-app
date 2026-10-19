@@ -1,6 +1,5 @@
 'use server'
 
-import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
 import { clientUserInfo } from '../session'
 import { getUserPublicKey } from '../db/queries'
@@ -68,21 +67,4 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             before: { ...orgUser },
             after: { isAdmin },
         })
-    })
-
-export const resetUserMFAAction = new Action('resetUserMFAAction')
-    .requireAbilityTo('reset', 'MFA')
-    .handler(async ({ session }) => {
-        const clerkId = session!.user.clerkUserId
-
-        const client = await clerkClient()
-        await client.users.disableUserMFA(clerkId)
-
-        const user = await client.users.getUser(clerkId)
-
-        for (const phoneNumber of user.phoneNumbers) {
-            await client.phoneNumbers.deletePhoneNumber(phoneNumber.id)
-        }
-
-        return { twoFactorEnabled: false }
     })

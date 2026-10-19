@@ -24,16 +24,6 @@
       "WebFetch(domain:clerk.com)",
       "WebFetch(domain:github.com)",
       "WebSearch",
-      "mcp__playwright-test__test_run",
-      "mcp__playwright-test__test_debug",
-      "mcp__playwright-test__browser_snapshot",
-      "mcp__playwright-test__browser_network_requests",
-      "mcp__playwright-test__test_list",
-      "mcp__playwright-test__browser_console_messages",
-      "mcp__playwright-test__browser_evaluate",
-      "mcp__playwright-test__browser_click",
-      "mcp__playwright-test__browser_close",
-      "mcp__playwright-test__browser_navigate",
       "mcp__claude_ai_Atlassian__getJiraIssue",
       "Bash(docker exec *)"
     ],
@@ -43,8 +33,5 @@
       "Edit(.env)",
       "Edit(.env.*)"
     ]
-  },
-  "enabledMcpjsonServers": [
-    "playwright-test"
-  ]
+  }
 }

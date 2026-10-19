@@ -23,8 +23,7 @@ export const sessionFromMetadata = ({
         throw new Error('user does not have valid metadata')
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>) || {}
+    const orgs = info.orgs || {}
 
     const isSiAdmin = Boolean(orgs[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 

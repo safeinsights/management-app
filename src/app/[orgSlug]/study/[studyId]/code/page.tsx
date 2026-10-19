@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'

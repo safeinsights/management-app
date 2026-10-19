@@ -263,6 +263,58 @@ describe('getOrCreateCoderUserFor', () => {
 
         await expect(resolveCoderIdentity('study123')).rejects.toThrow(/has no email address/)
     })
+
+    describe('user status', () => {
+        const identity = { userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' }
+        const lookupResponse = (status: string) => ({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ username: 'ann-x-edu-2222', email: 'ann@x.edu', status }] }),
+        })
+        const putCalls = () =>
+            (global.fetch as unknown as Mock).mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+
+        beforeEach(() => {
+            getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        })
+
+        it('reactivates a dormant user and returns the activated user', async () => {
+            const activated = { username: 'ann-x-edu-2222', email: 'ann@x.edu', status: 'active' }
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch
+                .mockResolvedValueOnce(lookupResponse('dormant'))
+                .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(activated) })
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result).toEqual(activated)
+            expect(putCalls()).toHaveLength(1)
+            expect(putCalls()[0][0]).toBe('https://api.coder.com/api/v2/users/ann-x-edu-2222/status/activate')
+            expect(logger.info).toHaveBeenCalledWith(
+                expect.stringContaining('Reactivating dormant Coder user ann-x-edu-2222'),
+            )
+        })
+
+        it('returns an active user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('active'))
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result.username).toBe('ann-x-edu-2222')
+            expect(putCalls()).toHaveLength(0)
+        })
+
+        // Suspension is a deliberate admin action, so a launch must not undo it.
+        it('rejects a suspended user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('suspended'))
+
+            await expect(getOrCreateCoderUserFor(identity)).rejects.toThrow(
+                'Coder account ann-x-edu-2222 is suspended; an admin must reactivate it',
+            )
+            expect(putCalls()).toHaveLength(0)
+        })
+    })
 })
 
 describe('createUserAndWorkspace', () => {
@@ -869,6 +921,26 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         expect(status.agentLogLines).toEqual(['agent up'])
         expect(status.agentStatus).toEqual({ lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' })
         expect(status.cursors).toEqual({ build: 2, agent: 5 })
+        const methods = (global.fetch as unknown as Mock).mock.calls.map(([, init]) => (init as RequestInit).method)
+        expect(methods).not.toContain('PUT')
+    })
+
+    it('reactivates a user flagged dormant mid-launch and keeps polling', async () => {
+        const fetchMock = global.fetch as unknown as Mock
+        const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+        fetchMock.mockImplementation((url: string, init: RequestInit) => {
+            if (url.includes('/users?'))
+                return ok({ users: [{ username: 'john-doe', email: 'john@example.com', status: 'dormant' }] })
+            if (init.method === 'PUT') return ok({ username: 'john-doe', email: 'john@example.com', status: 'active' })
+            return routeFetch({})(url)
+        })
+
+        const status = await getCoderWorkspaceLaunchStatus('study-1')
+
+        const puts = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+        expect(puts.map(([url]) => url)).toEqual(['https://api.coder.com/api/v2/users/john-doe/status/activate'])
+        expect(fetchMock.mock.calls.map(([url]) => url)).toContainEqual(expect.stringContaining('/john-doe/workspace/'))
+        expect(status.buildStatus).toBe('running')
     })
 
     it('only requests logs after the provided cursors', async () => {

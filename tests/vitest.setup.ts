@@ -2,8 +2,6 @@ import 'dotenv/config' // must precede other imports, matching Next.js
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/request-context'
-import { createTempDir } from '@/tests/temp-dir'
-import fs from 'fs'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
 
@@ -314,12 +312,8 @@ beforeAll(async () => {
     testTransaction.start()
 })
 
-let tmpDir: string = ''
-
 beforeEach(async () => {
     testTransaction.start()
-    tmpDir = await createTempDir()
-    process.env.UPLOAD_TMP_DIRECTORY = tmpDir
     ;(useClerk as Mock).mockImplementation(() => ({
         signOut: vi.fn(),
         openUserProfile: vi.fn(),
@@ -332,7 +326,7 @@ beforeEach(async () => {
 })
 
 // Runs even when the teardown check or the rollback throws, so the next test cannot inherit a
-// stale client, provider or temp directory. The filesystem call goes last, likeliest to fail.
+// stale client or provider.
 const resetTestEnvironment = async () => {
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
@@ -344,8 +338,6 @@ const resetTestEnvironment = async () => {
     // Already unmounted in afterEach, so the observers are gone; this clears the data behind them.
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()
-    delete process.env.UPLOAD_TMP_DIRECTORY
-    await fs.promises.rm(tmpDir, { recursive: true })
 }
 
 afterEach(async () => {

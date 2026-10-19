@@ -398,10 +398,6 @@ export const getIdeOwnerForStudy = async (studyId: string) => {
     return owner ?? null
 }
 
-export const getUserById = async (userId: string) => {
-    return await currentDb().selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
-}
-
 type OrgIdForSlug = { orgId: string; orgType: OrgType }
 
 export async function findOrgIdBySlug(
@@ -773,20 +769,6 @@ export async function latestCodeSubmissionAt(studyId: string, jobId: string): Pr
         .limit(1)
         .executeTakeFirst()
     return row?.createdAt
-}
-
-// Rows can exist while the round is still open, and removing a researcher from the lab never
-// retroactively unshares.
-export async function getSharedFileIdsForJob(jobId: string): Promise<string[]> {
-    const rows = await currentDb()
-        .selectFrom('studyJobFileRecipientKey')
-        .innerJoin('studyJobFile', 'studyJobFile.id', 'studyJobFileRecipientKey.studyJobFileId')
-        .where('studyJobFile.studyJobId', '=', jobId)
-        .select('studyJobFileRecipientKey.studyJobFileId')
-        .distinct()
-        .execute()
-
-    return rows.map((r) => r.studyJobFileId)
 }
 
 export type StudyReviewWithMeta = {
