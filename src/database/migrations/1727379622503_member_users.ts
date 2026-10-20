@@ -26,3 +26,4 @@ export async function down(db: Kysely<unknown>): Promise<void> {
 }
 
 // TEMPORARY TEST ONLY (OTTER-862): touches a migration to exercise the PR description check, never merge
+// second temporary test commit (synchronize event)
