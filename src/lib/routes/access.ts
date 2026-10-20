@@ -40,7 +40,7 @@ export function isResearcherPath(pathname: string): boolean {
 
 /** The whole `/account` subtree, not the pages a signed-out user may open (`ANON_ROUTES` in `proxy.ts`). */
 export function isAccountSubtree(pathname: string): boolean {
-    return pathname.startsWith(ACCOUNT_PREFIX)
+    return pathname === ACCOUNT_PREFIX || pathname.startsWith(`${ACCOUNT_PREFIX}/`)
 }
 
 /** False for a path with no org slug, so `/admin/safeinsights` is not read as an org admin page. */

@@ -112,7 +112,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 <ButtonLink
                     variant="filled"
                     size="lg"
-                    href={`/account/signin?invite_id=${inviteId}` as Route}
+                    href={`${Routes.accountSignin}?invite_id=${inviteId}` as Route}
                     fullWidth
                 >
                     Login with existing account

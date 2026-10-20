@@ -1,4 +1,5 @@
 import { RuleTester } from 'eslint'
+import typescriptEslint from 'typescript-eslint'
 import { describe, it } from 'vitest'
 import noBareRouteStrings from './no-bare-route-strings.mjs'
 
@@ -9,6 +10,7 @@ const ruleTester = new RuleTester({
     languageOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
+        parser: typescriptEslint.parser,
         parserOptions: { ecmaFeatures: { jsx: true } },
     },
 })
@@ -35,6 +37,9 @@ ruleTester.run('noBareRouteStrings', noBareRouteStrings, {
         'redirect()',
         'new URL()',
         'redirect(...args)',
+        'redirect(Routes.home as Route)',
+        'router.push(`${Routes.dashboard}?x=1` as Route)',
+        '<Link href={Routes.dashboard} />',
     ],
     invalid: [
         { code: "revalidatePath('/dashboard')", errors: callError('revalidatePath') },
@@ -47,5 +52,14 @@ ruleTester.run('noBareRouteStrings', noBareRouteStrings, {
         { code: '<Link href="/dashboard" />', errors: [{ messageId: 'bareHrefString' }] },
         { code: "router.push('/x')", errors: [{ messageId: 'bareRouterPush' }] },
         { code: 'router.replace(`/x/${id}`)', errors: [{ messageId: 'bareRouterReplace' }] },
+        { code: "revalidatePath('/admin/team/x' as Route)", errors: callError('revalidatePath') },
+        { code: "redirect('/dashboard' satisfies string)", errors: callError('redirect') },
+        { code: "new URL('/x'!, base)", errors: callError('new URL') },
+        { code: "router.push(('/x' as string) as Route)", errors: [{ messageId: 'bareRouterPush' }] },
+        { code: '<Link href={"/dashboard"} />', errors: [{ messageId: 'bareHrefString' }] },
+        {
+            code: '<Link href={`/account/signin?invite_id=${id}` as Route} />',
+            errors: [{ messageId: 'bareHrefString' }],
+        },
     ],
 })

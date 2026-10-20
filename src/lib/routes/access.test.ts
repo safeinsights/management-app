@@ -30,9 +30,10 @@ describe('isAccountSubtree', () => {
         expect(isAccountSubtree('/account/mfa/sms')).toBe(true)
         expect(isAccountSubtree('/account/keys')).toBe(true)
         expect(isAccountSubtree('/account/invitation/0192f1c4-7a3e-7cc1-9a51-3f2f0e6b8d10/join-team')).toBe(true)
-        // A plain prefix, like the other subtree checks in this module.
-        expect(isAccountSubtree('/accounting')).toBe(true)
 
+        // An org slug may start with "account".
+        expect(isAccountSubtree('/accounting')).toBe(false)
+        expect(isAccountSubtree('/accounting/dashboard')).toBe(false)
         expect(isAccountSubtree('/dashboard')).toBe(false)
         expect(isAccountSubtree('/acme/admin/team')).toBe(false)
         expect(isAccountSubtree('/researcher/profile')).toBe(false)
