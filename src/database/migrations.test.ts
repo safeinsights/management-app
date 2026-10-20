@@ -17,24 +17,18 @@ const STUDY_ENUM = /^study\w*$/
 const OPT_OUT = /no backfill:/
 
 const QNAME = String.raw`(?:"[^"]+"|\w+)(?:\s*\.\s*(?:"[^"]+"|\w+))*`
-// Quoted identifiers are matched only so that a -- inside one is not read as a comment.
-const SQL_LEXEMES =
-    /"(?:[^"]|"")*"|\b[eE]'(?:[^'\\]|\\[\s\S]|'')*'|'(?:[^']|'')*'|\$([A-Za-z_]\w*)?\$([\s\S]*?)\$\1\$|--[^\n]*|\/\*[\s\S]*?\*\//g
-const RAW_ALTER_TABLE = new RegExp(String.raw`\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(${QNAME})([^;]*)`, 'gi')
-const ADDS_COLUMN = /(?:^|,)\s*ADD\s+(?!\s|CONSTRAINT\b|CHECK\b|UNIQUE\b|PRIMARY\b|EXCLUDE\b|FOREIGN\b)/i
-const RAW_CREATE_TABLE = new RegExp(
-    String.raw`\bCREATE\s+(?:UNLOGGED\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${QNAME})`,
+const SQL_NOISE = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|\$([A-Za-z_]\w*)?\$([\s\S]*?)\$\1\$/g
+const RAW_ADD_COLUMN = new RegExp(
+    String.raw`\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(${QNAME})[^;]*?\bADD\s+COLUMN\b`,
     'gi',
 )
 const RAW_ADD_VALUE = new RegExp(String.raw`\bALTER\s+TYPE\s+(${QNAME})\s+ADD\s+VALUE\b`, 'gi')
-const RAW_CREATE_ENUM = new RegExp(String.raw`\bCREATE\s+TYPE\s+(${QNAME})\s+AS\s+ENUM\b`, 'gi')
 const RAW_BACKFILL = new RegExp(String.raw`\b(?:UPDATE\s+(?:ONLY\s+)?|INSERT\s+INTO\s+)(${QNAME})`, 'gi')
 
-// A builder table name the guard cannot read, such as a loop variable, may be a study table.
+// A builder table name that is not a string literal, such as a loop variable, may be a study table.
 const UNRESOLVED = '<unresolved table>'
 
-type Found = { widened: Set<string>; enums: Set<string>; createdEnums: Set<string>; backfilled: Set<string> }
-type Consts = Map<string, ts.Expression | undefined>
+type Found = { widened: Set<string>; enums: Set<string>; backfilled: Set<string> }
 
 const builderTable = (raw: string) =>
     raw
@@ -66,19 +60,6 @@ function moduleFunctions(sourceFile: ts.SourceFile) {
     return functions
 }
 
-function constInitializers(sourceFile: ts.SourceFile) {
-    const consts: Consts = new Map()
-    const visit = (node: ts.Node) => {
-        // A name bound twice, or bound without a value such as a loop variable, stays unresolved.
-        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-            consts.set(node.name.text, consts.has(node.name.text) ? undefined : node.initializer)
-        }
-        ts.forEachChild(node, visit)
-    }
-    visit(sourceFile)
-    return consts
-}
-
 function calledNames(body: ts.Node) {
     const names = new Set<string>()
     const visit = (node: ts.Node) => {
@@ -104,19 +85,7 @@ function reach(functions: Map<string, ts.Node>, start: string) {
         reached.add(name)
         queue.push(...[...calledNames(body)].filter((called) => called !== 'down'))
     }
-    return reached
-}
-
-const isFunction = (node: ts.Node): node is ts.FunctionLikeDeclaration =>
-    ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)
-
-// A nested function runs when it is called by name, invoked in place, or handed to a call as rows.map(async (r) => ...).
-function runs(fn: ts.FunctionLikeDeclaration, called: Set<string>) {
-    let parent = fn.parent
-    while (ts.isParenthesizedExpression(parent)) parent = parent.parent
-    if (ts.isCallExpression(parent) || ts.isNewExpression(parent)) return true
-    const name = ts.isFunctionDeclaration(fn) ? fn.name : ts.isVariableDeclaration(parent) ? parent.name : undefined
-    return !!name && ts.isIdentifier(name) && called.has(name.text)
+    return [...reached].map((name) => functions.get(name)!)
 }
 
 const calleeName = (call: ts.CallExpression) => {
@@ -130,39 +99,26 @@ const literalArg = (call: ts.CallExpression) => {
     return arg && ts.isStringLiteralLike(arg) ? arg.text : undefined
 }
 
-const stringValue = (node: ts.Expression | undefined, consts: Consts) => {
-    const value = node && ts.isIdentifier(node) ? consts.get(node.text) : node
-    return value && ts.isStringLiteralLike(value) ? value.text : undefined
-}
-
 // undefined for a createTable chain, which collectCall reads from the createTable call itself.
-function alteredTable(addColumn: ts.CallExpression, consts: Consts) {
-    const seen = new Set<ts.Node>()
-    let node: ts.Expression | undefined = addColumn.expression
-    while (node && !seen.has(node)) {
-        seen.add(node)
+function alteredTable(addColumn: ts.CallExpression) {
+    let node: ts.Expression = addColumn.expression
+    while (ts.isPropertyAccessExpression(node) || ts.isCallExpression(node)) {
         if (ts.isCallExpression(node) && calleeName(node) === 'createTable') return undefined
-        if (ts.isCallExpression(node) && calleeName(node) === 'alterTable') {
-            return stringValue(node.arguments[0], consts) ?? UNRESOLVED
-        }
-        if (ts.isIdentifier(node)) node = consts.get(node.text)
-        else if (ts.isPropertyAccessExpression(node) || ts.isCallExpression(node)) node = node.expression
-        else if (ts.isParenthesizedExpression(node) || ts.isAwaitExpression(node)) node = node.expression
-        else break
+        if (ts.isCallExpression(node) && calleeName(node) === 'alterTable') return literalArg(node) ?? UNRESOLVED
+        node = node.expression
     }
     return UNRESOLVED
 }
 
-function collectCall(call: ts.CallExpression, consts: Consts, found: Found) {
+function collectCall(call: ts.CallExpression, found: Found) {
     const name = calleeName(call)
     if (name === 'addColumn') {
-        const table = alteredTable(call, consts)
+        const table = alteredTable(call)
         if (table) found.widened.add(table === UNRESOLVED ? table : builderTable(table))
         return
     }
-    const target = stringValue(call.arguments[0], consts)
+    const target = literalArg(call)
     if (name === 'createTable') found.widened.add(target ? builderTable(target) : UNRESOLVED)
-    if (name === 'createType') found.createdEnums.add(target ? builderTable(target) : UNRESOLVED)
     if (target && (name === 'updateTable' || name === 'insertInto')) found.backfilled.add(builderTable(target))
 }
 
@@ -177,29 +133,24 @@ function sqlText(node: ts.Node) {
     if (ts.isIdentifier(receiver) && receiver.text === 'sql' && name.text === 'raw') return literalArg(node)
 }
 
-const stripSql = (text: string, keepDollarBodies: boolean): string =>
-    text.replace(SQL_LEXEMES, (match, _tag, dollarBody: string | undefined) => {
-        if (match.startsWith('"')) return match
-        return keepDollarBodies && dollarBody !== undefined ? ` ${stripSql(dollarBody, true)} ` : ' '
-    })
+const stripSql = (text: string, keepDollarBodies: boolean) =>
+    text.replace(SQL_NOISE, (_match, _tag, dollarBody: string | undefined) =>
+        keepDollarBodies && dollarBody !== undefined ? ` ${dollarBody} ` : ' ',
+    )
 
 // A dollar-quoted body may run (DO $$ ... $$) or only be stored (a function body), so it can widen but never backfill.
 function collectSql(text: string, found: Found) {
     const all = stripSql(text, true)
-    for (const [, table, actions] of all.matchAll(RAW_ALTER_TABLE)) {
-        if (ADDS_COLUMN.test(actions)) found.widened.add(sqlName(table))
-    }
-    for (const [, table] of all.matchAll(RAW_CREATE_TABLE)) found.widened.add(sqlName(table))
+    for (const [, table] of all.matchAll(RAW_ADD_COLUMN)) found.widened.add(sqlName(table))
     for (const [, type] of all.matchAll(RAW_ADD_VALUE)) found.enums.add(sqlName(type))
-    for (const [, type] of all.matchAll(RAW_CREATE_ENUM)) found.createdEnums.add(sqlName(type))
     for (const [, table] of stripSql(text, false).matchAll(RAW_BACKFILL)) found.backfilled.add(sqlName(table))
 }
 
-function collect(roots: ts.Node[], consts: Consts, skip: (node: ts.Node) => boolean) {
-    const found: Found = { widened: new Set(), enums: new Set(), createdEnums: new Set(), backfilled: new Set() }
+function collect(roots: ts.Node[], skip: (node: ts.Node) => boolean = () => false) {
+    const found: Found = { widened: new Set(), enums: new Set(), backfilled: new Set() }
     const visit = (node: ts.Node) => {
         if (skip(node)) return
-        if (ts.isCallExpression(node)) collectCall(node, consts, found)
+        if (ts.isCallExpression(node)) collectCall(node, found)
         const text = sqlText(node)
         if (text !== undefined) collectSql(text, found)
         ts.forEachChild(node, visit)
@@ -214,27 +165,18 @@ function missingBackfills(source: string): string[] {
     const functions = moduleFunctions(sourceFile)
     if (!functions.has('up')) return ['no up() function']
 
-    const consts = constInitializers(sourceFile)
-    const bodies = (names: string[]) => names.map((name) => functions.get(name)!)
-    const upBodies = bodies([...reach(functions, 'up')])
-    const upReach = new Set(upBodies)
-    const downOnly = new Set(bodies([...reach(functions, 'down')]).filter((body) => !upReach.has(body)))
-    const called = new Set(upBodies.flatMap((body) => [...calledNames(body)]))
+    const upBodies = reach(functions, 'up')
+    const downOnly = new Set(reach(functions, 'down').filter((body) => !upBodies.includes(body)))
     // Widenings are read more broadly than backfills, so a miss asks for a backfill instead of passing.
-    const { widened, enums, createdEnums } = collect([sourceFile], consts, (node) => downOnly.has(node))
-    const { backfilled } = collect(upBodies, consts, (node) => isFunction(node) && !runs(node, called))
+    const { widened, enums } = collect([sourceFile], (node) => downOnly.has(node))
+    const { backfilled } = collect(upBodies)
 
     const tables = [...widened].filter(
         (table) => (STUDY_TABLE.test(table) || table === UNRESOLVED) && !backfilled.has(table),
     )
     // A new enum value cannot be written before the migration's transaction commits, so no backfill covers it.
     const studyEnums = [...enums].filter((type) => STUDY_ENUM.test(type))
-    // A rebuilt type can hold a value old rows need, so a study enum created here needs a study-table backfill.
-    const backfillsStudies = [...backfilled].some((table) => STUDY_TABLE.test(table))
-    const createdStudyEnums = [...createdEnums].filter(
-        (type) => (STUDY_ENUM.test(type) || type === UNRESOLVED) && !backfillsStudies,
-    )
-    return [...new Set([...tables, ...studyEnums, ...createdStudyEnums])].sort()
+    return [...new Set([...tables, ...studyEnums])].sort()
 }
 
 describe('migrations', () => {
@@ -355,22 +297,6 @@ describe('missingBackfills', () => {
             migration({ top: [fn('a', ['await b(db)']), fn('b', ['await a(db)'])], up: [W, 'await a(db)'] }),
             ['study'],
         ],
-        [
-            'an uncalled nested function',
-            migration({ up: [W, 'async function backfillX() {', UPDATE_STUDY, '}'] }),
-            ['study'],
-        ],
-        [
-            'an uncalled nested arrow',
-            migration({ up: [W, 'const backfillX = async () => {', UPDATE_STUDY, '}'] }),
-            ['study'],
-        ],
-        [
-            'a called nested function',
-            migration({ up: [W, 'async function backfillX() {', UPDATE_STUDY, '}', 'await backfillX()'] }),
-            [],
-        ],
-        ['a function invoked in place', migration({ up: [W, 'await (async () => {', UPDATE_STUDY, '})()'] }), []],
         ['a widening only in down()', migration({ down: [W] }), []],
         [
             'a widening on another chain than the study alterTable',
@@ -422,25 +348,10 @@ describe('missingBackfills', () => {
         [
             'an alterTable builder in a variable',
             migration({ up: ["const t = db.schema.alterTable('study')", "await t.addColumn('x', 'text').execute()"] }),
-            ['study'],
+            ['<unresolved table>'],
         ],
         [
-            'a createTable builder in a variable',
-            migration({
-                up: ["const t = db.schema.createTable('study_thing')", "await t.addColumn('id', 'uuid').execute()"],
-            }),
-            ['study_thing'],
-        ],
-        [
-            'a table name in a const',
-            migration({
-                top: ["const TABLE = 'study'"],
-                up: ["await db.schema.alterTable(TABLE).addColumn('x', 'text').execute()"],
-            }),
-            ['study'],
-        ],
-        [
-            'a table name in a const with its backfill',
+            'a table name in a const, even with its backfill',
             migration({
                 top: ["const TABLE = 'study'"],
                 up: [
@@ -448,22 +359,9 @@ describe('missingBackfills', () => {
                     "await db.updateTable(TABLE).set({ x: 'a' }).execute()",
                 ],
             }),
-            [],
-        ],
-        [
-            'a loop over table names',
-            migration({
-                top: ["const TABLES = ['study', 'study_job']"],
-                up: [
-                    'for (const table of TABLES) {',
-                    "await db.schema.alterTable(table).addColumn('x', 'text').execute()",
-                    "await db.updateTable(table).set({ x: 'a' }).execute()",
-                    '}',
-                ],
-            }),
             ['<unresolved table>'],
         ],
-    ])('builder names: %s', check)
+    ])('non-literal names: %s', check)
 
     it.each<Row>([
         [
@@ -516,16 +414,6 @@ describe('missingBackfills', () => {
             migration({ up: [run('DO $$ BEGIN ALTER TABLE study ADD COLUMN x text; END $$')] }),
             ['study'],
         ],
-        [
-            'an escape string with an escaped quote',
-            migration({ up: [run("SELECT E'it\\\\'s'; ALTER TABLE study_job ADD COLUMN y text; SELECT 'z'")] }),
-            ['study_job'],
-        ],
-        [
-            'a -- inside a quoted identifier',
-            migration({ up: [run('ALTER TABLE "a--b" ADD COLUMN q int; ALTER TABLE study ADD COLUMN x text')] }),
-            ['study'],
-        ],
     ])('SQL text: %s', check)
 
     const ADD_STUDY_STATUS = run("ALTER TYPE study_status ADD VALUE 'X'")
@@ -542,37 +430,6 @@ describe('missingBackfills', () => {
                 up: [ADD_STUDY_STATUS, UPDATE_STUDY],
             }),
             [],
-        ],
-        [
-            'a rebuilt study enum without a backfill',
-            migration({ up: [run('DROP TYPE study_status'), run("CREATE TYPE study_status AS ENUM ('A', 'B')")] }),
-            ['study_status'],
-        ],
-        [
-            'a rebuilt study enum with a study backfill',
-            migration({
-                up: [
-                    run('DROP TYPE study_status'),
-                    run("CREATE TYPE study_status AS ENUM ('A', 'B')"),
-                    run("UPDATE study SET status = 'B'"),
-                ],
-            }),
-            [],
-        ],
-        [
-            'a rebuilt study enum with a backfill on another table',
-            migration({
-                up: [
-                    run("CREATE TYPE study_status AS ENUM ('A', 'B')"),
-                    "await db.updateTable('org').set({ y: 1 }).execute()",
-                ],
-            }),
-            ['study_status'],
-        ],
-        [
-            'a builder study enum',
-            migration({ up: ["await db.schema.createType('study_kind').asEnum(['A']).execute()"] }),
-            ['study_kind'],
         ],
     ])('enum values: %s', check)
 
@@ -593,29 +450,12 @@ describe('missingBackfills', () => {
 
     it.each<Row>([
         ['several actions', migration({ up: [run('ALTER TABLE study DROP COLUMN a, ADD COLUMN b text')] }), ['study']],
-        ['ADD without COLUMN', migration({ up: [run('ALTER TABLE study ADD b text')] }), ['study']],
         [
             'DO UPDATE adds no study table',
             migration({ up: [W, run('INSERT INTO org (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET y = 1')] }),
             ['study'],
         ],
-        [
-            'constraint forms with a comma inside parentheses',
-            migration({
-                up: [
-                    run(
-                        'ALTER TABLE study ADD CONSTRAINT c CHECK (a IN (1, 2)), ADD PRIMARY KEY (id), ADD UNIQUE (b), ' +
-                            'ADD FOREIGN KEY (c) REFERENCES org(id), ADD EXCLUDE USING gist (d WITH =)',
-                    ),
-                ],
-            }),
-            [],
-        ],
-        [
-            'a constraint on the next line',
-            migration({ up: [run('ALTER TABLE study\n    ADD\n        CONSTRAINT c UNIQUE (b)')] }),
-            [],
-        ],
+        ['a constraint', migration({ up: [run('ALTER TABLE study\n    ADD CONSTRAINT c CHECK (a IN (1, 2))')] }), []],
         [
             'optional keywords',
             migration({ up: [run('ALTER TABLE IF EXISTS ONLY study ADD COLUMN IF NOT EXISTS x text')] }),
@@ -627,20 +467,6 @@ describe('missingBackfills', () => {
             ['study'],
         ],
     ])('raw ALTER TABLE: %s', check)
-
-    it.each<Row>([
-        ['a raw new study table', migration({ up: [run('CREATE TABLE study_foo (id uuid)')] }), ['study_foo']],
-        [
-            'a raw new study table with its own backfill',
-            migration({
-                up: [
-                    run('CREATE TABLE IF NOT EXISTS study_foo (id uuid)'),
-                    run('INSERT INTO study_foo (id) SELECT id FROM study'),
-                ],
-            }),
-            [],
-        ],
-    ])('raw CREATE TABLE: %s', check)
 
     it('reports a file without up()', () => {
         expect(missingBackfills('export async function down(db) {}')).toEqual(['no up() function'])

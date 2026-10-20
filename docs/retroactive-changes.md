@@ -27,20 +27,14 @@ migration brings them along.
    knows whether to check studies that predate the deploy.
 
 `src/database/migrations.test.ts` fails any migration numbered ≥ 1787300000000 that widens a
-study-family table or enum outside `down()`, unless the file carries the `no backfill:` marker or `up()`
-backfills each widened table. A backfill counts when `up()`, or a function in the same file that `up()`
-calls, runs `updateTable`/`insertInto` on that table, or an `UPDATE`/`INSERT INTO` on it in a `sql`
-template or `sql.raw(...)`. A backfill in `down()`, on another table, in a comment, in a nested function
-that never runs, or inside a dollar-quoted body (`$$ ... $$`) does not count. A builder table name the
-guard cannot read, such as a loop variable, counts as a study table that still needs the marker.
+study-family table or enum outside `down()`, unless the file carries the `no backfill:` marker or
+backfills each widened table on that same table, in `up()` or in a function in the same file that
+`up()` calls. Pass builder table names as string literals; any other name needs the marker.
 
-The guard always asks for the marker on a new study enum value (`ALTER TYPE ... ADD VALUE`). This is
-deliberate: Postgres cannot use a new value before the migration's transaction commits, so no backfill
-in that migration can write it. The marker's reason must still be true (step 2). If old rows need the
-new value, do not use `ADD VALUE`: rebuild the type and backfill in the same migration, as
-`1787300000000_code_resubmission_note_rows.ts` does. The guard asks a migration that creates a study
-enum (`CREATE TYPE study_* AS ENUM`, or `createType`) for a backfill on a study-family table or the
-marker.
+A new study enum value (`ALTER TYPE ... ADD VALUE`) always needs the marker, with a true reason
+(step 2): Postgres cannot use the value before the migration's transaction commits, so no backfill in
+that migration can write it. If old rows need the new value, rebuild the type and backfill in the same
+migration, as `1787300000000_code_resubmission_note_rows.ts` does.
 
 ## Pre-rule gaps
 
