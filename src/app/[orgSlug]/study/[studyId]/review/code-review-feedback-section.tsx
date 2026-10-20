@@ -29,7 +29,7 @@ type CodeReviewFeedbackSectionProps = {
 
 function FeedbackIntro({ labName }: { labName: string }) {
     return (
-        <Text fz={16} c={semanticColor('text.primary')}>
+        <Text fz="md" c={semanticColor('text.primary')}>
             Share your decision and feedback with {labName} based on the evaluation criteria above. You can also request
             clarifications, flag dataset risks, or outline required changes.
         </Text>
@@ -155,10 +155,10 @@ export function CodeReviewFeedbackSection({
         <Paper p="xxl" data-testid="code-review-section">
             <Stack gap="lg">
                 <Group gap="xxs" align="center">
-                    <Text id={SECTION_HEADING_ID} fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text id={SECTION_HEADING_ID} fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Decision
                     </Text>
-                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                    <RequiredIndicator fz="xl" fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <FeedbackIntro labName={labName} />

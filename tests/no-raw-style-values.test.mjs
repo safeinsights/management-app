@@ -1,4 +1,5 @@
 import { RuleTester } from 'eslint'
+import typescriptEslint from 'typescript-eslint'
 import { describe, it } from 'vitest'
 import noRawStyleValues from './no-raw-style-values.mjs'
 
@@ -38,6 +39,7 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         'const Row = ({ gap }) => <Stack gap={gap} />',
         // Both ternary branches are tokens.
         '<Text c={isActive ? semanticColor("text.white") : semanticColor("text.secondary")} />',
+        '<Text c={x ?? semanticColor("text.secondary")} />',
         // Mantine's `color` prop takes a ramp name; the theme maps the SI ramps' variants to tokens.
         '<Alert color="red" />',
         '<Badge color="grey" variant="light" />',
@@ -53,9 +55,34 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         // Mantine's variant variables are what the theme rewires to tokens; only a numbered rung is raw.
         '<Box bg="var(--mantine-color-red-light)" />',
         '<Box bd="1px solid var(--si-color-border-default)" />',
-        // A whole ramp, or one picked by a variable, is the theme's own plumbing rather than a choice.
+        // A whole ramp is the theme's own plumbing rather than a choice.
         'const ramp = theme.colors.green',
-        'const shade = theme.colors[family][Number(index)]',
+        'const { [hue]: ramp } = theme.colors',
+        // A caller's colour is the caller's to answer for.
+        'const T = ({ color }) => <Text c={color} />',
+        '<Text fz="sm" />',
+        '<Title fz="h3" />',
+        // Figma's 10px has no scale key; its variable is the token.
+        '<Text fz="var(--si-font-size-10)" />',
+        '<Text size="sm" />',
+        '<Title order={2} size="h4" />',
+        '<List size="md" />',
+        // On an icon or ActionIcon, `size` is a dimension, not a font size.
+        '<CheckIcon size={16} />',
+        '<ActionIcon size={28} />',
+        `<Text fz={isProminent ? 'sm' : undefined} />`,
+        'const T = ({ fz }) => <Text fz={fz} />',
+        `const LABEL = { fw: fontWeight.semibold, fz: 'sm' }`,
+        '<List spacing="xxs" />',
+        '<Table verticalSpacing="sm" horizontalSpacing="md" />',
+        '<Skeleton radius="sm" />',
+        '<Paper radius={0} bdrs="xs" />',
+        `const CARD = { p: 'md', gap: 'xs', radius: 'sm' }`,
+        // A key that shares a prop's name is not always a style: a seed's language → command map.
+        `const RUN = { py: 'python main.py', r: 'Rscript main.r' }`,
+        // A dotted string with a runtime part is only a rung when the rest names one.
+        'const file = `${name}.${ext}`',
+        'const label = `${count}.`',
     ],
     invalid: [
         {
@@ -211,6 +238,157 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: 'const { colors } = useMantineTheme(); const I = () => <Text c={colors.red[7]} />',
             errors: [{ messageId: 'rawShade' }],
+        },
+        // A ramp or rung picked by a variable is still a fixed rung, just one the rule cannot read.
+        {
+            code: '<CheckIcon color={theme.colors[hue][9]} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const shade = theme.colors.green[level]',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Text c={`${hue}.9`} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: '<Text c={color ? `${color}.6` : "dimmed"} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        // On `color` and object keys a built shade is the shade visitor's, as a literal one is.
+        {
+            code: '<Badge color={`${ramp}.5`} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const MAP = { done: { bg: `${hue}.0` } }',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: `<Text c={hue + '.9'} />`,
+            errors: [{ messageId: 'builtColor' }],
+        },
+        // A rung built away from the prop: in a helper, a constant, or with the level picked.
+        {
+            code: 'const shade = (h) => `${h}.9`; const T = () => <Text c={shade(hue)} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: `const toShade = (h) => h + '.9'`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const S = `${hue}.9`; const T = () => <Text c={S} />',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: 'const accent = `green.${level}`',
+            errors: [{ messageId: 'rawShade' }],
+        },
+        // A fallback or cast is still the value the prop receives.
+        {
+            code: '<Text c={x ?? `${hue}.9`} />',
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: `<Text c={x || 'charcoal.9'} />`,
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: `<Badge color={x ?? 'teal.5'} />`,
+            errors: [{ messageId: 'rawShade' }],
+        },
+        {
+            code: '<Stack p={gap ?? 16} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Text c={`${hue}.9` as MantineColor} />',
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'builtColor' }],
+        },
+        {
+            code: `<Text c={'charcoal.9' satisfies MantineColor} />`,
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: '<Stack p={(gap ?? 16)!} />',
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        // Mantine reads a numeric `fz` as px.
+        {
+            code: '<Text fz={14} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Text fz="13px" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: 'const SECTION_FONT_SIZE = 14; const S = () => <Text fz={SECTION_FONT_SIZE} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // 14px has a scale key, so its variable is a second name for `sm`; 22px is `h3`.
+        {
+            code: '<Text fz="var(--si-font-size-14)" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Title fz="var(--si-font-size-22)" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // Mantine reads `size` on Text, Title, Anchor and List as `fz`.
+        {
+            code: '<Text size={13} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Title size={22} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Text size="13px" />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<Anchor size={13} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        {
+            code: '<List size={13} />',
+            errors: [{ messageId: 'rawFontSize' }],
+        },
+        // Typography in a prop object or config map is the same raw value one step removed.
+        {
+            code: `const LABEL = { fw: 600, fz: 14 }`,
+            errors: [{ messageId: 'rawWeight' }, { messageId: 'rawFontSize' }],
+        },
+        {
+            code: `const LABEL = { fz: '13px' }`,
+            errors: [{ messageId: 'pxLiteral' }],
+        },
+        {
+            code: `const CARD = { p: 16, radius: 4 }`,
+            errors: [{ messageId: 'rawSpacing' }, { messageId: 'rawRadius' }],
+        },
+        {
+            code: '<List spacing={4} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Table verticalSpacing={4} />',
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Skeleton radius={4} />',
+            errors: [{ messageId: 'rawRadius' }],
+        },
+        {
+            code: '<Box bdrs="12px" />',
+            errors: [{ messageId: 'rawRadius' }],
         },
     ],
 })

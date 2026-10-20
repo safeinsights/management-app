@@ -64,7 +64,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-files-section">
             <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Output files
                     </Text>
                     <DownloadAllButton

@@ -502,7 +502,7 @@ function OverflowFilesMenu({
 function CodeFilesHeading({ isVisible }: { isVisible: boolean }) {
     if (!isVisible) return null
     return (
-        <Text fw={fontWeight.bold} fz={16}>
+        <Text fw={fontWeight.bold} fz="md">
             Code files
         </Text>
     )

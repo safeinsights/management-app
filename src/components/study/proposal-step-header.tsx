@@ -38,7 +38,13 @@ export function ProposalStepHeader({ stepLabel, heading, banner, children, actio
             <Group justify="space-between" wrap="nowrap" align="flex-start">
                 <Box>
                     {/* Uppercase by CSS, so screen readers read "Step 3" rather than spelling out "STEP". */}
-                    <Text fz={10} fw={fontWeight.bold} c={semanticColor('text.secondary')} pb="xxs" tt="uppercase">
+                    <Text
+                        fz="var(--si-font-size-10)"
+                        fw={fontWeight.bold}
+                        c={semanticColor('text.secondary')}
+                        pb="xxs"
+                        tt="uppercase"
+                    >
                         {stepLabel}
                     </Text>
                     <Title order={2} fz="xl" c={semanticColor('text.primary')} pb="xxs">
