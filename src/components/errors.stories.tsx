@@ -1,3 +1,4 @@
+import '@clerk/nextjs/server'
 import type { Story } from '@ladle/react'
 import { Stack } from '@mantine/core'
 import { ErrorAlert, AccessDeniedAlert, AlertNotFound, InputError } from './errors'
