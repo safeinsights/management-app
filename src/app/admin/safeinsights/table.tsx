@@ -113,6 +113,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     variant="subtle"
                     color="blue"
                     onClick={() => router.push(Routes.adminTeam({ orgSlug: org.slug }))}
+                    aria-label={`View users for ${org.name}`}
                 >
                     <UsersIcon />
                 </ActionIcon>
@@ -123,6 +124,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     variant="subtle"
                     color="blue"
                     onClick={() => router.push(Routes.adminSettings({ orgSlug: org.slug }))}
+                    aria-label={`Settings for ${org.name}`}
                 >
                     <GearIcon />
                 </ActionIcon>
@@ -133,16 +135,17 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     variant="subtle"
                     color="blue"
                     onClick={() => router.push(Routes.orgDashboard({ orgSlug: org.slug }))}
+                    aria-label={`View studies for ${org.name}`}
                 >
                     <UserListIcon />
                 </ActionIcon>
             </InfoTooltip>
             <InfoTooltip label="Edit" withArrow>
-                <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
+                <ActionIcon size="sm" variant="subtle" color="green" onClick={open} aria-label={`Edit ${org.name}`}>
                     <PencilIcon />
                 </ActionIcon>
             </InfoTooltip>
-            <SuretyGuard onConfirmed={() => deleteOrg({ orgId: org.id })}>
+            <SuretyGuard onConfirmed={() => deleteOrg({ orgId: org.id })} label={`Delete ${org.name}`}>
                 <TrashIcon />
             </SuretyGuard>
         </Group>

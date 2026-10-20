@@ -60,7 +60,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 aria-label="Variable value"
                 error={!envVar.value.trim() ? 'Value is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs" aria-label="Remove variable">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
@@ -134,7 +134,12 @@ function StarterCodeSection({
                     {starterCodes.map((file) => (
                         <Group key={file.name} justify="space-between">
                             <Text size="sm">{file.name}</Text>
-                            <ActionIcon color="red" variant="subtle" onClick={() => removeStarterCode(file.name)}>
+                            <ActionIcon
+                                color="red"
+                                variant="subtle"
+                                onClick={() => removeStarterCode(file.name)}
+                                aria-label={`Remove ${file.name}`}
+                            >
                                 <TrashIcon size={14} />
                             </ActionIcon>
                         </Group>
@@ -171,7 +176,13 @@ function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps
                 aria-label={`Command for .${ext} files`}
                 error={!cmd.trim() ? 'Command is required' : null}
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
+            <ActionIcon
+                color="red"
+                variant="subtle"
+                onClick={onRemove}
+                mt="xxs"
+                aria-label={`Remove command for .${ext} files`}
+            >
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>

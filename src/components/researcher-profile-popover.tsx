@@ -168,7 +168,13 @@ const PopoverHeader: FC<{ fullName: string; onClose: () => void }> = ({ fullName
         <Text fw={fontWeight.bold} size="md" mt="xs">
             {fullName}
         </Text>
-        <ActionIcon variant="transparent" color={semanticColor('icon.light')} onClick={onClose} size="sm">
+        <ActionIcon
+            variant="transparent"
+            color={semanticColor('icon.light')}
+            onClick={onClose}
+            size="sm"
+            aria-label="Close"
+        >
             <XCircleIcon size={24} weight="fill" />
         </ActionIcon>
     </Group>
