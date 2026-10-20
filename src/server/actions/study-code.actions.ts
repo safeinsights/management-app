@@ -27,7 +27,7 @@ import {
 } from '@/server/study-submission'
 
 export const submitStudyCodeAction = new Action('submitStudyCodeAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string().uuid(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
+    .params(z.object({ studyId: z.uuid(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(withStudySubject)
     .requireAbilityTo('create', 'StudyJob')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))

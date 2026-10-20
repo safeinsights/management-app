@@ -25,7 +25,7 @@ const proposalUpdatableFields = [
 export const resubmitProposalAction = new Action('resubmitProposalAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string().uuid(),
+            studyId: z.uuid(),
             studyInfo: draftStudyApiSchema,
             resubmissionNote: resubmissionNoteParam,
         }),

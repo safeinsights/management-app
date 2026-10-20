@@ -38,7 +38,7 @@ export function isResearcherPath(pathname: string): boolean {
     return pathname.startsWith(RESEARCHER_PREFIX)
 }
 
-/** The whole `/account` subtree, not the pages a signed-out user may open (`ANON_ROUTES` in `proxy.ts`). */
+/** The whole `/account` subtree. `ANON_ROUTES` in `proxy.ts` is the smaller set a signed-out user may open. */
 export function isAccountSubtree(pathname: string): boolean {
     return pathname === ACCOUNT_PREFIX || pathname.startsWith(`${ACCOUNT_PREFIX}/`)
 }
