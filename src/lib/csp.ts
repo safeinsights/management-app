@@ -1,3 +1,6 @@
+// Relative, not `@/`: next.config.ts loads this file, where the path alias may not resolve.
+import { type DeployEnv, sentryDeployOptionsFromEnv } from './sentry-deploy'
+
 // Emitted from the proxy because a nonce is per-request. Production only, as `next dev` needs
 // 'unsafe-eval' (OTTER-721).
 export const CSP_NONCE_HEADER = 'x-csp-nonce'
@@ -27,13 +30,20 @@ export function generateNonce(): string {
 
 export function cspReportUrl(
     dsn: string | undefined = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN,
+    env: DeployEnv = process.env,
 ): string | undefined {
     if (!dsn) return undefined
     try {
         const { username, host, pathname } = new URL(dsn)
         const projectId = pathname.replaceAll('/', '')
         if (!username || !projectId) return undefined
-        return `https://${host}/api/${projectId}/security/?sentry_key=${username}`
+        const { environment, release } = sentryDeployOptionsFromEnv(env)
+        const params = new URLSearchParams({
+            sentry_key: username,
+            sentry_environment: environment,
+            sentry_release: release,
+        })
+        return `https://${host}/api/${projectId}/security/?${params}`
     } catch {
         return undefined
     }
