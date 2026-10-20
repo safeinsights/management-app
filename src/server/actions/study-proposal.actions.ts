@@ -3,6 +3,7 @@
 import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { countCharacters } from '@/lib/field-limits'
+import { Routes } from '@/lib/routes'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudyAccessSubject, withStudySubject } from '@/server/actions/study-subject'
 import { codeBuildRepositoryUrl } from '@/server/aws'
@@ -293,7 +294,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
-        revalidatePath(`/${orgSlug}/dashboard`)
+        revalidatePath(Routes.orgDashboard({ orgSlug }))
 
         purgeProposalYjsDocsAfterFinalize({ studyId, beforeAt: submittedAt })
 

@@ -1408,6 +1408,29 @@ describe('Request Study Actions', () => {
             expect(resolvePillId('researcher', state)).toBe('proposal-approved')
             expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
+
+        // Postgres reads a hyphenless UUID as the same row, but Routes.studyReview throws on it.
+        it('rejects a study id that is not a canonical UUID before it writes or uploads anything', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
+            const studyId = study.id.replaceAll('-', '')
+            const root = await createWorkspaceDir('submit-ide-hyphenless')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, studyId, { 'main.R': 'print("main")' })
+
+            const result = await submitStudyCodeAction({ studyId, mainFileName: 'main.R', fileNames: ['main.R'] })
+
+            expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
+            expect(aws.storeS3File).not.toHaveBeenCalled()
+            const files = await db
+                .selectFrom('studyJobFile')
+                .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
+                .select('studyJobFile.id')
+                .where('studyJob.studyId', '=', study.id)
+                .execute()
+            expect(files).toHaveLength(0)
+        })
     })
 
     describe('one-job-per-round (OTTER-601)', () => {

@@ -239,6 +239,39 @@ describe('resubmitProposalAction', () => {
         expect(Number(commentCount.count)).toBe(0)
     })
 
+    // Postgres reads a hyphenless UUID as the same row, but Routes.studyReview throws on it.
+    it('rejects a study id that is not a canonical UUID before it writes anything', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-uuid', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        const result = await resubmitProposalAction({
+            studyId: study.id.replaceAll('-', ''),
+            studyInfo: { title: 'attempting' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+
+        expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status', 'title'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged).toEqual({ status: 'CHANGE-REQUESTED', title: 'Original title' })
+
+        const commentCount = await db
+            .selectFrom('studyProposalComment')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(Number(commentCount.count)).toBe(0)
+    })
+
     it('rejects when caller is not a member of the submitting lab', async () => {
         const { org: labA, user: ownerA } = await mockSessionWithTestData({ orgSlug: 'lab-A', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({

@@ -2,6 +2,7 @@
 import { useUser } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
+import { Routes } from '@/lib/routes'
 import { ManageMFAView } from './manage-mfa-view'
 
 export function ManageMFA() {
@@ -11,7 +12,7 @@ export function ManageMFA() {
 
     if (!user) {
         notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
-        return redirect('/')
+        return redirect(Routes.home)
     }
 
     user.reload()
