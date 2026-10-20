@@ -106,7 +106,7 @@ export function fixtureForEmail(email: string | undefined | null): FakeFixture |
     return FAKE_ROLES.map((r) => ROLE_FIXTURES[r]).find((f) => f.email.toLowerCase() === lower) ?? null
 }
 
-// Shape must stay identical to tests/unit.helpers.tsx mockClerkSession() and
+// Shape must stay identical to tests/unit/clerk.ts mockClerkSession() and
 // src/server/clerk.ts calculateUserPublicMetadata().
 export function buildV3Metadata(fixture: FakeFixture): UserInfo {
     return {

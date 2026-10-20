@@ -67,7 +67,7 @@ declare global {
     var __flushDeferred: typeof flushDeferred
 }
 
-// unit.helpers re-exports this through the global: importing the setup file from there re-runs it
+// tests/unit/next.ts reaches this through the global: importing the setup file from there re-runs it
 // after vi.resetModules, with an empty queue and its hooks registered twice.
 globalThis.__flushDeferred = flushDeferred
 
@@ -146,7 +146,7 @@ vi.mock('next/font/google', () => ({
 }))
 vi.mock('next/headers', async () => ({ headers: async () => mockState.headers }))
 
-// Configured via mockClerkSession() in unit.helpers.tsx
+// Configured via mockClerkSession() in tests/unit/clerk.ts
 vi.mock('@clerk/nextjs')
 vi.mock('@clerk/nextjs/legacy')
 vi.mock('@clerk/nextjs/server')
