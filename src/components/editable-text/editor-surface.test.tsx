@@ -49,6 +49,13 @@ describe('EditorSurface', () => {
         expect(editable().style.fontSize).toBe('var(--mantine-font-size-sm)')
     })
 
+    it('keeps the left padding after Lexical takes over the root', () => {
+        renderWithProviders(<SingleUserEditor id="doc-inset" ariaLabel="Research questions" />)
+
+        expect(editable().style.paddingLeft).toBe('var(--mantine-spacing-md)')
+        expect(editable().style.paddingRight).toBe('var(--mantine-spacing-md)')
+    })
+
     it('makes the editable surface focusable', () => {
         renderWithProviders(<SingleUserEditor id="doc-focus" ariaLabel="Research questions" />)
 
