@@ -1,6 +1,7 @@
 'use server'
 
 import { Action, z } from '@/server/actions/action'
+import { withStudyAccessSubject } from '@/server/actions/study-subject'
 import { updateClerkUserName } from '@/server/clerk'
 import { positionSchema, educationSchema, personalInfoSchema, researchDetailsSchema } from '@/schema/researcher-profile'
 import { throwNotFound } from '@/lib/errors'
@@ -155,17 +156,7 @@ export const updateResearchDetailsAction = new Action('updateResearchDetailsActi
 
 export const getResearcherProfileByUserIdAction = new Action('getResearcherProfileByUserIdAction')
     .params(z.object({ userId: z.string(), studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        // Excludes researcherId/piUserId: this is merged into the CASL ability args, which
-        // requireAbilityTo echoes in its denial message.
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('Study'))
-
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { userId, studyId }, db }) => {
         const study = await db

@@ -19,7 +19,7 @@ import { notifications } from '@mantine/notifications'
 import { useForm } from '@mantine/form'
 import { zod4Resolver as zodResolver } from 'mantine-form-zod-resolver'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
-import { finalizeStudySubmissionAction } from '@/server/actions/study-request'
+import { finalizeStudySubmissionAction } from '@/server/actions/study-proposal.actions'
 import { Routes } from '@/lib/routes'
 import { lexicalJson } from '@/lib/lexical'
 import {

@@ -6,7 +6,7 @@ import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '../form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/schema/study-request'
 import { TITLE_INPUT_ID } from './field-ids'
 
 const LABEL = 'Study title'

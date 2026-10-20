@@ -12,7 +12,8 @@ import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
 import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
 
 type ReviewerOutputsDecidedProps = {

@@ -22,7 +22,7 @@ import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
 import { editProposalPreviousStep } from '@/lib/study-screen'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
-import { REQUIRED_NOTE_ERROR } from './schema'
+import { REQUIRED_NOTE_ERROR } from '@/schema/resubmission-note'
 import { EditResubmitFooter } from './footer'
 
 const ORG_NAME = 'Rice University'

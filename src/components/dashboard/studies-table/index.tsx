@@ -15,7 +15,7 @@ import {
     fetchStudiesForCurrentResearcherUserAction,
     fetchStudiesForCurrentReviewerAction,
     fetchStudiesForOrgAction,
-} from '@/server/actions/study.actions'
+} from '@/server/actions/study-dashboard.actions'
 import { getColumns } from './columns'
 import { DeleteDraftButton } from './delete-draft-button'
 import { buildRowModel } from './row-model'

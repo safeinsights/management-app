@@ -18,6 +18,7 @@ import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     fetchEncryptedJobFilesAction,
+    fetchLabPublicKeysAction,
     fetchStudyJobCodeFileAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
@@ -27,7 +28,7 @@ import {
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { onStudyReviewRequested } from '@/server/events'
-import { fetchStudiesForOrgAction } from './study.actions'
+import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { projectStudyState, resolvePillId } from '@/lib/study-screen'
@@ -43,7 +44,7 @@ vi.mock('@/server/mailer', () => ({
     sendLabCodeErroredEmail: vi.fn(),
 }))
 
-// Spy on the generation trigger only; study-request.ts depends on the rest of the module.
+// Spy on the generation trigger only; the study submission actions depend on the rest of the module.
 vi.mock('@/server/events', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/server/events')>()),
     onStudyReviewRequested: vi.fn(),
@@ -1077,5 +1078,65 @@ describe('draft code files are private to the Research Lab (OTTER-596)', () => {
         await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
         const result = actionResult(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' }))
         expect(result).toMatchObject({ fileName: 'main.r' })
+    })
+})
+
+describe('job subjects carry ids only (MA-6)', () => {
+    const permissionDenied = (result: unknown) =>
+        (result as { error: { permission_denied: string } }).error.permission_denied
+
+    const seedCodeJob = async () => {
+        const enclave = await insertTestOrg({ slug: 'ma6-enclave', type: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'ma6-lab', type: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            title: 'Confidential cohort study',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const path = `code/${study.id}/confidential-main.r`
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path, fileType: 'MAIN-CODE' })
+            .execute()
+        return { enclave, lab, study, job, path }
+    }
+
+    test('a refused caller of fetchStudyJobCodeFileAction gets no title or file path', async () => {
+        const { study, job, path } = await seedCodeJob()
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
+
+        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain(path)
+    })
+
+    test('an SI admin outside both orgs can still fetch a code file', async () => {
+        const { job } = await seedCodeJob()
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(
+            actionResult(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' })),
+        ).toMatchObject({ fileName: 'main.r' })
+    })
+
+    test('an unknown job keeps its not-found text', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        const studyJobId = '00000000-0000-7000-8000-000000000000'
+
+        expect(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' })).toEqual({
+            error: { user: `job for study job id ${studyJobId} was not found` },
+        })
+    })
+
+    test('an unknown study on fetchLabPublicKeysAction is not found', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        expect(await fetchLabPublicKeysAction({ studyId: '00000000-0000-7000-8000-000000000000' })).toEqual({
+            error: { user: 'study was not found' },
+        })
     })
 })

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
-import { studyTitleField } from '@/app/[orgSlug]/study/request/form-schemas'
+import { studyTitleField } from '@/schema/study-request'
 
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 

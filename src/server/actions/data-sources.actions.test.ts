@@ -13,7 +13,7 @@ import {
     updateOrgDataSourceAction,
 } from './data-sources.actions'
 import { deleteOrgCodeEnvAction } from './code-envs.actions'
-import { createOrgDataSourceSchema, dataSourceFormSchema } from './data-sources.schema'
+import { createOrgDataSourceSchema, dataSourceFormSchema } from '@/schema/data-source'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
 

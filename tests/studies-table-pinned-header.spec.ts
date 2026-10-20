@@ -36,11 +36,13 @@ test.describe('studies table pinned header', () => {
         page,
         studyFeatures,
     }) => {
-        const title = studyFeatures.uniqueTitle('pinned header')
-        await seedProposalPendingReview(title)
+        // A viewport of rows of its own: on a fresh database the page is otherwise too short to scroll
+        // the table past its pin point, so the gap probe lands outside the table's clip.
+        const titles = Array.from({ length: 8 }, (_, i) => studyFeatures.uniqueTitle(`pinned header ${i}`))
+        for (const title of titles) await seedProposalPendingReview(title)
         await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
         // The loading skeleton is a table too, with equal columns; wait for the studies to replace it.
-        await expect(page.getByRole('table').getByText(title)).toBeVisible()
+        await expect(page.getByRole('table').getByText(titles[0])).toBeVisible()
 
         // Unpinned, the band would sit over the content above the table.
         let restingWidths: number[] = []

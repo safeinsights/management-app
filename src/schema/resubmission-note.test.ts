@@ -7,7 +7,7 @@ import {
     resubmissionNoteCharacterCount,
     resubmissionNoteToLexicalJson,
     resubmitNoteSchema,
-} from './schema'
+} from '@/schema/resubmission-note'
 import { overCharacterLimitError } from '@/lib/field-limits'
 
 const buildNote = (characterCount: number) => 'x'.repeat(characterCount)

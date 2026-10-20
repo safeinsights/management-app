@@ -1,11 +1,7 @@
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
-import {
-    getStudyAction,
-    type CodeReviewFeedbackEntry,
-    type ProposalFeedbackEntry,
-    type SelectedStudy,
-} from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry, type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {

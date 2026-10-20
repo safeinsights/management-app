@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { useMutation } from '@/common'
-import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
+import { onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import { reportMutationError } from '@/components/errors'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { buildStudyInfo, type TitleMode } from './build-study-info'

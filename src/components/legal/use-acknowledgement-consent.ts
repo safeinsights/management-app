@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { agreementTableQueryKeyPrefixes } from '@/schema/legal-document'
-import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-document.actions'
+import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import { useState } from 'react'
 
 type Props = {

@@ -12,10 +12,7 @@ import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import type { NavAction } from '@/lib/study-screen'
 import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
-import {
-    RESUBMISSION_NOTE_FIELD_ID,
-    RESUBMIT_CODE_BUTTON_ID,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { RESUBMISSION_NOTE_FIELD_ID, RESUBMIT_CODE_BUTTON_ID } from '@/schema/resubmission-note'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 
 interface EditStudyCodeFooterProps {

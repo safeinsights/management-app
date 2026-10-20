@@ -7,7 +7,7 @@ import {
     insertTestOrg,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
-import { finalizeStudySubmissionAction, onSaveDraftStudyAction } from '@/server/actions/study-request'
+import { finalizeStudySubmissionAction, onSaveDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import { designateTestLabs, isDesignatedTestLab, undesignateTestLab } from './test-lab'
 
 const insertParties = async () => {

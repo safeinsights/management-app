@@ -18,7 +18,7 @@ import {
     resubmissionNoteIsBlank,
     resubmissionNoteIsOverLimit,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 
 export interface ResubmissionNoteAutosaveStatus {
     isSaving: boolean

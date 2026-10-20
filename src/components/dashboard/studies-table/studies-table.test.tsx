@@ -13,7 +13,7 @@ import { StudiesTable } from './index'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
-import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+import { fetchStudiesForOrgAction } from '@/server/actions/study-dashboard.actions'
 
 vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
@@ -96,8 +96,11 @@ const mockStudies = [
     },
 ]
 
-vi.mock('@/server/actions/study.actions', () => ({
+vi.mock('@/server/actions/study-dashboard.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => mockStudies),
+}))
+
+vi.mock('@/server/actions/study.actions', () => ({
     softDeleteStudyAction: vi.fn(),
 }))
 
