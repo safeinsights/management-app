@@ -24,3 +24,5 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('member_user').execute()
 }
+
+// TEMPORARY TEST ONLY (OTTER-862): touches a migration to exercise the PR description check, never merge
