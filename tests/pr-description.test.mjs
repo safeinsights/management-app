@@ -32,6 +32,17 @@ describe('hasExistingStudiesLine', () => {
     ])('rejects a line with no text after the colon: %j', (body) => {
         expect(hasExistingStudiesLine(body)).toBe(false)
     })
+
+    it.each([
+        'Summary\n\n<!-- draft\nExisting studies: backfilled X',
+        '<!-- a --> text <!-- Existing studies: unaffected because Y',
+    ])('rejects a line that an unclosed comment hides: %j', (body) => {
+        expect(hasExistingStudiesLine(body)).toBe(false)
+    })
+
+    it('keeps the visible text around a comment', () => {
+        expect(hasExistingStudiesLine('<!-- note -->Existing studies: backfilled X <!-- more -->')).toBe(true)
+    })
 })
 
 describe('checkPrDescription', () => {
