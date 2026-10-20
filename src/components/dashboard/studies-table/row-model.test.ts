@@ -167,6 +167,23 @@ describe('buildRowModel', () => {
             expect(row.submittedBy.lines).toEqual(['Proposal: Avery', 'Code: Not submitted'])
         })
 
+        it('shows Not reviewed for every stage while a resubmitted proposal awaits a decision', () => {
+            const row = model(
+                {
+                    status: 'PENDING-REVIEW',
+                    proposalReviewerName: 'Dana',
+                    proposalReviewedAt: new Date('2026-09-01'),
+                },
+                'reviewer',
+            )
+            expect(row.reviewedBy.name).toBeNull()
+            expect(row.reviewedBy.lines).toEqual([
+                'Proposal: Not reviewed',
+                'Code: Not reviewed',
+                'Outputs: Not reviewed',
+            ])
+        })
+
         const earlierDeciders = {
             proposalReviewerName: 'Dana',
             proposalReviewedAt: new Date('2026-09-01'),
@@ -178,14 +195,9 @@ describe('buildRowModel', () => {
 
         it.each<[string, Partial<StudyRow>, string[]]>([
             [
-                'a resubmitted proposal',
-                { status: 'PENDING-REVIEW' },
-                ['Proposal: Not reviewed', 'Code: Eli', 'Outputs: Fran'],
-            ],
-            [
                 'resubmitted code',
                 { jobStatusChanges: changes('INITIATED', 'CODE-SUBMITTED') },
-                ['Proposal: Dana', 'Code: Not reviewed', 'Outputs: Fran'],
+                ['Proposal: Dana', 'Code: Not reviewed', 'Outputs: Not reviewed'],
             ],
             [
                 "a new run's outputs",

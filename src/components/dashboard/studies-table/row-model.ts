@@ -62,9 +62,11 @@ const proposalReview = (study: StudyRow): Stage => {
     return { name: study.reviewerName, at: decidedAt }
 }
 
-// While a stage awaits its submission or decision, the earlier round's actor is not credited for it.
-const AWAITING_SUBMISSION: Partial<Record<PillId, string>> = { 'proposal-draft': 'Proposal', 'code-draft': 'Code' }
-const AWAITING_REVIEW: Partial<Record<PillId, string>> = {
+type StageLabel = 'Proposal' | 'Code' | 'Outputs'
+
+// While a stage awaits its submission or decision, earlier rounds' actors are not credited for it or later stages.
+const AWAITING_SUBMISSION: Partial<Record<PillId, StageLabel>> = { 'proposal-draft': 'Proposal', 'code-draft': 'Code' }
+const AWAITING_REVIEW: Partial<Record<PillId, StageLabel>> = {
     'proposal-needs-review': 'Proposal',
     'code-needs-review': 'Code',
     'outputs-need-review': 'Outputs',
@@ -72,13 +74,16 @@ const AWAITING_REVIEW: Partial<Record<PillId, string>> = {
 }
 
 const attribution = (
-    stages: Array<[label: string, stage: Stage]>,
+    stages: Array<[label: StageLabel, stage: Stage]>,
     placeholder: string,
-    awaiting: string | undefined,
-): Attribution => ({
-    name: awaiting ? null : (newestStage(stages.map(([, stage]) => stage))?.name ?? null),
-    lines: stages.map(([label, stage]) => `${label}: ${(label !== awaiting && stage.name) || placeholder}`),
-})
+    awaiting: StageLabel | undefined,
+): Attribution => {
+    const from = awaiting ? stages.findIndex(([label]) => label === awaiting) : stages.length
+    return {
+        name: awaiting ? null : (newestStage(stages.map(([, stage]) => stage))?.name ?? null),
+        lines: stages.map(([label, stage], i) => `${label}: ${(i < from && stage.name) || placeholder}`),
+    }
+}
 
 // The researcher link and the draft bin come from the same dashboard rule (docs/study-screens-logic.md,
 // Stage 3).
