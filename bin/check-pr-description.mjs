@@ -17,7 +17,8 @@ if (result.ok) {
     process.stdout.write(
         `::error title=Existing studies line missing::This PR changes ${result.migrations.join(', ')}. ` +
             'Add "Existing studies: backfilled <what>" or "Existing studies: unaffected because <why>" to the PR ' +
-            'description (docs/retroactive-changes.md, step 5). Editing the description re-runs this check.\n',
+            'description (docs/retroactive-changes.md, step 5). Editing the description re-runs this check. ' +
+            'Re-running this job from the Actions page checks the old description again.\n',
     )
     process.exitCode = 1
 }

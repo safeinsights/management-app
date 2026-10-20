@@ -13,6 +13,14 @@ describe('hasExistingStudiesLine', () => {
         '**Existing studies: backfilled.** The migration records a visit at the deploy time.',
         '**Existing studies:** unaffected because only new rows use it',
         'Summary\r\n\r\nExisting studies: backfilled X\r\n',
+        '**Existing studies**: unaffected because no stored data changes.',
+        '*Existing studies*: unaffected',
+        '_Existing studies_: backfilled X',
+        'Existing studies:\u00a0backfilled X',
+        'Existing studies: `backfilled` the notes column',
+        'Existing studies: - unaffected because Y',
+        'Existing studies: \u2014 unaffected because Y',
+        'Existing studies: TBD\n\nExisting studies: backfilled X',
     ])('accepts a filled-in line: %j', (body) => {
         expect(hasExistingStudiesLine(body)).toBe(true)
     })
@@ -28,9 +36,23 @@ describe('hasExistingStudiesLine', () => {
     it.each([
         'Existing studies:\nThe migration backfills old rows.',
         'Existing studies:\r\nfoo',
+        '**Existing studies**:\nfoo',
         '<!-- Existing studies: backfilled X -->\n\nExisting studies:',
     ])('rejects a line with no text after the colon: %j', (body) => {
         expect(hasExistingStudiesLine(body)).toBe(false)
+    })
+
+    it.each(['Existing studies: TBD', '**Existing studies:** N/A', 'Existing studies: todo.'])(
+        'rejects a deferred answer: %j',
+        (body) => {
+            expect(hasExistingStudiesLine(body)).toBe(false)
+        },
+    )
+
+    it('rejects the template examples copied out of the comment unchanged', () => {
+        const examples = template.split('\n').filter((line) => line.startsWith('Existing studies: '))
+        expect(examples).toHaveLength(2)
+        for (const example of examples) expect(hasExistingStudiesLine(example)).toBe(false)
     })
 
     it.each([
