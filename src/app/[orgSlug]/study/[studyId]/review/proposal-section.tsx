@@ -6,7 +6,7 @@ import type { PageHeaderStep } from '@/components/page-header'
 import { proposalReviewHeading } from '@/lib/proposal-review'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { reviewerProposalNeedsReviewBanner } from '@/lib/study-banners'
-import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { StudyForReview } from './review-types'
 
 type ProposalSectionProps = {

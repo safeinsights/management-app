@@ -16,11 +16,9 @@ import {
 import { useRouter } from 'next/navigation'
 import { FC, useMemo, useState } from 'react'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import {
-    fetchGlobalLegalDocumentsAction,
-    fetchParticipationAgreementFromInviteIdAction,
-} from '@/server/actions/legal-document.actions'
-import { onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { fetchGlobalLegalDocumentsAction } from '@/server/actions/legal-acknowledgement.actions'
+import { fetchParticipationAgreementFromInviteIdAction } from '@/server/actions/participation-agreement.actions'
+import { onCreateAccountAction, onPendingUserLoginAction } from '@/server/actions/create-account.actions'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
 

@@ -17,7 +17,7 @@ import {
     fetchEligibleTestLabsAction,
     fetchOrgTestLabsAction,
     undesignateTestLabAction,
-} from './test-labs.actions'
+} from '@/server/actions/test-labs.actions'
 import { TestLabRowView, TestLabsEmptyView, TestLabsTableView, TestLabsView } from './test-labs-view'
 
 type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]

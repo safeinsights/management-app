@@ -4,7 +4,7 @@ import { useQuery } from '@/common'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth } from '@clerk/nextjs'
 import { FC, use } from 'react'
-import { getOrgInfoForInviteAction } from '../create-account.action'
+import { getOrgInfoForInviteAction } from '@/server/actions/create-account.actions'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
 import { SetupAccountForm } from './setup-account-form'
 

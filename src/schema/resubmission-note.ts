@@ -50,3 +50,13 @@ export type ResubmitNoteValue = z.infer<typeof resubmitNoteSchema>
 export const initialResubmitNoteValue: ResubmitNoteValue = {
     resubmissionNote: '',
 }
+
+// Mirrors resubmitNoteSchema. Both flows now submit Lexical JSON; plain text still parses for old drafts.
+export const resubmissionNoteParam = z
+    .string()
+    .refine((val) => !resubmissionNoteIsBlank(val), {
+        error: 'A resubmission note is required.',
+    })
+    .refine((val) => resubmissionNoteCharacterCount(val) <= RESUBMIT_NOTE_MAX_CHARACTERS, {
+        error: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
+    })

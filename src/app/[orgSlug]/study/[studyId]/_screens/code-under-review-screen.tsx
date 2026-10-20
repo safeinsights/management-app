@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { codeSubmissionVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
-import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
+import { getCodeReviewFeedbackAction } from '@/server/actions/review-feedback.actions'
 import { listWorkspaceFileActivityAction } from '@/server/actions/workspaces.actions'
 import { actionResult } from '@/lib/utils'
 import { CodePostSubmissionView } from '../view/code-post-submission-view'

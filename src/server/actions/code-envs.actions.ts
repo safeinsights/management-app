@@ -27,7 +27,7 @@ import {
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
-import { dockerImageRefSchema, identifierRegex } from './code-envs.schema'
+import { dockerImageRefSchema, identifierRegex } from '@/schema/code-env'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'

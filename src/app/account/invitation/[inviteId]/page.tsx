@@ -58,7 +58,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     if (!pendingInvite) {
         if (session) return <InvalidInvitePanel />
-        redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
+        redirect(`${Routes.accountSignin}?invite_not_found=1`, RedirectType.replace)
     }
 
     // getUserList matches merged emails as well as primary ones.
@@ -90,7 +90,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     }
 
     if (matchingUser) {
-        redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
+        redirect(`${Routes.accountSignin}?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 
     const { orgName, isAdmin } = pendingInvite
@@ -112,7 +112,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 <ButtonLink
                     variant="filled"
                     size="lg"
-                    href={`/account/signin?invite_id=${inviteId}` as Route}
+                    href={`${Routes.accountSignin}?invite_id=${inviteId}` as Route}
                     fullWidth
                 >
                     Login with existing account

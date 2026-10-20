@@ -5,6 +5,7 @@
 import * as Sentry from '@sentry/nextjs'
 import { consoleLoggingIntegration } from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
+import { sentryDeployOptionsFromEnv } from '@/lib/sentry-deploy'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -27,6 +28,5 @@ Sentry.init({
 
     enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-    release: process.env.RELEASE_TAG || 'unknown',
-    environment: process.env.ENVIRONMENT_ID || 'development',
+    ...sentryDeployOptionsFromEnv(),
 })

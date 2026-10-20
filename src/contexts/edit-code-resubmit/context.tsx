@@ -17,8 +17,8 @@ import {
     RESUBMIT_CODE_BUTTON_ID,
     resubmitNoteSchema,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+} from '@/schema/resubmission-note'
+import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 import { useCodeSubmissionPresence, type CodeSubmissionPresence } from '@/hooks/use-code-submission-presence'
 
 interface EditCodeResubmitContextValue {

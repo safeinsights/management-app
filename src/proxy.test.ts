@@ -38,8 +38,9 @@ describe('continueWithNonce', () => {
 
         const res = continueWithNonce(new NextRequest('https://example.test/dashboard'))
 
-        expect(res.headers.get(REPORTING_ENDPOINTS_HEADER)).toBe(
-            'csp-report="https://o11.ingest.us.sentry.io/api/22/security/?sentry_key=abc123"',
+        // Stubbing ENVIRONMENT_ID would turn on DB SSL for later tests; csp.test.ts pins the values.
+        expect(res.headers.get(REPORTING_ENDPOINTS_HEADER)).toMatch(
+            /^csp-report="https:\/\/o11\.ingest\.us\.sentry\.io\/api\/22\/security\/\?sentry_key=abc123&sentry_environment=[^&"]+&sentry_release=[^&"]+"$/,
         )
         expect(res.headers.get(CSP_HEADER)).toContain('report-to csp-report')
     })

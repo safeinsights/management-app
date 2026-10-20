@@ -9,7 +9,7 @@ import {
     toAthenaDbName,
     toPgDbName,
     withS3Prefix,
-} from './aws'
+} from '.'
 
 // The pure builders are tested directly: vitest cannot intercept `@aws-sdk/*` across the
 // externalised CJS boundary. Same reason CODEBUILD_WEBHOOK_SECRET is set in env.

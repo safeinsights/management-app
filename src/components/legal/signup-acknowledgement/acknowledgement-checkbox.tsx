@@ -5,7 +5,7 @@ import { Checkbox, Stack } from '@mantine/core'
 import { FC, ReactNode, useId } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
-import { ParticipationData } from '@/server/actions/legal-document.actions'
+import { ParticipationData } from '@/server/actions/participation-agreement.actions'
 import { PlaceholderLabel } from './placeholder-tos-pn'
 
 type AcknowledgeProps = {

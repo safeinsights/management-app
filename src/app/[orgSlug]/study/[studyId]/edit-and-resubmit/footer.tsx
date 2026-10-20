@@ -9,7 +9,7 @@ import { invalidProposalFieldIds } from '@/app/[orgSlug]/study/[studyId]/proposa
 import { ORDERED_FIELD_IDS } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { resubmitModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { RESUBMISSION_NOTE_FIELD_ID, type ResubmitNoteValue } from './schema'
+import { RESUBMISSION_NOTE_FIELD_ID, type ResubmitNoteValue } from '@/schema/resubmission-note'
 
 // Page order: the proposal fields, then the feedback thread, then the note. The two forms share no
 // wrapper whose positions could be compared, so the order is spelled out here.

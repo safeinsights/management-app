@@ -4,7 +4,7 @@ import { lexicalJson } from '@/lib/lexical'
 import { editProposalPreviousStep } from '@/lib/study-screen'
 import { DRAFT_REQUIRED_ERRORS } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { DATASETS_FIELD_ID, PI_SELECT_ID, textFieldInputId } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import { REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from './schema'
+import { REQUIRED_NOTE_ERROR, RESUBMISSION_NOTE_FIELD_ID } from '@/schema/resubmission-note'
 import { EditResubmitForm } from './form'
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'

@@ -177,9 +177,9 @@ export const mantineColorOverrides = (theme: MantineTheme): Record<string, strin
     return vars
 }
 
-// Figma collections `font-size` and `line-height`. The five sizes that coincide with Mantine's
-// xs-xl scale are set on the theme itself; these expose the whole set, including the sizes Mantine
-// has no key for, without inventing names for them.
+// Figma collections `font-size` and `line-height`. All sizes but 10 and 40 have a Mantine key
+// (xs-xl on the theme, h3-h1 from Mantine's heading defaults); these expose the whole set without
+// inventing names for the other two.
 export const typographyCssVariables: Record<string, string> = {
     '--si-font-size-10': '0.625rem',
     '--si-font-size-12': '0.75rem',

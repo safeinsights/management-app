@@ -21,7 +21,7 @@ import {
     readWorkspaceFileAction,
     recordWorkspaceFileEditAction,
 } from '@/server/actions/workspace-files.actions'
-import { submitStudyCodeAction } from '@/server/actions/study-request'
+import { submitStudyCodeAction } from '@/server/actions/study-code.actions'
 import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */

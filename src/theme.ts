@@ -18,6 +18,7 @@ import {
     Notification,
     Radio,
     rem,
+    Table,
     Tabs,
     Typography,
     type VariantColorsResolver,
@@ -245,9 +246,9 @@ export const theme = createTheme({
         // (1.2/1.35/1.5), so there is no composed heading style to transcribe. See OTTER-661.
         fontWeight: '700',
     },
-    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Five of those line up
-    // with Mantine's xs-xl scale, which is what existing call sites pass; the rest reach components
-    // as --si-font-size-* rather than being bolted onto Mantine keys design never named.
+    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Mantine's xs-xl and h3-h1
+    // (its default 22/26/34, which `headings` leaves unset) cover all but 10 and 40, and `fz` must use
+    // them; those two reach components as --si-font-size-* rather than as keys design never named.
     fontSizes: {
         xs: '0.75rem',
         sm: '0.875rem',
@@ -316,13 +317,22 @@ export const theme = createTheme({
         Typography: Typography.extend({
             styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
         }),
-        Table: {
-            styles: () => ({
-                th: {
-                    backgroundColor: semanticColor('surface.tableheader'),
-                },
+        // The header tint is 50% alpha, so a pinned header lays it over white; the clip hides the gap band
+        // (globals.css) at rest.
+        Table: Table.extend({
+            defaultProps: {
+                stickyHeaderOffset: 'calc(var(--app-shell-header-offset, 0rem) + var(--mantine-spacing-xl))',
+            },
+            styles: (_theme, props) => ({
+                table: props.stickyHeader ? { overflow: 'clip' } : {},
+                th: props.stickyHeader
+                    ? {
+                          backgroundColor: semanticColor('surface.raised'),
+                          backgroundImage: `linear-gradient(${semanticColor('surface.tableheader')}, ${semanticColor('surface.tableheader')})`,
+                      }
+                    : { backgroundColor: semanticColor('surface.tableheader') },
             }),
-        },
+        }),
         ActionIcon: {
             vars: actionIconVars,
         },

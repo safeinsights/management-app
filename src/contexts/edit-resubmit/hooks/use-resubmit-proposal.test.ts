@@ -27,11 +27,7 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import {
-    initialResubmitNoteValue,
-    resubmitNoteSchema,
-    type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { initialResubmitNoteValue, resubmitNoteSchema, type ResubmitNoteValue } from '@/schema/resubmission-note'
 import {
     SUBMIT_FAILURE_MESSAGE,
     SUBMIT_FAILURE_TITLE,

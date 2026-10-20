@@ -8,7 +8,6 @@ import { capturePostHogEvent, type PostHogEventName } from '@/server/posthog'
 import { CLERK_ADMIN_ORG_SLUG, isLabOrg, UserOrgRoles } from '@/lib/types'
 import * as Sentry from '@sentry/nextjs'
 import dayjs from 'dayjs'
-import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
 import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
@@ -204,7 +203,6 @@ export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
 
 export const onStudyCodeSubmitted = deferred(
     async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
-        revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
         await email.sendStudyCodeSubmittedEmail(studyId)
@@ -212,7 +210,6 @@ export const onStudyCodeSubmitted = deferred(
 )
 
 export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_approved', {
         studyId,
@@ -242,28 +239,24 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
 })
 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_declined', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalRejectedEmail(studyId)
 })
 
 export const onStudyNeedsClarification = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
     await email.sendStudyProposalNeedsRevisionEmail(studyId)
 })
 
 export const onStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_approved', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeApprovedEmail(studyId)
 })
 
 export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
-    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
     await email.sendStudyCodeNeedsRevisionEmail(studyId)
@@ -286,7 +279,6 @@ const emailLabOutputsDecision = (studyId: string, errored = false) =>
 
 export const onStudyResultsApproved = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
-        revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
         await emailLabOutputsDecision(studyId, errored)
@@ -295,7 +287,6 @@ export const onStudyResultsApproved = deferred(
 
 export const onStudyResultsRejected = deferred(
     async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
-        revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
         await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
         captureStudyEvent('study_results_outputs_not_shared', {
             studyId,

@@ -53,10 +53,10 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             {...liveRegion}
         >
             <Stack gap="xs">
-                <Text fz={14} fw={fontWeight.bold} c={accent}>
+                <Text fz="sm" fw={fontWeight.bold} c={accent}>
                     {title}
                 </Text>
-                <Text fz={14} c={semanticColor('text.primary')}>
+                <Text fz="sm" c={semanticColor('text.primary')}>
                     {children}
                 </Text>
             </Stack>

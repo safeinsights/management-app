@@ -27,22 +27,22 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
             <PageHeader title="Security key" />
 
             <Stack gap="md">
-                <Title order={2} fz={20}>
+                <Title order={2} fz="xl">
                     Existing security key
                 </Title>
                 <Divider />
-                <Text fz={16}>
+                <Text fz="md">
                     You generated a security key on {generatedOn}. For security reasons, SafeInsights does not store or
                     display it again. You need this key to access your outputs in every organization you belong to.
                 </Text>
             </Stack>
 
             <Stack gap="md">
-                <Title order={2} fz={20}>
+                <Title order={2} fz="xl">
                     Lost access to your key?
                 </Title>
                 <Divider />
-                <Text fz={16}>
+                <Text fz="md">
                     Outputs can be accessed only with a security key. If you have lost yours, ask another member of your
                     organization to access them with their key. To restore your own access going forward, you can
                     generate a new key below.{' '}
@@ -68,7 +68,7 @@ const ConfirmKeyResetModal: FC<{
     return (
         <AppModal isOpen={isOpen} onClose={onClose} title={KEY_RESET_MODAL_TITLE}>
             <Stack>
-                <Text fz={16} mb="md">
+                <Text fz="md" mb="md">
                     {KEY_RESET_MODAL_BODY}
                 </Text>
                 <Group>

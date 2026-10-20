@@ -24,7 +24,9 @@ describe('FormField', () => {
             </FormField>,
         )
 
-        expect(screen.getByText('Study title')).toHaveStyle({ marginBottom: '4px' })
+        expect(screen.getByText('Study title').style.getPropertyValue('margin-bottom')).toBe(
+            'var(--mantine-spacing-xxs)',
+        )
     })
 
     // OTTER-769: theme styles reach the DOM as an inline style, so this covers every

@@ -9,7 +9,7 @@ import { LoadingMessage } from '@/components/loading'
 import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
-import { fetchUserGlobalDocumentAction } from '@/server/actions/legal-document.actions'
+import { fetchUserGlobalDocumentAction } from '@/server/actions/user-legal.actions'
 import { Stack, Text } from '@mantine/core'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>

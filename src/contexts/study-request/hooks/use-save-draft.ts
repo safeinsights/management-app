@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { reportMutationError } from '@/components/errors'
 import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
-import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
+import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
 
 export interface UseSaveDraftOptions {

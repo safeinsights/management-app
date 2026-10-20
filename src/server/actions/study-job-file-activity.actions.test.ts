@@ -10,7 +10,9 @@ import {
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    vi,
 } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 import { fetchJobFileActivityAction, recordJobFileActivityAction } from './study-job-file-activity.actions'
 
 const insertArchive = async (jobId: string, name = 'encrypted-logs.zip') =>
@@ -252,5 +254,50 @@ describe('fetchJobFileActivityAction', () => {
         const enclaveView = actionResult(await fetchJobFileActivityAction({ jobId: job.id, orgSlug: enclave.slug }))
         expect(enclaveView).toHaveLength(1)
         expect(enclaveView[0].actorName).toBe(reviewer.fullName)
+    })
+})
+
+describe('a refused caller gets no job content (MA-6)', () => {
+    const permissionDenied = (result: unknown) =>
+        (result as { error: { permission_denied: string } }).error.permission_denied
+
+    const setupRefused = async () => {
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { study, job } = await insertTestStudyJobData({
+            org: enclave,
+            title: 'Confidential cohort study',
+            jobStatus: 'JOB-ERRORED',
+        })
+        const archive = await insertArchive(job.id, 'confidential-logs.zip')
+        const outsider = await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        return { study, job, archive, orgSlug: outsider.org.slug }
+    }
+
+    test('recordJobFileActivityAction leaves out the title and the file path', async () => {
+        const { study, job, archive, orgSlug } = await setupRefused()
+
+        const denied = permissionDenied(
+            await recordJobFileActivityAction({
+                jobId: job.id,
+                orgSlug,
+                files: [{ studyJobFileId: archive.id, filePath: 'run.log' }],
+                action: 'VIEWED',
+            }),
+        )
+
+        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain('results/confidential-logs.zip')
+    })
+
+    test('fetchJobFileActivityAction leaves out the title and the file path', async () => {
+        const { study, job, orgSlug } = await setupRefused()
+
+        const denied = permissionDenied(await fetchJobFileActivityAction({ jobId: job.id, orgSlug }))
+
+        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain('results/confidential-logs.zip')
     })
 })
