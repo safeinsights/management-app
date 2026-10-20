@@ -289,6 +289,7 @@ export async function expectLegalLayoutToMatchDesign(page: Page) {
             const main = cardEl.closest('main')!
             const style = getComputedStyle(main)
             const area = main.getBoundingClientRect()
+            const cardStyle = getComputedStyle(cardEl)
             return {
                 gap: cardEl.getBoundingClientRect().top - tabs.bottom,
                 width: tabs.width,
@@ -297,11 +298,19 @@ export async function expectLegalLayoutToMatchDesign(page: Page) {
                 tabRows: new Set(
                     [...tablist.querySelectorAll('[role="tab"]')].map((t) => t.getBoundingClientRect().top),
                 ).size,
+                // The design insets the card's header and table 40px on every side.
+                cardPadding: [
+                    cardStyle.paddingTop,
+                    cardStyle.paddingRight,
+                    cardStyle.paddingBottom,
+                    cardStyle.paddingLeft,
+                ],
             }
         })
         expect(Math.round(layout.gap)).toBe(32)
         expect(Math.round(layout.width)).toBe(1036)
         expect(Math.abs(layout.left - layout.right)).toBeLessThanOrEqual(2)
         expect(layout.tabRows).toBe(1)
+        expect(layout.cardPadding).toEqual(['40px', '40px', '40px', '40px'])
     }).toPass()
 }
