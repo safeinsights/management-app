@@ -17,6 +17,17 @@ describe('FormField', () => {
         expect(screen.getByText('This is required.').closest('[id]')).toHaveAttribute('id', 'field-error')
     })
 
+    // OTTER-880: a bare Mantine error renders at 12px with no icon, unlike the design.
+    it('renders the error with the error icon', () => {
+        renderWithProviders(
+            <FormField inputId="field" label="Study title" error="This is required.">
+                <TextInput id="field" aria-label="Study title input" />
+            </FormField>,
+        )
+
+        expect(document.getElementById('field-error')?.querySelector('svg')).toBeInTheDocument()
+    })
+
     it('separates the label from the description', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title" description="Helper text">
@@ -42,6 +53,15 @@ describe('FormField', () => {
 
         expect(asterisk).toHaveTextContent('*')
         expect(asterisk).toHaveStyle({ color: '#7e241e' })
+    })
+
+    // OTTER-880: set in the theme, so it also covers inputs that render their own error.
+    it('sizes Mantine input errors at 14px', () => {
+        renderWithProviders(<TextInput label="Study title" error="This is required." />)
+
+        expect(screen.getByText('This is required.').style.getPropertyValue('--input-error-size')).toBe(
+            'var(--mantine-font-size-sm)',
+        )
     })
 
     it('renders no error node when there is no error', () => {

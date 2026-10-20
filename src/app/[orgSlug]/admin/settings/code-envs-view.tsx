@@ -78,7 +78,13 @@ export function CodeEnvRowView({
         <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
-                    <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
+                    <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        onClick={onToggleDetail}
+                        aria-label={`Details for ${name}`}
+                        aria-expanded={detailOpened}
+                    >
                         <CaretDownIcon className="rotatable" data-rotated={!detailOpened || undefined} />
                     </ActionIcon>
                     <Text fw={fontWeight.semibold}>{name}</Text>

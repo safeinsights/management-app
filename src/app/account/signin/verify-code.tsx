@@ -1,4 +1,4 @@
-import { SignInResource } from '@clerk/types'
+import { SignInResource } from '@clerk/nextjs/types'
 import { Box, Stack, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { SmsVerification } from './sms-verification'

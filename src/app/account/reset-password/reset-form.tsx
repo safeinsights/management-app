@@ -1,8 +1,8 @@
 'use client'
 
 import { errorToString } from '@/lib/errors'
-import { useSignIn } from '@clerk/nextjs'
-import type { SignInResource } from '@clerk/types'
+import { useSignIn } from '@clerk/nextjs/legacy'
+import type { SignInResource } from '@clerk/nextjs/types'
 import { useForm, useMutation } from '@/common'
 import { isEmail } from '@mantine/form'
 import { ResetFormValues, ResetFormView } from './reset-form-view'
