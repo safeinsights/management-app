@@ -12,8 +12,9 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
-import { useAuth, useSignIn } from '@clerk/nextjs'
-import type { SignInResource } from '@clerk/types'
+import { useAuth } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
+import type { SignInResource } from '@clerk/nextjs/types'
 import { memoryRouter } from 'next-router-mock'
 import { describe, expect, it, vi } from 'vitest'
 import { PendingReset } from './pending-reset'

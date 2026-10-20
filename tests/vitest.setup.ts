@@ -148,6 +148,7 @@ vi.mock('next/headers', async () => ({ headers: async () => mockState.headers })
 
 // Configured via mockClerkSession() in unit.helpers.tsx
 vi.mock('@clerk/nextjs')
+vi.mock('@clerk/nextjs/legacy')
 vi.mock('@clerk/nextjs/server')
 
 // Mutations only; read functions stay real.

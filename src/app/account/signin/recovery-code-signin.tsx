@@ -3,7 +3,7 @@
 import { InputError } from '@/components/errors'
 import { useMutation } from '@/hooks/query-wrappers'
 import { errorToString } from '@/lib/errors'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'

@@ -1,7 +1,7 @@
 import { semanticColor } from '@/theme/tokens'
 import { InputError } from '@/components/errors'
 import OtpInput from '@/components/otp-input'
-import { SignInResource } from '@clerk/types'
+import { SignInResource } from '@clerk/nextjs/types'
 import { Anchor, Box, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { showToast } from '@/components/toast-notifications'

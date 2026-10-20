@@ -101,6 +101,7 @@ const nextConfig: NextConfig = {
               turbopack: {
                   resolveAlias: {
                       '@clerk/nextjs/server': './src/lib/clerk-fake/server.ts',
+                      '@clerk/nextjs/legacy': './src/lib/clerk-fake/client.tsx',
                       '@clerk/nextjs': './src/lib/clerk-fake/client.tsx',
                   },
               },
@@ -111,6 +112,7 @@ const nextConfig: NextConfig = {
             config.resolve.alias = {
                 ...config.resolve.alias,
                 '@clerk/nextjs/server': path.resolve(__dirname, 'src/lib/clerk-fake/server.ts'),
+                '@clerk/nextjs/legacy': path.resolve(__dirname, 'src/lib/clerk-fake/client.tsx'),
                 '@clerk/nextjs': path.resolve(__dirname, 'src/lib/clerk-fake/client.tsx'),
             }
         }
