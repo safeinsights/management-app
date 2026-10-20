@@ -24,12 +24,12 @@ test.describe('Organization Admin', () => {
 
         await visitAsRole(page, '/reviewer-is-org-admin/admin/team')
 
-        await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
+        // The users table loads client-side, so its rows only show once the page has hydrated and the
+        // invite button responds to a click.
+        await expect(page.getByRole('cell', { name: TestingUsers.reviewer.identifier })).toBeVisible()
 
-        const inviteBtn = page.getByRole('button', { name: /invite people/i })
-        await inviteBtn.waitFor({ state: 'visible' })
-        await inviteBtn.click({ force: true })
-        await page.waitForSelector('input[type="email"]', { state: 'visible' })
+        await page.getByRole('button', { name: /invite people/i }).click()
+        await expect(page.getByRole('dialog', { name: /invite others to join your team/i })).toBeVisible()
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
         await expect(page.getByText(/invalid email address/i)).toBeVisible()
