@@ -30,13 +30,17 @@ migration brings them along.
 study-family table or enum outside `down()`, unless the file carries the `no backfill:` marker or `up()`
 backfills each widened table. A backfill counts when `up()`, or a function in the same file that `up()`
 calls, runs `updateTable`/`insertInto` on that table, or an `UPDATE`/`INSERT INTO` on it in a `sql`
-template or `sql.raw(...)`. A backfill in `down()`, on another table, or in a comment does not count.
+template or `sql.raw(...)`. A backfill in `down()`, on another table, in a comment, in a nested function
+that never runs, or inside a dollar-quoted body (`$$ ... $$`) does not count. A builder table name the
+guard cannot read, such as a loop variable, counts as a study table that still needs the marker.
 
 The guard always asks for the marker on a new study enum value (`ALTER TYPE ... ADD VALUE`). This is
 deliberate: Postgres cannot use a new value before the migration's transaction commits, so no backfill
 in that migration can write it. The marker's reason must still be true (step 2). If old rows need the
 new value, do not use `ADD VALUE`: rebuild the type and backfill in the same migration, as
-`1787300000000_code_resubmission_note_rows.ts` does.
+`1787300000000_code_resubmission_note_rows.ts` does. The guard asks a migration that creates a study
+enum (`CREATE TYPE study_* AS ENUM`, or `createType`) for a backfill on a study-family table or the
+marker.
 
 ## Pre-rule gaps
 
