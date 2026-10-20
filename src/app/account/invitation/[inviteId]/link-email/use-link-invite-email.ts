@@ -11,7 +11,7 @@ import { isNotEmpty } from '@mantine/form'
 import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getClaimedInviteAction } from '../create-account.action'
+import { getClaimedInviteAction } from '@/server/actions/create-account.actions'
 
 export type LinkInviteEmailStatus = 'loading' | 'awaiting-code' | 'verifying' | 'failed'
 

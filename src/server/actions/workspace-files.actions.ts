@@ -4,8 +4,8 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { DBExecutor } from '@/database'
 import { Action, z } from './action'
+import { withStudySubject } from './study-subject'
 import { getStudyFilesPath } from '@/server/workspace-files'
-import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
 import { ensureRoundJobForUpload, markStudyOpened } from '@/server/db/mutations'
 import { requireChangeableCodeFiles } from '@/server/study-code-gate'
@@ -36,7 +36,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
                 .refine((f) => hasAcceptedExtension(f.name), ACCEPTED_FILE_FORMATS_TEXT),
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, file }, session }) => {
@@ -70,7 +70,7 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName }, session }) => {
@@ -87,7 +87,7 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
  */
 export const setMainCodeFileAction = new Action('setMainCodeFileAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName }, session }) => {
@@ -102,7 +102,7 @@ export const setMainCodeFileAction = new Action('setMainCodeFileAction', { perfo
 
 export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
         const study = await db
@@ -116,7 +116,7 @@ export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
 
 export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId, fileName } }) => {
         const coderFilesPath = await getStudyFilesPath(studyId)
@@ -129,7 +129,7 @@ export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
 
 export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName }, session }) => {

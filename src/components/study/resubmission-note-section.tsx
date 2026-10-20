@@ -8,7 +8,7 @@ import {
     resubmissionNoteIsBlank,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { ResubmissionNoteCard, type ResubmissionNoteAutosaveStatus } from './resubmission-note-card'
 
 interface ResubmissionNoteSectionProps {

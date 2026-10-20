@@ -24,26 +24,32 @@ import {
     writeWorkspaceFiles,
     insertTestUser,
 } from '@/tests/unit.helpers'
-import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
-import { submitCodeReviewDecisionAction, submitProposalReviewAction } from '@/server/actions/study.actions'
+import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/schema/resubmission-note'
+import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
+import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
 import { mockClient } from 'aws-sdk-client-mock'
 import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import logger from '@/lib/logger'
 import {
     getDraftStudyAction,
     onSaveDraftStudyAction,
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
+} from '@/server/actions/study-proposal.actions'
+import {
     resubmitProposalAction,
+    saveProposalResubmissionNoteDraftAction,
+} from '@/server/actions/proposal-resubmission.actions'
+import {
     resubmitStudyCodeAction,
     saveCodeResubmissionNoteDraftAction,
-    saveProposalResubmissionNoteDraftAction,
     submitStudyCodeAction,
-} from '@/server/actions/study-request'
-import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+} from '@/server/actions/study-code.actions'
+import { STUDY_TITLE_BLANK_ERROR, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import {
     fetchCodeEnvForStudyId,
@@ -1402,6 +1408,29 @@ describe('Request Study Actions', () => {
             expect(resolvePillId('researcher', state)).toBe('proposal-approved')
             expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
+
+        // Postgres reads a hyphenless UUID as the same row, but Routes.studyReview throws on it.
+        it('rejects a study id that is not a canonical UUID before it writes or uploads anything', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
+            const studyId = study.id.replaceAll('-', '')
+            const root = await createWorkspaceDir('submit-ide-hyphenless')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, studyId, { 'main.R': 'print("main")' })
+
+            const result = await submitStudyCodeAction({ studyId, mainFileName: 'main.R', fileNames: ['main.R'] })
+
+            expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
+            expect(aws.storeS3File).not.toHaveBeenCalled()
+            const files = await db
+                .selectFrom('studyJobFile')
+                .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
+                .select('studyJobFile.id')
+                .where('studyJob.studyId', '=', study.id)
+                .execute()
+            expect(files).toHaveLength(0)
+        })
     })
 
     describe('one-job-per-round (OTTER-601)', () => {
@@ -2412,5 +2441,29 @@ describe('Request Study Actions', () => {
             expect(afterResubmit.status).toBe('APPROVED')
             expect(afterResubmit.submittedAt).toEqual(approved.submittedAt)
         })
+    })
+})
+
+describe('getDraftStudyAction subject (MA-6)', () => {
+    // OTTER-596: the Data Partner may not read an unsubmitted proposal, not even through the error.
+    it('gives a reviewer of the study enclave no draft content on a DRAFT', async () => {
+        const { enclave, studyId } = await createTestProposalDraft({
+            enclaveSlug: 'ma6-draft-enclave',
+            studyInfo: { title: 'Confidential draft title' },
+        })
+        await db
+            .updateTable('study')
+            .set({ researchQuestions: lexicalJson('Confidential research question') })
+            .where('id', '=', studyId)
+            .execute()
+        await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const result = await getDraftStudyAction({ studyId })
+        const denied = (result as { error: { permission_denied: string } }).error.permission_denied
+
+        expect(denied).toContain(studyId)
+        expect(denied).not.toContain('Confidential draft title')
+        expect(denied).not.toContain('Confidential research question')
     })
 })

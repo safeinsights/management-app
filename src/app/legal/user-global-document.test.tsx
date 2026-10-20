@@ -8,8 +8,8 @@ import {
     resetLegalDocuments,
     testUploadFile,
 } from '@/tests/unit.helpers'
+import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import {
-    acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'

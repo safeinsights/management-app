@@ -30,7 +30,7 @@ import {
     getDataSourcesForOrg,
     getIdeOwnerForStudy,
     siUser,
-} from './queries'
+} from '.'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { ResultsReader } from 'si-encryption/job-results/reader'
@@ -116,7 +116,9 @@ describe('getInfoForStudyJobId', () => {
     })
 
     it('rejects an unknown jobId by default', async () => {
-        await expect(getInfoForStudyJobId(BLANK_UUID)).rejects.toThrow()
+        await expect(getInfoForStudyJobId(BLANK_UUID)).rejects.toThrow(
+            `job for study job id ${BLANK_UUID} was not found`,
+        )
     })
 })
 
@@ -133,7 +135,7 @@ describe('getInfoForStudyId', () => {
     })
 
     it('rejects an unknown studyId by default', async () => {
-        await expect(getInfoForStudyId(BLANK_UUID)).rejects.toThrow()
+        await expect(getInfoForStudyId(BLANK_UUID)).rejects.toThrow('study was not found')
     })
 })
 

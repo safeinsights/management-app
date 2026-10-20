@@ -27,16 +27,16 @@ const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labN
     // not have.
     if (!canShareOutputs) {
         return (
-            <Text component="div" fz={16} c={semanticColor('text.primary')}>
+            <Text component="div" fz="md" c={semanticColor('text.primary')}>
                 Sharing outputs is not available for this run. Describe what happened in your feedback so {labName} can
                 revise the code.
             </Text>
         )
     }
     return (
-        <Text component="div" fz={16} c={semanticColor('text.primary')}>
+        <Text component="div" fz="md" c={semanticColor('text.primary')}>
             Based on your review:
-            <List spacing={4} size="md" pt="xxs">
+            <List spacing="xxs" size="md" pt="xxs">
                 <List.Item>
                     If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
                     your feedback so {labName} can revise the code.
@@ -160,10 +160,10 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-decision-section">
             <Stack gap="lg">
                 <Group gap={0} align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Decision
                     </Text>
-                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                    <RequiredIndicator fz="xl" fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />

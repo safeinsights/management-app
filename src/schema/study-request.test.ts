@@ -9,7 +9,7 @@ import {
     step1FieldsSchema,
     studyProposalFormSchema,
     studyProposalApiSchema,
-} from './form-schemas'
+} from '@/schema/study-request'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
 const VALID_STEP_1 = { title: 'A study', orgSlug: 'test-org', language: 'R' as const }

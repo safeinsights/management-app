@@ -5,9 +5,9 @@ import { memoryRouter } from 'next-router-mock'
 import { renderWithProviders, screen, userEvent, waitFor, within } from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
-import { REQUIRED_NOTE_ERROR } from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { REQUIRED_NOTE_ERROR } from '@/schema/resubmission-note'
 import { SubmitCodeError, SELECT_MAIN_FILE_MESSAGE, SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
-import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-request'
+import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 import { Routes } from '@/lib/routes'
 import { codeResubmissionNav, type NavAction } from '@/lib/study-screen'
 import { studyState } from '@/lib/study-screen/state.fixture'
@@ -41,7 +41,7 @@ const DraftControls = ({ edited, original }: { edited: string; original: string 
     )
 }
 
-vi.mock('@/server/actions/study-request', () => ({
+vi.mock('@/server/actions/study-code.actions', () => ({
     resubmitStudyCodeAction: vi.fn(),
     saveCodeResubmissionNoteDraftAction: vi.fn().mockResolvedValue({ studyId: '', savedAt: '' }),
 }))

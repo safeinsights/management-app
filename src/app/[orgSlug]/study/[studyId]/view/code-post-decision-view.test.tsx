@@ -13,7 +13,8 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'

@@ -10,11 +10,11 @@ import {
 import { flushDeferred } from '@/tests/vitest.setup'
 import { deliver } from '@/server/mailgun'
 import { describe, expect, it, vi } from 'vitest'
+import { onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import {
-    onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/proposal-resubmission.actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -230,6 +230,39 @@ describe('resubmitProposalAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('APPROVED')
+
+        const commentCount = await db
+            .selectFrom('studyProposalComment')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(Number(commentCount.count)).toBe(0)
+    })
+
+    // Postgres reads a hyphenless UUID as the same row, but Routes.studyReview throws on it.
+    it('rejects a study id that is not a canonical UUID before it writes anything', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-uuid', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        const result = await resubmitProposalAction({
+            studyId: study.id.replaceAll('-', ''),
+            studyInfo: { title: 'attempting' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+
+        expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status', 'title'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged).toEqual({ status: 'CHANGE-REQUESTED', title: 'Original title' })
 
         const commentCount = await db
             .selectFrom('studyProposalComment')

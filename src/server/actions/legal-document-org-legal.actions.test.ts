@@ -10,12 +10,8 @@ import {
     resetLegalDocuments,
     testUploadFile,
 } from '@/tests/unit.helpers'
-import {
-    createLegalDocumentDraftAction,
-    fetchOrgParticipationAgreementAction,
-    fetchOrgStudyAgreementsAction,
-    publishLegalDocumentVersionAction,
-} from './legal-document.actions'
+import { createLegalDocumentDraftAction, publishLegalDocumentVersionAction } from './legal-document.actions'
+import { fetchOrgParticipationAgreementAction, fetchOrgStudyAgreementsAction } from './org-legal.actions'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()

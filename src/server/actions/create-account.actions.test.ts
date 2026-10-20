@@ -21,7 +21,7 @@ import {
     onJoinTeamAccountAction,
     onPendingUserLoginAction,
     onRevokeInviteAction,
-} from './create-account.action'
+} from './create-account.actions'
 
 vi.mock('@/server/events')
 

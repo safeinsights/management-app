@@ -11,7 +11,7 @@ import {
 import {
     fetchParticipationAgreementsAction,
     fetchParticipationSignatoriesAction,
-} from '@/server/actions/legal-document.actions'
+} from '@/server/actions/participation-agreement.actions'
 import { Button, Group, Select, Stack, Text } from '@mantine/core'
 import { PdfDropzone } from '../pdf-dropzone'
 import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'

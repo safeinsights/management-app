@@ -66,7 +66,7 @@ export function AddSMSMFA() {
 
     if (!user) {
         notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
-        return redirect('/')
+        return redirect(Routes.home)
     }
 
     async function sendVerificationCode(values: typeof phoneForm.values) {

@@ -223,8 +223,9 @@ describe('Org Actions', () => {
             expect(db2ndOrg.name).toBe(initialName)
             expect(db2ndOrg.description).toBe(initialDescription)
 
-            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
-            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/${targetOrgSlug}/admin/team`)
+            expect(revalidatePath).toHaveBeenCalledTimes(2)
         })
 
         it('throws ActionFailure if target org for update is not found in DB', async () => {

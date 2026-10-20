@@ -13,7 +13,11 @@ import {
     FileMagnifyingGlassIcon,
     ClockCounterClockwiseIcon,
 } from '@phosphor-icons/react/dist/ssr'
-import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
+import {
+    deleteOrgCodeEnvAction,
+    fetchOrgCodeEnvsAction,
+    fetchStarterCodeAction,
+} from '@/server/actions/code-envs.actions'
 import { CodeEnvHistoryEmpty, CodeEnvHistoryError, CodeEnvHistoryTable } from './code-env-history-view'
 import { useCodeEnvHistory } from './use-code-env-history'
 import { SuretyGuard } from '@/components/surety-guard'

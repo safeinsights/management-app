@@ -8,7 +8,7 @@ import { useQuery } from '@/common'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
-import { StudyProposalFormValues } from '../form-schemas'
+import { StudyProposalFormValues } from '@/schema/study-request'
 import { ORG_SELECT_ID } from './field-ids'
 
 // "Data Partner" with both words capitalized is an intentional product exception, not a typo.

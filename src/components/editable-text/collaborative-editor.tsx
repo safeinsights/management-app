@@ -338,7 +338,7 @@ export function CollaborativeEditor({
     if (phase === 'initial')
         return (
             <Stack gap="xxs">
-                <Skeleton h={contentHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT} radius={4} />
+                <Skeleton h={contentHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT} radius="sm" />
                 <EditorFooterArea left={footerLeft} right={footerRight} />
             </Stack>
         )

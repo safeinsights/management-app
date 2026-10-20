@@ -24,6 +24,7 @@ import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
 import { clientUserInfoSnapshotForRequest } from '@/server/session'
 import { APP_TITLE } from '@/lib/constants'
+import { sentryDeployAttributes } from '@/lib/sentry-deploy'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -51,7 +52,7 @@ export default async function RootLayout({
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
-        <html lang="en" translate="no" className={globalFont.className}>
+        <html lang="en" translate="no" className={globalFont.className} {...sentryDeployAttributes()}>
             <body>
                 <Providers
                     singleUserEditing={SINGLE_USER_EDITING}

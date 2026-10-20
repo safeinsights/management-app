@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
+import { sentryDeployOptionsFromDocument } from '@/lib/sentry-deploy'
 import { z } from 'zod'
 
 Sentry.init({
@@ -16,8 +17,7 @@ Sentry.init({
 
     enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-    release: process.env.RELEASE_TAG || 'unknown',
-    environment: process.env.ENVIRONMENT_ID || 'development',
+    ...sentryDeployOptionsFromDocument(),
 })
 
 // Zod probes `new Function` to pick its JIT, which the CSP reports as an eval violation (OTTER-679).

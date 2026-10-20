@@ -10,7 +10,7 @@ import {
     vi,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
-import { STUDY_TITLE_MAX_CHARACTERS } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/schema/study-request'
 import StudyProposalRoute from './page'
 
 const mockRedirect = vi.mocked(redirect)

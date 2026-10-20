@@ -13,7 +13,8 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
-import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
 import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'

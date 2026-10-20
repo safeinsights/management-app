@@ -3,7 +3,7 @@
 import { Box, Button, Divider, Stack, TextInput, Textarea, Title, Text, Group, ActionIcon } from '@mantine/core'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchOrgDataSourcesAction } from './data-sources.actions'
+import { fetchOrgDataSourcesAction } from '@/server/actions/data-sources.actions'
 import { useDataSourceForm } from './use-data-source-form'
 import { GetInputPropsReturnType } from '@mantine/form'
 import { resizableTextareaProps } from '@/components/textarea-resize'
