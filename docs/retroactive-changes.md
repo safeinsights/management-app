@@ -27,7 +27,16 @@ migration brings them along.
    knows whether to check studies that predate the deploy.
 
 `src/database/migrations.test.ts` fails any migration numbered ≥ 1787300000000 that widens a
-study-family table or enum without a backfill or the `no backfill:` marker.
+study-family table or enum outside `down()`, unless the file carries the `no backfill:` marker or `up()`
+backfills each widened table. A backfill counts when `up()`, or a function in the same file that `up()`
+calls, runs `updateTable`/`insertInto` on that table, or an `UPDATE`/`INSERT INTO` on it in a `sql`
+template or `sql.raw(...)`. A backfill in `down()`, on another table, or in a comment does not count.
+
+The guard always asks for the marker on a new study enum value (`ALTER TYPE ... ADD VALUE`). This is
+deliberate: Postgres cannot use a new value before the migration's transaction commits, so no backfill
+in that migration can write it. The marker's reason must still be true (step 2). If old rows need the
+new value, do not use `ADD VALUE`: rebuild the type and backfill in the same migration, as
+`1787300000000_code_resubmission_note_rows.ts` does.
 
 ## Pre-rule gaps
 
