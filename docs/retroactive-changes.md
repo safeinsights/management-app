@@ -24,7 +24,8 @@ migration brings them along.
    `study_review_round.test.ts`). Pin any status list the backfill keys on against the runtime list.
 4. **Irreversible backfill → say so in `down()`** instead of pretending to undo it.
 5. **Say it in the PR description**: "Existing studies: backfilled X" or "unaffected because Y", so QA
-   knows whether to check studies that predate the deploy.
+   knows whether to check studies that predate the deploy. The PR template carries the line, and the
+   `PR description` workflow fails a PR that changes `src/database/migrations/` without it.
 
 `src/database/migrations.test.ts` fails any migration numbered ≥ 1787300000000 that widens a
 study-family table or enum without a backfill or the `no backfill:` marker.
