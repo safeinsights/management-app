@@ -161,8 +161,7 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(codeEnvName)).toBeVisible()
 
-        const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
-        await codeEnvRow.locator('button').nth(1).click()
+        await page.getByRole('button', { name: `Edit ${codeEnvName}`, exact: true }).click()
 
         const editDialog = page.getByRole('dialog', { name: /edit code environment/i })
         await expect(editDialog).toBeVisible()
@@ -176,10 +175,10 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(updatedName)).toBeVisible()
 
-        const updatedRow = page.getByText(updatedName, { exact: true }).locator('xpath=../../..')
-        await updatedRow.getByRole('button').first().click()
+        await page.getByRole('button', { name: `Details for ${updatedName}`, exact: true }).click()
 
-        await updatedRow.getByLabel(/view main\.r/i).click()
+        // Collapsed rows hide their detail panel, so only this row's starter code button is visible.
+        await page.getByRole('button', { name: 'View main.r', exact: true }).click()
 
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible()
