@@ -108,10 +108,12 @@ describe('AddTeam', () => {
 
     it('still leaves for the dashboard after a decline when storage is unavailable', async () => {
         await renderInviteFrom(faker.company.name())
-        const setItem = sessionStorage.setItem.bind(sessionStorage)
-        vi.spyOn(sessionStorage, 'setItem').mockImplementation((key, value) => {
+        // happy-dom's sessionStorage ignores an instance spy, and its prototype is not the global Storage.prototype
+        const storageProto: Storage = Object.getPrototypeOf(sessionStorage)
+        const setItem = storageProto.setItem
+        vi.spyOn(storageProto, 'setItem').mockImplementation(function (this: Storage, key, value) {
             if (key === INVITATION_NOTICE_STORAGE_KEY) throw new DOMException('Quota exceeded', 'QuotaExceededError')
-            setItem(key, value)
+            setItem.call(this, key, value)
         })
 
         await userEvent.click(await screen.findByRole('button', { name: 'Decline invitation' }))
