@@ -1423,7 +1423,13 @@ describe('Request Study Actions', () => {
 
             expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
             expect(aws.storeS3File).not.toHaveBeenCalled()
-            await expectStudyJobRecords(study.id, [])
+            const files = await db
+                .selectFrom('studyJobFile')
+                .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
+                .select('studyJobFile.id')
+                .where('studyJob.studyId', '=', study.id)
+                .execute()
+            expect(files).toHaveLength(0)
         })
     })
 
