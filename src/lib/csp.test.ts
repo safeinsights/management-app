@@ -34,10 +34,17 @@ describe('csp', () => {
         expect(cspHeaderValue('abc123')).toContain("object-src 'none'")
     })
 
-    it('derives the Sentry security endpoint from the DSN', () => {
-        expect(cspReportUrl('https://key123@o484030.ingest.us.sentry.io/450700')).toBe(
-            'https://o484030.ingest.us.sentry.io/api/450700/security/?sentry_key=key123',
+    it('derives the Sentry security endpoint from the DSN and tags it with the deployment', () => {
+        const env = { ENVIRONMENT_ID: 'staging', RELEASE_TAG: 'v1.6.9' }
+        expect(cspReportUrl('https://key123@o484030.ingest.us.sentry.io/450700', env)).toBe(
+            'https://o484030.ingest.us.sentry.io/api/450700/security/?sentry_key=key123&sentry_environment=staging&sentry_release=v1.6.9',
         )
+    })
+
+    it('tags reports with the fallback deployment outside a deployed environment', () => {
+        const url = new URL(cspReportUrl('https://key123@o484030.ingest.us.sentry.io/450700', {})!)
+        expect(url.searchParams.get('sentry_environment')).toBe('development')
+        expect(url.searchParams.get('sentry_release')).toBe('unknown')
     })
 
     it('yields no report url for a missing or malformed DSN', () => {
