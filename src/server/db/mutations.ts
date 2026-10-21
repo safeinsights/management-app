@@ -1,5 +1,4 @@
 import { currentDb } from '@/server/request-context'
-import { clerkOrgSyncEnabled } from '@/server/config'
 import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
@@ -60,8 +59,9 @@ export async function findOrCreateOrgMembership({
         .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
         .execute()
 
-    // Unlike the app's log-and-continue sync, a Clerk error throws so a bin script fails loudly.
-    if (clerkSync && clerkOrgSyncEnabled()) {
+    // Not gated by clerkOrgSyncEnabled: an operator who passes a sync wants it. Unlike the app's
+    // log-and-continue sync, a Clerk error throws so a bin script fails loudly.
+    if (clerkSync) {
         const { clerkId } = await executor
             .selectFrom('user')
             .select('clerkId')

@@ -2,6 +2,8 @@ import { describe, it, expect, test, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import {
+    beforeEach,
+    enableClerkOrgSync,
     currentFakeClerkOrgsApi,
     fakeClerkRoleOf,
     insertTestOrg,
@@ -15,6 +17,8 @@ import { faker } from '@faker-js/faker'
 import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
 import { onUserRoleUpdate } from '@/server/events'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/events')
 

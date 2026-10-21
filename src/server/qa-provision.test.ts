@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, type Mock } from 'vitest'
 import {
+    beforeEach,
+    enableClerkOrgSync,
     db,
     insertTestOrg,
     insertTestUser,
@@ -15,6 +17,8 @@ import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { deliver } from '@/server/mailgun'
 import logger from '@/lib/logger'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/mailgun', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/mailgun')>()

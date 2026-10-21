@@ -1,5 +1,7 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
+    beforeEach,
+    enableClerkOrgSync,
     db,
     faker,
     insertTestOrg,
@@ -10,6 +12,8 @@ import {
 import logger from '@/lib/logger'
 import { withTransaction } from '@/server/request-context'
 import { deleteOrgFromClerk, removeMembershipFromClerk, syncMembershipToClerk, syncOrgToClerk } from './clerk-org-sync'
+
+beforeEach(enableClerkOrgSync)
 
 const setup = async () => {
     await mockSessionWithTestData({ isSiAdmin: true })
@@ -61,18 +65,21 @@ describe('clerk org membership wrappers', () => {
         expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
     })
 
-    it('makes no Clerk call when CLERK_ORG_SYNC is off', async () => {
-        vi.stubEnv('CLERK_ORG_SYNC', 'off')
-        onTestFinished(() => {
-            vi.unstubAllEnvs()
-        })
-        const { fake, org, user } = await setup()
+    it.each([{ ENVIRONMENT_ID: 'local' }, { ENVIRONMENT_ID: 'dev', DEPLOY_ID: 'pr123' }])(
+        'makes no Clerk call when org sync is off (%o)',
+        async (env) => {
+            for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value)
+            onTestFinished(() => {
+                vi.unstubAllEnvs()
+            })
+            const { fake, org, user } = await setup()
 
-        await syncOrgToClerk(org)
-        await deleteOrgFromClerk(org.slug)
-        await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: true })
-        await removeMembershipFromClerk({ userId: user.id, orgId: org.id })
+            await syncOrgToClerk(org)
+            await deleteOrgFromClerk(org.slug)
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: true })
+            await removeMembershipFromClerk({ userId: user.id, orgId: org.id })
 
-        for (const call of Object.values(fake.api)) expect(call).not.toHaveBeenCalled()
-    })
+            for (const call of Object.values(fake.api)) expect(call).not.toHaveBeenCalled()
+        },
+    )
 })

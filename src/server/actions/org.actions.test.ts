@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
 import {
+    enableClerkOrgSync,
     mockSessionWithTestData,
     insertTestOrg,
     insertTestUser,
@@ -25,6 +26,8 @@ import {
 } from './org.actions'
 import logger from '@/lib/logger'
 import { isActionError } from '@/lib/errors'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()

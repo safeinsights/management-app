@@ -1,5 +1,5 @@
 import { clerkClient } from '@clerk/nextjs/server'
-import { Mock, vi } from 'vitest'
+import { Mock, onTestFinished, vi } from 'vitest'
 import { createFakeOrganizations } from '@/lib/clerk-fake/organizations'
 
 export const createFakeClerkOrgs = () => {
@@ -34,4 +34,13 @@ export const fakeClerkRoleOf = async (slug: string, clerkUserId: string) => {
     const org = await api.getOrganization({ slug })
     const { data } = await api.getOrganizationMembershipList({ organizationId: org.id })
     return data.find((m) => m.publicUserData.userId === clerkUserId)?.role
+}
+
+// clerkOrgSyncEnabled() is off for an unset (local) ENVIRONMENT_ID. Not stubbed for every test: one
+// that resets modules would re-read the config.ts constants with it and turn on DB SSL.
+export const enableClerkOrgSync = () => {
+    vi.stubEnv('ENVIRONMENT_ID', 'test')
+    onTestFinished(() => {
+        vi.unstubAllEnvs()
+    })
 }

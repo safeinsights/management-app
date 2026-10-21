@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { findOrCreateLegalDocument } from '@/server/db/legal-document'
 import { syncMembershipToClerk } from '@/server/clerk-org-sync'
 import {
+    enableClerkOrgSync,
     actionResult,
     createFakeClerkOrgs,
     currentFakeClerkOrgsApi,
@@ -26,6 +27,8 @@ import {
     onPendingUserLoginAction,
     onRevokeInviteAction,
 } from './create-account.actions'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/events')
 

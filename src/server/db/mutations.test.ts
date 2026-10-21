@@ -396,19 +396,18 @@ describe('findOrCreateOrgMembership', () => {
         expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
     })
 
-    it('skips the Clerk sync when CLERK_ORG_SYNC is off', async () => {
-        vi.stubEnv('CLERK_ORG_SYNC', 'off')
+    it('syncs through a passed sync even where app org sync is off', async () => {
+        vi.stubEnv('ENVIRONMENT_ID', 'local')
         onTestFinished(() => {
             vi.unstubAllEnvs()
         })
         const { user } = await insertTestUser({ org: await insertTestOrg() })
         const target = await insertTestOrg()
-        const { fake, clerkSync } = fakeClerk()
+        const { roleOf, clerkSync } = fakeClerk()
 
         await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync })
 
-        expect(fake.api.getOrganization).not.toHaveBeenCalled()
-        expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
+        expect(await roleOf(target.slug, user.clerkId)).toBe('org:admin')
     })
 
     it('refuses to sync Clerk from inside an open transaction', async () => {

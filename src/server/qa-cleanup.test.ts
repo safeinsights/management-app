@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { sql } from 'kysely'
 import {
+    enableClerkOrgSync,
     db,
     insertTestOrg,
     insertTestUser,
@@ -15,6 +16,8 @@ import {
 import { verifyToken, clerkClient } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
+
+beforeEach(enableClerkOrgSync)
 
 const configState = { PROD_ENV: false }
 vi.mock('@/server/config', async (importOriginal) => {
