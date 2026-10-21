@@ -1,6 +1,6 @@
 'use client'
 
-import { usePositionsSection } from '@/hooks/use-positions-section'
+import { usePositionsSection } from '@/components/researcher-profile/use-positions-section'
 import { PositionsSectionView } from '@/components/researcher-profile/researcher-profile-view'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
