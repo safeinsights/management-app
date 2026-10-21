@@ -48,7 +48,7 @@ const codeReviewCriteriaSchema = z.object({
 export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisionAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string().uuid(),
+            studyId: z.uuid(),
             orgSlug: z.string(),
             feedback: z.string(),
             decision: z.enum(['approve', 'needs-clarification']),

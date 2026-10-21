@@ -3,25 +3,25 @@ import { Selectable } from 'kysely'
 import { Org as DefinedOrg } from '@/database/types'
 
 const enclaveSettingsSchema = z.object({
-    publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
+    publicKey: z.string().min(1, { error: 'PubKey cannot be blank' }),
 })
 
 const labSettingsSchema = z.object({}).strict()
 
 const baseOrgSchema = z.object({
-    slug: z.string().regex(/^[a-z0-9-]+$/, { message: 'Invalid slug: must be all lowercase alphanumeric or dashes' }),
+    slug: z.string().regex(/^[a-z0-9-]+$/, { error: 'Invalid slug: must be all lowercase alphanumeric or dashes' }),
     name: z
         .string()
         .trim()
         .min(1, 'Name is required')
         .max(50, 'Name cannot exceed 50 characters')
         .refine((val) => /\p{L}/u.test(val), {
-            message: 'Name must contain at least one alphabetic character',
+            error: 'Name must contain at least one alphabetic character',
         })
         .refine((val) => !/^\d+$/.test(val), {
-            message: 'Name cannot be only numbers',
+            error: 'Name cannot be only numbers',
         }),
-    email: z.email({ message: 'Invalid email address' }),
+    email: z.email({ error: 'Invalid email address' }),
     description: z
         .string()
         .max(250, 'Description cannot exceed 250 characters')

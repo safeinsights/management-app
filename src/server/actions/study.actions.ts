@@ -11,7 +11,7 @@ import { fetchStudyQuery } from '@/server/db/queries'
 // Recorded from the client on entering and leaving a study, not during its render: a render-time
 // write would fire on link prefetch. Viewing is not a change, so Last updated is left alone.
 export const markStudyOpenedAction = new Action('markStudyOpenedAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, session, db }) => {

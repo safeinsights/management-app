@@ -7,7 +7,7 @@ import { auditQaInvocation } from '../audit'
 import { currentDb } from '@/server/request-context'
 
 const createInviteSchema = z.object({
-    email: z.string().nonempty().email(),
+    email: z.email(),
     orgSlug: z.string().nonempty(),
     isAdmin: z.boolean().optional(),
 })

@@ -6,7 +6,7 @@ import { sql } from 'kysely'
 import { CONTEXT_NAMES, getAgentContext } from '@/lib/agent-context'
 
 export const writeAgentContextAction = new Action('writeAgentContextAction', { performsMutations: true })
-    .params(z.object({ content: z.string(), orgId: z.string().uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
+    .params(z.object({ content: z.string(), orgId: z.uuid().nullable(), name: z.enum(CONTEXT_NAMES) }))
     .requireAbilityTo('update', 'AgentContext')
     .handler(async ({ session, db, params: { name, content, orgId } }) => {
         const userId = session.user.id
@@ -32,7 +32,7 @@ export const getAgentContextAction = new Action('getAgentContextAction')
     .params(
         z.object({
             name: z.enum(CONTEXT_NAMES),
-            orgId: z.string().uuid().nullable(),
+            orgId: z.uuid().nullable(),
         }),
     )
     .requireAbilityTo('view', 'AgentContext')

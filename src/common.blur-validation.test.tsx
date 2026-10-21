@@ -9,9 +9,9 @@ import { FormField, nativeFieldProps } from '@/components/form-field'
 // `useForm` wrapper that turns it on.
 
 const schema = z.object({
-    title: z.string().trim().min(1, { message: 'Study title is required.' }),
-    partner: z.string().min(1, { message: 'Data Partner is required.' }),
-    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
+    title: z.string().trim().min(1, { error: 'Study title is required.' }),
+    partner: z.string().min(1, { error: 'Data Partner is required.' }),
+    datasets: z.array(z.string()).min(1, { error: 'Select at least one dataset.' }),
 })
 
 function Harness() {
@@ -51,7 +51,7 @@ function Harness() {
 function HarnessWithDescription() {
     const form = useForm({
         initialValues: { title: '' },
-        validate: zodResolver(z.object({ title: z.string().trim().min(1, { message: 'Study title is required.' }) })),
+        validate: zodResolver(z.object({ title: z.string().trim().min(1, { error: 'Study title is required.' }) })),
     })
 
     return (

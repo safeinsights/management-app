@@ -41,3 +41,27 @@ describe('code environment badges', () => {
         expect(badgeStyle('Default')).toContain('--mantine-color-purple-filled')
     })
 })
+
+describe('code environment details toggle', () => {
+    it.each([true, false])('reports the details toggle as expanded=%s', (detailOpened) => {
+        renderWithProviders(
+            <CodeEnvRowView
+                name="R 4.4"
+                language="R"
+                isTesting={false}
+                isDefault={false}
+                latestScanStatus={null}
+                detailOpened={detailOpened}
+                onToggleDetail={noop}
+                onLanguageBadgeClick={noop}
+                onScanBadgeClick={noop}
+                actions={null}
+                detail={null}
+            />,
+        )
+        expect(screen.getByRole('button', { name: 'Details for R 4.4' })).toHaveAttribute(
+            'aria-expanded',
+            String(detailOpened),
+        )
+    })
+})

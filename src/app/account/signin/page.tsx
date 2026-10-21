@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { Container, Loader } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'

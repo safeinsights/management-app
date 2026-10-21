@@ -55,8 +55,8 @@ export const initialResubmitNoteValue: ResubmitNoteValue = {
 export const resubmissionNoteParam = z
     .string()
     .refine((val) => !resubmissionNoteIsBlank(val), {
-        message: 'A resubmission note is required.',
+        error: 'A resubmission note is required.',
     })
     .refine((val) => resubmissionNoteCharacterCount(val) <= RESUBMIT_NOTE_MAX_CHARACTERS, {
-        message: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
+        error: overCharacterLimitError(RESUBMIT_NOTE_FIELD_TITLE, RESUBMIT_NOTE_MAX_CHARACTERS),
     })

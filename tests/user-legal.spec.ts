@@ -12,9 +12,9 @@ import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 test.use({ storageState: authFileFor('reviewer') })
 
 const TAB_NAMES = [
-    'Study Agreements',
-    'Data Organization Participation Agreements',
-    'Research Organization Participation Agreements',
+    'Study Agreement',
+    'Data Organization Participation Agreement',
+    'Research Organization Participation Agreement',
     'Terms of Service',
     'Privacy Notice',
 ]

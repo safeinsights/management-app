@@ -1,4 +1,4 @@
-import { type SignInResource } from '@clerk/types'
+import { type SignInResource } from '@clerk/nextjs/types'
 
 export type MFAState = false | { usingSMS: boolean; signIn: SignInResource }
 

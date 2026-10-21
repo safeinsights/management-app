@@ -51,7 +51,7 @@ function SourceUrlLine({
                 flex={1}
                 placeholder="URL description"
             />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs" aria-label="Remove URL">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
