@@ -10,6 +10,7 @@ import { APP_BASE_URL } from '@/server/config'
 import { findOpenInvite } from '@/server/db/queries'
 import { findQaUser, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { withTransaction } from '@/server/request-context'
+import { removeMembershipFromClerk, syncMembershipToClerk } from '@/server/clerk-org-sync'
 
 export class QaConflictError extends Error {}
 
@@ -43,11 +44,17 @@ async function resolveOrgs(db: Kysely<DB>, orgs: QaOrgMembership[]) {
 
 async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awaited<ReturnType<typeof resolveOrgs>>) {
     const keptOrgIds = resolved.map((org) => org.orgId)
-    let removals = db.deleteFrom('orgUser').where('userId', '=', userId)
+    let removals = db.selectFrom('orgUser').select('orgId').where('userId', '=', userId)
     if (keptOrgIds.length) {
         removals = removals.where('orgId', 'not in', keptOrgIds)
     }
-    await removals.execute()
+    const removedOrgIds = (await removals.execute()).map((row) => row.orgId)
+    if (removedOrgIds.length) {
+        await db.deleteFrom('orgUser').where('userId', '=', userId).where('orgId', 'in', removedOrgIds).execute()
+    }
+    for (const orgId of removedOrgIds) {
+        await removeMembershipFromClerk({ userId, orgId })
+    }
 
     // Deduped, last entry winning, because one upsert cannot touch the same (org_id, user_id) row twice.
     const memberships = [...new Map(resolved.map((org) => [org.orgId, org])).values()]
@@ -59,6 +66,9 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
             oc.columns(['orgId', 'userId']).doUpdateSet((eb) => ({ isAdmin: eb.ref('excluded.isAdmin') })),
         )
         .execute()
+    for (const { orgId, isAdmin } of memberships) {
+        await syncMembershipToClerk({ userId, orgId, isAdmin })
+    }
 }
 
 // The fingerprint is derived, not accepted from the caller: a mismatched one would make senders

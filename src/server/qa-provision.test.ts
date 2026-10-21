@@ -7,6 +7,8 @@ import {
     readTestSupportFile,
     faker,
     qaEmail,
+    installFakeClerkOrgs,
+    fakeClerkRoleOf,
 } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
@@ -30,6 +32,39 @@ const orgSlugsFor = async (userId: string) => {
 }
 
 describe('provisionQaUser', () => {
+    it('mirrors memberships into Clerk and removes dropped ones', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        installFakeClerkOrgs()
+        const home = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const orgA = await insertTestOrg({ slug: `a${faker.string.alpha(10)}`, type: 'lab' })
+        const orgB = await insertTestOrg({ slug: `b${faker.string.alpha(10)}`, type: 'enclave' })
+        const { user } = await insertTestUser({ org: home, email: qaEmail() })
+
+        await provisionQaUser(db, user.id, { orgs: [{ slug: orgA.slug }, { slug: orgB.slug, isAdmin: true }] })
+
+        expect(await fakeClerkRoleOf(orgA.slug, user.clerkId)).toBe('org:member')
+        expect(await fakeClerkRoleOf(orgB.slug, user.clerkId)).toBe('org:admin')
+
+        await provisionQaUser(db, user.id, { orgs: [{ slug: orgA.slug }] })
+
+        expect(await fakeClerkRoleOf(orgA.slug, user.clerkId)).toBe('org:member')
+        expect(await fakeClerkRoleOf(orgB.slug, user.clerkId)).toBeUndefined()
+    })
+
+    it('rolls the DB back when Clerk fails', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const fake = installFakeClerkOrgs()
+        fake.api.updateOrganizationMembership.mockRejectedValue(new Error('clerk is down'))
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, isAdmin: false, email: qaEmail() })
+
+        await expect(provisionQaUser(db, user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })).rejects.toThrow(
+            'clerk is down',
+        )
+
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: false }])
+    })
+
     it('sets exactly the listed orgs, removing ones not listed', async () => {
         const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

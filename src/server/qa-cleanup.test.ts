@@ -9,8 +9,10 @@ import {
     mockSessionWithTestData,
     faker,
     qaEmail,
+    installFakeClerkOrgs,
+    fakeClerkRoleOf,
 } from '@/tests/unit.helpers'
-import { verifyToken } from '@clerk/nextjs/server'
+import { verifyToken, clerkClient } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
 
@@ -360,6 +362,24 @@ describe('deleteStudyCompletely inside a mutating action', () => {
 })
 
 describe('deleteUserById', () => {
+    it('removes the user Clerk memberships before the Clerk account', async () => {
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+        const { client } = await mockSessionWithTestData({ isSiAdmin: true })
+        if (!client) throw new Error('expected a mocked clerk client')
+        const fake = installFakeClerkOrgs()
+        ;(clerkClient as unknown as Mock).mockResolvedValue({ users: client.users, organizations: fake.api })
+        await fake.api.createOrganization({ name: 'n', slug: org.slug, createdBy: user.clerkId, publicMetadata: {} })
+        expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
+
+        await deleteUserById(db, user.id)
+
+        expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBeUndefined()
+        const removed = fake.api.deleteOrganizationMembership.mock.invocationCallOrder[0]
+        const userDeleted = (client.users.deleteUser as Mock).mock.invocationCallOrder[0]
+        expect(removed).toBeLessThan(userDeleted)
+    })
+
     it('deletes the user, their studies, dependent rows, and the Clerk account', async () => {
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, email: qaEmail() })
