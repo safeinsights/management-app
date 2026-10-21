@@ -125,10 +125,13 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('does nothing when disabled', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
         mount({ enabled: false })
 
-        await act(async () => {})
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000)
+        })
         expect(getStudyStatusActionMock).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/')
     })
@@ -236,6 +239,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
 
     afterEach(() => {
         __resetSharedYjsWebsocketForTests()
+        vi.useRealTimers()
     })
 
     it('returns a no-op trigger when there is no provider in the tree', () => {
@@ -385,6 +389,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
     })
 
     it('does not redirect twice if both reconnect and trigger fire', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
 
         const Trigger = () => {
@@ -413,7 +418,9 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         act(() => {
             getByTestId('trigger').click()
         })
-        await act(async () => {})
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000)
+        })
         expect(showMock).toHaveBeenCalledTimes(1)
     })
 })

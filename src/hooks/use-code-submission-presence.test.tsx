@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
     act,
+    afterEach,
     beforeEach,
     describe,
     expect,
@@ -11,6 +12,7 @@ import {
     mockClerkSession,
     renderHook,
     waitFor,
+    vi,
     type Mock,
 } from '@/tests/unit.helpers'
 import { HocuspocusProvider } from '@hocuspocus/provider'
@@ -45,6 +47,10 @@ describe('useCodeSubmissionPresence', () => {
             firstName: 'Erin',
             lastName: 'Lab',
         })
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
     })
 
     it('opens the study code room and announces the viewer under the editor awareness shape', async () => {
@@ -102,8 +108,11 @@ describe('useCodeSubmissionPresence', () => {
     })
 
     it('opens nothing while disabled', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
         renderHook(() => useCodeSubmissionPresence(studyId, false), { wrapper })
-        await act(async () => {})
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000)
+        })
         expect(providers()).toHaveLength(0)
     })
 })
