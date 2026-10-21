@@ -61,7 +61,7 @@ export const updateUserRoleAction = new Action('updateUserRoleAction', { perform
         }
 
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
-        await syncMembershipToClerk({ userId, orgId: orgUser.orgId, isAdmin })
+        await syncMembershipToClerk({ userId, orgId: orgUser.orgId })
         onUserRoleUpdate({
             userId,
             actorId: session.user.id,

@@ -236,6 +236,9 @@ describe('User Actions', () => {
             .where('id', '=', orgUser.id)
             .executeTakeFirstOrThrow()
         expect(changed.isAdmin).toBe(true)
-        expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
+        expect(logError).toHaveBeenCalledWith(
+            'clerk-org-sync failed',
+            expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+        )
     })
 })

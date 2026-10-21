@@ -200,7 +200,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .set({ isAdmin: true })
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
-                    await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: true })
+                    await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
                 }
                 return user
             }
@@ -215,7 +215,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
-            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
 
             return user
         })
@@ -338,7 +338,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
-            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
 
             // Claimed in the same transaction as the membership grant, so the guard is
             // self-enforcing rather than relying on a later client call.

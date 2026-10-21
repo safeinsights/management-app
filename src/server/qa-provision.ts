@@ -66,8 +66,8 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
             oc.columns(['orgId', 'userId']).doUpdateSet((eb) => ({ isAdmin: eb.ref('excluded.isAdmin') })),
         )
         .execute()
-    for (const { orgId, isAdmin } of memberships) {
-        await syncMembershipToClerk({ userId, orgId, isAdmin })
+    for (const { orgId } of memberships) {
+        await syncMembershipToClerk({ userId, orgId })
     }
 }
 

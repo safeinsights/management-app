@@ -67,7 +67,10 @@ describe('provisionQaUser', () => {
         await provisionQaUser(db, user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })
 
         expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: true }])
-        expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk is down' }))
+        expect(logError).toHaveBeenCalledWith(
+            'clerk-org-sync failed',
+            expect.objectContaining({ error: expect.objectContaining({ message: 'clerk is down' }) }),
+        )
     })
 
     it('leaves Clerk alone when the public key is invalid', async () => {

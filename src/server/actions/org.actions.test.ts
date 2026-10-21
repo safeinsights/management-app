@@ -137,7 +137,10 @@ describe('Org Actions', () => {
             const slug = `fails-${faker.string.uuid()}`
             actionResult(await insertOrgAction({ ...newOrg, slug }))
             expect(await db.selectFrom('org').select('id').where('slug', '=', slug).executeTakeFirst()).toBeDefined()
-            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
         })
     })
 

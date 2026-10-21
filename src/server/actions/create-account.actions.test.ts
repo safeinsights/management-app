@@ -575,13 +575,16 @@ describe('Create Account Actions', () => {
                 .where('id', '=', invite.id)
                 .executeTakeFirstOrThrow()
             expect(claimed.claimedByUserId).toBe(userId)
-            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
         })
 
         it('onCreateAccountAction leaves Clerk alone when it loses the claim race', async () => {
             const invite = await inviteFor(org.id, testEmail(), false)
             const clerkId = faker.string.alpha(10)
-            await syncMembershipToClerk({ userId: invitingUser.user.id, orgId: org.id, isAdmin: false })
+            await syncMembershipToClerk({ userId: invitingUser.user.id, orgId: org.id })
             const clerk = await clerkClient()
             // Another accept claims the invite after the up-front check but before the transaction.
             ;(clerk.users.getUserList as Mock).mockImplementationOnce(async () => {
@@ -617,7 +620,7 @@ describe('Create Account Actions', () => {
         it('onJoinTeamAccountAction promotes an existing member in Clerk', async () => {
             const { user } = await insertTestUser({ org })
             signInAs(user, org.slug)
-            await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: false })
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id })
 
             actionResult(await onJoinTeamAccountAction({ inviteId: (await inviteFor(org.id, user.email!, true)).id }))
 
@@ -627,7 +630,7 @@ describe('Create Account Actions', () => {
         it('onJoinTeamAccountAction leaves an existing admin as admin in Clerk', async () => {
             const { user } = await insertTestUser({ org, isAdmin: true })
             signInAs(user, org.slug)
-            await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: true })
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id })
             const api = await currentFakeClerkOrgsApi()
             api.updateOrganizationMembership.mockClear()
 
@@ -649,7 +652,10 @@ describe('Create Account Actions', () => {
             actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
 
             expect(await dbMembers(target.id)).toHaveLength(1)
-            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
         })
     })
 
