@@ -19,6 +19,9 @@ import type { StepNav } from '@/lib/study-screen'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
+// Loaded up front so React.lazy resolves the editor from the module cache instead of
+// compiling it while a findBy is waiting.
+import '@/components/editable-text/collaborative-editor'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
@@ -211,7 +214,7 @@ describe('CodeReviewClient decision selector', () => {
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
-        await screen.findByRole('textbox', { name: 'Code review feedback' }, { timeout: 5000 })
+        await screen.findByRole('textbox', { name: 'Code review feedback' })
 
         await user.click(screen.getByTestId('code-review-submit'))
 

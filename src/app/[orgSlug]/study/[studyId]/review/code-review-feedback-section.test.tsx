@@ -17,6 +17,9 @@ import { lexicalJson } from '@/lib/lexical'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { SAVED_LABEL } from '@/components/save-status'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
+// Loaded up front so React.lazy resolves the editor from the module cache instead of
+// compiling it while a findBy is waiting.
+import '@/components/editable-text/collaborative-editor'
 
 vi.mock('@/server/actions/editor.actions', () => ({
     getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
@@ -67,9 +70,7 @@ describe('CodeReviewFeedbackSection', () => {
         renderWithProviders(<CodeFeedbackTestWrapper />)
 
         // The collaborative editor is a lazy chunk, so the footer is not in the first render.
-        expect(
-            await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`, {}, { timeout: 5000 }),
-        ).toBeInTheDocument()
+        expect(await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
         expect(document.getElementById(fieldErrorId('code-review-feedback'))).toBeEmptyDOMElement()
     })
 

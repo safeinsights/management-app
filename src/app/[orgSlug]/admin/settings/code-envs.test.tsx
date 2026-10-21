@@ -36,6 +36,13 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
+// Typing a long value keystroke by keystroke re-validates the whole form each time, which once
+// pushed the creation test past the CI timeout. Pasting enters each value in one event.
+const fillIn = async (input: HTMLElement, text: string) => {
+    await userEvent.click(input)
+    await userEvent.paste(text)
+}
+
 describe('CodeEnvs', async () => {
     let org: Selectable<Org>
 
@@ -65,7 +72,7 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: /add code environment/i })).toBeInTheDocument()
     })
 
-    it('opens the modal and creates a code environment that is displayed in table', { timeout: 15000 }, async () => {
+    it('opens the modal and creates a code environment that is displayed in table', async () => {
         renderWithProviders(<CodeEnvs />)
 
         const addButton = screen.getByRole('button', { name: /Add Code Environment/i })
@@ -76,17 +83,17 @@ describe('CodeEnvs', async () => {
         })
 
         const envName = faker.hacker.noun() + ' Code Env'
-        await userEvent.type(screen.getByLabelText(/Name/i), envName)
-        await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
-        await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
+        await fillIn(screen.getByLabelText(/Name/i), envName)
+        await fillIn(screen.getByLabelText(/Identifier/i), 'test_env')
+        await fillIn(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement
         await userEvent.upload(fileInput, file)
 
-        await userEvent.type(screen.getByPlaceholderText(/Extension/i), 'r')
-        await userEvent.type(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
+        await fillIn(screen.getByPlaceholderText(/Extension/i), 'r')
+        await fillIn(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
         await userEvent.click(screen.getByRole('button', { name: /Add command line/i }))
 
         await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
@@ -98,7 +105,7 @@ describe('CodeEnvs', async () => {
 
     // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
     // said which row was at fault.
-    it('rejects a malformed env var name on the field itself', { timeout: 15000 }, async () => {
+    it('rejects a malformed env var name on the field itself', async () => {
         renderWithProviders(<CodeEnvs />)
 
         fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
@@ -107,8 +114,8 @@ describe('CodeEnvs', async () => {
             expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
         })
 
-        await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
-        await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
+        await fillIn(screen.getByPlaceholderText(/Variable name/i), '1BAD')
+        await fillIn(screen.getByPlaceholderText(/^Value$/i), 'something')
         await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
 
         expect((await screen.findAllByText(/Invalid variable name/i)).length).toBeGreaterThan(0)
