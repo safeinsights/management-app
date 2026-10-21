@@ -31,16 +31,6 @@ describe('user_email_not_blank migration', () => {
             expect(rows.map((row) => row.email).sort()).toEqual(['kept@test.com', null, null, null])
         })
     })
-
-    it('rejects a blank email once it has run', async () => {
-        await withShadowUserTable(async (trx) => {
-            await up(trx)
-
-            await expect(sql`INSERT INTO "user" (email) VALUES ('')`.execute(trx)).rejects.toThrow(
-                /user_email_not_blank/,
-            )
-        })
-    })
 })
 
 describe('user_email_not_blank constraint', () => {
