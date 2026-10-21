@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
+import { deleteOrgFromClerk, syncOrgToClerk } from '@/server/clerk-org-sync'
 
 // Mass-assignment path: overwriting settings.publicKey would let an org admin forge M2M API JWTs,
 // and flipping type lab->enclave grants reviewer abilities — hence ('manage','all') (MA-5).
@@ -14,15 +15,24 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
     .params(updateOrgSchema)
     .requireAbilityTo('manage', 'all')
     .handler(async ({ params: { id, ...update }, db }) => {
-        return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
+        const org = await db
+            .updateTable('org')
+            .set(update)
+            .where('id', '=', id)
+            .returningAll()
+            .executeTakeFirstOrThrow()
+        await syncOrgToClerk(org)
+        return org
     })
 
-export const insertOrgAction = new Action('insertOrgAction')
+export const insertOrgAction = new Action('insertOrgAction', { performsMutations: true })
     .params(orgSchema)
     .middleware(async ({ params: { slug } }) => ({ orgSlug: slug }))
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
-        return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
+        const inserted = await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
+        await syncOrgToClerk(inserted)
+        return inserted
     })
 
 export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
@@ -63,10 +73,15 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .execute()
     })
 
-export const deleteOrgAction = new Action('deleteOrgAction')
+export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations: true })
     .params(z.object({ orgId: z.string() }))
     .requireAbilityTo('delete', 'Org')
-    .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
+    .handler(async ({ db, params: { orgId } }) => {
+        const org = await db.selectFrom('org').select('slug').where('id', '=', orgId).executeTakeFirstOrThrow()
+        const result = await db.deleteFrom('org').where('id', '=', orgId).execute()
+        await deleteOrgFromClerk(org.slug)
+        return result
+    })
 
 // Cross-org by design. Selects catalog columns only — keep it that way (MA-6).
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
@@ -214,7 +229,9 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
+        const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
+        await syncOrgToClerk({ slug: orgSlug, name, type: org.type })
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
         revalidatePath(Routes.adminTeam({ orgSlug }))

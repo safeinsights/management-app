@@ -1,7 +1,7 @@
 export type SyncOrg = { slug: string; name: string; type: string }
 export type OrgRole = 'org:admin' | 'org:member'
 
-type ClerkOrg = { id: string; name: string; publicMetadata: Record<string, unknown> }
+type ClerkOrg = { id: string; name: string; publicMetadata?: Record<string, unknown> | null }
 
 export interface ClerkOrgApi {
     getOrganization(params: { slug: string }): Promise<ClerkOrg>
