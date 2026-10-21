@@ -24,12 +24,12 @@ test.describe('Organization Admin', () => {
 
         await visitAsRole(page, '/reviewer-is-org-admin/admin/team')
 
-        await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
+        // The users table loads client-side, so its rows only show once the page has hydrated and the
+        // invite button responds to a click.
+        await expect(page.getByRole('cell', { name: TestingUsers.reviewer.identifier })).toBeVisible()
 
-        const inviteBtn = page.getByRole('button', { name: /invite people/i })
-        await inviteBtn.waitFor({ state: 'visible' })
-        await inviteBtn.click({ force: true })
-        await page.waitForSelector('input[type="email"]', { state: 'visible' })
+        await page.getByRole('button', { name: /invite people/i }).click()
+        await expect(page.getByRole('dialog', { name: /invite others to join your team/i })).toBeVisible()
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
         await expect(page.getByText(/invalid email address/i)).toBeVisible()
@@ -161,8 +161,7 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(codeEnvName)).toBeVisible()
 
-        const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
-        await codeEnvRow.locator('button').nth(1).click()
+        await page.getByRole('button', { name: `Edit ${codeEnvName}`, exact: true }).click()
 
         const editDialog = page.getByRole('dialog', { name: /edit code environment/i })
         await expect(editDialog).toBeVisible()
@@ -176,10 +175,10 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(updatedName)).toBeVisible()
 
-        const updatedRow = page.getByText(updatedName, { exact: true }).locator('xpath=../../..')
-        await updatedRow.getByRole('button').first().click()
+        await page.getByRole('button', { name: `Details for ${updatedName}`, exact: true }).click()
 
-        await updatedRow.getByLabel(/view main\.r/i).click()
+        // Collapsed rows hide their detail panel, so only this row's starter code button is visible.
+        await page.getByRole('button', { name: 'View main.r', exact: true }).click()
 
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible()
