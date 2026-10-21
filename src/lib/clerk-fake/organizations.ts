@@ -43,7 +43,7 @@ export function createFakeOrganizations() {
         createOrganization: async (p: {
             name: string
             slug: string
-            createdBy: string
+            createdBy?: string
             publicMetadata?: Record<string, unknown>
         }) => {
             if ([...orgs.values()].some((o) => o.slug === p.slug)) throw clerkDuplicateSlugError()
@@ -54,7 +54,7 @@ export function createFakeOrganizations() {
                 publicMetadata: p.publicMetadata ?? {},
             }
             orgs.set(org.id, org)
-            members.set(org.id, new Map([[p.createdBy, 'org:admin']]))
+            members.set(org.id, new Map(p.createdBy ? [[p.createdBy, 'org:admin']] : []))
             return org
         },
         // The real endpoint also accepts publicMetadata (replacing it); the app no longer sends it.

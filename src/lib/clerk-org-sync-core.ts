@@ -9,7 +9,6 @@ export interface ClerkOrgApi {
     createOrganization(params: {
         name: string
         slug: string
-        createdBy: string
         publicMetadata: Record<string, unknown>
     }): Promise<ClerkOrg>
     updateOrganization(id: string, params: { name?: string }): Promise<ClerkOrg>
@@ -50,31 +49,19 @@ export function createClerkOrgSync(api: ClerkOrgApi) {
         }
     }
 
-    // Clerk makes the creator an admin member; the DB has no such row unless keepCreator says so, so
-    // the creator is removed again. Clerk may refuse to remove or demote an org's only admin: a failure
-    // here leaves a member-extra that the backfill repairs. Removing members from the app must keep
-    // at least one admin and forbid self-removal, as Clerk does.
-    async function syncOrg(
-        org: SyncOrg,
-        { createdBy, keepCreator = false }: { createdBy: string; keepCreator?: boolean },
-    ) {
+    // No createdBy: the app never makes the creating user a member, and Clerk would add them as admin.
+    // App-side member removal must keep at least one admin and forbid self-removal, as Clerk does.
+    async function syncOrg(org: SyncOrg) {
         let existing = await find(org.slug)
         if (!existing) {
             try {
-                const created = await api.createOrganization({
+                return await api.createOrganization({
                     name: org.name,
                     slug: org.slug,
-                    createdBy,
                     publicMetadata: { type: org.type },
                 })
-                if (!keepCreator) {
-                    await ignoreNotFound(
-                        api.deleteOrganizationMembership({ organizationId: created.id, userId: createdBy }),
-                    )
-                }
-                return created
             } catch (error) {
-                // A concurrent sync created it first and owns the creator cleanup.
+                // A concurrent sync created it first.
                 if (!isClerkDuplicateSlugError(error)) throw error
                 existing = await api.getOrganization({ slug: org.slug })
             }
@@ -92,7 +79,7 @@ export function createClerkOrgSync(api: ClerkOrgApi) {
     }
 
     async function syncMembership(org: SyncOrg, clerkUserId: string, isAdmin: boolean) {
-        const clerkOrg = await syncOrg(org, { createdBy: clerkUserId, keepCreator: true })
+        const clerkOrg = await syncOrg(org)
         const params = { organizationId: clerkOrg.id, userId: clerkUserId, role: clerkRoleFor(isAdmin) }
         try {
             await api.updateOrganizationMembership(params)

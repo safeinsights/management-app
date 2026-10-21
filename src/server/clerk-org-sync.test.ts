@@ -34,6 +34,13 @@ describe('clerk org membership wrappers', () => {
         expect(fake.members.get(clerkOrg()!.id)?.has(user.clerkId)).toBe(false)
     })
 
+    it('creates an org with no members without a logged-in user', async () => {
+        const { fake } = await setup()
+        await syncOrgToClerk({ slug: 'no-session', name: 'No Session', type: 'lab' })
+        const created = [...fake.orgs.values()].find((o) => o.slug === 'no-session')
+        expect(fake.members.get(created!.id)?.size).toBe(0)
+    })
+
     it('waits for the commit, and a rollback never reaches Clerk', async () => {
         const { fake, org, user } = await setup()
 

@@ -91,7 +91,7 @@ describe('Org Actions', () => {
     })
 
     describe('Clerk sync', () => {
-        it('creates a Clerk org with no leftover creator member on insert', async () => {
+        it('creates a Clerk org with no members on insert', async () => {
             const clerkOrg = [...fake.orgs.values()].find((o) => o.slug === newOrg.slug)
             expect(clerkOrg).toMatchObject({ name: newOrg.name, publicMetadata: { type: 'enclave' } })
             expect(fake.members.get(clerkOrg!.id)?.size).toBe(0)

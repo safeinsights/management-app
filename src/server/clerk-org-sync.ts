@@ -1,4 +1,4 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
 // The hook runs after the transaction closed, so it needs the root handle, not currentDb().
 // eslint-disable-next-line no-restricted-imports
 import { db } from '@/database'
@@ -31,17 +31,9 @@ const orgById = (orgId: string) =>
 const clerkIdOf = async (userId: string) =>
     (await currentDb().selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()).clerkId
 
-export async function syncOrgToClerk(org: SyncOrg, opts: { keepCreator?: boolean } = {}) {
+export async function syncOrgToClerk({ slug, name, type }: SyncOrg) {
     if (!clerkOrgSyncEnabled()) return
-    const { userId } = await auth()
-    if (!userId) {
-        logger.error(new Error(`cannot sync org ${org.slug} to Clerk: not logged in`))
-        return
-    }
-    const { slug, name, type } = org
-    await afterCommitToClerk('syncOrg', slug, (sync) =>
-        sync.syncOrg({ slug, name, type }, { createdBy: userId, keepCreator: opts.keepCreator }),
-    )
+    await afterCommitToClerk('syncOrg', slug, (sync) => sync.syncOrg({ slug, name, type }))
 }
 
 export async function deleteOrgFromClerk(slug: string) {

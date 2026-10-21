@@ -66,8 +66,8 @@ describe('clerk-fake organizations', () => {
     it('supports every org sync step, each repeatable', async () => {
         const sync = createClerkOrgSync((await clerkClient()).organizations)
 
-        await sync.syncOrg(org, { createdBy: 'user_admin' })
-        await sync.syncOrg(org, { createdBy: 'user_admin' })
+        await sync.syncOrg(org)
+        await sync.syncOrg(org)
         expect(await (await clerkClient()).organizations.getOrganization({ slug: org.slug })).toMatchObject({
             name: org.name,
             publicMetadata: { type: 'lab' },
