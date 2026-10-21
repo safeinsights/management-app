@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vi
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/request-context'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
+import { installFakeClerkOrgs } from './unit/clerk-orgs'
 import { cleanup } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
@@ -156,7 +157,6 @@ vi.mock('@/server/clerk', async (importOriginal) => ({
     ...(await importOriginal()),
     updateClerkUserName: vi.fn(),
     updateClerkUserMetadata: vi.fn(),
-    findOrCreateClerkOrganization: vi.fn(),
 }))
 
 vi.mock('@mantine/notifications', () => ({
@@ -315,6 +315,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
     testTransaction.start()
+    installFakeClerkOrgs()
     ;(useClerk as Mock).mockImplementation(() => ({
         signOut: vi.fn(),
         openUserProfile: vi.fn(),
