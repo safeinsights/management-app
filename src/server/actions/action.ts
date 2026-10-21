@@ -119,7 +119,10 @@ export class Action<
                         args = schema.parse(raw)
                     } catch (error) {
                         if (error instanceof ZodError) {
-                            const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>
+                            const fieldErrors = z.flattenError(error).fieldErrors as Record<
+                                string,
+                                string[] | undefined
+                            >
                             const sanitizedErrors: Record<string, string> = {}
                             for (const key in fieldErrors) {
                                 if (fieldErrors[key] && fieldErrors[key] !== undefined) {

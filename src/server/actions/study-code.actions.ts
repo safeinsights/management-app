@@ -95,7 +95,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
     performsMutations: true,
 })
     // Serialized Lexical JSON, sized like the proposal note's draft for the same reason (OTTER-658).
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
+    .params(z.object({ studyId: z.uuid(), note: z.string().max(100_000) }))
     .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     // study.status stays APPROVED during code resubmission; the decision lives on the job, so
@@ -128,7 +128,7 @@ export const saveCodeResubmissionNoteDraftAction = new Action('saveCodeResubmiss
 export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { performsMutations: true })
     .params(
         z.object({
-            studyId: z.string().uuid(),
+            studyId: z.uuid(),
             mainFileName: z.string(),
             fileNames: z.array(z.string()),
             resubmissionNote: resubmissionNoteParam,

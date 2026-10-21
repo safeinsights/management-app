@@ -184,7 +184,7 @@ const finalizeStudySubmissionInfoSchema = z
         title: z.string().nullable().optional(),
         piName: z.string().optional(),
         // No field displays this, so submit is the only enforcement point (OTTER-647).
-        piUserId: z.string().uuid().nullable().optional(),
+        piUserId: z.uuid().nullable().optional(),
         datasets: z.array(z.string()).optional(),
         researchQuestions: z.string().optional(),
         projectSummary: z.string().optional(),

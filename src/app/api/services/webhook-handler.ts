@@ -20,14 +20,14 @@ async function authenticateRequest(req: Request): Promise<boolean> {
     return !!token && !!expectedSecret && secretsMatch(token, expectedSecret)
 }
 
-interface WebhookHandlerOptions<T extends z.ZodTypeAny> {
+interface WebhookHandlerOptions<T extends z.ZodType> {
     route: string
     schema: T
     entityNotFoundMessage: string
     handler: (body: z.infer<T>) => Promise<void>
 }
 
-export function createWebhookHandler<T extends z.ZodTypeAny>({
+export function createWebhookHandler<T extends z.ZodType>({
     route,
     schema,
     entityNotFoundMessage,

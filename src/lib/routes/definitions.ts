@@ -9,13 +9,13 @@ export const OrgParams = z.object({
 
 export const StudyParams = z.object({
     orgSlug: z.string().min(1, 'Organization slug is required'),
-    studyId: z.string().uuid('Study ID must be a valid UUID'),
+    studyId: z.uuid('Study ID must be a valid UUID'),
 })
 
 export const NoParams = z.object({})
 
 export const InviteParams = z.object({
-    inviteId: z.string().uuid('Invite ID must be a valid UUID'),
+    inviteId: z.uuid('Invite ID must be a valid UUID'),
 })
 
 export const DashboardSearchParams = z.object({
@@ -31,7 +31,7 @@ export const RedirectSearchParams = z.object({
 })
 
 export const InviteSearchParams = z.object({
-    invite_id: z.string().uuid().optional(),
+    invite_id: z.uuid().optional(),
     redirect_url: z
         .string()
         .optional()

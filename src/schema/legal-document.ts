@@ -176,12 +176,12 @@ export const publishLegalDocumentVersionSchema = z.object({
 export const legalDocumentVersionParams = z.object({
     // A uuid because scopeFromVersionId queries on it before any handler runs, so a malformed id
     // would 500 there rather than failing closed.
-    versionId: z.string().uuid(),
+    versionId: z.uuid(),
 })
 
 export const studyAgreementStatusSchema = z.object({
     // As above: scopeFromStudyId queries on this before the handler runs.
-    studyId: z.string().uuid(),
+    studyId: z.uuid(),
 })
 
 // One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
