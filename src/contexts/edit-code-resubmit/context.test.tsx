@@ -1,7 +1,14 @@
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { HocuspocusProvider } from '@hocuspocus/provider'
-import { fireEvent, mockClerkSession, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import {
+    fireEvent,
+    mockClerkSession,
+    renderWithProviders,
+    screen,
+    waitFor,
+    waitForPendingMutations,
+} from '@/tests/unit.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 
@@ -68,7 +75,7 @@ describe('EditCodeResubmitProvider', () => {
 
         unmount()
         rejectSave(new Error('An unexpected response was received from the server.'))
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        await waitForPendingMutations()
 
         expect(mutationErrorHandler).not.toHaveBeenCalled()
     })

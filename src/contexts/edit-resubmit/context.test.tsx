@@ -1,6 +1,6 @@
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { useParams } from 'next/navigation'
-import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import { fireEvent, renderWithProviders, screen, waitFor, waitForPendingMutations } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { EditResubmitProvider, useEditResubmit } from './context'
@@ -111,7 +111,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         unmount()
 
         rejectSave(new Error('An unexpected response was received from the server.'))
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        await waitForPendingMutations()
 
         expect(mutationErrorHandler).not.toHaveBeenCalled()
     })

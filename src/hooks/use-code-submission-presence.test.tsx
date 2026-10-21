@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
+    act,
     beforeEach,
     describe,
     expect,
@@ -102,7 +103,7 @@ describe('useCodeSubmissionPresence', () => {
 
     it('opens nothing while disabled', async () => {
         renderHook(() => useCodeSubmissionPresence(studyId, false), { wrapper })
-        await new Promise((r) => setTimeout(r, 0))
+        await act(async () => {})
         expect(providers()).toHaveLength(0)
     })
 })
