@@ -54,7 +54,7 @@ describe('syncMembership', () => {
         expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:member')
     })
 
-    it('changes the role and is a no-op on repeat', async () => {
+    it('changes the role and leaves the state unchanged on repeat', async () => {
         const { fake, sync } = setup()
         await sync.syncOrg(org, { createdBy: 'user_admin' })
         await sync.syncMembership(org, 'user_1', false)

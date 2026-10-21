@@ -338,7 +338,6 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
-            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
 
             // Claimed in the same transaction as the membership grant, so the guard is
             // self-enforcing rather than relying on a later client call.
@@ -351,6 +350,9 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
             await recordSignupAcknowledgements(trx, user.id, invite.orgId, acknowledgedVersionIds)
+
+            // Last, so no later step can roll the DB back once Clerk has the membership.
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
 
             return user
         })

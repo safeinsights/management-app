@@ -1,5 +1,5 @@
 import { currentDb, withTransaction } from '@/server/request-context'
-import { syncMembershipToClerk } from '@/server/clerk-org-sync'
+import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
@@ -35,10 +35,13 @@ export async function findOrCreateOrgMembership({
     userId,
     slug,
     isAdmin = false,
+    clerkSync,
 }: {
     userId: string
     slug: string
     isAdmin?: boolean
+    // Passed in, not imported: this module loads in bin scripts, outside Next.
+    clerkSync?: ReturnType<typeof createClerkOrgSync>
 }) {
     // Own transaction when the caller has none, so a Clerk failure cannot leave the row behind.
     const org = await withTransaction(currentDb(), async (trx) => {
@@ -54,7 +57,14 @@ export async function findOrCreateOrgMembership({
             .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
             .execute()
 
-        await syncMembershipToClerk({ userId, orgId: org.id, isAdmin })
+        if (clerkSync) {
+            const { clerkId } = await trx
+                .selectFrom('user')
+                .select('clerkId')
+                .where('id', '=', userId)
+                .executeTakeFirstOrThrow()
+            await clerkSync.syncMembership(org, clerkId, isAdmin)
+        }
         return org
     })
 

@@ -65,6 +65,21 @@ describe('provisionQaUser', () => {
         expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: false }])
     })
 
+    it('leaves Clerk alone when the public key is invalid', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const fake = installFakeClerkOrgs()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const target = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        await expect(
+            provisionQaUser(db, user.id, { orgs: [{ slug: target.slug, isAdmin: true }], publicKey: 'not-a-key' }),
+        ).rejects.toBeInstanceOf(QaInvalidRequestError)
+
+        expect([...fake.members.values()].some((m) => m.has(user.clerkId))).toBe(false)
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: false }])
+    })
+
     it('sets exactly the listed orgs, removing ones not listed', async () => {
         const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })

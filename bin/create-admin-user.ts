@@ -7,6 +7,7 @@ import prompts from 'prompts'
 import { db } from '@/database'
 import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/db/mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 
 function isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -136,6 +137,7 @@ async function createAdminUser() {
         userId: siUserId,
         slug: CLERK_ADMIN_ORG_SLUG,
         isAdmin: true,
+        clerkSync: createClerkOrgSync(clerk.organizations),
     })
     console.log(`✅ Added to ${CLERK_ADMIN_ORG_SLUG} as admin`)
 

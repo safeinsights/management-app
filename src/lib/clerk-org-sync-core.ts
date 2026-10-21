@@ -1,3 +1,4 @@
+// A copy lives in the utils repo (utils/lib/clerk-orgs.ts); keep the two in sync.
 export type SyncOrg = { slug: string; name: string; type: string }
 export type OrgRole = 'org:admin' | 'org:member'
 

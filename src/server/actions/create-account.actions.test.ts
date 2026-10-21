@@ -573,6 +573,30 @@ describe('Create Account Actions', () => {
             expect(claimed.claimedByUserId).toBeNull()
         })
 
+        it('onCreateAccountAction leaves Clerk alone when it loses the claim race', async () => {
+            const invite = await inviteFor(org.id, testEmail(), false)
+            const clerkId = faker.string.alpha(10)
+            await syncMembershipToClerk({ userId: invitingUser.user.id, orgId: org.id, isAdmin: false })
+            const clerk = await clerkClient()
+            // Another accept claims the invite after the up-front check but before the transaction.
+            ;(clerk.users.getUserList as Mock).mockImplementationOnce(async () => {
+                await db
+                    .updateTable('pendingUser')
+                    .set({ claimedByUserId: invitingUser.user.id })
+                    .where('id', '=', invite.id)
+                    .execute()
+                return { totalCount: 1, data: [{ id: clerkId }] }
+            })
+
+            const result = await onCreateAccountAction({
+                inviteId: invite.id,
+                form: { firstName: 'Test', lastName: 'User', password: 'password' },
+            })
+
+            expect(result).toEqual({ error: expect.anything() })
+            expect(await fakeClerkRoleOf(org.slug, clerkId)).toBeUndefined()
+        })
+
         it('onJoinTeamAccountAction mirrors a new membership into Clerk', async () => {
             const { user } = await insertTestUser({ org })
             const target = await insertTestOrg()
