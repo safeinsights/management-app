@@ -36,7 +36,7 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-// Typing a long value keystroke by keystroke re-validates the whole form each time, which once
+// Typing a long value keystroke by keystroke re-renders the whole form each time, which once
 // pushed the creation test past the CI timeout. Pasting enters each value in one event.
 const fillIn = async (input: HTMLElement, text: string) => {
     await userEvent.click(input)
