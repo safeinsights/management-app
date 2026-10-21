@@ -14,7 +14,9 @@ const RETROACTIVE_RULE_SINCE = 1787300000000
 const STUDY_TABLES = '(study\\w*|job_status_change|yjs_document|workspace_file_activity|legal_document\\w*)'
 const STUDY_TABLE = new RegExp(`^${STUDY_TABLES}$`)
 const STUDY_ENUM = /^study\w*$/
-const OPT_OUT = /no backfill:/
+// A marker names the one table or enum it exempts, so it cannot hide another gap in the same file.
+const OPT_OUT = /no backfill (\w+):/g
+const UNKEYED_OPT_OUT = /no backfill:/
 
 const QNAME = String.raw`(?:"[^"]+"|\w+)(?:\s*\.\s*(?:"[^"]+"|\w+))*`
 const SQL_NOISE = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|\$([A-Za-z_]\w*)?\$([\s\S]*?)\$\1\$/g
@@ -160,7 +162,8 @@ function collect(roots: ts.Node[], skip: (node: ts.Node) => boolean = () => fals
 }
 
 function missingBackfills(source: string): string[] {
-    if (OPT_OUT.test(source)) return []
+    const exempt = new Set([...source.matchAll(OPT_OUT)].map(([, name]) => name))
+    const unkeyed = UNKEYED_OPT_OUT.test(source) ? ['unkeyed no backfill marker'] : []
     const sourceFile = ts.createSourceFile('migration.ts', source, ts.ScriptTarget.Latest, true)
     const functions = moduleFunctions(sourceFile)
     if (!functions.has('up')) return ['no up() function']
@@ -176,7 +179,8 @@ function missingBackfills(source: string): string[] {
     )
     // A new enum value cannot be written before the migration's transaction commits, so no backfill covers it.
     const studyEnums = [...enums].filter((type) => STUDY_ENUM.test(type))
-    return [...new Set([...tables, ...studyEnums])].sort()
+    const gaps = [...new Set([...tables, ...studyEnums])].filter((gap) => !exempt.has(gap))
+    return [...gaps, ...unkeyed].sort()
 }
 
 describe('migrations', () => {
@@ -196,9 +200,9 @@ describe('migrations', () => {
         expect(
             offenders,
             'Backfill each widened table in up() or a same-file function it calls, on that same table, or add a ' +
-                '`// no backfill: <why existing studies are unaffected>` comment. A new study enum value always ' +
-                'needs the marker with a true reason: Postgres cannot use it before the migration commits ' +
-                '(docs/retroactive-changes.md)',
+                '`// no backfill <table or enum>: <why existing studies are unaffected>` comment for each one. ' +
+                'A new study enum value always needs its marker with a true reason: Postgres cannot use it ' +
+                'before the migration commits (docs/retroactive-changes.md)',
         ).toEqual([])
     })
 })
@@ -239,7 +243,7 @@ describe('missingBackfills', () => {
         ['a bare study column', migration({ up: [W] }), ['study']],
         ['a new study table', migration({ up: [CREATE_STUDY_THING] }), ['study_thing']],
         ['a new study enum value', migration({ up: [run("ALTER TYPE study_status ADD VALUE 'X'")] }), ['study_status']],
-        ['the no backfill marker', migration({ top: ['// no backfill: reason'], up: [W] }), []],
+        ['the no backfill marker', migration({ top: ['// no backfill study: reason'], up: [W] }), []],
         [
             'a non-study table',
             migration({ up: ["await db.schema.alterTable('org').addColumn('x', 'text').execute()"] }),
@@ -426,12 +430,39 @@ describe('missingBackfills', () => {
         [
             'the marker covers a new value',
             migration({
-                top: ['// no backfill: the value records an event that could not happen before'],
+                top: ['// no backfill study_status: the value records an event that could not happen before'],
                 up: [ADD_STUDY_STATUS, UPDATE_STUDY],
             }),
             [],
         ],
     ])('enum values: %s', check)
+
+    it.each<Row>([
+        [
+            'a marker for the enum leaves a new column reported',
+            migration({ top: ['// no backfill study_status: reason'], up: [ADD_STUDY_STATUS, W] }),
+            ['study'],
+        ],
+        [
+            'one marker per gap clears both',
+            migration({
+                top: ['// no backfill study_status: reason', '// no backfill study: reason'],
+                up: [ADD_STUDY_STATUS, W],
+            }),
+            [],
+        ],
+        ['a marker for another table', migration({ top: ['// no backfill study_job: reason'], up: [W] }), ['study']],
+        [
+            'an unkeyed marker',
+            migration({ top: ['// no backfill: reason'], up: [W] }),
+            ['study', 'unkeyed no backfill marker'],
+        ],
+        [
+            'an unkeyed marker with no gap',
+            migration({ top: ['// no backfill: reason'] }),
+            ['unkeyed no backfill marker'],
+        ],
+    ])('markers: %s', check)
 
     it.each<Row>([
         ['an uncalled widening helper', migration({ top: [fn('addX', [W])] }), ['study']],
