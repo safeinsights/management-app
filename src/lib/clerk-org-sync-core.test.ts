@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { clerkNotFoundError } from '@/lib/clerk-fake/organizations'
 import { createFakeClerkOrgs } from '@/tests/unit.helpers'
 import { clerkRoleFor, createClerkOrgSync } from './clerk-org-sync-core'
 
@@ -32,6 +33,52 @@ describe('syncOrg', () => {
         await sync.syncOrg({ ...org, name: 'Acme 2' }, { createdBy: 'user_admin' })
         expect(fake.api.updateOrganization).toHaveBeenCalledTimes(1)
         expect(fake.api.createOrganization).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps other metadata keys through a rename and a type change', async () => {
+        const { fake, sync } = setup()
+        const created = await sync.syncOrg(org, { createdBy: 'user_admin' })
+        await fake.api.updateOrganizationMetadata(created.id, { publicMetadata: { other: { a: 1 } } })
+        await sync.syncOrg({ ...org, name: 'Acme 2', type: 'enclave' }, { createdBy: 'user_admin' })
+        expect(fake.orgs.get(created.id)).toMatchObject({
+            name: 'Acme 2',
+            publicMetadata: { type: 'enclave', other: { a: 1 } },
+        })
+        expect(fake.api.updateOrganizationMetadata).toHaveBeenCalledWith(created.id, {
+            publicMetadata: { type: 'enclave' },
+        })
+    })
+
+    it('adopts an org created by a concurrent sync without removing its creator', async () => {
+        const { fake, sync } = setup()
+        const other = await fake.api.createOrganization({
+            ...org,
+            createdBy: 'user_other',
+            publicMetadata: { type: 'lab' },
+        })
+        fake.api.getOrganization.mockRejectedValueOnce(clerkNotFoundError())
+        const result = await sync.syncOrg(org, { createdBy: 'user_admin' })
+        expect(result.id).toBe(other.id)
+        expect(fake.orgs.size).toBe(1)
+        expect(fake.members.get(other.id)?.get('user_other')).toBe('org:admin')
+        expect(fake.api.deleteOrganizationMembership).not.toHaveBeenCalled()
+    })
+
+    it('throws other create errors', async () => {
+        const { fake, sync } = setup()
+        fake.api.createOrganization.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+        await expect(sync.syncOrg(org, { createdBy: 'user_admin' })).rejects.toThrow('boom')
+    })
+
+    it('leaves the creator an admin when removing the creator fails', async () => {
+        const { fake, sync } = setup()
+        fake.api.deleteOrganizationMembership.mockRejectedValueOnce(
+            Object.assign(new Error('last admin'), { status: 403 }),
+        )
+        await expect(sync.syncOrg(org, { createdBy: 'user_admin' })).rejects.toThrow('last admin')
+        const [created] = [...fake.orgs.values()]
+        expect(created.slug).toBe('acme')
+        expect(fake.members.get(created.id)?.get('user_admin')).toBe('org:admin')
     })
 })
 

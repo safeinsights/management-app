@@ -9,6 +9,7 @@ export const createFakeClerkOrgs = () => {
             getOrganization: vi.fn(api.getOrganization),
             createOrganization: vi.fn(api.createOrganization),
             updateOrganization: vi.fn(api.updateOrganization),
+            updateOrganizationMetadata: vi.fn(api.updateOrganizationMetadata),
             deleteOrganization: vi.fn(api.deleteOrganization),
             createOrganizationMembership: vi.fn(api.createOrganizationMembership),
             updateOrganizationMembership: vi.fn(api.updateOrganizationMembership),

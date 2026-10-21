@@ -12,10 +12,8 @@ export interface ClerkOrgApi {
         createdBy: string
         publicMetadata: Record<string, unknown>
     }): Promise<ClerkOrg>
-    updateOrganization(
-        id: string,
-        params: { name?: string; publicMetadata?: Record<string, unknown> },
-    ): Promise<ClerkOrg>
+    updateOrganization(id: string, params: { name?: string }): Promise<ClerkOrg>
+    updateOrganizationMetadata(id: string, params: { publicMetadata?: Record<string, unknown> }): Promise<ClerkOrg>
     deleteOrganization(id: string): Promise<unknown>
     createOrganizationMembership(params: { organizationId: string; userId: string; role: string }): Promise<unknown>
     updateOrganizationMembership(params: { organizationId: string; userId: string; role: string }): Promise<unknown>
@@ -23,6 +21,11 @@ export interface ClerkOrgApi {
 }
 
 export const clerkRoleFor = (isAdmin: boolean): OrgRole => (isAdmin ? 'org:admin' : 'org:member')
+
+export function isClerkDuplicateSlugError(error: unknown): boolean {
+    const e = error as { errors?: { code?: string }[] } | null
+    return e?.errors?.[0]?.code === 'form_identifier_exists'
+}
 
 export function isClerkNotFoundError(error: unknown): boolean {
     const e = error as { status?: number; errors?: { code?: string }[] } | null
@@ -47,28 +50,38 @@ export function createClerkOrgSync(api: ClerkOrgApi) {
         }
     }
 
-    // Clerk makes the creator an admin member; the DB has no such row unless keepCreator says so.
+    // Clerk makes the creator an admin member; the DB has no such row unless keepCreator says so, so
+    // the creator is removed again. Clerk may refuse to remove or demote an org's only admin: a failure
+    // here leaves a member-extra that the backfill repairs. Removing members from the app must keep
+    // at least one admin and forbid self-removal, as Clerk does.
     async function syncOrg(
         org: SyncOrg,
         { createdBy, keepCreator = false }: { createdBy: string; keepCreator?: boolean },
     ) {
-        const existing = await find(org.slug)
+        let existing = await find(org.slug)
         if (!existing) {
-            const created = await api.createOrganization({
-                name: org.name,
-                slug: org.slug,
-                createdBy,
-                publicMetadata: { type: org.type },
-            })
-            if (!keepCreator) {
-                await ignoreNotFound(
-                    api.deleteOrganizationMembership({ organizationId: created.id, userId: createdBy }),
-                )
+            try {
+                const created = await api.createOrganization({
+                    name: org.name,
+                    slug: org.slug,
+                    createdBy,
+                    publicMetadata: { type: org.type },
+                })
+                if (!keepCreator) {
+                    await ignoreNotFound(
+                        api.deleteOrganizationMembership({ organizationId: created.id, userId: createdBy }),
+                    )
+                }
+                return created
+            } catch (error) {
+                // A concurrent sync created it first and owns the creator cleanup.
+                if (!isClerkDuplicateSlugError(error)) throw error
+                existing = await api.getOrganization({ slug: org.slug })
             }
-            return created
         }
-        if (existing.name !== org.name || existing.publicMetadata?.type !== org.type) {
-            await api.updateOrganization(existing.id, { name: org.name, publicMetadata: { type: org.type } })
+        if (existing.name !== org.name) await api.updateOrganization(existing.id, { name: org.name })
+        if (existing.publicMetadata?.type !== org.type) {
+            await api.updateOrganizationMetadata(existing.id, { publicMetadata: { type: org.type } })
         }
         return existing
     }

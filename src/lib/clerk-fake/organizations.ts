@@ -7,6 +7,23 @@ type MembershipParams = { organizationId: string; userId: string; role: string }
 export const clerkNotFoundError = () =>
     Object.assign(new Error('not found'), { status: 404, errors: [{ code: 'resource_not_found' }] })
 
+export const clerkDuplicateSlugError = () =>
+    Object.assign(new Error('That slug is taken. Please try another.'), {
+        status: 422,
+        errors: [{ code: 'form_identifier_exists', message: 'That slug is taken. Please try another.' }],
+    })
+
+const mergeDeep = (target: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> => {
+    const out = { ...target }
+    for (const [key, value] of Object.entries(patch)) {
+        const current = out[key]
+        const bothObjects =
+            value && typeof value === 'object' && !Array.isArray(value) && current && typeof current === 'object'
+        out[key] = bothObjects ? mergeDeep(current as Record<string, unknown>, value as Record<string, unknown>) : value
+    }
+    return out
+}
+
 export function createFakeOrganizations() {
     const orgs = new Map<string, FakeClerkOrg>()
     const members = new Map<string, Map<string, string>>()
@@ -29,6 +46,7 @@ export function createFakeOrganizations() {
             createdBy: string
             publicMetadata?: Record<string, unknown>
         }) => {
+            if ([...orgs.values()].some((o) => o.slug === p.slug)) throw clerkDuplicateSlugError()
             const org = {
                 id: `org_${crypto.randomUUID()}`,
                 slug: p.slug,
@@ -39,11 +57,18 @@ export function createFakeOrganizations() {
             members.set(org.id, new Map([[p.createdBy, 'org:admin']]))
             return org
         },
+        // The real endpoint also accepts publicMetadata (replacing it); the app no longer sends it.
         updateOrganization: async (id: string, p: { name?: string; publicMetadata?: Record<string, unknown> }) => {
             const org = orgs.get(id)
             if (!org) throw clerkNotFoundError()
             if (p.name) org.name = p.name
             if (p.publicMetadata) org.publicMetadata = p.publicMetadata
+            return org
+        },
+        updateOrganizationMetadata: async (id: string, p: { publicMetadata?: Record<string, unknown> }) => {
+            const org = orgs.get(id)
+            if (!org) throw clerkNotFoundError()
+            if (p.publicMetadata) org.publicMetadata = mergeDeep(org.publicMetadata, p.publicMetadata)
             return org
         },
         deleteOrganization: async (id: string) => {
