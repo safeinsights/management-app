@@ -1,7 +1,7 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // OTTER-916: the Clerk sync once stored '' for an account with no email, and Mailgun rejects it as a missing "to".
+    // OTTER-916: an older Clerk sync stored '' for accounts with no email, and Mailgun rejects '' as a missing "to".
     await sql`UPDATE "user" SET email = NULL WHERE email IS NOT NULL AND length(btrim(email)) = 0`.execute(db)
 
     await sql`
