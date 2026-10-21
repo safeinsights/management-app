@@ -1,8 +1,8 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
-import type { StatusLabel } from '@/lib/status-labels'
-import { resolveDashboardAction, resolvePillStatus, type StudyState } from '@/lib/study-screen'
+import type { PillId, StatusLabel } from '@/lib/status-labels'
+import { resolveDashboardAction, resolvePillId, resolvePillStatus, type StudyState } from '@/lib/study-screen'
 import { isStudyUnread, lastActivityAt, rowStudyState, timeOf } from '@/lib/study-screen/dashboard-raw-state'
 import { dataPartnerDisplayName, labDisplayName, pillOrgNamesFromRow } from './pill-context'
 import type { Audience, StudyRow } from './types'
@@ -62,10 +62,28 @@ const proposalReview = (study: StudyRow): Stage => {
     return { name: study.reviewerName, at: decidedAt }
 }
 
-const attribution = (stages: Array<[label: string, stage: Stage]>, placeholder: string): Attribution => ({
-    name: newestStage(stages.map(([, stage]) => stage))?.name ?? null,
-    lines: stages.map(([label, stage]) => `${label}: ${stage.name ?? placeholder}`),
-})
+type StageLabel = 'Proposal' | 'Code' | 'Outputs'
+
+// While a stage awaits its submission or decision, earlier rounds' actors are not credited for it or later stages.
+const AWAITING_SUBMISSION: Partial<Record<PillId, StageLabel>> = { 'proposal-draft': 'Proposal', 'code-draft': 'Code' }
+const AWAITING_REVIEW: Partial<Record<PillId, StageLabel>> = {
+    'proposal-needs-review': 'Proposal',
+    'code-needs-review': 'Code',
+    'outputs-need-review': 'Outputs',
+    'code-errored': 'Outputs',
+}
+
+const attribution = (
+    stages: Array<[label: StageLabel, stage: Stage]>,
+    placeholder: string,
+    awaiting: StageLabel | undefined,
+): Attribution => {
+    const from = awaiting ? stages.findIndex(([label]) => label === awaiting) : stages.length
+    return {
+        name: awaiting ? null : (newestStage(stages.map(([, stage]) => stage))?.name ?? null),
+        lines: stages.map(([label, stage], i) => `${label}: ${(i < from && stage.name) || placeholder}`),
+    }
+}
 
 // The researcher link and the draft bin come from the same dashboard rule (docs/study-screens-logic.md,
 // Stage 3).
@@ -108,6 +126,7 @@ export function buildRowModel(
                 ['Code', { name: study.codeSubmitterName, at: study.codeSubmittedAt }],
             ],
             NOT_SUBMITTED,
+            AWAITING_SUBMISSION[resolvePillId('researcher', state)],
         ),
         reviewedBy: attribution(
             [
@@ -116,6 +135,7 @@ export function buildRowModel(
                 ['Outputs', { name: study.outputsReviewerName, at: study.outputsReviewedAt }],
             ],
             NOT_REVIEWED,
+            AWAITING_REVIEW[resolvePillId('reviewer', state)],
         ),
         status: resolvePillStatus(audience, state, pillOrgNamesFromRow(study)),
         isUnread: isStudyUnread(study, audience),
