@@ -1,4 +1,5 @@
-import { currentDb, withTransaction } from '@/server/request-context'
+import { currentDb } from '@/server/request-context'
+import { clerkOrgSyncEnabled } from '@/server/config'
 import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
@@ -43,30 +44,31 @@ export async function findOrCreateOrgMembership({
     // Passed in, not imported: this module loads in bin scripts, outside Next.
     clerkSync?: ReturnType<typeof createClerkOrgSync>
 }) {
-    // Own transaction when the caller has none, so a Clerk failure cannot leave the row behind.
-    const org = await withTransaction(currentDb(), async (trx) => {
-        const org = await trx
-            .selectFrom('org')
-            .select(['org.id', 'org.slug', 'org.name', 'org.type'])
-            .where('org.slug', '=', slug)
-            .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
+    const executor = currentDb()
+    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
+    if (clerkSync && executor.isTransaction) throw new Error('cannot sync a membership to Clerk before it commits')
 
-        await trx
-            .insertInto('orgUser')
-            .values({ userId, orgId: org.id, isAdmin })
-            .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
-            .execute()
+    const org = await executor
+        .selectFrom('org')
+        .select(['org.id', 'org.slug', 'org.name', 'org.type'])
+        .where('org.slug', '=', slug)
+        .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
 
-        if (clerkSync) {
-            const { clerkId } = await trx
-                .selectFrom('user')
-                .select('clerkId')
-                .where('id', '=', userId)
-                .executeTakeFirstOrThrow()
-            await clerkSync.syncMembership(org, clerkId, isAdmin)
-        }
-        return org
-    })
+    await executor
+        .insertInto('orgUser')
+        .values({ userId, orgId: org.id, isAdmin })
+        .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
+        .execute()
+
+    // Unlike the app's log-and-continue sync, a Clerk error throws so a bin script fails loudly.
+    if (clerkSync && clerkOrgSyncEnabled()) {
+        const { clerkId } = await executor
+            .selectFrom('user')
+            .select('clerkId')
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+        await clerkSync.syncMembership(org, clerkId, isAdmin)
+    }
 
     return { ...org, isAdmin }
 }

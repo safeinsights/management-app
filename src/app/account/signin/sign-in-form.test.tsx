@@ -176,20 +176,21 @@ describe('SignInForm', () => {
         renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
         await submitCredentials()
 
-        await waitFor(async () => {
-            const membership = await db
-                .selectFrom('orgUser')
-                .select('id')
-                .where('userId', '=', user.id)
-                .where('orgId', '=', invitingOrg.id)
-                .executeTakeFirst()
-            expect(membership).toBeDefined()
-        })
-
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(
-                `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
-            ),
+        // The push comes last, after the join commits; the sign-in, join and org reload all hit the DB.
+        await waitFor(
+            () =>
+                expect(memoryRouter.asPath).toBe(
+                    `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
+                ),
+            { timeout: 5000 },
         )
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select('id')
+            .where('userId', '=', user.id)
+            .where('orgId', '=', invitingOrg.id)
+            .executeTakeFirst()
+        expect(membership).toBeDefined()
     })
 })

@@ -128,12 +128,13 @@ describe('Org Actions', () => {
             expect(fake.orgs.size).toBe(0)
         })
 
-        it('fails the request and rolls back when Clerk fails', async () => {
-            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        it('still creates the org when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             fake.api.createOrganization.mockRejectedValueOnce(new Error('clerk down'))
             const slug = `fails-${faker.string.uuid()}`
-            expect(isActionError(await insertOrgAction({ ...newOrg, slug }))).toBe(true)
-            expect(await db.selectFrom('org').select('id').where('slug', '=', slug).executeTakeFirst()).toBeUndefined()
+            actionResult(await insertOrgAction({ ...newOrg, slug }))
+            expect(await db.selectFrom('org').select('id').where('slug', '=', slug).executeTakeFirst()).toBeDefined()
+            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
         })
     })
 

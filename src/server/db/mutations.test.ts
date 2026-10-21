@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { db } from '@/database'
 import {
     createFakeClerkOrgs,
@@ -10,6 +10,7 @@ import {
 } from '@/tests/unit.helpers'
 import { NotFoundError } from '@/lib/errors'
 import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
+import { withTransaction } from '@/server/request-context'
 import type { StudyJobStatus } from '@/database/types'
 import {
     ensureRoundJobForLaunch,
@@ -382,7 +383,7 @@ describe('findOrCreateOrgMembership', () => {
         expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
     })
 
-    it('adds no membership when Clerk fails', async () => {
+    it('keeps the committed membership and throws when Clerk fails', async () => {
         const { user } = await insertTestUser({ org: await insertTestOrg() })
         const target = await insertTestOrg()
         const { fake, clerkSync } = fakeClerk()
@@ -392,6 +393,36 @@ describe('findOrCreateOrgMembership', () => {
             findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync }),
         ).rejects.toThrow('clerk down')
 
+        expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
+    })
+
+    it('skips the Clerk sync when CLERK_ORG_SYNC is off', async () => {
+        vi.stubEnv('CLERK_ORG_SYNC', 'off')
+        onTestFinished(() => {
+            vi.unstubAllEnvs()
+        })
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const target = await insertTestOrg()
+        const { fake, clerkSync } = fakeClerk()
+
+        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync })
+
+        expect(fake.api.getOrganization).not.toHaveBeenCalled()
+        expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
+    })
+
+    it('refuses to sync Clerk from inside an open transaction', async () => {
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const target = await insertTestOrg()
+        const { fake, clerkSync } = fakeClerk()
+
+        await expect(
+            withTransaction(db, () =>
+                findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync }),
+            ),
+        ).rejects.toThrow('before it commits')
+
+        expect(fake.api.getOrganization).not.toHaveBeenCalled()
         expect(await membershipsFor(user.id, target.id)).toHaveLength(0)
     })
 })

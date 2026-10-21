@@ -52,29 +52,20 @@ async function applyOrgMemberships(db: Kysely<DB>, userId: string, resolved: Awa
     if (removedOrgIds.length) {
         await db.deleteFrom('orgUser').where('userId', '=', userId).where('orgId', 'in', removedOrgIds).execute()
     }
-
-    // Deduped, last entry winning, because one upsert cannot touch the same (org_id, user_id) row twice.
-    const memberships = [...new Map(resolved.map((org) => [org.orgId, org])).values()]
-    if (memberships.length) {
-        await db
-            .insertInto('orgUser')
-            .values(memberships.map(({ orgId, isAdmin }) => ({ userId, orgId, isAdmin })))
-            .onConflict((oc) =>
-                oc.columns(['orgId', 'userId']).doUpdateSet((eb) => ({ isAdmin: eb.ref('excluded.isAdmin') })),
-            )
-            .execute()
-    }
-    return { removedOrgIds, memberships }
-}
-
-// Runs after every DB write, so a failing write cannot roll back past a Clerk change.
-async function syncOrgMembershipsToClerk(
-    userId: string,
-    { removedOrgIds, memberships }: Awaited<ReturnType<typeof applyOrgMemberships>>,
-) {
     for (const orgId of removedOrgIds) {
         await removeMembershipFromClerk({ userId, orgId })
     }
+
+    // Deduped, last entry winning, because one upsert cannot touch the same (org_id, user_id) row twice.
+    const memberships = [...new Map(resolved.map((org) => [org.orgId, org])).values()]
+    if (!memberships.length) return
+    await db
+        .insertInto('orgUser')
+        .values(memberships.map(({ orgId, isAdmin }) => ({ userId, orgId, isAdmin })))
+        .onConflict((oc) =>
+            oc.columns(['orgId', 'userId']).doUpdateSet((eb) => ({ isAdmin: eb.ref('excluded.isAdmin') })),
+        )
+        .execute()
     for (const { orgId, isAdmin } of memberships) {
         await syncMembershipToClerk({ userId, orgId, isAdmin })
     }
@@ -129,11 +120,11 @@ export async function provisionQaUser(
 
     let fingerprint: string | null = null
     await withTransaction(db, async (trx) => {
+        if (resolvedOrgs) {
+            await applyOrgMemberships(trx, user.id, resolvedOrgs)
+        }
         if (update.publicKey) {
             fingerprint = await applyPublicKey(trx, user.id, update.publicKey)
-        }
-        if (resolvedOrgs) {
-            await syncOrgMembershipsToClerk(user.id, await applyOrgMemberships(trx, user.id, resolvedOrgs))
         }
     })
 

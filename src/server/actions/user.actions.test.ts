@@ -217,21 +217,21 @@ describe('User Actions', () => {
         expect(await fakeClerkRoleOf(org.slug, target.clerkId)).toBe('org:member')
     })
 
-    test('updateUserRoleAction keeps the role unchanged when Clerk fails', async () => {
-        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+    test('updateUserRoleAction still changes the role when Clerk fails, and logs', async () => {
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const { user: target, orgUser } = await insertTestUser({ org })
         const api = await currentFakeClerkOrgsApi()
         api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
 
-        const result = await updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin: true })
+        actionResult(await updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin: true }))
 
-        expect(result).toEqual({ error: expect.anything() })
-        const unchanged = await db
+        const changed = await db
             .selectFrom('orgUser')
             .select('isAdmin')
             .where('id', '=', orgUser.id)
             .executeTakeFirstOrThrow()
-        expect(unchanged.isAdmin).toBe(false)
+        expect(changed.isAdmin).toBe(true)
+        expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
     })
 })

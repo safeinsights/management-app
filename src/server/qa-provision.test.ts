@@ -13,6 +13,7 @@ import {
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { deliver } from '@/server/mailgun'
+import logger from '@/lib/logger'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
 
 vi.mock('@/server/mailgun', async (importOriginal) => {
@@ -51,18 +52,18 @@ describe('provisionQaUser', () => {
         expect(await fakeClerkRoleOf(orgB.slug, user.clerkId)).toBeUndefined()
     })
 
-    it('rolls the DB back when Clerk fails', async () => {
+    it('commits the DB change and logs when Clerk fails', async () => {
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await mockSessionWithTestData({ isSiAdmin: true })
         const fake = installFakeClerkOrgs()
         fake.api.updateOrganizationMembership.mockRejectedValue(new Error('clerk is down'))
         const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const { user } = await insertTestUser({ org, isAdmin: false, email: qaEmail() })
 
-        await expect(provisionQaUser(db, user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })).rejects.toThrow(
-            'clerk is down',
-        )
+        await provisionQaUser(db, user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })
 
-        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: false }])
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: true }])
+        expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk is down' }))
     })
 
     it('leaves Clerk alone when the public key is invalid', async () => {

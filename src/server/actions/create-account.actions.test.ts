@@ -551,26 +551,28 @@ describe('Create Account Actions', () => {
             expect(await fakeClerkRoleOf(org.slug, created.clerkId)).toBe('org:member')
         })
 
-        it('onCreateAccountAction creates no membership when Clerk fails', async () => {
-            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        it('onCreateAccountAction still creates the account when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const invite = await inviteFor(org.id, testEmail(), true)
             const before = await dbMembers(org.id)
             const api = await currentFakeClerkOrgsApi()
             api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
 
-            const result = await onCreateAccountAction({
-                inviteId: invite.id,
-                form: { firstName: 'Test', lastName: 'User', password: 'password' },
-            })
+            const { userId } = actionResult(
+                await onCreateAccountAction({
+                    inviteId: invite.id,
+                    form: { firstName: 'Test', lastName: 'User', password: 'password' },
+                }),
+            )
 
-            expect(result).toEqual({ error: expect.anything() })
-            expect(await dbMembers(org.id)).toHaveLength(before.length)
+            expect(await dbMembers(org.id)).toHaveLength(before.length + 1)
             const claimed = await db
                 .selectFrom('pendingUser')
                 .select('claimedByUserId')
                 .where('id', '=', invite.id)
                 .executeTakeFirstOrThrow()
-            expect(claimed.claimedByUserId).toBeNull()
+            expect(claimed.claimedByUserId).toBe(userId)
+            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
         })
 
         it('onCreateAccountAction leaves Clerk alone when it loses the claim race', async () => {
@@ -632,8 +634,8 @@ describe('Create Account Actions', () => {
             expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
         })
 
-        it('onJoinTeamAccountAction creates no membership when Clerk fails', async () => {
-            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        it('onJoinTeamAccountAction still adds the membership when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
             const { user } = await insertTestUser({ org })
             const target = await insertTestOrg()
             signInAs(user, org.slug)
@@ -641,10 +643,10 @@ describe('Create Account Actions', () => {
             const api = await currentFakeClerkOrgsApi()
             api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
 
-            const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+            actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
 
-            expect(result).toEqual({ error: expect.anything() })
-            expect(await dbMembers(target.id)).toHaveLength(0)
+            expect(await dbMembers(target.id)).toHaveLength(1)
+            expect(logError).toHaveBeenCalledWith(expect.objectContaining({ message: 'clerk down' }))
         })
     })
 
