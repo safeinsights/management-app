@@ -5,6 +5,7 @@ import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withTransaction } from '@/server/request-context'
 import { updateClerkUserMetadata } from '@/server/clerk'
+import { syncMembershipToClerk } from '@/server/clerk-org-sync'
 import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
@@ -199,6 +200,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .set({ isAdmin: true })
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
+                    await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: true })
                 }
                 return user
             }
@@ -213,6 +215,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
 
             return user
         })
@@ -335,6 +338,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId, isAdmin: invite.isAdmin })
 
             // Claimed in the same transaction as the membership grant, so the guard is
             // self-enforcing rather than relying on a later client call.

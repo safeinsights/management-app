@@ -1,4 +1,5 @@
-import { currentDb } from '@/server/request-context'
+import { currentDb, withTransaction } from '@/server/request-context'
+import { syncMembershipToClerk } from '@/server/clerk-org-sync'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
@@ -39,18 +40,23 @@ export async function findOrCreateOrgMembership({
     slug: string
     isAdmin?: boolean
 }) {
-    const executor = currentDb()
-    const org = await executor
-        .selectFrom('org')
-        .select(['org.id', 'org.slug', 'org.name', 'org.type'])
-        .where('org.slug', '=', slug)
-        .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
+    // Own transaction when the caller has none, so a Clerk failure cannot leave the row behind.
+    const org = await withTransaction(currentDb(), async (trx) => {
+        const org = await trx
+            .selectFrom('org')
+            .select(['org.id', 'org.slug', 'org.name', 'org.type'])
+            .where('org.slug', '=', slug)
+            .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
 
-    await executor
-        .insertInto('orgUser')
-        .values({ userId, orgId: org.id, isAdmin })
-        .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
-        .execute()
+        await trx
+            .insertInto('orgUser')
+            .values({ userId, orgId: org.id, isAdmin })
+            .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
+            .execute()
+
+        await syncMembershipToClerk({ userId, orgId: org.id, isAdmin })
+        return org
+    })
 
     return { ...org, isAdmin }
 }

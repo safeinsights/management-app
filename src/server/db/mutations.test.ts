@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
-import { insertTestOrg, insertTestStudyJobData, insertTestStudyOnly, insertTestUser } from '@/tests/unit.helpers'
+import {
+    currentFakeClerkOrgsApi,
+    fakeClerkRoleOf,
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestStudyOnly,
+    insertTestUser,
+} from '@/tests/unit.helpers'
 import { NotFoundError } from '@/lib/errors'
 import type { StudyJobStatus } from '@/database/types'
 import {
@@ -340,5 +347,28 @@ describe('findOrCreateOrgMembership', () => {
 
         const rows = await db.selectFrom('orgUser').select('id').where('userId', '=', user.id).execute()
         expect(rows).toHaveLength(1)
+    })
+    it('mirrors the role into Clerk', async () => {
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const target = await insertTestOrg()
+
+        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: false })
+        expect(await fakeClerkRoleOf(target.slug, user.clerkId)).toBe('org:member')
+
+        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true })
+        expect(await fakeClerkRoleOf(target.slug, user.clerkId)).toBe('org:admin')
+    })
+
+    it('adds no membership when Clerk fails', async () => {
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const target = await insertTestOrg()
+        const api = await currentFakeClerkOrgsApi()
+        api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
+
+        await expect(findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true })).rejects.toThrow(
+            'clerk down',
+        )
+
+        expect(await membershipsFor(user.id, target.id)).toHaveLength(0)
     })
 })

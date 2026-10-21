@@ -73,3 +73,13 @@ export const installFakeClerkOrgs = () => {
     ;(clerkClient as unknown as Mock).mockResolvedValue({ organizations: fake.api })
     return fake
 }
+
+export const currentFakeClerkOrgsApi = async () =>
+    (await clerkClient()).organizations as unknown as ReturnType<typeof createFakeClerkOrgs>['api']
+
+export const fakeClerkRoleOf = async (slug: string, clerkUserId: string) => {
+    const api = await currentFakeClerkOrgsApi()
+    const org = await api.getOrganization({ slug })
+    const { data } = await api.getOrganizationMembershipList({ organizationId: org.id })
+    return data.find((m) => m.publicUserData.userId === clerkUserId)?.role
+}

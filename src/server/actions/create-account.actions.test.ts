@@ -1,7 +1,11 @@
 import { db } from '@/database'
 import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { syncMembershipToClerk } from '@/server/clerk-org-sync'
 import {
     actionResult,
+    createFakeClerkOrgs,
+    currentFakeClerkOrgsApi,
+    fakeClerkRoleOf,
     faker,
     insertTestOrg,
     insertTestUser,
@@ -63,6 +67,7 @@ describe('Create Account Actions', () => {
                 createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
                 updateEmailAddress: vi.fn(async () => ({})),
             },
+            organizations: createFakeClerkOrgs().api,
         })
     })
 
@@ -519,6 +524,104 @@ describe('Create Account Actions', () => {
             .where('userId', '=', user.id)
             .executeTakeFirstOrThrow()
         expect(membership.isAdmin).toBe(true)
+    })
+
+    describe('Clerk organization membership', () => {
+        const inviteFor = (orgId: string, email: string, isAdmin: boolean) =>
+            db
+                .insertInto('pendingUser')
+                .values({ orgId, email, isAdmin, invitedByUserId: invitingUser.user.id })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        const dbMembers = async (orgId: string) =>
+            db.selectFrom('orgUser').select('userId').where('orgId', '=', orgId).execute()
+
+        it('onCreateAccountAction mirrors the invited role into Clerk', async () => {
+            const invite = await inviteFor(org.id, testEmail(), false)
+            const form = { firstName: 'Test', lastName: 'User', password: 'password' }
+
+            actionResult(await onCreateAccountAction({ inviteId: invite.id, form }))
+
+            const created = await db
+                .selectFrom('user')
+                .select('clerkId')
+                .where('email', '=', invite.email)
+                .executeTakeFirstOrThrow()
+            expect(await fakeClerkRoleOf(org.slug, created.clerkId)).toBe('org:member')
+        })
+
+        it('onCreateAccountAction creates no membership when Clerk fails', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const invite = await inviteFor(org.id, testEmail(), true)
+            const before = await dbMembers(org.id)
+            const api = await currentFakeClerkOrgsApi()
+            api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
+
+            const result = await onCreateAccountAction({
+                inviteId: invite.id,
+                form: { firstName: 'Test', lastName: 'User', password: 'password' },
+            })
+
+            expect(result).toEqual({ error: expect.anything() })
+            expect(await dbMembers(org.id)).toHaveLength(before.length)
+            const claimed = await db
+                .selectFrom('pendingUser')
+                .select('claimedByUserId')
+                .where('id', '=', invite.id)
+                .executeTakeFirstOrThrow()
+            expect(claimed.claimedByUserId).toBeNull()
+        })
+
+        it('onJoinTeamAccountAction mirrors a new membership into Clerk', async () => {
+            const { user } = await insertTestUser({ org })
+            const target = await insertTestOrg()
+            signInAs(user, org.slug)
+
+            actionResult(
+                await onJoinTeamAccountAction({ inviteId: (await inviteFor(target.id, user.email!, false)).id }),
+            )
+
+            expect(await fakeClerkRoleOf(target.slug, user.clerkId)).toBe('org:member')
+        })
+
+        it('onJoinTeamAccountAction promotes an existing member in Clerk', async () => {
+            const { user } = await insertTestUser({ org })
+            signInAs(user, org.slug)
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: false })
+
+            actionResult(await onJoinTeamAccountAction({ inviteId: (await inviteFor(org.id, user.email!, true)).id }))
+
+            expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
+        })
+
+        it('onJoinTeamAccountAction leaves an existing admin as admin in Clerk', async () => {
+            const { user } = await insertTestUser({ org, isAdmin: true })
+            signInAs(user, org.slug)
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id, isAdmin: true })
+            const api = await currentFakeClerkOrgsApi()
+            api.updateOrganizationMembership.mockClear()
+
+            actionResult(await onJoinTeamAccountAction({ inviteId: (await inviteFor(org.id, user.email!, false)).id }))
+
+            expect(api.updateOrganizationMembership).not.toHaveBeenCalled()
+            expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
+        })
+
+        it('onJoinTeamAccountAction creates no membership when Clerk fails', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const { user } = await insertTestUser({ org })
+            const target = await insertTestOrg()
+            signInAs(user, org.slug)
+            const invite = await inviteFor(target.id, user.email!, false)
+            const api = await currentFakeClerkOrgsApi()
+            api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
+
+            const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.anything() })
+            expect(await dbMembers(target.id)).toHaveLength(0)
+        })
     })
 
     it('onJoinTeamAccountAction refuses an unauthenticated caller', async () => {

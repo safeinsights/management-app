@@ -3,6 +3,7 @@
 import { sessionFromClerk } from '../clerk'
 import { clientUserInfo } from '../session'
 import { getUserPublicKey } from '../db/queries'
+import { syncMembershipToClerk } from '../clerk-org-sync'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, ActionFailure, z } from './action'
 
@@ -33,7 +34,7 @@ export const onUserResetPWAction = new Action('onUserResetPWAction')
         onUserResetPW(session.user.id)
     })
 
-export const updateUserRoleAction = new Action('updateUserRoleAction')
+export const updateUserRoleAction = new Action('updateUserRoleAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -60,6 +61,7 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
         }
 
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
+        await syncMembershipToClerk({ userId, orgId: orgUser.orgId, isAdmin })
         onUserRoleUpdate({
             userId,
             actorId: session.user.id,
