@@ -237,7 +237,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             }),
             // The versions the form displayed, not "whatever is latest now". Validated as uuids
             // because a malformed one reaches Postgres as a 22P02 inside the transaction.
-            acknowledgedVersionIds: z.array(z.string().uuid()).optional(),
+            acknowledgedVersionIds: z.array(z.uuid()).optional(),
         }),
     )
 

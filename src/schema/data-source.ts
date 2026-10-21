@@ -3,7 +3,7 @@ import { isHttpUrl } from '@/schema/url'
 
 const dataSourceUrlSchema = z.object({
     id: z.uuid().optional(),
-    url: z.url('Enter a valid URL').refine(isHttpUrl, { message: 'URL must start with http:// or https://' }),
+    url: z.url('Enter a valid URL').refine(isHttpUrl, { error: 'URL must start with http:// or https://' }),
     description: z.string().trim().nonempty('URL description is required'),
 })
 

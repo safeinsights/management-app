@@ -53,7 +53,7 @@ const codeEnvFieldsSchema = z.object({
     // The row UI derives "missing" from a trimmed value, so untrimmed a whitespace command would
     // show "Command is required" and still save (OTTER-647).
     commandLines: z.record(z.string(), z.string().trim().nonempty('Command is required')),
-    language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
+    language: z.enum(['R', 'PYTHON'], { error: 'Language must be R or PYTHON' }),
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.default({ environment: [] }),
@@ -63,7 +63,7 @@ const codeEnvFieldsSchema = z.object({
         .refine((val) => val === '' || pathnameRegex.test(val), 'Must be a valid file path (e.g. data/sample.csv)')
         .optional(),
     dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
-    dataSourceIds: z.array(z.string().uuid()).default([]),
+    dataSourceIds: z.array(z.uuid()).default([]),
     existingStarterCodeFileNames: z.array(z.string()).default([]),
 })
 
@@ -91,7 +91,7 @@ export const createOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
         .array(z.instanceof(File))
         .min(1, 'At least one starter code file is required')
         .refine((files) => files.every(fileWithSizeRefine), {
-            message: `Each starter code file must be non-empty and less than ${MAX_FILE_SIZE_STR}`,
+            error: `Each starter code file must be non-empty and less than ${MAX_FILE_SIZE_STR}`,
         }),
     sampleDataUploaded: z.boolean().optional(),
 })
@@ -100,7 +100,7 @@ export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
     starterCodes: z
         .array(z.instanceof(File))
         .refine((files) => files.every((f) => f.size < MAX_FILE_SIZE), {
-            message: `Each starter code file must be less than ${MAX_FILE_SIZE_STR}`,
+            error: `Each starter code file must be less than ${MAX_FILE_SIZE_STR}`,
         })
         .optional(),
     sampleDataUploaded: z.boolean().optional(),
@@ -157,12 +157,12 @@ const requireCommandLineForEachExtension = (
 }
 
 export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
-    .merge(newEnvVarFieldsSchema)
+    .extend(newEnvVarFieldsSchema.shape)
     .superRefine(rejectDuplicateEnvVarName)
     .superRefine(requireCommandLineForEachExtension)
 
 export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
-    .merge(newEnvVarFieldsSchema)
+    .extend(newEnvVarFieldsSchema.shape)
     .superRefine(rejectDuplicateEnvVarName)
     .superRefine(requireCommandLineForEachExtension)
 
