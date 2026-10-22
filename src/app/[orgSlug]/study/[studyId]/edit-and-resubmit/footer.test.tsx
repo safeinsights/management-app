@@ -252,12 +252,10 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(
-            () =>
-                expect(memoryRouter.asPath).toBe(
-                    Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
-                ),
-            { timeout: 5000 },
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
+            ),
         )
 
         const after = await db
@@ -282,7 +280,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
 
         const after = await db
             .selectFrom('study')
@@ -303,7 +301,7 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
         )
@@ -323,12 +321,10 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(
-            () =>
-                expect(memoryRouter.asPath).toBe(
-                    Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
-                ),
-            { timeout: 5000 },
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
+            ),
         )
         expect(notifications.show).not.toHaveBeenCalled()
 
