@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { vi } from 'vitest'
 import {
     actionResult,
+    beforeAll,
     beforeEach,
     describe,
     expect,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
+    preloadEditor,
     renderWithProviders,
     screen,
     userEvent,
@@ -19,9 +21,6 @@ import type { StepNav } from '@/lib/study-screen'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
-// Loaded up front so React.lazy resolves the editor from the module cache instead of
-// compiling it while a findBy is waiting.
-import '@/components/editable-text/collaborative-editor'
 import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
@@ -76,6 +75,8 @@ async function visitAndLeave(user: ReturnType<typeof userEvent.setup>, testId: s
     firstRadioIn(testId).focus()
     await user.click(screen.getByTestId('code-evaluation-attention'))
 }
+
+beforeAll(preloadEditor)
 
 describe('CodeReviewClient decision selector', () => {
     beforeEach(() => {

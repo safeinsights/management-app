@@ -4,7 +4,7 @@ export { faker } from '@faker-js/faker'
 // eslint-disable-next-line no-restricted-imports
 export { QueryClientProvider } from '@tanstack/react-query'
 export { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
-export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+export { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 export { actionResult } from '@/lib/utils'
 export * from './common.helpers'
 

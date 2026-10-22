@@ -1,7 +1,9 @@
 import {
+    beforeAll,
     describe,
     expect,
     it,
+    preloadEditor,
     renderWithProviders,
     screen,
     simulateEditorSave,
@@ -17,9 +19,6 @@ import { lexicalJson } from '@/lib/lexical'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { SAVED_LABEL } from '@/components/save-status'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
-// Loaded up front so React.lazy resolves the editor from the module cache instead of
-// compiling it while a findBy is waiting.
-import '@/components/editable-text/collaborative-editor'
 
 vi.mock('@/server/actions/editor.actions', () => ({
     getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
@@ -53,6 +52,8 @@ function CodeFeedbackTestWrapper() {
         </CodeReviewFeedbackProviderShare>
     )
 }
+
+beforeAll(preloadEditor)
 
 describe('CodeReviewFeedbackSection', () => {
     it('renders the decision heading and intro copy', () => {
