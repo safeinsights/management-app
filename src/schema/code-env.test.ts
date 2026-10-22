@@ -35,6 +35,8 @@ describe('imageDigestError', () => {
         ['', 'Image digest is required'],
         ['sha256:771722e4', 'Digest looks truncated; a sha256 digest is 64 hex characters'],
         ['771722e4', 'Digest looks truncated; a sha256 digest is 64 hex characters'],
+        [`sha256:${'a'.repeat(65)}`, 'Digest is too long; a sha256 digest is 64 hex characters'],
+        ['a'.repeat(65), 'Digest is too long; a sha256 digest is 64 hex characters'],
         [`sha512:${'a'.repeat(64)}`, 'Must be a sha256 digest (e.g., sha256:<64 hex characters>)'],
         [`sha256:${'g'.repeat(64)}`, 'Must be a sha256 digest (e.g., sha256:<64 hex characters>)'],
     ])('rejects %s', (value, message) => {

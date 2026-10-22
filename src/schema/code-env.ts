@@ -78,6 +78,7 @@ export const normalizeImageDigest = (value: string) => {
 const imageDigestProblem = (digest: string) => {
     if (!digest) return 'Image digest is required'
     if (/^sha256:[a-f0-9]{1,63}$/.test(digest)) return 'Digest looks truncated; a sha256 digest is 64 hex characters'
+    if (/^sha256:[a-f0-9]{65,}$/.test(digest)) return 'Digest is too long; a sha256 digest is 64 hex characters'
     if (!imageDigestRegex.test(digest)) return 'Must be a sha256 digest (e.g., sha256:<64 hex characters>)'
     return null
 }
