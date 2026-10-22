@@ -203,7 +203,7 @@ type Props = {
 
 export function AddTestLabModal({ isOpen, ...body }: Props) {
     return (
-        <AppModal isOpen={isOpen} onClose={body.onClose} title="Select Research Labs to add as Test Labs">
+        <AppModal isOpen={isOpen} onClose={body.onClose} title="Select Research Labs to add as Test Labs" size="md">
             <AddTestLabBody {...body} />
         </AppModal>
     )
