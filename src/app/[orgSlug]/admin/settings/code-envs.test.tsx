@@ -79,6 +79,7 @@ describe('CodeEnvs', async () => {
         await userEvent.type(screen.getByLabelText(/Name/i), envName)
         await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
         await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
+        await userEvent.type(screen.getByLabelText(/Image digest/i), 'a'.repeat(64))
 
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
