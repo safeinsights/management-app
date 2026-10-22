@@ -157,6 +157,8 @@ export function scrubSentryLog(log: Log): Log {
 
 // Spread into every Sentry.init, so each runtime gets every hook.
 export const sentryScrubOptions = {
+    // Asserted rather than left to the SDK default; newer Sentry wizards generate `true` (OTTER-706).
+    sendDefaultPii: false,
     beforeSend: scrubSentryEvent,
     beforeSendTransaction: scrubSentryTransaction,
     beforeSendLog: scrubSentryLog,

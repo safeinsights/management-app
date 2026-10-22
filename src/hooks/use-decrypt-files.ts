@@ -4,7 +4,7 @@ import type { JobFileInfo } from '@/lib/types'
 import { isNotEmpty } from '@mantine/form'
 import { useForm, useMutation } from '@/common'
 import { ResultsReader, ResultsIntegrityError, type DecryptedEntry } from 'si-encryption/job-results/reader'
-import { LEGACY_CIPHER, unwrapAesKey } from 'si-encryption/job-results/crypto'
+import { CURRENT_CIPHER, unwrapAesKey } from 'si-encryption/job-results/crypto'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileType } from '@/database/types'
 
@@ -38,7 +38,9 @@ async function readArchive(
         privateKey,
         fingerprint,
         artifact.recipientKeys,
-        { jobId },
+        // Legacy AES-CBC archives authenticate nothing, so a hostile store could forge one; they are
+        // refused outright.
+        { jobId, requireAuthenticatedCipher: true },
     )
     try {
         await proveKey(reader, privateKey, fingerprint, artifact.recipientKeys)
@@ -47,9 +49,9 @@ async function readArchive(
     } catch (err) {
         if (err instanceof WrongKeyError) throw err
 
-        // Only the legacy cipher leaves bodies unauthenticated. Anywhere else proveKey has already
-        // settled that the key is a recipient, so a decrypt rejection is tampering, not a wrong key.
-        const authenticated = (reader.manifest.cipher ?? LEGACY_CIPHER) !== LEGACY_CIPHER
+        // Once a GCM manifest is read, proveKey has settled that the key is a recipient, so a decrypt
+        // rejection is tampering, not a wrong key. Before that, the error may still be something else.
+        const authenticated = reader.manifest.cipher === CURRENT_CIPHER
 
         if (err instanceof ResultsIntegrityError || authenticated) {
             throw new ArchiveIntegrityError(ARCHIVE_INTEGRITY_MESSAGE, { cause: err })
@@ -82,7 +84,7 @@ async function proveKey(
     if (isManifestRecipient) return
 
     try {
-        await unwrapAesKey(file.keys[fingerprint].crypt, privateKey, reader.manifest.cipher ?? LEGACY_CIPHER)
+        await unwrapAesKey(file.keys[fingerprint].crypt, privateKey, CURRENT_CIPHER)
     } catch (err) {
         throw new WrongKeyError('Key is not a recipient of these results', { cause: err })
     }

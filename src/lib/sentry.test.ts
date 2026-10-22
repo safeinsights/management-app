@@ -516,6 +516,9 @@ describe('sentryScrubOptions', () => {
         expect(sentryScrubOptions.beforeSendTransaction).toBe(scrubSentryTransaction)
         expect(sentryScrubOptions.beforeSendLog).toBe(scrubSentryLog)
     })
+    it('disables default PII transmission explicitly', () => {
+        expect(sentryScrubOptions.sendDefaultPii).toBe(false)
+    })
 })
 
 describe('Sentry scrubbing review regressions', () => {
