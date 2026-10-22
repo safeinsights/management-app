@@ -96,7 +96,7 @@ export const SignInForm: FC<{
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
                 errorMessage === clerkErrorOverrides.form_identifier_not_found
             ) {
-                form.setFieldError('email', ' ')
+                form.setFieldError('email', true)
                 form.setFieldError('password', errorMessage)
                 return
             }
