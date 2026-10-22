@@ -2,9 +2,13 @@ import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import {
+    advanceTimers,
+    afterEach,
+    fakeTimeouts,
     fireEvent,
     mockClerkSession,
     renderWithProviders,
+    restoreRealTimers,
     screen,
     waitFor,
     waitForPendingMutations,
@@ -45,6 +49,8 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
 }
 
 describe('EditCodeResubmitProvider', () => {
+    afterEach(restoreRealTimers)
+
     // A Server Action posts to whatever route is current, so an autosave in flight across a
     // navigation rejects; reporting it would toast on a page the researcher already left.
     it('does not report an autosave that rejects after the provider unmounts', async () => {
@@ -63,6 +69,7 @@ describe('EditCodeResubmitProvider', () => {
 
         const onSaveResult = vi.fn()
 
+        fakeTimeouts()
         const { unmount } = renderWithProviders(
             <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={onSaveResult} />
@@ -71,7 +78,9 @@ describe('EditCodeResubmitProvider', () => {
 
         const note = 'typed right before navigating away'
         fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: note } })
-        await waitFor(() => expect(saveDraftAction).toHaveBeenCalled())
+        // Jumps the 800 ms autosave debounce rather than waiting it out in real time.
+        await advanceTimers(800)
+        expect(saveDraftAction).toHaveBeenCalled()
 
         unmount()
         rejectSave(new Error('An unexpected response was received from the server.'))
