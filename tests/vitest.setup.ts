@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vi
 import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/request-context'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
+import { installFakeClerkOrgs } from './unit/clerk-orgs'
 import { cleanup } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
@@ -151,13 +152,24 @@ vi.mock('@clerk/nextjs')
 vi.mock('@clerk/nextjs/legacy')
 vi.mock('@clerk/nextjs/server')
 
+// A session read an action started but the test never awaited (a reconnect status check, say).
+const inFlightSessionReads = vi.hoisted(() => new Set<Promise<unknown>>())
+
 // Mutations only; read functions stay real.
-vi.mock('@/server/clerk', async (importOriginal) => ({
-    ...(await importOriginal()),
-    updateClerkUserName: vi.fn(),
-    updateClerkUserMetadata: vi.fn(),
-    findOrCreateClerkOrganization: vi.fn(),
-}))
+vi.mock('@/server/clerk', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/clerk')>()
+    return {
+        ...actual,
+        updateClerkUserName: vi.fn(),
+        updateClerkUserMetadata: vi.fn(),
+        sessionFromClerk: (...args: Parameters<typeof actual.sessionFromClerk>) => {
+            const read = actual.sessionFromClerk(...args)
+            inFlightSessionReads.add(read)
+            read.finally(() => inFlightSessionReads.delete(read)).catch(() => undefined)
+            return read
+        },
+    }
+})
 
 vi.mock('@mantine/notifications', () => ({
     notifications: {
@@ -315,6 +327,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
     testTransaction.start()
+    installFakeClerkOrgs()
     ;(useClerk as Mock).mockImplementation(() => ({
         signOut: vi.fn(),
         openUserProfile: vi.fn(),
@@ -348,7 +361,8 @@ afterEach(async () => {
         try {
             // Unmount first, so nothing can start a mutation between the check and the rollback.
             cleanup()
-            const { pendingTestMutationCount, pendingTestMutationDescriptions } = await import('@/tests/unit.helpers')
+            const { pendingTestMutationCount, pendingTestMutationDescriptions, settleTestQueries } =
+                await import('@/tests/unit.helpers')
             const pending = pendingTestMutationCount()
             if (pending) {
                 // Named here rather than left to the reporter: this throws from a hook, which the
@@ -360,6 +374,7 @@ afterEach(async () => {
                     `${pending} mutation(s) still pending at teardown in "${testName}" [${details}]; await the outcome in the test.`,
                 )
             }
+            await settleTestQueries([...inFlightSessionReads])
             await flushDeferred()
         } finally {
             // The check can throw; the transaction still has to go, or its rows outlive the test.

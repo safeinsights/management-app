@@ -8,6 +8,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '@/database'
 import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/db/mutations'
+import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { TEST_USERS, setupClerkTestUser, type TestUserRole } from './lib/clerk-test-users'
 import { testingDataAllowed } from './lib/testing-data-gate'
@@ -37,7 +38,11 @@ async function ensurePublicKey(userId: string) {
     }
 }
 
-async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
+async function setupOrgMemberships(
+    role: TestUserRole,
+    siUserId: string,
+    clerkSync: ReturnType<typeof createClerkOrgSync>,
+) {
     switch (role) {
         case 'admin':
             // Admins should be in both enclave and lab orgs
@@ -45,11 +50,13 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
                 userId: siUserId,
                 slug: 'openstax',
                 isAdmin: true,
+                clerkSync,
             })
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'openstax-lab',
                 isAdmin: true,
+                clerkSync,
             })
             console.log(`🏢 Added to openstax (admin) and openstax-lab (admin)`)
             break
@@ -60,6 +67,7 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
                 userId: siUserId,
                 slug: 'openstax-lab',
                 isAdmin: false,
+                clerkSync,
             })
             console.log(`🏢 Added to openstax-lab (member)`)
             break
@@ -70,12 +78,14 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
                 userId: siUserId,
                 slug: 'openstax',
                 isAdmin: false,
+                clerkSync,
             })
             // Reviewer is Admin of the special org for testing
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'reviewer-is-org-admin',
                 isAdmin: true,
+                clerkSync,
             })
             console.log(`🏢 Added to openstax (member) and reviewer-is-org-admin (admin)`)
             break
@@ -95,6 +105,7 @@ async function findOrUpdateClerkTestUsers() {
     }
 
     const clerk = createClerkClient({ secretKey })
+    const clerkSync = createClerkOrgSync(clerk.organizations)
 
     for (const config of TEST_USERS) {
         const { role, email } = config
@@ -125,7 +136,7 @@ async function findOrUpdateClerkTestUsers() {
             }
 
             // Set up org memberships
-            await setupOrgMemberships(role, siUserId)
+            await setupOrgMemberships(role, siUserId, clerkSync)
         } catch (err) {
             console.error(`❌ Error processing ${role}:`, err)
         }

@@ -1,4 +1,5 @@
 import { currentDb } from '@/server/request-context'
+import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
@@ -34,12 +35,18 @@ export async function findOrCreateOrgMembership({
     userId,
     slug,
     isAdmin = false,
+    clerkSync,
 }: {
     userId: string
     slug: string
     isAdmin?: boolean
+    // Passed in, not imported: this module loads in bin scripts, outside Next.
+    clerkSync?: ReturnType<typeof createClerkOrgSync>
 }) {
     const executor = currentDb()
+    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
+    if (clerkSync && executor.isTransaction) throw new Error('cannot sync a membership to Clerk before it commits')
+
     const org = await executor
         .selectFrom('org')
         .select(['org.id', 'org.slug', 'org.name', 'org.type'])
@@ -51,6 +58,17 @@ export async function findOrCreateOrgMembership({
         .values({ userId, orgId: org.id, isAdmin })
         .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
         .execute()
+
+    // Not gated by clerkOrgSyncEnabled: an operator who passes a sync wants it. Unlike the app's
+    // log-and-continue sync, a Clerk error throws so a bin script fails loudly.
+    if (clerkSync) {
+        const { clerkId } = await executor
+            .selectFrom('user')
+            .select('clerkId')
+            .where('id', '=', userId)
+            .executeTakeFirstOrThrow()
+        await clerkSync.syncMembership(org, clerkId, isAdmin)
+    }
 
     return { ...org, isAdmin }
 }

@@ -43,8 +43,8 @@ export const labOrgSchema = baseOrgSchema.extend({
 export const orgSchema = z.discriminatedUnion('type', [enclaveOrgSchema, labOrgSchema])
 
 export const updateOrgSchema = z.discriminatedUnion('type', [
-    enclaveOrgSchema.extend({ id: z.string() }),
-    labOrgSchema.extend({ id: z.string() }),
+    enclaveOrgSchema.omit({ slug: true }).extend({ id: z.string() }),
+    labOrgSchema.omit({ slug: true }).extend({ id: z.string() }),
 ])
 
 export type ValidatedOrg = z.infer<typeof orgSchema>

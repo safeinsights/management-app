@@ -18,9 +18,10 @@ import { headers } from 'next/headers'
 import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
-import { isClerkApiError } from '@/lib/errors'
+import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
 import logger from '@/lib/logger'
 import { localStorageContext, withTransaction } from '@/server/request-context'
+import { removeMembershipFromClerk } from '@/server/clerk-org-sync'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -336,6 +337,10 @@ export async function deleteUserCompletely(
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.
         await trx.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', userId).execute()
+        const memberships = await trx.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
+        for (const { orgId } of memberships) {
+            await removeMembershipFromClerk({ userId, orgId })
+        }
         await trx.deleteFrom('orgUser').where('userId', '=', userId).execute()
         await trx.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
         // researcher_profile (and its researcher_position rows) cascade from user.
@@ -357,14 +362,6 @@ export async function deleteUserCompletely(
  */
 export async function deleteUserById(db: Kysely<DB>, idOrEmail: string) {
     return await deleteUserCompletely(db, await findQaUser(db, idOrEmail))
-}
-
-// Clerk's backend client rejects with a ClerkAPIResponseError; a 404/resource_not_found
-// on delete means the account is already gone, the one failure cleanup can ignore.
-function isClerkNotFoundError(error: unknown): boolean {
-    if (!isClerkApiError(error)) return false
-    const status = (error as { status?: number }).status
-    return status === 404 || error.errors[0].code === 'resource_not_found'
 }
 
 /**

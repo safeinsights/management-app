@@ -2,7 +2,8 @@
 // happy-dom strips the cookie header from a Request, and the fake reads the role from it.
 import { describe, expect, it, vi } from 'vitest'
 import { NextRequest, NextResponse } from 'next/server'
-import { clerkMiddleware } from './server'
+import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
+import { clerkClient, clerkMiddleware } from './server'
 
 vi.mock('./resolve-clerk-id.server', () => ({ resolveClerkId: vi.fn(async () => 'database-clerk-id') }))
 
@@ -49,5 +50,47 @@ describe('clerk-fake clerkMiddleware', () => {
         )
 
         expect(res.headers.get('x-middleware-request-x-clerk-auth-status')).toBeNull()
+    })
+})
+
+describe('clerk-fake organizations', () => {
+    const org = { slug: 'fake-sync-org', name: 'Fake Sync Org', type: 'lab' }
+
+    const roleOf = async (clerkUserId: string) => {
+        const api = (await clerkClient()).organizations
+        const clerkOrg = await api.getOrganization({ slug: org.slug })
+        const { data } = await api.getOrganizationMembershipList({ organizationId: clerkOrg.id })
+        return data.find((m) => m.publicUserData.userId === clerkUserId)?.role
+    }
+
+    it('supports every org sync step, each repeatable', async () => {
+        const sync = createClerkOrgSync((await clerkClient()).organizations)
+
+        await sync.syncOrg(org)
+        await sync.syncOrg(org)
+        expect(await (await clerkClient()).organizations.getOrganization({ slug: org.slug })).toMatchObject({
+            name: org.name,
+            publicMetadata: { type: 'lab' },
+        })
+        expect(await roleOf('user_admin')).toBeUndefined()
+
+        await sync.syncMembership(org, 'user_1', false)
+        await sync.syncMembership(org, 'user_1', false)
+        expect(await roleOf('user_1')).toBe('org:member')
+
+        await sync.syncMembership(org, 'user_1', true)
+        await sync.syncMembership(org, 'user_1', true)
+        expect(await roleOf('user_1')).toBe('org:admin')
+
+        await sync.removeMembership(org.slug, 'user_1')
+        await sync.removeMembership(org.slug, 'user_1')
+        expect(await roleOf('user_1')).toBeUndefined()
+
+        await sync.deleteOrg(org.slug)
+        await sync.deleteOrg(org.slug)
+        await expect((await clerkClient()).organizations.getOrganization({ slug: org.slug })).rejects.toMatchObject({
+            status: 404,
+            errors: [{ code: 'resource_not_found' }],
+        })
     })
 })
