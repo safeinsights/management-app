@@ -326,9 +326,16 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                 <TextInput
                     label="URL to code environment"
                     withAsterisk
-                    placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15@sha256:4f3c…"
-                    description="Include the image digest (@sha256:…). Copy it from Harbor, or run: docker buildx imagetools inspect <image:tag>"
+                    placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
+                    description="Registry, repository and optional tag, without the digest"
                     {...form.getInputProps('url')}
+                />
+                <TextInput
+                    label="Image digest"
+                    withAsterisk
+                    placeholder="e.g., sha256:771722e4d543…"
+                    description="The full 64-character sha256 digest. Get it by running: docker buildx imagetools inspect <image URL>"
+                    {...form.getInputProps('digest')}
                 />
                 <Divider />
                 <StarterCodeSection
