@@ -12,50 +12,27 @@
 // and retry — self-healing without a restart, and without hammering Secrets
 // Manager on every healthy connection.
 
-import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
+import {
+    type DbSecret,
+    dbConnectionString,
+    fetchSecretJson,
+    RDS_SSL,
+    type SecretFetcher,
+} from '../../src/lib/db-connection.ts'
 
-export type ResolvedDbSecret = {
-    username: string
-    password: string
-    host: string
-    dbname: string
-}
+export type ResolvedDbSecret = DbSecret
 
 export type DbPoolSettings = {
     connectionString: string
-    // Aurora Postgres has rds.force_ssl=1; matches src/database/dialect.ts.
-    ssl?: { rejectUnauthorized: boolean }
-}
-
-// Minimal surface of SecretsManagerClient we depend on, so tests can pass a stub.
-export type SecretFetcher = {
-    send(command: GetSecretValueCommand): Promise<{ SecretString?: string }>
-}
-
-function buildConnectionString(secret: ResolvedDbSecret): string {
-    return `postgres://${encodeURIComponent(secret.username)}:${encodeURIComponent(secret.password)}@${secret.host}/${secret.dbname}`
+    ssl?: typeof RDS_SSL
 }
 
 export function poolSettingsFromSecret(secret: ResolvedDbSecret): DbPoolSettings {
-    return {
-        connectionString: buildConnectionString(secret),
-        ssl: { rejectUnauthorized: false },
-    }
+    return { connectionString: dbConnectionString(secret), ssl: RDS_SSL }
 }
 
-async function fetchSecret(arn: string, client: SecretFetcher): Promise<ResolvedDbSecret> {
-    const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
-    if (!data.SecretString) throw new Error(`failed to fetch db secret from ${arn}`)
-    return JSON.parse(data.SecretString) as ResolvedDbSecret
-}
-
-// Postgres SQLSTATE for "password authentication failed". A connection that
-// fails with this code is the signal that the cached password may be stale.
-export const INVALID_PASSWORD_CODE = '28P01'
-
-export function isInvalidPasswordError(err: unknown): boolean {
-    return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === INVALID_PASSWORD_CODE
-}
+const fetchSecret = (arn: string, client: SecretFetcher) => fetchSecretJson<ResolvedDbSecret>(arn, client)
 
 // Holds the most-recently-resolved DB secret and knows how to refresh it from
 // Secrets Manager when a connection rejects the cached password.

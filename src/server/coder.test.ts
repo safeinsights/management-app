@@ -21,6 +21,9 @@ import { getAgentContextAction } from './actions/agent-context.actions'
 
 vi.mock('./config', () => ({
     getConfigValue: vi.fn(),
+    get env() {
+        return process.env
+    },
 }))
 
 vi.mock('./db/queries', () => ({

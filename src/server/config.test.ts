@@ -12,48 +12,45 @@ describe('getConfigValue', () => {
     beforeEach(() => {
         secretsManagerMock.reset()
         process.env = { ...ORIGINAL_ENV }
+        delete process.env.MAILGUN_DOMAIN
     })
 
     afterEach(() => {
         process.env = ORIGINAL_ENV
     })
 
-    it('should return the value from process.env if it exists', async () => {
-        process.env.MY_CONFIG = 'envValue'
-        const value = await getConfigValue('MY_CONFIG')
-        expect(value).toBe('envValue')
+    it('returns the value from process.env if it exists', async () => {
+        process.env.MAILGUN_DOMAIN = 'envValue'
+        expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('envValue')
     })
 
-    it('should return the value from AWS secrets if process.env does not contain the key', async () => {
-        delete process.env.MY_CONFIG
-        process.env.SECRETS_ARN = '1234_ARN'
-        secretsManagerMock.on(GetSecretValueCommand, { SecretId: '1234_ARN' }).resolves({
-            SecretString: JSON.stringify({ MY_CONFIG: 'secretValue' }),
+    it('fetches the secret once and serves later lookups from the cache', async () => {
+        process.env.SECRETS_ARN = 'arn:cached'
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'arn:cached' }).resolves({
+            SecretString: JSON.stringify({ MAILGUN_DOMAIN: 'secretValue' }),
         })
 
-        const value = await getConfigValue('MY_CONFIG')
-        expect(value).toBe('secretValue')
-        delete process.env.SECRETS_ARN
+        expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('secretValue')
+        expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('secretValue')
+        expect(secretsManagerMock.commandCalls(GetSecretValueCommand)).toHaveLength(1)
     })
 
-    it('should throw an error if the key is not found in AWS secrets', async () => {
-        delete process.env.MY_CONFIG
-        process.env.SECRETS_ARN = '1234_ARN'
+    it('does not cache a failed fetch', async () => {
+        process.env.SECRETS_ARN = 'arn:flaky'
+        secretsManagerMock
+            .on(GetSecretValueCommand)
+            .resolvesOnce({ SecretString: 'bad-json' })
+            .resolves({ SecretString: JSON.stringify({ MAILGUN_DOMAIN: 'recovered' }) })
 
-        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'BAD_ARN' }).resolves({
-            SecretString: 'bad-json',
-        })
-        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow(/failed to parse AWS secrets/)
+        await expect(getConfigValue('MAILGUN_DOMAIN')).rejects.toThrow(/failed to parse AWS secret/)
+        expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('recovered')
+    })
 
-        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'BAD_ARN' }).resolves({
-            SecretString: JSON.stringify({ OTHER_CONFIG: 'otherValue' }),
-        })
-        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow(/failed to fetch AWS secrets/)
+    it('throws, or returns null, when the key is not in the secret', async () => {
+        process.env.SECRETS_ARN = 'arn:missing'
+        secretsManagerMock.on(GetSecretValueCommand).resolves({ SecretString: JSON.stringify({ OTHER: 'x' }) })
 
-        secretsManagerMock.on(GetSecretValueCommand, { SecretId: process.env.SECRETS_ARN }).resolves({
-            SecretString: JSON.stringify({ OTHER_CONFIG: 'otherValue' }),
-        })
-
-        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('failed to find MY_CONFIG in config')
+        await expect(getConfigValue('MAILGUN_DOMAIN')).rejects.toThrow('failed to find MAILGUN_DOMAIN in config')
+        expect(await getConfigValue('MAILGUN_DOMAIN', false)).toBeNull()
     })
 })
