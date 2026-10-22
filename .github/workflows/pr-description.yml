@@ -1,0 +1,33 @@
+# SECURITY (OTTER-545): runs on `pull_request`, so the checked-out tree is PR-controlled. The job
+# holds no token permissions, uses no secrets and runs no `pnpm install`. It reads the PR body from
+# the event payload through an env var (never inline in `run:`) and lists the PR's files from the
+# merge commit.
+name: PR description
+on:
+    # `edited` so that fixing the description re-runs the check without new commits.
+    pull_request:
+        types: [opened, edited, synchronize, reopened]
+
+concurrency:
+    group: pr-description-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    # Always runs and decides inside the job: a path-filtered workflow would leave a required check
+    # Pending on PRs without migrations.
+    existing-studies:
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        permissions: {}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 2
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+            - name: Check the Existing studies line
+              env:
+                  PR_BODY: ${{ github.event.pull_request.body }}
+              run: git diff --name-only HEAD^1 HEAD | node bin/check-pr-description.mjs

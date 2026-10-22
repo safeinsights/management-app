@@ -1,4 +1,4 @@
-import { E2E_TIMEOUT, e2eSignOut, expect, test, TestingUsers } from './e2e.helpers'
+import { e2eSignOut, expect, test, TestingUsers } from './e2e.helpers'
 
 test.describe('recovery code sign in UI', async () => {
     const role = 'reviewer'
@@ -49,6 +49,6 @@ test.describe('recovery code sign in UI', async () => {
             page.getByText(
                 /Code is incorrect or already in use|The verification strategy is not valid for this account/i,
             ),
-        ).toBeVisible({ timeout: E2E_TIMEOUT })
+        ).toBeVisible()
     })
 })

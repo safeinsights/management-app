@@ -81,16 +81,22 @@ const expectDecryptsToContents = (files: JobFileInfo[]) => {
 }
 
 describe('useDecryptFiles', () => {
-    it('reads a legacy AES-CBC archive written before the manifest carried a cipher', async () => {
+    it('refuses a legacy AES-CBC archive as tampering', async () => {
         const archive = await writeLegacyCbcArchive([await recipient()], { [FILENAME]: toArrayBuffer(CONTENTS) })
 
-        // Pins the fixture: a manifest that gained a cipher would silently make this a second
-        // current-format test.
+        // Pins the fixture: a manifest that gained a cipher would be refused for another reason.
         const { manifest } = await openArchive(archive)
         expect(manifest.cipher).toBeUndefined()
         expect(manifest.version).toBeUndefined()
 
-        expectDecryptsToContents(await decrypt(await asJobFile(archive)))
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    it('refuses a current archive whose manifest is downgraded to claim AES-CBC', async () => {
+        const { manifest, bodies } = await openArchive(await currentArchive())
+        const downgraded = await packArchive({ ...manifest, cipher: 'AES-CBC' }, bodies)
+
+        await expect(decrypt(await asJobFile(downgraded))).rejects.toThrow(ArchiveIntegrityError)
     })
 
     it('reads a current archive', async () => {
