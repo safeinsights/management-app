@@ -32,10 +32,6 @@ import * as study from './study.helpers'
 // (which `/api/studies/ready` recognises from the DB alone) and upload an encrypted
 // file via the debug script, then drive the real reviewer decrypt+approve UI.
 
-// ============================================================================
-// Tests
-// ============================================================================
-
 // The study-creation → approve → upload chain was one long test; it's split into three
 // independent tests (each seeds the state the previous one produced) so no single test
 // runs long enough to risk its timeout, and a failure points at one surface. Together

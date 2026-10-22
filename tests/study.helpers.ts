@@ -18,10 +18,6 @@ export const REVIEWER_DASHBOARD = '/openstax/dashboard'
 export const PROPOSAL_LINK_TEXT = 'Prior study writeup'
 export const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
 
-// ============================================================================
-// Researcher: study creation (Step 1 + Step 2) — driven live by ONE test
-// ============================================================================
-
 // OTTER-690: Step 1 is one card, and the study title is entered here rather than on Step 2.
 export async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = /openstax/i) {
     await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
@@ -140,10 +136,6 @@ export async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: bool
     await page.waitForURL('/dashboard')
 }
 
-// ============================================================================
-// Researcher: code upload — file path and IDE path each driven live once
-// ============================================================================
-
 // From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /code so the upload surface
 // is reached the way the app routes a real user. OTTER-727 removed the /agreements/researcher hop
 // that used to sit in the middle.
@@ -226,10 +218,6 @@ export async function uploadResubmitFilesExpectingInheritedMain(page: Page) {
     await expect(page.getByRole('radio', { name: 'analysis.r is the main file', exact: true })).toBeVisible()
 }
 
-// ============================================================================
-// Shared row / navigation helpers
-// ============================================================================
-
 // The study title is the row's only link (OTTER-617).
 export async function clickViewLink(page: Page, studyRow: ReturnType<Page['getByRole']>) {
     await expect(studyRow).toBeVisible()
@@ -249,10 +237,6 @@ export async function viewStudyDetails(page: Page, studyTitle: string) {
     await clickViewLink(page, studyRow)
     await page.waitForURL(/\/study\//)
 }
-
-// ============================================================================
-// Reviewer: decision surfaces (each driven live by the test that owns it)
-// ============================================================================
 
 export async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     await visitAsRole(page, REVIEWER_DASHBOARD)
@@ -336,10 +320,6 @@ export async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByRole('link', { name: /Back to my studies/i }).click()
     await page.waitForURL('/dashboard')
 }
-
-// ============================================================================
-// Job result / error helpers (no runner: upload via the debug script)
-// ============================================================================
 
 // The debug script defaults its base URL to :4000 (dev); point it at the Playwright app
 // instance instead (E2E_BASE_URL, default :4100).
