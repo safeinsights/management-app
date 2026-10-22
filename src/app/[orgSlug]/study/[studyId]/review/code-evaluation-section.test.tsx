@@ -118,18 +118,23 @@ describe('CodeEvaluationSection', () => {
         }
     })
 
-    it('explains the agreements criterion only when the study is a test study', () => {
+    it('explains the agreements criterion on hover, without a link, when the study is a test study', async () => {
+        const user = userEvent.setup()
         renderSection({ isTestStudy: true })
 
         const row = screen.getByTestId('criteria-row-agreementCompliance')
-        expect(within(row).getByLabelText(/This is a test study/i)).toBeInTheDocument()
+        expect(within(row).queryByTestId('criteria-agreement-link')).toBeNull()
+
+        await user.hover(within(row).getByTestId('criteria-agreement-term'))
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(/This is a test study/i)
     })
 
-    it('leaves the agreements criterion as plain text for an ordinary study', () => {
+    it('links the agreements criterion without the test study note for an ordinary study', () => {
         renderSection()
 
         const row = screen.getByTestId('criteria-row-agreementCompliance')
-        expect(within(row).queryByLabelText(/This is a test study/i)).toBeNull()
+        expect(within(row).getByTestId('criteria-agreement-link')).toBeInTheDocument()
+        expect(within(row).queryByText(/This is a test study/i)).toBeNull()
     })
 
     it('updates the form value when a radio is selected', async () => {
