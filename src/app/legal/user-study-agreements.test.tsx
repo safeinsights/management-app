@@ -6,8 +6,10 @@ import {
     faker,
     insertTestOrg,
     insertTestStudyOnly,
+    isSortableHeader,
     mockSessionWithTestData,
     renderWithProviders,
+    tableHeader,
     testUploadFile,
 } from '@/tests/unit.helpers'
 import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
@@ -141,13 +143,15 @@ describe('UserStudyAgreements', () => {
         )
     })
 
-    it('leads with the most recently acknowledged agreement and flips on click', async () => {
+    it('leads with the newest study and flips on a Study ID click', async () => {
         const older = `Older ${faker.string.alpha(6)}`
         const newer = `Newer ${faker.string.alpha(6)}`
         const olderSeed = await seedAcknowledgedAgreement(older, '2026-02-02')
         const { dataPartner, restoreSession } = olderSeed
-        await setAckedAt(olderSeed.version.id, new Date('2026-03-01T12:00:00Z'))
+        // The older study's later ack would lead if the table still sorted by Acknowledged on.
+        await setAckedAt(olderSeed.version.id, new Date('2026-08-01T12:00:00Z'))
 
+        // Inserted second, so its v7 id sorts after the first's.
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { study } = await insertTestStudyOnly({
             org: dataPartner,
@@ -166,19 +170,27 @@ describe('UserStudyAgreements', () => {
         actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-01-01' }))
         restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
-        await setAckedAt(version.id, new Date('2026-08-01T12:00:00Z'))
+        await setAckedAt(version.id, new Date('2026-03-01T12:00:00Z'))
 
         renderWithProviders(<UserStudyAgreements />)
         await rowFor(newer)
 
-        // Acknowledged on desc, so the later ack leads even though its Effective on is the earlier.
         await waitFor(() => expect(rowTitles()[0]).toContain(newer))
 
-        // Through the header's text: a sortable header's accessible name carries the sort icon too.
-        const header = screen.getByText('Acknowledged on').closest('th')
-        if (!header) throw new Error('no Acknowledged on header')
-        fireEvent.click(header)
+        fireEvent.click(tableHeader('Study ID'))
 
         await waitFor(() => expect(rowTitles()[0]).toContain(older))
+    })
+
+    it('sorts by Study ID and Study title only', async () => {
+        await seedAcknowledgedAgreement(`Signed ${faker.string.alpha(6)}`, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+        await waitFor(() => expect(rowTitles()).toHaveLength(1))
+
+        expect(isSortableHeader('Study ID')).toBe(true)
+        expect(isSortableHeader('Study title')).toBe(true)
+        expect(isSortableHeader('Effective on')).toBe(false)
+        expect(isSortableHeader('Acknowledged on')).toBe(false)
     })
 })
