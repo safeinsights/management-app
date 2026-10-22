@@ -144,7 +144,9 @@ test.describe('Organization Admin', () => {
         await page.getByPlaceholder(/extension/i).fill('r')
         await page.getByPlaceholder(/command.*%f/i).fill('Rscript %f')
         await page.getByLabel(/add command line/i).click()
-        await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
+        await page
+            .getByLabel(/url to code environment/i)
+            .fill(`example.com/e2e-code-env:latest@sha256:${'a'.repeat(64)}`)
 
         await expect(page.getByRole('textbox', { name: /language/i })).toHaveValue('R')
 

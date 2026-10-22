@@ -11,6 +11,7 @@ import {
     renderWithProviders,
     insertTestCodeEnv,
     insertTestDataSource,
+    testImageRef,
 } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { Selectable } from 'kysely'
@@ -78,7 +79,10 @@ describe('CodeEnvs', async () => {
         const envName = faker.hacker.noun() + ' Code Env'
         await userEvent.type(screen.getByLabelText(/Name/i), envName)
         await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
-        await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
+        await userEvent.type(
+            screen.getByPlaceholderText(/harbor\.safeinsights/i),
+            testImageRef('example.com/test-image:tag-1234'),
+        )
 
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')

@@ -20,6 +20,7 @@ import {
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
+    dockerImageRefSchema,
 } from '@/schema/code-env'
 import { ActionSuccessType, type DataSourceType } from '@/lib/types'
 import { Language } from '@/database/types'
@@ -46,6 +47,13 @@ async function uploadSampleData(codeEnvId: string, files: File[]): Promise<boole
     if (isActionError(presignedUrl)) throw new Error('Failed to get sample data upload URL')
     await uploadFiles(files.map((file) => [file, presignedUrl]))
     return true
+}
+
+// Rows saved before digests were required load unpinned; flag that on open rather than on submit.
+function legacyUrlErrors(image: CodeEnv | undefined): Record<string, string> {
+    if (!image) return {}
+    const result = dockerImageRefSchema.safeParse(image.url)
+    return result.success ? {} : { url: result.error.issues[0].message }
 }
 
 export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () => void) {
@@ -78,6 +86,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             newCmdValue: '',
             existingStarterCodeFileNames: image?.starterCodeFileNames ?? [],
         },
+        initialErrors: legacyUrlErrors(image),
         validate: zodResolver(formSchema),
     })
 

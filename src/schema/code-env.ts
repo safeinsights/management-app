@@ -28,19 +28,23 @@ const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
 export const identifierRegex = /^[a-z0-9_]+$/
 
-// Docker image reference per the OCI distribution spec: [HOST[:PORT]/]PATH[:TAG|@DIGEST]
+// Docker image reference per the OCI distribution spec, [HOST[:PORT]/]PATH[:TAG]@DIGEST, with the
+// digest required so the image can't change under a reused tag. Existing rows may predate this.
 const dnsLabel = String.raw`[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?`
 const domain = String.raw`(?:${dnsLabel}(?:\.${dnsLabel})*(?::[0-9]+)?\/)`
 const pathComponent = String.raw`[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*`
 const tag = String.raw`:[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}`
-const digest = String.raw`@[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-fA-F0-9]{32,}`
+const digest = String.raw`@sha256:[a-f0-9]{64}`
 
-const dockerImageRefRegex = new RegExp(`^${domain}?${pathComponent}(?:/${pathComponent})*(?:${tag})?(?:${digest})?$`)
+const dockerImageRefRegex = new RegExp(`^${domain}?${pathComponent}(?:/${pathComponent})*(?:${tag})?${digest}$`)
 
 export const dockerImageRefSchema = z
     .string()
     .nonempty('Image reference is required')
-    .regex(dockerImageRefRegex, 'Must be a valid Docker image reference (e.g., registry.example.com/org/image:tag)')
+    .regex(
+        dockerImageRefRegex,
+        'Must be a valid Docker image reference ending in a sha256 digest (e.g., registry.example.com/org/image:tag@sha256:<64 hex characters>)',
+    )
 
 const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < MAX_FILE_SIZE
 

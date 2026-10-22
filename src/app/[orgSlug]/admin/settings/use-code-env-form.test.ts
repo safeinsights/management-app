@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useParams } from 'next/navigation'
-import { createTestQueryWrapper } from '@/tests/unit.helpers'
+import { createTestQueryWrapper, testImageRef } from '@/tests/unit.helpers'
 import { useCodeEnvForm } from './use-code-env-form'
 
 vi.mock('@/server/actions/code-envs.actions', () => ({
@@ -34,7 +34,7 @@ const mockCodeEnv = {
     name: 'Test Env',
     language: 'PYTHON' as const,
     commandLines: { py: 'python %f' },
-    url: 'python:3.11',
+    url: testImageRef('python:3.11'),
     isTesting: false,
     starterCodeFileNames: ['main.py'],
     sampleDataPath: null,
@@ -61,7 +61,7 @@ describe('useCodeEnvForm', () => {
                 result.current.form.setFieldValue('identifier', 'new_env')
                 result.current.form.setFieldValue('name', 'New Env')
                 result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-                result.current.form.setFieldValue('url', 'python:3.11')
+                result.current.form.setFieldValue('url', testImageRef('python:3.11'))
                 result.current.form.setFieldValue('starterCodes', [new File(['code'], 'main.py')])
             })
         }
@@ -167,7 +167,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-            result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('url', testImageRef('python:3.11'))
             result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
@@ -204,7 +204,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-            result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('url', testImageRef('python:3.11'))
             result.current.form.setFieldValue('starterCodes', [starterCode])
             result.current.form.setFieldValue('sampleDataPath', 'data/sample.csv')
             result.current.setSampleDataFiles([sampleFile])
@@ -231,7 +231,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('identifier', 'new_env')
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
-            result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('url', testImageRef('python:3.11'))
             result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
@@ -273,6 +273,25 @@ describe('useCodeEnvForm', () => {
                 }),
             )
         })
+    })
+
+    it('edit: flags a legacy unpinned URL on open and blocks submit until it is pinned', async () => {
+        ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(mockCodeEnv)
+        const legacyEnv = { ...mockCodeEnv, url: 'python:3.11' }
+
+        const { result } = renderHook(() => useCodeEnvForm(legacyEnv, vi.fn()), {
+            wrapper: createTestQueryWrapper(),
+        })
+
+        expect(result.current.form.errors.url).toMatch(/sha256 digest/)
+
+        act(() => result.current.onSubmit())
+        await waitFor(() => expect(result.current.form.errors.url).toMatch(/sha256 digest/))
+        expect(updateOrgCodeEnvAction).not.toHaveBeenCalled()
+
+        act(() => result.current.form.setFieldValue('url', testImageRef('python:3.11')))
+        act(() => result.current.onSubmit())
+        await waitFor(() => expect(updateOrgCodeEnvAction).toHaveBeenCalled())
     })
 
     it('edit: skips starter code upload when no new file', async () => {
