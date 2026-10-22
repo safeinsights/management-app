@@ -1,3 +1,4 @@
+// TEMPORARY QA TEST ONLY (OTTER-862): comment-only change to exercise the PR description check. Never merge.
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
