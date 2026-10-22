@@ -1,7 +1,7 @@
 'use server'
 
 import {
-    userParticipationAgreementParams,
+    participationAgreementTypeParams,
     userStudyAgreementParams,
     globalDocumentTypeParams,
     type ResolvedLegalDocument,
@@ -19,10 +19,10 @@ export const fetchUserStudyAgreementsAction = new Action('fetchUserStudyAgreemen
     })
 
 export const fetchUserParticipationAgreementsAction = new Action('fetchUserParticipationAgreementsAction')
-    .params(userParticipationAgreementParams)
+    .params(participationAgreementTypeParams)
     .requireAbilityTo('view', 'UserLegalDocuments')
-    .handler(async ({ db, session, params: { type, sort } }) => {
-        return await userParticipationAgreements(db, { userId: session.user.id, type, sort })
+    .handler(async ({ db, session, params: { type } }) => {
+        return await userParticipationAgreements(db, { userId: session.user.id, type })
     })
 
 // The terms in force, not the version the user acked. Those coincide whenever the login gate has
