@@ -63,9 +63,17 @@ export const enclaveOrgIds = (session: UserSession) =>
 export const isSessionOrgMember = (session: UserSession, orgId: string): boolean =>
     Object.values(session.orgs).some((org) => org.id === orgId)
 
+// Checked by name, not instanceof: Next bundles instrumentation.ts apart from the app modules.
+export class ActionResultError extends Error {
+    name = 'ActionResultError'
+}
+
+export const isActionResultError = (error: unknown): boolean =>
+    error instanceof Error && error.name === 'ActionResultError'
+
 export function actionResult<T>(result: ActionResponse<T>): T {
     if (isActionError(result)) {
-        throw new Error(errorToString(result))
+        throw new ActionResultError(errorToString(result))
     }
     return result
 }
