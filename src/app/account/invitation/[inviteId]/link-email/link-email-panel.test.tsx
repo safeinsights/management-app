@@ -1,10 +1,13 @@
 import {
     act,
+    advanceTimers,
     createTestQueryClient,
     db,
+    fakeTimeouts,
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
+    restoreRealTimers,
     screen,
     testEmail,
     userEvent,
@@ -80,9 +83,7 @@ describe('invite email linking screen', () => {
         sessionStorage.clear()
     })
 
-    afterEach(() => {
-        vi.useRealTimers()
-    })
+    afterEach(restoreRealTimers)
 
     it('sends a code to the invited address and links it once the code is accepted', async () => {
         const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
@@ -330,11 +331,9 @@ describe('invite email linking screen', () => {
         await screen.findByText(/Enter the code we sent to/)
         await db.deleteFrom('pendingUser').where('id', '=', invite.id).execute()
         // React Query hands the result to its observers on a timer tick, after the refetch settles.
-        vi.useFakeTimers({ shouldAdvanceTime: true })
+        fakeTimeouts()
         await act(() => queryClient.refetchQueries({ queryKey: ['claimedInvite', invite.id] }))
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(0)
-        })
+        await advanceTimers(0)
 
         expect(screen.getByText(/Enter the code we sent to/)).toBeDefined()
         expect(screen.queryByText('This invitation is no longer valid')).toBeNull()

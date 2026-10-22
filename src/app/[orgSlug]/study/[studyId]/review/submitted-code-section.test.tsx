@@ -1,15 +1,17 @@
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyJobStatus } from '@/database/types'
 import {
-    act,
     actionResult,
+    advanceTimers,
     createTestQueryClient,
     db,
+    fakeTimeouts,
     fireEvent,
     insertTestDataSource,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
+    restoreRealTimers,
     screen,
     userEvent,
     type Mock,
@@ -128,17 +130,7 @@ async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
     return { ...fixture, job: await latestJobForStudy(fixture.study.id) }
 }
 
-// Real time keeps flowing for waitFor and the database; advanceTimersByTimeAsync then jumps the
-// backstop and poll timers, so a test can show nothing more happens without sleeping.
-const fakePanelTimers = () =>
-    vi.useFakeTimers({
-        shouldAdvanceTime: true,
-        toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
-    })
-
-afterEach(() => {
-    vi.useRealTimers()
-})
+afterEach(restoreRealTimers)
 
 async function renderSection(fixture: Fixture, scanOverride?: JobScanResult) {
     const analysis = await jobAnalysisForJob(fixture.job)
@@ -395,7 +387,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertPendingStudyReview(liveFixture.job.id, new Date())
         const initialReview = (await jobAnalysisForJob(liveFixture.job)).review
 
-        fakePanelTimers()
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={liveFixture.job.id}
@@ -407,9 +399,7 @@ describe('SubmittedCodeSection — AI summary', () => {
             </JobAnalysisPanels>,
         )
 
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(80)
-        })
+        await advanceTimers(80)
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -582,7 +572,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         const blankFixture = await setupBaseFixture()
         await insertStudyReview(blankFixture.job.id, '')
         const initialReview = (await jobAnalysisForJob(blankFixture.job)).review
-        fakePanelTimers()
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={blankFixture.job.id}
@@ -595,9 +585,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         )
 
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(60)
-        })
+        await advanceTimers(60)
         expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -661,7 +649,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         const review = (await jobAnalysisForJob(fixture.job)).review
         vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('PASSED') }))
 
-        fakePanelTimers()
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={fixture.job.id}
@@ -678,9 +666,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         // satisfied on the first attempt, so it passes even against a poll that never stops — the
         // regression this test is named for.
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(200)
-        })
+        await advanceTimers(200)
 
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
@@ -711,7 +697,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
         vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
-        fakePanelTimers()
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={fixture.job.id}
@@ -727,9 +713,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('FAILED') }))
         await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(200)
-        })
+        await advanceTimers(200)
         expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
     })
 

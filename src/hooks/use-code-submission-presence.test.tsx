@@ -2,17 +2,18 @@ import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
-    act,
+    advanceTimers,
     afterEach,
     beforeEach,
     describe,
     expect,
     faker,
+    fakeTimeouts,
     it,
     mockClerkSession,
     renderHook,
+    restoreRealTimers,
     waitFor,
-    vi,
     type Mock,
 } from '@/tests/unit.helpers'
 import { HocuspocusProvider } from '@hocuspocus/provider'
@@ -49,9 +50,7 @@ describe('useCodeSubmissionPresence', () => {
         })
     })
 
-    afterEach(() => {
-        vi.useRealTimers()
-    })
+    afterEach(restoreRealTimers)
 
     it('opens the study code room and announces the viewer under the editor awareness shape', async () => {
         renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
@@ -108,11 +107,9 @@ describe('useCodeSubmissionPresence', () => {
     })
 
     it('opens nothing while disabled', async () => {
-        vi.useFakeTimers({ shouldAdvanceTime: true })
+        fakeTimeouts()
         renderHook(() => useCodeSubmissionPresence(studyId, false), { wrapper })
-        await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000)
-        })
+        await advanceTimers(30_000)
         expect(providers()).toHaveLength(0)
     })
 })
