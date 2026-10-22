@@ -8,7 +8,7 @@ COPY services/editor/package.json ./services/editor/
 # to root devDeps and are not in editor's prod tree.
 RUN pnpm --filter=@safeinsights/editor-service install --frozen-lockfile --prod --ignore-scripts
 COPY services/editor ./services/editor
-COPY src/lib/collaboration-documents.ts ./src/lib/collaboration-documents.ts
+COPY src/lib/collaboration-documents.ts src/lib/db-connection.ts ./src/lib/
 
 FROM node:24-slim
 WORKDIR /app/services/editor
@@ -16,6 +16,6 @@ WORKDIR /app/services/editor
 # Place the root virtual store at /app/node_modules so relative paths resolve.
 COPY --from=builder /repo/node_modules /app/node_modules
 COPY --from=builder /repo/services/editor/ ./
-COPY --from=builder /repo/src/lib/collaboration-documents.ts /app/src/lib/collaboration-documents.ts
+COPY --from=builder /repo/src/lib/ /app/src/lib/
 EXPOSE 1234
 CMD ["node", "server.ts"]

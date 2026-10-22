@@ -10,14 +10,15 @@
 // refresh, so the wrapper degrades to a plain pass-through.
 
 import pg from 'pg'
-import { type DbSource, isInvalidPasswordError } from './db-credentials.ts'
+import { isInvalidPasswordError } from '../../src/lib/db-connection.ts'
+import { type DbPoolSettings, type DbSource } from './db-credentials.ts'
 
 export type QueryResult<T> = { rows: T[]; rowCount: number | null }
 
 type Logger = (event: string, fields?: Record<string, unknown>) => void
 
 // Factory seam so tests can substitute a fake pool without a real Postgres.
-export type PoolFactory = (settings: { connectionString: string; ssl?: { rejectUnauthorized: boolean } }) => pg.Pool
+export type PoolFactory = (settings: DbPoolSettings) => pg.Pool
 
 const defaultPoolFactory: PoolFactory = (settings) => new pg.Pool(settings)
 
@@ -34,7 +35,7 @@ export class ResilientDbPool {
         this.pool = this.build()
     }
 
-    private settings(): { connectionString: string; ssl?: { rejectUnauthorized: boolean } } {
+    private settings(): DbPoolSettings {
         return this.source.kind === 'connectionString' ? this.source.settings : this.source.credentials.poolSettings()
     }
 

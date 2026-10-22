@@ -1,12 +1,6 @@
 import PG from 'pg'
+import { isInvalidPasswordError, RDS_SSL } from '../lib/db-connection'
 import { databaseURL, DEPLOYED_ENV } from '../server/config'
-
-// Postgres SQLSTATE for "password authentication failed".
-const INVALID_PASSWORD_CODE = '28P01'
-
-function isInvalidPasswordError(err: unknown): boolean {
-    return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === INVALID_PASSWORD_CODE
-}
 
 // The subset of pg.Pool that Kysely's PostgresDriver uses; implementing it rather than extending
 // pg.Pool keeps this testable without mocking pg.
@@ -23,7 +17,7 @@ export type ConnectionStringResolver = () => Promise<string>
 const defaultPoolFactory: PoolFactory = (connectionString) =>
     new PG.Pool({
         connectionString,
-        ...(DEPLOYED_ENV && { ssl: { rejectUnauthorized: false } }),
+        ...(DEPLOYED_ENV && { ssl: RDS_SSL }),
     })
 
 // A deploy can rotate the DB password while a warm process keeps a pool wired to the old

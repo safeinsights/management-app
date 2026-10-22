@@ -3,6 +3,7 @@
 import type { DBExecutor } from '@/database'
 import { enforcedLegalDocumentTypes } from '@/schema/legal-document'
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { env } from '@/server/config'
 import { withTransaction } from '@/server/request-context'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { getUserPublicKey } from '@/server/db/queries'
@@ -259,7 +260,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         if (users.data.length) {
             clerkId = users.data[0].id
         } else {
-            const createdByCIJobId = process.env.GITHUB_JOB
+            const createdByCIJobId = env.GITHUB_JOB
             const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
             let clerkUser
             try {

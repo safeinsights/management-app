@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { DbCredentials, INVALID_PASSWORD_CODE, type DbSource, type SecretFetcher } from './db-credentials'
+import { INVALID_PASSWORD_CODE, type SecretFetcher } from '../../src/lib/db-connection'
+import { DbCredentials, type DbSource } from './db-credentials'
 import { ResilientDbPool, type PoolFactory } from './db-pool'
 
 const SECRET = { username: 'u', password: 'old-pw', host: 'h', dbname: 'd' }

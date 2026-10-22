@@ -1,14 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-    DbCredentials,
-    INVALID_PASSWORD_CODE,
-    isInvalidPasswordError,
-    poolSettingsFromSecret,
-    resolveDbSource,
-    type ResolvedDbSecret,
-    type SecretFetcher,
-} from './db-credentials'
+import { INVALID_PASSWORD_CODE, isInvalidPasswordError, type SecretFetcher } from '../../src/lib/db-connection'
+import { DbCredentials, poolSettingsFromSecret, resolveDbSource, type ResolvedDbSecret } from './db-credentials'
 
 const SECRET: ResolvedDbSecret = {
     username: 'mgmntAppDBUser',
@@ -32,7 +25,8 @@ describe('poolSettingsFromSecret', () => {
     it('assembles an SSL-enabled connection string with url-encoded credentials', () => {
         const settings = poolSettingsFromSecret({ ...SECRET, password: 'p@ss/word' })
         expect(settings.connectionString).toBe('postgres://mgmntAppDBUser:p%40ss%2Fword@db.example.internal/management')
-        expect(settings.ssl).toEqual({ rejectUnauthorized: false })
+        expect(settings.ssl?.rejectUnauthorized).toBe(true)
+        expect(settings.ssl?.ca.length).toBeGreaterThan(0)
     })
 })
 
