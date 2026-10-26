@@ -24,18 +24,18 @@ const columns: DataTableColumn<StudyAgreement>[] = [
     ...agreementDateColumns<StudyAgreement>(testStudyDateCell),
 ]
 
-const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const
-
-// The page is about what the user signed, so every table leads with when they signed it.
-const DEFAULT_SORT: UserStudyAgreementSort = { columnAccessor: 'ackedAt', direction: 'desc' }
+const SORTING = {
+    sortableColumns: ['studyId', 'studyTitle'] as const,
+    // Study ids are v7 uuids, so descending puts the newest study first.
+    defaultSort: { columnAccessor: 'studyId', direction: 'desc' } satisfies UserStudyAgreementSort,
+}
 
 export const UserStudyAgreements: FC = () => (
     <AgreementsPanel
         label={legalDocumentCollectionLabels.SLA}
         idAccessor="studyId"
         columns={columns}
-        sortableColumns={SORTABLE_COLUMNS}
-        defaultSort={DEFAULT_SORT}
+        sorting={SORTING}
         queryKey={legalDocumentQueryKeys.userStudyAgreements}
         queryFn={(sort) => fetchUserStudyAgreementsAction({ sort })}
     />
