@@ -52,7 +52,7 @@ describe('OutputsStatusAlert', () => {
 
     const expectPreparingCodeBodyWithSupportLink = () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here',
+            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\s*\(opens in a new tab\)\.$/,
         )
         const link = screen.getByRole('link', { name: /here/ })
         expect(link).toHaveAttribute('href', ExternalLinks.support)
