@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
@@ -78,11 +78,12 @@ describe('findInvisibleCharacters', () => {
 })
 
 describe('bin/check-invisible-unicode.mjs', () => {
-    const runCheck = (files) => {
+    const runCheck = (files, symlinks = {}) => {
         const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
         for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content)
+        for (const [name, target] of Object.entries(symlinks)) symlinkSync(target, join(dir, name))
         execFileSync('git', ['init', '--quiet'], { cwd: dir, stdio: 'ignore' })
-        execFileSync('git', ['add', '--', ...Object.keys(files)], { cwd: dir })
+        execFileSync('git', ['add', '--', ...Object.keys(files), ...Object.keys(symlinks)], { cwd: dir })
         return spawnSync(process.execPath, [resolve('bin/check-invisible-unicode.mjs')], { cwd: dir, encoding: 'utf8' })
     }
 
@@ -97,6 +98,12 @@ describe('bin/check-invisible-unicode.mjs', () => {
         expect(status).toBe(1)
         expect(stdout).toContain('::error file=CLAUDE.md,line=1,col=12::U+202E')
         expect(stdout).toContain('::error file=CLAUDE.md,line=2,col=1::U+0000')
+    })
+
+    it('skips a tracked symlink to a folder', () => {
+        const { status, stdout } = runCheck({ 'CLAUDE.md': '# Rules\n' }, { docs: '.' })
+        expect(status).toBe(0)
+        expect(stdout).toContain('No invisible Unicode characters in 2 tracked files')
     })
 
     it('skips binary files by extension', () => {

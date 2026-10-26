@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Usage: node bin/check-invisible-unicode.mjs
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { extname } from 'node:path'
 import process from 'node:process'
 import { findInvisibleCharacters } from '../tests/invisible-unicode.mjs'
@@ -31,8 +31,10 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuf
 
 let found = 0
 for (const file of files) {
-    // A file deleted locally but not yet staged is still listed.
-    if (!existsSync(file) || BINARY_EXTENSIONS.has(extname(file).toLowerCase())) continue
+    // git also lists files deleted but not yet staged, submodules, and symlinks to folders.
+    if (!statSync(file, { throwIfNoEntry: false })?.isFile() || BINARY_EXTENSIONS.has(extname(file).toLowerCase())) {
+        continue
+    }
     for (const { line, column, codePoint } of findInvisibleCharacters(readFileSync(file, 'utf8'))) {
         found++
         process.stdout.write(
