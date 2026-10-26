@@ -228,23 +228,17 @@ const sortDirection = z.enum(['asc', 'desc'])
 // One enum per table rather than a shared union: an accessor a query does not select would
 // otherwise reach its ORDER BY and throw.
 export const orgStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle']),
     direction: sortDirection,
 })
 
 export const userStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
-    direction: sortDirection,
-})
-
-export const userParticipationAgreementSort = z.object({
-    columnAccessor: z.enum(['orgName', 'signedAt', 'ackedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle']),
     direction: sortDirection,
 })
 
 export type OrgStudyAgreementSort = z.infer<typeof orgStudyAgreementSort>
 export type UserStudyAgreementSort = z.infer<typeof userStudyAgreementSort>
-export type UserParticipationAgreementSort = z.infer<typeof userParticipationAgreementSort>
 
 export const orgStudyAgreementParams = orgLegalParams.extend({ sort: orgStudyAgreementSort })
 export const userStudyAgreementParams = z.object({ sort: userStudyAgreementSort })
@@ -255,10 +249,6 @@ export const inviteParams = z.object({
 
 export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
-})
-
-export const userParticipationAgreementParams = participationAgreementTypeParams.extend({
-    sort: userParticipationAgreementSort,
 })
 
 export const globalDocumentTypeParams = z.object({
@@ -307,12 +297,11 @@ export const legalDocumentQueryKeys = {
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
     userStudyAgreements: (sort: UserStudyAgreementSort) =>
         ['userStudyAgreements', sort.columnAccessor, sort.direction] as const,
-    userParticipationAgreements: (type: ParticipationAgreementType, sort: UserParticipationAgreementSort) =>
-        ['userParticipationAgreements', type, sort.columnAccessor, sort.direction] as const,
+    userParticipationAgreements: (type: ParticipationAgreementType) => ['userParticipationAgreements', type] as const,
     userGlobalDocument: (type: GlobalLegalDocumentType) => ['userGlobalDocument', type] as const,
 }
 
-// Prefixes rather than whole keys: each of these tables carries its sort in the key, and an
+// Prefixes rather than whole keys: the study tables carry their sort in the key, and an
 // acknowledgement changes what every sort of it shows. React Query matches a key by prefix, so one
 // entry per table covers them all.
 export const agreementTableQueryKeyPrefixes = [

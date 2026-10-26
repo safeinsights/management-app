@@ -1,6 +1,16 @@
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { useParams } from 'next/navigation'
-import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/unit.helpers'
+import {
+    advanceTimers,
+    afterEach,
+    fakeTimeouts,
+    fireEvent,
+    renderWithProviders,
+    restoreRealTimers,
+    screen,
+    waitFor,
+    waitForPendingMutations,
+} from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { EditResubmitProvider, useEditResubmit } from './context'
@@ -47,6 +57,8 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
 }
 
 describe('EditResubmitProvider — proposal resubmission note autosave', () => {
+    afterEach(restoreRealTimers)
+
     // OTTER-558: without the retry guard a failed save marks the value "saved", so the next click
     // is a no-op and the note is silently dropped.
     it('retries the same note after a save failure instead of marking it saved', async () => {
@@ -97,6 +109,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
 
         const onSaveResult = vi.fn()
 
+        fakeTimeouts()
         const { unmount } = renderWithProviders(
             <EditResubmitProvider studyId={STUDY_ID} initialNote="">
                 <Harness onSaveResult={onSaveResult} />
@@ -107,11 +120,13 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: note } })
         await waitFor(() => expect(screen.getByLabelText('Resubmission note')).toHaveValue(note))
 
-        await waitFor(() => expect(saveNoteAction).toHaveBeenCalled())
+        // Jumps the 800 ms autosave debounce rather than waiting it out in real time.
+        await advanceTimers(800)
+        expect(saveNoteAction).toHaveBeenCalled()
         unmount()
 
         rejectSave(new Error('An unexpected response was received from the server.'))
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        await waitForPendingMutations()
 
         expect(mutationErrorHandler).not.toHaveBeenCalled()
     })

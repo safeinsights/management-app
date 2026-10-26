@@ -3,12 +3,15 @@ import { notifications } from '@mantine/notifications'
 import * as RouterMock from 'next-router-mock'
 import {
     act,
+    advanceTimers,
     afterEach,
     beforeEach,
     describe,
     expect,
+    fakeTimeouts,
     it,
     render,
+    restoreRealTimers,
     staleActionError,
     waitFor,
     type Mock,
@@ -75,6 +78,7 @@ describe('useStudyStatusOnReconnect', () => {
 
     afterEach(() => {
         __resetSharedYjsWebsocketForTests()
+        restoreRealTimers()
     })
 
     it('checks status once on initial connect', async () => {
@@ -94,12 +98,13 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('does not poll on a stable connection', async () => {
+        fakeTimeouts()
         getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
         mount()
 
         await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
         // Long enough that the old 10s poll would have fired several times.
-        await new Promise((r) => setTimeout(r, 50))
+        await advanceTimers(30_000)
         expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1)
     })
 
@@ -121,10 +126,11 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('does nothing when disabled', async () => {
+        fakeTimeouts()
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
         mount({ enabled: false })
 
-        await new Promise((r) => setTimeout(r, 30))
+        await advanceTimers(30_000)
         expect(getStudyStatusActionMock).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/')
     })
@@ -232,6 +238,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
 
     afterEach(() => {
         __resetSharedYjsWebsocketForTests()
+        restoreRealTimers()
     })
 
     it('returns a no-op trigger when there is no provider in the tree', () => {
@@ -381,6 +388,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
     })
 
     it('does not redirect twice if both reconnect and trigger fire', async () => {
+        fakeTimeouts()
         getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
 
         const Trigger = () => {
@@ -409,7 +417,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         act(() => {
             getByTestId('trigger').click()
         })
-        await new Promise((r) => setTimeout(r, 30))
+        await advanceTimers(30_000)
         expect(showMock).toHaveBeenCalledTimes(1)
     })
 })

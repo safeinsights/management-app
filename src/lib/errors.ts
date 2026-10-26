@@ -105,6 +105,14 @@ export function isStaleDeploymentError(error: unknown): boolean {
     return error instanceof Error && error.name === 'UnrecognizedActionError'
 }
 
+// Checked by name, not instanceof: Next bundles instrumentation.ts apart from the app modules.
+export class ActionResultError extends Error {
+    name = 'ActionResultError'
+}
+
+export const isActionResultError = (error: unknown): boolean =>
+    error instanceof Error && error.name === 'ActionResultError'
+
 export const STALE_DEPLOYMENT_TITLE = 'Update available'
 
 export const STALE_DEPLOYMENT_MESSAGE =

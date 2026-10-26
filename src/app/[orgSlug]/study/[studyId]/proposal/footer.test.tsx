@@ -203,9 +203,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })))
 
         const study = await db
             .selectFrom('study')
@@ -229,7 +227,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
         )
@@ -251,7 +249,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
 
         const study = await db
             .selectFrom('study')
@@ -273,9 +271,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })))
         expect(notifications.show).not.toHaveBeenCalled()
 
         const study = await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirstOrThrow()

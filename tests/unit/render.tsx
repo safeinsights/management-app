@@ -95,3 +95,13 @@ export const recordOrgListAtPush = (client: QueryClient) => {
 // The eyebrow above a page's h1 is a paragraph, and an absent one renders an empty reserved slot,
 // so there is no role or text to find it by.
 export const pageHeaderEyebrow = () => screen.getByTestId('page-header-eyebrow').textContent
+
+// Through the header's text: a sortable header's accessible name carries the sort icon too.
+export const tableHeader = (title: string) => {
+    const header = screen.getByText(title).closest('th')
+    if (!header) throw new Error(`no ${title} header`)
+    return header
+}
+
+// mantine-datatable makes a sortable header a button.
+export const isSortableHeader = (title: string) => tableHeader(title).getAttribute('role') === 'button'

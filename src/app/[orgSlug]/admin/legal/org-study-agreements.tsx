@@ -18,9 +18,11 @@ import type { DataTableColumn } from 'mantine-datatable'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
-const SORTABLE_COLUMNS = ['studyId', 'studyTitle', 'signedAt', 'ackedAt'] as const
-
-const DEFAULT_SORT: OrgStudyAgreementSort = { columnAccessor: 'signedAt', direction: 'desc' }
+const SORTING = {
+    sortableColumns: ['studyId', 'studyTitle'] as const,
+    // Study ids are v7 uuids, so descending puts the newest study first.
+    defaultSort: { columnAccessor: 'studyId', direction: 'desc' } satisfies OrgStudyAgreementSort,
+}
 
 // The counterparty column is unsortable: it names the same org on most rows.
 const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
@@ -48,8 +50,7 @@ export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ 
             label={legalDocumentCollectionLabels.SLA}
             idAccessor="studyId"
             columns={columns}
-            sortableColumns={SORTABLE_COLUMNS}
-            defaultSort={DEFAULT_SORT}
+            sorting={SORTING}
             queryKey={(sort) => legalDocumentQueryKeys.orgStudyAgreements(orgSlug, sort)}
             queryFn={(sort) => fetchOrgStudyAgreementsAction({ orgSlug, sort })}
             emptyState={<NoAgreementsYet />}

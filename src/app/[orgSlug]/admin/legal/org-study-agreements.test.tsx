@@ -6,8 +6,10 @@ import {
     faker,
     insertTestOrg,
     insertTestStudyOnly,
+    isSortableHeader,
     mockSessionWithTestData,
     renderWithProviders,
+    tableHeader,
     testUploadFile,
 } from '@/tests/unit.helpers'
 import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
@@ -156,32 +158,40 @@ describe('OrgStudyAgreements', () => {
         ).toBeDefined()
     })
 
-    it('keeps unsigned studies last when the admin sorts by Effective on', async () => {
+    it('leads with the newest study and flips on a Study ID click', async () => {
         const { dataPartner, researchLab } = await insertPartyOrgs()
-        const signedTitle = `Signed ${faker.string.alpha(6)}`
-        const unsignedTitle = `Unsigned ${faker.string.alpha(6)}`
-        const { study: signed } = await insertTestStudyOnly({
-            org: dataPartner,
-            submittedByOrg: researchLab,
-            title: signedTitle,
-        })
-        await insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title: unsignedTitle })
-        await publishAgreement(signed.id, '2026-02-02')
+        const olderTitle = `Older ${faker.string.alpha(6)}`
+        const newerTitle = `Newer ${faker.string.alpha(6)}`
+        const insertStudy = (title: string) =>
+            insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title, withStudyAgreement: false })
+        const { study: older } = await insertStudy(olderTitle)
+        // Only the older study is signed, so it would lead if the table still sorted by Effective on.
+        await publishAgreement(older.id, '2026-02-02')
+        // Inserted second, so its v7 id sorts after the first's.
+        await insertStudy(newerTitle)
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
-        await rowFor(signedTitle)
+        await rowFor(olderTitle)
 
-        // The action returns rows unordered, so this asserts the table's own default sort.
-        await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
+        await waitFor(() => expect(rowTitles()[0]).toContain(newerTitle))
 
-        // Clicked through the header's text: a sortable header's accessible name also carries the
-        // sort-direction icon.
-        const header = screen.getByText('Effective on').closest('th')
-        if (!header) throw new Error('no Effective on header')
-        fireEvent.click(header)
+        fireEvent.click(tableHeader('Study ID'))
 
-        await waitFor(() => expect(rowTitles()[rowTitles().length - 1]).toContain(unsignedTitle))
+        await waitFor(() => expect(rowTitles()[0]).toContain(olderTitle))
+    })
+
+    it('sorts by Study ID and Study title only', async () => {
+        const { dataPartner } = await seedDataPartnerWithStudy(`Awaiting ${faker.string.alpha(6)}`)
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+        await waitFor(() => expect(rowTitles()).toHaveLength(1))
+
+        expect(isSortableHeader('Study ID')).toBe(true)
+        expect(isSortableHeader('Study title')).toBe(true)
+        expect(isSortableHeader('Effective on')).toBe(false)
+        expect(isSortableHeader('Acknowledged on')).toBe(false)
     })
 
     it('shows when the viewing org acknowledged the agreement', async () => {

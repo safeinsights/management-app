@@ -1,10 +1,12 @@
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import {
+    beforeAll,
     describe,
     expect,
     faker,
     it,
+    preloadEditor,
     render,
     screen,
     simulateEditorSave,
@@ -81,6 +83,8 @@ const renderCollaborativeSection = () => {
     const { rerender } = render(tree())
     return { showFeedbackError: (message: string) => rerender(tree(message)) }
 }
+
+beforeAll(preloadEditor)
 
 describe('OutputsDecisionSection header', () => {
     it('renders the Decision heading with a required marker carrying an accessible name', () => {
