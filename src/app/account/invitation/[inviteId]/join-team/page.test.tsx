@@ -19,7 +19,7 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
-import { INVITATION_NOTICE_STORAGE_KEY, takeInvitationNotice } from '@/lib/invitation-notice'
+import { takeInvitationNotice } from '@/lib/invitation-notice'
 import { Routes } from '@/lib/routes'
 import { useAuth } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
@@ -108,10 +108,14 @@ describe('AddTeam', () => {
 
     it('still leaves for the dashboard after a decline when storage is unavailable', async () => {
         await renderInviteFrom(faker.company.name())
-        const setItem = sessionStorage.setItem.bind(sessionStorage)
-        vi.spyOn(sessionStorage, 'setItem').mockImplementation((key, value) => {
-            if (key === INVITATION_NOTICE_STORAGE_KEY) throw new DOMException('Quota exceeded', 'QuotaExceededError')
-            setItem(key, value)
+        // happy-dom binds Storage methods on first access, so a spy on setItem is bypassed.
+        const real = sessionStorage
+        vi.stubGlobal('sessionStorage', {
+            getItem: (key: string) => real.getItem(key),
+            removeItem: (key: string) => real.removeItem(key),
+            setItem: () => {
+                throw new DOMException('Quota exceeded', 'QuotaExceededError')
+            },
         })
 
         await userEvent.click(await screen.findByRole('button', { name: 'Decline invitation' }))

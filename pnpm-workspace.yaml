@@ -50,6 +50,8 @@ overrides:
     # The following are HIGH transitive-dep advisories flagged by Trivy (newly published against
     # unchanged deps — DB drift, not introduced here). Each is bounded to its current major line so
     # the bump stays a patch/minor, never a breaking major.
+    # @vitest/mocker 4.1.11: CVE-2026-112949, CVE-2026-112950. Fixed in 4.1.12.
+    '@vitest/mocker@>=4.1.11 <4.1.12': '>=4.1.12 <5'
     # axios <1.20.0: GHSA-gcfj-64vw-6mp9 (inherited proxy reuse after config clone), then a batch of
     # advisories against 1.19.x incl. GHSA-4hqw-qxg8-jxx2 and GHSA-44g4-m2mj-wpvx (NO_PROXY bypass).
     'axios@>=1.0.0 <1.20.0': '>=1.20.0 <2'
@@ -61,8 +63,9 @@ overrides:
     # fast-uri <3.1.5: CVE-2026-13676 + CVE-2026-16221 (policy bypass via bad Unicode hostname
     # canon), then GHSA-7p8r-x3mc-p8w7 against 3.1.4, now CVE-2026-84292 + CVE-2026-84394 against
     # 3.1.6 — authority injection via an unvalidated port and host confusion via unbalanced
-    # brackets, both parsing a crafted URI to an unintended host.
-    'fast-uri@>=3.0.0 <3.1.7': '>=3.1.7 <4'
+    # brackets, both parsing a crafted URI to an unintended host. Then GHSA-333x-w4r6-6crp and
+    # GHSA-xhq7-xmqj-769h against 3.1.8 — scheme injection via an unescaped colon in suffix references.
+    'fast-uri@>=3.0.0 <3.1.9': '>=3.1.9 <4'
     # nanoid <3.3.18: CVE-2026-67213 — infinite loop in customAlphabet when given a non-integer
     # size. Transitive via postcss (itself pinned above), reached from both next and vite. The
     # advisory's fix version moved to 3.3.18, so the range is widened past the 3.3.17 the earlier
