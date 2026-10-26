@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs'
 import type { Instrumentation } from 'next'
-import { isActionResultError } from '@/lib/utils'
+import { isActionResultError } from '@/lib/errors'
 
 export async function register() {
     if (process.env.NEXT_RUNTIME === 'nodejs') {
