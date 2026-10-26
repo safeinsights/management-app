@@ -74,7 +74,7 @@ describe('mailgun email functions', () => {
         for (const message of messages) expect(message.bcc).toBeUndefined()
     })
 
-    it('sendStudyProposalEmails skips a Data Partner member who has no email address', async () => {
+    it('sendStudyProposalEmails skips a Data Partner member whose blank email was cleared to NULL', async () => {
         const { study, org, user1 } = await insertTestOrgStudyJobUsers()
         const { user: noEmail } = await insertTestUser({ org })
         await db.updateTable('user').set({ email: null }).where('id', '=', noEmail.id).execute()
