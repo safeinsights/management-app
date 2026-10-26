@@ -1,22 +1,22 @@
 import { chromium, type FullConfig } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, type TestingRole } from './e2e.helpers'
-import { seedLegalDocuments } from './e2e.seed'
+import { ENCLAVE_SLUG, LAB_SLUG, REVIEWER_ADMIN_ORG_SLUG, seedLegalDocuments } from './e2e.seed'
 
 const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin', 'legal']
 
 const WARMUP_ROUTES = [
-    '/researcher/dashboard',
-    '/openstax-lab/dashboard',
-    '/openstax/dashboard',
-    '/reviewer-is-org-admin/admin/settings',
-    '/reviewer-is-org-admin/admin/team',
-    '/reviewer-is-org-admin/admin/legal',
-    '/account/signin',
-    '/account/mfa',
-    '/dashboard',
-    '/legal',
+    Routes.orgDashboard({ orgSlug: LAB_SLUG }),
+    Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }),
+    Routes.adminSettings({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }),
+    Routes.adminTeam({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }),
+    Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }),
+    Routes.accountSignin,
+    Routes.accountMfa,
+    Routes.dashboard,
+    Routes.legal,
 ]
 
 function storageStateFor(role: TestingRole) {
