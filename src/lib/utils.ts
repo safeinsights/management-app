@@ -1,4 +1,4 @@
-import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
+import { ActionResultError, errorToString, isActionError, type ActionResponse } from '@/lib/errors'
 import * as Sentry from '@sentry/nextjs'
 import type { Route } from 'next'
 import { UserSession } from './types'
@@ -65,7 +65,7 @@ export const isSessionOrgMember = (session: UserSession, orgId: string): boolean
 
 export function actionResult<T>(result: ActionResponse<T>): T {
     if (isActionError(result)) {
-        throw new Error(errorToString(result))
+        throw new ActionResultError(errorToString(result))
     }
     return result
 }
