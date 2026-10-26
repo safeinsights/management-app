@@ -1409,10 +1409,6 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         await page.getByRole('textbox', { name: 'Principal Investigator' }).click()
         await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
         await page.keyboard.press('Escape')
-        // Leave the field before clicking Submit: its error appearing on blur shifts Submit down
-        // between mousedown and mouseup, so the click would never fire.
-        await page.keyboard.press('Tab')
-        await expect(page.getByText('Select a Principal Investigator before continuing.')).toBeVisible()
 
         // Submit is live from load, and clicking it with an empty form flags every required field
         // at once rather than disabling itself.

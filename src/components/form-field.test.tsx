@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import { TextInput } from '@mantine/core'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, fieldDescribedBy, useWidgetBlur } from './form-field'
+import { FormField, fieldDescribedBy, fieldTestId, useWidgetBlur } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -70,6 +71,30 @@ describe('FormField', () => {
         )
 
         expect(document.getElementById('field-error')).toBeNull()
+    })
+
+    // A row that mounts with its error pushes whatever is below it down, under a pending click.
+    it('reserves the error row before a blur error arrives', async () => {
+        const Harness = () => {
+            const [error, setError] = useState<string>()
+            return (
+                <>
+                    <FormField inputId="field" label="Study title" error={error} validatesOnBlur>
+                        <TextInput id="field" aria-label="Study title input" />
+                    </FormField>
+                    <button onClick={() => setError('This is required.')}>Raise error</button>
+                </>
+            )
+        }
+        renderWithProviders(<Harness />)
+        const row = screen.getByTestId(fieldTestId('field')).lastElementChild as HTMLElement
+
+        expect(row.style.minHeight).toBe('calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))')
+
+        await userEvent.click(screen.getByRole('button', { name: 'Raise error' }))
+
+        expect(screen.getByTestId(fieldTestId('field')).lastElementChild).toBe(row)
+        expect(row).toHaveTextContent('This is required.')
     })
 
     it('renders the footer slot alongside the error', () => {

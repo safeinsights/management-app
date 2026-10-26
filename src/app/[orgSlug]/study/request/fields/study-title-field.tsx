@@ -34,6 +34,7 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
                 required
                 description={DESCRIPTION}
                 error={error}
+                validatesOnBlur
                 // The character-limit message appears mid-typing, before focus moves, so it has to
                 // announce itself.
                 errorLive

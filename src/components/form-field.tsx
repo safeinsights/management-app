@@ -141,6 +141,8 @@ export interface FormFieldProps {
     footer?: ReactNode
     /** Only for a field whose error can appear while the user is still typing in it (OTTER-690). */
     errorLive?: boolean
+    /** Reserves the error row up front, so an error raised on blur doesn't push the page down mid-click. */
+    validatesOnBlur?: boolean
     children: ReactNode
 }
 
@@ -162,17 +164,26 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     return message
 }
 
-const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode; errorLive?: boolean }> = ({
-    inputId,
-    error,
-    footer,
-    errorLive,
-}) => {
+const FieldFooterRow: FC<{
+    inputId: string
+    error?: ReactNode
+    footer?: ReactNode
+    errorLive?: boolean
+    validatesOnBlur?: boolean
+}> = ({ inputId, error, footer, errorLive, validatesOnBlur }) => {
     // `errorLive` keeps the row mounted: the live region has to exist before the message does.
-    if (!error && !footer && !errorLive) return null
+    if (!error && !footer && !errorLive && !validatesOnBlur) return null
 
+    // One InputError line tall, so the message arriving never changes the row's height.
     return (
-        <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt="xxs" wrap="nowrap">
+        <Group
+            justify={error ? 'space-between' : 'flex-end'}
+            align="flex-start"
+            gap="xs"
+            mt="xxs"
+            wrap="nowrap"
+            mih="calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))"
+        >
             <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>
@@ -187,6 +198,7 @@ export const FormField: FC<FormFieldProps> = ({
     error,
     footer,
     errorLive,
+    validatesOnBlur,
     children,
 }) => {
     return (
@@ -206,7 +218,13 @@ export const FormField: FC<FormFieldProps> = ({
             >
                 {children}
             </Input.Wrapper>
-            <FieldFooterRow inputId={inputId} error={error} footer={footer} errorLive={errorLive} />
+            <FieldFooterRow
+                inputId={inputId}
+                error={error}
+                footer={footer}
+                errorLive={errorLive}
+                validatesOnBlur={validatesOnBlur}
+            />
         </Box>
     )
 }
