@@ -66,21 +66,35 @@ const StudyTitleCell: FC<{ title: string; href: Route }> = ({ title, href }) => 
     </Tooltip>
 )
 
-type StudyTitleRow = { studyTitle: string | null; studyId: string }
+export const TruncatedNameCell: FC<{ name: string }> = ({ name }) => (
+    <Tooltip label={name} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
+        <Text fz="sm" truncate="end">
+            {name}
+        </Text>
+    </Tooltip>
+)
 
 // In an auto-layout table a no-wrap cell grows to its text whatever its width says; a zero
 // max-width drops that floor, so the percentage width is what the column gets.
-export const clampedCellsStyle = () => ({ maxWidth: 0 })
-
-export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => Route): DataTableColumn<T> => ({
-    accessor: 'studyTitle',
-    title: 'Study title',
-    sortable: true,
+export const clampedColumn = <T,>(
+    width: string,
+    column: DataTableColumn<T> & { noWrap?: never },
+): DataTableColumn<T> => ({
+    ...column,
     ellipsis: true,
-    width: '35%',
-    cellsStyle: clampedCellsStyle,
-    render: (row) => <StudyTitleCell title={studyAgreementDisplayTitle(row)} href={hrefFor(row)} />,
+    width,
+    cellsStyle: () => ({ maxWidth: 0 }),
 })
+
+type StudyTitleRow = { studyTitle: string | null; studyId: string }
+
+export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => Route): DataTableColumn<T> =>
+    clampedColumn('35%', {
+        accessor: 'studyTitle',
+        title: 'Study title',
+        sortable: true,
+        render: (row) => <StudyTitleCell title={studyAgreementDisplayTitle(row)} href={hrefFor(row)} />,
+    })
 
 type BaseProps<T> = {
     label: string

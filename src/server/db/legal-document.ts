@@ -288,7 +288,7 @@ export const userStudyAgreements = (
             'agreement.versionId',
             'agreement.signedAt',
             'agreement.ackedAt',
-            // A member of both orgs is sent to the researcher view, as the reviewer guard would do anyway.
+            // Membership of the lab alone grants the researcher view, so a member of both orgs gets it.
             eb('study.submittedByOrgId', 'in', usersOrgs).as('isResearcher'),
         ])
         // Two ways a study belongs here. The acknowledged side carries no status filter on purpose:

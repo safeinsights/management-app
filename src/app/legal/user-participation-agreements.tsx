@@ -9,29 +9,22 @@ import {
 } from '@/schema/legal-document'
 import { fetchUserParticipationAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
-import { Text, Tooltip } from '@mantine/core'
-import { agreementDateColumns, AgreementsPanel, clampedCellsStyle } from '@/components/legal/agreements-table'
+import {
+    agreementDateColumns,
+    AgreementsPanel,
+    clampedColumn,
+    TruncatedNameCell,
+} from '@/components/legal/agreements-table'
 
 type ParticipationAgreement = ActionSuccessType<typeof fetchUserParticipationAgreementsAction>[number]
 
-const TruncatedNameCell: FC<{ name: string }> = ({ name }) => (
-    <Tooltip label={name} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
-        <Text fz="sm" truncate="end">
-            {name}
-        </Text>
-    </Tooltip>
-)
-
 const columns: DataTableColumn<ParticipationAgreement>[] = [
     // Not a link: design has not yet decided whether an org name should open anything.
-    {
+    clampedColumn('40%', {
         accessor: 'orgName',
         title: 'Organization',
-        ellipsis: true,
-        width: '40%',
-        cellsStyle: clampedCellsStyle,
         render: ({ orgName }) => <TruncatedNameCell name={orgName} />,
-    },
+    }),
     ...agreementDateColumns<ParticipationAgreement>(),
 ]
 
