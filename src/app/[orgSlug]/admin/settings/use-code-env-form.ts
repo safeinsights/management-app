@@ -20,6 +20,9 @@ import {
     editOrgCodeEnvSchema,
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
+    composeImageRef,
+    imageDigestError,
+    splitImageRef,
 } from '@/schema/code-env'
 import { ActionSuccessType, type DataSourceType } from '@/lib/types'
 import { Language } from '@/database/types'
@@ -48,12 +51,20 @@ async function uploadSampleData(codeEnvId: string, files: File[]): Promise<boole
     return true
 }
 
+// Rows saved before digests were required load unpinned; flag that on open rather than on submit.
+function legacyDigestErrors(image: CodeEnv | undefined): Record<string, string> {
+    if (!image) return {}
+    const error = imageDigestError(splitImageRef(image.url).digest)
+    return error ? { digest: error } : {}
+}
+
 export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () => void) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const isEditMode = !!image
     const [sampleDataFiles, setSampleDataFiles] = useState<File[]>([])
 
     const formSchema = isEditMode ? editOrgCodeEnvFormSchema : createOrgCodeEnvFormSchema
+    const imageRef = splitImageRef(image?.url ?? '')
 
     const form = useForm<FormValues>({
         initialValues: {
@@ -61,7 +72,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             identifier: image?.identifier || '',
             commandLines: image?.commandLines ?? {},
             language: (image?.language || 'R') as Language,
-            url: image?.url || '',
+            url: imageRef.url,
+            digest: imageRef.digest,
             isTesting: image?.isTesting || false,
             // `[]`, not undefined: the array type check fails before `.min(1)` runs, so an
             // untouched dropzone would report Zod's internal message (OTTER-647).
@@ -78,6 +90,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             newCmdValue: '',
             existingStarterCodeFileNames: image?.starterCodeFileNames ?? [],
         },
+        initialErrors: legacyDigestErrors(image),
         validate: zodResolver(formSchema),
     })
 
@@ -230,7 +243,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         .filter((message, index, all) => all.indexOf(message) === index)
 
     const onSubmit = form.onSubmit(
-        ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, ...values }) => {
+        ({ newEnvKey, newEnvValue, newCmdExt, newCmdValue, existingStarterCodeFileNames: _, digest, ...values }) => {
             // The resolver validates transformed data but this handler gets the raw values, so
             // 'FOO' paired with '   ' would otherwise read as complete.
             const envKey = newEnvKey.trim()
@@ -266,6 +279,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             if (cmdExt && cmdValue) {
                 values.commandLines = { ...values.commandLines, [cmdExt]: cmdValue }
             }
+            values.url = composeImageRef(values.url, digest)
             saveCodeEnv(values as CreateFormValues | EditFormValues)
         },
     )
