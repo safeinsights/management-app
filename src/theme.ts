@@ -355,8 +355,9 @@ export const theme = createTheme({
             defaultProps: { padding: 'xxl' },
             styles: {
                 header: {
-                    paddingBlock: 0,
+                    paddingBlock: 'var(--mantine-spacing-md)',
                     paddingInline: 'var(--mantine-spacing-xxl)',
+                    gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.sunken'),
                 },
                 body: { padding: 'var(--mb-padding)' },
@@ -369,7 +370,8 @@ export const theme = createTheme({
                     minHeight: rem(16),
                     minWidth: rem(16),
                 },
-                title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold },
+                // Mantine's line-height 1 crams a title that wraps in a narrow modal.
+                title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold, lineHeight: 1.35 },
             },
         }),
         // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.

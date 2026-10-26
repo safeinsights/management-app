@@ -1,6 +1,5 @@
 'use client'
 
-import { InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { type FC } from 'react'
 import { legalDocumentCollectionLabels } from '@/schema/legal-document'
 import { Badge, HoverCard, Text } from '@mantine/core'
@@ -15,7 +14,7 @@ export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     return (
         <HoverCard width={280} withArrow shadow="md" position="bottom-start">
             <HoverCard.Target>
-                <Badge variant="outline" color="grey" leftSection={<InfoIcon size={10} weight="fill" aria-hidden />}>
+                <Badge variant="outline" color="grey" fz="var(--si-font-size-10)">
                     {LABEL}
                 </Badge>
             </HoverCard.Target>
