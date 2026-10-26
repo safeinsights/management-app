@@ -78,7 +78,7 @@ test.describe('sign in while already signed in', () => {
         })
         let refusals = 0
 
-        await page.route('**/dashboard', async (route) => {
+        await page.route(`**${Routes.dashboard}`, async (route) => {
             if (route.request().resourceType() !== 'document') return route.continue()
             refusals += 1
             await route.fulfill({ status: 307, headers: { location: refusedTo } })
