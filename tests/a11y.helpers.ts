@@ -21,9 +21,10 @@ export async function scanA11y(page: Page, label: string, { include }: { include
     const builder = new AxeBuilder({ page }).withTags([...WCAG_TAGS, 'best-practice'])
     if (include) builder.include(include)
     const results = await builder.analyze()
-    const file = test.info().outputPath(`axe-${label.replace(/\W+/g, '-').toLowerCase()}.json`)
-    await fs.promises.writeFile(file, JSON.stringify(results, null, 2))
-    await test.info().attach(`axe: ${label}`, { path: file, contentType: 'application/json' })
+    const json = JSON.stringify(results, null, 2)
+    await fs.promises.writeFile(test.info().outputPath(`axe-${label.replace(/\W+/g, '-').toLowerCase()}.json`), json)
+    // A body, not a path: attaching a path copies the file next to it, and CI would upload both.
+    await test.info().attach(`axe: ${label}`, { body: json, contentType: 'application/json' })
     return {
         wcag: results.violations.filter(isWcagViolation),
         bestPractice: results.violations.filter((violation) => !isWcagViolation(violation)),

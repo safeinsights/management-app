@@ -1,7 +1,14 @@
 import { Routes } from '@/lib/routes/definitions'
 import { expectNoA11yViolations, scanA11y } from './a11y.helpers'
 import { authFileFor, expect, goto, test, TestingUsers, type Page } from './e2e.helpers'
-import { ENCLAVE_SLUG, LAB_SLUG, seedCodeSubmitted, seedProposalPendingReview, seedStudyFor } from './e2e.seed'
+import {
+    ENCLAVE_SLUG,
+    LAB_SLUG,
+    seedCodeSubmitted,
+    seedProposalPendingReview,
+    seedStudyFor,
+    storeSeededMainCode,
+} from './e2e.seed'
 
 const ORG_ADMIN_SLUG = 'reviewer-is-org-admin'
 
@@ -39,25 +46,30 @@ test.describe('accessibility: signed out', () => {
 
     test('about', async ({ page }) => {
         await goto(page, Routes.about)
-        await expect(page.getByText('Release', { exact: true })).toBeVisible()
-        await expect(page.getByText('Infrastructure', { exact: true })).toBeVisible()
+        await expect(page.getByText('Release:', { exact: true })).toBeVisible()
+        await expect(page.getByText('Infrastructure:', { exact: true })).toBeVisible()
         await expectNoA11yViolations(page, 'about')
     })
 })
+
+// The heading renders before the studies table, whose title replaces a skeleton once its rows arrive.
+const openMyStudies = async (page: Page) => {
+    await goto(page, Routes.dashboard)
+    await expectHeading(page, 'My studies')
+    await expect(page.getByText('Studies for review', { exact: true })).toBeVisible()
+}
 
 test.describe('accessibility: reviewer', () => {
     test.use({ storageState: authFileFor('reviewer') })
 
     test('my studies', async ({ page }) => {
-        await goto(page, Routes.dashboard)
-        await expectHeading(page, 'My studies')
+        await openMyStudies(page)
         await expectNoA11yViolations(page, 'reviewer my studies')
     })
 
     test('account menu open', async ({ page }) => {
-        await goto(page, Routes.dashboard)
-        await expectHeading(page, 'My studies')
-        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+        await openMyStudies(page)
+        await page.getByRole('button', { name: 'profile menu' }).click()
         await expect(page.getByRole('dialog')).toBeVisible()
         await expectNoA11yViolations(page, 'account menu')
     })
@@ -79,9 +91,11 @@ test.describe('accessibility: reviewer', () => {
     })
 
     test('code review', async ({ page, studyFeatures }) => {
-        const { studyId } = await seedCodeSubmitted(studyFeatures.uniqueTitle('a11y code review'))
+        const { studyId, jobId } = await seedCodeSubmitted(studyFeatures.uniqueTitle('a11y code review'))
+        await storeSeededMainCode(studyId, jobId)
         await goto(page, Routes.studyReview({ orgSlug: ENCLAVE_SLUG, studyId }))
         await expect(page.getByTestId('code-review-section')).toBeVisible()
+        await expect(page.getByTestId('study-code-body')).toBeVisible()
         await expectNoA11yViolations(page, 'code review')
     })
 
@@ -185,6 +199,7 @@ test.describe('accessibility: SafeInsights admin', () => {
     test('safeinsights legal', async ({ page }) => {
         await goto(page, Routes.adminSafeinsightsLegal)
         await expectHeading(page, 'SafeInsights Legal')
+        await expectLoaded(page, /^Loading/)
         await expectNoA11yViolations(page, 'safeinsights legal')
     })
 })

@@ -247,6 +247,8 @@ const seededStatusActor = (status: StudyJobStatus, ids: { researcherId: string; 
     return ids.researcherId
 }
 
+const seededMainCodePath = (studyId: string, jobId: string) => `studies/${studyId}/${jobId}/analysis.r`
+
 // `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
@@ -266,7 +268,7 @@ async function insertSubmittedJob(
             .values({
                 studyJobId: job.id,
                 name: 'analysis.r',
-                path: `studies/${studyId}/${job.id}/analysis.r`,
+                path: seededMainCodePath(studyId, job.id),
                 fileType: 'MAIN-CODE',
             })
             .execute()
@@ -349,10 +351,22 @@ export async function seedStudyFor(
     return { studyId: study.id }
 }
 
-export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
+export async function seedCodeSubmitted(title: string): Promise<Required<SeedResult>> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
-    await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
-    return { studyId: study.id }
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// The seeds insert only the file row. A spec that renders the code body needs the object too, or the
+// body never leaves its loading state.
+export async function storeSeededMainCode(studyId: string, jobId: string) {
+    await getS3Client().send(
+        new PutObjectCommand({
+            Bucket: s3BucketName(),
+            Key: withS3Prefix(seededMainCodePath(studyId, jobId)),
+            Body: 'summary(read.csv("data.csv"))\n',
+        }),
+    )
 }
 
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
