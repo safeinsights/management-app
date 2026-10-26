@@ -1,3 +1,5 @@
+import { withQuery } from '@/lib/routes/builder'
+import { Routes } from '@/lib/routes/definitions'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { authFileFor, e2eSignOut, expect, goto, test } from './e2e.helpers'
 
@@ -5,23 +7,23 @@ test.describe('sign in while already signed in', () => {
     test.use({ storageState: authFileFor('admin') })
 
     test('offers to continue into the app', async ({ page }) => {
-        await goto(page, '/account/signin')
+        await goto(page, Routes.accountSignin)
 
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
         await page.getByRole('button', { name: /^continue$/i }).click()
 
-        await expect(page).toHaveURL(/dashboard/)
+        await expect(page).toHaveURL(Routes.dashboard)
     })
 
     test('auto-redirects when a safe redirect_url is present', async ({ page }) => {
-        await goto(page, '/account/signin?redirect_url=%2Fdashboard')
+        await goto(page, withQuery(Routes.accountSignin, { redirect_url: Routes.dashboard }))
 
-        await expect(page).toHaveURL(/dashboard/)
+        await expect(page).toHaveURL(Routes.dashboard)
     })
 
     test('can switch to a different account', async ({ page }) => {
-        await goto(page, '/account/signin')
+        await goto(page, Routes.accountSignin)
 
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
@@ -35,7 +37,7 @@ test.describe('sign in while already signed in', () => {
     // believing it is signed in while the server sees nobody, which is the staging divergence that
     // stranded the prompt on screen with a Continue button that could only bounce off the proxy.
     test('closes the prompt once the client notices the session is gone', async ({ page }) => {
-        await goto(page, '/account/signin')
+        await goto(page, Routes.accountSignin)
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
         await e2eSignOut(page, { notifyClient: true })
@@ -46,7 +48,7 @@ test.describe('sign in while already signed in', () => {
     })
 
     test('continue leads somewhere even when the session died behind the prompt', async ({ page }) => {
-        await goto(page, '/account/signin')
+        await goto(page, Routes.accountSignin)
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
         // No store notification here on purpose: the client stays stale-signed-in, so Continue
@@ -54,7 +56,7 @@ test.describe('sign in while already signed in', () => {
         await e2eSignOut(page)
         await page.getByRole('button', { name: /^continue$/i }).click()
 
-        await expect(page).toHaveURL(/redirect_url=%2Fdashboard/)
+        await expect(page).toHaveURL((url) => url.searchParams.get('redirect_url') === Routes.dashboard)
         await expect(page.getByLabel('email')).toBeVisible()
         await expect(page.getByLabel('password')).toBeVisible()
     })
@@ -79,7 +81,7 @@ test.describe('sign in while already signed in', () => {
             await route.fulfill({ status: 307, headers: { location: refusedTo } })
         })
 
-        await goto(page, '/account/signin?redirect_url=%2Fdashboard')
+        await goto(page, withQuery(Routes.accountSignin, { redirect_url: Routes.dashboard }))
 
         await expect(page.getByLabel('email')).toBeVisible()
         await expect(page.getByLabel('password')).toBeVisible()
