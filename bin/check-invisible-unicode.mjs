@@ -2,8 +2,28 @@
 // Usage: node bin/check-invisible-unicode.mjs
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { extname } from 'node:path'
 import process from 'node:process'
 import { findInvisibleCharacters } from '../tests/invisible-unicode.mjs'
+
+// Skipped by name, not by content: a NUL byte must not let a text file opt out of the check.
+const BINARY_EXTENSIONS = new Set([
+    '.gif',
+    '.gz',
+    '.ico',
+    '.jpeg',
+    '.jpg',
+    '.pdf',
+    '.png',
+    '.webp',
+    '.woff',
+    '.woff2',
+    '.zip',
+])
+
+// GitHub workflow command property values must escape these characters.
+const escapeProperty = (value) =>
+    value.replace(/[%\r\n:,]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`)
 
 const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     .split('\0')
@@ -12,15 +32,13 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuf
 let found = 0
 for (const file of files) {
     // A file deleted locally but not yet staged is still listed.
-    if (!existsSync(file)) continue
-    const bytes = readFileSync(file)
-    // Same rule as `git grep -I`: a NUL byte marks a binary file.
-    if (bytes.includes(0)) continue
-    for (const { line, column, codePoint } of findInvisibleCharacters(bytes.toString('utf8'))) {
+    if (!existsSync(file) || BINARY_EXTENSIONS.has(extname(file).toLowerCase())) continue
+    for (const { line, column, codePoint } of findInvisibleCharacters(readFileSync(file, 'utf8'))) {
         found++
         process.stdout.write(
-            `::error file=${file},line=${line},col=${column}::${codePoint} is an invisible or bidirectional control ` +
-                'character (Trojan Source, CVE-2021-42574). Delete it, or write it as an escape sequence such as \\u202E.\n',
+            `::error file=${escapeProperty(file)},line=${line},col=${column}::${codePoint} is an invisible or ` +
+                'bidirectional control character (Trojan Source, CVE-2021-42574). Delete it. If source code needs ' +
+                'it, write it as an escape sequence such as \\u202E.\n',
         )
     }
 }
