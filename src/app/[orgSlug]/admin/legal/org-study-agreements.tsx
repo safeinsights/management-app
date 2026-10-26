@@ -14,6 +14,7 @@ import { fetchOrgStudyAgreementsAction } from '@/server/actions/org-legal.action
 import { ackedAtColumn, AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Stack, Text } from '@mantine/core'
+import { semanticColor } from '@/theme/tokens'
 import type { DataTableColumn } from 'mantine-datatable'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
@@ -34,10 +35,11 @@ const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgree
     versionColumn<StudyAgreement>(),
 ]
 
-// This table lists the org's studies, not one reader's acknowledgements.
+// This table lists the org's studies, not one reader's acknowledgements. The DataTable empty state
+// colors its content a gray that fails contrast, so the first line sets its own color.
 const NoAgreementsYet: FC = () => (
     <Stack gap="xxs" align="center">
-        <Text>No Study Agreement yet.</Text>
+        <Text c={semanticColor('text.primary')}>No Study Agreement yet.</Text>
         <Text c="dimmed">Once a study reaches the agreement stage, its Study Agreement will appear here.</Text>
     </Stack>
 )

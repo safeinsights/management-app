@@ -7,6 +7,7 @@ import type { ActionResponse } from '@/lib/errors'
 import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
+import { semanticColor } from '@/theme/tokens'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useState, type ReactNode } from 'react'
 
@@ -77,9 +78,10 @@ type UnsortedProps<T> = BaseProps<T> & {
 // A union rather than optional fields, so a table either sorts end to end or not at all.
 type Props<T, Column extends string> = SortedProps<T, Column> | UnsortedProps<T>
 
+// The DataTable empty state colors its content a gray that fails contrast.
 const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
     <Stack gap="xxs" align="center">
-        <Text>You have not acknowledged any {label} yet</Text>
+        <Text c={semanticColor('text.primary')}>You have not acknowledged any {label} yet</Text>
     </Stack>
 )
 

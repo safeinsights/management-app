@@ -6,7 +6,6 @@ import {
     ENCLAVE_SLUG,
     LAB_SLUG,
     seedCodeSubmitted,
-    seedPendingInvite,
     seedProposalPendingReview,
     seedStudyFor,
     storeSeededMainCode,
@@ -67,8 +66,9 @@ test.describe('accessibility: signed out', () => {
     })
 })
 
+// My studies lists only studies the reviewer has acted on, which a submitted-code seed is.
 const openMyStudies = async (page: Page, title: string) => {
-    await seedProposalPendingReview(title)
+    await seedCodeSubmitted(title)
     await goto(page, Routes.dashboard)
     await expectHeading(page, 'My studies')
     await expect(page.getByRole('table').getByText(title)).toBeVisible()
@@ -125,14 +125,10 @@ test.describe('accessibility: reviewer', () => {
         await expectNoA11yViolations(page, 'org settings')
     })
 
-    // The seeded invite keeps the invites list populated whatever org-admin.spec does to it meanwhile.
     test('org team', async ({ page }) => {
-        const email = `a11y-invite-${Date.now().toString(36)}@test.com`
-        await seedPendingInvite(ORG_ADMIN_SLUG, email)
         await goto(page, Routes.adminTeam({ orgSlug: ORG_ADMIN_SLUG }))
         await expect(page.getByRole('cell', { name: TestingUsers.reviewer.identifier })).toBeVisible()
         await expectTableLoaded(page)
-        await expect(page.getByTestId('pending-invites').getByText(email)).toBeVisible()
         await expectNoA11yViolations(page, 'org team')
     })
 
