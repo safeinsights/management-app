@@ -728,6 +728,23 @@ describe('Save & continue validation', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
+    // OTTER-880: Figma puts this error above the options, unlike every other field's.
+    it('shows the language error above the radios', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'A valid study title')
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await screen.findByRole('radio', { name: 'Python' })
+        await user.click(continueButton())
+
+        const error = await screen.findByText(LANGUAGE_ERROR)
+        const firstRadio = screen.getByRole('radio', { name: 'R' })
+
+        expect(error.compareDocumentPosition(firstRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
     it('opens the modal once every field is valid', async () => {
         const user = userEvent.setup()
         const fixtures = await setupFixtures()

@@ -35,7 +35,13 @@
       "mcp__playwright-test__browser_close",
       "mcp__playwright-test__browser_navigate",
       "mcp__claude_ai_Atlassian__getJiraIssue",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(python3 -)",
+      "Bash(pnpm run *)",
+      "Bash(./bin/docker-test)",
+      "Bash(cp src/app/[orgSlug]/study/request/fields/programming-language-field.tsx /private/tmp/claude-501/-Users-jw183-Documents-GitHub-management-app/a4f5ec61-a6fa-48d1-81bf-53b796961c47/scratchpad/plf.bak)",
+      "Bash(git checkout *)",
+      "Bash(./bin/docker-test -- \"src/app/[orgSlug]/study/request/setup-form.test.tsx\" -t \"above the radios\")"
     ],
     "deny": [
       "Read(.env)",

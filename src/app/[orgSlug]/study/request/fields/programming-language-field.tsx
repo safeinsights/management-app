@@ -156,6 +156,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                 <Text id={HELPER_ID} size="xs" c="dimmed">
                     {helperText}
                 </Text>
+                {/* Above the radios by design, not by mistake (Figma Error/empty, OTTER-880). */}
+                <ErrorLine error={error} />
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
@@ -176,7 +178,6 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     {/* Stacked, not a row: the multi-language design lists the options vertically. */}
                     <Stack gap="xs">{languageRadios}</Stack>
                 </Radio.Group>
-                <ErrorLine error={error} />
             </>
         )
     }
