@@ -638,7 +638,9 @@ describe('SubmittedCodeSection — Security scan results', () => {
     it('shows a spinner while the scan is pending', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanInProgress)
-        expect(within(screen.getByTestId('security-scan-results')).getByLabelText('Scan pending')).toBeInTheDocument()
+        expect(
+            within(screen.getByTestId('security-scan-results')).getByText('Security scan pending'),
+        ).toBeInTheDocument()
     })
 })
 
@@ -709,7 +711,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
             </JobAnalysisPanels>,
         )
         await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
-        expect(screen.getByLabelText('Scan pending')).toBeInTheDocument()
+        expect(screen.getByText('Security scan pending')).toBeInTheDocument()
         vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('FAILED') }))
         await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
         const settled = vi.mocked(getJobAnalysisAction).mock.calls.length

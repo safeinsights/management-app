@@ -14,7 +14,7 @@ import { AccountMenu } from './account-menu'
 
 // The popover fades in, so the first query after opening waits for the transition to settle.
 const openMenu = async () => {
-    await userEvent.click(screen.getByRole('button', { name: 'Toggle profile menu' }))
+    await userEvent.click(screen.getByRole('button', { name: /profile menu/ }))
     await screen.findByRole('button', { name: 'Log out' })
 }
 
@@ -36,7 +36,7 @@ describe('AccountMenu', () => {
         expect(screen.getByRole('link', { name: 'Security key' })).toHaveAttribute('href', Routes.userKey)
         expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', Routes.legal)
         expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Toggle profile menu' })).toHaveAttribute('aria-expanded', 'true')
+        expect(screen.getByRole('button', { name: /profile menu/ })).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('hides the researcher profile from a data partner user and the SI console from non-SI admins', async () => {
@@ -70,7 +70,7 @@ describe('AccountMenu', () => {
 
         await userEvent.click(screen.getByRole('link', { name: 'Legal' }))
 
-        expect(screen.getByRole('button', { name: 'Toggle profile menu' })).toHaveAttribute('aria-expanded', 'false')
+        expect(screen.getByRole('button', { name: /profile menu/ })).toHaveAttribute('aria-expanded', 'false')
     })
 
     it('shows initials from the first and last name, never the Clerk image', () => {
@@ -86,7 +86,7 @@ describe('AccountMenu', () => {
         })
         renderWithProviders(<AccountMenu />)
 
-        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        const trigger = screen.getByRole('button', { name: /profile menu/ })
         expect(within(trigger).getByText('MV')).toBeInTheDocument()
         expect(within(trigger).queryByRole('img')).toBeNull()
     })
@@ -103,7 +103,8 @@ describe('AccountMenu', () => {
         })
         renderWithProviders(<AccountMenu />)
 
-        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        // WCAG 2.5.3: the accessible name starts with the visible first name.
+        const trigger = screen.getByRole('button', { name: '𠮷田 profile menu' })
         expect(within(trigger).getByText('𠮷L')).toBeInTheDocument()
     })
 
@@ -113,7 +114,7 @@ describe('AccountMenu', () => {
         renderWithProviders(<AccountMenu />)
         await openMenu()
 
-        const trigger = screen.getByRole('button', { name: 'Toggle profile menu' })
+        const trigger = screen.getByRole('button', { name: /profile menu/ })
         expect(trigger).toHaveFocus()
         await userEvent.keyboard('{Escape}')
 
