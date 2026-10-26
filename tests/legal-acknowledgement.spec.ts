@@ -1,9 +1,11 @@
+import { expectNoA11yViolations } from './a11y.helpers'
 import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
 // The `legal` role is exclusive to this spec: ToS gates every page, so borrowing another
-// role's user would block it in a parallel worker.
-test.use({ storageState: authFileFor('legal') })
+// role's user would block it in a parallel worker. Reduced motion keeps the modal from
+// fading in while axe scans it.
+test.use({ storageState: authFileFor('legal'), contextOptions: { reducedMotion: 'reduce' } })
 
 const DASHBOARD = '/dashboard'
 
@@ -15,6 +17,8 @@ test.describe('Terms of Service acknowledgement', () => {
         await expect(modal).toBeVisible()
 
         await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        // Scoped to the modal: nothing waits for the page behind it, which the a11y spec covers.
+        await expectNoA11yViolations(page, 'Terms of Service update modal', { include: '[role="dialog"]' })
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
         await expect(modal.getByText('Privacy Notice')).toBeHidden()

@@ -113,7 +113,15 @@ export default defineConfig({
             // globalSetup (tests/global.setup.ts); DB users/orgs are seeded by
             // `pnpm test:e2e:up` (db:migrate). No separate auth-setup project/barrier.
             name: 'chromium',
+            testIgnore: '**/a11y.spec.ts',
             use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            // OTTER-683. Reduced motion makes Mantine finish transitions instantly (theme
+            // respectReducedMotion), so axe never measures a half-faded element.
+            name: 'a11y',
+            testMatch: '**/a11y.spec.ts',
+            use: { ...devices['Desktop Chrome'], contextOptions: { reducedMotion: 'reduce' } },
         },
         // {
         //     name: 'firefox',

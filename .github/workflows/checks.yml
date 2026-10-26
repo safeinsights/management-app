@@ -338,6 +338,15 @@ jobs:
               run: pnpm exec playwright install-deps chromium
             - name: pnpm run test:e2e
               run: pnpm run test:e2e
+            # OTTER-683: the axe results are the RISK-157 evidence, so keep them on passing runs too.
+            - name: upload accessibility results
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: a11y-results
+                  path: test-results/e2e/**/axe-*.json
+                  retention-days: 30
+                  if-no-files-found: warn
             - name: upload e2e coverage
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
