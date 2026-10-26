@@ -11,12 +11,11 @@ import {
     visitAsRole,
     path,
 } from './e2e.helpers'
-import { SEEDED_TOS_V2_BODY } from './e2e.seed'
+import { REVIEWER_ADMIN_ORG_SLUG, SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
 // Reviewer is the org admin for `reviewer-is-org-admin`.
-const ORG_SLUG = 'reviewer-is-org-admin'
 test.use({ storageState: authFileFor('reviewer') })
 
 test.describe('Organization Admin', () => {
@@ -24,7 +23,7 @@ test.describe('Organization Admin', () => {
         const uniqueSuffix = Date.now().toString(36)
         const email = `test-invite-${uniqueSuffix}@test.com`
 
-        await visitAsRole(page, Routes.adminTeam({ orgSlug: ORG_SLUG }))
+        await visitAsRole(page, Routes.adminTeam({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
         // The users table loads client-side, so its rows only show once the page has hydrated and the
         // invite button responds to a click.
@@ -122,9 +121,9 @@ test.describe('Organization Admin', () => {
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
-        await visitAsRole(page, Routes.adminSettings({ orgSlug: ORG_SLUG }))
+        await visitAsRole(page, Routes.adminSettings({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
-        await expect(page).toHaveURL(Routes.adminSettings({ orgSlug: ORG_SLUG }))
+        await expect(page).toHaveURL(Routes.adminSettings({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
         await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /code environments/i })).toBeVisible()
@@ -189,9 +188,9 @@ test.describe('Organization Admin', () => {
 
     // Row content is deliberately not asserted: other specs mutate this org in parallel.
     test('org admin can open the legal center', async ({ page }) => {
-        await visitAsRole(page, Routes.adminLegal({ orgSlug: ORG_SLUG }))
+        await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
-        await expect(page).toHaveURL(Routes.adminLegal({ orgSlug: ORG_SLUG }))
+        await expect(page).toHaveURL(Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
         await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
 
@@ -202,7 +201,7 @@ test.describe('Organization Admin', () => {
     })
 
     test('legal center shows the sort icon beside the column label', async ({ page }) => {
-        await visitAsRole(page, Routes.adminLegal({ orgSlug: ORG_SLUG }))
+        await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
         const header = page.getByRole('button', { name: /^study title/i })
         const label = header.locator('.mantine-datatable-header-cell-sortable-text')
@@ -228,7 +227,7 @@ test.describe('Organization Admin', () => {
         test.use({ viewport: LEGAL_DESIGN_VIEWPORT })
 
         test('legal center layout matches the design', async ({ page }) => {
-            await visitAsRole(page, Routes.adminLegal({ orgSlug: ORG_SLUG }))
+            await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
             await expectLegalLayoutToMatchDesign(page)
         })
     })
