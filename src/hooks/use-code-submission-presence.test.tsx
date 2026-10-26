@@ -2,13 +2,17 @@ import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
+    advanceTimers,
+    afterEach,
     beforeEach,
     describe,
     expect,
     faker,
+    fakeTimeouts,
     it,
     mockClerkSession,
     renderHook,
+    restoreRealTimers,
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
@@ -45,6 +49,8 @@ describe('useCodeSubmissionPresence', () => {
             lastName: 'Lab',
         })
     })
+
+    afterEach(restoreRealTimers)
 
     it('opens the study code room and announces the viewer under the editor awareness shape', async () => {
         renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
@@ -101,8 +107,9 @@ describe('useCodeSubmissionPresence', () => {
     })
 
     it('opens nothing while disabled', async () => {
+        fakeTimeouts()
         renderHook(() => useCodeSubmissionPresence(studyId, false), { wrapper })
-        await new Promise((r) => setTimeout(r, 0))
+        await advanceTimers(30_000)
         expect(providers()).toHaveLength(0)
     })
 })

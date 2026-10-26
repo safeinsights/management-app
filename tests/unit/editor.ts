@@ -56,6 +56,12 @@ export function lexicalLinkState({
     })
 }
 
+// Vitest transforms a module on its first import, so the first lazy editor load in a run can outlast
+// a findBy. Call from beforeAll in a file that waits on the editor; production serves a built chunk.
+export const preloadEditor = async () => {
+    await import('@/components/editable-text/collaborative-editor')
+}
+
 type FakeCollaborativeProvider = { configuration: { name?: string }; __simulateSave: () => void }
 
 /**

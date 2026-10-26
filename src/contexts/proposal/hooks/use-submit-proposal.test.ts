@@ -92,7 +92,7 @@ describe('useSubmitProposal', () => {
             result.current.submitProposal()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -109,9 +109,7 @@ describe('useSubmitProposal', () => {
         expect(payload.submittedByName.length).toBeGreaterThan(0)
         expect(payload.orgName).toBe(enclave.name)
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })))
     })
 
     // OTTER-690: submit is the moment study.title becomes immutable, so a stale Step 2 copy
@@ -139,7 +137,7 @@ describe('useSubmitProposal', () => {
             result.current.submitProposal()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
 
         const study = await db
             .selectFrom('study')
