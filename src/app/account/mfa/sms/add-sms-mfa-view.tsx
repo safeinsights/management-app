@@ -123,7 +123,7 @@ export const AddSmsOtpView: FC<AddSmsOtpViewProps> = ({
                 <Group>
                     <Text fz="md" c={semanticColor('text.secondary')}>
                         Didn’t receive a code?{' '}
-                        <Anchor component="button" onClick={onResend}>
+                        <Anchor component="button" type="button" onClick={onResend}>
                             Resend code
                         </Anchor>
                     </Text>

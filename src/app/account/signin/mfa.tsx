@@ -1,6 +1,6 @@
 'use client'
 
-import type { FC, ReactNode } from 'react'
+import type { FC } from 'react'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
 import type { MFAState } from './logic'
@@ -8,8 +8,42 @@ import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { useRequestMfa, type Method, type Step } from './use-request-mfa'
 import { VerifyCode } from './verify-code'
 
-const Visible: FC<{ isVisible: boolean; children: ReactNode }> = ({ isVisible, children }) =>
-    isVisible ? children : null
+type FactorChoicesProps = {
+    isVisible: boolean
+    hasSMS: boolean
+    hasTOTP: boolean
+    onSelectMethod: (method: Method) => void
+}
+
+const FactorChoices: FC<FactorChoicesProps> = ({ isVisible, hasSMS, hasTOTP, onSelectMethod }) => {
+    if (!isVisible) return null
+
+    return (
+        <>
+            <Stack gap="xl">
+                {hasSMS && (
+                    <Button w="100%" size="lg" onClick={() => onSelectMethod('sms')}>
+                        SMS Verification
+                    </Button>
+                )}
+                {hasTOTP && (
+                    <Button
+                        w="100%"
+                        variant={hasSMS ? 'outline' : 'filled'}
+                        size="lg"
+                        onClick={() => onSelectMethod('totp')}
+                    >
+                        Authenticator app verification
+                    </Button>
+                )}
+            </Stack>
+            <Divider my="xs" />
+            <Text size="md" c={semanticColor('text.secondary')}>
+                Can’t access your MFA device?
+            </Text>
+        </>
+    )
+}
 
 type SelectMethodStepProps = {
     isVisible: boolean
@@ -38,35 +72,18 @@ const SelectMethodStep: FC<SelectMethodStepProps> = ({
             <Text size="md" mb="xs">
                 To complete the log in process, please verify your identity using Multi-Factor Authentication (MFA).
             </Text>
-            <Visible isVisible={hasNoFactors}>
+            {hasNoFactors && (
                 <Text size="sm" c={semanticColor('error.text')} mb="xs">
                     No MFA factors are configured for your account. Please contact your administrator to set up MFA, or
                     use a recovery code if you have one.
                 </Text>
-            </Visible>
-            <Visible isVisible={!hasNoFactors}>
-                <Stack gap="xl">
-                    <Visible isVisible={hasSMS}>
-                        <Button w="100%" size="lg" onClick={() => onSelectMethod('sms')}>
-                            SMS Verification
-                        </Button>
-                    </Visible>
-                    <Visible isVisible={hasTOTP}>
-                        <Button
-                            w="100%"
-                            variant={hasSMS ? 'outline' : 'filled'}
-                            size="lg"
-                            onClick={() => onSelectMethod('totp')}
-                        >
-                            Authenticator app verification
-                        </Button>
-                    </Visible>
-                </Stack>
-                <Divider my="xs" />
-                <Text size="md" c={semanticColor('text.secondary')}>
-                    Can’t access your MFA device?
-                </Text>
-            </Visible>
+            )}
+            <FactorChoices
+                isVisible={!hasNoFactors}
+                hasSMS={hasSMS}
+                hasTOTP={hasTOTP}
+                onSelectMethod={onSelectMethod}
+            />
             <Button w="100%" variant="outline" size="lg" onClick={onUseRecoveryCode}>
                 Try recovery code
             </Button>
