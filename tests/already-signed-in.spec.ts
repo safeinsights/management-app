@@ -72,7 +72,10 @@ test.describe('sign in while already signed in', () => {
     // cannot be made by signing out; keeping the cookie and answering the target the way
     // src/proxy.ts does when it sees no session reproduces it exactly.
     test('the automatic redirect stops after the proxy refuses it once', async ({ page }) => {
-        const refusedTo = `/account/signin?redirect_url=%2Fdashboard&${BOUNCE_PARAM}=${BOUNCE_VALUE}`
+        const refusedTo = withQuery(Routes.accountSignin, {
+            redirect_url: Routes.dashboard,
+            [BOUNCE_PARAM]: BOUNCE_VALUE,
+        })
         let refusals = 0
 
         await page.route('**/dashboard', async (route) => {
