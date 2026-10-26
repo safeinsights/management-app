@@ -17,6 +17,7 @@ import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
+import { Routes } from '@/lib/routes'
 import { OrgStudyAgreements } from './org-study-agreements'
 
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -101,6 +102,34 @@ describe('OrgStudyAgreements', () => {
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
         // Effective on, Acknowledged on and View.
         expect(within(row).getAllByText('—')).toHaveLength(3)
+    })
+
+    it('links a Data Partner admin to the review page of the study', async () => {
+        const title = `Review ${faker.string.alpha(6)}`
+        const { study, dataPartner } = await seedDataPartnerWithStudy(title)
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveAttribute(
+            'href',
+            Routes.studyReview({ orgSlug: dataPartner.slug, studyId: study.id }),
+        )
+    })
+
+    it('links a Research Lab admin to the researcher view of the study', async () => {
+        const title = `View ${faker.string.alpha(6)}`
+        const { study, researchLab } = await seedDataPartnerWithStudy(title)
+        await mockSessionWithTestData({ orgSlug: researchLab.slug, orgType: 'lab', isAdmin: true })
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={researchLab.slug} orgType="lab" />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveAttribute(
+            'href',
+            Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+        )
     })
 
     it('marks a test study exempt instead of showing an effective date', async () => {

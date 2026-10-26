@@ -239,13 +239,14 @@ export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: strin
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .executeTakeFirst()
 
-// Spread into both union arms, so a column added to one cannot silently miss the other.
 const studyAgreementRowFields = [
     'study.id as studyId',
     'study.title as studyTitle',
     'study.isTestStudy as isTestStudy',
     'researchLab.name as fromName',
     'dataPartner.name as toName',
+    'researchLab.slug as fromOrgSlug',
+    'dataPartner.slug as toOrgSlug',
 ] as const
 
 // Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
@@ -282,7 +283,14 @@ export const userStudyAgreements = (
                     .as('agreement'),
             (join) => join.onTrue(),
         )
-        .select([...studyAgreementRowFields, 'agreement.versionId', 'agreement.signedAt', 'agreement.ackedAt'])
+        .select((eb) => [
+            ...studyAgreementRowFields,
+            'agreement.versionId',
+            'agreement.signedAt',
+            'agreement.ackedAt',
+            // A member of both orgs is sent to the researcher view, as the reviewer guard would do anyway.
+            eb('study.submittedByOrgId', 'in', usersOrgs).as('isResearcher'),
+        ])
         // Two ways a study belongs here. The acknowledged side carries no status filter on purpose:
         // what you signed stays listed even once the study is withdrawn.
         .where((eb) =>

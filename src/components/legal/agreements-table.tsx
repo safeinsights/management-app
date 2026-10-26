@@ -6,8 +6,11 @@ import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
 import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
-import { Stack, Text } from '@mantine/core'
+import { Link } from '@/components/links'
+import { studyAgreementDisplayTitle } from '@/schema/legal-document'
+import { Stack, Text, Tooltip } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
+import type { Route } from 'next'
 import { useState, type ReactNode } from 'react'
 
 // ackedAt is nullable because a study row can stand in for an agreement that was never signed;
@@ -53,6 +56,31 @@ export const agreementDateColumns = <T extends AgreementRow>(exemptionFor?: Exem
     ackedAtColumn(exemptionFor),
     versionColumn(),
 ]
+
+// Fit-content, so only the title text is clickable, not the blank cell after a short title.
+const StudyTitleCell: FC<{ title: string; href: Route }> = ({ title, href }) => (
+    <Tooltip label={title} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
+        <Link href={href} underline="hover" truncate="end" display="block" w="fit-content" maw="100%" fz="sm">
+            {title}
+        </Link>
+    </Tooltip>
+)
+
+type StudyTitleRow = { studyTitle: string | null; studyId: string }
+
+// In an auto-layout table a no-wrap cell grows to its text whatever its width says; a zero
+// max-width drops that floor, so the percentage width is what the column gets.
+export const clampedCellsStyle = () => ({ maxWidth: 0 })
+
+export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => Route): DataTableColumn<T> => ({
+    accessor: 'studyTitle',
+    title: 'Study title',
+    sortable: true,
+    ellipsis: true,
+    width: '35%',
+    cellsStyle: clampedCellsStyle,
+    render: (row) => <StudyTitleCell title={studyAgreementDisplayTitle(row)} href={hrefFor(row)} />,
+})
 
 type BaseProps<T> = {
     label: string
@@ -130,6 +158,7 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
     return (
         <DataTable
             withTableBorder
+            highlightOnHover
             horizontalSpacing="md"
             verticalSpacing="sm"
             // The empty state is an absolute overlay, so with no rows it has no room to draw in.
