@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { vi } from 'vitest'
 import {
     actionResult,
+    beforeAll,
     beforeEach,
     describe,
     expect,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
+    preloadEditor,
     renderWithProviders,
     screen,
     userEvent,
@@ -73,6 +75,8 @@ async function visitAndLeave(user: ReturnType<typeof userEvent.setup>, testId: s
     firstRadioIn(testId).focus()
     await user.click(screen.getByTestId('code-evaluation-attention'))
 }
+
+beforeAll(preloadEditor)
 
 describe('CodeReviewClient decision selector', () => {
     beforeEach(() => {
@@ -211,7 +215,7 @@ describe('CodeReviewClient decision selector', () => {
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
-        await screen.findByRole('textbox', { name: 'Code review feedback' }, { timeout: 5000 })
+        await screen.findByRole('textbox', { name: 'Code review feedback' })
 
         await user.click(screen.getByTestId('code-review-submit'))
 

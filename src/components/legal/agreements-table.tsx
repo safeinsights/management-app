@@ -31,7 +31,6 @@ export const signedAtColumn = <T extends Pick<AgreementRow, 'signedAt'>>(
 ): DataTableColumn<T> => ({
     accessor: 'signedAt',
     title: 'Effective on',
-    sortable: true,
     render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
 })
 
@@ -40,7 +39,6 @@ export const ackedAtColumn = <T extends Pick<AgreementRow, 'ackedAt'>>(
 ): DataTableColumn<T> => ({
     accessor: 'ackedAt',
     title: 'Acknowledged on',
-    sortable: true,
     render: (row) => <>{exemptionFor?.(row) ?? formatInstantAsUtcDay(row.ackedAt)}</>,
 })
 
@@ -56,17 +54,28 @@ export const agreementDateColumns = <T extends AgreementRow>(exemptionFor?: Exem
     versionColumn(),
 ]
 
-type Props<T, Column extends string> = {
+type BaseProps<T> = {
     label: string
     idAccessor: string
     columns: DataTableColumn<T>[]
-    sortableColumns: readonly Column[]
-    defaultSort: AgreementSort<Column>
-    queryKey: (sort: AgreementSort<Column>) => readonly unknown[]
-    queryFn: (sort: AgreementSort<Column>) => Promise<ActionResponse<T[]>>
     // For a table that lists something other than the reader's own acknowledgements.
     emptyState?: ReactNode
 }
+
+type SortedProps<T, Column extends string> = BaseProps<T> & {
+    sorting: { sortableColumns: readonly Column[]; defaultSort: AgreementSort<Column> }
+    queryKey: (sort: AgreementSort<Column>) => readonly unknown[]
+    queryFn: (sort: AgreementSort<Column>) => Promise<ActionResponse<T[]>>
+}
+
+type UnsortedProps<T> = BaseProps<T> & {
+    sorting?: never
+    queryKey: () => readonly unknown[]
+    queryFn: () => Promise<ActionResponse<T[]>>
+}
+
+// A union rather than optional fields, so a table either sorts end to end or not at all.
+type Props<T, Column extends string> = SortedProps<T, Column> | UnsortedProps<T>
 
 const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
     <Stack gap="xxs" align="center">
@@ -76,21 +85,24 @@ const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
 
 const EMPTY_ROWS: never[] = []
 
-const useAgreements = <T, Column extends string>({
-    sortableColumns,
-    defaultSort,
-    queryKey,
-    queryFn,
-}: Props<T, Column>) => {
-    const [sort, setSort] = useState(defaultSort)
+// No choice yet means the caller's default, so that default lives in one place.
+const queryFor = <T, Column extends string>(props: Props<T, Column>, chosenSort?: AgreementSort<Column>) => {
+    if (!props.sorting) return { sort: undefined, queryKey: props.queryKey(), queryFn: () => props.queryFn() }
+
+    const sort = chosenSort ?? props.sorting.defaultSort
+    return { sort, queryKey: props.queryKey(sort), queryFn: () => props.queryFn(sort) }
+}
+
+const useAgreements = <T, Column extends string>(props: Props<T, Column>) => {
+    const [chosenSort, setSort] = useState<AgreementSort<Column>>()
+    const { sort, ...query } = queryFor(props, chosenSort)
     const {
         data: records = EMPTY_ROWS as T[],
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: queryKey(sort),
-        queryFn: () => queryFn(sort),
+        ...query,
         // Rows hold still through a re-sort, so the table never flashes its empty state mid-click.
         placeholderData: keepPreviousData,
     })
@@ -98,16 +110,19 @@ const useAgreements = <T, Column extends string>({
     // mantine-datatable widens columnAccessor to string, so an unsortable column would otherwise
     // reach the server as a bad param.
     const onSortStatusChange = ({ columnAccessor, direction }: DataTableSortStatus<T>) => {
-        const accessor = sortableColumns.find((column) => column === columnAccessor)
+        const accessor = props.sorting?.sortableColumns.find((column) => column === columnAccessor)
         if (accessor) setSort({ columnAccessor: accessor, direction })
     }
 
-    return { records, isLoading, isError, error, sort, onSortStatusChange }
+    // DataTable takes both sort props or neither.
+    const sortProps = sort ? { sortStatus: sort, onSortStatusChange } : {}
+
+    return { records, isLoading, isError, error, sortProps }
 }
 
 // A refused read must not fall through to the table, where it looks like nothing was signed.
 const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
-    const { records, isLoading, isError, error, sort, onSortStatusChange } = useAgreements(props)
+    const { records, isLoading, isError, error, sortProps } = useAgreements(props)
     const emptyState = props.emptyState ?? <NothingAcknowledged label={props.label} />
 
     if (isError) return <ErrorAlert error={error} />
@@ -124,8 +139,7 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
             emptyState={emptyState}
             records={records}
             columns={props.columns}
-            sortStatus={sort}
-            onSortStatusChange={onSortStatusChange}
+            {...sortProps}
         />
     )
 }

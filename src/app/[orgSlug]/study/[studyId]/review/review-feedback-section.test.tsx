@@ -1,7 +1,9 @@
 import {
+    beforeAll,
     describe,
     expect,
     it,
+    preloadEditor,
     renderWithProviders,
     screen,
     simulateEditorSave,
@@ -56,6 +58,8 @@ function FeedbackTestWrapper() {
         </ReviewFeedbackProviderShare>
     )
 }
+
+beforeAll(preloadEditor)
 
 describe('ReviewFeedbackSection', () => {
     it('renders the static section title "Decision"', () => {

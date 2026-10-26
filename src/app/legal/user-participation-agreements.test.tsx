@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
-import { actionResult, mockSessionWithTestData, renderWithProviders, testUploadFile } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    isSortableHeader,
+    mockSessionWithTestData,
+    renderWithProviders,
+    testUploadFile,
+} from '@/tests/unit.helpers'
 import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import {
     createLegalDocumentDraftAction,
@@ -44,6 +50,17 @@ describe('UserParticipationAgreements', () => {
         if (!row) throw new Error('no row for the org')
         expect(within(row).getByText('Apr 04, 2026')).toBeDefined()
         expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
+    })
+
+    it('offers no column to sort by', async () => {
+        const { org } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
+
+        renderWithProviders(<UserParticipationAgreements type="DOPA" />)
+
+        await waitFor(() => expect(screen.getByText(org.name)).toBeDefined())
+        expect(isSortableHeader('Organization')).toBe(false)
+        expect(isSortableHeader('Effective on')).toBe(false)
+        expect(isSortableHeader('Acknowledged on')).toBe(false)
     })
 
     it('does not show a DOPA on the ROPA tab', async () => {

@@ -809,18 +809,15 @@ describe('Next step confirmation modal', () => {
         const dialog = await openModal(user, fixtures, '  Titled on Step 1  ')
         await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
 
-        const study = await waitFor(
-            async () => {
-                const row = await db
-                    .selectFrom('study')
-                    .select(['id', 'title', 'language'])
-                    .where('title', '=', 'Titled on Step 1')
-                    .executeTakeFirst()
-                expect(row).toBeDefined()
-                return row!
-            },
-            { timeout: 5000 },
-        )
+        const study = await waitFor(async () => {
+            const row = await db
+                .selectFrom('study')
+                .select(['id', 'title', 'language'])
+                .where('title', '=', 'Titled on Step 1')
+                .executeTakeFirst()
+            expect(row).toBeDefined()
+            return row!
+        })
 
         expect(study.language).toBe('R')
         await waitFor(() =>
