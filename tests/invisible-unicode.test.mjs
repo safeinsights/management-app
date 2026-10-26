@@ -110,6 +110,12 @@ describe('bin/check-invisible-unicode.mjs', () => {
         expect(runCheck({ 'icon.png': '\0\u202E' }).status).toBe(0)
     })
 
+    it('reports an invisible character in a file name, even with a binary extension', () => {
+        const { status, stdout } = runCheck({ 'rules\u202Edm.png': '' })
+        expect(status).toBe(1)
+        expect(stdout).toContain('::error file=rules\u202Edm.png::The file name contains U+202E. Rename the file.')
+    })
+
     it('escapes the file name in the annotation', () => {
         expect(runCheck({ 'a,b:c.md': '\u200B' }).stdout).toContain('::error file=a%2Cb%3Ac.md,line=1,col=1::U+200B')
     })

@@ -31,6 +31,13 @@ const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuf
 
 let found = 0
 for (const file of files) {
+    // A bidi control in a name can disguise its extension, e.g. `rules<U+202E>dm.png` displays as `rulesgnp.md`.
+    for (const { codePoint } of findInvisibleCharacters(file)) {
+        found++
+        process.stdout.write(
+            `::error file=${escapeProperty(file)}::The file name contains ${codePoint}. Rename the file.\n`,
+        )
+    }
     // git also lists files deleted but not yet staged, submodules, and symlinks to folders.
     if (!statSync(file, { throwIfNoEntry: false })?.isFile() || BINARY_EXTENSIONS.has(extname(file).toLowerCase())) {
         continue
