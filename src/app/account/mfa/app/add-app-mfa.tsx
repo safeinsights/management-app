@@ -1,89 +1,91 @@
 'use client'
 
-import { useForm, useEffect, useMemo, useState } from '@/common'
-import { InputError, reportError } from '@/components/errors'
-import { BackLink } from '@/components/links'
-import { InfoTooltip } from '@/components/tooltip'
-import logger from '@/lib/logger'
-import { Routes } from '@/lib/routes'
-import { useReverification, useUser } from '@clerk/nextjs'
-import { TOTPResource } from '@clerk/nextjs/types'
+import type { FC } from 'react'
 import { ActionIcon, Anchor, Box, Button, CopyButton, Group, Paper, rgba, Stack, Text, Title } from '@mantine/core'
+import type { UseFormReturnType } from '@mantine/form'
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
-import BackupCodes from './backup-codes'
+import { InputError } from '@/components/errors'
+import { BackLink } from '@/components/links'
 import OtpInput from '@/components/otp-input'
+import { InfoTooltip } from '@/components/tooltip'
+import { Routes } from '@/lib/routes'
 import { semanticColor } from '@/theme/tokens'
+import BackupCodes from './backup-codes'
+import { useAddAppMfa } from './use-add-app-mfa'
 
-type AddTotpSteps = 'add' | 'verify' | 'success'
+const SecretKey: FC<{ secret: string | null }> = ({ secret }) => {
+    if (!secret) return null
 
-type DisplayFormat = 'qr' | 'uri'
+    return (
+        <Group align="center">
+            <Text size="sm">{secret}</Text>
+            <CopyButton value={secret} timeout={800}>
+                {({ copied, copy }) => (
+                    <InfoTooltip label={copied ? 'Copied' : 'Copy'} offset={10}>
+                        <ActionIcon
+                            variant="subtle"
+                            color={copied ? 'green' : undefined}
+                            onClick={copy}
+                            aria-label="Copy secret key"
+                        >
+                            {copied ? (
+                                <CheckIcon size={24} />
+                            ) : (
+                                <CopyIcon size={24} color={semanticColor('icon.dark')} />
+                            )}
+                        </ActionIcon>
+                    </InfoTooltip>
+                )}
+            </CopyButton>
+        </Group>
+    )
+}
 
-function AddTotpScreenContent({
-    setStep,
-    setBackupCodes,
-}: {
-    setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
-    setBackupCodes: React.Dispatch<React.SetStateAction<string[] | null>>
-}) {
-    const { user } = useUser()
-    const createBackupCode = useReverification(() => user?.createBackupCode())
-    const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
-    const [canRegenerate, setCanRegenerate] = useState(true)
-    const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
-    const [isVerifying, setIsVerifying] = useState(false)
+type QrCodePanelProps = {
+    uri?: string
+    secret: string | null
+    canRegenerate: boolean
+    onRegenerate: () => void
+}
 
-    const secret = useMemo(() => {
-        if (totp?.uri) {
-            try {
-                const url = new URL(totp.uri)
-                return url.searchParams.get('secret')
-            } catch (err) {
-                logger.error({ err, message: 'Error parsing TOTP URI' })
-                return null
-            }
-        }
-        return null
-    }, [totp])
+const QrCodePanel: FC<QrCodePanelProps> = ({ uri, secret, canRegenerate, onRegenerate }) => {
+    if (!uri) return null
 
-    const form = useForm({
-        initialValues: {
-            code: '',
-        },
-        validate: {
-            code: (value: string) => (value.length !== 6 ? 'Code must be 6 digits' : null),
-        },
-    })
+    return (
+        <>
+            <Box bg={rgba(semanticColor('surface.page'), 0.3)} p="xs">
+                <QRCodeSVG value={uri} size={150} />
+            </Box>
+            <SecretKey secret={secret} />
+            <Text size="sm">
+                <Box component="span" c={semanticColor('text.secondary')}>
+                    Having trouble?
+                </Box>{' '}
+                <Anchor
+                    component="button"
+                    c={semanticColor('link.default')}
+                    underline="always"
+                    opacity={canRegenerate ? 1 : 0.4}
+                    disabled={!canRegenerate}
+                    onClick={onRegenerate}
+                >
+                    Regenerate QR code
+                </Anchor>
+            </Text>
+        </>
+    )
+}
 
-    const verifyTotp = async (values: { code: string }) => {
-        setIsVerifying(true)
-        try {
-            await user?.verifyTOTP({ code: values.code })
-            if (user && !user.backupCodeEnabled) {
-                try {
-                    const resource = await createBackupCode()
-                    setBackupCodes(resource?.codes || [])
-                } catch (err) {
-                    logger.error({ err, message: 'Error generating backup codes' })
-                    setBackupCodes([])
-                }
-            }
-            setStep('success')
-        } catch {
-            form.setErrors({ code: 'Invalid verification code. Please try again.' })
-        } finally {
-            setIsVerifying(false)
-        }
-    }
+type AddTotpStepProps = QrCodePanelProps & {
+    isVisible: boolean
+    form: UseFormReturnType<{ code: string }>
+    isVerifying: boolean
+    onVerify: (values: { code: string }) => void
+}
 
-    useEffect(() => {
-        void user
-            ?.createTOTP()
-            .then((totp: TOTPResource) => {
-                setTOTP(totp)
-            })
-            .catch((err) => reportError(err, 'Error generating MFA'))
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+const AddTotpStep: FC<AddTotpStepProps> = ({ isVisible, form, isVerifying, onVerify, ...qrProps }) => {
+    if (!isVisible) return null
 
     return (
         <Stack mb="xxl">
@@ -98,70 +100,9 @@ function AddTotpScreenContent({
                 Once set up, enter the verification code from the app to complete the process.
             </Text>
             <Stack align="center" gap="xs">
-                {totp && displayFormat === 'qr' && (
-                    <>
-                        <Box bg={rgba(semanticColor('surface.page'), 0.3)} p="xs">
-                            <QRCodeSVG value={totp?.uri || ''} size={150} />
-                        </Box>
-                        {secret && (
-                            <Group align="center">
-                                <Text size="sm">{secret}</Text>
-                                <CopyButton value={secret} timeout={800}>
-                                    {({ copied, copy }) => (
-                                        <InfoTooltip label={copied ? 'Copied' : 'Copy'} offset={10}>
-                                            <ActionIcon
-                                                variant="subtle"
-                                                color={copied ? 'green' : undefined}
-                                                onClick={copy}
-                                                aria-label="Copy secret key"
-                                            >
-                                                {copied ? (
-                                                    <CheckIcon size={24} />
-                                                ) : (
-                                                    <CopyIcon size={24} color={semanticColor('icon.dark')} />
-                                                )}
-                                            </ActionIcon>
-                                        </InfoTooltip>
-                                    )}
-                                </CopyButton>
-                            </Group>
-                        )}
-                        <Text size="sm">
-                            <Box component="span" c={semanticColor('text.secondary')}>
-                                Having trouble?
-                            </Box>{' '}
-                            <Anchor
-                                component="button"
-                                c={semanticColor('link.default')}
-                                underline="always"
-                                opacity={canRegenerate ? 1 : 0.4}
-                                disabled={!canRegenerate}
-                                onClick={async () => {
-                                    try {
-                                        const newTotp = await user?.createTOTP()
-                                        setTOTP(newTotp)
-                                        setCanRegenerate(false)
-                                        setTimeout(() => setCanRegenerate(true), 30000)
-                                    } catch (err) {
-                                        reportError(err, 'Error regenerating QR code')
-                                    }
-                                }}
-                            >
-                                Regenerate QR code
-                            </Anchor>
-                        </Text>
-                    </>
-                )}
-                {totp && displayFormat === 'uri' && (
-                    <>
-                        <div>
-                            <Text>{totp.uri}</Text>
-                        </div>
-                        <Button onClick={() => setDisplayFormat('qr')}>Use QR Code instead</Button>
-                    </>
-                )}
+                <QrCodePanel {...qrProps} />
             </Stack>
-            <form onSubmit={form.onSubmit(verifyTotp)}>
+            <form onSubmit={form.onSubmit(onVerify)}>
                 <Stack align="center" gap="xs">
                     <Title order={4} ta="center" mt="xs">
                         Enter your code
@@ -188,20 +129,24 @@ function AddTotpScreenContent({
 }
 
 export function AddAppMFA() {
-    const [step, setStep] = useState<AddTotpSteps>('add')
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
-    const { isLoaded, user } = useUser()
+    const { isReady, step, backupCodes, totpUri, secret, canRegenerate, isVerifying, form, regenerate, verifyTotp } =
+        useAddAppMfa()
 
-    if (!isLoaded) return null
-
-    if (!user) {
-        return <Text>You must be logged in to access this page</Text>
-    }
+    if (!isReady) return null
 
     return (
         <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
-            {step === 'add' && <AddTotpScreenContent setStep={setStep} setBackupCodes={setBackupCodes} />}
-            {step === 'success' && <BackupCodes codes={backupCodes} />}
+            <AddTotpStep
+                isVisible={step === 'add'}
+                uri={totpUri}
+                secret={secret}
+                canRegenerate={canRegenerate}
+                onRegenerate={regenerate}
+                form={form}
+                isVerifying={isVerifying}
+                onVerify={verifyTotp}
+            />
+            <BackupCodes isVisible={step === 'success'} codes={backupCodes} />
         </Paper>
     )
 }
