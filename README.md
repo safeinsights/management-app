@@ -236,6 +236,19 @@ If there are failures, a trace file will be stored under the `./test-results` di
 
 If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
 
+#### Accessibility checks
+
+`tests/a11y.spec.ts` scans a fixed list of pages with [axe](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright). It runs as the `a11y` Playwright project. All e2e projects run with reduced motion, so no element is scanned halfway through a transition. Run it alone with `pnpm exec playwright test --project=a11y`.
+
+- Any violation tagged WCAG 2.0, 2.1 or 2.2 level A or AA fails the test, whatever its impact. Best-practice findings are reported but do not fail.
+- Each scan writes its full axe JSON (`axe-*.json`) to the test's output folder and attaches it to the report. CI uploads all of them as the `a11y-results` artifact on every run, pass or fail. Files named `axe-selftest-*.json` come from the gate self-tests and contain violations on purpose.
+- A failure lists the rule, its impact, the help text and the CSS selectors of the elements that fail.
+- The JSON also lists axe's `incomplete` results: checks that axe could not decide, often color contrast over images or gradients. They do not fail the test and need a manual look.
+- No rule is disabled and no part of the app is excluded. Fix the markup instead of disabling a rule.
+- On a table that other workers fill in parallel, pass `onlyRowsWith` with text from the rows the test seeded. The scan then leaves out the other workers' rows, so every run scans the same input.
+- To scan a new page, add a test that waits for the page's loaded content and then calls `expectNoA11yViolations(page, label)` from `tests/a11y.helpers.ts`. Any other spec can call it too.
+- Automated scanning finds only part of the WCAG issues. Keyboard use, focus order and screen-reader checks remain manual.
+
 ### trivy vulnerability scanner
 
 To run trivy locally, you'll need to install it. For mac that would be e.g. `brew install trivy`
