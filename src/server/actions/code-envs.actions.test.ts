@@ -181,6 +181,45 @@ describe('Code Environment Actions', () => {
         expect(result.starterCodeFileNames).toEqual(['starter.py'])
     })
 
+    it('updateOrgCodeEnvAction rejects an image reference without a digest', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
+            .values({
+                orgId: org.id,
+                name: 'Pinned Image',
+                identifier: 'pinned_image',
+                commandLines: { r: 'Rscript %f' },
+                language: 'R',
+                url: testImageRef('example.com/img:v1'),
+                isTesting: false,
+                starterCodeFileNames: ['main.r'],
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: org.slug,
+            codeEnvId: codeEnv.id,
+            name: 'Pinned Image',
+            identifier: 'pinned_image',
+            commandLines: { r: 'Rscript %f' },
+            language: 'R',
+            url: 'example.com/img:v2',
+            isTesting: false,
+            settings: { environment: [] },
+            dataSourceIds: [],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        const row = await db
+            .selectFrom('orgCodeEnv')
+            .select('url')
+            .where('id', '=', codeEnv.id)
+            .executeTakeFirstOrThrow()
+        expect(row.url).toEqual(testImageRef('example.com/img:v1'))
+    })
+
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await db
