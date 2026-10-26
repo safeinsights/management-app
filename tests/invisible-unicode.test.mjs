@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { findInvisibleCharacters } from './invisible-unicode.mjs'
 
-const hex = (cp) => `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`
+const withNames = (codePoints) => codePoints.map((cp) => [`U+${cp.toString(16).toUpperCase().padStart(4, '0')}`, cp])
 
 describe('findInvisibleCharacters', () => {
-    it.each([0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069])(
+    it.each(withNames([0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069]))(
         'reports the bidi control %s',
-        (cp) => {
+        (codePoint, cp) => {
             expect(findInvisibleCharacters(`a${String.fromCodePoint(cp)}b`)).toEqual([
-                { line: 1, column: 2, codePoint: hex(cp) },
+                { line: 1, column: 2, codePoint },
             ])
         },
     )
 
-    it.each([
-        0x200b, 0x200c, 0x200d, 0x2060, 0x2063, 0xfeff, 0x200e, 0x200f, 0x061c, 0x00ad, 0x034f, 0x3164, 0x115f,
-        0xffa0, 0xfe0f, 0xe0001, 0xe0041, 0xe007f, 0xe0100, 0xe01ef, 0x2028, 0x0007, 0x001b,
-    ])('reports the invisible character %s', (cp) => {
-        expect(findInvisibleCharacters(`a${String.fromCodePoint(cp)}b`)).toEqual([
-            { line: 1, column: 2, codePoint: hex(cp) },
-        ])
+    it.each(
+        withNames([
+            0x200b, 0x200c, 0x200d, 0x2060, 0x2063, 0xfeff, 0x200e, 0x200f, 0x061c, 0x00ad, 0x034f, 0x3164, 0x115f,
+            0xffa0, 0xfe0f, 0xe0001, 0xe0041, 0xe007f, 0xe0100, 0xe01ef, 0x2028, 0x0007, 0x001b,
+        ]),
+    )('reports the invisible character %s', (codePoint, cp) => {
+        expect(findInvisibleCharacters(`a${String.fromCodePoint(cp)}b`)).toEqual([{ line: 1, column: 2, codePoint }])
     })
 
     it('reports astral code points with five hex digits', () => {
