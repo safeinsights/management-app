@@ -1,3 +1,4 @@
+import { CONTEXT_LABELS, CONTEXT_NAMES } from '@/lib/agent-context'
 import { Routes } from '@/lib/routes/definitions'
 import { expectNoA11yViolations, scanA11y } from './a11y.helpers'
 import { authFileFor, expect, goto, test, TestingUsers, type Page } from './e2e.helpers'
@@ -5,6 +6,7 @@ import {
     ENCLAVE_SLUG,
     LAB_SLUG,
     seedCodeSubmitted,
+    seedPendingInvite,
     seedProposalPendingReview,
     seedStudyFor,
     storeSeededMainCode,
@@ -15,6 +17,19 @@ const ORG_ADMIN_SLUG = 'reviewer-is-org-admin'
 // These sections render their loading message on the first paint and `goto` waits for hydration,
 // so once the message is gone the section's data has arrived.
 const expectLoaded = (page: Page, loadingText: string | RegExp) => expect(page.getByText(loadingText)).toHaveCount(0)
+
+// A DataTable shows no loading text. A loader overlay covers it while it fetches, and the overlay
+// and the empty state fade by plain CSS, which reduced motion does not stop.
+const expectTableLoaded = async (page: Page) => {
+    const table = page.locator('.mantine-datatable')
+    await expect(table).toBeVisible()
+    await expect(table.locator('.mantine-datatable-loader')).toHaveCSS('opacity', '0')
+    const rowOrEmptyState = table
+        .locator('tbody tr:not(.mantine-datatable-empty-row)')
+        .first()
+        .or(table.locator('.mantine-datatable-empty-state[data-active]'))
+    await expect(rowOrEmptyState).toHaveCSS('opacity', '1')
+}
 
 const expectHeading = (page: Page, name: string) =>
     expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
@@ -52,26 +67,28 @@ test.describe('accessibility: signed out', () => {
     })
 })
 
-// The heading renders before the studies table, whose title replaces a skeleton once its rows arrive.
-const openMyStudies = async (page: Page) => {
+const openMyStudies = async (page: Page, title: string) => {
+    await seedProposalPendingReview(title)
     await goto(page, Routes.dashboard)
     await expectHeading(page, 'My studies')
-    await expect(page.getByText('Studies for review', { exact: true })).toBeVisible()
+    await expect(page.getByRole('table').getByText(title)).toBeVisible()
 }
 
 test.describe('accessibility: reviewer', () => {
     test.use({ storageState: authFileFor('reviewer') })
 
-    test('my studies', async ({ page }) => {
-        await openMyStudies(page)
-        await expectNoA11yViolations(page, 'reviewer my studies')
+    test('my studies', async ({ page, studyFeatures }) => {
+        const title = studyFeatures.uniqueTitle('a11y my studies')
+        await openMyStudies(page, title)
+        await expectNoA11yViolations(page, 'reviewer my studies', { onlyRowsWith: title })
     })
 
-    test('account menu open', async ({ page }) => {
-        await openMyStudies(page)
+    test('account menu open', async ({ page, studyFeatures }) => {
+        const title = studyFeatures.uniqueTitle('a11y account menu')
+        await openMyStudies(page, title)
         await page.getByRole('button', { name: 'profile menu' }).click()
         await expect(page.getByRole('dialog')).toBeVisible()
-        await expectNoA11yViolations(page, 'account menu')
+        await expectNoA11yViolations(page, 'account menu', { onlyRowsWith: title })
     })
 
     test('org dashboard', async ({ page, studyFeatures }) => {
@@ -79,7 +96,7 @@ test.describe('accessibility: reviewer', () => {
         await seedProposalPendingReview(title)
         await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
         await expect(page.getByRole('table').getByText(title)).toBeVisible()
-        await expectNoA11yViolations(page, 'reviewer org dashboard')
+        await expectNoA11yViolations(page, 'reviewer org dashboard', { onlyRowsWith: title })
     })
 
     test('proposal review', async ({ page, studyFeatures }) => {
@@ -108,16 +125,21 @@ test.describe('accessibility: reviewer', () => {
         await expectNoA11yViolations(page, 'org settings')
     })
 
+    // The seeded invite keeps the invites list populated whatever org-admin.spec does to it meanwhile.
     test('org team', async ({ page }) => {
+        const email = `a11y-invite-${Date.now().toString(36)}@test.com`
+        await seedPendingInvite(ORG_ADMIN_SLUG, email)
         await goto(page, Routes.adminTeam({ orgSlug: ORG_ADMIN_SLUG }))
         await expect(page.getByRole('cell', { name: TestingUsers.reviewer.identifier })).toBeVisible()
+        await expectTableLoaded(page)
+        await expect(page.getByTestId('pending-invites').getByText(email)).toBeVisible()
         await expectNoA11yViolations(page, 'org team')
     })
 
     test('org legal center', async ({ page }) => {
         await goto(page, Routes.adminLegal({ orgSlug: ORG_ADMIN_SLUG }))
         await expectHeading(page, 'Legal center')
-        await expectLoaded(page, /^Loading/)
+        await expectTableLoaded(page)
         await expectNoA11yViolations(page, 'org legal center')
     })
 
@@ -136,7 +158,7 @@ test.describe('accessibility: reviewer', () => {
     test('user legal', async ({ page }) => {
         await goto(page, Routes.legal)
         await expectHeading(page, 'Legal')
-        await expectLoaded(page, /^Loading/)
+        await expectTableLoaded(page)
         await expectNoA11yViolations(page, 'user legal')
     })
 
@@ -155,7 +177,7 @@ test.describe('accessibility: researcher', () => {
         await seedProposalPendingReview(title)
         await goto(page, Routes.orgDashboard({ orgSlug: LAB_SLUG }))
         await expect(page.getByRole('table').getByText(title)).toBeVisible()
-        await expectNoA11yViolations(page, 'lab dashboard')
+        await expectNoA11yViolations(page, 'lab dashboard', { onlyRowsWith: title })
     })
 
     test('study setup', async ({ page }) => {
@@ -193,13 +215,17 @@ test.describe('accessibility: SafeInsights admin', () => {
     test('organizations', async ({ page }) => {
         await goto(page, Routes.adminSafeinsights)
         await expect(page.getByRole('cell', { name: ENCLAVE_SLUG, exact: true })).toBeVisible()
+        await expectTableLoaded(page)
+        for (const name of CONTEXT_NAMES) {
+            await expect(page.getByLabel(CONTEXT_LABELS[name].label)).toBeVisible()
+        }
         await expectNoA11yViolations(page, 'organizations')
     })
 
     test('safeinsights legal', async ({ page }) => {
         await goto(page, Routes.adminSafeinsightsLegal)
         await expectHeading(page, 'SafeInsights Legal')
-        await expectLoaded(page, /^Loading/)
+        await expectTableLoaded(page)
         await expectNoA11yViolations(page, 'safeinsights legal')
     })
 })

@@ -16,10 +16,24 @@ const describeViolation = (violation: AxeViolation) => ({
     targets: violation.nodes.map((node) => node.target.join(' ')),
 })
 
-// `include` only narrows what is scanned; there is deliberately no way to exclude anything.
-export async function scanA11y(page: Page, label: string, { include }: { include?: string } = {}) {
+type ScanOptions = {
+    include?: string
+    // Text in the rows this test seeded. Other workers seed rows into the same tables in parallel,
+    // so their rows are left out and every run scans the same input.
+    onlyRowsWith?: string
+}
+
+// `include` only narrows what is scanned. Apart from other workers' rows, nothing can be excluded.
+export async function scanA11y(page: Page, label: string, { include, onlyRowsWith }: ScanOptions = {}) {
     const builder = new AxeBuilder({ page }).withTags([...WCAG_TAGS, 'best-practice'])
     if (include) builder.include(include)
+    if (onlyRowsWith) {
+        await page
+            .locator('tbody tr')
+            .filter({ hasNotText: onlyRowsWith })
+            .evaluateAll((rows) => rows.forEach((row) => row.setAttribute('data-a11y-other-worker', '')))
+        builder.exclude('[data-a11y-other-worker]')
+    }
     const results = await builder.analyze()
     const json = JSON.stringify(results, null, 2)
     await fs.promises.writeFile(test.info().outputPath(`axe-${label.replace(/\W+/g, '-').toLowerCase()}.json`), json)
@@ -31,7 +45,7 @@ export async function scanA11y(page: Page, label: string, { include }: { include
     }
 }
 
-export async function expectNoA11yViolations(page: Page, label: string, options?: { include?: string }) {
+export async function expectNoA11yViolations(page: Page, label: string, options?: ScanOptions) {
     const { wcag } = await scanA11y(page, label, options)
     expect(wcag.map(describeViolation), `WCAG A/AA violations on ${label}`).toEqual([])
 }

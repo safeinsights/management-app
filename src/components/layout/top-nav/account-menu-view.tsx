@@ -133,8 +133,7 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
                     aria-expanded={opened}
                     aria-haspopup="dialog"
                 >
-                    {/* Named by its content, not aria-label: WCAG 2.5.3 wants the visible text,
-                        initials included, inside any aria-label, and initials read badly. */}
+                    {/* Named by its content, so the name begins with the visible first name (WCAG 2.5.3). */}
                     <AccountAvatar initials={initials} />
                     <span className={styles.name}>{firstName}</span>
                     <VisuallyHidden>{' profile menu'}</VisuallyHidden>

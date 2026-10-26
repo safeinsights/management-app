@@ -306,6 +306,15 @@ async function insertSubmittedJob(
 
 export type SeedResult = { studyId: string; jobId?: string }
 
+// Pass a unique email: org-admin.spec invites into the same org in parallel.
+export async function seedPendingInvite(orgSlug: string, email: string) {
+    const org = await resolveOrg(orgSlug)
+    await db
+        .insertInto('pendingUser')
+        .values({ orgId: org.id, email, invitedByUserId: await resolveUserId('reviewer') })
+        .execute()
+}
+
 export async function seedProposalPendingReview(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'PENDING-REVIEW' })
     return { studyId: study.id }

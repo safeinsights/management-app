@@ -86,7 +86,8 @@ describe('AccountMenu', () => {
         })
         renderWithProviders(<AccountMenu />)
 
-        const trigger = screen.getByRole('button', { name: /profile menu/ })
+        // The initials are decorative, so they stay out of the name.
+        const trigger = screen.getByRole('button', { name: 'Mary profile menu' })
         expect(within(trigger).getByText('MV')).toBeInTheDocument()
         expect(within(trigger).queryByRole('img')).toBeNull()
     })

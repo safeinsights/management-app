@@ -77,6 +77,9 @@ export default defineConfig({
         navigationTimeout: E2E_TIMEOUT,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
+        // Mantine then finishes transitions instantly (theme respectReducedMotion), so no assertion,
+        // and no axe scan from any spec, meets a half-faded element.
+        contextOptions: { reducedMotion: 'reduce' },
     },
 
     timeout: E2E_TIMEOUT_LONG,
@@ -117,11 +120,10 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'] },
         },
         {
-            // OTTER-683. Reduced motion makes Mantine finish transitions instantly (theme
-            // respectReducedMotion), so axe never measures a half-faded element.
+            // Axe WCAG scans (OTTER-683), a project of their own so they run alone with --project=a11y.
             name: 'a11y',
             testMatch: '**/a11y.spec.ts',
-            use: { ...devices['Desktop Chrome'], contextOptions: { reducedMotion: 'reduce' } },
+            use: { ...devices['Desktop Chrome'] },
         },
         // {
         //     name: 'firefox',

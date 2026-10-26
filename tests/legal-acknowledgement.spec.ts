@@ -3,9 +3,8 @@ import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
 // The `legal` role is exclusive to this spec: ToS gates every page, so borrowing another
-// role's user would block it in a parallel worker. Reduced motion keeps the modal from
-// fading in while axe scans it.
-test.use({ storageState: authFileFor('legal'), contextOptions: { reducedMotion: 'reduce' } })
+// role's user would block it in a parallel worker.
+test.use({ storageState: authFileFor('legal') })
 
 const DASHBOARD = '/dashboard'
 

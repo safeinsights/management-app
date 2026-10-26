@@ -635,12 +635,12 @@ describe('SubmittedCodeSection — Security scan results', () => {
         expect(screen.queryByTestId('scan-details-body')).not.toBeInTheDocument()
     })
 
-    it('shows a spinner while the scan is pending', async () => {
+    it('announces the pending scan in a status region', async () => {
         const fixture = await setupBaseFixture()
         await renderSection(fixture, scanInProgress)
-        expect(
-            within(screen.getByTestId('security-scan-results')).getByText('Security scan pending'),
-        ).toBeInTheDocument()
+        expect(within(screen.getByTestId('security-scan-results')).getByRole('status')).toHaveTextContent(
+            'Security scan pending',
+        )
     })
 })
 
