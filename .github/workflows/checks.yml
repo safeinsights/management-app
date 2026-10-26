@@ -54,6 +54,10 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
+            # OTTER-682 (RISK-139): runs before pnpm install and covers every tracked file, which ESLint's
+            # anti-trojan-source rule does not (it skips dotfiles and non-JS files such as CLAUDE.md).
+            - name: Check for invisible Unicode characters
+              run: node bin/check-invisible-unicode.mjs
             - name: pnpm install
               run: pnpm install --frozen-lockfile
             - name: pnpm audit signatures
