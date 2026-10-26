@@ -4,10 +4,10 @@ import { keepPreviousData, useQuery, type FC } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import type { ActionResponse } from '@/lib/errors'
+import { semanticColor } from '@/theme/tokens'
 import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Stack, Text } from '@mantine/core'
-import { semanticColor } from '@/theme/tokens'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { useState, type ReactNode } from 'react'
 
@@ -78,10 +78,9 @@ type UnsortedProps<T> = BaseProps<T> & {
 // A union rather than optional fields, so a table either sorts end to end or not at all.
 type Props<T, Column extends string> = SortedProps<T, Column> | UnsortedProps<T>
 
-// The DataTable empty state colors its content a gray that fails contrast.
 const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
     <Stack gap="xxs" align="center">
-        <Text c={semanticColor('text.primary')}>You have not acknowledged any {label} yet</Text>
+        <Text>You have not acknowledged any {label} yet</Text>
     </Stack>
 )
 
@@ -125,7 +124,12 @@ const useAgreements = <T, Column extends string>(props: Props<T, Column>) => {
 // A refused read must not fall through to the table, where it looks like nothing was signed.
 const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
     const { records, isLoading, isError, error, sortProps } = useAgreements(props)
-    const emptyState = props.emptyState ?? <NothingAcknowledged label={props.label} />
+    // DataTable colors its empty state a gray that fails contrast, so the content brings its own.
+    const emptyState = (
+        <Stack c={semanticColor('text.primary')}>
+            {props.emptyState ?? <NothingAcknowledged label={props.label} />}
+        </Stack>
+    )
 
     if (isError) return <ErrorAlert error={error} />
 

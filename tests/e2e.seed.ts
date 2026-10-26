@@ -360,13 +360,7 @@ export async function seedCodeSubmitted(title: string): Promise<Required<SeedRes
 // The seeds insert only the file row. A spec that renders the code body needs the object too, or the
 // body never leaves its loading state.
 export async function storeSeededMainCode(studyId: string, jobId: string) {
-    await getS3Client().send(
-        new PutObjectCommand({
-            Bucket: s3BucketName(),
-            Key: withS3Prefix(seededMainCodePath(studyId, jobId)),
-            Body: 'summary(read.csv("data.csv"))\n',
-        }),
-    )
+    await uploadSeedObject(seededMainCodePath(studyId, jobId), 'summary(read.csv("data.csv"))\n')
 }
 
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
@@ -496,7 +490,7 @@ const TOS_CONTENT = [
 ]
 const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
 
-async function uploadLegalContent(key: string, content: string) {
+async function uploadSeedObject(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
@@ -531,7 +525,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
     for (let index = existing.length; index < contents.length; index++) {
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId, versionId })
-        await uploadLegalContent(filePath, contents[index])
+        await uploadSeedObject(filePath, contents[index])
 
         const version = await db
             .insertInto('legalDocumentVersion')
