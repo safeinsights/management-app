@@ -5,7 +5,7 @@ import { type DB } from '@/database/types'
 import { clerkClient } from '@clerk/nextjs/server'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { assertValidPublicKey, InvalidPublicKeyError } from '@/lib/public-key'
-import { pathForInvitation } from '@/lib/paths'
+import { Routes } from '@/lib/routes'
 import { APP_BASE_URL } from '@/server/config'
 import { findOpenInvite } from '@/server/db/queries'
 import { findQaUser, assertQaEmail, QaCleanupNotFoundError } from '@/server/qa-cleanup'
@@ -186,7 +186,7 @@ export async function createQaInvite(
             orgSlug,
             isAdmin: existingInvite.isAdmin,
             alreadyInvited: true,
-            inviteUrl: `${APP_BASE_URL}${pathForInvitation(existingInvite.id)}`,
+            inviteUrl: `${APP_BASE_URL}${Routes.accountInvitation({ inviteId: existingInvite.id })}`,
         }
     }
 
@@ -202,6 +202,6 @@ export async function createQaInvite(
         orgSlug,
         isAdmin,
         alreadyInvited: false,
-        inviteUrl: `${APP_BASE_URL}${pathForInvitation(record.id)}`,
+        inviteUrl: `${APP_BASE_URL}${Routes.accountInvitation({ inviteId: record.id })}`,
     }
 }

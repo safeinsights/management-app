@@ -2,7 +2,6 @@ import { getStudyAndOrgDisplayInfo, studyDeciderIds, studyLabMemberIds } from '@
 import { findLegalDocument } from '@/server/db/legal-document'
 import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
-import { pathForInvitation } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
 import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
@@ -57,7 +56,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
         subject: 'Get started with SafeInsights',
         template: 'welcome email',
         vars: {
-            inviteLink: `${APP_BASE_URL}${pathForInvitation(inviteId)}`,
+            inviteLink: `${APP_BASE_URL}${Routes.accountInvitation({ inviteId })}`,
         },
     })
 }
