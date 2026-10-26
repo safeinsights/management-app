@@ -70,7 +70,7 @@ For developing locally without docker compose, you will need to:
     - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.
     - An SI Staff admin is a user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in the codebase). The screen at `/admin/safeinsights` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
-## Type-Safe Routing 🗺️
+## Type-Safe Routing 🧭
 
 The application uses a type-safe routing system located in [src/lib/routes](src/lib/routes) that provides compile-time and runtime validation for routes and parameters using Zod schemas. All routes must be defined in the `Routes` object in [src/lib/routes](src/lib/routes) and accessed using it's type safe methods as shown below:
 
@@ -120,7 +120,7 @@ To develop locally, you'll need to create your own SI Staff admin account:
 - `docker compose down -v --rmi all` - Full "reset switch" for DB errors (stops and removes Docker containers, networks, volumes, and all images)
 - `docker system prune -a` or `docker builder prune` - Clear your docker cache in case of emergency
 
-### Database Management 🗄️
+### Database Management 🐘
 
 - `pnpm exec kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
 - `pnpm run db:migrate` - Run database migrations
@@ -256,7 +256,7 @@ The new way to deploy is from the IaC repo, run:
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
 ```
 
-## Troubleshooting/Notes 🛠️
+## Troubleshooting/Notes 🔧
 
 There are a few CLI applications to debug the API end endpoints:
 
