@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import { TextInput } from '@mantine/core'
+import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { FormField, fieldDescribedBy, fieldTestId, useWidgetBlur } from './form-field'
 
@@ -89,7 +90,7 @@ describe('FormField', () => {
         renderWithProviders(<Harness />)
         const row = screen.getByTestId(fieldTestId('field')).lastElementChild as HTMLElement
 
-        expect(row.style.minHeight).toBe('calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))')
+        expect(row.style.minHeight).toBe(ERROR_LINE_MIN_HEIGHT)
 
         await userEvent.click(screen.getByRole('button', { name: 'Raise error' }))
 

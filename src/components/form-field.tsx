@@ -1,7 +1,7 @@
 import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
 import { Box, Group, Input } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
-import { InputError } from '@/components/errors'
+import { ERROR_LINE_MIN_HEIGHT, InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
 
 const formFieldLabelStyles = {
@@ -174,7 +174,6 @@ const FieldFooterRow: FC<{
     // `errorLive` keeps the row mounted: the live region has to exist before the message does.
     if (!error && !footer && !errorLive && !validatesOnBlur) return null
 
-    // One InputError line tall, so the message arriving never changes the row's height.
     return (
         <Group
             justify={error ? 'space-between' : 'flex-end'}
@@ -182,7 +181,7 @@ const FieldFooterRow: FC<{
             gap="xs"
             mt="xxs"
             wrap="nowrap"
-            mih="calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))"
+            mih={ERROR_LINE_MIN_HEIGHT}
         >
             <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
