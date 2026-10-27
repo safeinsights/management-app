@@ -2,17 +2,25 @@ import { chromium, type FullConfig } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 import { authFileFor, type TestingRole } from './e2e.helpers'
-import { seedLegalDocuments } from './e2e.seed'
+import { seedLegalDocuments, seedRestoreTestPublicKey } from './e2e.seed'
 
 const ROLES: TestingRole[] = ['researcher', 'reviewer', 'admin', 'legal']
 
 const WARMUP_ROUTES = [
+    '/',
+    '/about',
     '/researcher/dashboard',
     '/openstax-lab/dashboard',
     '/openstax/dashboard',
+    '/openstax/admin/settings',
+    '/openstax/admin/team',
     '/reviewer-is-org-admin/admin/settings',
     '/reviewer-is-org-admin/admin/team',
     '/reviewer-is-org-admin/admin/legal',
+    '/admin/safeinsights',
+    '/admin/safeinsights/legal',
+    '/researcher/profile',
+    '/user-key',
     '/account/signin',
     '/account/mfa',
     '/dashboard',
@@ -44,6 +52,12 @@ export default async function globalSetup(config: FullConfig) {
         const file = authFileFor(role)
         await fs.promises.mkdir(path.dirname(file), { recursive: true })
         await fs.promises.writeFile(file, JSON.stringify(storageStateFor(role), null, 2))
+    }
+
+    // Every decrypt flow opens outputs with tests/support/private_key.pem, so a run that regenerated a
+    // fixture user's key (a spec, or a hand test against the same database) would strand the next one.
+    for (const role of ROLES) {
+        await seedRestoreTestPublicKey(role)
     }
 
     // Cannot happen in a spec: legal documents are global, so publishing one mid-run would

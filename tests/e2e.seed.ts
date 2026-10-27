@@ -10,6 +10,10 @@ import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { createPublicKey } from 'crypto'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
@@ -580,6 +584,27 @@ export async function seedLegalDocuments() {
     )
 
     await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
+}
+
+const SUPPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'support')
+const readSupportFile = (name: string) => fs.readFileSync(path.join(SUPPORT_DIR, name), 'utf8')
+
+/**
+ * Pins a fixture user's key back to tests/support/public_key.pem. Every decrypt flow opens outputs
+ * with the matching private key, so a key regenerated against this database (by a spec, or by hand)
+ * would strand the next run at the Security key step. Runs from global.setup.ts for every role.
+ */
+export async function seedRestoreTestPublicKey(role: SeedRole) {
+    const userId = await resolveUserId(role)
+    // The same SPKI DER bytes si-encryption's pemToArrayBuffer yields, without importing its
+    // TypeScript sources, which Node will not type-strip from node_modules.
+    const publicKey = createPublicKey(readSupportFile('public_key.pem')).export({ type: 'spki', format: 'der' })
+    const fingerprint = readSupportFile('public_key.sig').trim()
+    await db
+        .insertInto('userPublicKey')
+        .values({ userId, publicKey, fingerprint })
+        .onConflict((oc) => oc.column('userId').doUpdateSet({ publicKey, fingerprint }))
+        .execute()
 }
 
 export { ENCLAVE_SLUG, LAB_SLUG }

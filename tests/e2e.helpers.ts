@@ -6,7 +6,6 @@ import {
     type Browser,
     type BrowserContext,
     type BrowserType,
-    type Locator,
     type Page,
     expect,
     test as baseTest,
@@ -15,8 +14,12 @@ import fs from 'fs'
 import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { E2E_TARGET } from './common.helpers'
 
 export * from './common.helpers'
+// The page flows (goto, the Lexical helpers, the study flows) live in tests/flows so the deployed tier
+// can share them; re-exported here so a spec keeps importing everything from one place.
+export * from './flows'
 export { fs, path }
 
 // since we're extending test from here, we might as well export some other often-used items
@@ -28,18 +31,6 @@ export type CollectV8CodeCoverageOptions = {
     use: () => Promise<void>
     enableJsCoverage: boolean
     enableCssCoverage: boolean
-}
-
-export async function goto(page: Page, url: string) {
-    await page.goto(url, { waitUntil: 'domcontentloaded' })
-    // Set by HydrationMarker once the root Suspense boundary's content has hydrated. Segments with
-    // their own loading.tsx hydrate in a nested boundary later, so this does not cover them.
-    await page.waitForFunction(() => window.isReactHydrated)
-}
-
-export async function reload(page: Page) {
-    await page.reload()
-    await page.waitForFunction(() => window.isReactHydrated)
 }
 
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
@@ -192,39 +183,10 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
 }
 
 // Per-role storageState file written by tests/global.setup.ts and consumed by specs
-// via `test.use({ storageState: authFileFor('reviewer') })`.
+// via `test.use({ storageState: authFileFor('reviewer') })`. Partitioned by target, so a
+// deployed-tier run (real Clerk sessions) never reuses or clobbers the local fake ones.
 export const authFileFor = (role: TestingRole) =>
-    path.join(path.dirname(fileURLToPath(import.meta.url)), '.auth', `${role}.json`)
-
-// Navigate to a protected URL assuming the session is already restored from
-// storageState (the __e2e_role cookie), then wait for hydration.
-export const visitAsRole = async (page: Page, url: string) => {
-    await goto(page, url)
-}
-
-// pressSequentially, not page.keyboard.type: the latter goes wherever focus happens to be, so if the
-// editor loses focus the keystrokes land on the page — and a space activates whatever button has it.
-export async function typeIntoLexical(field: Locator, text: string) {
-    await field.click()
-    await field.pressSequentially(text)
-}
-
-export async function fillLexicalField(page: Page, ariaLabel: string, text: string) {
-    await typeIntoLexical(page.locator(`[aria-label="${ariaLabel}"]`), text)
-}
-
-// Types `text` into a rich-text field and hyperlinks all of it through the editor
-// toolbar. The toolbar is scoped to the field's own editor because a page renders
-// one Lexical instance (and one toolbar) per rich-text field.
-export async function insertLexicalLink(page: Page, ariaLabel: string, text: string, url: string) {
-    const editor = page.locator(`.collaborative-editor-container:has([aria-label="${ariaLabel}"])`)
-    await typeIntoLexical(editor.locator(`[aria-label="${ariaLabel}"]`), text)
-    await page.keyboard.press('ControlOrMeta+a')
-
-    await editor.getByLabel('Link').click()
-    await editor.getByPlaceholder('https://').fill(url)
-    await editor.getByLabel('Apply link').click()
-}
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '.auth', E2E_TARGET, `${role}.json`)
 
 // Opens a context that restores `role`'s saved session from storageState (no
 // sign-in) and returns the context + page. The storageState file must exist (written
@@ -254,20 +216,6 @@ export const withRole = async (
         await fn(page)
     } finally {
         await context.close()
-    }
-}
-
-export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
-    const pin = pinCode.split('')
-    // Try to find inputs within the testId element, fallback to direct selection
-    let pinInputs = page.getByTestId(testId).locator('input')
-    const count = await pinInputs.count()
-    if (count === 0) {
-        // Fallback: try to find the PinInput group directly
-        pinInputs = page.locator('[role="group"]').locator('input[placeholder="0"]')
-    }
-    for (let i = 0; i < pin.length; i++) {
-        await pinInputs.nth(i).fill(pin[i])
     }
 }
 

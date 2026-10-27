@@ -43,6 +43,14 @@ const indexOnlyZone = (folder) => ({
 const awsIndexZone = indexOnlyZone('aws')
 const queriesIndexZone = indexOnlyZone('db/queries')
 
+// tests/flows holds the page flows both e2e tiers share, so nothing in it may reach the database, the
+// server, or the helpers only the local tier has (the DB seeds and the fake-auth session helpers).
+const flowsZone = {
+    target: './tests/flows',
+    from: ['./src/server', './src/database', './src/database.ts', './tests/e2e.seed.ts', './tests/e2e.helpers.ts'],
+    message: 'tests/flows must stay tier-agnostic: drive the page only, and seed from the spec.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -143,7 +151,10 @@ const eslintConfig = [
     {
         files: ['**/*.{ts,tsx,mjs}'],
         rules: {
-            'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone, queriesIndexZone] }],
+            'import/no-restricted-paths': [
+                'error',
+                { zones: [serverBoundaryZone, awsIndexZone, queriesIndexZone, flowsZone] },
+            ],
         },
     },
     {
@@ -153,6 +164,30 @@ const eslintConfig = [
     {
         files: ['src/server/db/queries/**'],
         rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone] }] },
+    },
+    // A flow takes its inputs as arguments: the deployed tier runs the same file against a real
+    // environment, where there is no shell and the environment is resolved by its own config.
+    {
+        files: ['tests/flows/**/*.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    paths: [
+                        ...restrictedImportPaths,
+                        { name: 'child_process', message: 'Flows drive the page; call services from tests/api.' },
+                        { name: 'node:child_process', message: 'Flows drive the page; call services from tests/api.' },
+                    ],
+                },
+            ],
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: "MemberExpression[object.name='process'][property.name='env']",
+                    message: 'Flows take their inputs as arguments; read the environment in the spec or the config.',
+                },
+            ],
+        },
     },
     // Custom rules and project-specific configuration
     {

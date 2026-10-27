@@ -242,6 +242,8 @@ jobs:
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             SIMULATE_CODE_BUILD: 't'
+            # Bearer for the CodeBuild webhook specs (tests/api/webhook-client.ts sends the same value).
+            CODEBUILD_WEBHOOK_SECRET: 'e2e-webhook-secret'
             # E2E runs against the in-app Clerk fake (src/lib/clerk-fake), so NO real Clerk
             # secrets are needed. E2E_FAKE_CLERK aliases @clerk/nextjs[/server] to the fake
             # at build time; SINGLE_USER_EDITING renders the standalone editor (no

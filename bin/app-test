@@ -10,7 +10,8 @@
 # E2E_FAKE_CLERK aliases @clerk/nextjs[/server] to the in-app fake (src/lib/clerk-fake)
 # at BUILD time — it must be set for `next build`, not just at server start. CI=true makes
 # the server behave like CI (skips the prod-only Mailgun guard, disables Coder).
-# SINGLE_USER_EDITING renders the standalone editor (no hocuspocus websocket).
+# SINGLE_USER_EDITING renders the standalone editor (no hocuspocus websocket). SIMULATE_CODE_BUILD
+# keeps code approval off CodeBuild and CODEBUILD_WEBHOOK_SECRET lets the webhook specs sign in.
 #
 # Usage: ./bin/app-test [--no-build]   (--no-build reuses an existing .next build)
 #
@@ -35,10 +36,20 @@ export SINGLE_USER_EDITING=t
 export PORT=4100
 export ASSETS_PREFIX=/
 export CODER_FILES=./coder-files
+# Approving code must not reach AWS CodeBuild. A production build has DEV_ENV off, so the flag has
+# to be in the server's environment rather than inferred (CI sets it in the job env; .env.test may too).
+export SIMULATE_CODE_BUILD="${SIMULATE_CODE_BUILD:-t}"
+# Bearer the CodeBuild webhooks (/api/services/*) verify; tests/common.helpers.ts sends the same default.
+export CODEBUILD_WEBHOOK_SECRET="${CODEBUILD_WEBHOOK_SECRET:-e2e-webhook-secret}"
+# Build-time, like CI: resolves WS_URL to the local editor service (src/lib/config.ts).
+export NEXT_PUBLIC_CI=true
 # .env.test sets AWS_PROFILE, which makes the AWS SDK prefer (expired) SSO over the static
 # local-S3 creds — S3 calls then hang ~30s and time out the upload-heavy specs. Drop it so
 # the static AWS_ACCESS_KEY_ID/SECRET (SeaweedFS) are used, matching CI.
 unset AWS_PROFILE
+# A session token left in the shell by an earlier `aws sso login` is sent along with the static keys and
+# SeaweedFS rejects the pair (InvalidAccessKeyId), so drop it for the same reason.
+unset AWS_SESSION_TOKEN
 # ClerkProvider guards on a publishable key being present; the fake ignores its value, so
 # a dummy pk_test key satisfies the guard if .env.test doesn't provide one.
 export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk}"
@@ -54,5 +65,5 @@ cp -r public .next/standalone/ 2>/dev/null || true
 mkdir -p .next/standalone/coder-files
 cp -r .next/static .next/standalone/.next/ 2>/dev/null || true
 
-echo "app-test: starting standalone server on :4100 (CI=true, E2E_FAKE_CLERK=1, SINGLE_USER_EDITING=t)"
+echo "app-test: starting standalone server on :4100 (CI=true, E2E_FAKE_CLERK=1, SINGLE_USER_EDITING=t, SIMULATE_CODE_BUILD=$SIMULATE_CODE_BUILD)"
 exec node .next/standalone/server.js

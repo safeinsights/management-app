@@ -30,6 +30,9 @@ export E2E_FAKE_CLERK=1
 # credentials. Both the migrate seed (bin/seed-environment.ts stores starter code) and the
 # Playwright seed (tests/e2e.seed.ts) call S3, so drop it before either runs, as bin/app-test does.
 unset AWS_PROFILE
+# A session token left in the shell by an earlier `aws sso login` is sent along with the static keys and
+# SeaweedFS rejects the pair (InvalidAccessKeyId), so drop it for the same reason.
+unset AWS_SESSION_TOKEN
 
 TEST_DB="${E2E_TEST_DB:-si_mgmnt_test}"
 PGHOST="${PGHOST:-localhost}"
