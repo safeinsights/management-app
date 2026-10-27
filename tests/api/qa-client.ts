@@ -28,6 +28,7 @@ export type QaJobStatus =
     | 'JOB-PROVISIONING'
     | 'JOB-READY'
     | 'JOB-RUNNING'
+    | 'RESULTS-VIEWED'
     | 'RUN-COMPLETE'
 
 // Plaintext artifacts: the route encrypts them to the reviewing org's enrolled keys.

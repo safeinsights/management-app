@@ -10,7 +10,7 @@ import { pathForLegalDocumentVersion, pathForStudyJobCodeFile } from '@/lib/path
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
-import { createPublicKey } from 'crypto'
+import { createHash, createPublicKey } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -36,6 +36,10 @@ const FIXED_USER_IDS = {
     researcher: '00000000-0000-4000-8000-000000000002',
     reviewer: '00000000-0000-4000-8000-000000000003',
     legal: '00000000-0000-4000-8000-000000000004',
+    // The persistent QA accounts (qa-review+*@safeinsights.org), the only ones /api/qa/* may touch.
+    'qa-admin': '00000000-0000-4000-8000-000000000011',
+    'qa-dp': '00000000-0000-4000-8000-000000000012',
+    'qa-researcher': '00000000-0000-4000-8000-000000000013',
 } as const
 
 type SeedRole = keyof typeof FIXED_USER_IDS
@@ -47,6 +51,9 @@ const ROLE_EMAIL_ENV: Record<SeedRole, string> = {
     // Faked-auth only, never provisioned in Clerk, so this env var never resolves and the
     // fixed seed id wins.
     legal: 'CLERK_LEGAL_EMAIL',
+    'qa-admin': 'CLERK_QA_ADMIN_EMAIL',
+    'qa-dp': 'CLERK_QA_DP_EMAIL',
+    'qa-researcher': 'CLERK_QA_RESEARCHER_EMAIL',
 }
 
 const userIdCache = new Map<SeedRole, string>()
@@ -148,13 +155,15 @@ type StudyOverrides = {
     // have something to narrow.
     enclaveSlug?: string
     labSlug?: string
+    // Defaults to the researcher fixture; the QA API specs need studies owned by a qa- account.
+    researcherId?: string
 }
 
 async function insertStudy(overrides: StudyOverrides) {
     const [enclave, lab, researcherId, reviewerId] = await Promise.all([
         resolveOrg(overrides.enclaveSlug ?? ENCLAVE_SLUG),
         resolveOrg(overrides.labSlug ?? LAB_SLUG),
-        resolveUserId('researcher'),
+        overrides.researcherId ?? resolveUserId('researcher'),
         resolveUserId('reviewer'),
     ])
 
@@ -513,6 +522,102 @@ export async function seedCodeRejected(title: string): Promise<SeedResult> {
     return { studyId: study.id }
 }
 
+// Owned by the qa-researcher fixture, so the QA routes (which refuse any study whose researcher is
+// not a qa- account) will act on it. Everything else matches the researcher fixture's studies.
+export async function seedQaOwnedStudy(
+    title: string,
+    { status = 'APPROVED', researcherId }: { status?: StudyStatus; researcherId?: string } = {},
+): Promise<SeedResult> {
+    const { study } = await insertStudy({
+        title,
+        status,
+        approvedAt: status === 'APPROVED' ? new Date() : null,
+        researcherId: researcherId ?? (await resolveUserId('qa-researcher')),
+    })
+    return { studyId: study.id }
+}
+
+// A user that exists only to be acted on (invited, re-provisioned, deleted), never signed in as.
+export async function seedThrowawayUser({
+    emailPrefix,
+    orgSlug,
+    isAdmin = false,
+    withPublicKey = false,
+}: {
+    emailPrefix: string
+    orgSlug?: string
+    isAdmin?: boolean
+    withPublicKey?: boolean
+}): Promise<{ userId: string; email: string }> {
+    const email = `${emailPrefix}-${Date.now().toString(36)}-${uuidv7().slice(-6)}@example.com`
+    const user = await db
+        .insertInto('user')
+        .values({ clerkId: `e2e-${uuidv7()}`, email, firstName: 'E2E', lastName: 'Throwaway' })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    if (orgSlug) {
+        const org = await resolveOrg(orgSlug)
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: org.id, isAdmin }).execute()
+    }
+    if (withPublicKey) await upsertTestPublicKey(user.id)
+    return { userId: user.id, email }
+}
+
+// Mirrors the migration seed's code environment, with the scan the app opens on creation.
+export async function seedCodeEnv({
+    orgSlug,
+    name,
+    identifier,
+    language = 'R',
+}: {
+    orgSlug: string
+    name: string
+    identifier: string
+    language?: Language
+}): Promise<{ codeEnvId: string; name: string }> {
+    const org = await resolveOrg(orgSlug)
+    const env = await db
+        .insertInto('orgCodeEnv')
+        .values({
+            orgId: org.id,
+            name,
+            identifier,
+            language,
+            url: 'public.ecr.aws/docker/library/r-base:latest',
+            commandLines: { r: 'Rscript main.r' },
+            starterCodeFileNames: ['main.r'],
+            isTesting: false,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    await db.insertInto('codeScan').values({ codeEnvId: env.id, status: 'SCAN-PENDING' }).execute()
+    return { codeEnvId: env.id, name }
+}
+
+// Read-only views for the API specs, which have no screen to assert through.
+export async function jobStatusRows(jobId: string) {
+    return db
+        .selectFrom('jobStatusChange')
+        .select(['status', 'message'])
+        .where('studyJobId', '=', jobId)
+        .orderBy('createdAt')
+        .orderBy('id')
+        .execute()
+}
+
+export async function jobFileTypes(jobId: string): Promise<string[]> {
+    const rows = await db.selectFrom('studyJobFile').select('fileType').where('studyJobId', '=', jobId).execute()
+    return rows.map((row) => row.fileType)
+}
+
+export async function studyExists(studyId: string): Promise<boolean> {
+    return !!(await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst())
+}
+
+export async function userExists(userId: string): Promise<boolean> {
+    return !!(await db.selectFrom('user').select('id').where('id', '=', userId).executeTakeFirst())
+}
+
 // Legal documents are GLOBALLY scoped, so publishing one obliges every user of the database it
 // lands in. Kept out of src/database/seeds, which also runs in deployed environments.
 
@@ -652,11 +757,16 @@ const readSupportFile = (name: string) => fs.readFileSync(path.join(TESTS_DIR, '
  * would strand the next run at the Security key step. Runs from global.setup.ts for every role.
  */
 export async function seedRestoreTestPublicKey(role: SeedRole) {
-    const userId = await resolveUserId(role)
+    await upsertTestPublicKey(await resolveUserId(role))
+}
+
+async function upsertTestPublicKey(userId: string) {
     // The same SPKI DER bytes si-encryption's pemToArrayBuffer yields, without importing its
     // TypeScript sources, which Node will not type-strip from node_modules.
     const publicKey = createPublicKey(readSupportFile('public_key.pem')).export({ type: 'spki', format: 'der' })
-    const fingerprint = readSupportFile('public_key.sig').trim()
+    // The hex SHA-256 of that DER, as si-encryption's fingerprintKeyData computes it and the migration
+    // seed stores it; public_key.sig holds the same digest behind openssl's "SHA2-256(stdin)= " prefix.
+    const fingerprint = createHash('sha256').update(publicKey).digest('hex')
     await db
         .insertInto('userPublicKey')
         .values({ userId, publicKey, fingerprint })
