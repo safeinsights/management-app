@@ -7,7 +7,8 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { db } from '@/database'
-import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/db/mutations'
+import { findOrCreateSiUserId, findOrCreateOrgMembership, syncUserOrgsToClerk } from '@/server/db/mutations'
+import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { TEST_USERS, setupClerkTestUser, type TestUserRole } from './lib/clerk-test-users'
 import { testingDataAllowed } from './lib/testing-data-gate'
@@ -95,6 +96,7 @@ async function findOrUpdateClerkTestUsers() {
     }
 
     const clerk = createClerkClient({ secretKey })
+    const clerkSync = createClerkOrgSync(clerk.organizations)
 
     for (const config of TEST_USERS) {
         const { role, email } = config
@@ -126,6 +128,7 @@ async function findOrUpdateClerkTestUsers() {
 
             // Set up org memberships
             await setupOrgMemberships(role, siUserId)
+            await syncUserOrgsToClerk(siUserId, clerkSync)
         } catch (err) {
             console.error(`❌ Error processing ${role}:`, err)
         }

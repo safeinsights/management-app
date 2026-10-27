@@ -90,7 +90,7 @@ describe('AppModal with a link card (OTTER-792)', () => {
         const onClose = vi.fn()
         renderWithProviders(
             <AppModal isOpen onClose={onClose} title="Preview">
-                <ReadOnlyLexicalContent value={linkState} />
+                <ReadOnlyLexicalContent value={linkState} label="Notes" />
             </AppModal>,
         )
         const anchor = await openReadOnlyCard()
@@ -139,7 +139,7 @@ describe('AppModal with a link card (OTTER-792)', () => {
         const onClose = vi.fn()
         renderWithProviders(
             <AppModal isOpen onClose={onClose} title="Preview" closeOnEscape={false}>
-                <ReadOnlyLexicalContent value={linkState} />
+                <ReadOnlyLexicalContent value={linkState} label="Notes" />
             </AppModal>,
         )
         await openReadOnlyCard()

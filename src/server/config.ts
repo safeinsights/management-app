@@ -85,6 +85,11 @@ export const PROD_ENV = ENVIRONMENT_ID == 'production'
 // Not NEXT_PUBLIC_: the build is shared across environments, so a build-time inlined flag could
 // not vary per-env. Threaded to the client via the websocket provider.
 export const SINGLE_USER_EDITING = env.SINGLE_USER_EDITING === 't'
+// Off locally and on PR previews, which share the dev Clerk instance but have their own database. A
+// preview runs with its base env's ENVIRONMENT_ID, so only DEPLOY_ID=pr<N> tells it apart. Reads env
+// per call, unlike the constants here, so tests can toggle it.
+export const clerkOrgSyncEnabled = (vars: Record<string, string | undefined> = process.env) =>
+    (vars.ENVIRONMENT_ID || 'local') !== 'local' && !/^pr\d+$/.test(vars.DEPLOY_ID ?? '')
 export const DEPLOYED_ENV = !CI_ENV && ENVIRONMENT_ID !== 'local'
 export const CODER_DISABLED = Boolean(CI_ENV || DEV_ENV)
 

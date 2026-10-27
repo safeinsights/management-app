@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getConfigValue } from './config'
+import { clerkOrgSyncEnabled, getConfigValue } from './config'
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 import { mockClient } from 'aws-sdk-client-mock'
@@ -68,5 +68,18 @@ describe('getConfigValue', () => {
 
         await expect(getConfigValue('MAILGUN_DOMAIN')).rejects.toThrow('failed to find MAILGUN_DOMAIN in config')
         expect(await getConfigValue('MAILGUN_DOMAIN', false)).toBeNull()
+    })
+})
+
+describe('clerkOrgSyncEnabled', () => {
+    it.each([
+        [{}, false],
+        [{ ENVIRONMENT_ID: 'local' }, false],
+        [{ ENVIRONMENT_ID: 'dev' }, true],
+        [{ ENVIRONMENT_ID: 'dev', DEPLOY_ID: 'pr123' }, false],
+        [{ ENVIRONMENT_ID: 'production' }, true],
+        [{ ENVIRONMENT_ID: 'staging', DEPLOY_ID: 'staging' }, true],
+    ])('%o -> %s', (env, enabled) => {
+        expect(clerkOrgSyncEnabled(env)).toBe(enabled)
     })
 })

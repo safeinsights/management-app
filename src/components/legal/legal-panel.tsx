@@ -12,7 +12,7 @@ type Props = {
 }
 
 export const LegalPanel: FC<Props> = ({ title, aside, children }) => (
-    <Paper shadow="xs" p="xl">
+    <Paper shadow="xs" p="xxl">
         <Group justify="space-between" align="flex-start" mb="lg" wrap="nowrap">
             <Title order={3}>{title}</Title>
             {aside}

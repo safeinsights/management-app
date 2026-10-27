@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker'
+import { Routes } from '@/lib/routes/definitions'
 import {
     authFileFor,
     expect,
@@ -10,7 +11,7 @@ import {
     visitAsRole,
     path,
 } from './e2e.helpers'
-import { SEEDED_TOS_V2_BODY } from './e2e.seed'
+import { REVIEWER_ADMIN_ORG_SLUG, SEEDED_TOS_V2_BODY } from './e2e.seed'
 import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
@@ -22,14 +23,14 @@ test.describe('Organization Admin', () => {
         const uniqueSuffix = Date.now().toString(36)
         const email = `test-invite-${uniqueSuffix}@test.com`
 
-        await visitAsRole(page, '/reviewer-is-org-admin/admin/team')
+        await visitAsRole(page, Routes.adminTeam({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
-        await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
+        // The users table loads client-side, so its rows only show once the page has hydrated and the
+        // invite button responds to a click.
+        await expect(page.getByRole('cell', { name: TestingUsers.reviewer.identifier })).toBeVisible()
 
-        const inviteBtn = page.getByRole('button', { name: /invite people/i })
-        await inviteBtn.waitFor({ state: 'visible' })
-        await inviteBtn.click({ force: true })
-        await page.waitForSelector('input[type="email"]', { state: 'visible' })
+        await page.getByRole('button', { name: /invite people/i }).click()
+        await expect(page.getByRole('dialog', { name: /invite others to join your team/i })).toBeVisible()
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
         await expect(page.getByText(/invalid email address/i)).toBeVisible()
@@ -50,19 +51,19 @@ test.describe('Organization Admin', () => {
         await expect(pendingPanel.getByText(email)).toBeVisible()
 
         const btn = page.getByTestId(`re-invite-${email}`)
-        const inviteId = await btn.getAttribute('data-pending-id')
+        const inviteId = (await btn.getAttribute('data-pending-id'))!
         await btn.click()
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
 
-        await goto(page, `/account/invitation/${inviteId}`)
+        await goto(page, Routes.accountInvitation({ inviteId }))
         await expect(page.getByText('You must be signed out to accept invitations', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: /sign out/i }).click()
 
         const createAccountBtn = page.getByRole('link', { name: /create new account/i })
         await expect(createAccountBtn).toBeVisible()
         await createAccountBtn.click()
-        await page.waitForURL(`/account/invitation/${inviteId}/signup`)
+        await page.waitForURL(Routes.accountInvitationSignup({ inviteId }))
 
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
@@ -86,18 +87,18 @@ test.describe('Organization Admin', () => {
     test('shows a confirmation banner on the dashboard after joining an org', async ({ page }) => {
         const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
 
-        await visitAsRole(page, '/dashboard')
+        await visitAsRole(page, Routes.dashboard)
         await page.evaluate(
             ([key, value]) => sessionStorage.setItem(key, value),
             [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName })],
         )
 
-        await goto(page, '/dashboard')
+        await goto(page, Routes.dashboard)
         const banner = page.getByTestId('joined-org-banner')
         await expect(banner).toBeVisible()
         await expect(banner).toContainText(`You have been added to ${orgName}.`)
 
-        await goto(page, '/dashboard')
+        await goto(page, Routes.dashboard)
         await expect(page.getByTestId('joined-org-banner')).toBeHidden()
     })
 
@@ -105,13 +106,13 @@ test.describe('Organization Admin', () => {
         const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
         const linkedEmail = 'invited@example.com'
 
-        await visitAsRole(page, '/dashboard')
+        await visitAsRole(page, Routes.dashboard)
         await page.evaluate(
             ([key, value]) => sessionStorage.setItem(key, value),
             [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName, linkedEmail })],
         )
 
-        await goto(page, '/dashboard')
+        await goto(page, Routes.dashboard)
         const banner = page.getByTestId('joined-org-banner')
         await expect(banner).toBeVisible()
         await expect(banner).toContainText(
@@ -120,9 +121,9 @@ test.describe('Organization Admin', () => {
     })
 
     test('org admin can create and edit code environment starter code', async ({ page }) => {
-        await visitAsRole(page, '/reviewer-is-org-admin/admin/settings')
+        await visitAsRole(page, Routes.adminSettings({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
-        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
+        await expect(page).toHaveURL(Routes.adminSettings({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
         await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /code environments/i })).toBeVisible()
@@ -145,6 +146,7 @@ test.describe('Organization Admin', () => {
         await page.getByPlaceholder(/command.*%f/i).fill('Rscript %f')
         await page.getByLabel(/add command line/i).click()
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
+        await page.getByLabel(/image digest/i).fill(`sha256:${'a'.repeat(64)}`)
 
         await expect(page.getByRole('textbox', { name: /language/i })).toHaveValue('R')
 
@@ -161,8 +163,7 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(codeEnvName)).toBeVisible()
 
-        const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
-        await codeEnvRow.locator('button').nth(1).click()
+        await page.getByRole('button', { name: `Edit ${codeEnvName}`, exact: true }).click()
 
         const editDialog = page.getByRole('dialog', { name: /edit code environment/i })
         await expect(editDialog).toBeVisible()
@@ -176,10 +177,10 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(updatedName)).toBeVisible()
 
-        const updatedRow = page.getByText(updatedName, { exact: true }).locator('xpath=../../..')
-        await updatedRow.getByRole('button').first().click()
+        await page.getByRole('button', { name: `Details for ${updatedName}`, exact: true }).click()
 
-        await updatedRow.getByLabel(/view main\.r/i).click()
+        // Collapsed rows hide their detail panel, so only this row's starter code button is visible.
+        await page.getByRole('button', { name: 'View main.r', exact: true }).click()
 
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible()
@@ -188,9 +189,9 @@ test.describe('Organization Admin', () => {
 
     // Row content is deliberately not asserted: other specs mutate this org in parallel.
     test('org admin can open the legal center', async ({ page }) => {
-        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+        await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
-        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/legal/)
+        await expect(page).toHaveURL(Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
         await expect(page.getByRole('heading', { name: 'Legal center' })).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Study Agreement' })).toBeVisible()
 
@@ -201,7 +202,7 @@ test.describe('Organization Admin', () => {
     })
 
     test('legal center shows the sort icon beside the column label', async ({ page }) => {
-        await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+        await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
 
         const header = page.getByRole('button', { name: /^study title/i })
         const label = header.locator('.mantine-datatable-header-cell-sortable-text')
@@ -227,7 +228,7 @@ test.describe('Organization Admin', () => {
         test.use({ viewport: LEGAL_DESIGN_VIEWPORT })
 
         test('legal center layout matches the design', async ({ page }) => {
-            await visitAsRole(page, '/reviewer-is-org-admin/admin/legal')
+            await visitAsRole(page, Routes.adminLegal({ orgSlug: REVIEWER_ADMIN_ORG_SLUG }))
             await expectLegalLayoutToMatchDesign(page)
         })
     })

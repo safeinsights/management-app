@@ -14,6 +14,7 @@ import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/st
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
 const LAB_SLUG = 'openstax-lab'
+const REVIEWER_ADMIN_ORG_SLUG = 'reviewer-is-org-admin'
 
 // Fallback only: in PR environments a user who logged in before seeding owns their email under
 // a random UUID.
@@ -247,6 +248,8 @@ const seededStatusActor = (status: StudyJobStatus, ids: { researcherId: string; 
     return ids.researcherId
 }
 
+const seededMainCodePath = (studyId: string, jobId: string) => `studies/${studyId}/${jobId}/analysis.r`
+
 // `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
@@ -266,7 +269,7 @@ async function insertSubmittedJob(
             .values({
                 studyJobId: job.id,
                 name: 'analysis.r',
-                path: `studies/${studyId}/${job.id}/analysis.r`,
+                path: seededMainCodePath(studyId, job.id),
                 fileType: 'MAIN-CODE',
             })
             .execute()
@@ -349,10 +352,16 @@ export async function seedStudyFor(
     return { studyId: study.id }
 }
 
-export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
+export async function seedCodeSubmitted(title: string): Promise<Required<SeedResult>> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
-    await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
-    return { studyId: study.id }
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// The seeds insert only the file row. A spec that renders the code body needs the object too, or the
+// body never leaves its loading state.
+export async function storeSeededMainCode(studyId: string, jobId: string) {
+    await uploadSeedObject(seededMainCodePath(studyId, jobId), 'summary(read.csv("data.csv"))\n')
 }
 
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
@@ -482,7 +491,7 @@ const TOS_CONTENT = [
 ]
 const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
 
-async function uploadLegalContent(key: string, content: string) {
+async function uploadSeedObject(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
@@ -517,7 +526,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
     for (let index = existing.length; index < contents.length; index++) {
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId, versionId })
-        await uploadLegalContent(filePath, contents[index])
+        await uploadSeedObject(filePath, contents[index])
 
         const version = await db
             .insertInto('legalDocumentVersion')
@@ -582,4 +591,4 @@ export async function seedLegalDocuments() {
     await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
-export { ENCLAVE_SLUG, LAB_SLUG }
+export { ENCLAVE_SLUG, LAB_SLUG, REVIEWER_ADMIN_ORG_SLUG }

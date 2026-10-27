@@ -66,7 +66,7 @@ const publishAgreementAsSiAdmin = async (
 const asOrgAdmin = (slug: string, orgType: 'enclave' | 'lab') =>
     mockSessionWithTestData({ orgSlug: slug, orgType, isAdmin: true })
 
-const SORT = { columnAccessor: 'signedAt', direction: 'desc' } as const
+const SORT = { columnAccessor: 'studyId', direction: 'desc' } as const
 
 describe('fetchOrgStudyAgreementsAction', () => {
     it('lists an approved study with no agreement yet, naming the Research Lab as the counterparty', async () => {
@@ -131,6 +131,34 @@ describe('fetchOrgStudyAgreementsAction', () => {
 
         expect(ascending).toHaveLength(2)
         expect(await idsSortedBy('desc')).toEqual([...ascending].reverse())
+    })
+
+    it('puts the newest study first among equal titles', async () => {
+        const dataPartner = await insertTitledStudies(['Same title', 'Same title'])
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const ids = actionResult(
+            await fetchOrgStudyAgreementsAction({
+                orgSlug: dataPartner.slug,
+                sort: { columnAccessor: 'studyTitle', direction: 'asc' },
+            }),
+        ).map((row) => row.studyId)
+
+        expect(ids).toHaveLength(2)
+        expect(ids).toEqual([...ids].sort().reverse())
+    })
+
+    it('rejects a sort on a date column', async () => {
+        const { dataPartner } = await insertStudyWithDistinctOrgs()
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const result = await fetchOrgStudyAgreementsAction({
+            orgSlug: dataPartner.slug,
+            // @ts-expect-error the schema rejects it; this proves the runtime does too.
+            sort: { columnAccessor: 'signedAt', direction: 'desc' },
+        })
+
+        expect(result).toEqual({ error: expect.anything() })
     })
 
     it('names the Data Partner as the counterparty for the Research Lab admin', async () => {

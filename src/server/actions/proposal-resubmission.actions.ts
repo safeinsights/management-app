@@ -139,7 +139,7 @@ export const saveProposalResubmissionNoteDraftAction = new Action('saveProposalR
     performsMutations: true,
 })
     // Serialized Lexical JSON: heavy per-word formatting inflates a 300-word note (OTTER-658).
-    .params(z.object({ studyId: z.string().uuid(), note: z.string().max(100_000) }))
+    .params(z.object({ studyId: z.uuid(), note: z.string().max(100_000) }))
     .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
     .handler(async ({ db, params: { studyId, note }, session }) => {

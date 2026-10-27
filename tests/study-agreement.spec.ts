@@ -1,24 +1,14 @@
+import { Routes } from '@/lib/routes/definitions'
 import { expect, goto, test, withRole, type Page } from './e2e.helpers'
 import { seedApprovedWithPublishedStudyAgreement } from './e2e.seed'
+import { RESEARCHER_DASHBOARD, REVIEWER_DASHBOARD, viewStudyDetails } from './study.helpers'
 
 // Study-scoped, unlike the global Terms of Service, so this spec publishes its own at runtime against
 // a uniquely-titled study and needs no dedicated role.
 
-const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
-const REVIEWER_DASHBOARD = '/openstax/dashboard'
-
 const openStudy = async (page: Page, studyTitle: string, dashboard = RESEARCHER_DASHBOARD) => {
     await goto(page, dashboard)
-    const studyRow = page
-        .getByRole('row')
-        .filter({ hasText: studyTitle })
-        .filter({ hasNotText: /Proposal draft/ })
-    await expect(studyRow).toBeVisible()
-    // React Query refetches can detach DOM nodes mid-click, so re-locate each attempt.
-    await expect(async () => {
-        await studyRow.getByRole('link').first().click()
-    }).toPass()
-    await page.waitForURL(/\/study\//)
+    await viewStudyDetails(page, studyTitle)
 }
 
 test('a study with an unacknowledged Study Agreement is blocked until it is acknowledged', async ({
@@ -42,7 +32,7 @@ test('a study with an unacknowledged Study Agreement is blocked until it is ackn
 
         // Declining has to lead somewhere: the modal covers the nav.
         await modal.getByRole('button', { name: 'Cancel' }).click()
-        await page.waitForURL(/\/dashboard/)
+        await page.waitForURL(Routes.dashboard)
 
         // Cancelling settles nothing — re-entering asks again.
         await openStudy(page, studyTitle)

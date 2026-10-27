@@ -127,6 +127,10 @@ describe('SignInForm', () => {
 
         await waitFor(() => expect(screen.getByText(clerkErrorOverrides.form_password_incorrect)).toBeInTheDocument())
         expect(memoryRouter.asPath).toBe('/account/signin')
+
+        const email = screen.getByLabelText('Email')
+        expect(email).toHaveAttribute('aria-invalid', 'true')
+        expect(email).not.toHaveAttribute('aria-describedby')
     })
 
     // A blank email fails both `min(1)` and `email()`; the resolver keeps the last by default,

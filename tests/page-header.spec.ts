@@ -1,10 +1,12 @@
 import type { Page } from '@playwright/test'
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, goto, test } from './e2e.helpers'
+import { ENCLAVE_SLUG } from './e2e.seed'
 
 // An org page takes its eyebrow from the organization; My studies is one of the three pages that
 // has none and therefore renders the reserved empty slot.
-const WITH_EYEBROW = '/openstax/dashboard'
-const WITHOUT_EYEBROW = '/dashboard'
+const WITH_EYEBROW = Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG })
+const WITHOUT_EYEBROW = Routes.dashboard
 
 const eyebrowHeight = async (page: Page, url: string) => {
     await goto(page, url)

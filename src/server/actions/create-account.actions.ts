@@ -6,6 +6,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { env } from '@/server/config'
 import { withTransaction } from '@/server/request-context'
 import { updateClerkUserMetadata } from '@/server/clerk'
+import { syncMembershipToClerk } from '@/server/clerk-org-sync'
 import { getUserPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import { extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
@@ -200,6 +201,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                         .set({ isAdmin: true })
                         .where('id', '=', orgUser.id)
                         .executeTakeFirstOrThrow()
+                    await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
                 }
                 return user
             }
@@ -214,6 +216,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
 
             return user
         })
@@ -238,7 +241,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             }),
             // The versions the form displayed, not "whatever is latest now". Validated as uuids
             // because a malformed one reaches Postgres as a 22P02 inside the transaction.
-            acknowledgedVersionIds: z.array(z.string().uuid()).optional(),
+            acknowledgedVersionIds: z.array(z.uuid()).optional(),
         }),
     )
 
@@ -336,6 +339,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
+            await syncMembershipToClerk({ userId: user.id, orgId: invite.orgId })
 
             // Claimed in the same transaction as the membership grant, so the guard is
             // self-enforcing rather than relying on a later client call.

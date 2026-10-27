@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, type Mock } from 'vitest'
 import {
+    beforeEach,
+    enableClerkOrgSync,
     db,
     insertTestOrg,
     insertTestUser,
@@ -7,11 +9,17 @@ import {
     readTestSupportFile,
     faker,
     qaEmail,
+    installFakeClerkOrgs,
+    fakeClerkRoleOf,
 } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
+import { Routes } from '@/lib/routes'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { deliver } from '@/server/mailgun'
+import logger from '@/lib/logger'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/mailgun', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/mailgun')>()
@@ -30,6 +38,57 @@ const orgSlugsFor = async (userId: string) => {
 }
 
 describe('provisionQaUser', () => {
+    it('mirrors memberships into Clerk and removes dropped ones', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        installFakeClerkOrgs()
+        const home = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const orgA = await insertTestOrg({ slug: `a${faker.string.alpha(10)}`, type: 'lab' })
+        const orgB = await insertTestOrg({ slug: `b${faker.string.alpha(10)}`, type: 'enclave' })
+        const { user } = await insertTestUser({ org: home, email: qaEmail() })
+
+        await provisionQaUser(db, user.id, { orgs: [{ slug: orgA.slug }, { slug: orgB.slug, isAdmin: true }] })
+
+        expect(await fakeClerkRoleOf(orgA.slug, user.clerkId)).toBe('org:member')
+        expect(await fakeClerkRoleOf(orgB.slug, user.clerkId)).toBe('org:admin')
+
+        await provisionQaUser(db, user.id, { orgs: [{ slug: orgA.slug }] })
+
+        expect(await fakeClerkRoleOf(orgA.slug, user.clerkId)).toBe('org:member')
+        expect(await fakeClerkRoleOf(orgB.slug, user.clerkId)).toBeUndefined()
+    })
+
+    it('commits the DB change and logs when Clerk fails', async () => {
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const fake = installFakeClerkOrgs()
+        fake.api.updateOrganizationMembership.mockRejectedValue(new Error('clerk is down'))
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const { user } = await insertTestUser({ org, isAdmin: false, email: qaEmail() })
+
+        await provisionQaUser(db, user.id, { orgs: [{ slug: org.slug, isAdmin: true }] })
+
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: true }])
+        expect(logError).toHaveBeenCalledWith(
+            'clerk-org-sync failed',
+            expect.objectContaining({ error: expect.objectContaining({ message: 'clerk is down' }) }),
+        )
+    })
+
+    it('leaves Clerk alone when the public key is invalid', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const fake = installFakeClerkOrgs()
+        const org = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const target = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org, email: qaEmail() })
+
+        await expect(
+            provisionQaUser(db, user.id, { orgs: [{ slug: target.slug, isAdmin: true }], publicKey: 'not-a-key' }),
+        ).rejects.toBeInstanceOf(QaInvalidRequestError)
+
+        expect([...fake.members.values()].some((m) => m.has(user.clerkId))).toBe(false)
+        expect(await orgSlugsFor(user.id)).toEqual([{ slug: org.slug, isAdmin: false }])
+    })
+
     it('sets exactly the listed orgs, removing ones not listed', async () => {
         const orgA = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
         const orgB = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
@@ -206,7 +265,7 @@ describe('createQaInvite', () => {
 
         expect(result.alreadyInvited).toBe(false)
         expect(result.email).toBe('qa-new@test.com')
-        expect(result.inviteUrl).toContain(`/account/invitation/${result.inviteId}`)
+        expect(result.inviteUrl).toContain(Routes.accountInvitation({ inviteId: result.inviteId }))
 
         const pending = await db
             .selectFrom('pendingUser')
@@ -272,7 +331,7 @@ describe('createQaInvite', () => {
 
         expect(result.alreadyInvited).toBe(false)
         expect(result.inviteId).not.toBe(claimed.id)
-        expect(result.inviteUrl).toContain(`/account/invitation/${result.inviteId}`)
+        expect(result.inviteUrl).toContain(Routes.accountInvitation({ inviteId: result.inviteId }))
     })
 
     it('rejects an email that already belongs to a member of the org', async () => {

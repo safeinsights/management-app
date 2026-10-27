@@ -26,7 +26,7 @@ export const studyTitleField = (blankError: string) =>
 // produces an error the user can never see or clear (OTTER-647).
 const step1FieldsObject = z.object({
     title: studyTitleField(STUDY_TITLE_BLANK_ERROR),
-    orgSlug: z.string().min(1, { message: DATA_PARTNER_REQUIRED_ERROR }),
+    orgSlug: z.string().min(1, { error: DATA_PARTNER_REQUIRED_ERROR }),
     language: z.enum(['R', 'PYTHON']).nullable(),
 })
 
@@ -43,26 +43,26 @@ export const step1FieldsSchema = step1FieldsObject.superRefine((values, ctx) => 
 })
 
 export const studyProposalFormSchema = step1FieldsObject.extend({
-    piName: z.string().max(100, { message: 'Name cannot exceed 100 characters' }).trim(),
+    piName: z.string().max(100, { error: 'Name cannot exceed 100 characters' }).trim(),
     description: z.string().optional(),
 })
 
 export const codeFilesSchema = z
     .object({
-        mainCodeFile: z.union([z.instanceof(File, { message: 'Main code file is required' }), z.null()]).refine(
+        mainCodeFile: z.union([z.instanceof(File, { error: 'Main code file is required' }), z.null()]).refine(
             (file) => {
                 if (file === null) return false
                 return /\.(R|r|rmd|py|ipynb)$/i.test(file.name)
             },
             {
-                message: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
+                error: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
             },
         ),
         additionalCodeFiles: z
             .array(z.instanceof(File))
-            .max(10, { message: 'No more than 10 code files are allowed.' })
+            .max(10, { error: 'No more than 10 code files are allowed.' })
             .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
-                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
+                error: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
             }),
     })
     .superRefine((data, ctx) => {
@@ -104,10 +104,10 @@ export const studyProposalApiSchema = z.object({
     title: z
         .string()
         .trim()
-        .min(1, { message: 'Title is required' })
-        .max(STUDY_TITLE_MAX_CHARACTERS, { message: STUDY_TITLE_OVER_LIMIT_ERROR }),
+        .min(1, { error: 'Title is required' })
+        .max(STUDY_TITLE_MAX_CHARACTERS, { error: STUDY_TITLE_OVER_LIMIT_ERROR }),
     piName: z.string().max(100).trim(),
-    piUserId: z.string().uuid(),
+    piUserId: z.uuid(),
     language: z.enum(['R', 'PYTHON']),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),

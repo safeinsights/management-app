@@ -15,7 +15,8 @@ migration brings them along.
    on the same code path as new ones. A `?? default` in a query or component makes old rows a second
    code path forever. Exemplars: `1774000000000_add_pi_user_id_to_study.ts`,
    `1780300000000_backfill_code_phase_study_status.ts`, `1786900000000_study_review_round.ts`.
-2. **If no backfill is needed, say why** with a `// no backfill: <reason>` comment in the migration.
+2. **If no backfill is needed, say why** with a `// no backfill <table or enum>: <reason>` comment in
+   the migration, one for each table or enum, e.g. `// no backfill study_status: <reason>`.
    Valid reasons: a draft/scratch column that only matters going forward; an enum value that records
    an event that could not have happened before; a table whose rows only a new flow creates. "Old rows
    are null and the code handles null" is not a reason — see 1.
@@ -24,10 +25,20 @@ migration brings them along.
    `study_review_round.test.ts`). Pin any status list the backfill keys on against the runtime list.
 4. **Irreversible backfill → say so in `down()`** instead of pretending to undo it.
 5. **Say it in the PR description**: "Existing studies: backfilled X" or "unaffected because Y", so QA
-   knows whether to check studies that predate the deploy.
+   knows whether to check studies that predate the deploy. The PR template carries the line, and the
+   `PR description` workflow fails a PR that changes `src/database/migrations/` without it.
 
 `src/database/migrations.test.ts` fails any migration numbered ≥ 1787300000000 that widens a
-study-family table or enum without a backfill or the `no backfill:` marker.
+study-family table or enum outside `down()`, unless it backfills each widened table on that same
+table, in `up()` or in a function in the same file that `up()` calls, or the file carries a
+`no backfill <name>:` marker for that table or enum. A marker exempts only the name it carries, so a
+marker for an enum value does not hide a new column in the same file. Pass builder table names as
+string literals: the guard reports any other name as `<unresolved table>`, and no marker exempts it.
+
+A new study enum value (`ALTER TYPE ... ADD VALUE`) always needs its marker, with a true reason
+(step 2): Postgres cannot use the value before the migration's transaction commits, so no backfill in
+that migration can write it. If old rows need the new value, rebuild the type and backfill in the same
+migration, as `1787300000000_code_resubmission_note_rows.ts` does.
 
 ## Pre-rule gaps
 

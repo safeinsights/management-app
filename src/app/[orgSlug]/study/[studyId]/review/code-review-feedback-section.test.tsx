@@ -1,7 +1,9 @@
 import {
+    beforeAll,
     describe,
     expect,
     it,
+    preloadEditor,
     renderWithProviders,
     screen,
     simulateEditorSave,
@@ -51,6 +53,8 @@ function CodeFeedbackTestWrapper() {
     )
 }
 
+beforeAll(preloadEditor)
+
 describe('CodeReviewFeedbackSection', () => {
     it('renders the decision heading and intro copy', () => {
         renderWithProviders(<CodeFeedbackTestWrapper />)
@@ -67,9 +71,7 @@ describe('CodeReviewFeedbackSection', () => {
         renderWithProviders(<CodeFeedbackTestWrapper />)
 
         // The collaborative editor is a lazy chunk, so the footer is not in the first render.
-        expect(
-            await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`, {}, { timeout: 5000 }),
-        ).toBeInTheDocument()
+        expect(await screen.findByText(`0/${REVIEW_FEEDBACK_MAX_CHARACTERS}`)).toBeInTheDocument()
         expect(document.getElementById(fieldErrorId('code-review-feedback'))).toBeEmptyDOMElement()
     })
 

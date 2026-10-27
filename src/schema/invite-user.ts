@@ -3,9 +3,9 @@ import { z } from 'zod'
 export { z }
 
 export const inviteUserSchema = z.object({
-    email: z.string().nonempty().email('Invalid email address'),
+    email: z.email('Invalid email address'),
     permission: z.enum(['contributor', 'admin'], {
-        message: 'A permission must be selected',
+        error: 'A permission must be selected',
     }),
 })
 

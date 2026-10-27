@@ -56,7 +56,7 @@ async function loadCodeReviewFeedbackThread(db: DBExecutor, studyId: string) {
 }
 
 export const getCodeReviewFeedbackAction = new Action('getCodeReviewFeedbackAction')
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => loadCodeReviewFeedbackThread(db, studyId))
@@ -66,7 +66,7 @@ export type CodeReviewFeedbackEntry = ActionSuccessType<typeof getCodeReviewFeed
 // The whole outputs thread, for the reviewer's post-review page and for all three researcher
 // outputs screens: reviewer decisions alone, with no code-phase resubmission notes (OTTER-766).
 export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFeedbackAction')
-    .params(z.object({ studyId: z.string().uuid() }))
+    .params(z.object({ studyId: z.uuid() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
     .handler(async ({ params: { studyId }, db }) => {

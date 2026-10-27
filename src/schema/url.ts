@@ -11,7 +11,7 @@ export const httpUrl = (label: string) =>
         .min(1, `${label} is a required field.`)
         .url(`Please enter a valid URL (e.g., must start with http:// or https://).`)
         .refine(isHttpUrl, {
-            message: `Please enter a valid URL (e.g., must start with http:// or https://).`,
+            error: `Please enter a valid URL (e.g., must start with http:// or https://).`,
         })
 
 // For form fields that use empty string as "unset", e.g. array fields with fixed slots.
@@ -20,8 +20,8 @@ export const httpUrlOptionalItem = (label: string) =>
         .string()
         .trim()
         .refine((v) => !v || isHttpUrl(v), {
-            message: `${label}: please enter a valid URL (must start with http:// or https://).`,
+            error: `${label}: please enter a valid URL (must start with http:// or https://).`,
         })
-        .refine((v) => !v || z.string().url().safeParse(v).success, {
-            message: `${label}: please enter a valid URL.`,
+        .refine((v) => !v || z.url().safeParse(v).success, {
+            error: `${label}: please enter a valid URL.`,
         })

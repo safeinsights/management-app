@@ -282,21 +282,35 @@ export async function expectLegalLayoutToMatchDesign(page: Page) {
 
     await expect(async () => {
         const layout = await card.evaluate((cardEl) => {
-            const tabs = document.querySelector('[role="tablist"]')!.getBoundingClientRect()
+            const tablist = document.querySelector('[role="tablist"]')!
+            const tabs = tablist.getBoundingClientRect()
             // The tab list spans the content column. Main's content box is symmetric within the
             // design's available space beside the nav, so equal margins there mean centred.
             const main = cardEl.closest('main')!
             const style = getComputedStyle(main)
             const area = main.getBoundingClientRect()
+            const cardStyle = getComputedStyle(cardEl)
             return {
                 gap: cardEl.getBoundingClientRect().top - tabs.bottom,
                 width: tabs.width,
                 left: tabs.left - (area.left + parseFloat(style.paddingLeft)),
                 right: area.right - parseFloat(style.paddingRight) - tabs.right,
+                tabRows: new Set(
+                    [...tablist.querySelectorAll('[role="tab"]')].map((t) => t.getBoundingClientRect().top),
+                ).size,
+                // The design insets the card's header and table 40px on every side.
+                cardPadding: [
+                    cardStyle.paddingTop,
+                    cardStyle.paddingRight,
+                    cardStyle.paddingBottom,
+                    cardStyle.paddingLeft,
+                ],
             }
         })
         expect(Math.round(layout.gap)).toBe(32)
         expect(Math.round(layout.width)).toBe(1036)
         expect(Math.abs(layout.left - layout.right)).toBeLessThanOrEqual(2)
+        expect(layout.tabRows).toBe(1)
+        expect(layout.cardPadding).toEqual(['40px', '40px', '40px', '40px'])
     }).toPass()
 }

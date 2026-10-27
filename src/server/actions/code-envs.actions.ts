@@ -98,7 +98,7 @@ const createOrgCodeEnvSchema = z.object({
         .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
-    dataSourceIds: z.array(z.string().uuid()).default([]),
+    dataSourceIds: z.array(z.uuid()).default([]),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -192,7 +192,7 @@ const updateOrgCodeEnvSchema = z.object({
         .enum(Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]])
         .nullable()
         .optional(),
-    dataSourceIds: z.array(z.string().uuid()).default([]),
+    dataSourceIds: z.array(z.uuid()).default([]),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })

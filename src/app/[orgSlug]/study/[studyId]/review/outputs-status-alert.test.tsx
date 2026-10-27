@@ -1,7 +1,7 @@
 import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
-import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { ExternalLinks } from '@/lib/routes'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
@@ -50,23 +50,31 @@ describe('OutputsStatusAlert', () => {
 
     afterEach(() => vi.useRealTimers())
 
+    const expectPreparingCodeBodyWithSupportLink = () => {
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\s*\(opens in a new tab\)\.$/,
+        )
+        const link = screen.getByRole('link', { name: /here/ })
+        expect(link).toHaveAttribute('href', ExternalLinks.support)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+        expect(link).toHaveAccessibleName(/^here\s*\(opens in a new tab\)$/)
+        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+    }
+
     // Approval routes the reviewer here before the containerizer reports a stage (OTTER-673).
-    it('shows the code-approved copy while no pipeline stage has been reported', () => {
+    it('shows the code-approved copy with the Support link while no pipeline stage has been reported', () => {
         renderAt('CODE-APPROVED')
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
-        expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
-        expect(screen.getByRole('link', { name: /Slack/ })).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
+        expectPreparingCodeBodyWithSupportLink()
     })
 
-    it('shows the job-packaging copy directing the reviewer to SafeInsights without a Slack link', () => {
+    it('shows the job-packaging copy with the Support link', () => {
         renderAt('JOB-PACKAGING')
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, code preparation started 5 minutes ago')
-        expect(alert).toHaveTextContent(
-            'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            'Outputs not ready, code preparation started 5 minutes ago',
         )
-        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+        expectPreparingCodeBodyWithSupportLink()
     })
 
     it('shows the job-ready copy (queued, org-admin contact)', () => {
@@ -74,7 +82,7 @@ describe('OutputsStatusAlert', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Outputs not ready, code queued 5 minutes ago')
         expect(alert).toHaveTextContent('ready to be picked up by the secure enclave')
-        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link')).not.toBeInTheDocument()
     })
 
     it('shows the job-provisioning copy (queued, preparing the enclave)', () => {

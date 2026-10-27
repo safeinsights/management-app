@@ -1,3 +1,4 @@
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, test } from './e2e.helpers'
 
 const ROBOTS_TXT = 'User-agent: *\nDisallow: /\n'
@@ -19,7 +20,7 @@ test.describe('public files', () => {
         // admin was sent to the dashboard.
         test('serves robots.txt instead of redirecting to the dashboard', async ({ request }) => {
             // robots.txt answers 200 with or without a session, so first prove the session reaches the server.
-            const dashboard = await request.get('/dashboard', { maxRedirects: 0 })
+            const dashboard = await request.get(Routes.dashboard, { maxRedirects: 0 })
             expect(dashboard.status()).toBe(200)
 
             const res = await request.get('/robots.txt', { maxRedirects: 0 })

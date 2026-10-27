@@ -54,6 +54,10 @@ jobs:
               with:
                   node-version: 22
                   cache: 'pnpm'
+            # OTTER-682 (RISK-139): runs before pnpm install and covers every tracked file, which ESLint's
+            # anti-trojan-source rule does not (it skips dotfiles and non-JS files such as CLAUDE.md).
+            - name: Check for invisible Unicode characters
+              run: node bin/check-invisible-unicode.mjs
             - name: pnpm install
               run: pnpm install --frozen-lockfile
             - name: pnpm audit signatures
@@ -338,6 +342,15 @@ jobs:
               run: pnpm exec playwright install-deps chromium
             - name: pnpm run test:e2e
               run: pnpm run test:e2e
+            # OTTER-683: the axe results are the RISK-157 evidence, so keep them on passing runs too.
+            - name: upload accessibility results
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: a11y-results
+                  path: test-results/e2e/**/axe-*.json
+                  retention-days: 30
+                  if-no-files-found: warn
             - name: upload e2e coverage
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
