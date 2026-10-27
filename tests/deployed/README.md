@@ -59,6 +59,33 @@ queued image: there is no known-good Python script for the enclave's data access
 `scan-findings.spec.ts` (deliberately insecure R and Python files the scanner must fail). The R script
 is qa-review's known-good single-query `tests/fixtures/deployed/main.r`, which writes `results.csv`.
 
+The other components have a spec each:
+
+- `coder.spec.ts`: an approved study's Launch IDE provisions a Coder workspace, Coder's OIDC sends the
+  researcher through Clerk's hosted sign-in, code-server renders with the starter file, and the app's
+  code page lists the workspace's files. `E2E_CODER=0` leaves it out.
+- `collab-editor.spec.ts` (environments with the editor service): two sessions of the researcher on
+  one draft see each other's typing over `wss://<host>/ws`.
+- `invite-signup.spec.ts` (`@mail`): an admin invites a disposable mail.tm address, the invitation
+  arrives through Mailgun with this host's link, and a new context signs up: Clerk account,
+  authenticator enrollment from the on-page secret, recovery codes, first security key. The account
+  is deleted through the QA API, so its address starts with `qa-`. Needs egress to `api.mail.tm`.
+- `study-agreement.spec.ts`: a study from a lab that is not a Test Lab, the SI admin publishing the
+  signed agreement on `/admin/safeinsights/legal`, and both parties meeting the gate. `E2E_SLA_LAB_SLUG`
+  / `E2E_SLA_LAB_NAME` name that lab (Dev: `agreements`, "Agreements Lab"); elsewhere it skips until set.
+- `enclave-api.spec.ts` (`@api`): a token signed with `tests/support/private_key.pem` as the `openstax`
+  org. Dev seeds that org with the committed test key, so it expects 200 there; when the key has been
+  rotated (Dev answered 401 on 2026-10-27) it skips with an annotation. Staging, Production and Demo
+  must answer 401.
+
+## Jenkins
+
+`Jenkinsfile` runs the smoke project after each PR preview and Dev deploy (`bin/e2e-deployed`).
+`Jenkinsfile.deployed-e2e` is a parameterized job for everything else: the release pipeline triggers
+it after a Staging or Production deploy, and QA runs it by hand against any target with any project.
+Both bind the secret-file credential `mgmt-app-e2e-deployed-env` to `E2E_DEPLOYED_ENV_FILE`, which is
+copied to `.env.deployed`; nothing prints the environment.
+
 ## Rules
 
 - `retries: 0` and one worker: three shared accounts, one enclave, gates that are per account.
