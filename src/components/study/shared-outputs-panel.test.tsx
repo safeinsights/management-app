@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -9,7 +9,6 @@ import {
     renderWithProviders,
     screen,
     waitFor,
-    waitForPendingQueries,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
@@ -77,9 +76,6 @@ const FeedbackProbe = () => {
     }, [])
     return <div data-testid="feedback-probe">Feedback and notes</div>
 }
-
-// The outputs table reads its file activity on mount; let that read land before the test's rollback.
-afterEach(waitForPendingQueries)
 
 describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.

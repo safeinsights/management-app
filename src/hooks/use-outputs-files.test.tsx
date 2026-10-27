@@ -11,7 +11,6 @@ import {
     QueryClientProvider,
     renderHook,
     waitFor,
-    waitForPendingQueries,
 } from '@/tests/unit.helpers'
 import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
@@ -106,7 +105,6 @@ describe('useOutputsFiles activity display', () => {
 
         expect(result.current.rows[0].activityState).toBe('pending')
         expect(result.current.rows[0].activity).toBeNull()
-        await waitForPendingQueries()
     })
 
     it('reports a known empty result so the row can say there has been no activity', () => {
