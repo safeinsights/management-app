@@ -52,6 +52,16 @@ describe('toast rendering', () => {
         expect(older?.compareDocumentPosition(newer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     })
 
+    // All-b is the widest 32-character id in the app font.
+    it('keeps the break before the reference and lets a long id wrap', async () => {
+        mount()
+        showToast({ category: 'error', title: 'Save failed', message: `Try again.\nReference: ${'b'.repeat(32)}` })
+
+        const description = (await screen.findByText(/Reference:/)).closest('.mantine-Notification-description')
+
+        expect(description).toHaveStyle({ whiteSpace: 'pre-line', overflowWrap: 'anywhere' })
+    })
+
     it('marks an error assertive and everything else polite', async () => {
         mount()
         showToast({ category: 'error', title: 'Failed' })
