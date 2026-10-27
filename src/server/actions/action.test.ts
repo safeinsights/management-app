@@ -5,6 +5,14 @@ import { insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
 import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
 import type { Org } from '@/schema/org'
+import * as Sentry from '@sentry/nextjs'
+
+vi.mock('@sentry/nextjs', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sentry/nextjs')>()),
+    flush: vi.fn().mockResolvedValue(true),
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+}))
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -279,6 +287,14 @@ describe('Action Builder', () => {
             expect(errorSpy).not.toHaveBeenCalled()
             expect(warnSpy).toHaveBeenCalledTimes(1)
             expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
+        })
+
+        it('flushes Sentry before returning a failure, so the warning leaves the Lambda', async () => {
+            vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            vi.mocked(Sentry.flush).mockClear()
+            const action = new Action('denied-flush').requireAbilityTo('manage', 'all').handler(async () => 'ok')
+            await action()
+            expect(Sentry.flush).toHaveBeenCalledOnce()
         })
     })
 
