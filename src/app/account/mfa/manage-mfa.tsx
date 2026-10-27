@@ -1,23 +1,27 @@
 'use client'
-import { useUser } from '@clerk/nextjs'
-import { notifications } from '@mantine/notifications'
-import { redirect } from 'next/navigation'
-import { Routes } from '@/lib/routes'
+
+import { useEffect, useEffectEvent } from 'react'
 import { ManageMFAView } from './manage-mfa-view'
+import { useRequireUser } from './use-require-user'
+
+function useManageMfa() {
+    const { user } = useRequireUser()
+    const userId = user?.id
+
+    // Picks up a factor enrolled on another page; Clerk's cached user would still say "no MFA".
+    const reloadUser = useEffectEvent(() => void user?.reload())
+    useEffect(() => {
+        if (userId) reloadUser()
+    }, [userId])
+
+    if (!user) return null
+    return user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')
+}
 
 export function ManageMFA() {
-    const { isLoaded, user } = useUser()
+    const hasMFA = useManageMfa()
 
-    if (!isLoaded) return null
-
-    if (!user) {
-        notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
-        return redirect(Routes.home)
-    }
-
-    user.reload()
-
-    const hasMFA = user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')
+    if (hasMFA === null) return null
 
     return <ManageMFAView hasMFA={hasMFA} />
 }

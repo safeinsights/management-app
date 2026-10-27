@@ -94,7 +94,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                     lineClamp={isExpanded ? undefined : COLLAPSED_LINE_CLAMP}
                     data-testid={`feedback-body-${entry.id}`}
                 >
-                    <ReadOnlyLexicalContent value={entry.body} />
+                    <ReadOnlyLexicalContent value={entry.body} label={`Feedback from ${entry.authorName}`} />
                 </Text>
                 <CollapseToggleLink
                     isVisible={isTruncated}

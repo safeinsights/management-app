@@ -1,10 +1,12 @@
 import {
     act,
+    beforeAll,
     describe,
     expect,
     faker,
     it,
     lexicalEditorFor,
+    preloadEditor,
     renderWithProviders,
     screen,
     simulateEditorSave,
@@ -121,6 +123,8 @@ const EntryHarness: FC<{
         </>
     )
 }
+
+beforeAll(preloadEditor)
 
 // OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
 // optional field announced as required.

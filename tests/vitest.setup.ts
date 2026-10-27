@@ -4,7 +4,7 @@ import { testTransaction } from 'pg-transactional-tests'
 import { localStorageContext } from '@/server/request-context'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { installFakeClerkOrgs } from './unit/clerk-orgs'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
 import * as matchers from '@testing-library/jest-dom/matchers'
@@ -15,6 +15,10 @@ declare module 'vitest' {
 }
 
 expect.extend(matchers)
+
+// Many waits sit on a real server action and DB write, which can pass 1 s on a busy CI shard. Kept
+// under Vitest's 5 s test timeout so a stuck wait still fails with Testing Library's DOM output.
+configure({ asyncUtilTimeout: 3000 })
 
 // `after()` callbacks must be awaited before the test transaction rolls back, or they outlive
 // it and cause speed-dependent FK violations (passing locally, failing on slow CI).

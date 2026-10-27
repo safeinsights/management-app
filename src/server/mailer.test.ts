@@ -28,12 +28,15 @@ async function getUser(userId: string) {
 
 describe('mailgun email functions', () => {
     it('sendInviteEmail calls deliver with expected params', async () => {
-        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId: 'test-invite-id' })
+        const inviteId = faker.string.uuid()
+        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId })
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: 'gertrude@test.com',
                 template: expect.stringContaining('welcome'),
-                vars: expect.objectContaining({ inviteLink: expect.stringContaining('test-invite-id') }),
+                vars: expect.objectContaining({
+                    inviteLink: expect.stringContaining(Routes.accountInvitation({ inviteId })),
+                }),
             }),
         )
     })
@@ -72,6 +75,19 @@ describe('mailgun email functions', () => {
         const messages = (deliverMock.mock.calls as [{ to: string; bcc?: string }][]).map(([message]) => message)
         expect(messages.map((message) => message.to).sort()).toEqual(orgMembers.map((m) => m.email).sort())
         for (const message of messages) expect(message.bcc).toBeUndefined()
+    })
+
+    it('sendStudyProposalEmails skips a Data Partner member whose blank email was cleared to NULL', async () => {
+        const { study, org, user1 } = await insertTestOrgStudyJobUsers()
+        const { user: noEmail } = await insertTestUser({ org })
+        await db.updateTable('user').set({ email: null }).where('id', '=', noEmail.id).execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const messages = (deliverMock.mock.calls as [{ to: string; vars: { fullName: string } }][]).map(([m]) => m)
+        for (const message of messages) expect(message.to).toMatch(/\S+@\S+/)
+        expect(messages.map((message) => message.vars.fullName)).not.toContain(noEmail.fullName)
+        expect(messages.map((message) => message.to)).toContain(user1.email)
     })
 
     it('sendStudyProposalEmails dates a revised proposal by its resubmission, not the first submission', async () => {

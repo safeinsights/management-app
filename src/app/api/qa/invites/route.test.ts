@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, type Mock } from 'vitest'
 import { db, insertTestOrg, insertTestUser, mockSessionWithTestData, faker, qaEmail } from '@/tests/unit.helpers'
+import { Routes } from '@/lib/routes'
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { POST } from './route'
@@ -36,7 +37,7 @@ describe('POST /api/qa/invites', () => {
 
         expect(response.status).toBe(201)
         expect(body).toMatchObject({ email: 'qa-new@test.com', orgSlug: org.slug, alreadyInvited: false })
-        expect(body.inviteUrl).toContain(`/account/invitation/${body.inviteId}`)
+        expect(body.inviteUrl).toContain(Routes.accountInvitation({ inviteId: body.inviteId }))
     })
 
     it('returns 200 and the same invite when one is outstanding', async () => {

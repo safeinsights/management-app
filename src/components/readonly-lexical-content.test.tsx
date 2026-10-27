@@ -32,7 +32,7 @@ const linkState = (url: string, target: string | null) => lexicalLinkState({ url
 const legacyLinkState = (url: string) => linkState(url, null)
 
 async function renderLink(value: string) {
-    const { container } = renderWithProviders(<ReadOnlyLexicalContent value={value} />)
+    const { container } = renderWithProviders(<ReadOnlyLexicalContent value={value} label="Notes" />)
 
     const anchor = await waitFor(() => {
         const found = container.querySelector('a')
@@ -145,7 +145,10 @@ describe('ReadOnlyLexicalContent', () => {
 
     it('renders paragraphs with the themed class that removes the default margin', async () => {
         const { container } = renderWithProviders(
-            <ReadOnlyLexicalContent value={root([paragraph([textNode('first')]), paragraph([textNode('second')])])} />,
+            <ReadOnlyLexicalContent
+                value={root([paragraph([textNode('first')]), paragraph([textNode('second')])])}
+                label="Notes"
+            />,
         )
 
         await waitFor(() => expect(container.querySelectorAll('p')).toHaveLength(2))
@@ -155,8 +158,16 @@ describe('ReadOnlyLexicalContent', () => {
         }
     })
 
+    // Lexical keeps role="textbox" on read-only content, and WCAG wants every textbox named.
+    it('names the read-only textbox with its label', async () => {
+        renderWithProviders(<ReadOnlyLexicalContent value={root([paragraph([textNode('first')])])} label="Notes" />)
+
+        const textbox = await screen.findByRole('textbox', { name: 'Notes' })
+        expect(textbox).toHaveAttribute('aria-readonly', 'true')
+    })
+
     it('renders nothing for a legacy empty-root state', () => {
-        const { container } = renderWithProviders(<ReadOnlyLexicalContent value={root([])} />)
+        const { container } = renderWithProviders(<ReadOnlyLexicalContent value={root([])} label="Notes" />)
 
         expect(container.querySelector('p')).toBeNull()
     })
