@@ -1,7 +1,7 @@
 import { StudyStatus } from '@/database/types'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
+import { LocalDateTime } from '@/components/local-date-time'
 import { FC } from 'react'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -20,7 +20,7 @@ const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ 
                 <XCircleIcon weight="fill" size={24} />
             )}
             <Text fz="xs" fw={fontWeight.semibold} c={color}>
-                {statusDisplay} on {dayjs(date).format('MMM DD, YYYY')}
+                {statusDisplay} on <LocalDateTime value={date} />
             </Text>
         </Group>
     )

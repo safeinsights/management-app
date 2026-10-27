@@ -1,4 +1,17 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, vi, within } from '@/tests/unit.helpers'
+import dayjs from 'dayjs'
+import {
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+    userEvent,
+    vi,
+    within,
+} from '@/tests/unit.helpers'
+import { DATE_TIME_FORMAT } from '@/lib/dates'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { YourFilesTable } from './your-files-table'
 
@@ -105,5 +118,31 @@ describe('YourFilesTable', () => {
         })
         expect(deleteMain.querySelector('svg')).toHaveAttribute('fill', 'currentColor')
         expect(screen.getByRole('button', { name: /delete helper\.R/i })).toBeEnabled()
+    })
+
+    // OTTER-809: the activity time used to differ between the UTC server render and the browser.
+    describe('last activity time', () => {
+        const createdAt = '2026-09-24T01:30:00Z'
+        const files = [
+            { name: 'main.R', lastActivity: { actorName: 'Ada Lovelace', action: 'UPLOADED' as const, createdAt } },
+        ]
+
+        it('leaves the time out of the server HTML', () => {
+            const html = renderToServerHtml(<YourFilesTable {...baseProps} files={files} />)
+
+            expect(html).toContain('Ada Lovelace')
+            expect(html).toContain('Uploaded')
+            expect(html).toMatch(/datetime="2026-09-24T01:30:00.000Z"/i)
+            expect(html).not.toContain(dayjs(createdAt).format(DATE_TIME_FORMAT))
+        })
+
+        it('hydrates without a mismatch, then shows the time in the browser zone', async () => {
+            const { recoverableErrors } = hydrateServerHtml(<YourFilesTable {...baseProps} files={files} />)
+
+            expect(await screen.findByText(/Ada Lovelace · Uploaded ·/)).toHaveTextContent(
+                dayjs(createdAt).format(DATE_TIME_FORMAT),
+            )
+            expect(recoverableErrors).toEqual([])
+        })
     })
 })

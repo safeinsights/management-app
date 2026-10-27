@@ -2,12 +2,14 @@ import { mockClerkSession, pageHeaderEyebrow, renderWithProviders } from '@/test
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import router from 'next-router-mock'
 import { describe, expect, it } from 'vitest'
+import dayjs from 'dayjs'
+import { DISPLAY_FORMAT } from '@/lib/dates'
 import { RegenerateKey } from './regenerate-key'
 
 describe('Security key page', () => {
     const renderPage = () => {
         mockClerkSession({ clerkUserId: 'user-id', orgSlug: 'dev', userId: 'user-id' })
-        renderWithProviders(<RegenerateKey generatedOn="Jul 08, 2026" />)
+        renderWithProviders(<RegenerateKey generatedOn="2026-07-08T15:00:00Z" />)
     }
 
     it('renders both sections with the generated date', async () => {
@@ -18,7 +20,9 @@ describe('Security key page', () => {
         })
         expect(screen.getByText('Existing security key')).toBeDefined()
         expect(screen.getByText('Lost access to your key?')).toBeDefined()
-        expect(screen.getByText(/You generated a security key on Jul 08, 2026\./)).toBeDefined()
+        expect(screen.getByText(/You generated a security key on/)).toHaveTextContent(
+            `You generated a security key on ${dayjs('2026-07-08T15:00:00Z').format(DISPLAY_FORMAT)}.`,
+        )
         expect(screen.getByText(/A new key cannot decrypt your current outputs\./).tagName).toBe('B')
     })
 

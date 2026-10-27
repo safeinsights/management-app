@@ -1,11 +1,52 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+} from '@/tests/unit.helpers'
 import { STATUS_ALERT_SEPARATOR, StatusAlert, statusAlertTitle, type StatusAlertVariant } from './status-alert'
 
 describe('statusAlertTitle', () => {
     it('appends the date after the separator', () => {
-        expect(statusAlertTitle('Proposal approved', new Date('2026-04-20T10:00:00Z'))).toBe(
-            `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
+        renderWithProviders(
+            <StatusAlert
+                variant="success"
+                title={statusAlertTitle('Proposal approved', new Date('2026-04-20T10:00:00Z'))}
+            >
+                Body copy
+            </StatusAlert>,
         )
+
+        const alert = screen.getByTestId('status-alert')
+        expect(alert).toHaveTextContent(`Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`)
+        expect(alert.querySelector('time')).toHaveAttribute('datetime', '2026-04-20T10:00:00.000Z')
+    })
+
+    // 01:30 UTC is still the previous evening in the US, so a server-formatted day would be wrong there.
+    const banner = (
+        <StatusAlert variant="success" title={statusAlertTitle('Code approved', '2026-09-24T01:30:00Z')}>
+            Body copy
+        </StatusAlert>
+    )
+
+    it('sends the instant but no date or separator in the server HTML', () => {
+        const html = renderToServerHtml(banner)
+
+        expect(html).toMatch(/datetime="2026-09-24T01:30:00.000Z"/i)
+        expect(html).toContain('Code approved')
+        expect(html).not.toContain('Sep 2')
+        expect(html).not.toContain(STATUS_ALERT_SEPARATOR)
+    })
+
+    it('hydrates without a mismatch and then shows the date', async () => {
+        const { recoverableErrors } = hydrateServerHtml(banner)
+
+        expect(await screen.findByText(/Sep 2\d, 2026/)).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Code approved ${STATUS_ALERT_SEPARATOR} Sep`)
+        expect(recoverableErrors).toEqual([])
     })
 
     it('leaves the title bare, separator included, when there is no date', () => {

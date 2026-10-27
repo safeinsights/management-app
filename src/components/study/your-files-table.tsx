@@ -3,8 +3,9 @@
 import { useState, type FC } from 'react'
 import { ActionIcon, Anchor, Badge, Group, HoverCard, Table, Text, Tooltip, UnstyledButton } from '@mantine/core'
 import { DownloadSimpleIcon, InfoIcon, PencilSimpleIcon, StarIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
+import { LocalDateTime } from '@/components/local-date-time'
+import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { MainFileTemplateCopy } from './main-file-template-copy'
 import { semanticColor } from '@/theme/tokens'
@@ -23,12 +24,12 @@ const ACTION_LABELS: Record<WorkspaceFileActivitySummary['action'], string> = {
 }
 
 /** `{researcherName} · {action} · {MMM DD, YYYY}, {hh:mm am/pm}` per the card. */
-const formatActivity = (activity: WorkspaceFileActivitySummary) =>
-    [
-        activity.actorName,
-        ACTION_LABELS[activity.action],
-        dayjs(activity.createdAt).format('MMM DD, YYYY, hh:mm a'),
-    ].join(' · ')
+const formatActivity = (activity: WorkspaceFileActivitySummary) => (
+    <>
+        {activity.actorName} · {ACTION_LABELS[activity.action]} ·{' '}
+        <LocalDateTime value={activity.createdAt} format={DATE_TIME_FORMAT} />
+    </>
+)
 
 const LastActivityCell: FC<{ activity: WorkspaceFileActivitySummary | null | undefined }> = ({ activity }) => (
     <Text size="sm" c={semanticColor('text.secondary')}>
