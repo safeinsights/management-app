@@ -847,13 +847,27 @@ export async function seedRestoreTestPublicKey(role: SeedRole) {
     await upsertTestPublicKey(await resolveUserId(role))
 }
 
+// The SPKI DER of tests/support/public_key.pem, the same bytes si-encryption's pemToArrayBuffer
+// yields, without importing its TypeScript sources, which Node will not type-strip from node_modules.
+const testPublicKeyDer = () =>
+    createPublicKey(readSupportFile('public_key.pem')).export({ type: 'spki', format: 'der' })
+
+// Its hex SHA-256, as si-encryption's fingerprintKeyData computes it and the migration seed stores it;
+// public_key.sig holds the same digest behind openssl's "SHA2-256(stdin)= " prefix.
+export const testPublicKeyFingerprint = () => createHash('sha256').update(testPublicKeyDer()).digest('hex')
+
+export async function userPublicKeyFingerprint(role: SeedRole): Promise<string | null> {
+    const row = await db
+        .selectFrom('userPublicKey')
+        .select('fingerprint')
+        .where('userId', '=', await resolveUserId(role))
+        .executeTakeFirst()
+    return row?.fingerprint ?? null
+}
+
 async function upsertTestPublicKey(userId: string) {
-    // The same SPKI DER bytes si-encryption's pemToArrayBuffer yields, without importing its
-    // TypeScript sources, which Node will not type-strip from node_modules.
-    const publicKey = createPublicKey(readSupportFile('public_key.pem')).export({ type: 'spki', format: 'der' })
-    // The hex SHA-256 of that DER, as si-encryption's fingerprintKeyData computes it and the migration
-    // seed stores it; public_key.sig holds the same digest behind openssl's "SHA2-256(stdin)= " prefix.
-    const fingerprint = createHash('sha256').update(publicKey).digest('hex')
+    const publicKey = testPublicKeyDer()
+    const fingerprint = testPublicKeyFingerprint()
     await db
         .insertInto('userPublicKey')
         .values({ userId, publicKey, fingerprint })

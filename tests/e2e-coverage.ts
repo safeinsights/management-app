@@ -106,7 +106,7 @@ function fullPathPattern(template: string): RegExp {
         .split(/(\{[^}]+\})/)
         .map((part) => (part.startsWith('{') ? `[^/'"\`\\s?#),]+` : escapeRegExp(part)))
         .join('')
-    return new RegExp(`(?<![\\w/])${body}(?=$|[\\s'"\`?#),/]|\\(|\\$)`, 'm')
+    return new RegExp(`(?<!\\w)${body}(?=$|[\\s'"\`?#),/]|\\(|\\$)`, 'm')
 }
 
 type Scan = { file: string; text: string; imports: Set<string> }

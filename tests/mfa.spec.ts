@@ -1,7 +1,26 @@
-import { authFileFor, expect, test, visitAsRole, Page } from './e2e.helpers'
+import { authFileFor, expect, fillPinInput as fillOtp, test, visitAsRole, Page } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
-    test.use({ storageState: authFileFor('reviewer') })
+    // Copying the recovery codes must succeed, or leaving asks for a confirmation first.
+    test.use({ storageState: authFileFor('reviewer'), permissions: ['clipboard-read', 'clipboard-write'] })
+
+    // Enrollment runs to the end: the fake issues a fixed secret, accepts any code and hands back
+    // three recovery codes. SMS stops at the code step (tested below) because the fake holds no phone numbers.
+    test('enrolls an authenticator app', async ({ page }) => {
+        await visitAsRole(page, '/account/mfa/app?TESTING_FORCE_NO_MFA=1')
+        await expect(page.getByText('JBSWY3DPEHPK3PXP')).toBeVisible()
+        await fillOtp(page, '424242', 'sms-pin-input')
+        await page.getByRole('button', { name: 'Verify code' }).click()
+
+        await expect(
+            page.getByRole('heading', { name: 'Multi-factor authentication is set up successfully!' }),
+        ).toBeVisible()
+        await expect(page.getByText('11111111')).toBeVisible()
+        await page.getByRole('button', { name: 'Copy codes' }).click()
+        await expect(page.getByText('Copied!')).toBeVisible()
+        await page.getByRole('button', { name: 'Go to SafeInsights' }).click()
+        await page.waitForURL('/dashboard')
+    })
 
     test('renders the sms and authenticator buttons', async ({ page }) => {
         await visitAsRole(page, '/account/mfa?TESTING_FORCE_NO_MFA=1')
