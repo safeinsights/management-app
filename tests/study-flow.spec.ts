@@ -238,6 +238,7 @@ test('Reviewer approves a proposal', async ({ browser, studyFeatures }) => {
 test('Researcher uploads code via file upload', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('file-upload')
     await seedApprovedNoCode(studyTitle)
+    let studyId = ''
 
     await withRole(browser, 'researcher', async (page) => {
         await navigateToCodeUpload(page, studyTitle)
@@ -245,7 +246,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
 
         // QA's reproduction (OTTER-693): reopening /code after submitting left it fully live, and
         // both a main-file change and a second submission went through.
-        const studyId = page.url().match(/\/study\/([^/]+)/)![1]
+        studyId = page.url().match(/\/study\/([^/]+)/)![1]
         await goto(page, `/openstax-lab/study/${studyId}/code`)
         await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeDisabled()
         await expect(page.getByRole('button', { name: /submit code for review/i })).toBeHidden()
@@ -256,6 +257,17 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
         await viewStudyDetails(page, studyTitle)
         await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Code submitted to')
+    })
+
+    // What a live submission leaves for the reviewer on this stack: the simulated scan records
+    // CODE-SCANNED without a log, so the panel keeps waiting, and the in-process review job has no
+    // CLAUDE_API_KEY, so it stores the manual-review report instead of a summary.
+    await withRole(browser, 'reviewer', async (page) => {
+        await goto(page, `/openstax/study/${studyId}/review`)
+        await expect(page.getByTestId('security-scan-results').getByRole('status')).toContainText(
+            'Security scan pending',
+        )
+        await expect(page.getByTestId('ai-summary-body')).toContainText('Manual review required.')
     })
 })
 
@@ -286,6 +298,19 @@ test('Successful results review', async ({ browser, request, studyFeatures }) =>
     await withRole(browser, 'reviewer', async (page) => {
         await reviewerDecryptsAvailableOutputs(page, studyTitle, privateKey)
         await reviewerPreviewsCsvOutput(page)
+
+        // The "Last activity" cell is written by the reader's own actions: the preview recorded a
+        // view, and the per-file download records a download and hands the browser the file.
+        const fileRow = page
+            .getByTestId('outputs-files-table')
+            .getByRole('row')
+            .filter({ hasText: 'results-with-pii.csv' })
+        await expect(fileRow).toContainText('Viewed')
+        const download = page.waitForEvent('download')
+        await fileRow.getByRole('button', { name: 'Download results-with-pii.csv', exact: true }).click()
+        expect((await download).suggestedFilename()).toBe('results-with-pii.csv')
+        await expect(fileRow).toContainText('Downloaded')
+
         await reviewerSeesValidationOnBlankSubmit(page)
         await reviewerSharesOutputs(page, 'Reviewed the outputs — no sensitive or restricted data present.')
     })
@@ -346,6 +371,16 @@ test('Error log review', async ({ browser, request, studyFeatures }) => {
 
     await withRole(browser, 'researcher', async (page) => {
         await verifyErroredOutputsSharedDisplay(page, studyTitle)
+
+        // Sharing re-wrapped the keys for the lab (OTTER-688), so the researcher's own key opens the
+        // log. Decrypted, the screen turns to the fix: the banner changes, and the only way forward
+        // is to edit the code.
+        await page.getByRole('textbox', { name: 'Security key' }).fill(privateKey)
+        await page.getByRole('button', { name: 'View' }).click()
+        await expect(page.getByText(/Resolve the code error to proceed/)).toBeVisible()
+        await expect(page.getByTestId('outputs-files-section')).toContainText('error-log.txt')
+        await expect(page.getByTestId('cta-edit-code')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Security key' })).toBeHidden()
     })
 })
 

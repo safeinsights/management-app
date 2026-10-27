@@ -6,7 +6,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { v7 as uuidv7 } from 'uuid'
 import { db, sql } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
-import { pathForLegalDocumentVersion } from '@/lib/paths'
+import { pathForLegalDocumentVersion, pathForStudyJobCodeFile } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
@@ -14,6 +14,16 @@ import { createPublicKey } from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+
+const TESTS_DIR = path.dirname(fileURLToPath(import.meta.url))
+const CODE_FIXTURE = path.join(TESTS_DIR, 'fixtures', 'code-samples', 'analysis.r')
+const PDF_FIXTURE = path.join(TESTS_DIR, 'assets', 'empty.pdf')
+
+async function uploadObject(key: string, body: Buffer | string, contentType?: string) {
+    await getS3Client().send(
+        new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: body, ContentType: contentType }),
+    )
+}
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
@@ -196,7 +206,11 @@ async function seedAcknowledgedStudyAgreement(studyId: string) {
         publishedBy: await resolveUserId('admin'),
         signedAt: '2026-01-01',
     })
+    await acknowledgeStudyAgreementForParties(studyId, version.id)
+    return version
+}
 
+async function acknowledgeStudyAgreementForParties(studyId: string, versionId: string) {
     const parties = await db
         .selectFrom('orgUser')
         .select('userId')
@@ -216,7 +230,7 @@ async function seedAcknowledgedStudyAgreement(studyId: string) {
 
     await db
         .insertInto('legalDocumentAcknowledgement')
-        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: version.id, userId })))
+        .values(parties.map(({ userId }) => ({ legalDocumentVersionId: versionId, userId })))
         .onConflict((oc) => oc.constraint('legal_document_acknowledgement_unique').doNothing())
         .execute()
 }
@@ -265,14 +279,19 @@ async function insertSubmittedJob(
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
 
     if (withMainCode) {
+        // Where the app reads a code file from (src/server/storage.ts), with the object behind it, so
+        // the reviewer's code viewer and /dl/study-code serve the fixture rather than a load error.
+        const enclave = await db
+            .selectFrom('study')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select('org.slug')
+            .where('study.id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        const codePath = pathForStudyJobCodeFile({ orgSlug: enclave.slug, studyId, studyJobId: job.id }, 'analysis.r')
+        await uploadObject(codePath, fs.readFileSync(CODE_FIXTURE), 'text/plain')
         await db
             .insertInto('studyJobFile')
-            .values({
-                studyJobId: job.id,
-                name: 'analysis.r',
-                path: `studies/${studyId}/${job.id}/analysis.r`,
-                fileType: 'MAIN-CODE',
-            })
+            .values({ studyJobId: job.id, name: 'analysis.r', path: codePath, fileType: 'MAIN-CODE' })
             .execute()
     }
 
@@ -313,9 +332,34 @@ export async function seedProposalPendingReview(title: string): Promise<SeedResu
     return { studyId: study.id }
 }
 
-export async function seedApprovedNoCode(title: string): Promise<SeedResult> {
-    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date() })
+export async function seedApprovedNoCode(
+    title: string,
+    { language = 'R' }: { language?: Language } = {},
+): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), language })
     return { studyId: study.id }
+}
+
+// A Step 1 draft the researcher never carried further: the dashboard's delete control is its only exit.
+export async function seedDraft(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'DRAFT', submittedAt: null })
+    return { studyId: study.id }
+}
+
+// Approved, acknowledged by every member of both orgs, and with the PDF behind the version so the
+// personal legal page's link (/dl/legal/:versionId) resolves to a real object.
+export async function seedApprovedWithAcknowledgedStudyAgreementPdf(
+    title: string,
+): Promise<SeedResult & { versionId: string }> {
+    const { study } = await insertStudy({
+        title,
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        withStudyAgreement: false,
+    })
+    const version = await seedAcknowledgedStudyAgreement(study.id)
+    await uploadObject(version.filePath, fs.readFileSync(PDF_FIXTURE), 'application/pdf')
+    return { studyId: study.id, versionId: version.id }
 }
 
 // Study-scoped, unlike the Terms of Service, so publishing one inside a spec cannot reach another
@@ -355,8 +399,24 @@ export async function seedStudyFor(
 
 export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
-    await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
-    return { studyId: study.id }
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// The enclave-side stages between code approval and outputs, as the containerizer and the job
+// API record them. The furthest stage in the history is what the pills read (study-job-status.ts).
+export type SeededJobStage = 'JOB-PACKAGING' | 'JOB-PROVISIONING' | 'JOB-RUNNING'
+
+const JOB_STAGE_HISTORY: Record<SeededJobStage, StudyJobStatus[]> = {
+    'JOB-PACKAGING': ['JOB-PACKAGING'],
+    'JOB-PROVISIONING': ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING'],
+    'JOB-RUNNING': ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING'],
+}
+
+export async function seedJobStage(title: string, stage: SeededJobStage): Promise<SeedResult> {
+    const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', ...JOB_STAGE_HISTORY[stage]])
+    return { studyId: study.id, jobId: job.id }
 }
 
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
@@ -486,9 +546,7 @@ const TOS_CONTENT = [
 ]
 const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
 
-async function uploadLegalContent(key: string, content: string) {
-    await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
-}
+const uploadLegalContent = (key: string, content: string) => uploadObject(key, content)
 
 const seededFileName = (type: 'TOS' | 'PN', index: number) => `${type}-v${index + 1}.md`
 
@@ -586,8 +644,7 @@ export async function seedLegalDocuments() {
     await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
-const SUPPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'support')
-const readSupportFile = (name: string) => fs.readFileSync(path.join(SUPPORT_DIR, name), 'utf8')
+const readSupportFile = (name: string) => fs.readFileSync(path.join(TESTS_DIR, 'support', name), 'utf8')
 
 /**
  * Pins a fixture user's key back to tests/support/public_key.pem. Every decrypt flow opens outputs
