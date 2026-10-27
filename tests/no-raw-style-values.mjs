@@ -20,8 +20,8 @@ const RADIUS_PROPS = ['radius', 'bdrs']
 /** theme.fontSizes keys, plus Mantine's heading sizes. */
 const FONT_SIZE_SCALE = ['xs', 'sm', 'md', 'lg', 'xl', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
-/** theme.lineHeights keys. Figma's own line heights reach `lh` as var(--si-line-height-*). */
-const LINE_HEIGHT_SCALE = ['xs', 'sm', 'md', 'lg', 'xl']
+// The keys of a responsive style prop value, `my={{ base: 'md', lg: 0 }}`: Mantine's breakpoints.
+const BREAKPOINTS = ['base', 'xs', 'sm', 'md', 'lg', 'xl']
 
 // Mantine reads `size` on these as a font size, the same as `fz`; on icons it is a dimension.
 const TEXT_SIZE_ELEMENTS = ['Text', 'Title', 'Anchor', 'List']
@@ -78,6 +78,9 @@ const CSS_VAR = /var\(\s*--/
 // Keep in step with typographyCssVariables in src/theme/tokens.ts, which this file cannot import.
 const OFF_SCALE_FONT_SIZES = ['10', '40']
 const FONT_SIZE_VAR = /var\(\s*--si-font-size-(\d+)\s*\)/
+// The theme sets no lineHeights, so `lh="sm"` and --mantine-line-height-* are Mantine's own values,
+// none on the Figma scale. Only the SI variables are.
+const LINE_HEIGHT_VAR = /^var\(\s*--si-line-height-[a-z]+\s*\)$/
 
 const noRawStyleValues = {
     meta: {
@@ -100,8 +103,7 @@ const noRawStyleValues = {
             rawRadius: '{{value}} on `{{prop}}` is a raw radius. Use a theme scale key: {{scale}}.',
             rawFontSize:
                 '{{value}} is a raw font size. Use a theme scale key ({{scale}}), or var(--si-font-size-N) for a Figma size the scale lacks ({{offScale}}).',
-            rawLineHeight:
-                '{{value}} is a raw line height. Use var(--si-line-height-tight / -heading / -normal), or a theme scale key ({{scale}}).',
+            rawLineHeight: '{{value}} is a raw line height. Use var(--si-line-height-tight / -heading / -normal).',
             builtColor:
                 'A colour assembled at runtime on `{{prop}}` cannot be checked against the theme. Pass a semanticColor(…) token instead.',
             hexLiteral: '"{{value}}" is a hardcoded colour. Use semanticColor(…) from @/theme/tokens.',
@@ -149,6 +151,17 @@ const noRawStyleValues = {
             return str !== null && CSS_VAR.test(str) && !SHADE_VAR.test(str)
         }
 
+        const propertyKey = (prop) => {
+            if (prop.type !== 'Property' || prop.computed) return null
+            if (prop.key.type === 'Identifier') return prop.key.name
+            return prop.key.type === 'Literal' ? String(prop.key.value) : null
+        }
+
+        const isResponsiveObject = (node) =>
+            node?.type === 'ObjectExpression' &&
+            node.properties.length > 0 &&
+            node.properties.every((prop) => BREAKPOINTS.includes(propertyKey(prop)))
+
         /** Same-file `const X = <literal>`, so hiding a raw value behind a name is not a bypass. */
         const resolveConstant = (node) => {
             for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
@@ -165,8 +178,8 @@ const noRawStyleValues = {
 
         /**
          * Runs `check` over a prop value, seeing through `{…}`, both ternary branches, both sides of
-         * `??`/`||`/`&&`, a TS cast, and a same-file constant — the shapes a migration teaches
-         * people to hide a literal in.
+         * `??`/`||`/`&&`, a TS cast, a responsive breakpoint object, and a same-file constant: the
+         * shapes a migration teaches people to hide a literal in.
          * Reports at the use site so each offending prop is flagged where it is applied.
          */
         const eachValue = (value, check) => {
@@ -183,19 +196,27 @@ const noRawStyleValues = {
                 return
             }
             if (TS_WRAPPERS.includes(node.type)) return eachValue(node.expression, check)
+            if (isResponsiveObject(node)) {
+                for (const prop of node.properties) eachValue(prop.value, check)
+                return
+            }
             if (node.type === 'Identifier') {
                 const init = resolveConstant(node)
                 if (!init) return
-                // A shade (built or literal), hex or px string is reported where it is defined, so
-                // reporting the use site too would double up. A number is invisible to that visitor,
-                // so it reports here.
-                const str = stringValue(init)
-                if (str !== null && (isShade(str) || HEX.test(str) || PX.test(str))) return
-                if (isBuiltShade(init)) return
-                check(init, node)
+                const values = isResponsiveObject(init) ? init.properties.map((prop) => prop.value) : [init]
+                for (const resolved of values) checkConstant(resolved, node, check)
                 return
             }
             check(node, node)
+        }
+
+        // A shade (built or literal), hex or px string is reported where it is defined, so reporting
+        // the use site too would double up. A number is invisible to that visitor, so it reports here.
+        const checkConstant = (init, at, check) => {
+            const str = stringValue(init)
+            if (str !== null && (isShade(str) || HEX.test(str) || PX.test(str))) return
+            if (isBuiltShade(init)) return
+            check(init, at)
         }
 
         /**
@@ -214,6 +235,10 @@ const noRawStyleValues = {
                         [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw', 'lh'].includes(name) ||
                         isFontSizeAttr(attr)
                     )
+                }
+                if (parent.type === 'Property' && isResponsiveObject(parent.parent)) {
+                    cur = parent.parent
+                    continue
                 }
                 if (!PASS_THROUGH.includes(parent.type)) return false
                 cur = parent
@@ -354,16 +379,11 @@ const noRawStyleValues = {
         // A unitless `lh={1.2}` is as raw as a px one; it just never looked like a pixel value.
         function checkLineHeight(attrValue, { literalsReportedElsewhere = false } = {}) {
             eachValue(attrValue, (value, at) => {
-                if (isTokenReference(value)) return
                 if (value.type !== 'Literal') return
-                if (LINE_HEIGHT_SCALE.includes(value.value)) return
+                if (typeof value.value === 'string' && LINE_HEIGHT_VAR.test(value.value)) return
                 if (literalsReportedElsewhere && typeof value.value === 'string' && PX.test(value.value)) return
 
-                context.report({
-                    node: at,
-                    messageId: 'rawLineHeight',
-                    data: { value: String(value.value), scale: LINE_HEIGHT_SCALE.join(', ') },
-                })
+                context.report({ node: at, messageId: 'rawLineHeight', data: { value: String(value.value) } })
             })
         }
 
@@ -397,13 +417,8 @@ const noRawStyleValues = {
 
             // Object expressions only: a destructuring pattern's `{ c }` is the caller's value.
             Property(node) {
-                if (node.parent?.type !== 'ObjectExpression' || node.computed || node.shorthand) return
-                const key =
-                    node.key.type === 'Identifier'
-                        ? node.key.name
-                        : node.key.type === 'Literal'
-                          ? String(node.key.value)
-                          : null
+                if (node.parent?.type !== 'ObjectExpression' || node.shorthand) return
+                const key = propertyKey(node)
                 if (!key || isInsideStyleAttribute(node)) return
                 if (key === 'fw') return checkWeight(node.value)
                 if (key === 'fz') return checkFontSize(node.value, { literalsReportedElsewhere: true })

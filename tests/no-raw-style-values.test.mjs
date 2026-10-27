@@ -74,8 +74,12 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         'const T = ({ fz }) => <Text fz={fz} />',
         `const LABEL = { fw: fontWeight.semibold, fz: 'sm' }`,
         '<Text lh="var(--si-line-height-tight)" />',
-        '<Text lh="sm" />',
         `const METRICS = { lh: 'var(--si-line-height-normal)' }`,
+        // A responsive value is checked per breakpoint.
+        `<Paper my={{ base: 'md', lg: 0 }} />`,
+        `<Text lh={{ base: 'var(--si-line-height-tight)', sm: 'var(--si-line-height-normal)' }} />`,
+        `<Text fz={{ base: 'sm', md: 'lg' }} fw={{ base: fontWeight.semibold }} />`,
+        `const MARGIN = { base: 'md', lg: 0 }; const P = () => <Paper my={MARGIN} />`,
         '<List spacing="xxs" />',
         '<Table verticalSpacing="sm" horizontalSpacing="md" />',
         '<Skeleton radius="sm" />',
@@ -389,6 +393,40 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: `const METRICS = { pl: 'md', lh: 1.6 }`,
             errors: [{ messageId: 'rawLineHeight' }],
+        },
+        // The theme sets no lineHeights: these resolve to Mantine's own, off the Figma scale.
+        {
+            code: '<Text lh="lg" />',
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
+        {
+            code: '<Text lh="var(--mantine-line-height-lg)" />',
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
+        // A responsive object must not hide a raw value at a breakpoint.
+        {
+            code: `<Paper my={{ base: '1rem', lg: 0 }} />`,
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: '<Text lh={{ base: 1.2, sm: 1.6 }} />',
+            errors: [{ messageId: 'rawLineHeight' }, { messageId: 'rawLineHeight' }],
+        },
+        {
+            code: `<Text fz={{ base: 13, sm: '13px' }} fw={{ base: 500 }} />`,
+            errors: [{ messageId: 'rawFontSize' }, { messageId: 'rawFontSize' }, { messageId: 'rawWeight' }],
+        },
+        {
+            code: `<Text c={{ base: 'red.5' }} />`,
+            errors: [{ messageId: 'rawColor' }],
+        },
+        {
+            code: `const MARGIN = { base: 16 }; const P = () => <Paper my={MARGIN} />`,
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: `const CARD = { my: { base: 16 } }`,
+            errors: [{ messageId: 'rawSpacing' }],
         },
         {
             code: `const CARD = { p: 16, radius: 4 }`,
