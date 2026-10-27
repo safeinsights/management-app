@@ -38,6 +38,20 @@ describe('toast rendering', () => {
         expect(await screen.findByRole('status')).toHaveAttribute('data-toast-kind', 'warning')
     })
 
+    // Layout is not measurable here, so this pins the DOM shape the globals.css stack rule reverses.
+    it('renders every toast in one wrapper, oldest first', async () => {
+        mount()
+        showToast({ category: 'error', title: 'Save failed' })
+        showToast({ category: 'success', title: 'Saved' })
+
+        const older = (await screen.findByText('Save failed')).closest('.mantine-Notification-root')
+        const newer = (await screen.findByText('Saved')).closest('.mantine-Notification-root')
+
+        expect(older?.parentElement).toBe(newer?.parentElement)
+        expect(older?.parentElement?.parentElement).toHaveClass('mantine-Notifications-root')
+        expect(older?.compareDocumentPosition(newer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
     it('marks an error assertive and everything else polite', async () => {
         mount()
         showToast({ category: 'error', title: 'Failed' })

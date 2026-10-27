@@ -398,11 +398,10 @@ export const theme = createTheme({
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
-        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
-        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        // The toast container. Order and gap live in globals.css, on the wrapper div Mantine adds; the
+        // margin reset stops Mantine's sibling margin-top adding to that gap.
         Notifications: {
             styles: {
-                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
                 notification: { marginTop: 0 },
             },
         },

@@ -47,6 +47,14 @@
     overflow: hidden;
 }
 
+/* Mantine wraps all toasts in one unclassed transition div, which a theme style on the Notifications
+   root cannot reach. Toasts are in raise order, so reversing puts the newest on top (OTTER-840). */
+.mantine-Notifications-root > div {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--mantine-spacing-xs);
+}
+
 .clickable {
     cursor: pointer;
 }
