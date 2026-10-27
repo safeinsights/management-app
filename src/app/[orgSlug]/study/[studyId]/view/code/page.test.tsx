@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
+import logger from '@/lib/logger'
 import {
+    faker,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockDataPartnerSessionWithLabStudy,
@@ -169,5 +172,53 @@ describe('/view/code for a Data Partner member (OTTER-768)', () => {
             StudyViewCode({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) }),
         ).rejects.toThrow('NEXT_REDIRECT')
         expect(redirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
+    })
+})
+
+// OTTER-878: a refused getStudyAction is an ordinary not-found, not a thrown page error.
+describe('/view/code for a user who cannot see the study (OTTER-878)', () => {
+    // The refusal is the expected result, so keep its permission warning out of the run output.
+    beforeEach(() => {
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+    })
+
+    it('shows the not-found message when the study does not exist', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        const page = await StudyViewCode({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: faker.string.uuid() }),
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(screen.getByText('No such study exists')).toBeInTheDocument()
+    })
+
+    it('shows the not-found message to a member of another lab', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const otherLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: otherLab,
+            studyStatus: 'APPROVED',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const page = await StudyViewCode({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(redirect).not.toHaveBeenCalled()
+    })
+
+    it('shows the not-found message to a Data Partner member for an unsubmitted draft', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'DRAFT' })
+
+        const page = await StudyViewCode({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(redirect).not.toHaveBeenCalled()
     })
 })
