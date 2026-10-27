@@ -63,7 +63,7 @@ test.describe('studies table pinned header', () => {
             })
         }).toPass()
 
-        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+        await page.getByRole('button', { name: 'profile menu' }).click()
         const menu = page.getByRole('dialog')
         await expect(menu).toBeVisible()
         await expect(async () => {

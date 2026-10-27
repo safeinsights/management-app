@@ -362,7 +362,7 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
@@ -398,7 +398,7 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
@@ -540,7 +540,7 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 

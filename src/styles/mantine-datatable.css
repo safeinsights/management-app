@@ -1,3 +1,8 @@
+/* The library's gray-6 empty-state text fails WCAG AA contrast (3.32:1) on white. */
+.mantine-datatable-empty-state {
+    color: var(--si-color-text-primary);
+}
+
 /* mantine-datatable keeps its empty state mounted over a populated table at opacity 0, which screen
    readers still announce; visibility takes it out of the accessibility tree. */
 .mantine-datatable-empty-state:not([data-active]) {

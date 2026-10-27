@@ -77,6 +77,9 @@ export default defineConfig({
         navigationTimeout: E2E_TIMEOUT,
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
+        // Mantine then finishes transitions instantly (theme respectReducedMotion), so no assertion,
+        // and no axe scan from any spec, meets a half-faded element.
+        contextOptions: { reducedMotion: 'reduce' },
     },
 
     timeout: E2E_TIMEOUT_LONG,
@@ -113,6 +116,13 @@ export default defineConfig({
             // globalSetup (tests/global.setup.ts); DB users/orgs are seeded by
             // `pnpm test:e2e:up` (db:migrate). No separate auth-setup project/barrier.
             name: 'chromium',
+            testIgnore: '**/a11y.spec.ts',
+            use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            // Axe WCAG scans (OTTER-683), a project of their own so they run alone with --project=a11y.
+            name: 'a11y',
+            testMatch: '**/a11y.spec.ts',
             use: { ...devices['Desktop Chrome'] },
         },
         // {

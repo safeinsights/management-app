@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Alert, Center, Divider, Flex, Group, Paper, Radio, Stack, Text } from '@mantine/core'
+import { Alert, Divider, Group, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -118,14 +118,26 @@ function CriterionLink({ href, testId, children }: { href: string; testId: strin
     )
 }
 
-function AgreementNote({ note }: { note: string | undefined }) {
-    if (!note) return null
+// A test study has no agreement to open, so the term explains that instead of linking. The tooltip
+// is not in the DOM until hovered, so screen readers get the note from the hidden copy.
+function AgreementTerm({ isTestStudy }: { isTestStudy: boolean }) {
+    if (!isTestStudy) {
+        return (
+            <CriterionLink href={Routes.legal} testId="criteria-agreement-link">
+                Study Agreement
+            </CriterionLink>
+        )
+    }
+
     return (
-        <InfoTooltip label={note}>
-            <Center component="span">
-                <InfoIcon size={14} weight="fill" aria-label={note} />
-            </Center>
-        </InfoTooltip>
+        <>
+            <InfoTooltip label={TEST_STUDY_AGREEMENT_NOTE}>
+                <Text span inherit td="underline dashed" data-testid="criteria-agreement-term">
+                    Study Agreement
+                </Text>
+            </InfoTooltip>
+            <VisuallyHidden> ({TEST_STUDY_AGREEMENT_NOTE})</VisuallyHidden>
+        </>
     )
 }
 
@@ -148,14 +160,7 @@ const CRITERION_LABELS: Record<CodeReviewCriteriaKey, CriterionLabelConfig> = {
     agreementCompliance: {
         build: (_href, isTestStudy) => (
             <>
-                Does code align with the{' '}
-                <CriterionLink href={Routes.legal} testId="criteria-agreement-link">
-                    Study Agreement
-                </CriterionLink>
-                {/* The inline SVG is a line-break opportunity; keep the icon on the "?" line. */}
-                <Flex component="span" display="inline-flex" align="center" gap="xxs">
-                    ?<AgreementNote note={isTestStudy ? TEST_STUDY_AGREEMENT_NOTE : undefined} />
-                </Flex>
+                Does code align with the <AgreementTerm isTestStudy={isTestStudy} />?
             </>
         ),
     },

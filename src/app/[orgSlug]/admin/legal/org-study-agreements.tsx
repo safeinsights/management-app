@@ -7,12 +7,18 @@ import {
     legalDocumentCollectionLabels,
     legalDocumentQueryKeys,
     studyAgreementCounterpartyLabels,
-    studyAgreementDisplayTitle,
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/org-legal.actions'
-import { ackedAtColumn, AgreementsPanel, signedAtColumn, versionColumn } from '@/components/legal/agreements-table'
+import {
+    ackedAtColumn,
+    AgreementsPanel,
+    signedAtColumn,
+    studyTitleColumn,
+    versionColumn,
+} from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
+import { Routes } from '@/lib/routes'
 import { Stack, Text } from '@mantine/core'
 import type { DataTableColumn } from 'mantine-datatable'
 
@@ -24,11 +30,13 @@ const SORTING = {
     defaultSort: { columnAccessor: 'studyId', direction: 'desc' } satisfies OrgStudyAgreementSort,
 }
 
+const studyRoutes: Record<OrgType, typeof Routes.studyView> = { lab: Routes.studyView, enclave: Routes.studyReview }
+
 // The counterparty column is unsortable: it names the same org on most rows.
-const agreementColumns = (counterpartyLabel: string): DataTableColumn<StudyAgreement>[] => [
+const agreementColumns = (orgSlug: string, orgType: OrgType): DataTableColumn<StudyAgreement>[] => [
     { accessor: 'studyId', title: 'Study ID', sortable: true },
-    { accessor: 'studyTitle', title: 'Study title', sortable: true, render: studyAgreementDisplayTitle },
-    { accessor: 'counterpartyName', title: counterpartyLabel },
+    studyTitleColumn<StudyAgreement>(({ studyId }) => studyRoutes[orgType]({ orgSlug, studyId })),
+    { accessor: 'counterpartyName', title: studyAgreementCounterpartyLabels[orgType] },
     signedAtColumn<StudyAgreement>(testStudyDateCell),
     ackedAtColumn<StudyAgreement>(testStudyDateCell),
     versionColumn<StudyAgreement>(),
@@ -43,7 +51,7 @@ const NoAgreementsYet: FC = () => (
 )
 
 export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ orgSlug, orgType }) => {
-    const columns = agreementColumns(studyAgreementCounterpartyLabels[orgType])
+    const columns = agreementColumns(orgSlug, orgType)
 
     return (
         <AgreementsPanel

@@ -71,7 +71,7 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({
                             {field.label}
                         </Text>
                         {hasContent ? (
-                            <ReadOnlyLexicalContent value={fieldValue} />
+                            <ReadOnlyLexicalContent value={fieldValue} label={field.label} />
                         ) : (
                             <Text size="md" fw={fontWeight.regular}>
                                 Not provided

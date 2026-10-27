@@ -1,3 +1,4 @@
+import { expectNoA11yViolations } from './a11y.helpers'
 import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
@@ -14,6 +15,8 @@ test.describe('Terms of Service acknowledgement', () => {
         await expect(modal).toBeVisible()
 
         await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        // Scoped to the modal: nothing waits for the page behind it, which the a11y spec covers.
+        await expectNoA11yViolations(page, 'Terms of Service update modal', { include: '[role="dialog"]' })
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
         await expect(modal.getByText('Privacy Notice')).toBeHidden()

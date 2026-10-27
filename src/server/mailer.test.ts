@@ -77,6 +77,19 @@ describe('mailgun email functions', () => {
         for (const message of messages) expect(message.bcc).toBeUndefined()
     })
 
+    it('sendStudyProposalEmails skips a Data Partner member whose blank email was cleared to NULL', async () => {
+        const { study, org, user1 } = await insertTestOrgStudyJobUsers()
+        const { user: noEmail } = await insertTestUser({ org })
+        await db.updateTable('user').set({ email: null }).where('id', '=', noEmail.id).execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const messages = (deliverMock.mock.calls as [{ to: string; vars: { fullName: string } }][]).map(([m]) => m)
+        for (const message of messages) expect(message.to).toMatch(/\S+@\S+/)
+        expect(messages.map((message) => message.vars.fullName)).not.toContain(noEmail.fullName)
+        expect(messages.map((message) => message.to)).toContain(user1.email)
+    })
+
     it('sendStudyProposalEmails dates a revised proposal by its resubmission, not the first submission', async () => {
         const { study, user2 } = await insertTestOrgStudyJobUsers()
         await db

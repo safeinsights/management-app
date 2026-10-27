@@ -25,7 +25,7 @@ test.describe('Personal legal page', () => {
     test('a user reaches their legal page from the profile menu and reads the terms they signed', async ({ page }) => {
         await visitAsRole(page, Routes.dashboard)
 
-        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+        await page.getByRole('button', { name: 'profile menu' }).click()
         await page.getByRole('link', { name: 'Legal', exact: true }).click()
 
         await expect(page).toHaveURL(Routes.legal)

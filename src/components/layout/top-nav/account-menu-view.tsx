@@ -1,4 +1,4 @@
-import { Avatar, Popover, UnstyledButton } from '@mantine/core'
+import { Avatar, Popover, UnstyledButton, VisuallyHidden } from '@mantine/core'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import Link from 'next/link'
@@ -31,8 +31,9 @@ export type AccountMenuViewProps = {
 }
 
 // The spec asks for initials always. Clerk's imageUrl is its default silhouette unless a photo was uploaded.
+// Hidden from assistive tech: the initials repeat the first name that names the trigger.
 const AccountAvatar: React.FC<{ initials: string }> = ({ initials }) => (
-    <Avatar size={AVATAR_SIZE} alt="User profile" classNames={{ placeholder: styles.avatar }}>
+    <Avatar size={AVATAR_SIZE} aria-hidden classNames={{ placeholder: styles.avatar }}>
         {initials}
     </Avatar>
 )
@@ -71,7 +72,8 @@ const MenuItemRow: React.FC<{ item: AccountMenuItem }> = ({ item }) => {
 
 const Divider: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    return <li role="separator" className={styles.divider} />
+    // A list may only hold list items, so the purely visual rule is hidden rather than a separator.
+    return <li aria-hidden className={styles.divider} />
 }
 
 const MenuSection: React.FC<{ items: AccountMenuItem[]; index: number }> = ({ items, index }) => (
@@ -130,10 +132,11 @@ export const AccountMenuView: React.FC<AccountMenuViewProps> = ({
                     onKeyDown={closeOnEscape}
                     aria-expanded={opened}
                     aria-haspopup="dialog"
-                    aria-label="Toggle profile menu"
                 >
+                    {/* Named by its content, so the name begins with the visible first name (WCAG 2.5.3). */}
                     <AccountAvatar initials={initials} />
                     <span className={styles.name}>{firstName}</span>
+                    <VisuallyHidden>{' profile menu'}</VisuallyHidden>
                     <Caret opened={opened} />
                 </UnstyledButton>
             </Popover.Target>
