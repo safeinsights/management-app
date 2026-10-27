@@ -235,10 +235,9 @@ const eslintConfig = [
             'custom/noRawStyleValues': 'off',
         },
     },
-    // Brand artwork and the collaboration cursor palette are not design roles: the logo hexes are
-    // the mark itself, and the cursor colors are SI ramp variables picked per user.
+    // Brand artwork is not themeable: the logo hexes are the mark itself.
     {
-        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
+        files: ['src/components/layout/svg/**'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },
