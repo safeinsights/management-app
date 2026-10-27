@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -7,6 +7,7 @@ import {
     renderWithProviders,
     screen,
     waitFor,
+    waitForPendingQueries,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
@@ -17,10 +18,8 @@ vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
-}))
+// The outputs table reads its file activity on mount; let that read land before the test's rollback.
+afterEach(waitForPendingQueries)
 
 describe('DecryptAndViewOutputs', () => {
     let org: Org

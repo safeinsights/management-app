@@ -1,5 +1,6 @@
 import {
     actionResult,
+    afterEach,
     describe,
     expect,
     fireEvent,
@@ -13,6 +14,7 @@ import {
     requireRawState,
     screen,
     waitFor,
+    waitForPendingQueries,
 } from '@/tests/unit.helpers'
 // vi from vitest itself: vi.mock is hoisted above the imports, so it must come from the module the
 // hoister rewrites, not a re-export.
@@ -36,11 +38,6 @@ import type { ScreenComponentProps } from './types'
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
     markOutputsDecisionViewedAction: vi.fn(() => ({})),
-}))
-
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
 }))
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
@@ -196,6 +193,9 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, user, study, raw, job }
 }
+
+// The outputs table reads its file activity on mount; let that read land before the test's rollback.
+afterEach(waitForPendingQueries)
 
 // The registry types its map as Record<ScreenId, ScreenComponent>, so nothing stops a future id
 // being pointed at this component. It must 404 rather than read `undefined.matches` (PR #1003

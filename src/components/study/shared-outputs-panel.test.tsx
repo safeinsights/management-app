@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -9,6 +9,7 @@ import {
     renderWithProviders,
     screen,
     waitFor,
+    waitForPendingQueries,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
@@ -20,11 +21,6 @@ import { SharedOutputsPanel } from './shared-outputs-panel'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
-
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
 }))
 
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
@@ -81,6 +77,9 @@ const FeedbackProbe = () => {
     }, [])
     return <div data-testid="feedback-probe">Feedback and notes</div>
 }
+
+// The outputs table reads its file activity on mount; let that read land before the test's rollback.
+afterEach(waitForPendingQueries)
 
 describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.
