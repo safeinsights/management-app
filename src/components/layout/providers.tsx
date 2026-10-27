@@ -14,7 +14,7 @@ import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
 import { reportQueryError } from '@/hooks/query-wrappers'
-import { RouteAnnouncer } from './route-announcer'
+import { RouteAnnouncer } from '@/components/layout/route-announcer'
 import { ToastProvider } from './toast-provider'
 
 function makeQueryClient() {

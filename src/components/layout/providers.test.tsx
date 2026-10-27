@@ -18,7 +18,7 @@ import { captureException } from '@sentry/nextjs'
 import { notifications } from '@mantine/notifications'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
-import { getQueryClient, Providers } from './providers'
+import { getQueryClient, Providers } from '@/components/layout/providers'
 
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
