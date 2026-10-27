@@ -1,4 +1,5 @@
 import { cssVariablesResolver, theme } from '@/theme'
+import { semanticColor } from '@/theme/tokens'
 import { MantineProvider } from '@mantine/core'
 import { Notifications, notifications } from '@mantine/notifications'
 import { render, screen } from '@testing-library/react'
@@ -60,6 +61,25 @@ describe('toast rendering', () => {
         const description = (await screen.findByText(/Reference:/)).closest('.mantine-Notification-description')
 
         expect(description).toHaveStyle({ whiteSpace: 'pre-line', overflowWrap: 'anywhere' })
+    })
+
+    it.each([
+        ['success', 'success.bg.dark'],
+        ['warning', 'warning.bg.dark'],
+        ['info', 'info.bg.dark'],
+        ['error', 'error.bg.dark'],
+    ] as const)('draws the %s status as one 32px glyph in its status color', async (category, token) => {
+        mount()
+        showToast({ category, title: `Toast ${category}` })
+
+        const toast = (await screen.findByText(`Toast ${category}`)).closest('.mantine-Notification-root')
+        const slot = toast?.querySelector('.mantine-Notification-icon')
+        const glyph = slot?.querySelector('svg')
+
+        expect(glyph).toHaveAttribute('width', '32')
+        expect(glyph).toHaveAttribute('height', '32')
+        expect(glyph).toHaveAttribute('fill', semanticColor(token))
+        expect(slot).toHaveStyle({ backgroundColor: 'transparent' })
     })
 
     it('marks an error assertive and everything else polite', async () => {

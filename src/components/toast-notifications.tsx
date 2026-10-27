@@ -1,6 +1,6 @@
-import { semanticColor, type SemanticToken } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 import { notifications, type NotificationData } from '@mantine/notifications'
-import { CheckCircleIcon, InfoIcon, WarningIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import type { ReactNode } from 'react'
 
 export type ToastCategory = 'success' | 'warning' | 'info' | 'error'
@@ -18,10 +18,13 @@ type CategorySpec = {
     color: string
     autoClose: number | false
     icon: ReactNode
-    iconBg: SemanticToken
     role: 'status' | 'alert'
     ariaLive: 'polite' | 'assertive'
 }
+
+// Figma 8588:220: one 32px fill glyph in the status color; its mark is cut out, so it shows the
+// toast surface.
+const ICON_SIZE = 32
 
 // The only place a toast colour, timeout, icon or ARIA role is named, so the four categories
 // cannot drift apart as call sites are added.
@@ -29,24 +32,21 @@ const CATEGORIES: Record<ToastCategory, CategorySpec> = {
     success: {
         color: 'green',
         autoClose: 4_000,
-        icon: <CheckCircleIcon weight="fill" />,
-        iconBg: 'success.bg.dark',
+        icon: <CheckCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('success.bg.dark')} />,
         role: 'status',
         ariaLive: 'polite',
     },
     warning: {
         color: 'yellow',
         autoClose: 12_000,
-        icon: <WarningIcon weight="fill" />,
-        iconBg: 'warning.bg.dark',
+        icon: <WarningCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('warning.bg.dark')} />,
         role: 'status',
         ariaLive: 'polite',
     },
     info: {
         color: 'blue',
         autoClose: 12_000,
-        icon: <InfoIcon weight="fill" />,
-        iconBg: 'info.bg.dark',
+        icon: <InfoIcon weight="fill" size={ICON_SIZE} color={semanticColor('info.bg.dark')} />,
         role: 'status',
         ariaLive: 'polite',
     },
@@ -55,8 +55,7 @@ const CATEGORIES: Record<ToastCategory, CategorySpec> = {
     error: {
         color: 'red',
         autoClose: false,
-        icon: <XCircleIcon weight="fill" />,
-        iconBg: 'error.bg.dark',
+        icon: <XCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('error.bg.dark')} />,
         role: 'alert',
         ariaLive: 'assertive',
     },
@@ -74,7 +73,6 @@ export const CLEAR_TOAST_KEYS = {
     'aria-live': undefined,
     'data-toast-kind': undefined,
     [RAISED_AT]: undefined,
-    styles: undefined,
 }
 
 /** Exported so a caller whose body varies per firing can pin the id to the part that does not. */
@@ -94,7 +92,6 @@ export const showToast = (toast: Toast) => {
         'aria-live': spec.ariaLive,
         'data-toast-kind': category,
         [RAISED_AT]: Date.now(),
-        styles: { icon: { backgroundColor: semanticColor(spec.iconBg) } },
     }
 
     // `show` is add-if-absent and `update` a no-op for an unknown id, so the pair replaces-or-adds

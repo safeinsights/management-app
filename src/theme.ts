@@ -393,6 +393,10 @@ export const theme = createTheme({
                     backgroundColor: semanticColor('surface.popover'),
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
                 },
+                // Figma draws the glyph itself at 32px with only the row gap around it; Mantine's slot
+                // adds a 28px disc and its own margins, as does the body.
+                icon: { width: rem(32), height: rem(32), marginInlineEnd: 0, backgroundColor: 'transparent' },
+                body: { marginInlineEnd: 0 },
                 title: { color: semanticColor('text.primary'), fontWeight: 700 },
                 // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
                 // instead of Mantine's ellipsis cutting it off.
