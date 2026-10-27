@@ -103,21 +103,24 @@ test.describe('dates in the browser time zone', () => {
     }
 
     test('the Signed on picker stops at the admin’s local day', async ({ browser }) => {
-        // A zone where the local day is never the UTC day at the time the test runs.
-        const timezoneId = new Date().getUTCHours() >= 10 ? 'Pacific/Kiritimati' : 'Pacific/Pago_Pago'
-        const isoDay = (timeZone: string) =>
-            new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-                new Date(),
-            )
+        // A zone where the local day is not the UTC day at `before`. No zone stays that way across
+        // UTC midnight, so the zone and its check share one instant instead of two clock reads.
+        const before = new Date()
+        const timezoneId = before.getUTCHours() >= 10 ? 'Pacific/Kiritimati' : 'Pacific/Pago_Pago'
+        const isoDay = (timeZone: string, at: Date) =>
+            new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)
+        expect(isoDay(timezoneId, before)).not.toBe(isoDay('UTC', before))
 
         await inZone(browser, 'admin', timezoneId, async (page, hydrationErrors) => {
             await goto(page, Routes.adminSafeinsightsLegal)
             await page.getByRole('tab', { name: 'DOPA' }).click()
             await page.getByRole('tabpanel').getByRole('button', { name: 'Upload', exact: true }).click()
 
-            const today = isoDay(timezoneId)
-            expect(today).not.toBe(isoDay('UTC'))
-            await expect(page.getByRole('dialog').getByLabel('Signed on')).toHaveAttribute('max', today)
+            const signedOn = page.getByRole('dialog').getByLabel('Signed on')
+            await expect(signedOn).toHaveAttribute('max', /^\d{4}-\d{2}-\d{2}$/)
+            const max = await signedOn.getAttribute('max')
+            // The browser read its clock somewhere between `before` and now.
+            expect([isoDay(timezoneId, before), isoDay(timezoneId, new Date())]).toContain(max)
             expect(hydrationErrors).toEqual([])
         })
     })
