@@ -546,10 +546,7 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
         const { user: coAuthor } = await insertTestUser({ org })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'CHANGE-REQUESTED' })
         const earlier = new Date(Date.now() - 60 * 60 * 1000)
-        await db
-            .insertInto('studyLastOpened')
-            .values([user, coAuthor].map(({ id }) => ({ studyId: study.id, userId: id, openedAt: earlier })))
-            .execute()
+        await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
 
         actionResult(await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: 'In-progress note' }))
 
@@ -558,17 +555,8 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             .select('labEditedAt')
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
-        const openedAt = async (userId: string) =>
-            (
-                await db
-                    .selectFrom('studyLastOpened')
-                    .select('openedAt')
-                    .where('studyId', '=', study.id)
-                    .where('userId', '=', userId)
-                    .executeTakeFirstOrThrow()
-            ).openedAt
-        expect((await openedAt(user.id)).getTime()).toBeGreaterThanOrEqual(labEditedAt!.getTime())
-        expect(await openedAt(coAuthor.id)).toEqual(earlier)
+        expect((await studyOpenedAt(study.id, user.id))!.getTime()).toBeGreaterThanOrEqual(labEditedAt!.getTime())
+        expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
     })
 
     it('lets a lab co-author overwrite the draft (last-write-wins)', async () => {

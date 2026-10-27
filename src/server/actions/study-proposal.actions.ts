@@ -293,7 +293,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
 
-        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
+        await markStudyOpened(db, { studyId, userId, seenAt: submittedAt })
 
         onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
