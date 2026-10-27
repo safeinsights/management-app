@@ -2,12 +2,14 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
 import {
+    enableClerkOrgSync,
     mockSessionWithTestData,
     insertTestOrg,
     insertTestUser,
     insertTestCodeEnv,
     faker,
     actionResult,
+    installFakeClerkOrgs,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -25,6 +27,8 @@ import {
 import logger from '@/lib/logger'
 import { isActionError } from '@/lib/errors'
 
+beforeEach(enableClerkOrgSync)
+
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
@@ -34,6 +38,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 describe('Org Actions', () => {
+    let fake: ReturnType<typeof installFakeClerkOrgs>
     let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
 
     beforeEach(async () => {
@@ -45,6 +50,7 @@ describe('Org Actions', () => {
             settings: { publicKey: 'no-such-key' },
         }
         await mockSessionWithTestData({ isSiAdmin: true })
+        fake = installFakeClerkOrgs()
         try {
             await insertOrgAction(newOrg)
         } catch (e) {
@@ -81,6 +87,60 @@ describe('Org Actions', () => {
             await deleteOrgAction({ orgId: org.id })
             const result = await fetchUsersOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+    })
+
+    describe('Clerk sync', () => {
+        it('creates a Clerk org with no members on insert', async () => {
+            const clerkOrg = [...fake.orgs.values()].find((o) => o.slug === newOrg.slug)
+            expect(clerkOrg).toMatchObject({ name: newOrg.name, publicMetadata: { type: 'enclave' } })
+            expect(fake.members.get(clerkOrg!.id)?.size).toBe(0)
+        })
+
+        it('renames the Clerk org on update and ignores a changed slug', async () => {
+            const org = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+            actionResult(
+                await updateOrgAction({
+                    ...newOrg,
+                    id: org.id,
+                    slug: 'attempted-new-slug',
+                    name: 'Renamed Org',
+                } as Parameters<typeof updateOrgAction>[0]),
+            )
+            const after = await db.selectFrom('org').select('slug').where('id', '=', org.id).executeTakeFirstOrThrow()
+            expect(after.slug).toBe(newOrg.slug)
+            expect([...fake.orgs.values()].find((o) => o.slug === newOrg.slug)?.name).toBe('Renamed Org')
+        })
+
+        it('renames the Clerk org from the settings action', async () => {
+            actionResult(await updateOrgSettingsAction({ orgSlug: newOrg.slug, name: 'Settings Name' }))
+            expect([...fake.orgs.values()].find((o) => o.slug === newOrg.slug)?.name).toBe('Settings Name')
+        })
+
+        it('deletes the Clerk org on delete', async () => {
+            const org = await db
+                .selectFrom('org')
+                .select('id')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+            actionResult(await deleteOrgAction({ orgId: org.id }))
+            expect(fake.orgs.size).toBe(0)
+        })
+
+        it('still creates the org when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            fake.api.createOrganization.mockRejectedValueOnce(new Error('clerk down'))
+            const slug = `fails-${faker.string.uuid()}`
+            actionResult(await insertOrgAction({ ...newOrg, slug }))
+            expect(await db.selectFrom('org').select('id').where('slug', '=', slug).executeTakeFirst()).toBeDefined()
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
         })
     })
 
@@ -154,7 +214,7 @@ describe('Org Actions', () => {
                 email: 'attacker@example.com',
                 type: 'enclave',
                 settings: { publicKey: 'attacker-supplied-public-key' },
-            })
+            } as Parameters<typeof updateOrgAction>[0])
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
 

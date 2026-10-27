@@ -8,6 +8,7 @@ import { buildSessionClaimsMetadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole,
 import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
+import { createFakeOrganizations } from './organizations'
 
 export type User = FakeUser
 
@@ -73,6 +74,13 @@ async function fixtureByClerkId(clerkId: string): Promise<FakeFixture | null> {
 
 const noop = async () => {}
 
+// On globalThis so every server bundle layer in the process shares one org store.
+const fakeOrganizations = () => {
+    const g = globalThis as { __clerkFakeOrganizations?: ReturnType<typeof createFakeOrganizations>['api'] }
+    g.__clerkFakeOrganizations ??= createFakeOrganizations().api
+    return g.__clerkFakeOrganizations
+}
+
 function fakeClerkClient() {
     return {
         users: {
@@ -105,12 +113,7 @@ function fakeClerkClient() {
             disableUserMFA: noop,
             getOrganizationMembershipList: async () => ({ data: [] }),
         },
-        organizations: {
-            getOrganization: async ({ slug }: { slug: string }) => ({ id: `fake-org-${slug}`, slug, name: slug }),
-            createOrganization: async (org: Record<string, unknown>) => ({ id: 'fake-org-created', ...org }),
-            createOrganizationMembership: async () => ({ id: 'fake-membership' }),
-            updateOrganization: noop,
-        },
+        organizations: fakeOrganizations(),
         emailAddresses: {
             createEmailAddress: async ({ emailAddress }: { emailAddress: string }) => ({
                 id: 'fake-email',

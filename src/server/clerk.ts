@@ -1,6 +1,5 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { cache } from 'react'
-import { capitalize } from 'remeda'
 import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
@@ -12,36 +11,6 @@ import { currentDb } from '@/server/request-context'
 export { type UserSessionWithAbility } from './session'
 
 export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
-
-type ClerkOrganizationProps = {
-    adminUserId?: string
-    name?: string
-    slug: string
-}
-
-export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }: ClerkOrganizationProps) => {
-    const client = await clerkClient()
-
-    try {
-        const clerkOrg = await client.organizations.getOrganization({ slug: slug })
-        return clerkOrg
-    } catch {
-        let userId: string | null | undefined = adminUserId
-        if (!userId) {
-            const cu = await auth()
-            userId = cu.userId
-            if (!userId) throw new Error('Not logged in')
-        }
-
-        const clerkOrg = await client.organizations.createOrganization({
-            name: name || `${capitalize(slug)}`,
-            createdBy: userId,
-            slug,
-        })
-
-        return clerkOrg
-    }
-}
 
 export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo & UserPublicMetadata> {
     const orgs = await getOrgInfoForUserId(userId)

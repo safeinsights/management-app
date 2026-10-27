@@ -10,6 +10,7 @@ export * from './common.helpers'
 
 export * from './unit/audit'
 export * from './unit/clerk'
+export * from './unit/clerk-orgs'
 export * from './unit/editor'
 export * from './unit/files'
 export * from './unit/identity'
