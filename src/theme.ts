@@ -159,6 +159,7 @@ type ExtendedCustomColors =
     | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxs' | 'xxl' | DefaultMantineSize
+type ExtendedCustomShadow = 'toast' | DefaultMantineSize
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
@@ -167,6 +168,7 @@ declare module '@mantine/core' {
 
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
+        shadows: Record<ExtendedCustomShadow, string>
     }
 
     export interface ButtonProps {
@@ -293,7 +295,7 @@ export const theme = createTheme({
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
-        // Labels take FormField's semibold and xxs gap everywhere: Figma has no 500 weight.
+        // Every label is semibold with an xxs gap: Figma has no 500 weight.
         InputWrapper: Input.Wrapper.extend({
             styles: {
                 required: { color: semanticColor('error.text') },
@@ -399,7 +401,7 @@ export const theme = createTheme({
                     padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
                     gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.popover'),
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                    boxShadow: 'var(--mantine-shadow-toast)',
                 },
                 // Figma draws the glyph itself at 32px with only the row gap around it; Mantine's slot
                 // adds a 28px disc and its own margins, as does the body.
@@ -455,6 +457,8 @@ export const theme = createTheme({
         md: '0 4px 6px rgba(0, 0, 0, 0.1)',
         lg: '0 10px 15px rgba(0, 0, 0, 0.15)',
         xl: '0 20px 25px rgba(0, 0, 0, 0.2)',
+        // OTTER-746's toast elevation, which none of the steps above matches.
+        toast: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
     },
 })
 
