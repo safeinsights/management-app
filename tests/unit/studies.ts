@@ -6,7 +6,10 @@ import { lexicalJson } from '@/lib/lexical'
 import { actionResult } from '@/lib/utils'
 import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRole } from '@/lib/study-screen/state.types'
-import { fetchStudiesForOrgAction } from '@/server/actions/study-dashboard.actions'
+import {
+    fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForOrgAction,
+} from '@/server/actions/study-dashboard.actions'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 import { expect } from 'vitest'
@@ -434,8 +437,16 @@ export const studyOpenedAt = async (studyId: string, userId: string) =>
 
 // The dot the session's user sees on an org dashboard, through the same action and rule as the table.
 export const isUnreadOnOrgDashboard = async (orgSlug: string, studyId: string, audience: StudyRole) => {
-    const rows = actionResult(await fetchStudiesForOrgAction({ orgSlug })) as StudyRow[]
-    const row = rows.find((candidate) => candidate.id === studyId)
+    const row = actionResult(await fetchStudiesForOrgAction({ orgSlug })).find((candidate) => candidate.id === studyId)
     if (!row) throw new Error(`study ${studyId} is not on the ${orgSlug} dashboard`)
     return isStudyUnread(row, audience)
+}
+
+// The same dot on the researcher's My studies (/dashboard), where QA reproduced OTTER-937.
+export const isUnreadOnMyStudies = async (studyId: string) => {
+    const row = actionResult(await fetchStudiesForCurrentResearcherUserAction()).find(
+        (candidate) => candidate.id === studyId,
+    )
+    if (!row) throw new Error(`study ${studyId} is not on My studies`)
+    return isStudyUnread(row, 'researcher')
 }

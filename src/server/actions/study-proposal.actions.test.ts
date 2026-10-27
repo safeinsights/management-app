@@ -17,6 +17,7 @@ import {
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
+    isUnreadOnMyStudies,
     isUnreadOnOrgDashboard,
     mockSessionWithTestData,
     postHogCaptures,
@@ -30,6 +31,7 @@ import {
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/schema/resubmission-note'
 import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
+import { fetchNavUnreadAction } from '@/server/actions/study-dashboard.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
@@ -2367,6 +2369,11 @@ describe('Request Study Actions', () => {
             actionResult(await finalizeStudySubmissionAction({ studyId }))
 
             expect(await isUnreadOnOrgDashboard(lab.slug, studyId, 'researcher')).toBe(false)
+            expect(await isUnreadOnMyStudies(studyId)).toBe(false)
+            expect(actionResult(await fetchNavUnreadAction())).toEqual({
+                myStudies: { researcher: false, reviewer: false },
+                orgSlugs: [],
+            })
             expect(await studyOpenedAt(studyId, coAuthor.id)).toEqual(earlier)
         })
 

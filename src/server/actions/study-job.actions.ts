@@ -332,5 +332,5 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
             .insertInto('jobStatusChange')
             .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
             .execute()
-        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: new Date() })
+        await markStudyOpened(db, { studyId, userId: session.user.id })
     })

@@ -171,7 +171,7 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
         const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
         const roundJob = await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
         // Only opening a round moves the badges; a relaunch from the table pencil must not clear what others changed.
-        if (roundJob.created) await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: new Date() })
+        if (roundJob.created) await markStudyOpened(db, { studyId, userId: session.user.id })
         if (CODER_DISABLED) {
             return {
                 success: true,

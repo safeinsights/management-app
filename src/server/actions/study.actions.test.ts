@@ -693,14 +693,11 @@ describe('dashboard rows (OTTER-617)', () => {
     })
 
     describe('last opened (OTTER-838)', () => {
-        const openStudy = (studyId: string, userId: string, openedAt: Date) =>
-            db.insertInto('studyLastOpened').values({ studyId, userId, openedAt }).execute()
-
         it("returns only the viewer's own last visit on every dashboard", async () => {
             const { enclave, lab, studyId, creator } = await submittedStudy()
             const { user: teammate } = await insertTestUser({ org: lab })
             const openedAt = new Date('2026-09-05T10:00:00Z')
-            await openStudy(studyId, creator.id, openedAt)
+            await stampStudyOpened(studyId, [creator.id], openedAt)
 
             expect((await labRow(lab.slug, studyId)).lastOpenedAt).toEqual(openedAt)
             const mine = actionResult(await fetchStudiesForCurrentResearcherUserAction())
@@ -716,14 +713,6 @@ describe('dashboard rows (OTTER-617)', () => {
             expect(reviewed.find((row) => row.id === studyId)!.lastOpenedAt).toBeNull()
         })
 
-        const stampOf = async (studyId: string, userId: string) =>
-            db
-                .selectFrom('studyLastOpened')
-                .select('openedAt')
-                .where('studyId', '=', studyId)
-                .where('userId', '=', userId)
-                .execute()
-
         it('records one row per person and study, moving it forward on each visit', async () => {
             const { lab, studyId, creator } = await submittedStudy()
             const { studyId: otherStudyId } = await submittedStudy()
@@ -733,13 +722,12 @@ describe('dashboard rows (OTTER-617)', () => {
             ).lastUpdatedAt
 
             actionResult(await markStudyOpenedAction({ studyId }))
-            const [first] = await stampOf(studyId, creator.id)
+            const first = await studyOpenedAt(studyId, creator.id)
             actionResult(await markStudyOpenedAction({ studyId }))
-            const rows = await stampOf(studyId, creator.id)
+            const second = await studyOpenedAt(studyId, creator.id)
 
-            expect(rows).toHaveLength(1)
-            expect(rows[0].openedAt.getTime()).toBeGreaterThanOrEqual(first.openedAt.getTime())
-            expect(await stampOf(otherStudyId, creator.id)).toHaveLength(0)
+            expect(second!.getTime()).toBeGreaterThanOrEqual(first!.getTime())
+            expect(await studyOpenedAt(otherStudyId, creator.id)).toBeNull()
             const lastUpdatedAfter = (
                 await db.selectFrom('study').select('lastUpdatedAt').where('id', '=', studyId).executeTakeFirstOrThrow()
             ).lastUpdatedAt
@@ -751,12 +739,12 @@ describe('dashboard rows (OTTER-617)', () => {
         it('never moves the stamp back', async () => {
             const { lab, studyId, creator } = await submittedStudy()
             const later = new Date(Date.now() + 60 * 60 * 1000)
-            await openStudy(studyId, creator.id, later)
+            await stampStudyOpened(studyId, [creator.id], later)
             asUser(creator, lab)
 
             actionResult(await markStudyOpenedAction({ studyId }))
 
-            expect(await stampOf(studyId, creator.id)).toEqual([{ openedAt: later }])
+            expect(await studyOpenedAt(studyId, creator.id)).toEqual(later)
         })
 
         it('refuses someone who cannot view the study', async () => {
@@ -768,7 +756,7 @@ describe('dashboard rows (OTTER-617)', () => {
             const result = await markStudyOpenedAction({ studyId })
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-            expect(await stampOf(studyId, outsider.id)).toHaveLength(0)
+            expect(await studyOpenedAt(studyId, outsider.id)).toBeNull()
         })
 
         describe('side nav dots', () => {
