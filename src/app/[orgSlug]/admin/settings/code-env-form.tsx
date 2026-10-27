@@ -447,7 +447,7 @@ export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: C
                             onChange={setSampleDataFiles}
                         />
                         <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
-                            <Flex gap="md" mt="xs">
+                            <Flex gap="md">
                                 {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
                                     <Radio key={value} value={value} label={label} />
                                 ))}
