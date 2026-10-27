@@ -186,7 +186,7 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
         <Box id={LANGUAGE_FIELD_ID}>
             <Text id={TITLE_ID} fw={fontWeight.semibold} fz="sm" c={semanticColor('text.primary')}>
                 {LABEL}
-                <RequiredIndicator fz="sm" fw={fontWeight.semibold} />
+                <RequiredIndicator />
             </Text>
             <Stack gap="xs" mt="xxs">
                 {body}
