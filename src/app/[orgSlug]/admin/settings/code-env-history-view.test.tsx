@@ -1,6 +1,4 @@
-import dayjs from 'dayjs'
 import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
-import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { CodeEnvHistoryTable } from './code-env-history-view'
 
 describe('CodeEnvHistoryTable', () => {
@@ -21,6 +19,7 @@ describe('CodeEnvHistoryTable', () => {
             />,
         )
 
-        expect(screen.getByText(dayjs(createdAt).format(DATE_TIME_FORMAT))).toBeInTheDocument()
+        // Tests run in America/Chicago.
+        expect(screen.getByText('Sep 23, 2026, 08:30 pm')).toBeInTheDocument()
     })
 })

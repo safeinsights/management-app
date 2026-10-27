@@ -44,8 +44,11 @@ describe('statusAlertTitle', () => {
     it('hydrates without a mismatch and then shows the date', async () => {
         const { recoverableErrors } = hydrateServerHtml(banner)
 
-        expect(await screen.findByText(/Sep 2\d, 2026/)).toBeInTheDocument()
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(`Code approved ${STATUS_ALERT_SEPARATOR} Sep`)
+        // Tests run in America/Chicago.
+        expect(await screen.findByText('Sep 23, 2026')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            `Code approved ${STATUS_ALERT_SEPARATOR} Sep 23, 2026`,
+        )
         expect(recoverableErrors).toEqual([])
     })
 

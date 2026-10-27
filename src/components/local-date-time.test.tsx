@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import {
     describe,
     expect,
@@ -8,11 +7,13 @@ import {
     renderWithProviders,
     screen,
 } from '@/tests/unit.helpers'
-import { DATE_TIME_FORMAT, DISPLAY_FORMAT } from '@/lib/dates'
+import { DATE_TIME_FORMAT } from '@/lib/dates'
 import { LocalDateTime } from './local-date-time'
 
+// Tests run in America/Chicago, where this instant is still the evening before.
 const AFTER_UTC_MIDNIGHT = '2026-09-24T01:30:00Z'
 const ISO = '2026-09-24T01:30:00.000Z'
+const LOCAL_DAY = 'Sep 23, 2026'
 
 describe('LocalDateTime', () => {
     it('sends only the instant in the server HTML', () => {
@@ -28,13 +29,13 @@ describe('LocalDateTime', () => {
 
         const time = container.querySelector('time')
         expect(time).toHaveAttribute('datetime', ISO)
-        expect(time).toHaveTextContent(dayjs(AFTER_UTC_MIDNIGHT).format(DISPLAY_FORMAT))
+        expect(time).toHaveTextContent(LOCAL_DAY)
     })
 
     it('shows the date and time when given the date-time format', () => {
         renderWithProviders(<LocalDateTime value={AFTER_UTC_MIDNIGHT} format={DATE_TIME_FORMAT} />)
 
-        expect(screen.getByText(dayjs(AFTER_UTC_MIDNIGHT).format(DATE_TIME_FORMAT))).toBeInTheDocument()
+        expect(screen.getByText('Sep 23, 2026, 08:30 pm')).toBeInTheDocument()
     })
 
     it('keeps the prefix outside the time element', () => {
@@ -45,15 +46,14 @@ describe('LocalDateTime', () => {
             </p>,
         )
 
-        const date = dayjs(AFTER_UTC_MIDNIGHT).format(DISPLAY_FORMAT)
-        expect(container.querySelector('p')).toHaveTextContent(`Code approved • ${date}`)
-        expect(container.querySelector('time')).toHaveTextContent(new RegExp(`^${date}$`))
+        expect(container.querySelector('p')).toHaveTextContent(`Code approved • ${LOCAL_DAY}`)
+        expect(container.querySelector('time')).toHaveTextContent(new RegExp(`^${LOCAL_DAY}$`))
     })
 
     it('hydrates the server HTML without a mismatch, then shows the date', async () => {
         const { recoverableErrors } = hydrateServerHtml(<LocalDateTime value={AFTER_UTC_MIDNIGHT} />)
 
-        expect(await screen.findByText(dayjs(AFTER_UTC_MIDNIGHT).format(DISPLAY_FORMAT))).toBeInTheDocument()
+        expect(await screen.findByText(LOCAL_DAY)).toBeInTheDocument()
         expect(recoverableErrors).toEqual([])
     })
 

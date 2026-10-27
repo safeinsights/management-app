@@ -1,4 +1,3 @@
-import dayjs from 'dayjs'
 import {
     describe,
     expect,
@@ -11,7 +10,6 @@ import {
     vi,
     within,
 } from '@/tests/unit.helpers'
-import { DATE_TIME_FORMAT } from '@/lib/dates'
 import type { WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { YourFilesTable } from './your-files-table'
 
@@ -133,15 +131,14 @@ describe('YourFilesTable', () => {
             expect(html).toContain('Ada Lovelace')
             expect(html).toContain('Uploaded')
             expect(html).toMatch(/datetime="2026-09-24T01:30:00.000Z"/i)
-            expect(html).not.toContain(dayjs(createdAt).format(DATE_TIME_FORMAT))
+            expect(html).not.toContain('Sep 2')
         })
 
         it('hydrates without a mismatch, then shows the time in the browser zone', async () => {
             const { recoverableErrors } = hydrateServerHtml(<YourFilesTable {...baseProps} files={files} />)
 
-            expect(await screen.findByText(/Ada Lovelace · Uploaded ·/)).toHaveTextContent(
-                dayjs(createdAt).format(DATE_TIME_FORMAT),
-            )
+            // Tests run in America/Chicago.
+            expect(await screen.findByText(/Ada Lovelace · Uploaded ·/)).toHaveTextContent('Sep 23, 2026, 08:30 pm')
             expect(recoverableErrors).toEqual([])
         })
     })
