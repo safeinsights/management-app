@@ -146,19 +146,6 @@ describe('syncMembership', () => {
         expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:admin')
     })
 
-    it('creates the member when Clerk answers not_a_member_in_organization', async () => {
-        const { fake, sync } = setup()
-        const clerkOrg = await sync.syncOrg(org)
-        fake.api.updateOrganizationMembership.mockRejectedValueOnce(
-            Object.assign(new Error('not a member'), {
-                status: 403,
-                errors: [{ code: 'not_a_member_in_organization' }],
-            }),
-        )
-        await sync.syncMembership(org, 'user_1', false)
-        expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:member')
-    })
-
     it('throws when Clerk fails', async () => {
         const { fake, sync } = setup()
         fake.api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))

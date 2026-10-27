@@ -38,9 +38,6 @@ export function isClerkNotFoundError(error: unknown): boolean {
     return (error as { status?: number } | null)?.status === 404 || clerkErrorCode(error) === 'resource_not_found'
 }
 
-const isClerkNotMemberError = (error: unknown) =>
-    isClerkNotFoundError(error) || clerkErrorCode(error) === 'not_a_member_in_organization'
-
 const isClerkAlreadyMemberError = (error: unknown) => clerkErrorCode(error) === 'already_a_member_in_organization'
 
 const ignoreNotFound = async (call: Promise<unknown>) => {
@@ -62,7 +59,7 @@ export function createClerkOrgSync(api: ClerkOrgApi) {
     }
 
     // No createdBy: the app never makes the creating user a member, and Clerk would add them as admin.
-    // App-side member removal must keep at least one admin and forbid self-removal, as Clerk does.
+    // Clerk lets an org have no admin, so demoting or removing the last admin syncs like any other change.
     async function findOrCreateOrg(org: SyncOrg) {
         const existing = await find(org.slug)
         if (existing) return existing
@@ -106,7 +103,7 @@ export function createClerkOrgSync(api: ClerkOrgApi) {
             await api.updateOrganizationMembership(params)
             return
         } catch (error) {
-            if (!isClerkNotMemberError(error)) throw error
+            if (!isClerkNotFoundError(error)) throw error
         }
         try {
             await api.createOrganizationMembership(params)
