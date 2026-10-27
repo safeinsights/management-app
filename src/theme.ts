@@ -294,7 +294,7 @@ export const theme = createTheme({
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[7] } },
+            styles: { required: { color: semanticColor('error.text') } },
             vars: () => ({
                 label: {},
                 description: {},
@@ -371,7 +371,11 @@ export const theme = createTheme({
                     minWidth: rem(16),
                 },
                 // Mantine's line-height 1 crams a title that wraps in a narrow modal.
-                title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold, lineHeight: 1.35 },
+                title: {
+                    fontSize: 'var(--mantine-font-size-xl)',
+                    fontWeight: fontWeight.semibold,
+                    lineHeight: 'var(--si-line-height-heading)',
+                },
             },
         }),
         // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
@@ -387,9 +391,9 @@ export const theme = createTheme({
             defaultProps: { closeButtonProps: { 'aria-label': 'Close' } },
             styles: {
                 root: {
-                    borderRadius: 4,
-                    padding: '12px 16px',
-                    gap: 16,
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
+                    gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.popover'),
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
                 },
@@ -397,7 +401,7 @@ export const theme = createTheme({
                 // adds a 28px disc and its own margins, as does the body.
                 icon: { width: rem(32), height: rem(32), marginInlineEnd: 0, backgroundColor: 'transparent' },
                 body: { marginInlineEnd: 0 },
-                title: { color: semanticColor('text.primary'), fontWeight: 700 },
+                title: { color: semanticColor('text.primary'), fontWeight: fontWeight.bold },
                 // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
                 // instead of Mantine's ellipsis cutting it off.
                 description: {
