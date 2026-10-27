@@ -235,8 +235,8 @@ const eslintConfig = [
             'custom/noRawStyleValues': 'off',
         },
     },
-    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
-    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    // Brand artwork and the collaboration cursor palette are not design roles: the logo hexes are
+    // the mark itself, and the cursor colours are SI ramp variables picked per user.
     {
         files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
         rules: {
