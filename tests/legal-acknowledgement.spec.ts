@@ -1,3 +1,5 @@
+import { expectNoA11yViolations } from './a11y.helpers'
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, test, visitAsRole } from './e2e.helpers'
 import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 
@@ -5,16 +7,16 @@ import { SEEDED_TOS_V2_BODY } from './e2e.seed'
 // role's user would block it in a parallel worker.
 test.use({ storageState: authFileFor('legal') })
 
-const DASHBOARD = '/dashboard'
-
 test.describe('Terms of Service acknowledgement', () => {
     test('a user owing an updated Terms of Service must acknowledge it before continuing', async ({ page }) => {
-        await visitAsRole(page, DASHBOARD)
+        await visitAsRole(page, Routes.dashboard)
 
         const modal = page.getByRole('dialog').filter({ hasText: 'The Terms of Service has been updated' })
         await expect(modal).toBeVisible()
 
         await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        // Scoped to the modal: nothing waits for the page behind it, which the a11y spec covers.
+        await expectNoA11yViolations(page, 'Terms of Service update modal', { include: '[role="dialog"]' })
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
         await expect(modal.getByText('Privacy Notice')).toBeHidden()
@@ -30,7 +32,7 @@ test.describe('Terms of Service acknowledgement', () => {
 
         await expect(modal).toBeHidden()
 
-        await visitAsRole(page, DASHBOARD)
+        await visitAsRole(page, Routes.dashboard)
         await expect(page.getByRole('dialog')).toBeHidden()
     })
 })

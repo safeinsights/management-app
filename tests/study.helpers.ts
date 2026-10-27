@@ -9,9 +9,11 @@ import {
     type Page,
 } from './e2e.helpers'
 import { execSync } from 'child_process'
+import { Routes } from '@/lib/routes/definitions'
+import { ENCLAVE_SLUG, LAB_SLUG } from './e2e.seed'
 
-export const RESEARCHER_DASHBOARD = '/openstax-lab/dashboard'
-export const REVIEWER_DASHBOARD = '/openstax/dashboard'
+export const RESEARCHER_DASHBOARD = Routes.orgDashboard({ orgSlug: LAB_SLUG })
+export const REVIEWER_DASHBOARD = Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG })
 
 // OTTER-463: rich-text links must carry target="_blank" through submission so
 // neither researcher nor reviewer gets navigated off SafeInsights by a click.
@@ -360,7 +362,7 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
@@ -396,7 +398,7 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
@@ -538,7 +540,7 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
 
-    const viewButton = page.getByRole('button', { name: 'View' })
+    const viewButton = page.getByRole('button', { name: 'View', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 

@@ -10,7 +10,8 @@ import type { JsonValue } from '@/database/types'
 import { isValidLexicalState } from '@/lib/lexical'
 import logger from '@/lib/logger'
 
-export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue }) {
+// `label` names the editor: Lexical keeps role="textbox" even when it is read-only.
+export function ReadOnlyLexicalContent({ value, label }: { value: string | JsonValue; label: string }) {
     if (value == null) return null
     const editorState = typeof value === 'string' ? value : JSON.stringify(value)
 
@@ -31,7 +32,7 @@ export function ReadOnlyLexicalContent({ value }: { value: string | JsonValue })
     return (
         <LexicalComposer initialConfig={initialConfig}>
             <RichTextPlugin
-                contentEditable={<ContentEditable />}
+                contentEditable={<ContentEditable ariaLabel={label} />}
                 placeholder={null}
                 ErrorBoundary={LexicalErrorBoundary}
             />

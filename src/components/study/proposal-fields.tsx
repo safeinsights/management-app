@@ -38,7 +38,7 @@ export function LexicalProposalField({
                     {label}
                 </Text>
                 <Text size={size} component="div">
-                    <ReadOnlyLexicalContent value={value} />
+                    <ReadOnlyLexicalContent value={value} label={label} />
                 </Text>
             </Stack>
         </>

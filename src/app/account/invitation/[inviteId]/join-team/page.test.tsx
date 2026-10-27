@@ -19,7 +19,7 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
-import { INVITATION_NOTICE_STORAGE_KEY, takeInvitationNotice } from '@/lib/invitation-notice'
+import { takeInvitationNotice } from '@/lib/invitation-notice'
 import { Routes } from '@/lib/routes'
 import { useAuth } from '@clerk/nextjs'
 import { memoryRouter } from 'next-router-mock'
@@ -108,10 +108,13 @@ describe('AddTeam', () => {
 
     it('still leaves for the dashboard after a decline when storage is unavailable', async () => {
         await renderInviteFrom(faker.company.name())
-        const setItem = sessionStorage.setItem.bind(sessionStorage)
-        vi.spyOn(sessionStorage, 'setItem').mockImplementation((key, value) => {
-            if (key === INVITATION_NOTICE_STORAGE_KEY) throw new DOMException('Quota exceeded', 'QuotaExceededError')
-            setItem(key, value)
+        // happy-dom's Storage is a proxy that ignores spies, so the global is replaced instead.
+        vi.stubGlobal('sessionStorage', {
+            getItem: () => null,
+            removeItem: () => {},
+            setItem: () => {
+                throw new DOMException('Quota exceeded', 'QuotaExceededError')
+            },
         })
 
         await userEvent.click(await screen.findByRole('button', { name: 'Decline invitation' }))
@@ -121,5 +124,6 @@ describe('AddTeam', () => {
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
         expect(takeInvitationNotice()).toBeNull()
+        vi.unstubAllGlobals()
     })
 })

@@ -8,7 +8,7 @@ import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { Step } from './mfa'
+import type { Step } from './use-request-mfa'
 import { useCompleteSignIn } from './use-complete-sign-in'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 

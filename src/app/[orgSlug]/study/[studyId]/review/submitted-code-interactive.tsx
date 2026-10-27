@@ -573,7 +573,8 @@ function CodeFileDownloadButton({
             download={fileName}
             onClick={(e) => e.stopPropagation()}
             variant="transparent"
-            size="sm"
+            // md, not sm: WCAG 2.5.8 wants a 24px target, and sm is 22px.
+            size="md"
             aria-label={`Download ${fileName}`}
             data-testid="study-code-download"
         >

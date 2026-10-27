@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useParams } from 'next/navigation'
-import { createTestQueryWrapper } from '@/tests/unit.helpers'
+import { createTestQueryWrapper, testImageRef } from '@/tests/unit.helpers'
+
+const TEST_DIGEST = `sha256:${'a'.repeat(64)}`
 import { useCodeEnvForm } from './use-code-env-form'
 
 vi.mock('@/server/actions/code-envs.actions', () => ({
@@ -34,7 +36,7 @@ const mockCodeEnv = {
     name: 'Test Env',
     language: 'PYTHON' as const,
     commandLines: { py: 'python %f' },
-    url: 'python:3.11',
+    url: testImageRef('python:3.11'),
     isTesting: false,
     starterCodeFileNames: ['main.py'],
     sampleDataPath: null,
@@ -62,6 +64,7 @@ describe('useCodeEnvForm', () => {
                 result.current.form.setFieldValue('name', 'New Env')
                 result.current.form.setFieldValue('commandLines', { py: 'python %f' })
                 result.current.form.setFieldValue('url', 'python:3.11')
+                result.current.form.setFieldValue('digest', TEST_DIGEST)
                 result.current.form.setFieldValue('starterCodes', [new File(['code'], 'main.py')])
             })
         }
@@ -168,6 +171,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('digest', TEST_DIGEST)
             result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
@@ -177,6 +181,7 @@ describe('useCodeEnvForm', () => {
             expect(createOrgCodeEnvAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     orgSlug: TEST_ORG_SLUG,
+                    url: testImageRef('python:3.11'),
                     starterCodeFileNames: ['main.py'],
                 }),
             )
@@ -205,6 +210,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('digest', TEST_DIGEST)
             result.current.form.setFieldValue('starterCodes', [starterCode])
             result.current.form.setFieldValue('sampleDataPath', 'data/sample.csv')
             result.current.setSampleDataFiles([sampleFile])
@@ -232,6 +238,7 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('name', 'New Env')
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('digest', TEST_DIGEST)
             result.current.form.setFieldValue('starterCodes', [starterCode])
         })
 
@@ -274,6 +281,67 @@ describe('useCodeEnvForm', () => {
             )
         })
     })
+
+    it('edit: splits a pinned URL into the URL and digest fields', () => {
+        const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
+            wrapper: createTestQueryWrapper(),
+        })
+
+        expect(result.current.form.values.url).toBe('python:3.11')
+        expect(result.current.form.values.digest).toBe(TEST_DIGEST)
+        expect(result.current.form.errors.digest).toBeUndefined()
+    })
+
+    it('edit: flags a legacy unpinned URL on open and blocks submit until a digest is added', async () => {
+        ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(mockCodeEnv)
+        const legacyEnv = { ...mockCodeEnv, url: 'python:3.11' }
+
+        const { result } = renderHook(() => useCodeEnvForm(legacyEnv, vi.fn()), {
+            wrapper: createTestQueryWrapper(),
+        })
+
+        expect(result.current.form.errors.digest).toBe('Image digest is required')
+
+        act(() => result.current.onSubmit())
+        await waitFor(() => expect(result.current.form.errors.digest).toBe('Image digest is required'))
+        expect(updateOrgCodeEnvAction).not.toHaveBeenCalled()
+
+        act(() => result.current.form.setFieldValue('digest', 'a'.repeat(64)))
+        act(() => result.current.onSubmit())
+        await waitFor(() =>
+            expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(
+                expect.objectContaining({ url: testImageRef('python:3.11') }),
+            ),
+        )
+    })
+
+    it('create: flags a truncated digest', async () => {
+        const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+            wrapper: createTestQueryWrapper(),
+        })
+        act(() => result.current.form.setFieldValue('digest', 'sha256:771722e4'))
+
+        act(() => result.current.onSubmit())
+
+        await waitFor(() => expect(result.current.form.errors.digest).toMatch(/truncated/))
+        expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+    })
+
+    it.each([testImageRef('python:3.11'), `python/${TEST_DIGEST}`])(
+        'create: points a digest pasted into the URL field (%s) at the digest field',
+        async (url) => {
+            const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+                wrapper: createTestQueryWrapper(),
+            })
+            act(() => result.current.form.setFieldValue('url', url))
+
+            act(() => result.current.onSubmit())
+
+            await waitFor(() =>
+                expect(result.current.form.errors.url).toBe('Put the digest in the Image digest field, not the URL'),
+            )
+        },
+    )
 
     it('edit: skips starter code upload when no new file', async () => {
         const updatedEnv = { ...mockCodeEnv, name: 'Updated' }

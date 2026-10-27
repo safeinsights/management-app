@@ -3,12 +3,12 @@
 import { semanticColor } from '@/theme/tokens'
 import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
-import { Anchor, Flex } from '@mantine/core'
+import { Anchor, Flex, VisuallyHidden } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
-import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { ExternalLinks } from '@/lib/routes'
 import { plural } from '@/lib/string'
 
 const DAY_MINUTES = 24 * 60
@@ -30,9 +30,9 @@ export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
     return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`
 }
 
-const SlackDPSupportLink = () => (
+const SupportLink = () => (
     <Anchor
-        href={SAFE_INSIGHTS_SLACK_URL}
+        href={ExternalLinks.support}
         target="_blank"
         rel="noopener noreferrer"
         c={semanticColor('link.default')}
@@ -40,10 +40,18 @@ const SlackDPSupportLink = () => (
         display="inline-flex"
     >
         <Flex component="span" align="center" gap="xxs">
-            Slack
-            <ArrowSquareOutIcon size={16} />
+            here
+            <ArrowSquareOutIcon size={16} aria-hidden="true" />
+            <VisuallyHidden>(opens in a new tab)</VisuallyHidden>
         </Flex>
     </Anchor>
+)
+
+const PREPARING_CODE_BODY = (
+    <>
+        Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, don’t hesitate to
+        contact SafeInsights <SupportLink />.
+    </>
 )
 
 type StageCopy = { variant: StatusAlertVariant; title: (when: string) => string; body: ReactNode }
@@ -54,17 +62,12 @@ const STAGE_COPY = {
     'CODE-APPROVED': {
         variant: STATUS_ALERT_VARIANT.informative,
         title: (when) => `Outputs not ready, code approved ${when}`,
-        body: (
-            <>
-                Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
-                SafeInsights via <SlackDPSupportLink />
-            </>
-        ),
+        body: PREPARING_CODE_BODY,
     },
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
         title: (when) => `Outputs not ready, code preparation started ${when}`,
-        body: 'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
+        body: PREPARING_CODE_BODY,
     },
     'JOB-READY': {
         variant: STATUS_ALERT_VARIANT.informative,

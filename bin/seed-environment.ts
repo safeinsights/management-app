@@ -9,7 +9,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { sql } from 'kysely'
 import { db } from '@/database'
-import { findOrCreateOrgMembership } from '@/server/db/mutations'
+import { findOrCreateOrgMembership, syncUserOrgsToClerk } from '@/server/db/mutations'
+import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { publicMetadata } from '@/lib/clerk'
 import { testingDataAllowed } from './lib/testing-data-gate'
@@ -334,6 +335,7 @@ async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: Test
 
     await setupOrgMemberships(role, siUserId)
     await updateClerkPublicMetadata(clerk, clerkUserId, siUserId)
+    await syncUserOrgsToClerk(siUserId, createClerkOrgSync(clerk.organizations))
 
     return siUserId
 }

@@ -2,6 +2,10 @@ import { describe, it, expect, test, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import {
+    beforeEach,
+    enableClerkOrgSync,
+    currentFakeClerkOrgsApi,
+    fakeClerkRoleOf,
     insertTestOrg,
     insertTestUser,
     actionResult,
@@ -13,6 +17,8 @@ import { faker } from '@faker-js/faker'
 import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
 import { onUserRoleUpdate } from '@/server/events'
+
+beforeEach(enableClerkOrgSync)
 
 vi.mock('@/server/events')
 
@@ -200,5 +206,39 @@ describe('User Actions', () => {
             before: expect.objectContaining({ isAdmin: false }),
             after: { isAdmin: true },
         })
+    })
+
+    test('updateUserRoleAction mirrors the role change into Clerk', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { user: target } = await insertTestUser({ org })
+        const change = (isAdmin: boolean) =>
+            updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin }).then(actionResult)
+
+        await change(true)
+        expect(await fakeClerkRoleOf(org.slug, target.clerkId)).toBe('org:admin')
+
+        await change(false)
+        expect(await fakeClerkRoleOf(org.slug, target.clerkId)).toBe('org:member')
+    })
+
+    test('updateUserRoleAction still changes the role when Clerk fails, and logs', async () => {
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { user: target, orgUser } = await insertTestUser({ org })
+        const api = await currentFakeClerkOrgsApi()
+        api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
+
+        actionResult(await updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin: true }))
+
+        const changed = await db
+            .selectFrom('orgUser')
+            .select('isAdmin')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(changed.isAdmin).toBe(true)
+        expect(logError).toHaveBeenCalledWith(
+            'clerk-org-sync failed',
+            expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+        )
     })
 })

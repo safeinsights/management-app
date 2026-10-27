@@ -16,25 +16,80 @@ type ConfirmationModalProps = {
 }
 
 type BackupCodesProps = {
+    isVisible: boolean
     codes?: string[] | null
 }
 
-const BackupCodes = ({ codes }: BackupCodesProps) => {
-    const { isLoaded } = useUser()
+function useBackupCodes() {
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
     const [modalOpened, setModalOpened] = useState(false)
     const [isRedirecting, setIsRedirecting] = useState(false)
 
-    const codesAsText = codes && codes.length ? codes.join('\n') : ''
-
     const goToDashboard = () => {
+        setModalOpened(false)
+        setIsRedirecting(true)
         if (!isSessionLoaded || !session) return
         router.push(Routes.dashboard)
     }
 
-    if (!isLoaded) return null
+    // Leaving without copying gets a confirmation, since the codes are never shown again.
+    const leave = () => {
+        if (hasCopied) goToDashboard()
+        else setModalOpened(true)
+    }
+
+    return {
+        isSessionLoaded,
+        modalOpened,
+        isRedirecting,
+        markCopied: () => setHasCopied(true),
+        closeModal: () => setModalOpened(false),
+        leave,
+        goToDashboard,
+    }
+}
+
+const CodesList: FC<{ codes?: string[] | null }> = ({ codes }) => {
+    if (!codes?.length) {
+        return (
+            <Text size="sm" c="dimmed">
+                Generating recovery codes...
+            </Text>
+        )
+    }
+
+    return (
+        <Stack gap="xxs">
+            {codes.map((code, index) => (
+                <Text key={index} size="sm">
+                    {code}
+                </Text>
+            ))}
+        </Stack>
+    )
+}
+
+const CopiedNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return (
+        <Group gap="xs" justify="center" align="center">
+            <CheckIcon size={16} color={semanticColor('success.text')} />
+            <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
+                Copied!
+            </Text>
+        </Group>
+    )
+}
+
+const BackupCodes = ({ isVisible, codes }: BackupCodesProps) => {
+    const { isLoaded } = useUser()
+    const { isSessionLoaded, modalOpened, isRedirecting, markCopied, closeModal, leave, goToDashboard } =
+        useBackupCodes()
+
+    if (!isVisible || !isLoaded) return null
 
     return (
         <>
@@ -55,23 +110,11 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                     px="lg"
                     bd={`1px solid ${semanticColor('border.dark')}`}
                 >
-                    {codes && codes.length ? (
-                        <Stack gap="xxs">
-                            {codes.map((code, index) => (
-                                <Text key={index} size="sm">
-                                    {code}
-                                </Text>
-                            ))}
-                        </Stack>
-                    ) : (
-                        <Text size="sm" c="dimmed">
-                            Generating recovery codes...
-                        </Text>
-                    )}
+                    <CodesList codes={codes} />
                 </ScrollArea.Autosize>
 
                 <Stack gap="md" mt="xs">
-                    <CopyButton value={codesAsText} timeout={1000}>
+                    <CopyButton value={codes?.join('\n') ?? ''} timeout={1000}>
                         {({ copied, copy }) => (
                             <Stack gap="xxs">
                                 <Button
@@ -79,20 +122,13 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                                     size="lg"
                                     onClick={() => {
                                         copy()
-                                        setHasCopied(true)
+                                        markCopied()
                                     }}
-                                    disabled={!codes || codes.length === 0}
+                                    disabled={!codes?.length}
                                 >
                                     Copy codes
                                 </Button>
-                                {copied && (
-                                    <Group gap="xs" justify="center" align="center">
-                                        <CheckIcon size={16} color={semanticColor('success.text')} />
-                                        <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
-                                            Copied!
-                                        </Text>
-                                    </Group>
-                                )}
+                                <CopiedNotice isVisible={copied} />
                             </Stack>
                         )}
                     </CopyButton>
@@ -103,14 +139,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                         variant="outline"
                         mt="xs"
                         size="lg"
-                        onClick={() => {
-                            if (!hasCopied) {
-                                setModalOpened(true)
-                            } else {
-                                setIsRedirecting(true)
-                                goToDashboard()
-                            }
-                        }}
+                        onClick={leave}
                         disabled={!isSessionLoaded}
                     >
                         Go to SafeInsights
@@ -120,12 +149,8 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
 
             <ConfirmationModal
                 isOpen={modalOpened}
-                onClose={() => setModalOpened(false)}
-                onConfirm={() => {
-                    setModalOpened(false)
-                    setIsRedirecting(true)
-                    goToDashboard()
-                }}
+                onClose={closeModal}
+                onConfirm={goToDashboard}
                 isLoading={isRedirecting}
             />
         </>
