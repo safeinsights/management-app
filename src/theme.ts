@@ -293,8 +293,12 @@ export const theme = createTheme({
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
+        // Labels take FormField's semibold and xxs gap everywhere: Figma has no 500 weight.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: semanticColor('error.text') } },
+            styles: {
+                required: { color: semanticColor('error.text') },
+                label: { fontWeight: fontWeight.semibold, marginBottom: 'var(--mantine-spacing-xxs)' },
+            },
             vars: () => ({
                 label: {},
                 description: {},
