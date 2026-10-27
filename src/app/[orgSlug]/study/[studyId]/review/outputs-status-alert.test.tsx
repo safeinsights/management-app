@@ -1,4 +1,15 @@
-import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
+import {
+    act,
+    afterEach,
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+    vi,
+} from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
 import { ExternalLinks } from '@/lib/routes'
@@ -126,5 +137,24 @@ describe('OutputsStatusAlert', () => {
         vi.setSystemTime(new Date(STARTED))
         renderWithProviders(<OutputsStatusAlert stageStatus="CODE-SUBMITTED" startedAt={STARTED} />)
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
+    })
+
+    it('leaves the elapsed time out of the server HTML', () => {
+        const html = renderToServerHtml(<OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />)
+
+        expect(html).toContain('Outputs not ready, code approved')
+        expect(html).not.toContain('ago')
+        expect(html).not.toContain(' on ')
+    })
+
+    it('hydrates without a mismatch, then shows when the stage started', async () => {
+        const { recoverableErrors } = hydrateServerHtml(
+            <OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />,
+        )
+
+        expect(await screen.findByText(/code approved on/)).toHaveTextContent(
+            `on ${dayjs(new Date(STARTED)).format('MMM DD, YYYY [at] h:mm A')}`,
+        )
+        expect(recoverableErrors).toEqual([])
     })
 })

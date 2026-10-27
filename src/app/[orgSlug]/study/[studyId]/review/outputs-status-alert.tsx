@@ -8,6 +8,7 @@ import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
+import { useIsHydrated } from '@/hooks/use-is-hydrated'
 import { ExternalLinks } from '@/lib/routes'
 import { plural } from '@/lib/string'
 
@@ -100,7 +101,9 @@ function useStartedWhen(startedAt: string | Date): string {
         every: { 1: 'minute' },
         trigger: tick,
     })
-    return formatStartedWhen(startedAtMs, nowMs)
+    const isHydrated = useIsHydrated()
+    // The server clock and zone are not the viewer's, so the phrase waits for the browser.
+    return isHydrated ? formatStartedWhen(startedAtMs, nowMs) : ''
 }
 
 export function OutputsStatusAlert({ stageStatus, startedAt }: OutputsStatusAlertProps) {
