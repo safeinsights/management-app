@@ -191,6 +191,37 @@ describe('CodeEnvs', async () => {
         expect(saved.starterCodeFileNames).toEqual(['existing.R'])
     })
 
+    describe('editing the last usable environment for a language', () => {
+        const openEdit = async (name: string) => {
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText(name)).toBeInTheDocument())
+            fireEvent.click(screen.getByRole('button', { name: `Edit ${name}` }))
+            await waitFor(() => {
+                expect(screen.getByRole('heading', { name: /Edit Code Environment/i })).toBeInTheDocument()
+            })
+        }
+
+        it('locks the testing checkbox and language select', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
+
+            await openEdit('Only R')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeDisabled()
+            expect(screen.getByRole('textbox', { name: /Language/i })).toBeDisabled()
+            expect(screen.getByText(/so it can't be made a testing image/)).toBeInTheDocument()
+        })
+
+        it('leaves them editable when another non-testing environment shares the language', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 1', language: 'R', isTesting: false })
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 2', language: 'R', isTesting: false })
+
+            await openEdit('R Image 1')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeEnabled()
+            expect(screen.getByRole('textbox', { name: /Language/i })).toBeEnabled()
+        })
+    })
+
     it('hides delete when there is only one code environment', async () => {
         await insertTestCodeEnv({
             orgId: org.id,

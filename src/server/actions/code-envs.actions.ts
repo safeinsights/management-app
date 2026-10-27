@@ -33,7 +33,7 @@ import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import logger from '@/lib/logger'
-import type { DB } from '@/database/types'
+import type { DB, Language } from '@/database/types'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 import { AUDITED_CODE_ENV_FIELDS, diffFields } from '@/lib/audit-diff'
@@ -45,6 +45,62 @@ const priorCodeEnvFor = (db: Kysely<DB>, codeEnvId: string) =>
         .select([...AUDITED_CODE_ENV_FIELDS])
         .where('id', '=', codeEnvId)
         .executeTakeFirstOrThrow()
+
+const usableCodeEnvErrors = {
+    delete: {
+        lastNonTesting: (language: Language) =>
+            `Cannot delete the last non-testing ${language} code environment. At least one non-testing code environment must exist for each language.`,
+        onlyScanPassed: (language: Language) =>
+            `Cannot delete the only ${language} code environment that passed scanning. At least one scan-passed, non-testing code environment must exist for each language.`,
+    },
+    update: {
+        lastNonTesting: (language: Language) =>
+            `Cannot mark the last non-testing ${language} code environment as testing or change its language. At least one non-testing code environment must exist for each language.`,
+        onlyScanPassed: (language: Language) =>
+            `Cannot mark the only ${language} code environment that passed scanning as testing or change its language. At least one scan-passed, non-testing code environment must exist for each language.`,
+    },
+}
+
+// Throws if removing this non-testing env from its language's pool (by delete, or by an edit
+// that makes it testing or moves it to another language) would leave no usable default image.
+const assertLanguageKeepsUsableCodeEnv = async (
+    db: Kysely<DB>,
+    { id, orgId, language }: { id: string; orgId: string; language: Language },
+    change: keyof typeof usableCodeEnvErrors,
+) => {
+    const nonTesting = await db
+        .selectFrom('orgCodeEnv')
+        .select((eb) => [
+            'orgCodeEnv.id',
+            eb
+                .selectFrom('codeScan')
+                .select('codeScan.status')
+                .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                .orderBy('codeScan.createdAt', 'desc')
+                .limit(1)
+                .as('latestScanStatus'),
+        ])
+        .where('orgCodeEnv.orgId', '=', orgId)
+        .where('orgCodeEnv.language', '=', language)
+        .where('orgCodeEnv.isTesting', '=', false)
+        .execute()
+
+    const beingRemoved = nonTesting.find((env) => env.id === id)
+    const others = nonTesting.filter((env) => env.id !== id)
+
+    if (others.length === 0) {
+        throw new Error(usableCodeEnvErrors[change].lastNonTesting(language))
+    }
+
+    // OTTER-527: removing the last passing env would make the language's default image
+    // fall back to one that failed or never finished scanning.
+    const removingPassedEnv = beingRemoved?.latestScanStatus === 'SCAN-COMPLETE'
+    const anotherPassedEnvExists = others.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
+
+    if (removingPassedEnv && !anotherPassedEnvExists) {
+        throw new Error(usableCodeEnvErrors[change].onlyScanPassed(language))
+    }
+}
 
 const codeEnvFromOrgAndId = async ({
     params: { orgSlug, codeEnvId },
@@ -229,6 +285,15 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             // Not in middleware: middleware keys become the CASL subject, which a denied
             // ability check returns to the caller — leaking plaintext env var values.
             const priorCodeEnv = await priorCodeEnvFor(db, codeEnvId)
+
+            // Must run before any S3 or DB side effect so a refused edit changes nothing.
+            if (!priorCodeEnv.isTesting && (fieldValues.isTesting || fieldValues.language !== priorCodeEnv.language)) {
+                await assertLanguageKeepsUsableCodeEnv(
+                    db,
+                    { id: codeEnvId, orgId, language: priorCodeEnv.language },
+                    'update',
+                )
+            }
 
             if (dataSourceIds.length > 0) {
                 const matched = await db
@@ -422,42 +487,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         const priorCodeEnv = await priorCodeEnvFor(db, codeEnv.id)
 
         if (!codeEnv.isTesting) {
-            const nonTesting = await db
-                .selectFrom('orgCodeEnv')
-                .select((eb) => [
-                    'orgCodeEnv.id',
-                    eb
-                        .selectFrom('codeScan')
-                        .select('codeScan.status')
-                        .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
-                        .orderBy('codeScan.createdAt', 'desc')
-                        .limit(1)
-                        .as('latestScanStatus'),
-                ])
-                .where('orgCodeEnv.orgId', '=', codeEnv.orgId)
-                .where('orgCodeEnv.language', '=', codeEnv.language)
-                .where('orgCodeEnv.isTesting', '=', false)
-                .execute()
-
-            const beingDeleted = nonTesting.find((env) => env.id === codeEnv.id)
-            const others = nonTesting.filter((env) => env.id !== codeEnv.id)
-
-            if (others.length === 0) {
-                throw new Error(
-                    `Cannot delete the last non-testing ${codeEnv.language} code environment. At least one non-testing code environment must exist for each language.`,
-                )
-            }
-
-            // OTTER-527: deleting the last passing env would make the language's default image
-            // fall back to one that failed or never finished scanning.
-            const deletingPassedEnv = beingDeleted?.latestScanStatus === 'SCAN-COMPLETE'
-            const anotherPassedEnvExists = others.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
-
-            if (deletingPassedEnv && !anotherPassedEnvExists) {
-                throw new Error(
-                    `Cannot delete the only ${codeEnv.language} code environment that passed scanning. At least one scan-passed, non-testing code environment must exist for each language.`,
-                )
-            }
+            await assertLanguageKeepsUsableCodeEnv(db, codeEnv, 'delete')
         }
 
         const linkedDataSources = await db
