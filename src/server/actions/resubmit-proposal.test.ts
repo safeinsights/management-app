@@ -4,8 +4,11 @@ import {
     db,
     insertTestStudyJobData,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockSessionWithTestData,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
 import { deliver } from '@/server/mailgun'
@@ -36,6 +39,22 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
 const NOTE_50_WORDS = buildFeedback(50)
 
 describe('resubmitProposalAction', () => {
+    // OTTER-937: no leave stamp follows a reload, so the action itself must count as the visit.
+    it('leaves the study read for the resubmitter, not for a co-author', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-own-change', orgType: 'lab' })
+        const { user: coAuthor } = await insertTestUser({ org })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'CHANGE-REQUESTED' })
+        const earlier = new Date(Date.now() - 60 * 60 * 1000)
+        await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
+
+        actionResult(
+            await resubmitProposalAction({ studyId: study.id, studyInfo: {}, resubmissionNote: NOTE_50_WORDS }),
+        )
+
+        expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+        expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
+    })
+
     it('transitions a CHANGE-REQUESTED study to PENDING-REVIEW and writes a RESUBMISSION-NOTE comment', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-1', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({

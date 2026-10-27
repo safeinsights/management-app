@@ -6,6 +6,7 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
@@ -13,6 +14,8 @@ import {
     flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
@@ -337,6 +340,21 @@ describe('Study Job Actions', () => {
             ])
         })
 
+        // OTTER-937: viewing moves the researcher's badge, so the view itself must count as the visit.
+        test('leaves the study read for the researcher who viewed it, not for a co-author', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            const { user: coAuthor } = await insertTestUser({ org: fixture.lab })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(fixture.study.id, [fixture.researcher.id, coAuthor.id], earlier)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await isUnreadOnOrgDashboard(fixture.lab.slug, fixture.study.id, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(fixture.study.id, coAuthor.id)).toEqual(earlier)
+        })
+
         test('writes nothing while the reviewer has not decided', async () => {
             const fixture = await setupResultApprovalFixture()
             signInAsResearcher(fixture)
@@ -369,6 +387,30 @@ describe('Study Job Actions', () => {
                 .where('studyId', '=', studyId)
                 .where('reviewKind', '=', 'RESULTS')
                 .executeTakeFirst()
+
+        // OTTER-937: no leave stamp follows a reload, so the decision itself must count as the visit.
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            '%s leaves the study read for the deciding reviewer, not for another reviewer',
+            async (decision) => {
+                const { enclave, job, reviewer, sharedFiles, study } = await setupResultApprovalFixture()
+                const { user: otherReviewer } = await insertTestUser({ org: enclave })
+                const earlier = new Date(Date.now() - 60 * 60 * 1000)
+                await stampStudyOpened(study.id, [reviewer.id, otherReviewer.id], earlier)
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The outputs look clean and contain no PII.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+
+                expect(await isUnreadOnOrgDashboard(enclave.slug, study.id, 'reviewer')).toBe(false)
+                expect(await studyOpenedAt(study.id, otherReviewer.id)).toEqual(earlier)
+            },
+        )
 
         // The name reaches the other reviewers' tabs, so it has to come from the server rather
         // than from the submitting client (OTTER-726).

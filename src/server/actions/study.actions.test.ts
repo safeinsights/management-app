@@ -15,11 +15,14 @@ import {
     insertTestStudyOnly,
     seedAcknowledgedStudyAgreement,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockSessionWithTestData,
     flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
+    stampStudyOpened,
+    studyOpenedAt,
     waitFor,
 } from '@/tests/unit.helpers'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -422,7 +425,8 @@ describe('Study Actions', () => {
 describe('dashboard rows (OTTER-617)', () => {
     let seq = 0
 
-    // A submitted study from a fresh lab to a fresh enclave, with the lab session active.
+    // A submitted study from a fresh lab to a fresh enclave, with the lab session active. Nobody has
+    // opened it: the visit the draft save stamps for its creator (OTTER-937) is removed.
     const submittedStudy = async () => {
         seq += 1
         const { enclave, lab, studyId, user } = await createTestProposalDraft({
@@ -430,6 +434,7 @@ describe('dashboard rows (OTTER-617)', () => {
         })
         const submittedAt = new Date(Date.now() - 60 * 60 * 1000)
         await db.updateTable('study').set({ status: 'PENDING-REVIEW', submittedAt }).where('id', '=', studyId).execute()
+        await db.deleteFrom('studyLastOpened').where('studyId', '=', studyId).execute()
         return { enclave, lab, studyId, creator: user, submittedAt }
     }
 
@@ -969,6 +974,35 @@ describe('submitProposalReviewAction', () => {
             .select(['authorId', 'authorRole', 'body', 'decision', 'entryType', 'version'])
             .where('studyId', '=', studyId)
             .execute()
+
+    // OTTER-937: no leave stamp follows a reload, so the decision itself must count as the visit.
+    it.each(['approve', 'needs-clarification', 'reject'] as const)(
+        '%s leaves the study read for the deciding reviewer, not for another reviewer',
+        async (decision) => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { user: otherReviewer } = await insertTestUser({ org })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(study.id, [user.id, otherReviewer.id], earlier)
+
+            actionResult(
+                await submitProposalReviewAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision,
+                    feedback: validFeedback,
+                    reviewVersion: 1,
+                }),
+            )
+
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'reviewer')).toBe(false)
+            expect(await studyOpenedAt(study.id, otherReviewer.id)).toEqual(earlier)
+        },
+    )
 
     it('approve decision writes review row, approves study, emits approval audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -1846,6 +1880,30 @@ describe('submitCodeReviewDecisionAction', () => {
 
         expect(await loadCodeReviewRows(study.id)).toHaveLength(1)
     })
+
+    // OTTER-937: no leave stamp follows a reload, so the decision itself must count as the visit.
+    it.each(['approve', 'needs-clarification'] as const)(
+        '%s leaves the study read for the deciding reviewer, not for another reviewer',
+        async (decision) => {
+            const { user, org, study } = await setApprovedStudyAndCodeSubmitted()
+            const { user: otherReviewer } = await insertTestUser({ org })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(study.id, [user.id, otherReviewer.id], earlier)
+
+            actionResult(
+                await submitCodeReviewDecisionAction({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    decision,
+                    feedback: validFeedback,
+                    criteria: validCriteria,
+                }),
+            )
+
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'reviewer')).toBe(false)
+            expect(await studyOpenedAt(study.id, otherReviewer.id)).toEqual(earlier)
+        },
+    )
 
     it('approve writes a code-review row, advances the job, and approves the study', async () => {
         const { user, org, study, job } = await setApprovedStudyAndCodeSubmitted()
