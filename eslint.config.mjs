@@ -236,7 +236,7 @@ const eslintConfig = [
         },
     },
     // Brand artwork and the collaboration cursor palette are not design roles: the logo hexes are
-    // the mark itself, and the cursor colours are SI ramp variables picked per user.
+    // the mark itself, and the cursor colors are SI ramp variables picked per user.
     {
         files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
         rules: {
