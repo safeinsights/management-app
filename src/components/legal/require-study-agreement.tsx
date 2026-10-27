@@ -2,6 +2,7 @@
 
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
+import { ActionFailure } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-acknowledgement.actions'
@@ -10,6 +11,11 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { StudyAgreementModal } from './study-agreement-modal'
 import { useAcknowledgementConsent } from './use-acknowledgement-consent'
+
+// A refusal means the caller cannot see the study, which the page already answers with "Study was
+// not found" (OTTER-878). The action logs it as a warning, so it is not invisible.
+const isPermissionDenied = (error: Error) =>
+    error instanceof ActionFailure && typeof error.error === 'object' && 'permission_denied' in error.error
 
 export const useStudyAgreementStatus = (studyId: string) => {
     const { session } = useSession()
@@ -25,7 +31,7 @@ export const useStudyAgreementStatus = (studyId: string) => {
 
     // Failing open is right, but a gate that has quietly stopped asking must not also be invisible.
     useEffect(() => {
-        if (error) captureException(error)
+        if (error && !isPermissionDenied(error)) captureException(error)
     }, [error])
 
     // A gate that cannot be read blocks work just as a missing agreement does, so callers have to

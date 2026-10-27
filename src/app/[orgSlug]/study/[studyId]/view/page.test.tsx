@@ -98,6 +98,7 @@ describe('StudyViewPage', () => {
 
     it('shows the not-found message when the study does not exist', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'error')
 
         const page = await StudyReviewPage({
             params: Promise.resolve({ orgSlug: org.slug, studyId: faker.string.uuid() }),
@@ -106,6 +107,7 @@ describe('StudyViewPage', () => {
 
         expect(screen.getByText('Study was not found')).toBeInTheDocument()
         expect(screen.getByText('No such study exists')).toBeInTheDocument()
+        expect(logger.error).not.toHaveBeenCalled()
     })
 
     const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
@@ -830,6 +832,7 @@ describe('/view for a user who cannot see the study (OTTER-878)', () => {
     // The refusal is the expected result, so keep its permission warning out of the run output.
     beforeEach(() => {
         vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        vi.spyOn(logger, 'error')
     })
 
     it('shows the not-found message to a member of another lab', async () => {
@@ -851,6 +854,8 @@ describe('/view for a user who cannot see the study (OTTER-878)', () => {
         expect(screen.getByText('No such study exists')).toBeInTheDocument()
         expect(screen.queryByText('A study belonging to another lab')).not.toBeInTheDocument()
         expect(redirect).not.toHaveBeenCalled()
+        expect(logger.warn).toHaveBeenCalledOnce()
+        expect(logger.error).not.toHaveBeenCalled()
     })
 
     it('shows the not-found message to a Data Partner member for an unsubmitted draft', async () => {
@@ -861,6 +866,7 @@ describe('/view for a user who cannot see the study (OTTER-878)', () => {
 
         expect(screen.getByText('Study was not found')).toBeInTheDocument()
         expect(redirect).not.toHaveBeenCalled()
+        expect(logger.error).not.toHaveBeenCalled()
     })
 
     it('renders the researcher screen for an SI admin who is not a member of the submitting lab', async () => {

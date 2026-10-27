@@ -1,20 +1,32 @@
 import { screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureException } from '@sentry/nextjs'
 import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
+import logger from '@/lib/logger'
 import {
+    createTestQueryWrapper,
     faker,
     insertTestOrg,
     insertTestStudyAgreement,
     insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
+    renderHook,
     renderWithProviders,
     resetLegalDocuments,
     userEvent,
 } from '@/tests/unit.helpers'
-import { RequireStudyAgreement } from './require-study-agreement'
+import { RequireStudyAgreement, useStudyAgreementStatus } from './require-study-agreement'
 import { StudyAgreementPreparingNotice } from './study-agreement-preparing-notice'
+
+vi.mock('@sentry/nextjs', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sentry/nextjs')>()),
+    captureException: vi.fn(),
+    // Called by Action when it has a session.
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+}))
 
 beforeEach(resetLegalDocuments)
 
@@ -89,6 +101,45 @@ describe('RequireStudyAgreement', () => {
 
         renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+})
+
+// OTTER-878: the study layout runs this for every visitor, including one the page turns away.
+describe('useStudyAgreementStatus error reporting', () => {
+    beforeEach(() => {
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+    })
+
+    const renderStatus = (studyId: string) =>
+        renderHook(() => useStudyAgreementStatus(studyId), { wrapper: createTestQueryWrapper() })
+
+    it('does not report a member of an unrelated lab who is refused', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+        await mockSessionWithTestData({ orgSlug: faker.string.alpha(10), orgType: 'lab' })
+
+        const { result } = renderStatus(study.id)
+
+        await waitFor(() => expect(result.current.isUnreadable).toBe(true))
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('cannot acknowledge LegalDocument'))
+        expect(captureException).not.toHaveBeenCalled()
+    })
+
+    it('does not report a study id that does not exist', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        const { result } = renderStatus(faker.string.uuid())
+
+        await waitFor(() => expect(result.current.isUnreadable).toBe(true))
+        expect(captureException).not.toHaveBeenCalled()
+    })
+
+    it('still reports a failure that is not a refusal', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        renderStatus('not-a-uuid')
+
+        await waitFor(() => expect(captureException).toHaveBeenCalledOnce())
     })
 })
 
