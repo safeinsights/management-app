@@ -16,8 +16,8 @@ Reports land in `test-results/deployed/` (`junit.xml`, traces and videos on fail
 
 ## Credentials
 
-Create `.env.deployed` (gitignored) with the **same variable names qa-review uses**, so one file
-serves both tools. Per role (`ADMIN`, `RESEARCHER`, `REVIEWER`) and environment (`QA`, `STAGING`,
+Create `.env.deployed` (gitignored; `tests/deployed/env.deployed.sample` lists every name) with the
+**same variable names qa-review uses**, so one file serves both tools. Per role (`ADMIN`, `RESEARCHER`, `REVIEWER`) and environment (`QA`, `STAGING`,
 `PRODUCTION`, `DEMO`; PR previews use `QA`):
 
 ```

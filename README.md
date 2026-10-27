@@ -236,6 +236,17 @@ If there are failures, a trace file will be stored under the `./test-results` di
 
 If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
 
+`pnpm test:e2e:up` brings up the test database and local S3, migrates, and runs the whole suite; the app
+is built and served by Playwright itself. The suite runs at `retries: 0` with full parallelism, and
+`pnpm run checks` fails when a route has no test (`docs/e2e-coverage.md`). See `docs/e2e-architecture.md`.
+
+### E2E against a deployed environment
+
+`pnpm test:deployed --project=smoke` (with `E2E_TARGET=qa|staging|production|demo|pr<N>`) checks a real
+deployment: real Clerk, S3, CodeBuild, Coder, the enclave and Mailgun. `--project=full` drives a study
+through every component. Credentials go in `.env.deployed` with qa-review's variable names; see
+`tests/deployed/README.md`.
+
 ### trivy vulnerability scanner
 
 To run trivy locally, you'll need to install it. For mac that would be e.g. `brew install trivy`
