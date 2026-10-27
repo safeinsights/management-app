@@ -195,8 +195,9 @@ const CodeEnvRow: React.FC<{
         queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
     }
 
+    const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
+
     const handleViewCode = async (fileName?: string) => {
-        const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
         const targetFileName = fileName || starterCodeFileNames[0]
         if (!targetFileName) return
 
@@ -230,7 +231,7 @@ const CodeEnvRow: React.FC<{
                 latestScanStatus={image.latestScanStatus}
                 detailOpened={detailOpened}
                 onToggleDetail={toggleDetail}
-                onLanguageBadgeClick={() => handleViewCode()}
+                onLanguageBadgeClick={starterCodeFileNames.length ? () => handleViewCode() : undefined}
                 onScanBadgeClick={openScanResults}
                 actions={
                     <>

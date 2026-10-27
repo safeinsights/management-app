@@ -72,6 +72,18 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: /add code environment/i })).toBeInTheDocument()
     })
 
+    it('makes the language badge a button only when there is starter code to view', async () => {
+        await insertTestCodeEnv({ orgId: org.id, name: 'With Starter', language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, name: 'No Starter', language: 'R', starterCodeFileNames: [] })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'View R starter code for With Starter' })).toBeInTheDocument()
+        })
+        expect(screen.getByText('No Starter')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View R starter code for No Starter' })).not.toBeInTheDocument()
+    })
+
     it('opens the modal and creates a code environment that is displayed in table', async () => {
         renderWithProviders(<CodeEnvs />)
 
