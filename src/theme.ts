@@ -400,7 +400,11 @@ export const theme = createTheme({
                 title: { color: semanticColor('text.primary'), fontWeight: 700 },
                 // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
                 // instead of Mantine's ellipsis cutting it off.
-                description: { color: semanticColor('text.secondary'), whiteSpace: 'pre-line', overflowWrap: 'anywhere' },
+                description: {
+                    color: semanticColor('text.secondary'),
+                    whiteSpace: 'pre-line',
+                    overflowWrap: 'anywhere',
+                },
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
