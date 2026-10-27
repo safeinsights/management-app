@@ -11,6 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
+import noInlineDeployedTimeouts from './tests/no-inline-deployed-timeouts.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -165,6 +166,37 @@ const eslintConfig = [
         files: ['src/server/db/queries/**'],
         rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone] }] },
     },
+    // The deployed tier runs against a real environment: no database seeds, no fake-auth helpers,
+    // and every wait is a named constant (tests/deployed/config.ts).
+    {
+        files: ['tests/deployed/**/*.ts', 'playwright.deployed.config.ts'],
+        rules: {
+            'custom/noInlineDeployedTimeouts': 'error',
+            'import/no-restricted-paths': [
+                'error',
+                {
+                    zones: [
+                        serverBoundaryZone,
+                        awsIndexZone,
+                        queriesIndexZone,
+                        flowsZone,
+                        {
+                            target: './tests/deployed',
+                            from: [
+                                './src/server',
+                                './src/database',
+                                './src/database.ts',
+                                './tests/e2e.seed.ts',
+                                './tests/e2e.helpers.ts',
+                            ],
+                            message:
+                                'tests/deployed runs against a real environment: no seeds and no fake-auth helpers.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
     // A flow takes its inputs as arguments: the deployed tier runs the same file against a real
     // environment, where there is no shell and the environment is resolved by its own config.
     {
@@ -198,6 +230,7 @@ const eslintConfig = [
                     noBareRouteStrings,
                     noInvalidButtonVariant,
                     noRawStyleValues,
+                    noInlineDeployedTimeouts,
                 },
             },
         },

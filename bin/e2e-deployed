@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# Run the deployed-environment Playwright suite against a real deployment, from Jenkins or a laptop.
+#
+#   bin/e2e-deployed [--target qa|staging|production|demo|pr<N>] [--project smoke|full]... [-- <playwright args>]
+#
+# Credentials come from .env.deployed (qa-review's variable names). On Jenkins the file arrives as
+# the secret-file credential bound to E2E_DEPLOYED_ENV_FILE, and the target is derived from the
+# branch when not given: a PR build runs against its preview, main against Dev (qa).
+#
+# Exit codes: 0 all passed, 1 tests failed, 3 the environment never answered (Jenkins may retry
+# the stage on 3; it never re-runs tests on 1).
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+TARGET="${E2E_TARGET:-}"
+PROJECTS=()
+EXTRA=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --target) TARGET="$2"; shift 2 ;;
+        --project) PROJECTS+=("--project" "$2"); shift 2 ;;
+        --) shift; EXTRA=("$@"); break ;;
+        *) echo "unknown argument: $1" >&2; exit 2 ;;
+    esac
+done
+
+if [ -z "$TARGET" ]; then
+    if [ -n "${CHANGE_ID:-}" ]; then TARGET="pr${CHANGE_ID}"; else TARGET="qa"; fi
+fi
+export E2E_TARGET="$TARGET"
+if [ ${#PROJECTS[@]} -eq 0 ]; then PROJECTS=(--project smoke); fi
+
+# Never printenv here: the file holds passwords, MFA seeds and private keys.
+if [ -n "${E2E_DEPLOYED_ENV_FILE:-}" ] && [ ! -f .env.deployed ]; then
+    cp "$E2E_DEPLOYED_ENV_FILE" .env.deployed
+fi
+
+# A base URL for the preflight, from the same resolution the config uses.
+BASE_URL=$(pnpm exec tsx -e "import { resolveTarget } from './tests/deployed/config'; console.log(resolveTarget().baseURL)" 2>/dev/null | tail -1)
+echo "e2e-deployed: target $E2E_TARGET at $BASE_URL"
+
+# The environment may still be deploying, or its database may be scaling up from zero.
+for attempt in $(seq 1 60); do
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$BASE_URL/about" || true)
+    if [ "$code" = "200" ]; then break; fi
+    if [ "$attempt" = "60" ]; then
+        echo "e2e-deployed: $BASE_URL/about answered $code for 10 minutes; giving up" >&2
+        exit 3
+    fi
+    sleep 10
+done
+
+mkdir -p test-results/deployed
+set +e
+pnpm exec playwright test -c playwright.deployed.config.ts "${PROJECTS[@]}" "${EXTRA[@]}"
+status=$?
+set -e
+[ "$status" -eq 0 ] && echo "e2e-deployed: passed" || echo "e2e-deployed: failed ($status)"
+exit "$status"

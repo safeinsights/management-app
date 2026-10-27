@@ -11,6 +11,40 @@ pipeline {
     }
 
     stages {
+        // After a PR preview or Dev deploy, the deployed-environment e2e smoke suite runs against it
+        // (tests/deployed/README.md). Informational for now: catchError keeps the deploy green and
+        // marks the stage, so a red here is read before it is allowed to block.
+        stage("E2E deployed smoke") {
+            when {
+                allOf {
+                    not { triggeredBy 'TimerTrigger' }
+                    anyOf {
+                        branch 'main'
+                        branch 'PR-*'
+                    }
+                }
+            }
+            options { timeout(time: 40, unit: 'MINUTES') }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    withCredentials([file(credentialsId: 'mgmt-app-e2e-deployed-env', variable: 'E2E_DEPLOYED_ENV_FILE')]) {
+                        sh """
+                            corepack enable
+                            pnpm install --frozen-lockfile
+                            pnpm exec playwright install --with-deps --only-shell chromium
+                            E2E_EXPECTED_RELEASE=$(echo "$GIT_COMMIT" | cut -c1-7) ./bin/e2e-deployed --project smoke
+                        """
+                    }
+                }
+            }
+            post {
+                always {
+                    junit testResults: 'test-results/deployed/junit.xml', allowEmptyResults: true
+                    archiveArtifacts artifacts: 'test-results/deployed/**, test-results/deployed-html/**', allowEmptyArchive: true
+                }
+            }
+        }
+
         // Nightly (timer-triggered) reap of orphaned PR previews. This is the self-healing backstop
         // for PRs closed without merging, whose teardown never runs on a push.
         stage("Reap PR previews") {

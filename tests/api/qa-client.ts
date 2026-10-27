@@ -2,8 +2,8 @@ import type { APIRequestContext } from '@playwright/test'
 import { E2E_QA_BEARER } from '../common.helpers'
 
 // The QA provisioning routes (src/app/api/qa/*) and the SI-admin user delete. Under the fake Clerk any
-// bearer resolves to the SI admin; the deployed tier passes a real Clerk session JWT instead. Each
-// method returns the raw response.
+// bearer resolves to the SI admin; the deployed tier passes a provider that mints a real, short-lived
+// Clerk session JWT per call. Each method returns the raw response.
 
 export type QaInviteBody = { email: string; orgSlug: string; isAdmin?: boolean }
 
@@ -39,17 +39,20 @@ export type QaStudyStateUpdate = {
     log?: { name: string; content: string | Buffer }
 }
 
-export function createQaClient(request: APIRequestContext, bearer: string = E2E_QA_BEARER) {
-    const headers = { Authorization: `Bearer ${bearer}` }
+export type BearerProvider = string | (() => Promise<string>)
+
+export function createQaClient(request: APIRequestContext, bearer: BearerProvider = E2E_QA_BEARER) {
+    const headers = async () => ({ Authorization: `Bearer ${typeof bearer === 'string' ? bearer : await bearer()}` })
 
     return {
-        invite: (body: QaInviteBody) => request.post('/api/qa/invites', { headers, data: body }),
-        patchUser: (idOrEmail: string, body: QaUserUpdate) =>
-            request.patch(`/api/qa/users/${encodeURIComponent(idOrEmail)}`, { headers, data: body }),
-        deleteUser: (idOrEmail: string) =>
-            request.delete(`/api/qa/users/${encodeURIComponent(idOrEmail)}`, { headers }),
-        deleteStudy: (studyId: string) => request.delete(`/api/qa/studies/${studyId}`, { headers }),
-        setStudyState: (studyId: string, update: QaStudyStateUpdate) => {
+        invite: async (body: QaInviteBody) => request.post('/api/qa/invites', { headers: await headers(), data: body }),
+        patchUser: async (idOrEmail: string, body: QaUserUpdate) =>
+            request.patch(`/api/qa/users/${encodeURIComponent(idOrEmail)}`, { headers: await headers(), data: body }),
+        deleteUser: async (idOrEmail: string) =>
+            request.delete(`/api/qa/users/${encodeURIComponent(idOrEmail)}`, { headers: await headers() }),
+        deleteStudy: async (studyId: string) =>
+            request.delete(`/api/qa/studies/${studyId}`, { headers: await headers() }),
+        setStudyState: async (studyId: string, update: QaStudyStateUpdate) => {
             const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {}
             if (update.studyStatus) multipart.studyStatus = update.studyStatus
             if (update.jobStatus) multipart.jobStatus = update.jobStatus
@@ -62,11 +65,11 @@ export function createQaClient(request: APIRequestContext, bearer: string = E2E_
                     buffer: Buffer.from(file.content),
                 }
             }
-            return request.patch(`/api/qa/studies/${studyId}/status`, { headers, multipart })
+            return request.patch(`/api/qa/studies/${studyId}/status`, { headers: await headers(), multipart })
         },
         // Not QA-guarded: deletes a real account, which is why it lives under /api/admin.
-        adminDeleteUser: (userId: string) =>
-            request.delete(`/api/admin/users/${encodeURIComponent(userId)}`, { headers }),
+        adminDeleteUser: async (userId: string) =>
+            request.delete(`/api/admin/users/${encodeURIComponent(userId)}`, { headers: await headers() }),
     }
 }
 
