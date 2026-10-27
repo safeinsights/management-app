@@ -17,11 +17,6 @@ vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
-}))
-
 describe('DecryptAndViewOutputs', () => {
     let org: Org
     let job: NonNullable<LatestJobForStudy>

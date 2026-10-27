@@ -38,11 +38,6 @@ vi.mock('@/server/actions/study-job.actions', () => ({
     markOutputsDecisionViewedAction: vi.fn(() => ({})),
 }))
 
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
-}))
-
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const RUN_AT = new Date('2026-07-02T12:00:00Z')

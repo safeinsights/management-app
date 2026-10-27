@@ -1,4 +1,5 @@
 import { type Mock, describe, expect, it, vi } from 'vitest'
+import { notifications } from '@mantine/notifications'
 import { useParams } from 'next/navigation'
 import {
     advanceTimers,
@@ -24,16 +25,8 @@ vi.mock('@/server/actions/proposal-resubmission.actions', () => ({
     saveProposalResubmissionNoteDraftAction: vi.fn(),
 }))
 
-const mutationErrorHandler = vi.fn()
-vi.mock('@/components/errors', () => ({
-    reportMutationError: vi.fn(() => mutationErrorHandler),
-}))
-
 // The debounced autosave only runs in single-user mode, so force it on for the path under test.
-vi.mock('@/lib/realtime/yjs-websocket-context', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/lib/realtime/yjs-websocket-context')>()),
-    useSingleUserEditing: () => true,
-}))
+const SINGLE_USER = { singleUserEditing: true }
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -75,6 +68,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             <EditResubmitProvider studyId={STUDY_ID} initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditResubmitProvider>,
+            SINGLE_USER,
         )
 
         const note = 'same failed draft note'
@@ -114,6 +108,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             <EditResubmitProvider studyId={STUDY_ID} initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditResubmitProvider>,
+            SINGLE_USER,
         )
 
         const note = 'typed right before navigating away'
@@ -128,7 +123,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
         rejectSave(new Error('An unexpected response was received from the server.'))
         await waitForPendingMutations()
 
-        expect(mutationErrorHandler).not.toHaveBeenCalled()
+        expect(notifications.show).not.toHaveBeenCalled()
     })
 
     it('does not call the save action when the note has not been edited', async () => {
@@ -142,6 +137,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             <EditResubmitProvider studyId={STUDY_ID} initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditResubmitProvider>,
+            SINGLE_USER,
         )
 
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -157,6 +153,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             <EditResubmitProvider studyId={STUDY_ID} initialNote="previously saved draft">
                 <Harness onSaveResult={onSaveResult} />
             </EditResubmitProvider>,
+            SINGLE_USER,
         )
 
         expect(screen.getByLabelText('Resubmission note')).toHaveValue(lexicalJson('previously saved draft'))
@@ -170,6 +167,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
             <EditResubmitProvider studyId={STUDY_ID} initialNote={draft}>
                 <Harness onSaveResult={vi.fn()} />
             </EditResubmitProvider>,
+            SINGLE_USER,
         )
 
         expect(screen.getByLabelText('Resubmission note')).toHaveValue(draft)
@@ -185,6 +183,7 @@ describe('EditResubmitProvider — proposal resubmission note autosave', () => {
                 <EditResubmitProvider studyId={STUDY_ID} draftData={draftData}>
                     <ValidityProbe />
                 </EditResubmitProvider>,
+                SINGLE_USER,
             )
         }
 

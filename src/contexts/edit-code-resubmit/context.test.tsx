@@ -1,6 +1,7 @@
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
 import { HocuspocusProvider } from '@hocuspocus/provider'
+import { notifications } from '@mantine/notifications'
 import {
     advanceTimers,
     afterEach,
@@ -19,11 +20,6 @@ import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/
 vi.mock('@/server/actions/study-code.actions', () => ({
     resubmitStudyCodeAction: vi.fn(),
     saveCodeResubmissionNoteDraftAction: vi.fn(),
-}))
-
-const mutationErrorHandler = vi.fn()
-vi.mock('@/components/errors', () => ({
-    reportMutationError: vi.fn(() => mutationErrorHandler),
 }))
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
@@ -55,7 +51,6 @@ describe('EditCodeResubmitProvider', () => {
     // navigation rejects; reporting it would toast on a page the researcher already left.
     it('does not report an autosave that rejects after the provider unmounts', async () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
-        mutationErrorHandler.mockClear()
 
         const saveDraftAction = vi.mocked(saveCodeResubmissionNoteDraftAction)
         // Stays pending so the save is genuinely in flight across the unmount.
@@ -86,7 +81,7 @@ describe('EditCodeResubmitProvider', () => {
         rejectSave(new Error('An unexpected response was received from the server.'))
         await waitForPendingMutations()
 
-        expect(mutationErrorHandler).not.toHaveBeenCalled()
+        expect(notifications.show).not.toHaveBeenCalled()
     })
 
     it('retries the same note after a save failure instead of marking it saved', async () => {
