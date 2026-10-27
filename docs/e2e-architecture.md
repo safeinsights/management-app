@@ -3,10 +3,10 @@
 Two Playwright suites prove the management app works on the happy path. They share the page flows
 and the HTTP clients under `tests/flows/` and `tests/api/`, and differ in what they run against.
 
-| Tier                       | Config                          | Runs against                                                                                | When                                                | Specs                                   |
-| -------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
-| Hermetic (`test:e2e`)      | `playwright.config.ts`          | A local build with the Clerk fake, SeaweedFS for S3, simulated CodeBuild, in-process jobs   | Every PR (GitHub Actions `e2e`), every local change | `tests/*.spec.ts`                       |
-| Deployed (`test:deployed`) | `playwright.deployed.config.ts` | A real environment: real Clerk and MFA, S3, scanner, containerizer, Coder, enclave, Mailgun | After each deploy (Jenkins), nightly, on demand     | `tests/deployed/{smoke,full}/*.spec.ts` |
+| Tier                       | Config                          | Runs against                                                                                | When                                                                | Specs                                   |
+| -------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------- |
+| Hermetic (`test:e2e`)      | `playwright.config.ts`          | A local build with the Clerk fake, SeaweedFS for S3, simulated CodeBuild, in-process jobs   | Every PR (GitHub Actions `e2e`), every local change                 | `tests/*.spec.ts`                       |
+| Deployed (`test:deployed`) | `playwright.deployed.config.ts` | A real environment: real Clerk and MFA, S3, scanner, containerizer, Coder, enclave, Mailgun | After a deploy (GitHub Actions or CodePipeline), nightly, on demand | `tests/deployed/{smoke,full}/*.spec.ts` |
 
 ## Layout
 
@@ -25,8 +25,9 @@ tests/
   e2e-coverage.ts, e2e-coverage.exceptions.ts   the route coverage map (docs/e2e-coverage.md)
   no-inline-deployed-timeouts.mjs               the lint rule behind "no inline timeouts" (deployed tier)
 bin/app-test, bin/ci-server, bin/test-e2e-up    the hermetic harness
-bin/e2e-deployed                                the deployed wrapper Jenkins and laptops use
-Jenkinsfile (stage "E2E deployed smoke"), Jenkinsfile.deployed-e2e (release / on-demand job)
+bin/e2e-deployed                                the deployed wrapper CI and laptops use
+.github/workflows/e2e-deployed.yml              on demand, nightly, and on a repository_dispatch after a deploy
+buildspec.e2e-deployed.yml                      the same run as a CodePipeline test action
 ```
 
 ## Rules both tiers keep
@@ -63,7 +64,7 @@ awaiting a decision; the deployed tier covers collaboration against the real ser
 
 `tests/deployed/README.md` is the operator's guide: credentials (qa-review's variable names in
 `.env.deployed`; `tests/deployed/env.deployed.sample` lists them), targets (`qa`, `staging`,
-`production`, `demo`, `pr<N>`), what each project does, the Jenkins jobs and the rules.
+`production`, `demo`, `pr<N>`), what each project does, how CI runs it and the rules.
 
 The `smoke` project is safe on every environment and takes a few minutes: the app shell and the
 deployed release, CloudFront's asset and `_rsc` paths, each role's session, a Server Action at the
@@ -87,6 +88,7 @@ deleted by the test that ends the chain or by `global.teardown.ts`.
   type-checked and dry-run (every test skips cleanly without credentials) but not yet executed with
   them. Dev's `openstax` org no longer holds the committed test key (the job API answered 401), so
   `enclave-api.spec.ts` skips there with an annotation until the key is restored.
-- Jenkins: the post-deploy smoke stage is informational (`catchError`); flip it to blocking after a
-  clean week. `Jenkinsfile.deployed-e2e` needs a pipeline job pointed at it and the
-  `mgmt-app-e2e-deployed-env` secret-file credential.
+- CI: the GitHub Actions workflow needs the `E2E_DEPLOYED_ENV` repository secret, and whatever
+  deploys an environment needs to send the `deployed-e2e` repository dispatch afterwards (or the
+  CodePipeline gets a test action from `buildspec.e2e-deployed.yml`). Until then the nightly run
+  and the on-demand run are the two ways in.

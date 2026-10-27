@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 #
-# Run the deployed-environment Playwright suite against a real deployment, from Jenkins or a laptop.
+# Run the deployed-environment Playwright suite against a real deployment, from CI or a laptop.
 #
 #   bin/e2e-deployed [--target qa|staging|production|demo|pr<N>] [--project smoke|full]... [-- <playwright args>]
 #
-# Credentials come from .env.deployed (qa-review's variable names). On Jenkins the file arrives as
-# the secret-file credential bound to E2E_DEPLOYED_ENV_FILE, and the target is derived from the
-# branch when not given: a PR build runs against its preview, main against Dev (qa).
+# Credentials come from .env.deployed (qa-review's variable names). CI hands them over either as
+# E2E_DEPLOYED_ENV (the file's contents, from a GitHub Actions secret or a Secrets Manager secret)
+# or as E2E_DEPLOYED_ENV_FILE (a path); both are written to .env.deployed and never printed. The
+# target defaults to the PR preview when PR_NUMBER is set, else Dev (qa).
 #
-# Exit codes: 0 all passed, 1 tests failed, 3 the environment never answered (Jenkins may retry
-# the stage on 3; it never re-runs tests on 1).
+# Exit codes: 0 all passed, 1 tests failed, 3 the environment never answered (a pipeline may retry
+# on 3; it never re-runs tests on 1).
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -27,14 +28,18 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$TARGET" ]; then
-    if [ -n "${CHANGE_ID:-}" ]; then TARGET="pr${CHANGE_ID}"; else TARGET="qa"; fi
+    if [ -n "${PR_NUMBER:-}" ]; then TARGET="pr${PR_NUMBER}"; else TARGET="qa"; fi
 fi
 export E2E_TARGET="$TARGET"
 if [ ${#PROJECTS[@]} -eq 0 ]; then PROJECTS=(--project smoke); fi
 
 # Never printenv here: the file holds passwords, MFA seeds and private keys.
-if [ -n "${E2E_DEPLOYED_ENV_FILE:-}" ] && [ ! -f .env.deployed ]; then
-    cp "$E2E_DEPLOYED_ENV_FILE" .env.deployed
+if [ ! -f .env.deployed ]; then
+    if [ -n "${E2E_DEPLOYED_ENV:-}" ]; then
+        (umask 077 && printf '%s\n' "$E2E_DEPLOYED_ENV" > .env.deployed)
+    elif [ -n "${E2E_DEPLOYED_ENV_FILE:-}" ]; then
+        (umask 077 && cp "$E2E_DEPLOYED_ENV_FILE" .env.deployed)
+    fi
 fi
 
 # A base URL for the preflight, from the same resolution the config uses.

@@ -8,7 +8,7 @@ S3 bucket, CodeBuild scanner and containerizer, Coder, the editor service, the e
 E2E_TARGET=qa pnpm test:deployed --project=smoke       # Dev/QA, the fast checks (a few minutes)
 E2E_TARGET=pr123 pnpm test:deployed --project=smoke    # a PR preview
 E2E_TARGET=qa pnpm test:deployed --project=full        # the full lifecycle, waits for the real enclave
-bin/e2e-deployed --target staging --project smoke      # the wrapper Jenkins uses (preflight + exit codes)
+bin/e2e-deployed --target staging --project smoke      # the wrapper CI uses (preflight + exit codes)
 ```
 
 Reports land in `test-results/deployed/` (`junit.xml`, traces and videos on failure) and the HTML report in
@@ -78,13 +78,25 @@ The other components have a spec each:
   rotated (Dev answered 401 on 2026-10-27) it skips with an annotation. Staging, Production and Demo
   must answer 401.
 
-## Jenkins
+## CI
 
-`Jenkinsfile` runs the smoke project after each PR preview and Dev deploy (`bin/e2e-deployed`).
-`Jenkinsfile.deployed-e2e` is a parameterized job for everything else: the release pipeline triggers
-it after a Staging or Production deploy, and QA runs it by hand against any target with any project.
-Both bind the secret-file credential `mgmt-app-e2e-deployed-env` to `E2E_DEPLOYED_ENV_FILE`, which is
-copied to `.env.deployed`; nothing prints the environment.
+`.github/workflows/e2e-deployed.yml` runs the suite on GitHub Actions: on demand from the Actions
+tab (any target, smoke or full), nightly (full against Dev), and on a `repository_dispatch` of type
+`deployed-e2e`, which is how whatever deploys an environment asks for the run afterwards:
+
+```bash
+gh api repos/safeinsights/management-app/dispatches -f event_type=deployed-e2e \
+  -F 'client_payload[target]=staging' -F 'client_payload[project]=smoke' -F 'client_payload[expected_release]=v1.2.3'
+```
+
+The credentials are one repository secret, `E2E_DEPLOYED_ENV`, holding the contents of
+`.env.deployed`; `bin/e2e-deployed` writes it to disk and never prints it. The workflow has no
+`pull_request` trigger, so PR-controlled code never runs with the secret in scope. One run per
+target at a time, since the accounts and the enclave are shared.
+
+`buildspec.e2e-deployed.yml` is the same run as an AWS CodePipeline test action: a CodeBuild
+project reading the dotenv file from a Secrets Manager secret, with `E2E_TARGET`, `E2E_PROJECT`
+and `E2E_EXPECTED_RELEASE` as the action's variable overrides, and the JUnit file as its report.
 
 ## Rules
 

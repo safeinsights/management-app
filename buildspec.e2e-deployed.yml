@@ -1,0 +1,40 @@
+# A CodeBuild project for the deployed-environment e2e suite, for an AWS CodePipeline test action
+# after a deploy stage (the GitHub Actions equivalent is .github/workflows/e2e-deployed.yml).
+#
+# The project needs: a Node 22 image (aws/codebuild/standard:7.0 or newer), outbound internet (the
+# target's hostname, Clerk, api.mail.tm), and read access to one Secrets Manager secret holding
+# the contents of .env.deployed (tests/deployed/env.deployed.sample). The pipeline sets E2E_TARGET,
+# E2E_PROJECT and E2E_EXPECTED_RELEASE as environment variable overrides on the action.
+version: 0.2
+
+env:
+    variables:
+        E2E_TARGET: qa
+        E2E_PROJECT: smoke
+        E2E_EXPECTED_RELEASE: ''
+    secrets-manager:
+        # <secret name or ARN>; the whole secret string is the dotenv file, never echoed.
+        E2E_DEPLOYED_ENV: mgmt-app/e2e-deployed-env
+
+phases:
+    install:
+        runtime-versions:
+            nodejs: 22
+        commands:
+            - corepack enable
+            - pnpm install --frozen-lockfile
+            - pnpm exec playwright install --with-deps --only-shell chromium
+    build:
+        commands:
+            - ./bin/e2e-deployed --target "$E2E_TARGET" --project "$E2E_PROJECT"
+
+reports:
+    e2e-deployed:
+        files:
+            - test-results/deployed/junit.xml
+        file-format: JUNITXML
+
+artifacts:
+    files:
+        - 'test-results/deployed/**/*'
+        - 'test-results/deployed-html/**/*'
