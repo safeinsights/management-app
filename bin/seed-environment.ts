@@ -9,7 +9,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { sql } from 'kysely'
 import { db } from '@/database'
-import { findOrCreateOrgMembership } from '@/server/db/mutations'
+import { findOrCreateOrgMembership, syncUserOrgsToClerk } from '@/server/db/mutations'
 import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { publicMetadata } from '@/lib/clerk'
@@ -245,11 +245,7 @@ async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string
     console.log('📝 Updated Clerk publicMetadata')
 }
 
-async function setupOrgMemberships(
-    role: TestUserRole,
-    siUserId: string,
-    clerkSync: ReturnType<typeof createClerkOrgSync>,
-) {
+async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
     switch (role) {
         case 'admin':
             // safe-insights admin membership drives the editor service's SI-admin
@@ -259,19 +255,16 @@ async function setupOrgMemberships(
                 userId: siUserId,
                 slug: 'safe-insights',
                 isAdmin: true,
-                clerkSync,
             })
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'openstax',
                 isAdmin: true,
-                clerkSync,
             })
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'openstax-lab',
                 isAdmin: true,
-                clerkSync,
             })
             console.log(`🏢 Added to safe-insights (admin), openstax (admin) and openstax-lab (admin)`)
             break
@@ -281,7 +274,6 @@ async function setupOrgMemberships(
                 userId: siUserId,
                 slug: 'openstax-lab',
                 isAdmin: false,
-                clerkSync,
             })
             console.log(`🏢 Added to openstax-lab (member)`)
             break
@@ -291,13 +283,11 @@ async function setupOrgMemberships(
                 userId: siUserId,
                 slug: 'openstax',
                 isAdmin: false,
-                clerkSync,
             })
             await findOrCreateOrgMembership({
                 userId: siUserId,
                 slug: 'reviewer-is-org-admin',
                 isAdmin: true,
-                clerkSync,
             })
             console.log(`🏢 Added to openstax (member) and reviewer-is-org-admin (admin)`)
             break
@@ -343,8 +333,9 @@ async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: Test
         await ensurePublicKey(siUserId)
     }
 
-    await setupOrgMemberships(role, siUserId, createClerkOrgSync(clerk.organizations))
+    await setupOrgMemberships(role, siUserId)
     await updateClerkPublicMetadata(clerk, clerkUserId, siUserId)
+    await syncUserOrgsToClerk(siUserId, createClerkOrgSync(clerk.organizations))
 
     return siUserId
 }

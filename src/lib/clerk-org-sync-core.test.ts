@@ -24,6 +24,7 @@ describe('syncOrg', () => {
         expect(fake.api.createOrganization).toHaveBeenCalledWith({
             name: 'Acme',
             slug: 'acme',
+            maxAllowedMemberships: 0,
             publicMetadata: { type: 'lab' },
         })
         expect(fake.api.createOrganization.mock.calls[0][0]).not.toHaveProperty('createdBy')
@@ -39,6 +40,13 @@ describe('syncOrg', () => {
         await sync.syncOrg({ ...org, name: 'Acme 2' })
         expect(fake.api.updateOrganization).toHaveBeenCalledTimes(1)
         expect(fake.api.createOrganization).toHaveBeenCalledTimes(1)
+    })
+
+    it('lifts the member cap on an org created with the default', async () => {
+        const { fake, sync } = setup()
+        const capped = await fake.api.createOrganization({ ...org, publicMetadata: { type: 'lab' } })
+        await sync.syncOrg(org)
+        expect(fake.orgs.get(capped.id)?.maxAllowedMemberships).toBe(0)
     })
 
     it('keeps other metadata keys through a rename and a type change', async () => {
@@ -110,6 +118,45 @@ describe('syncMembership', () => {
         expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:admin')
         await sync.syncMembership(org, 'user_1', true)
         expect(fake.members.get(clerkOrg.id)?.size).toBe(1)
+    })
+
+    it('adds more members than the Clerk default cap of 5', async () => {
+        const { fake, sync } = setup()
+        for (let i = 0; i < 7; i++) await sync.syncMembership(org, `user_${i}`, false)
+        const [clerkOrg] = [...fake.orgs.values()]
+        expect(fake.members.get(clerkOrg.id)?.size).toBe(7)
+    })
+
+    it('only finds the org, and does not rename it', async () => {
+        const { fake, sync } = setup()
+        await sync.syncOrg(org)
+        await sync.syncMembership({ ...org, name: 'Stale name' }, 'user_1', false)
+        expect(fake.api.updateOrganization).not.toHaveBeenCalled()
+        expect(fake.api.updateOrganizationMetadata).not.toHaveBeenCalled()
+    })
+
+    it('updates the role when a concurrent sync added the member first', async () => {
+        const { fake, sync } = setup()
+        const clerkOrg = await sync.syncOrg(org)
+        fake.api.updateOrganizationMembership.mockImplementationOnce(async (params) => {
+            await fake.api.createOrganizationMembership({ ...params, role: 'org:member' })
+            throw clerkNotFoundError()
+        })
+        await sync.syncMembership(org, 'user_1', true)
+        expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:admin')
+    })
+
+    it('creates the member when Clerk answers not_a_member_in_organization', async () => {
+        const { fake, sync } = setup()
+        const clerkOrg = await sync.syncOrg(org)
+        fake.api.updateOrganizationMembership.mockRejectedValueOnce(
+            Object.assign(new Error('not a member'), {
+                status: 403,
+                errors: [{ code: 'not_a_member_in_organization' }],
+            }),
+        )
+        await sync.syncMembership(org, 'user_1', false)
+        expect(fake.members.get(clerkOrg.id)?.get('user_1')).toBe('org:member')
     })
 
     it('throws when Clerk fails', async () => {

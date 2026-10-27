@@ -21,7 +21,6 @@ import { pathForStudy } from '@/lib/paths'
 import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
 import logger from '@/lib/logger'
 import { localStorageContext, withTransaction } from '@/server/request-context'
-import { removeMembershipFromClerk } from '@/server/clerk-org-sync'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -337,10 +336,6 @@ export async function deleteUserCompletely(
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.
         await trx.deleteFrom('legalDocumentAcknowledgement').where('userId', '=', userId).execute()
-        const memberships = await trx.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
-        for (const { orgId } of memberships) {
-            await removeMembershipFromClerk({ userId, orgId })
-        }
         await trx.deleteFrom('orgUser').where('userId', '=', userId).execute()
         await trx.deleteFrom('userPublicKey').where('userId', '=', userId).execute()
         // researcher_profile (and its researcher_position rows) cascade from user.

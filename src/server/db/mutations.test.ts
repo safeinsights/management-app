@@ -2,7 +2,7 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { db } from '@/database'
 import {
     createFakeClerkOrgs,
-    currentFakeClerkOrgsApi,
+    enableClerkOrgSync,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
@@ -17,6 +17,7 @@ import {
     ensureRoundJobForUpload,
     findOrCreateOrgMembership,
     getOrCreateCurrentRoundJob,
+    syncUserOrgsToClerk,
 } from './mutations'
 
 const jobsForStudy = (studyId: string) =>
@@ -350,6 +351,9 @@ describe('findOrCreateOrgMembership', () => {
         const rows = await db.selectFrom('orgUser').select('id').where('userId', '=', user.id).execute()
         expect(rows).toHaveLength(1)
     })
+})
+
+describe('syncUserOrgsToClerk', () => {
     const fakeClerk = () => {
         const fake = createFakeClerkOrgs()
         const roleOf = async (slug: string, clerkId: string) => {
@@ -359,69 +363,51 @@ describe('findOrCreateOrgMembership', () => {
         return { fake, roleOf, clerkSync: createClerkOrgSync(fake.api) }
     }
 
-    it('mirrors the role into Clerk through the given sync', async () => {
-        const { user } = await insertTestUser({ org: await insertTestOrg() })
+    it('mirrors every membership of the user into Clerk', async () => {
+        enableClerkOrgSync()
+        const home = await insertTestOrg()
+        const { user } = await insertTestUser({ org: home, isAdmin: false })
         const target = await insertTestOrg()
+        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true })
         const { roleOf, clerkSync } = fakeClerk()
 
-        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: false, clerkSync })
-        expect(await roleOf(target.slug, user.clerkId)).toBe('org:member')
+        await syncUserOrgsToClerk(user.id, clerkSync)
 
-        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync })
+        expect(await roleOf(home.slug, user.clerkId)).toBe('org:member')
         expect(await roleOf(target.slug, user.clerkId)).toBe('org:admin')
     })
 
-    it('leaves Clerk alone without a sync', async () => {
-        const { user } = await insertTestUser({ org: await insertTestOrg() })
-        const target = await insertTestOrg()
-        const api = await currentFakeClerkOrgsApi()
-        api.getOrganization.mockClear()
-
-        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true })
-
-        expect(api.getOrganization).not.toHaveBeenCalled()
-        expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
-    })
-
-    it('keeps the committed membership and throws when Clerk fails', async () => {
-        const { user } = await insertTestUser({ org: await insertTestOrg() })
-        const target = await insertTestOrg()
-        const { fake, clerkSync } = fakeClerk()
-        fake.api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
-
-        await expect(
-            findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync }),
-        ).rejects.toThrow('clerk down')
-
-        expect(await membershipsFor(user.id, target.id)).toHaveLength(1)
-    })
-
-    it('syncs through a passed sync even where app org sync is off', async () => {
+    it('makes no Clerk call where org sync is off', async () => {
         vi.stubEnv('ENVIRONMENT_ID', 'local')
         onTestFinished(() => {
             vi.unstubAllEnvs()
         })
         const { user } = await insertTestUser({ org: await insertTestOrg() })
-        const target = await insertTestOrg()
-        const { roleOf, clerkSync } = fakeClerk()
+        const { fake, clerkSync } = fakeClerk()
 
-        await findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync })
+        await syncUserOrgsToClerk(user.id, clerkSync)
 
-        expect(await roleOf(target.slug, user.clerkId)).toBe('org:admin')
+        expect(fake.api.getOrganization).not.toHaveBeenCalled()
+    })
+
+    it('throws when Clerk fails', async () => {
+        enableClerkOrgSync()
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+        const { fake, clerkSync } = fakeClerk()
+        fake.api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
+
+        await expect(syncUserOrgsToClerk(user.id, clerkSync)).rejects.toThrow('clerk down')
     })
 
     it('refuses to sync Clerk from inside an open transaction', async () => {
+        enableClerkOrgSync()
         const { user } = await insertTestUser({ org: await insertTestOrg() })
-        const target = await insertTestOrg()
         const { fake, clerkSync } = fakeClerk()
 
-        await expect(
-            withTransaction(db, () =>
-                findOrCreateOrgMembership({ userId: user.id, slug: target.slug, isAdmin: true, clerkSync }),
-            ),
-        ).rejects.toThrow('before it commits')
+        await expect(withTransaction(db, () => syncUserOrgsToClerk(user.id, clerkSync))).rejects.toThrow(
+            'before they commit',
+        )
 
         expect(fake.api.getOrganization).not.toHaveBeenCalled()
-        expect(await membershipsFor(user.id, target.id)).toHaveLength(0)
     })
 })

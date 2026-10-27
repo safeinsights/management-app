@@ -21,7 +21,7 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
             .where('id', '=', id)
             .returningAll()
             .executeTakeFirstOrThrow()
-        await syncOrgToClerk(org)
+        await syncOrgToClerk(org.slug)
         return org
     })
 
@@ -31,7 +31,7 @@ export const insertOrgAction = new Action('insertOrgAction', { performsMutations
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
         const inserted = await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
-        await syncOrgToClerk(inserted)
+        await syncOrgToClerk(inserted.slug)
         return inserted
     })
 
@@ -229,9 +229,8 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
-        const org = await db.selectFrom('org').select('type').where('id', '=', orgId).executeTakeFirstOrThrow()
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
-        await syncOrgToClerk({ slug: orgSlug, name, type: org.type })
+        await syncOrgToClerk(orgSlug)
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
         revalidatePath(Routes.adminTeam({ orgSlug }))

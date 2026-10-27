@@ -1,4 +1,5 @@
 import { currentDb } from '@/server/request-context'
+import { clerkOrgSyncEnabled } from '@/server/config'
 import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
@@ -35,18 +36,12 @@ export async function findOrCreateOrgMembership({
     userId,
     slug,
     isAdmin = false,
-    clerkSync,
 }: {
     userId: string
     slug: string
     isAdmin?: boolean
-    // Passed in, not imported: this module loads in bin scripts, outside Next.
-    clerkSync?: ReturnType<typeof createClerkOrgSync>
 }) {
     const executor = currentDb()
-    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
-    if (clerkSync && executor.isTransaction) throw new Error('cannot sync a membership to Clerk before it commits')
-
     const org = await executor
         .selectFrom('org')
         .select(['org.id', 'org.slug', 'org.name', 'org.type'])
@@ -59,18 +54,26 @@ export async function findOrCreateOrgMembership({
         .onConflict((oc) => oc.columns(['orgId', 'userId']).doUpdateSet({ isAdmin }))
         .execute()
 
-    // Not gated by clerkOrgSyncEnabled: an operator who passes a sync wants it. Unlike the app's
-    // log-and-continue sync, a Clerk error throws so a bin script fails loudly.
-    if (clerkSync) {
-        const { clerkId } = await executor
-            .selectFrom('user')
-            .select('clerkId')
-            .where('id', '=', userId)
-            .executeTakeFirstOrThrow()
-        await clerkSync.syncMembership(org, clerkId, isAdmin)
-    }
-
     return { ...org, isAdmin }
+}
+
+// For bin scripts, which cannot load @clerk/nextjs; the sync is passed in. Call it once all of the
+// user's memberships are written: unlike the app's sync, a Clerk error throws, so a bin script fails loudly.
+export async function syncUserOrgsToClerk(userId: string, clerkSync: ReturnType<typeof createClerkOrgSync>) {
+    if (!clerkOrgSyncEnabled()) return
+    const executor = currentDb()
+    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
+    if (executor.isTransaction) throw new Error('cannot sync memberships to Clerk before they commit')
+    const memberships = await executor
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .innerJoin('user', 'user.id', 'orgUser.userId')
+        .select(['org.slug', 'org.name', 'org.type', 'orgUser.isAdmin', 'user.clerkId'])
+        .where('orgUser.userId', '=', userId)
+        .execute()
+    for (const membership of memberships) {
+        await clerkSync.syncMembership(membership, membership.clerkId, membership.isAdmin)
+    }
 }
 
 export type RoundJob = {

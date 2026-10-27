@@ -1,6 +1,15 @@
 // In-memory Clerk organizations API, shared by the e2e Clerk fake and the unit-test fake.
 
-export type FakeClerkOrg = { id: string; slug: string; name: string; publicMetadata: Record<string, unknown> }
+export type FakeClerkOrg = {
+    id: string
+    slug: string
+    name: string
+    maxAllowedMemberships: number
+    publicMetadata: Record<string, unknown>
+}
+
+// Clerk's default when createOrganization gets no maxAllowedMemberships.
+const DEFAULT_MAX_MEMBERSHIPS = 5
 
 type MembershipParams = { organizationId: string; userId: string; role: string }
 
@@ -12,6 +21,9 @@ export const clerkDuplicateSlugError = () =>
         status: 422,
         errors: [{ code: 'form_identifier_exists', message: 'That slug is taken. Please try another.' }],
     })
+
+const clerkError = (status: number, code: string) =>
+    Object.assign(new Error(code), { status, errors: [{ code, message: code }] })
 
 const mergeDeep = (target: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> => {
     const out = { ...target }
@@ -44,6 +56,7 @@ export function createFakeOrganizations() {
             name: string
             slug: string
             createdBy?: string
+            maxAllowedMemberships?: number
             publicMetadata?: Record<string, unknown>
         }) => {
             if ([...orgs.values()].some((o) => o.slug === p.slug)) throw clerkDuplicateSlugError()
@@ -51,6 +64,7 @@ export function createFakeOrganizations() {
                 id: `org_${crypto.randomUUID()}`,
                 slug: p.slug,
                 name: p.name,
+                maxAllowedMemberships: p.maxAllowedMemberships ?? DEFAULT_MAX_MEMBERSHIPS,
                 publicMetadata: p.publicMetadata ?? {},
             }
             orgs.set(org.id, org)
@@ -58,10 +72,14 @@ export function createFakeOrganizations() {
             return org
         },
         // The real endpoint also accepts publicMetadata (replacing it); the app no longer sends it.
-        updateOrganization: async (id: string, p: { name?: string; publicMetadata?: Record<string, unknown> }) => {
+        updateOrganization: async (
+            id: string,
+            p: { name?: string; maxAllowedMemberships?: number; publicMetadata?: Record<string, unknown> },
+        ) => {
             const org = orgs.get(id)
             if (!org) throw clerkNotFoundError()
             if (p.name) org.name = p.name
+            if (p.maxAllowedMemberships !== undefined) org.maxAllowedMemberships = p.maxAllowedMemberships
             if (p.publicMetadata) org.publicMetadata = p.publicMetadata
             return org
         },
@@ -76,7 +94,11 @@ export function createFakeOrganizations() {
             members.delete(id)
         },
         createOrganizationMembership: async (p: MembershipParams) => {
-            membersOf(p.organizationId).set(p.userId, p.role)
+            const m = membersOf(p.organizationId)
+            if (m.has(p.userId)) throw clerkError(400, 'already_a_member_in_organization')
+            const max = orgs.get(p.organizationId)!.maxAllowedMemberships
+            if (max && m.size >= max) throw clerkError(403, 'organization_membership_quota_exceeded')
+            m.set(p.userId, p.role)
         },
         updateOrganizationMembership: async (p: MembershipParams) => {
             const m = membersOf(p.organizationId)
