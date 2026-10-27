@@ -1,10 +1,24 @@
+import { useState } from 'react'
 import { vi } from 'vitest'
-import { describe, expect, it, beforeEach, staleActionError, waitFor, faker, type Mock } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    beforeEach,
+    mockClerkSession,
+    render,
+    screen,
+    staleActionError,
+    userEvent,
+    waitFor,
+    faker,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { captureException } from '@sentry/nextjs'
 import { notifications } from '@mantine/notifications'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
-import { getQueryClient } from './providers'
+import { getQueryClient, Providers } from './providers'
 
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
@@ -70,5 +84,30 @@ describe('the shared query client', () => {
 
         expect(captureMock).not.toHaveBeenCalled()
         expect(showMock).not.toHaveBeenCalled()
+    })
+})
+
+function BreakablePage() {
+    const [broken, setBroken] = useState(false)
+    if (broken) throw new Error('render failed')
+    return <button onClick={() => setBroken(true)}>Break the page</button>
+}
+
+// The boundary swaps out everything inside it, so an announcer mounted there would go with the page
+// and leave the error screen's new title unspoken (OTTER-823).
+describe('the error boundary', () => {
+    it('leaves the route announcer in place to announce the error screen', async () => {
+        mockClerkSession(null)
+        render(
+            <Providers singleUserEditing>
+                <BreakablePage />
+            </Providers>,
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: 'Break the page' }))
+
+        await waitFor(() =>
+            expect(screen.getByTestId('route-announcer')).toHaveTextContent('Something went wrong - SafeInsights'),
+        )
     })
 })

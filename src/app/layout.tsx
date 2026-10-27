@@ -21,7 +21,6 @@ import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
 import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
-import { RouteAnnouncer } from '@/components/layout/route-announcer'
 import { connection } from 'next/server'
 import { clientUserInfoSnapshotForRequest } from '@/server/session'
 import { APP_TITLE } from '@/lib/constants'
@@ -66,7 +65,6 @@ export default async function RootLayout({
                         <HydrationMarker />
                     </Suspense>
                     <RouteFocusManager />
-                    <RouteAnnouncer />
                     <PiSymbol />
                 </Providers>
             </body>

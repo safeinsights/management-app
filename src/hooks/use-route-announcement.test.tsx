@@ -29,7 +29,7 @@ const NOT_FOUND = Routes.notFound
 // Each page's titles in the order its head commits them; '' is a head with no title yet.
 const TITLES: Record<string, string[]> = {
     [SETUP]: ['Set up study - SafeInsights'],
-    [SETUP_OTHER]: ['Set up study - SafeInsights'],
+    [SETUP_OTHER]: ['', 'Set up study - SafeInsights'],
     [CODE]: ['Study code - SafeInsights'],
     [PROPOSAL]: ['', 'Study proposal - SafeInsights', 'Something went wrong - SafeInsights'],
     [MFA]: [''],
@@ -126,7 +126,7 @@ describe('useRouteAnnouncement', () => {
         expect(region()).toHaveTextContent('')
     })
 
-    it('disconnects a pending wait when the route changes again, and on unmount', async () => {
+    it('disconnects each wait when the route changes again, and on unmount', async () => {
         const observe = vi.spyOn(MutationObserver.prototype, 'observe')
         const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect')
         const { unmount } = renderWithProviders(<App />)
@@ -136,7 +136,7 @@ describe('useRouteAnnouncement', () => {
         unmount()
 
         const headObservers = observe.mock.contexts.filter((_, i) => observe.mock.calls[i][0] === document.head)
-        expect(headObservers).toHaveLength(2)
+        expect(headObservers).toHaveLength(3)
         for (const observer of headObservers) expect(disconnect.mock.contexts).toContain(observer)
     })
 
@@ -194,6 +194,7 @@ describe('useRouteAnnouncement', () => {
         const history = recordAnnouncements()
 
         await navigate(SETUP_OTHER)
+        await releaseTitle()
 
         expect(history).toEqual([])
     })

@@ -18,28 +18,25 @@ function touchesTitle(record: MutationRecord): boolean {
 // the pathname like useRouteFocus, so a query-string change is not a navigation.
 export function useRouteAnnouncement(): string {
     const pathname = usePathname()
-    const previousPathname = useRef(pathname)
     const lastTitle = useRef<string | null>(null)
     const [announcement, setAnnouncement] = useState('')
 
     useEffect(() => {
         lastTitle.current ??= document.title
-        if (previousPathname.current === pathname) return
-        previousPathname.current = pathname
 
-        const announce = (title: string) => {
+        // The last page's title still in place is not an arrival; wait until the head changes it.
+        const announceIfNew = () => {
+            const title = pageTitle()
+            if (!title || title === lastTitle.current) return
             lastTitle.current = title
             setAnnouncement(title)
         }
 
-        // The last page's title still in place is not an arrival; wait until the head changes it.
-        const title = pageTitle()
-        if (title && title !== lastTitle.current) announce(title)
+        announceIfNew()
 
         // Stays connected until the next navigation, so a later retitle (the error screen) is heard too.
         const observer = new MutationObserver((records) => {
-            const current = pageTitle()
-            if (current && records.some(touchesTitle)) announce(current)
+            if (records.some(touchesTitle)) announceIfNew()
         })
         observer.observe(document.head, { childList: true, subtree: true, characterData: true })
         return () => observer.disconnect()
