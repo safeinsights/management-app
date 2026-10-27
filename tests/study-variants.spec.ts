@@ -123,11 +123,10 @@ const STAGES: { stage: SeededJobStage; reviewerPill: string }[] = [
 
 test('Dashboards show every enclave run stage', async ({ browser, studyFeatures }) => {
     const seeded = await Promise.all(
-        STAGES.map(async ({ stage, reviewerPill }) => ({
-            reviewerPill,
-            title: studyFeatures.uniqueTitle(stage.toLowerCase()),
-            ...(await seedJobStage(studyFeatures.uniqueTitle(stage.toLowerCase()), stage)),
-        })),
+        STAGES.map(async ({ stage, reviewerPill }) => {
+            const title = studyFeatures.uniqueTitle(stage.toLowerCase())
+            return { reviewerPill, title, ...(await seedJobStage(title, stage)) }
+        }),
     )
 
     await withRole(browser, 'reviewer', async (page) => {

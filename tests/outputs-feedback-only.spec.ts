@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect, readTestSupportFile, test, visitAsRole, withRole } from './e2e.helpers'
-import { seedCodeApprovedJobReady } from './e2e.seed'
+import { jobStatusRows, seedCodeApprovedJobReady } from './e2e.seed'
 import { createEnclaveClient } from './api/enclave-client'
 import { RESEARCHER_DASHBOARD, viewStudyDetails } from './flows/dashboard.flows'
 import { reviewerDecryptsAvailableOutputs, reviewerSharesOutputs } from './flows/outputs.flows'
@@ -41,9 +41,11 @@ test('Reviewer shares feedback only and the researcher reads it', async ({ brows
         await expect(page.getByTestId('cta-edit-code')).toBeVisible()
 
         // Reading the decision records RESULTS-VIEWED (OTTER-698) through a fire-on-mount action the
-        // page never awaits (mark-outputs-decision-viewed.tsx). Let the page's requests settle before
-        // leaving: a full navigation in that instant cuts the write off, and the badge keeps asking.
-        await page.waitForLoadState('networkidle')
+        // page never awaits (mark-outputs-decision-viewed.tsx), and a navigation in that instant cuts
+        // the write off. The row itself is the signal, so stay until it exists.
+        await expect(async () => {
+            expect((await jobStatusRows(jobId!)).map((row) => row.status)).toContain('RESULTS-VIEWED')
+        }).toPass()
         await expect(async () => {
             await visitAsRole(page, RESEARCHER_DASHBOARD)
             await expect(
