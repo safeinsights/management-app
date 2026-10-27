@@ -38,7 +38,7 @@ type ProviderOptions = SessionInfoOption & { singleUserEditing?: boolean; queryC
  * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, putting
  * the editable node in the DOM instead of behind a skeleton awaiting a live websocket.
  */
-export const TestProviders: FC<{ client: QueryClient; options?: ProviderOptions; children: ReactNode }> = ({
+const TestProviders: FC<{ client: QueryClient; options?: ProviderOptions; children: ReactNode }> = ({
     client,
     options,
     children,
@@ -56,33 +56,24 @@ export const TestProviders: FC<{ client: QueryClient; options?: ProviderOptions;
     </QueryClientProvider>
 )
 
-export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1] & ProviderOptions) {
-    // A caller-supplied client lets a test prime a query before the first render.
-    const testQueryClient = options?.queryClient ?? createTestQueryClient()
+// One builder, so a server render and its hydration can never wrap the UI in different providers.
+// A caller-supplied client lets a test prime a query before the first render.
+const withTestProviders = (ui: ReactElement, options?: ProviderOptions) => (
+    <TestProviders client={options?.queryClient ?? createTestQueryClient()} options={options}>
+        {ui}
+    </TestProviders>
+)
 
-    return render(
-        <TestProviders client={testQueryClient} options={options}>
-            {ui}
-        </TestProviders>,
-        options,
-    )
-}
+export const renderWithProviders = (ui: ReactElement, options?: Parameters<typeof render>[1] & ProviderOptions) =>
+    render(withTestProviders(ui, options), options)
 
 // The HTML the server sends, for asserting what reaches the page before hydration.
 export const renderToServerHtml = (ui: ReactElement, options?: ProviderOptions) =>
-    renderToString(
-        <TestProviders client={options?.queryClient ?? createTestQueryClient()} options={options}>
-            {ui}
-        </TestProviders>,
-    )
+    renderToString(withTestProviders(ui, options))
 
 // Hydrates the server HTML as the browser does; a mismatch lands in `recoverableErrors`.
 export function hydrateServerHtml(ui: ReactElement, options?: ProviderOptions) {
-    const tree = (
-        <TestProviders client={options?.queryClient ?? createTestQueryClient()} options={options}>
-            {ui}
-        </TestProviders>
-    )
+    const tree = withTestProviders(ui, options)
     const container = document.createElement('div')
     container.innerHTML = renderToString(tree)
     document.body.appendChild(container)
