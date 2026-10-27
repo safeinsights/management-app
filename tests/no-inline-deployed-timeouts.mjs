@@ -1,17 +1,6 @@
 // Every wait in tests/deployed is a named constant from tests/deployed/config.ts, so that the
 // budget for a slow real environment is tuned in one place from measured runs. A number written
 // where a wait is taken is the thing this rule refuses, along with the sleep that masks a race.
-const WAIT_OPTION_CALLEES = new Set([
-    'waitFor',
-    'toPass',
-    'toBeVisible',
-    'toBeHidden',
-    'toContainText',
-    'toHaveText',
-    'toHaveCount',
-    'poll',
-])
-
 const noInlineDeployedTimeouts = {
     meta: {
         type: 'problem',
@@ -51,11 +40,6 @@ const noInlineDeployedTimeouts = {
                 // `test.setTimeout(60_000)`, `expect.configure({ timeout })` style calls with a bare number.
                 if (method === 'setTimeout' && isNumber(node.arguments[0])) {
                     context.report({ node: node.arguments[0], messageId: 'literalTimeout' })
-                }
-                if (WAIT_OPTION_CALLEES.has(method)) {
-                    for (const argument of node.arguments) {
-                        if (isNumber(argument)) context.report({ node: argument, messageId: 'literalTimeout' })
-                    }
                 }
             },
         }

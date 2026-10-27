@@ -15,7 +15,12 @@ export const PROPOSAL_LINK_TEXT = 'Prior study writeup'
 export const PROPOSAL_LINK_URL = 'https://example.com/prior-study'
 
 // OTTER-690: Step 1 is one card, and the study title is entered here rather than on Step 2.
-export async function fillStep1(page: Page, studyTitle: string, orgNameRegex: RegExp = /openstax/i) {
+export async function fillStep1(
+    page: Page,
+    studyTitle: string,
+    orgNameRegex: RegExp = /openstax/i,
+    language: 'R' | 'Python' = 'R',
+) {
     await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Set up study', level: 2 })).toBeVisible()
 
@@ -30,7 +35,7 @@ export async function fillStep1(page: Page, studyTitle: string, orgNameRegex: Re
     await page.getByRole('option', { name: orgNameRegex }).click()
 
     // Language radios appear after an org is chosen.
-    const radioButton = page.getByRole('radio', { name: 'R', exact: true })
+    const radioButton = page.getByRole('radio', { name: language, exact: true })
     await radioButton.waitFor({ state: 'visible' })
     await radioButton.click()
 }

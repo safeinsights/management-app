@@ -49,6 +49,16 @@ The accounts must already hold a security key (`PATCH /api/qa/users/<email>` wit
 `E2E_LAB_SLUG` / `E2E_DATA_PARTNER_NAME` pick the lab and Data Partner the writes go through
 (defaults `openstax-lab` / `openstax`).
 
+## The full project
+
+`tests/deployed/full/` drives one study through every component, one serial test per stage so a
+failure names the component: `lifecycle-r.spec.ts` (propose, approve, upload, scanner, AI review,
+containerizer, the real enclave run or, on a PR preview, the QA API standing in for it, decrypt and
+download, share, the researcher's own decrypt, delete), `lifecycle-python.spec.ts` (the same up to the
+queued image: there is no known-good Python script for the enclave's data access yet) and
+`scan-findings.spec.ts` (deliberately insecure R and Python files the scanner must fail). The R script
+is qa-review's known-good single-query `tests/fixtures/deployed/main.r`, which writes `results.csv`.
+
 ## Rules
 
 - `retries: 0` and one worker: three shared accounts, one enclave, gates that are per account.
