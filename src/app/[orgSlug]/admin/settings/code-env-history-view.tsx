@@ -4,6 +4,8 @@ import { Badge, Group, Stack, Table, Text } from '@mantine/core'
 import type { AuditEventType } from '@/database/types'
 import type { CodeEnvAuditMetadata } from '@/lib/audit-diff'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { DATE_TIME_FORMAT } from '@/lib/dates'
+import dayjs from 'dayjs'
 
 export type CodeEnvHistoryEntry = {
     id: string
@@ -40,8 +42,7 @@ const formatValue = (value: unknown): string => {
     return JSON.stringify(value)
 }
 
-const formatTimestamp = (value: Date) =>
-    new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const formatTimestamp = (value: Date) => dayjs(value).format(DATE_TIME_FORMAT)
 
 const EventBadge: React.FC<{ eventType: AuditEventType }> = ({ eventType }) => {
     const config = EVENT_LABELS[eventType]
