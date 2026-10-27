@@ -20,6 +20,9 @@ const RADIUS_PROPS = ['radius', 'bdrs']
 /** theme.fontSizes keys, plus Mantine's heading sizes. */
 const FONT_SIZE_SCALE = ['xs', 'sm', 'md', 'lg', 'xl', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
+/** theme.lineHeights keys. Figma's own line heights reach `lh` as var(--si-line-height-*). */
+const LINE_HEIGHT_SCALE = ['xs', 'sm', 'md', 'lg', 'xl']
+
 // Mantine reads `size` on these as a font size, the same as `fz`; on icons it is a dimension.
 const TEXT_SIZE_ELEMENTS = ['Text', 'Title', 'Anchor', 'List']
 
@@ -97,6 +100,8 @@ const noRawStyleValues = {
             rawRadius: '{{value}} on `{{prop}}` is a raw radius. Use a theme scale key: {{scale}}.',
             rawFontSize:
                 '{{value}} is a raw font size. Use a theme scale key ({{scale}}), or var(--si-font-size-N) for a Figma size the scale lacks ({{offScale}}).',
+            rawLineHeight:
+                '{{value}} is a raw line height. Use var(--si-line-height-tight / -heading / -normal), or a theme scale key ({{scale}}).',
             builtColor:
                 'A colour assembled at runtime on `{{prop}}` cannot be checked against the theme. Pass a semanticColor(…) token instead.',
             hexLiteral: '"{{value}}" is a hardcoded colour. Use semanticColor(…) from @/theme/tokens.',
@@ -206,7 +211,8 @@ const noRawStyleValues = {
                     const attr = parent.type === 'JSXAttribute' ? parent : parent.parent
                     const name = attr?.name?.name
                     return (
-                        [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw'].includes(name) || isFontSizeAttr(attr)
+                        [...COLOR_PROPS, ...SPACING_PROPS, ...RADIUS_PROPS, 'fw', 'lh'].includes(name) ||
+                        isFontSizeAttr(attr)
                     )
                 }
                 if (!PASS_THROUGH.includes(parent.type)) return false
@@ -345,6 +351,22 @@ const noRawStyleValues = {
             })
         }
 
+        // A unitless `lh={1.2}` is as raw as a px one; it just never looked like a pixel value.
+        function checkLineHeight(attrValue, { literalsReportedElsewhere = false } = {}) {
+            eachValue(attrValue, (value, at) => {
+                if (isTokenReference(value)) return
+                if (value.type !== 'Literal') return
+                if (LINE_HEIGHT_SCALE.includes(value.value)) return
+                if (literalsReportedElsewhere && typeof value.value === 'string' && PX.test(value.value)) return
+
+                context.report({
+                    node: at,
+                    messageId: 'rawLineHeight',
+                    data: { value: String(value.value), scale: LINE_HEIGHT_SCALE.join(', ') },
+                })
+            })
+        }
+
         return {
             JSXAttribute(node) {
                 const name = node.name?.type === 'JSXIdentifier' ? node.name.name : null
@@ -358,6 +380,7 @@ const noRawStyleValues = {
                 if (RAMP_COLOR_PROPS.includes(name)) return checkRampColor(node.value, name)
                 if (name === 'fw') return checkWeight(node.value)
                 if (isFontSizeAttr(node)) return checkFontSize(node.value)
+                if (name === 'lh') return checkLineHeight(node.value)
                 if (SPACING_PROPS.includes(name)) return checkSpacing(node.value, name)
                 if (RADIUS_PROPS.includes(name)) return checkRadius(node.value, name)
             },
@@ -384,6 +407,7 @@ const noRawStyleValues = {
                 if (!key || isInsideStyleAttribute(node)) return
                 if (key === 'fw') return checkWeight(node.value)
                 if (key === 'fz') return checkFontSize(node.value, { literalsReportedElsewhere: true })
+                if (key === 'lh') return checkLineHeight(node.value, { literalsReportedElsewhere: true })
                 if (SPACING_PROPS.includes(key)) return checkSpacing(node.value, key, { numbersOnly: true })
                 if (RADIUS_PROPS.includes(key)) return checkRadius(node.value, key, { numbersOnly: true })
                 if (!OBJECT_COLOR_KEYS.includes(key)) return

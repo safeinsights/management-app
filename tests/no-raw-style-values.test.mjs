@@ -73,6 +73,9 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         `<Text fz={isProminent ? 'sm' : undefined} />`,
         'const T = ({ fz }) => <Text fz={fz} />',
         `const LABEL = { fw: fontWeight.semibold, fz: 'sm' }`,
+        '<Text lh="var(--si-line-height-tight)" />',
+        '<Text lh="sm" />',
+        `const METRICS = { lh: 'var(--si-line-height-normal)' }`,
         '<List spacing="xxs" />',
         '<Table verticalSpacing="sm" horizontalSpacing="md" />',
         '<Skeleton radius="sm" />',
@@ -369,6 +372,23 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
         {
             code: `const LABEL = { fz: '13px' }`,
             errors: [{ messageId: 'pxLiteral' }],
+        },
+        // A unitless line height is as raw as a px one.
+        {
+            code: '<Text lh={1.2} />',
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
+        {
+            code: '<Text lh="1.2" />',
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
+        {
+            code: '<Text lh="20px" />',
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
+        {
+            code: `const METRICS = { pl: 'md', lh: 1.6 }`,
+            errors: [{ messageId: 'rawLineHeight' }],
         },
         {
             code: `const CARD = { p: 16, radius: 4 }`,

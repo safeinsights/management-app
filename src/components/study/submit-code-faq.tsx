@@ -87,7 +87,7 @@ const FaqSection: FC<FaqEntry> = ({ icon, question, answer }) => (
     <Stack gap={0} data-testid={`faq-section-${question}`}>
         <Group gap={SECTION_ICON_GAP} wrap="nowrap">
             {icon}
-            <Text fz={SECTION_FONT_SIZE} fw={fontWeight.bold} lh={1.2} c={semanticColor('text.primary')}>
+            <Text fz={SECTION_FONT_SIZE} fw={fontWeight.bold} lh="var(--si-line-height-tight)" c={semanticColor('text.primary')}>
                 {question}
             </Text>
         </Group>
