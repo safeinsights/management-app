@@ -3,10 +3,9 @@ import { authFileFor, expect, goto, test, type Page } from './e2e.helpers'
 import { ENCLAVE_SLUG, seedProposalPendingReview } from './e2e.seed'
 import { RESEARCHER_DASHBOARD } from './study.helpers'
 
-// OTTER-734 and OTTER-823. The title comes from Next's metadata, the focus move from the router's
-// commit order and the announcement from the head committing after the page, none of which the unit
-// tests' router mock reproduces, so only a browser shows that a client-side navigation retitles the
-// tab, announces the new title and lands focus on main.
+// OTTER-734 and OTTER-823. Title, focus move and announcement all depend on Next's commit order,
+// which the unit tests' router mock does not reproduce, so only a browser shows that a client-side
+// navigation retitles the tab, announces the new title and lands focus on main.
 
 type AnnouncedWindow = Window & { announced?: string[] }
 
