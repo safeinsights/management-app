@@ -70,6 +70,20 @@ describe('ResilientPool', () => {
         expect(pools).toHaveLength(1)
     })
 
+    it('resolves every concurrent caller after one rebuild', async () => {
+        const { factory, pools } = trackingFactory()
+        const resolve = vi.fn(async () => 'postgres://u:new@h/d')
+        const onRefresh = vi.fn()
+        const pool = new ResilientPool('postgres://u:old@h/d', factory, resolve, onRefresh)
+        pools[0].connect.mockRejectedValue(invalidPasswordError())
+
+        const clients = await Promise.all([pool.connect(), pool.connect(), pool.connect()])
+
+        expect(pools).toHaveLength(2)
+        expect(clients).toEqual([pools[1].client, pools[1].client, pools[1].client])
+        expect(onRefresh).toHaveBeenCalledTimes(1)
+    })
+
     it('re-registers error listeners on the rebuilt pool after rotation', async () => {
         const { factory, pools } = trackingFactory()
         const resolve = vi.fn(async () => 'postgres://u:new@h/d')

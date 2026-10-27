@@ -35,32 +35,42 @@ export class ResilientPool implements PoolLike {
     private errorListeners: Array<(err: Error, client: PG.PoolClient) => void> = []
     private readonly makePool: PoolFactory
     private readonly resolveConnectionString: ConnectionStringResolver
+    private readonly onRefresh?: () => void
 
-    constructor(connectionString: string, makePool: PoolFactory, resolveConnectionString: ConnectionStringResolver) {
+    constructor(
+        connectionString: string,
+        makePool: PoolFactory,
+        resolveConnectionString: ConnectionStringResolver,
+        onRefresh?: () => void,
+    ) {
         this.connectionString = connectionString
         this.makePool = makePool
         this.resolveConnectionString = resolveConnectionString
+        this.onRefresh = onRefresh
         this.delegate = this.makePool(connectionString)
     }
 
-    // Returns whether the connection string changed, i.e. whether a retry is worthwhile.
-    private async refresh(): Promise<boolean> {
+    private async refresh(): Promise<void> {
         const next = await this.resolveConnectionString()
-        if (next === this.connectionString) return false
+        if (next === this.connectionString) return
         this.connectionString = next
         const old = this.delegate
         this.delegate = this.makePool(next)
         for (const listener of this.errorListeners) this.delegate.on('error', listener)
         old.end().catch(() => {})
-        return true
+        this.onRefresh?.()
     }
 
-    // Runs op against the current delegate; on a stale password, rebuilds once and retries.
+    // On a stale password, retries once against whichever pool is current: concurrent failures all
+    // get the pool the first refresh() built, instead of only the caller that rebuilt it.
     private async withRetry<T>(op: (pool: PoolLike) => Promise<T>): Promise<T> {
+        const pool = this.delegate
         try {
-            return await op(this.delegate)
+            return await op(pool)
         } catch (err) {
-            if (!isInvalidPasswordError(err) || !(await this.refresh())) throw err
+            if (!isInvalidPasswordError(err)) throw err
+            await this.refresh()
+            if (this.delegate === pool) throw err
             return await op(this.delegate)
         }
     }

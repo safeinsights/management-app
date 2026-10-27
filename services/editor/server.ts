@@ -71,6 +71,7 @@ const pool = new ResilientPool(
     await resolveConnectionString(),
     pgPoolFactory(process.env.DATABASE_URL ? undefined : RDS_SSL),
     resolveConnectionString,
+    () => log('db.credentials.rotated'),
 )
 pool.on('error', (err) => log('db.pool.error', { message: err.message }))
 
