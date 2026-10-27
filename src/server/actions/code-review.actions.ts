@@ -9,6 +9,7 @@ import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/stu
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import { codeSubmissionVersion, latestJobForStudyOrNull, fetchUserFullName } from '@/server/db/queries'
+import { markStudyOpened } from '@/server/db/mutations'
 import { purgeCodeReviewFeedbackYjsDoc } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyCodeApproved, onStudyCodeChangesRequested } from '@/server/events'
 import { Action, z } from './action'
@@ -130,6 +131,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 
+        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 
         return { submitterFullName }

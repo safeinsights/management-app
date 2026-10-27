@@ -175,7 +175,7 @@ export function nextVersionForStudyComment({ studyId, increment }: { studyId: st
     return increment ? sql<number>`${current} + 1` : current
 }
 
-// Opening a study and saving your own edit both count as having seen it (OTTER-838). The stamp
+// Opening a study and making any change to it count as having seen it (OTTER-838, OTTER-937). The stamp
 // never moves back, and `seenAt` covers an edit time taken from the app clock rather than the DB's.
 export async function markStudyOpened(
     db: Kysely<DB>,

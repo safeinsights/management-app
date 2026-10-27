@@ -73,6 +73,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         const round = await codeRoundForJob(studyJobId, db)
 
         await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
+        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
@@ -206,6 +207,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             .set({ lastUpdatedAt: new Date(), codeResubmissionNoteDraft: null })
             .where('id', '=', studyId)
             .execute()
+        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
 
         onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
