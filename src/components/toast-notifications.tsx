@@ -15,7 +15,6 @@ export type Toast = {
 }
 
 type CategorySpec = {
-    color: string
     autoClose: number | false
     icon: ReactNode
     role: 'status' | 'alert'
@@ -30,21 +29,18 @@ const ICON_SIZE = 32
 // cannot drift apart as call sites are added.
 const CATEGORIES: Record<ToastCategory, CategorySpec> = {
     success: {
-        color: 'green',
         autoClose: 4_000,
         icon: <CheckCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('success.bg.dark')} />,
         role: 'status',
         ariaLive: 'polite',
     },
     warning: {
-        color: 'yellow',
         autoClose: 12_000,
         icon: <WarningCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('warning.bg.dark')} />,
         role: 'status',
         ariaLive: 'polite',
     },
     info: {
-        color: 'blue',
         autoClose: 12_000,
         icon: <InfoIcon weight="fill" size={ICON_SIZE} color={semanticColor('info.bg.dark')} />,
         role: 'status',
@@ -53,7 +49,6 @@ const CATEGORIES: Record<ToastCategory, CategorySpec> = {
     // The only category that never auto-closes: an error the reader has not acted on must not
     // disappear on its own.
     error: {
-        color: 'red',
         autoClose: false,
         icon: <XCircleIcon weight="fill" size={ICON_SIZE} color={semanticColor('error.bg.dark')} />,
         role: 'alert',
@@ -83,7 +78,6 @@ export const showToast = (toast: Toast) => {
     const spec = CATEGORIES[category]
     const notification = {
         id: id ?? derivedToastId(toast),
-        color: spec.color,
         autoClose: spec.autoClose,
         icon: spec.icon,
         title,
