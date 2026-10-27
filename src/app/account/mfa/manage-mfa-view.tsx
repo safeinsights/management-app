@@ -23,7 +23,7 @@ const MFAEnabledCard: FC = () => (
 )
 
 const EnrollOptionsCard: FC = () => (
-    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: 'md', lg: 0 }}>
         <Stack mb="xxl">
             <Title mb="xs" ta="center" order={3}>
                 Secure your account with <br /> Multi-Factor Authentication
