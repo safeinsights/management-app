@@ -32,9 +32,11 @@ export function dbConnectionString({ username, password, host, dbname }: DbSecre
 // Aurora Postgres has rds.force_ssl=1; verify its certificate against the RDS CA bundle.
 export const RDS_SSL = { ca: awsCaBundle.ca, rejectUnauthorized: true }
 
-// Postgres SQLSTATE for "password authentication failed": the signal that a cached password is stale.
-export const INVALID_PASSWORD_CODE = '28P01'
+export type DbEnv = { DATABASE_URL?: string; DB_SECRET_ARN?: string }
 
-export function isInvalidPasswordError(err: unknown): boolean {
-    return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === INVALID_PASSWORD_CODE
+// DATABASE_URL for local/dev; otherwise the RDS secret, fetched fresh so a rotated password lands.
+export async function resolveDatabaseURL(env: DbEnv, client: SecretFetcher): Promise<string> {
+    if (env.DATABASE_URL) return env.DATABASE_URL
+    if (!env.DB_SECRET_ARN) throw new Error('DATABASE_URL or DB_SECRET_ARN is required')
+    return dbConnectionString(await fetchSecretJson<DbSecret>(env.DB_SECRET_ARN, client))
 }

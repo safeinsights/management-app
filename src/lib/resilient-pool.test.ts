@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ResilientPool, type PoolLike, type PoolFactory } from './resilient-pool'
+import { isInvalidPasswordError, ResilientPool, type PoolLike, type PoolFactory } from './resilient-pool'
 
 function invalidPasswordError() {
     return Object.assign(new Error('password authentication failed for user "u"'), { code: '28P01' })
@@ -10,6 +10,7 @@ function trackingFactory() {
         connectionString: string
         client: object
         connect: ReturnType<typeof vi.fn>
+        query: ReturnType<typeof vi.fn>
         end: ReturnType<typeof vi.fn>
         on: ReturnType<typeof vi.fn>
     }> = []
@@ -17,6 +18,7 @@ function trackingFactory() {
         const client = {}
         const pool: PoolLike = {
             connect: vi.fn(async () => client as never),
+            query: vi.fn(async () => ({ rows: [{ ok: true }], rowCount: 1 }) as never),
             end: vi.fn(async () => {}),
             on: vi.fn(),
         }
@@ -24,6 +26,7 @@ function trackingFactory() {
             connectionString,
             client,
             connect: pool.connect as never,
+            query: pool.query as never,
             end: pool.end as never,
             on: pool.on as never,
         })
@@ -81,6 +84,19 @@ describe('ResilientPool', () => {
         expect(pools[1].on).toHaveBeenCalledWith('error', listener)
     })
 
+    it('retries a query on the rebuilt pool when the password rotated', async () => {
+        const { factory, pools } = trackingFactory()
+        const resolve = vi.fn(async () => 'postgres://u:new@h/d')
+        const pool = new ResilientPool('postgres://u:old@h/d', factory, resolve)
+        pools[0].query.mockRejectedValue(invalidPasswordError())
+
+        const result = await pool.query('SELECT 1', [1])
+
+        expect(result.rows).toEqual([{ ok: true }])
+        expect(pools[1].query).toHaveBeenCalledWith('SELECT 1', [1])
+        expect(pools[0].end).toHaveBeenCalled()
+    })
+
     it('rethrows non-password errors without re-reading the secret', async () => {
         const { factory, pools } = trackingFactory()
         const resolve = vi.fn()
@@ -90,5 +106,14 @@ describe('ResilientPool', () => {
         await expect(pool.connect()).rejects.toThrow('connection refused')
         expect(resolve).not.toHaveBeenCalled()
         expect(pools).toHaveLength(1)
+    })
+})
+
+describe('isInvalidPasswordError', () => {
+    it('matches only the Postgres 28P01 SQLSTATE', () => {
+        expect(isInvalidPasswordError({ code: '28P01' })).toBe(true)
+        expect(isInvalidPasswordError({ code: '08006' })).toBe(false)
+        expect(isInvalidPasswordError(new Error('boom'))).toBe(false)
+        expect(isInvalidPasswordError(null)).toBe(false)
     })
 })

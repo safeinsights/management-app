@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { getConfigValue } from './config'
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
@@ -17,6 +17,7 @@ describe('getConfigValue', () => {
 
     afterEach(() => {
         process.env = ORIGINAL_ENV
+        vi.useRealTimers()
     })
 
     it('returns the value from process.env if it exists', async () => {
@@ -33,6 +34,21 @@ describe('getConfigValue', () => {
         expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('secretValue')
         expect(await getConfigValue('MAILGUN_DOMAIN')).toBe('secretValue')
         expect(secretsManagerMock.commandCalls(GetSecretValueCommand)).toHaveLength(1)
+    })
+
+    it('refetches once the cached secret is older than its TTL', async () => {
+        vi.useFakeTimers()
+        process.env.SECRETS_ARN = 'arn:expiring'
+        secretsManagerMock.on(GetSecretValueCommand).resolves({ SecretString: JSON.stringify({ MAILGUN_DOMAIN: 'v' }) })
+
+        await getConfigValue('MAILGUN_DOMAIN')
+        vi.advanceTimersByTime(5 * 60_000 - 1)
+        await getConfigValue('MAILGUN_DOMAIN')
+        expect(secretsManagerMock.commandCalls(GetSecretValueCommand)).toHaveLength(1)
+
+        vi.advanceTimersByTime(2)
+        await getConfigValue('MAILGUN_DOMAIN')
+        expect(secretsManagerMock.commandCalls(GetSecretValueCommand)).toHaveLength(2)
     })
 
     it('does not cache a failed fetch', async () => {

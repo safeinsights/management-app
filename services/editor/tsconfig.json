@@ -10,6 +10,11 @@
         "isolatedModules": true,
         "allowImportingTsExtensions": true
     },
-    "include": ["**/*.ts", "../../src/lib/collaboration-documents.ts", "../../src/lib/db-connection.ts"],
+    "include": [
+        "**/*.ts",
+        "../../src/lib/collaboration-documents.ts",
+        "../../src/lib/db-connection.ts",
+        "../../src/lib/resilient-pool.ts"
+    ],
     "exclude": ["node_modules"]
 }

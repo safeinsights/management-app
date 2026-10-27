@@ -16,8 +16,9 @@ import {
     shouldPersistDocument,
     studyIdForDocument,
 } from './auth.ts'
-import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
-import { ResilientDbPool } from './db-pool.ts'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
+import { RDS_SSL, resolveDatabaseURL } from '../../src/lib/db-connection.ts'
+import { pgPoolFactory, ResilientPool } from '../../src/lib/resilient-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
 import { mirrorProposalTitleToStudy } from './title-mirror.ts'
 import { editorUserIds, markStudyOpenedByEditors } from './study-visit.ts'
@@ -62,19 +63,20 @@ log('startup.config', {
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
-// Resolve the DB source once at boot, then wrap it in a self-healing pool. The
-// pool re-reads the secret and rebuilds itself if a deploy rotates the DB
-// password, so the long-running editor task recovers without a restart
-// (OTTER-626). DATABASE_URL (local/dev) is static and has nothing to refresh.
-const source = await resolveDbSource(process.env, createSecretsClient())
-log('db.config.source', {
-    source: source.kind === 'connectionString' ? 'DATABASE_URL' : 'secretsManager',
-})
-const pool = new ResilientDbPool(source, log)
+// ResilientPool re-reads the secret and rebuilds itself if a deploy rotates the DB password, so the
+// long-running editor task recovers without a restart (OTTER-626).
+const resolveConnectionString = () => resolveDatabaseURL(process.env, new SecretsManagerClient())
+log('db.config.source', { source: process.env.DATABASE_URL ? 'DATABASE_URL' : 'secretsManager' })
+const pool = new ResilientPool(
+    await resolveConnectionString(),
+    pgPoolFactory(process.env.DATABASE_URL ? undefined : RDS_SSL),
+    resolveConnectionString,
+)
+pool.on('error', (err) => log('db.pool.error', { message: err.message }))
 
 try {
-    const now = await pool.ping()
-    log('db.ping.ok', { now })
+    const { rows } = await pool.query<{ now: Date }>('SELECT now() AS now')
+    log('db.ping.ok', { now: rows[0]?.now })
 } catch (err) {
     log('db.ping.fail', { message: err instanceof Error ? err.message : String(err) })
     throw err

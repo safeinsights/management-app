@@ -1,6 +1,6 @@
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { z } from 'zod'
-import { dbConnectionString, fetchSecretJson, type DbSecret } from '../lib/db-connection'
+import { fetchSecretJson, resolveDatabaseURL } from '../lib/db-connection'
 
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
@@ -128,8 +128,5 @@ export async function getConfigValue(key: ConfigKey, throwIfNotFound = true): Pr
 }
 
 export async function databaseURL(): Promise<string> {
-    if (env.DATABASE_URL) return env.DATABASE_URL
-    if (!env.DB_SECRET_ARN) throw new Error('DATABASE_URL or DB_SECRET_ARN is required')
-
-    return dbConnectionString(await fetchSecretJson<DbSecret>(env.DB_SECRET_ARN, new SecretsManagerClient()))
+    return resolveDatabaseURL(env, new SecretsManagerClient())
 }
