@@ -28,12 +28,15 @@ async function getUser(userId: string) {
 
 describe('mailgun email functions', () => {
     it('sendInviteEmail calls deliver with expected params', async () => {
-        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId: 'test-invite-id' })
+        const inviteId = faker.string.uuid()
+        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId })
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: 'gertrude@test.com',
                 template: expect.stringContaining('welcome'),
-                vars: expect.objectContaining({ inviteLink: expect.stringContaining('test-invite-id') }),
+                vars: expect.objectContaining({
+                    inviteLink: expect.stringContaining(Routes.accountInvitation({ inviteId })),
+                }),
             }),
         )
     })

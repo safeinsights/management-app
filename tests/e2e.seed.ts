@@ -14,6 +14,7 @@ import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/st
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
 const LAB_SLUG = 'openstax-lab'
+const REVIEWER_ADMIN_ORG_SLUG = 'reviewer-is-org-admin'
 
 // Fallback only: in PR environments a user who logged in before seeding owns their email under
 // a random UUID.
@@ -590,4 +591,4 @@ export async function seedLegalDocuments() {
     await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
-export { ENCLAVE_SLUG, LAB_SLUG }
+export { ENCLAVE_SLUG, LAB_SLUG, REVIEWER_ADMIN_ORG_SLUG }

@@ -9,6 +9,7 @@ import {
     qaEmail,
 } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
+import { Routes } from '@/lib/routes'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { deliver } from '@/server/mailgun'
 import { provisionQaUser, createQaInvite, QaConflictError, QaInvalidRequestError } from './qa-provision'
@@ -206,7 +207,7 @@ describe('createQaInvite', () => {
 
         expect(result.alreadyInvited).toBe(false)
         expect(result.email).toBe('qa-new@test.com')
-        expect(result.inviteUrl).toContain(`/account/invitation/${result.inviteId}`)
+        expect(result.inviteUrl).toContain(Routes.accountInvitation({ inviteId: result.inviteId }))
 
         const pending = await db
             .selectFrom('pendingUser')
@@ -272,7 +273,7 @@ describe('createQaInvite', () => {
 
         expect(result.alreadyInvited).toBe(false)
         expect(result.inviteId).not.toBe(claimed.id)
-        expect(result.inviteUrl).toContain(`/account/invitation/${result.inviteId}`)
+        expect(result.inviteUrl).toContain(Routes.accountInvitation({ inviteId: result.inviteId }))
     })
 
     it('rejects an email that already belongs to a member of the org', async () => {

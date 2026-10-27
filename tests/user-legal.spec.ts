@@ -1,3 +1,4 @@
+import { Routes } from '@/lib/routes/definitions'
 import {
     authFileFor,
     expect,
@@ -22,12 +23,12 @@ const TAB_NAMES = [
 // Study agreement rows are not asserted: nothing acknowledges an SLA yet.
 test.describe('Personal legal page', () => {
     test('a user reaches their legal page from the profile menu and reads the terms they signed', async ({ page }) => {
-        await visitAsRole(page, '/dashboard')
+        await visitAsRole(page, Routes.dashboard)
 
         await page.getByRole('button', { name: 'profile menu' }).click()
         await page.getByRole('link', { name: 'Legal', exact: true }).click()
 
-        await expect(page).toHaveURL(/\/legal$/)
+        await expect(page).toHaveURL(Routes.legal)
         await expect(page.getByRole('heading', { name: 'Legal', exact: true })).toBeVisible()
 
         for (const name of TAB_NAMES) {
@@ -42,7 +43,7 @@ test.describe('Personal legal page', () => {
     })
 
     test('the privacy notice panel renders its own document', async ({ page }) => {
-        await visitAsRole(page, '/legal')
+        await visitAsRole(page, Routes.legal)
 
         await page.getByRole('tab', { name: 'Privacy Notice' }).click()
 
@@ -57,7 +58,7 @@ test.describe('Personal legal page', () => {
         test.use({ viewport: LEGAL_DESIGN_VIEWPORT })
 
         test('the legal page layout matches the design', async ({ page }) => {
-            await visitAsRole(page, '/legal')
+            await visitAsRole(page, Routes.legal)
             await expectLegalLayoutToMatchDesign(page)
         })
     })

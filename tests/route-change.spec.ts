@@ -1,4 +1,6 @@
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, goto, test } from './e2e.helpers'
+import { ENCLAVE_SLUG } from './e2e.seed'
 
 // OTTER-734. The title comes from Next's metadata and the focus move from the router's commit
 // order, neither of which the unit tests' router mock reproduces, so only a browser shows that a
@@ -7,7 +9,7 @@ test.describe('client-side navigation', () => {
     test.use({ storageState: authFileFor('reviewer') })
 
     test('retitles the tab and moves focus to main, going forward and coming back', async ({ page }) => {
-        await goto(page, '/openstax/dashboard')
+        await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
         await expect(page).toHaveTitle('Dashboard - SafeInsights')
 
         await page.getByRole('link', { name: 'My studies', exact: true }).click()
