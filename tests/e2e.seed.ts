@@ -569,11 +569,13 @@ export async function seedCodeEnv({
     name,
     identifier,
     language = 'R',
+    scanStatus = 'SCAN-PENDING',
 }: {
     orgSlug: string
     name: string
     identifier: string
     language?: Language
+    scanStatus?: SeededScanStatus
 }): Promise<{ codeEnvId: string; name: string }> {
     const org = await resolveOrg(orgSlug)
     const env = await db
@@ -590,8 +592,93 @@ export async function seedCodeEnv({
         })
         .returning('id')
         .executeTakeFirstOrThrow()
-    await db.insertInto('codeScan').values({ codeEnvId: env.id, status: 'SCAN-PENDING' }).execute()
+    await db.insertInto('codeScan').values({ codeEnvId: env.id, status: scanStatus }).execute()
     return { codeEnvId: env.id, name }
+}
+
+export type SeededScanStatus = 'SCAN-PENDING' | 'SCAN-RUNNING' | 'SCAN-COMPLETE' | 'SCAN-FAILED'
+
+export type SeededOrgRef = { id: string; slug: string; name: string }
+
+// A fresh organization for the admin specs, so renaming, deleting, publishing a participation
+// agreement or designating a test lab never touches the fixture orgs that every other worker uses.
+// Enclaves get the test public key, as the dev seed gives openstax.
+export async function seedOrg({
+    type,
+    adminRoles = [],
+    memberRoles = [],
+}: {
+    type: 'enclave' | 'lab'
+    adminRoles?: SeedRole[]
+    memberRoles?: SeedRole[]
+}): Promise<SeededOrgRef> {
+    const suffix = `${Date.now().toString(36)}-${uuidv7().slice(-5)}`
+    const slug = `e2e-${type}-${suffix}`
+    const name = `E2E ${type === 'enclave' ? 'Partner' : 'Lab'} ${suffix}`
+    const org = await db
+        .insertInto('org')
+        .values({
+            slug,
+            name,
+            email: `${slug}@example.com`,
+            type,
+            settings: type === 'enclave' ? { publicKey: readSupportFile('public_key.pem') } : {},
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const memberships = [
+        ...adminRoles.map((role) => ({ role, isAdmin: true })),
+        ...memberRoles.map((role) => ({ role, isAdmin: false })),
+    ]
+    for (const membership of memberships) {
+        await db
+            .insertInto('orgUser')
+            .values({ orgId: org.id, userId: await resolveUserId(membership.role), isAdmin: membership.isAdmin })
+            .execute()
+    }
+    return { id: org.id, slug, name }
+}
+
+// An open invitation, as orgAdminInviteUserAction leaves it.
+export async function seedInvite({
+    orgSlug,
+    email,
+    isAdmin = false,
+}: {
+    orgSlug: string
+    email: string
+    isAdmin?: boolean
+}): Promise<{ inviteId: string }> {
+    const org = await resolveOrg(orgSlug)
+    const invite = await db
+        .insertInto('pendingUser')
+        .values({ orgId: org.id, email, isAdmin, invitedByUserId: await resolveUserId('admin') })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    return { inviteId: invite.id }
+}
+
+// A saved-but-unpublished draft of a global document outlives the run that saved it, and the upload
+// modal resumes on it. Cleared by the one spec that drafts, so it meets the upload step every time.
+export async function seedClearUnpublishedLegalDrafts(type: 'TOS' | 'PN') {
+    const { id: legalDocumentId } = await findOrCreateLegalDocument(db, { type })
+    await db
+        .deleteFrom('legalDocumentVersion')
+        .where('legalDocumentId', '=', legalDocumentId)
+        .where('publishedAt', 'is', null)
+        .execute()
+}
+
+// Approved, with no Study Agreement yet: the state the SI admin's upload form lists.
+export async function seedApprovedAwaitingStudyAgreement(title: string): Promise<SeedResult> {
+    const { study } = await insertStudy({
+        title,
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        withStudyAgreement: false,
+    })
+    return { studyId: study.id }
 }
 
 // Read-only views for the API specs, which have no screen to assert through.

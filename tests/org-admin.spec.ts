@@ -183,6 +183,15 @@ test.describe('Organization Admin', () => {
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible()
         await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
+        await codeViewerDialog.getByRole('button', { name: 'Close' }).click()
+        await expect(codeViewerDialog).toBeHidden()
+
+        // Both writes above are in the environment's history, the rename as a field diff.
+        await page.getByRole('button', { name: `History for ${updatedName}`, exact: true }).click()
+        const historyDialog = page.getByRole('dialog', { name: `History: ${updatedName}` })
+        await expect(historyDialog.getByText('Created', { exact: true })).toBeVisible()
+        await expect(historyDialog.getByText('Updated', { exact: true })).toBeVisible()
+        await expect(historyDialog).toContainText(`Name: ${codeEnvName} → ${updatedName}`)
     })
 
     // Row content is deliberately not asserted: other specs mutate this org in parallel.
