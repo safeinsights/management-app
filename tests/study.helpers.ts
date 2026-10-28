@@ -10,10 +10,21 @@ import {
 } from './e2e.helpers'
 import { execSync } from 'child_process'
 import { Routes } from '@/lib/routes/definitions'
+import { matchInternalRoute } from '@/lib/routes/match'
 import { ENCLAVE_SLUG, LAB_SLUG } from './e2e.seed'
 
 export const RESEARCHER_DASHBOARD = Routes.orgDashboard({ orgSlug: LAB_SLUG })
 export const REVIEWER_DASHBOARD = Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG })
+
+// Matches the route on whatever study the page is on, so UI-created studies need no id. The query is
+// compared only when the route sets one.
+export const onStudyPage =
+    (orgSlug: string, route: (params: { orgSlug: string; studyId: string }) => string) => (url: URL) => {
+        const match = matchInternalRoute(url.pathname)
+        if (match?.kind !== 'study') return false
+        const expected = new URL(route({ orgSlug, studyId: match.studyId }), url)
+        return url.pathname === expected.pathname && (!expected.search || url.search === expected.search)
+    }
 
 // OTTER-463: rich-text links must carry target="_blank" through submission so
 // neither researcher nor reviewer gets navigated off SafeInsights by a click.
@@ -69,12 +80,12 @@ export async function navigateToProposeStudy(page: Page, studyTitle: string) {
     const newStudyButton = page.getByTestId('new-study').first()
     await newStudyButton.waitFor({ state: 'visible' })
     await newStudyButton.click()
-    await page.waitForURL(/\/study\/request$/)
+    await page.waitForURL(Routes.studyRequest({ orgSlug: LAB_SLUG }))
 
     await fillStep1(page, studyTitle)
     await confirmStep1(page)
 
-    await page.waitForURL(/\/proposal$/)
+    await page.waitForURL(onStudyPage(LAB_SLUG, Routes.studyProposal))
     await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
 }
 
@@ -135,7 +146,7 @@ export async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: bool
 
     // The Data Partner holds the next move, so the exit is the solid action (OTTER-673).
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('/dashboard')
+    await page.waitForURL(Routes.dashboard)
 }
 
 // From an APPROVED-no-code study's dashboard, walk View -> /submitted -> /code so the upload surface
@@ -146,16 +157,16 @@ export async function navigateToCodeUpload(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await clickViewLink(page, studyRow)
 
-    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.waitForURL(onStudyPage(LAB_SLUG, Routes.studySubmitted))
 
     // OTTER-673: the approved proposal steps back to the read-only Step 1 record and forward again
     // before "Next step" opens Step 3.
     await page.getByRole('link', { name: /Previous step/i }).click()
-    await page.waitForURL(/\/edit(\?.*)?$/)
+    await page.waitForURL(onStudyPage(LAB_SLUG, Routes.studyEdit))
     await page.getByRole('button', { name: 'Next step' }).click()
-    await page.waitForURL(/\/submitted(\?.*)?$/)
+    await page.waitForURL(onStudyPage(LAB_SLUG, Routes.studySubmitted))
     await page.getByRole('link', { name: /^Next step$/i }).click()
-    await page.waitForURL(/\/code$/)
+    await page.waitForURL(onStudyPage(LAB_SLUG, Routes.studyCode))
     // Render signal, not just a URL signal: the callers below immediately reach for controls
     // inside the card. Role-scoped because the footer button shares the label.
     await expect(page.getByRole('heading', { name: 'Submit code', level: 2 })).toBeVisible()
@@ -237,7 +248,7 @@ export async function viewStudyDetails(page: Page, studyTitle: string) {
         .filter({ hasText: studyTitle })
         .filter({ hasNotText: /Proposal draft/ })
     await clickViewLink(page, studyRow)
-    await page.waitForURL(/\/study\//)
+    await page.waitForURL((url) => matchInternalRoute(url.pathname)?.kind === 'study')
 }
 
 export async function reviewerApprovesProposal(page: Page, studyTitle: string) {
@@ -269,7 +280,7 @@ export async function reviewerApprovesProposal(page: Page, studyTitle: string) {
     // A live-approved study has no agreement yet, so the preparing notice is a second status alert.
     await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
     await page.getByTestId('cta-back-to-my-studies').click()
-    await page.waitForURL('/dashboard')
+    await page.waitForURL(Routes.dashboard)
 }
 
 const CODE_CRITERIA_KEYS = ['proposalAlignment', 'agreementCompliance', 'privacyProtection']
@@ -284,7 +295,7 @@ export async function openCodeReviewEditor(page: Page, studyTitle: string) {
     await expect(page.getByRole('row').filter({ hasText: studyTitle }).getByText('Code needs review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
 
-    await page.waitForURL(/\/review(\?.*)?$/)
+    await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
     await expect(page.getByTestId('code-review-section')).toBeVisible()
 }
 
@@ -312,7 +323,7 @@ export async function reviewerApprovesCode(page: Page, studyTitle: string) {
 
     // The decision lands on the approved STEP 2 code page. Bare /review would resolve an approved
     // study straight past it to the outputs step.
-    await page.waitForURL(/\/review\/code$/)
+    await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReviewCode))
     await expect(page.getByTestId('status-alert')).toContainText('Code approved')
 
     // That outputs step is what lies ahead, still pending because approving kicks off the enclave
@@ -320,7 +331,7 @@ export async function reviewerApprovesCode(page: Page, studyTitle: string) {
     await page.getByTestId('cta-next-step').click()
     await expect(page.getByTestId('status-alert')).toContainText('Outputs not ready')
     await page.getByRole('link', { name: /Back to my studies/i }).click()
-    await page.waitForURL('/dashboard')
+    await page.waitForURL(Routes.dashboard)
 }
 
 // The debug script defaults its base URL to :4000 (dev); point it at the Playwright app
@@ -352,7 +363,7 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
-    await page.waitForURL(/\/review$/)
+    await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
     await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
@@ -389,7 +400,7 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await visitAsRole(page, REVIEWER_DASHBOARD)
     await expect(page.getByText('Studies for review')).toBeVisible()
     await viewStudyDetails(page, studyTitle)
-    await page.waitForURL(/\/review$/)
+    await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
     await expect(page.getByRole('heading', { name: /security key/i })).toBeVisible()
 
@@ -605,7 +616,7 @@ export async function reviewerRequestsCodeRevision(page: Page, feedback: string)
 }
 
 export async function researcherResubmitsCode(page: Page, studyId: string, note: string) {
-    await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
+    await goto(page, Routes.studyResubmit({ orgSlug: LAB_SLUG, studyId }))
     await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
     await uploadResubmitFilesExpectingInheritedMain(page)
@@ -620,5 +631,5 @@ export async function researcherResubmitsCode(page: Page, studyId: string, note:
         .getByRole('button', { name: /^Resubmit code$/i })
         .click()
 
-    await page.waitForURL('**/view')
+    await page.waitForURL(Routes.studyView({ orgSlug: LAB_SLUG, studyId }))
 }

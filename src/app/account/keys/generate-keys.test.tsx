@@ -1,26 +1,21 @@
-import { setUserPublicKeyAction, updateUserPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
+import { db, mockSessionWithTestData, readTestSupportFile, renderWithProviders } from '@/tests/unit.helpers'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import type { Route } from 'next'
 import router from 'next-router-mock'
-import { generateKeyPair } from 'si-encryption/util/keypair'
+import { generateKeyPair, pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GenerateKeys, postKeyRedirect } from './generate-keys'
 
-vi.mock('si-encryption/util/keypair', () => ({
+// Only generation is faked: the saving actions fingerprint the key with this module's real helpers.
+vi.mock('si-encryption/util/keypair', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('si-encryption/util/keypair')>()),
     generateKeyPair: vi.fn(),
-}))
-
-vi.mock('@/server/actions/user-keys.actions', () => ({
-    setUserPublicKeyAction: vi.fn(),
-    updateUserPublicKeyAction: vi.fn(),
 }))
 
 const mockKeys = {
     publicKeyString: 'mockPublicKey',
     privateKeyString: 'mockPrivateKey',
     fingerprint: 'mockFingerprint',
-    exportedPublicKey: new ArrayBuffer(8),
 }
 
 const mockClipboard = (succeed: boolean) => {
@@ -29,12 +24,19 @@ const mockClipboard = (succeed: boolean) => {
     return writeText
 }
 
-const renderPage = (props: { isRegenerating?: boolean; firstKeyRedirect?: Route } = {}) => {
-    mockClerkSession({ userId: 'user-id', clerkUserId: 'clerk-user-id', orgSlug: 'dev' })
-    vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
+// The saving actions validate the key server-side, so the generated pair carries a real public key.
+// Only enclave members get a key from the fixtures, which is what a reset needs to replace.
+const renderPage = async (props: { isRegenerating?: boolean; firstKeyRedirect?: Route } = {}) => {
+    const { user } = await mockSessionWithTestData({ orgType: props.isRegenerating ? 'enclave' : 'lab' })
+    const exportedPublicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
+    vi.mocked(generateKeyPair).mockResolvedValue({ ...mockKeys, exportedPublicKey } as never)
     renderWithProviders(<GenerateKeys {...props} />)
-    return screen.findByRole('heading', { level: 1, name: /security key/i })
+    await screen.findByRole('heading', { level: 1, name: /security key/i })
+    return { user, exportedPublicKey }
 }
+
+const storedKey = (userId: string) =>
+    db.selectFrom('userPublicKey').select(['publicKey', 'fingerprint']).where('userId', '=', userId).executeTakeFirst()
 
 const storeKey = async (confirmLabel = 'Yes, I have stored my key') => {
     fireEvent.click(screen.getByRole('button', { name: /copy key/i }))
@@ -91,16 +93,15 @@ describe('Security key generation', () => {
     // "My studies" instead of the inviting org.
     it('first-time generation saves the key and uses the resolved landing when no redirect_url is present', async () => {
         mockClipboard(true)
-        await renderPage({ isRegenerating: false, firstKeyRedirect: '/openstax-lab/dashboard' as Route })
+        const { user, exportedPublicKey } = await renderPage({
+            isRegenerating: false,
+            firstKeyRedirect: '/openstax-lab/dashboard' as Route,
+        })
 
         await storeKey()
 
-        await waitFor(() => {
-            expect(setUserPublicKeyAction).toHaveBeenCalledWith(
-                expect.objectContaining({ publicKey: mockKeys.exportedPublicKey }),
-            )
-        })
         await waitFor(() => expect(router.asPath).toBe('/openstax-lab/dashboard'))
+        expect((await storedKey(user.id))?.publicKey).toEqual(Buffer.from(exportedPublicKey))
     })
 
     it('an explicit redirect_url overrides the resolved landing', async () => {
@@ -117,7 +118,8 @@ describe('Security key generation', () => {
     // modal that warned only about losing the new key.
     it('describes a reset with the /user-key warning in the body and the confirm modal', async () => {
         mockClipboard(true)
-        await renderPage({ isRegenerating: true })
+        const { user } = await renderPage({ isRegenerating: true })
+        const keyBefore = await storedKey(user.id)
 
         expect(screen.getByRole('heading', { level: 1, name: 'New security key' })).toBeDefined()
         expect(screen.getByText(/It replaces your existing key\./)).toBeDefined()
@@ -131,21 +133,17 @@ describe('Security key generation', () => {
         expect(screen.getByText(/those outputs will be lost\. This action cannot be undone\./)).toBeDefined()
         expect(screen.queryByText('Have you stored your security key?')).toBeNull()
         expect(screen.getByRole('button', { name: 'Yes, replace my key' })).toBeDefined()
-        expect(updateUserPublicKeyAction).not.toHaveBeenCalled()
+        expect(await storedKey(user.id)).toEqual(keyBefore)
     })
 
     it('a reset updates the key and redirects to the personal dashboard', async () => {
         mockClipboard(true)
-        await renderPage({ isRegenerating: true })
+        const { user, exportedPublicKey } = await renderPage({ isRegenerating: true })
 
         await storeKey('Yes, replace my key')
 
-        await waitFor(() => {
-            expect(updateUserPublicKeyAction).toHaveBeenCalledWith(
-                expect.objectContaining({ publicKey: mockKeys.exportedPublicKey }),
-            )
-        })
         await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+        expect((await storedKey(user.id))?.publicKey).toEqual(Buffer.from(exportedPublicKey))
     })
 
     it('a reset ignores a stray redirect_url', async () => {

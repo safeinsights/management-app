@@ -20,10 +20,6 @@ import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feed
 import { SAVED_LABEL } from '@/components/save-status'
 import { CodeReviewFeedbackSection } from './code-review-feedback-section'
 
-vi.mock('@/server/actions/editor.actions', () => ({
-    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
-}))
-
 function CodeFeedbackTestWrapper() {
     const feedback = useReviewFeedback()
 

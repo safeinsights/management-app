@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Route } from 'next'
 import { useParams, useRouter } from 'next/navigation'
-import { Stack } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { languageLabels } from '@/lib/languages'
 import { Routes } from '@/lib/routes'
@@ -127,38 +127,46 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
     const onProceed = navMode === 'submitted' ? goToNextStep : attemptContinue
 
     return (
-        <Stack p="xl" gap="xl">
-            <PageHeader eyebrow={eyebrow} title={headingTitle} step={SET_UP_STUDY_STEP} />
-            <SetupForm
-                form={form}
-                titleValue={titleValue}
-                titleError={titleError}
-                onTitleChange={onTitleChange}
-                onTitleBlur={onTitleBlur}
-                lockedOrgName={draftData?.orgName}
-                lockedLanguageLabel={lockedLanguageLabel}
-                // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
-                isIntroVisible={navMode !== 'submitted'}
-                {...locks}
-            />
+        // Figma's content container and page title widths (OTTER-880); the padding sits outside the cap.
+        <Box p="xl">
+            <Stack gap="xl" maw={1036}>
+                <Box maw={760}>
+                    <PageHeader eyebrow={eyebrow} title={headingTitle} step={SET_UP_STUDY_STEP} />
+                </Box>
+                <SetupForm
+                    form={form}
+                    titleValue={titleValue}
+                    titleError={titleError}
+                    onTitleChange={onTitleChange}
+                    onTitleBlur={onTitleBlur}
+                    lockedOrgName={draftData?.orgName}
+                    lockedLanguageLabel={lockedLanguageLabel}
+                    // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
+                    isIntroVisible={navMode !== 'submitted'}
+                    {...locks}
+                />
 
-            {/* No left action in any state: OTTER-690 review took "Discard study" out of scope.
-                Deleting a draft lives behind the dashboard. */}
-            <ProposalFooterActions
-                isSaving={isSaving || isProceeding}
-                onProceed={onProceed}
-                proceedLabel={CTA_LABELS[navMode]}
-            />
+                {/* No left action in any state: OTTER-690 review took "Discard study" out of scope.
+                    Deleting a draft lives behind the dashboard. */}
+                <ProposalFooterActions
+                    isSaving={isSaving || isProceeding}
+                    onProceed={onProceed}
+                    proceedLabel={CTA_LABELS[navMode]}
+                />
 
-            <SubmitConfirmationModal
-                isOpen={isConfirmOpen}
-                onClose={closeConfirm}
-                onConfirm={handleConfirmContinue}
-                isSubmitting={isSaving || isProceeding}
-                title="Continue to the next step?"
-                body={MODAL_BODY}
-                confirmLabel="Continue"
-            />
-        </Stack>
+                <SubmitConfirmationModal
+                    isOpen={isConfirmOpen}
+                    onClose={closeConfirm}
+                    onConfirm={handleConfirmContinue}
+                    isSubmitting={isSaving || isProceeding}
+                    title="Continue to the next step?"
+                    body={MODAL_BODY}
+                    confirmLabel="Continue"
+                    size="md"
+                    centered={false}
+                    yOffset="25dvh"
+                />
+            </Stack>
+        </Box>
     )
 }

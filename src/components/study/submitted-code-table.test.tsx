@@ -7,15 +7,6 @@ vi.mock('@/server/actions/study-job.actions', () => ({
     fetchStudyJobCodeFileAction: vi.fn(),
 }))
 
-vi.mock('@/components/spy-mode-context', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/components/spy-mode-context')>()),
-    useSpyMode: () => ({ isSpyMode: false }),
-}))
-
-vi.mock('@/hooks/session', () => ({
-    useSession: () => ({ isLoaded: true, session: { orgs: {} } }),
-}))
-
 import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 
 const mockFetch = fetchStudyJobCodeFileAction as unknown as Mock

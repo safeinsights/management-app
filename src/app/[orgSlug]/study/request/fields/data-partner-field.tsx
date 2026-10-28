@@ -45,7 +45,14 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
     const error = form.errors.orgSlug
 
     return (
-        <FormField inputId={ORG_SELECT_ID} label={LABEL} required description={DESCRIPTION} error={error}>
+        <FormField
+            inputId={ORG_SELECT_ID}
+            label={LABEL}
+            required
+            description={DESCRIPTION}
+            error={error}
+            validatesOnBlur
+        >
             <Select
                 id={ORG_SELECT_ID}
                 data-testid="org-select"

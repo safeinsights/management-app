@@ -15,15 +15,6 @@ import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/nextjs/types'
 import { fetchStudiesForOrgAction } from '@/server/actions/study-dashboard.actions'
 
-vi.mock('@/server/actions/org.actions', () => ({
-    getOrgFromSlugAction: vi.fn(),
-}))
-
-vi.mock('@/components/spy-mode-context', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/components/spy-mode-context')>()),
-    useSpyMode: () => ({ isSpyMode: false, toggleSpyMode: vi.fn() }),
-}))
-
 const mockStudies = [
     {
         id: '11111111-1111-4111-8111-111111111111',
