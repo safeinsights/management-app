@@ -9,7 +9,7 @@ import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { sleep } from '@/lib/utils'
 import { currentReviewVersion, latestJobForStudy, fetchUserFullName } from '@/server/db/queries'
-import { markStudyOpened, nextVersionForStudyComment } from '@/server/db/mutations'
+import { markStudyOpened, markStudyUpdated, nextVersionForStudyComment } from '@/server/db/mutations'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyApproved, onStudyNeedsClarification, onStudyRejected } from '@/server/events'
 import { Action, z } from './action'
@@ -211,25 +211,19 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
 
         if (decision === 'approve') {
             await performStudyProposalApproval({ db, study: claimedStudy, studyId, userId, orgSlug })
+            await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         } else if (decision === 'reject') {
             await performStudyProposalRejection({ db, studyId, userId })
+            await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         } else {
-            await db
-                .updateTable('study')
-                .set({
-                    status: 'CHANGE-REQUESTED',
-                    reviewerId: userId,
-                    approvedAt: null,
-                    rejectedAt: null,
-                    lastUpdatedAt: new Date(),
-                })
-                .where('id', '=', studyId)
-                .execute()
-
+            await markStudyUpdated(db, {
+                studyId,
+                userId,
+                set: { status: 'CHANGE-REQUESTED', reviewerId: userId, approvedAt: null, rejectedAt: null },
+            })
             onStudyNeedsClarification({ studyId, userId })
         }
 
-        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
         return { submitterFullName }
     })

@@ -24,7 +24,7 @@ import {
     outputsDecisionVersion,
 } from '@/server/db/queries'
 import { codeRoundForJob } from '@/server/db/code-round'
-import { markStudyOpened } from '@/server/db/mutations'
+import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
@@ -157,12 +157,7 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             })
             .executeTakeFirstOrThrow()
 
-        await db
-            .updateTable('study')
-            .set({ reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
-        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
+        await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
 
         // The editor's persist gate refuses writes to a decided job, which is what stops a
         // connected tab recreating the row.

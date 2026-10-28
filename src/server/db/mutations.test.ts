@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
-import { insertTestOrg, insertTestStudyJobData, insertTestStudyOnly, insertTestUser } from '@/tests/unit.helpers'
+import {
+    insertTestOrg,
+    insertTestStudyJobData,
+    insertTestStudyOnly,
+    insertTestUser,
+    stampStudyOpened,
+    studyOpenedAt,
+} from '@/tests/unit.helpers'
 import { NotFoundError } from '@/lib/errors'
 import type { StudyJobStatus } from '@/database/types'
 import {
@@ -8,6 +15,7 @@ import {
     ensureRoundJobForUpload,
     findOrCreateOrgMembership,
     getOrCreateCurrentRoundJob,
+    markStudyUpdated,
 } from './mutations'
 
 const jobsForStudy = (studyId: string) =>
@@ -340,5 +348,30 @@ describe('findOrCreateOrgMembership', () => {
 
         const rows = await db.selectFrom('orgUser').select('id').where('userId', '=', user.id).execute()
         expect(rows).toHaveLength(1)
+    })
+})
+
+describe('markStudyUpdated (OTTER-937)', () => {
+    it('moves Last updated, applies the extra columns, and stamps only the actor as having seen it', async () => {
+        const org = await insertTestOrg()
+        const { user: actor } = await insertTestUser({ org })
+        const { user: other } = await insertTestUser({ org })
+        const { study } = await insertTestStudyOnly({ org, status: 'PENDING-REVIEW' })
+        const earlier = new Date(Date.now() - 60_000)
+        await stampStudyOpened(study.id, [actor.id, other.id], earlier)
+
+        await markStudyUpdated(db, { studyId: study.id, userId: actor.id, set: { status: 'CHANGE-REQUESTED' } })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status', 'lastUpdatedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('CHANGE-REQUESTED')
+        expect(updated.lastUpdatedAt.getTime()).toBeGreaterThan(earlier.getTime())
+        expect((await studyOpenedAt(study.id, actor.id))!.getTime()).toBeGreaterThanOrEqual(
+            updated.lastUpdatedAt.getTime(),
+        )
+        expect(await studyOpenedAt(study.id, other.id)).toEqual(earlier)
     })
 })

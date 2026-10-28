@@ -12,7 +12,7 @@ import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudySubject } from '@/server/actions/study-subject'
 import { storeS3File } from '@/server/aws'
 import { codeRoundForJob } from '@/server/db/code-round'
-import { markStudyOpened } from '@/server/db/mutations'
+import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { onStudyCodeSubmitted, onStudyProposalSubmitted, onStudyReviewRequested } from '@/server/events'
 import { revalidatePath } from 'next/cache'
@@ -72,8 +72,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         await markCodeSubmitted(db, { studyJobId, userId })
         const round = await codeRoundForJob(studyJobId, db)
 
-        await db.updateTable('study').set({ lastUpdatedAt: new Date() }).where('id', '=', studyId).execute()
-        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
+        await markStudyUpdated(db, { studyId, userId })
 
         if (status === 'APPROVED') {
             onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: false })
@@ -202,12 +201,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
             throw err
         }
 
-        await db
-            .updateTable('study')
-            .set({ lastUpdatedAt: new Date(), codeResubmissionNoteDraft: null })
-            .where('id', '=', studyId)
-            .execute()
-        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
+        await markStudyUpdated(db, { studyId, userId, set: { codeResubmissionNoteDraft: null } })
 
         onStudyCodeSubmitted({ userId, studyId, studyJobId, isResubmission: true })
         afterCommit(() => onStudyReviewRequested({ studyJobId, round }))
