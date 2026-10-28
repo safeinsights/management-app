@@ -42,6 +42,16 @@ describe('FormField', () => {
         )
     })
 
+    // OTTER-662: Mantine's own label weight is 500, which Figma does not have.
+    it('gives a bare Mantine label the FormField weight and gap', () => {
+        renderWithProviders(<TextInput label="Name" />)
+
+        const label = screen.getByText('Name')
+
+        expect(label.style.getPropertyValue('font-weight')).toBe('var(--si-font-weight-semibold)')
+        expect(label.style.getPropertyValue('margin-bottom')).toBe('var(--mantine-spacing-xxs)')
+    })
+
     // OTTER-769: theme styles reach the DOM as an inline style, so this covers every
     // Mantine-rendered asterisk in the app, not only this component's.
     it('paints the required asterisk with the design color', () => {
