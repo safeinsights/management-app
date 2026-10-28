@@ -144,6 +144,8 @@ export const Routes = {
 
     legal: '/legal' as Route,
 
+    support: '/support' as Route,
+
     adminSettings: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/settings`, OrgParams),
     adminTeam: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/team`, OrgParams),
     adminLegal: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/legal`, OrgParams),
