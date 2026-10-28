@@ -19,7 +19,10 @@ import {
     seedProposalPendingReview,
     SEEDED_RESUBMISSION_NOTE,
     seededFullName,
+    ENCLAVE_SLUG,
+    LAB_SLUG,
 } from './e2e.seed'
+import { Routes } from '@/lib/routes/definitions'
 import * as study from './study.helpers'
 
 // E2e study-lifecycle coverage. Governing rule: every distinct UI surface is
@@ -48,14 +51,14 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // the order a researcher meets them. The draft exists now, so only the title stays editable
         // and a valid click proceeds without the first-visit confirmation modal.
         await page.getByRole('button', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEdit))
         await expect(page.getByRole('textbox', { name: /Study title/ })).toHaveValue(studyTitle)
         await expect(page.getByTestId('org-select')).toHaveCount(0)
 
         const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
-        await page.waitForURL(/\/proposal$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyProposal))
         await expect(page.getByRole('dialog')).toHaveCount(0)
 
         await study.fillAndSubmitProposal(page, { linkNotes: true })
@@ -65,7 +68,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         await visitAsRole(page, study.RESEARCHER_DASHBOARD)
         const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
         await study.clickViewLink(page, studyRow)
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
 
         // This view mounts the proposal collapsed (initialExpanded={false}), so the card shows a
         // snippet and the full body is not rendered until the toggle is clicked.
@@ -91,7 +94,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         // field has an input left and the CTA only steps forward. The title has been locked since
         // submission, which is what makes the permanent lock outrank state 2's editable title.
         await page.getByRole('link', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEdit))
         await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await study.expectLockedSetupField(page, 'Study title', studyTitle)
         await study.expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
@@ -103,7 +106,7 @@ test('Researcher submits a proposal', async ({ browser, studyFeatures }) => {
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
         await expect(page.getByTestId('status-alert')).toContainText('Proposal submitted to')
     })
 })
@@ -131,7 +134,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         // Navigate back, which triggers save-on-navigate and flushes Step 2 fields
         // to the study row so draftHasStep2Progress resolves correctly.
         await page.getByRole('button', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEdit))
 
         // Revisiting Step 1 keeps the title editable and shows it as saved, while the Data
         // Partner and language are now settled and locked.
@@ -153,7 +156,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         const saveAndContinue = page.getByRole('button', { name: 'Save & continue' })
         await expect(saveAndContinue).toBeEnabled()
         await saveAndContinue.click()
-        await page.waitForURL(/\/proposal$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyProposal))
         await expect(page.getByRole('dialog')).toHaveCount(0)
 
         await visitAsRole(page, study.RESEARCHER_DASHBOARD)
@@ -163,7 +166,7 @@ test('Researcher resumes a Step 2 draft on Step 2', async ({ browser, studyFeatu
         await draftRow.getByRole('link', { name: studyTitle }).click()
 
         // Resumes on Step 2 (/proposal), NOT the Step 1 picker (/edit).
-        await page.waitForURL(/\/proposal$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyProposal))
         await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
     })
 })
@@ -181,7 +184,7 @@ test('Reviewer approves a proposal', async ({ browser, studyFeatures }) => {
 // Owns the researcher file-upload surface. Seeds an APPROVED-no-code study.
 test('Researcher uploads code via file upload', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('file-upload')
-    await seedApprovedNoCode(studyTitle)
+    const { studyId } = await seedApprovedNoCode(studyTitle)
 
     await withRole(browser, 'researcher', async (page) => {
         await study.navigateToCodeUpload(page, studyTitle)
@@ -189,8 +192,7 @@ test('Researcher uploads code via file upload', async ({ browser, studyFeatures 
 
         // QA's reproduction (OTTER-693): reopening /code after submitting left it fully live, and
         // both a main-file change and a second submission went through.
-        const studyId = page.url().match(/\/study\/([^/]+)/)![1]
-        await goto(page, `/openstax-lab/study/${studyId}/code`)
+        await goto(page, Routes.studyCode({ orgSlug: LAB_SLUG, studyId }))
         await expect(page.getByRole('radio', { name: `${mainFileName} is the main file`, exact: true })).toBeDisabled()
         await expect(page.getByRole('button', { name: /submit code for review/i })).toBeHidden()
         await expect(page.getByRole('button', { name: /launch ide/i })).toBeHidden()
@@ -324,7 +326,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('/dashboard')
+        await page.waitForURL(Routes.dashboard)
 
         // Both roles read the same badge for a declined proposal, which is the stored REJECTED
         // status under the name the spec gives it (OTTER-698).
@@ -342,7 +344,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 
         await studyRow.getByRole('link').first().click()
         // POST_SUBMISSION_STATUSES without job activity route to /submitted.
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByTestId('status-alert')).toContainText('Proposal declined')
 
@@ -353,7 +355,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         // OTTER-764: a submitted proposal steps back to Step 1 as a read-only record, and forward
         // again from there. Every field is a locked group by now, so none of them holds a control.
         await page.getByRole('link', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEdit))
         await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await study.expectLockedSetupField(page, 'Study title', studyTitle)
         await study.expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
@@ -364,7 +366,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
         const nextStep = page.getByRole('button', { name: 'Next step' })
         await expect(nextStep).toBeEnabled()
         await nextStep.click()
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
     })
 })
@@ -373,8 +375,7 @@ test('Proposal rejection', async ({ browser, studyFeatures }) => {
 // resubmit surface. Seeds PENDING-REVIEW, then drives clarify -> resubmit live.
 test('Proposal clarification and resubmission', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('prop-clarify')
-    await seedProposalPendingReview(studyTitle)
-    let studyId = ''
+    const { studyId } = await seedProposalPendingReview(studyTitle)
 
     await withRole(browser, 'reviewer', async (page) => {
         await visitAsRole(page, study.REVIEWER_DASHBOARD)
@@ -403,7 +404,7 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('/dashboard')
+        await page.waitForURL(Routes.dashboard)
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -413,16 +414,15 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(studyRow).toBeVisible()
         await studyRow.getByRole('link').first().click()
 
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
-        studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         // OTTER-764: a change-requested proposal steps back to the read-only Step 1 record and
         // forward again, like every other post-submission state. The footer offers the step back
         // rather than an exit, so no control here leads to the dashboard.
         await expect(page.getByTestId('cta-back-to-my-studies')).toHaveCount(0)
         await page.getByRole('link', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/edit(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEdit))
         await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await study.expectLockedSetupField(page, 'Study title', studyTitle)
         await study.expectLockedSetupField(page, 'Data Partner', /^Openstax$/i)
@@ -433,19 +433,21 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         const forwardToProposal = page.getByRole('button', { name: 'Next step' })
         await expect(forwardToProposal).toBeEnabled()
         await forwardToProposal.click()
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested')
 
         await page.getByRole('link', { name: /^Edit proposal$/i }).click()
-        await page.waitForURL(/\/edit-and-resubmit$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEditAndResubmit))
 
         // OTTER-673: Edit proposal steps back to Step 1, whose Next step returns to Edit proposal
         // rather than to the proposal status it was opened from.
         await page.getByRole('button', { name: /^Previous step$/i }).click()
-        await page.waitForURL(/\/edit\?from=edit-proposal$/)
+        await page.waitForURL(
+            study.onStudyPage(LAB_SLUG, (params) => Routes.studyEdit({ ...params, from: 'edit-proposal' })),
+        )
         await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         await page.getByRole('button', { name: 'Next step' }).click()
-        await page.waitForURL(/\/edit-and-resubmit$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyEditAndResubmit))
 
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Edit proposal', level: 2 })).toBeVisible()
@@ -481,13 +483,13 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
         await expect(resubmitDialog.getByText('Resubmit your proposal?')).toBeVisible()
         await resubmitDialog.getByRole('button', { name: /^Resubmit proposal$/i }).click()
 
-        await page.waitForURL(/\/submitted(\?.*)?$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studySubmitted))
     })
 
     await withRole(browser, 'reviewer', async (page) => {
         // Resubmission returns the proposal to PENDING-REVIEW: the editable
         // ProposalReviewView re-opens with a fresh decision section.
-        await goto(page, `/openstax/study/${studyId}/review`)
+        await goto(page, Routes.studyReview({ orgSlug: ENCLAVE_SLUG, studyId }))
         await expect(page.getByRole('heading', { name: studyTitle, level: 1 })).toBeVisible()
         await expect(page.getByRole('button', { name: /^Submit decision$/i })).toBeVisible()
     })
@@ -498,18 +500,17 @@ test('Proposal clarification and resubmission', async ({ browser, studyFeatures 
 // CODE-CHANGES-REQUESTED state implicitly via the live decision and drives resubmit.
 test('Code change request and resubmission', async ({ browser, studyFeatures }) => {
     const studyTitle = studyFeatures.uniqueTitle('code-change')
-    await seedCodeSubmitted(studyTitle)
-    let studyId = ''
+    const { studyId } = await seedCodeSubmitted(studyTitle)
 
     await withRole(browser, 'reviewer', async (page) => {
         await study.openCodeReviewEditor(page, studyTitle)
 
         // OTTER-673: the code step walks back to the decided proposal, which steps forward again.
         await page.getByRole('link', { name: /Previous step/i }).click()
-        await page.waitForURL(/\/review\/proposal$/)
+        await page.waitForURL(study.onStudyPage(ENCLAVE_SLUG, Routes.studyReviewProposal))
         await expect(page.getByTestId('status-alert')).toContainText('Proposal approved')
         await page.getByRole('link', { name: /^Next step$/i }).click()
-        await page.waitForURL(/\/review\/code$/)
+        await page.waitForURL(study.onStudyPage(ENCLAVE_SLUG, Routes.studyReviewCode))
         await expect(page.getByTestId('code-review-section')).toBeVisible()
 
         await study.reviewerRequestsCodeRevision(
@@ -517,7 +518,7 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
             'Requesting revisions to submitted code — please address criteria.',
         )
         await page.getByTestId('cta-back-to-my-studies').click()
-        await page.waitForURL('/dashboard')
+        await page.waitForURL(Routes.dashboard)
     })
 
     await withRole(browser, 'researcher', async (page) => {
@@ -528,17 +529,18 @@ test('Code change request and resubmission', async ({ browser, studyFeatures }) 
         await studyRow.getByRole('link').first().click()
 
         await expect(page.getByTestId('status-alert')).toContainText('Revision requested on your code')
-        studyId = page.url().match(/\/study\/([^/]+)/)![1]
 
         // OTTER-673: Edit code steps back past the code step to the approved proposal, whose Next
         // step returns to Edit code.
         await page.getByTestId('cta-edit-code').click()
-        await page.waitForURL(/\/resubmit$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyResubmit))
         await page.getByRole('button', { name: /^Previous step$/i }).click()
-        await page.waitForURL(/\/submitted\?from=edit-code$/)
+        await page.waitForURL(
+            study.onStudyPage(LAB_SLUG, (params) => Routes.studySubmitted({ ...params, from: 'edit-code' })),
+        )
         await expect(page.getByTestId('status-alert').filter({ hasText: 'Proposal approved' })).toBeVisible()
         await page.getByRole('link', { name: /^Next step$/i }).click()
-        await page.waitForURL(/\/resubmit$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyResubmit))
         await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         await study.researcherResubmitsCode(page, studyId, 'Updated code per reviewer feedback.')
@@ -555,7 +557,7 @@ test('Dashboards name the reviewer who decided on the code', async ({ browser, s
         await visitAsRole(page, study.REVIEWER_DASHBOARD)
         await expect(page.getByRole('row').filter({ hasText: studyTitle })).toContainText(reviewerName)
 
-        await visitAsRole(page, '/dashboard')
+        await visitAsRole(page, Routes.dashboard)
         await expect(page.getByRole('row').filter({ hasText: studyTitle })).toBeVisible()
     })
 })
@@ -592,7 +594,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
     const { studyId } = await seedCodeResultsReady(studyTitle)
 
     await withRole(browser, 'researcher', async (page) => {
-        await goto(page, `/openstax-lab/study/${studyId}/resubmit`)
+        await goto(page, Routes.studyResubmit({ orgSlug: LAB_SLUG, studyId }))
         await expect(page.getByRole('heading', { name: 'Edit code', level: 2 })).toBeVisible()
 
         // Seeded jobs have no local workspace files, so /resubmit exercises the empty view.
@@ -620,7 +622,7 @@ test('Results-ready code resubmission', async ({ browser, studyFeatures }) => {
             .getByRole('button', { name: /^Resubmit code$/i })
             .click()
 
-        await page.waitForURL('**/view')
+        await page.waitForURL(Routes.studyView({ orgSlug: LAB_SLUG, studyId }))
     })
 })
 
@@ -633,7 +635,7 @@ test('Code rejection ends the study', async ({ browser, studyFeatures }) => {
     const { studyId } = await seedCodeRejected(studyTitle)
 
     await withRole(browser, 'reviewer', async (page) => {
-        await goto(page, `/openstax/study/${studyId}/review`)
+        await goto(page, Routes.studyReview({ orgSlug: ENCLAVE_SLUG, studyId }))
 
         await expect(page.getByTestId('status-alert')).toContainText('Code declined')
     })
@@ -660,7 +662,7 @@ test('ProposalReviewView for study without code', async ({ browser, studyFeature
     await withRole(browser, 'reviewer', async (page) => {
         // This test asserts the review view's content, not the dashboard row — navigate
         // straight to the study (the seed gives us its id) instead of dashboard → View.
-        await visitAsRole(page, `/openstax/study/${studyId}/review`)
+        await visitAsRole(page, Routes.studyReview({ orgSlug: ENCLAVE_SLUG, studyId }))
 
         await expect(page.getByText('Step 1', { exact: true })).toBeVisible()
         // The page heading is the study title; "Review proposal" is the section header.
@@ -698,7 +700,7 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         const newStudyButton = page.getByTestId('new-study').first()
         await newStudyButton.waitFor({ state: 'visible' })
         await newStudyButton.click()
-        await page.waitForURL(/\/study\/request$/)
+        await page.waitForURL(Routes.studyRequest({ orgSlug: LAB_SLUG }))
 
         // Nothing is flagged before the researcher interacts, and the button is live from load.
         const proceed = page.getByRole('button', { name: 'Save & continue' })
@@ -753,7 +755,7 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
 
         // ...and confirming moves on to Step 2.
         await study.confirmStep1(page)
-        await page.waitForURL(/\/proposal$/)
+        await page.waitForURL(study.onStudyPage(LAB_SLUG, Routes.studyProposal))
         await expect(page.getByText('Step 2', { exact: true })).toBeVisible()
 
         // Step 2 no longer owns the title, and OTTER-691 removed its placeholders. Asserted on the

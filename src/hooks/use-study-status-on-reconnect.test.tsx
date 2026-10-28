@@ -6,10 +6,15 @@ import {
     advanceTimers,
     afterEach,
     beforeEach,
+    db,
     describe,
     expect,
     fakeTimeouts,
+    insertTestJobStatuses,
+    insertTestStudyJobData,
+    insertTestStudyOnly,
     it,
+    mockSessionWithTestData,
     render,
     restoreRealTimers,
     staleActionError,
@@ -17,6 +22,7 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { YjsWebsocketProvider, __resetSharedYjsWebsocketForTests } from '@/lib/realtime/yjs-websocket-context'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
@@ -31,10 +37,13 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const memoryRouter = (RouterMock as any).memoryRouter as { asPath: string; setCurrentUrl: (url: string) => void }
 
-vi.mock('@/server/actions/editor.actions', () => ({
-    getStudyStatusAction: vi.fn(),
-    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
-}))
+// Real by default, so a status comes from the study's rows. A test overrides it only for a transport
+// failure, which a real action never throws, or under timers jumped past pg-pool's 10s idle timeout,
+// whose firing would close the client the test transaction runs on.
+vi.mock('@/server/actions/editor.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/editor.actions')>()
+    return { ...actual, getStudyStatusAction: vi.fn(actual.getStudyStatusAction) }
+})
 
 const ctorSpy = (HocuspocusProviderWebsocket as unknown as { __ctor: Mock }).__ctor
 const getStudyStatusActionMock = getStudyStatusAction as unknown as Mock
@@ -47,11 +56,21 @@ type FakeSocket = {
     __emit: (event: string, ...args: unknown[]) => void
 }
 
+// For the tests whose reply is overridden, so no row is read.
 const STUDY_ID = '00000000-0000-0000-0000-000000000000'
 
-const Harness = ({ enabled = true }: { enabled?: boolean }) => {
+// The session's org submitted the study, which lets it view the study in any status. The first job
+// status comes with the job and the rest are stamped after it.
+const insertStudy = async (status: StudyStatus, [jobStatus, ...laterStatuses]: StudyJobStatus[] = []) => {
+    const { org } = await mockSessionWithTestData()
+    const { study, job } = await insertTestStudyJobData({ org, studyStatus: status, jobStatus })
+    await insertTestJobStatuses(job.id, laterStatuses)
+    return { studyId: study.id, jobId: job.id }
+}
+
+const Harness = ({ studyId, enabled = true }: { studyId: string; enabled?: boolean }) => {
     useStudyStatusOnReconnect({
-        studyId: STUDY_ID,
+        studyId,
         orgSlug: 'org',
         editableStatuses: ['DRAFT', 'CHANGE-REQUESTED'],
         redirectTarget: 'studySubmitted',
@@ -60,10 +79,10 @@ const Harness = ({ enabled = true }: { enabled?: boolean }) => {
     return null
 }
 
-const mount = (props: { enabled?: boolean } = {}) =>
+const mount = (studyId: string, props: { enabled?: boolean } = {}) =>
     render(
         <YjsWebsocketProvider>
-            <Harness enabled={props.enabled} />
+            <Harness studyId={studyId} enabled={props.enabled} />
         </YjsWebsocketProvider>,
     )
 
@@ -82,16 +101,17 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('checks status once on initial connect', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
-        mount()
+        const { studyId } = await insertStudy('DRAFT')
+        mount(studyId)
 
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
         expect(memoryRouter.asPath).toBe('/')
+        expect(showMock).not.toHaveBeenCalled()
     })
 
     it('redirects when status is no longer editable on initial connect', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
-        mount()
+        const { studyId } = await insertStudy('PENDING-REVIEW')
+        mount(studyId)
 
         await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
@@ -100,7 +120,7 @@ describe('useStudyStatusOnReconnect', () => {
     it('does not poll on a stable connection', async () => {
         fakeTimeouts()
         getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
-        mount()
+        mount(STUDY_ID)
 
         await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
         // Long enough that the old 10s poll would have fired several times.
@@ -109,9 +129,9 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('checks again after a disconnect → reconnect', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
-        mount()
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        const { studyId } = await insertStudy('DRAFT')
+        mount(studyId)
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
 
         const socket = (HocuspocusProviderWebsocket as unknown as { __instances: FakeSocket[] }).__instances[0]
         act(() => {
@@ -122,13 +142,13 @@ describe('useStudyStatusOnReconnect', () => {
             socket.status = 'connected'
             socket.__emit('status', { status: 'connected' })
         })
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(2))
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(2))
     })
 
     it('does nothing when disabled', async () => {
+        const { studyId } = await insertStudy('PENDING-REVIEW')
         fakeTimeouts()
-        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
-        mount({ enabled: false })
+        mount(studyId, { enabled: false })
 
         await advanceTimers(30_000)
         expect(getStudyStatusActionMock).not.toHaveBeenCalled()
@@ -136,11 +156,11 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('uses the isEditable predicate when provided', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW', latestJobStatus: 'CODE-SUBMITTED' })
+        const { studyId } = await insertStudy('PENDING-REVIEW', ['CODE-SUBMITTED'])
 
         const Predicated = () => {
             useStudyStatusOnReconnect({
-                studyId: STUDY_ID,
+                studyId,
                 orgSlug: 'org',
                 editableStatuses: [],
                 isEditable: ({ status, latestJobStatus }) =>
@@ -158,18 +178,18 @@ describe('useStudyStatusOnReconnect', () => {
             </YjsWebsocketProvider>,
         )
 
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
         // The empty editableStatuses allowlist would otherwise force a redirect.
         expect(memoryRouter.asPath).toBe('/')
         expect(showMock).not.toHaveBeenCalled()
     })
 
     it('predicate path redirects when criteria no longer match', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'APPROVED', latestJobStatus: 'CODE-APPROVED' })
+        const { studyId } = await insertStudy('APPROVED', ['CODE-APPROVED'])
 
         const Predicated = () => {
             useStudyStatusOnReconnect({
-                studyId: STUDY_ID,
+                studyId,
                 orgSlug: 'org',
                 editableStatuses: [],
                 isEditable: ({ status, latestJobStatus }) =>
@@ -194,11 +214,11 @@ describe('useStudyStatusOnReconnect', () => {
     })
 
     it('sends a code round to the code step rather than bare /review', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'APPROVED', latestJobStatus: 'CODE-APPROVED' })
+        const { studyId } = await insertStudy('APPROVED', ['CODE-APPROVED'])
 
         const CodeRound = () => {
             useStudyStatusOnReconnect({
-                studyId: STUDY_ID,
+                studyId,
                 orgSlug: 'org',
                 editableStatuses: [],
                 isEditable: ({ latestJobStatus }) =>
@@ -215,12 +235,12 @@ describe('useStudyStatusOnReconnect', () => {
             </YjsWebsocketProvider>,
         )
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(`/org/study/${STUDY_ID}/review/code`))
+        await waitFor(() => expect(memoryRouter.asPath).toBe(`/org/study/${studyId}/review/code`))
     })
 
     it('gives a proposal screen and a review screen different default wording', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
-        mount()
+        const { studyId } = await insertStudy('PENDING-REVIEW')
+        mount(studyId)
 
         await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submission complete' }))
@@ -253,7 +273,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
     })
 
     it('lets descendants imperatively fire the kick-out check', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT' })
+        const { studyId } = await insertStudy('DRAFT')
 
         const Trigger = () => {
             const triggerKickOut = useTriggerStudyKickOut()
@@ -267,7 +287,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         const { getByTestId } = render(
             <YjsWebsocketProvider>
                 <StudyKickOutProvider
-                    studyId={STUDY_ID}
+                    studyId={studyId}
                     orgSlug="org"
                     editableStatuses={['DRAFT', 'CHANGE-REQUESTED']}
                     redirectTarget="studySubmitted"
@@ -277,11 +297,11 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
             </YjsWebsocketProvider>,
         )
 
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
         expect(memoryRouter.asPath).toBe('/')
 
         // The peer has now submitted.
-        getStudyStatusActionMock.mockResolvedValue({ status: 'PENDING-REVIEW' })
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
         act(() => {
             getByTestId('trigger').click()
         })
@@ -340,32 +360,33 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
     // A tab parked on the security key form has no editor and so no live event; asking when the
     // reviewer returns to it is the moment that matters.
     it('checks again when the tab becomes visible', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ status: 'DRAFT', latestJobStatus: null, jobStatuses: [] })
-        mount()
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(1))
+        const { studyId } = await insertStudy('DRAFT')
+        mount(studyId)
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
 
         Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
         act(() => {
             document.dispatchEvent(new Event('visibilitychange'))
         })
 
-        await waitFor(() => expect(getStudyStatusActionMock).toHaveBeenCalledTimes(2))
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(2))
     })
 
     // The newest status row is CODE-SCANNED, written by the scanner after the decision. Only the
     // full status list of the named job shows that the round is closed.
     it('hands the named job status list to the predicate, so a late scan row cannot hide a decision', async () => {
-        getStudyStatusActionMock.mockResolvedValue({
-            status: 'APPROVED',
-            latestJobStatus: 'CODE-SCANNED',
-            jobStatuses: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'CODE-SCANNED'],
-        })
-        const JOB_ID = '00000000-0000-0000-0000-00000000000a'
+        const { studyId, jobId } = await insertStudy('APPROVED', [
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'RUN-COMPLETE',
+            'FILES-APPROVED',
+            'CODE-SCANNED',
+        ])
 
         const Predicated = () => {
             useStudyStatusOnReconnect({
-                studyId: STUDY_ID,
-                studyJobId: JOB_ID,
+                studyId,
+                studyJobId: jobId,
                 orgSlug: 'org',
                 editableStatuses: [],
                 isEditable: ({ jobStatuses }) => !jobStatuses.includes('FILES-APPROVED'),
@@ -383,7 +404,7 @@ describe('StudyKickOutProvider + useTriggerStudyKickOut', () => {
         )
 
         await waitFor(() => expect(memoryRouter.asPath).not.toBe('/'))
-        expect(getStudyStatusActionMock).toHaveBeenCalledWith({ studyId: STUDY_ID, studyJobId: JOB_ID })
+        expect(getStudyStatusActionMock).toHaveBeenCalledWith({ studyId, studyJobId: jobId })
         expect(showMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' }))
     })
 
@@ -440,7 +461,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
     it('offers a reload when the tab posts an action id the running build has dropped', async () => {
         getStudyStatusActionMock.mockRejectedValue(staleActionError())
-        mount()
+        mount(STUDY_ID)
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
@@ -452,7 +473,7 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
 
     it('reports a request that never arrives', async () => {
         getStudyStatusActionMock.mockRejectedValue(new TypeError('Failed to fetch'))
-        mount()
+        mount(STUDY_ID)
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(
@@ -462,8 +483,10 @@ describe('useStudyStatusOnReconnect when the status request fails', () => {
     })
 
     it('reports a server that refuses to answer', async () => {
-        getStudyStatusActionMock.mockResolvedValue({ error: 'Access denied: user not allowed access to study' })
-        mount()
+        await mockSessionWithTestData()
+        // Another org's study, which this session cannot view.
+        const { study } = await insertTestStudyOnly()
+        mount(study.id)
 
         await waitFor(() =>
             expect(showMock).toHaveBeenCalledWith(

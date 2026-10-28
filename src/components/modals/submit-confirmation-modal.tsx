@@ -1,8 +1,8 @@
 import { type FC } from 'react'
-import { Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { Button, Group, Loader, type ModalProps, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
-interface SubmitConfirmationModalProps {
+interface SubmitConfirmationModalProps extends Pick<ModalProps, 'size' | 'centered' | 'yOffset'> {
     isOpen: boolean
     onClose: () => void
     onConfirm: () => void
@@ -51,6 +51,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     body,
     confirmLabel,
     confirmLoadingLabel,
+    ...placement
 }) => (
     // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
     // would dismiss a running submission with no sign of whether it was cancelled.
@@ -61,6 +62,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
         withCloseButton={!isSubmitting}
         closeOnEscape={!isSubmitting}
         closeOnClickOutside={!isSubmitting}
+        {...placement}
     >
         <Stack gap="xl">
             <Text size="md">{body}</Text>

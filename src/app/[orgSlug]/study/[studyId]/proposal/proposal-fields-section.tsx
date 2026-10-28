@@ -80,6 +80,7 @@ const DatasetsOfInterestField: FC<DatasetsOfInterestFieldProps> = ({
             required
             description={datasetsDescription(orgName)}
             error={form.errors.datasets}
+            validatesOnBlur
         >
             <Group align="center" gap="xxl">
                 {/* 60% of the card's inner content width; the Paper's padding is already excluded. */}
@@ -191,6 +192,7 @@ export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
                         required
                         description="Select the Principal Investigator for this study."
                         error={form.errors.piName}
+                        validatesOnBlur
                     >
                         <Box w="30%">
                             <Select

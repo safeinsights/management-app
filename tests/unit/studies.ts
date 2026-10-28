@@ -230,6 +230,18 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         .execute()
 }
 
+// Explicit timestamps: rows written in one tick tie on createdAt, and v7 ids are not monotonic
+// inside a millisecond, so the order under test would otherwise be luck.
+export const insertTestJobStatuses = async (studyJobId: string, statuses: StudyJobStatus[]) => {
+    const base = Date.now()
+    for (const [index, status] of statuses.entries()) {
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId, status, createdAt: new Date(base + (index + 1) * 1000) })
+            .execute()
+    }
+}
+
 type InsertTestCodeResubmissionNoteOptions = {
     studyId: string
     studyJobId: string

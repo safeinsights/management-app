@@ -22,6 +22,7 @@ import {
 } from '@/tests/unit.helpers'
 import { StudyRequestProvider, type DraftStudyData } from '@/contexts/study-request'
 import { Routes } from '@/lib/routes'
+import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { StudyProposal } from './proposal'
 
 // focusFirstInvalid scrolls before it focuses, and the test DOM has no layout to scroll.
@@ -726,6 +727,28 @@ describe('Save & continue validation', () => {
         expect(await screen.findByText(LANGUAGE_ERROR)).toBeInTheDocument()
         expect(screen.getByRole('radio', { name: 'R' })).toHaveAttribute('aria-invalid', 'true')
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    // OTTER-880: Figma puts this error above the options, unlike every other field's.
+    it('shows the language error above the radios', async () => {
+        const user = userEvent.setup()
+        const fixtures = await setupFixtures()
+        renderSetup(fixtures)
+
+        await typeTitle(user, 'A valid study title')
+        await selectPartner(user, fixtures.multiLanguagePartner.name)
+        await screen.findByRole('radio', { name: 'Python' })
+        // Reserved before the error, so the error arriving moves nothing below it.
+        const errorLine = document.getElementById('programming-language-error')!
+        expect(errorLine.style.minHeight).toBe(ERROR_LINE_MIN_HEIGHT)
+
+        await user.click(continueButton())
+
+        const error = await screen.findByText(LANGUAGE_ERROR)
+        const firstRadio = screen.getByRole('radio', { name: 'R' })
+
+        expect(errorLine).toContainElement(error)
+        expect(error.compareDocumentPosition(firstRadio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('opens the modal once every field is valid', async () => {
