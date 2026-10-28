@@ -10,7 +10,7 @@ export const KeyAlreadyExists: Story = () => {
     const [isModalOpen, { open, close }] = useDisclosure(false)
     return (
         <RegenerateKeyView
-            generatedOn="Jul 08, 2026"
+            generatedOn="2026-07-08T15:00:00Z"
             isModalOpen={isModalOpen}
             onOpenModal={open}
             onCloseModal={close}
@@ -23,7 +23,7 @@ export const ConfirmKeyResetModal: Story = () => {
     const [isModalOpen, { open, close }] = useDisclosure(true)
     return (
         <RegenerateKeyView
-            generatedOn="Jul 08, 2026"
+            generatedOn="2026-07-08T15:00:00Z"
             isModalOpen={isModalOpen}
             onOpenModal={open}
             onCloseModal={close}

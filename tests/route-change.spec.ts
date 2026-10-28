@@ -12,7 +12,8 @@ test.describe('client-side navigation', () => {
         await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
         await expect(page).toHaveTitle('Dashboard - SafeInsights')
 
-        await page.getByRole('link', { name: 'My studies', exact: true }).click()
+        // Anchored rather than exact: any study another spec seeds unopened adds "Updated" to the name.
+        await page.getByRole('link', { name: /^My studies( Updated)?$/ }).click()
 
         await expect(page).toHaveTitle('My studies - SafeInsights')
         await expect(page.locator('#main-content')).toBeFocused()
