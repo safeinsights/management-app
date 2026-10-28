@@ -3,6 +3,13 @@ import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/typ
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { lexicalJson } from '@/lib/lexical'
+import { actionResult } from '@/lib/utils'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRole } from '@/lib/study-screen/state.types'
+import {
+    fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForOrgAction,
+} from '@/server/actions/study-dashboard.actions'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 import { expect } from 'vitest'
@@ -420,3 +427,38 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     hasStep2CollabDoc: false,
     ...overrides,
 })
+
+// A visit stamped before a change stands in for the client's enter stamp with no leave stamp, which is
+// what a reload or a typed URL leaves behind (OTTER-937).
+export const stampStudyOpened = (studyId: string, userIds: string[], openedAt: Date) =>
+    db
+        .insertInto('studyLastOpened')
+        .values(userIds.map((userId) => ({ studyId, userId, openedAt })))
+        .onConflict((oc) => oc.columns(['userId', 'studyId']).doUpdateSet({ openedAt }))
+        .execute()
+
+export const studyOpenedAt = async (studyId: string, userId: string) =>
+    (
+        await db
+            .selectFrom('studyLastOpened')
+            .select('openedAt')
+            .where('studyId', '=', studyId)
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+    )?.openedAt ?? null
+
+// The dot the session's user sees on an org dashboard, through the same action and rule as the table.
+export const isUnreadOnOrgDashboard = async (orgSlug: string, studyId: string, audience: StudyRole) => {
+    const row = actionResult(await fetchStudiesForOrgAction({ orgSlug })).find((candidate) => candidate.id === studyId)
+    if (!row) throw new Error(`study ${studyId} is not on the ${orgSlug} dashboard`)
+    return isStudyUnread(row, audience)
+}
+
+// The same dot on the researcher's My studies (/dashboard), where QA reproduced OTTER-937.
+export const isUnreadOnMyStudies = async (studyId: string) => {
+    const row = actionResult(await fetchStudiesForCurrentResearcherUserAction()).find(
+        (candidate) => candidate.id === studyId,
+    )
+    if (!row) throw new Error(`study ${studyId} is not on My studies`)
+    return isStudyUnread(row, 'researcher')
+}
