@@ -3,7 +3,7 @@
 import type { FC } from '@/common'
 import { PageHeader } from '@/components/page-header'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import { ActionIcon, Box, CopyButton, Group, Paper, Stack, Text } from '@mantine/core'
+import { ActionIcon, CopyButton, Group, Paper, Stack, Text } from '@mantine/core'
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react/dist/ssr'
 
 export const SUPPORT_EMAIL = 'beta-team@safeinsights.org'
@@ -34,18 +34,16 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
 )
 
 export const SupportView: FC = () => (
-    <Box p="md">
-        <Stack maw={1036} mx="auto">
-            <PageHeader title="Support" />
-            <Paper shadow="xs" p="xxl">
-                <Text>
-                    Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
-                    <CopyButton value={SUPPORT_EMAIL} timeout={COPIED_MS}>
-                        {({ copied, copy }) => <CopyEmail copied={copied} copy={copy} />}
-                    </CopyButton>
-                    .
-                </Text>
-            </Paper>
-        </Stack>
-    </Box>
+    <Stack p="xxl" gap="xxl">
+        <PageHeader title="Support" />
+        <Paper shadow="xs" p="xxl">
+            <Text>
+                Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
+                <CopyButton value={SUPPORT_EMAIL} timeout={COPIED_MS}>
+                    {({ copied, copy }) => <CopyEmail copied={copied} copy={copy} />}
+                </CopyButton>
+                .
+            </Text>
+        </Paper>
+    </Stack>
 )
