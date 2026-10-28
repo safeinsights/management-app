@@ -10,7 +10,6 @@ import {
     userEvent,
     waitFor,
 } from '@/tests/unit.helpers'
-import { vi } from 'vitest'
 import { lexicalJson } from '@/lib/lexical'
 import { fieldErrorId } from '@/components/form-field'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
@@ -19,10 +18,6 @@ import { overCharacterLimitError } from '@/lib/field-limits'
 import { ReviewFeedbackProviderShare } from '@/lib/realtime/review-feedback-provider-context'
 import { SAVED_LABEL } from '@/components/save-status'
 import { ReviewFeedbackSection } from './review-feedback-section'
-
-vi.mock('@/server/actions/editor.actions', () => ({
-    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
-}))
 
 const PLACEHOLDER_TEXT = 'This study is feasible with our current data.'
 const OVER_LIMIT_ERROR = overCharacterLimitError(REVIEW_FEEDBACK_FIELD_TITLE, REVIEW_FEEDBACK_MAX_CHARACTERS)

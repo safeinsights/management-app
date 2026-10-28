@@ -1,4 +1,6 @@
 import { currentDb } from '@/server/request-context'
+import { clerkOrgSyncEnabled } from '@/server/config'
+import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
@@ -53,6 +55,25 @@ export async function findOrCreateOrgMembership({
         .execute()
 
     return { ...org, isAdmin }
+}
+
+// For bin scripts, which cannot load @clerk/nextjs; the sync is passed in. Call it once all of the
+// user's memberships are written: unlike the app's sync, a Clerk error throws, so a bin script fails loudly.
+export async function syncUserOrgsToClerk(userId: string, clerkSync: ReturnType<typeof createClerkOrgSync>) {
+    if (!clerkOrgSyncEnabled()) return
+    const executor = currentDb()
+    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
+    if (executor.isTransaction) throw new Error('cannot sync memberships to Clerk before they commit')
+    const memberships = await executor
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .innerJoin('user', 'user.id', 'orgUser.userId')
+        .select(['org.slug', 'org.name', 'org.type', 'orgUser.isAdmin', 'user.clerkId'])
+        .where('orgUser.userId', '=', userId)
+        .execute()
+    for (const membership of memberships) {
+        await clerkSync.syncMembership(membership, membership.clerkId, membership.isAdmin)
+    }
 }
 
 export type RoundJob = {

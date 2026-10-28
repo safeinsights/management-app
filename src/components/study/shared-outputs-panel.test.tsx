@@ -22,11 +22,6 @@ vi.mock('@/server/actions/study-job.actions', () => ({
     fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
-}))
-
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 

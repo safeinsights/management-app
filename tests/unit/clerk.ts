@@ -1,9 +1,9 @@
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
-import { faker } from '@faker-js/faker'
 import { useParams } from 'next/navigation'
 import { Mock, vi } from 'vitest'
+import { createFakeClerkOrgs } from './clerk-orgs'
 import { BLANK_UUID, testEmail } from './identity'
 import { setMockedLayoutUserInfo } from './layout-user-info'
 
@@ -93,17 +93,9 @@ export const mockClerkSession = (values: MockSession | null) => {
         primaryEmailAddress: { emailAddress: mockEmail },
     }
     user.mockResolvedValue(userProperties)
+    const fakeOrgs = createFakeClerkOrgs()
     const clientMocks = {
-        organizations: {
-            getOrganization: vi.fn(async (orgSlug: string) => ({
-                slug: orgSlug,
-                id: values.orgId || faker.string.alpha(10),
-                name: 'Mocked Clerk Org Name by getOrganization',
-            })),
-            createOrganization: vi.fn(async (org: object) => org),
-            createOrganizationMembership: vi.fn(async () => ({ id: '1234' })),
-            updateOrganization: vi.fn(),
-        },
+        organizations: fakeOrgs.api,
         users: {
             updateUser: vi.fn(),
             updateUserMetadata: vi.fn(),
@@ -162,7 +154,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         userId: values.clerkUserId,
     }))
 
-    return { client: clientMocks, auth, useUserReturn }
+    return { client: clientMocks, auth, useUserReturn, orgs: fakeOrgs }
 }
 
 type CreateMockUserSessionOptions = {
