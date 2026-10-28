@@ -62,17 +62,19 @@ test.describe('client-side navigation into a study', () => {
         const studyLink = page.getByRole('row').filter({ hasText: title }).getByRole('link', { name: title })
         await expect(studyLink).toBeVisible()
         await recordAnnouncements(page)
+        // Each step waits to be heard, as a listener would; a title replaced inside the hold is never spoken.
+        const announcer = page.getByTestId('route-announcer')
 
         await studyLink.click()
-        await expect(page).toHaveTitle('Submit proposal - SafeInsights')
+        await expect(announcer).toHaveText('Submit proposal - SafeInsights')
         await page.goBack()
-        await expect(page).toHaveTitle('Dashboard - SafeInsights')
+        await expect(announcer).toHaveText('Dashboard - SafeInsights')
         await studyLink.click()
-        await expect(page).toHaveTitle('Submit proposal - SafeInsights')
+        await expect(announcer).toHaveText('Submit proposal - SafeInsights')
         await page.goBack()
-        await expect(page).toHaveTitle('Dashboard - SafeInsights')
+        await expect(announcer).toHaveText('Dashboard - SafeInsights')
         await page.goForward()
-        await expect(page).toHaveTitle('Submit proposal - SafeInsights')
+        await expect(announcer).toHaveText('Submit proposal - SafeInsights')
 
         await expect
             .poll(() => announcements(page))

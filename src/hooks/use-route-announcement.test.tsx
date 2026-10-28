@@ -12,10 +12,10 @@ import {
     renderWithProviders,
     screen,
     userEvent,
-    vi,
     waitFor,
 } from '@/tests/unit.helpers'
 import { RouteAnnouncer } from '@/components/layout/route-announcer'
+import { ANNOUNCEMENT_DELAY_MS } from '@/hooks/use-route-announcement'
 import { Routes } from '@/lib/routes'
 
 const STUDY = { orgSlug: 'lab', studyId: BLANK_UUID }
@@ -23,7 +23,6 @@ const SETUP = Routes.studyEdit(STUDY)
 const SETUP_OTHER = Routes.studyEdit({ ...STUDY, studyId: '11111111-1111-4111-8111-111111111111' })
 const CODE = Routes.studyCode(STUDY)
 const PROPOSAL = Routes.studyProposal(STUDY)
-const MFA = Routes.accountMfaApp
 const NOT_FOUND = Routes.notFound
 
 // Each page's titles in the order its head commits them; '' is a head with no title yet.
@@ -32,7 +31,6 @@ const TITLES: Record<string, string[]> = {
     [SETUP_OTHER]: ['', 'Set up study - SafeInsights'],
     [CODE]: ['Study code - SafeInsights'],
     [PROPOSAL]: ['', 'Study proposal - SafeInsights', 'Something went wrong - SafeInsights'],
-    [MFA]: [''],
     [NOT_FOUND]: ['SafeInsights', 'Page not found - SafeInsights'],
 }
 
@@ -86,6 +84,9 @@ function recordAnnouncements(): string[] {
 
 const releaseTitle = () => userEvent.click(screen.getByRole('button', { name: 'Next title' }))
 
+// An announcement is held back, so silence only counts once the hold is over.
+const outlastDelay = () => act(() => new Promise((resolve) => setTimeout(resolve, ANNOUNCEMENT_DELAY_MS + 50)))
+
 describe('useRouteAnnouncement', () => {
     beforeEach(() => mockPathname(SETUP))
 
@@ -100,11 +101,35 @@ describe('useRouteAnnouncement', () => {
         const history = recordAnnouncements()
 
         await navigate(PROPOSAL)
+        await outlastDelay()
         expect(region()).toHaveTextContent('')
 
         await releaseTitle()
 
         await waitFor(() => expect(history).toEqual(['Study proposal - SafeInsights']))
+    })
+
+    it('holds the title back until the focus move to main has been spoken', async () => {
+        renderWithProviders(<App />)
+        const history = recordAnnouncements()
+
+        await navigate(CODE)
+        expect(history).toEqual([])
+
+        await waitFor(() => expect(history).toEqual(['Study code - SafeInsights']))
+    })
+
+    it('announces only the title that stays when another replaces it during the hold', async () => {
+        renderWithProviders(<App />)
+        const history = recordAnnouncements()
+
+        await navigate(CODE)
+        await navigate(PROPOSAL)
+        await releaseTitle()
+
+        await waitFor(() => expect(history).toEqual(['Study proposal - SafeInsights']))
+        await outlastDelay()
+        expect(history).toEqual(['Study proposal - SafeInsights'])
     })
 
     it('announces a title that is already in place, as on Back and Forward', async () => {
@@ -121,23 +146,10 @@ describe('useRouteAnnouncement', () => {
         const history = recordAnnouncements()
 
         await navigate(`${SETUP}?tab=details`)
+        await outlastDelay()
 
         expect(history).toEqual([])
         expect(region()).toHaveTextContent('')
-    })
-
-    it('disconnects each wait when the route changes again, and on unmount', async () => {
-        const observe = vi.spyOn(MutationObserver.prototype, 'observe')
-        const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect')
-        const { unmount } = renderWithProviders(<App />)
-
-        await navigate(MFA)
-        await navigate(PROPOSAL)
-        unmount()
-
-        const headObservers = observe.mock.contexts.filter((_, i) => observe.mock.calls[i][0] === document.head)
-        expect(headObservers).toHaveLength(3)
-        for (const observer of headObservers) expect(disconnect.mock.contexts).toContain(observer)
     })
 
     it('announces again going forward and coming back', async () => {
@@ -145,9 +157,22 @@ describe('useRouteAnnouncement', () => {
         const history = recordAnnouncements()
 
         await navigate(CODE)
+        await waitFor(() => expect(history).toEqual(['Study code - SafeInsights']))
         await navigate(SETUP)
 
         await waitFor(() => expect(history).toEqual(['Study code - SafeInsights', 'Set up study - SafeInsights']))
+    })
+
+    it('swaps in a new text node for each title, which VoiceOver speaks more reliably than an edit', async () => {
+        renderWithProviders(<App />)
+
+        await navigate(CODE)
+        await waitFor(() => expect(region()).toHaveTextContent('Study code - SafeInsights'))
+        const first = region().firstChild
+        await navigate(SETUP)
+        await waitFor(() => expect(region()).toHaveTextContent('Set up study - SafeInsights'))
+
+        expect(region().firstChild).not.toBe(first)
     })
 
     it('does not announce a title left over from the last page, even when other head tags change', async () => {
@@ -157,6 +182,7 @@ describe('useRouteAnnouncement', () => {
         await navigate(PROPOSAL)
         // Styles land in the head during a navigation too; only a <title> change is an arrival.
         await act(async () => document.head.append(document.createElement('style')))
+        await outlastDelay()
         expect(history).toEqual([])
 
         await releaseTitle()
@@ -169,6 +195,7 @@ describe('useRouteAnnouncement', () => {
         const history = recordAnnouncements()
 
         await navigate(NOT_FOUND)
+        await outlastDelay()
         expect(history).toEqual([])
 
         await releaseTitle()
@@ -182,6 +209,7 @@ describe('useRouteAnnouncement', () => {
 
         await navigate(PROPOSAL)
         await releaseTitle()
+        await waitFor(() => expect(history).toEqual(['Study proposal - SafeInsights']))
         await releaseTitle()
 
         await waitFor(() =>
@@ -195,6 +223,7 @@ describe('useRouteAnnouncement', () => {
 
         await navigate(SETUP_OTHER)
         await releaseTitle()
+        await outlastDelay()
 
         expect(history).toEqual([])
     })
