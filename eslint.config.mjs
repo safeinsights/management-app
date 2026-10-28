@@ -230,7 +230,7 @@ const eslintConfig = [
     },
     // The theme is where raw values are supposed to live: it is what the tokens resolve to.
     {
-        files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        files: ['src/theme.ts', 'src/theme/**/*.ts'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },

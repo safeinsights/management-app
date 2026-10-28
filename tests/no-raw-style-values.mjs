@@ -201,7 +201,8 @@ const noRawStyleValues = {
                 return
             }
             if (node.type === 'Identifier') {
-                const init = resolveConstant(node)
+                let init = resolveConstant(node)
+                while (TS_WRAPPERS.includes(init?.type)) init = init.expression
                 if (!init) return
                 const values = isResponsiveObject(init) ? init.properties.map((prop) => prop.value) : [init]
                 for (const resolved of values) checkConstant(resolved, node, check)

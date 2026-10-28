@@ -424,6 +424,17 @@ ruleTester.run('noRawStyleValues', noRawStyleValues, {
             code: `const MARGIN = { base: 16 }; const P = () => <Paper my={MARGIN} />`,
             errors: [{ messageId: 'rawSpacing' }],
         },
+        // A cast on the constant must not hide its raw values.
+        {
+            code: `const MARGIN = { base: 16, lg: 0 } as const; const P = () => <Paper my={MARGIN} />`,
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawSpacing' }],
+        },
+        {
+            code: `const LH = 1.6 as const; const T = () => <Text lh={LH} />`,
+            languageOptions: { parser: typescriptEslint.parser },
+            errors: [{ messageId: 'rawLineHeight' }],
+        },
         {
             code: `const CARD = { my: { base: 16 } }`,
             errors: [{ messageId: 'rawSpacing' }],
