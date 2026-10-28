@@ -12,6 +12,9 @@ import {
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 
+// Ours, which the usual rule forbids mocking. CODER_DISABLED is fixed at import and true on CI, where
+// the real action answers "ready" at once, so build states only exist this way. coder.test.ts
+// covers the Coder calls underneath.
 vi.mock('@/server/actions/workspaces.actions', () => ({
     getWorkspaceLaunchStatusAction: vi.fn(),
 }))
