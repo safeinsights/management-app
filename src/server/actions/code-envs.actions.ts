@@ -83,6 +83,8 @@ const assertLanguageKeepsUsableCodeEnv = async (
         .where('orgCodeEnv.orgId', '=', orgId)
         .where('orgCodeEnv.language', '=', language)
         .where('orgCodeEnv.isTesting', '=', false)
+        // Without the lock, two concurrent edits each count the other env as the one that remains.
+        .forUpdate()
         .execute()
 
     const beingRemoved = nonTesting.find((env) => env.id === id)
