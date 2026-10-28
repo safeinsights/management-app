@@ -8,17 +8,20 @@ import {
     currentFakeClerkOrgsApi,
     fakeClerkRoleOf,
     faker,
+    flushDeferred,
+    getAuditEntries,
+    getAuditEntriesWithMetadata,
     insertTestOrg,
     insertTestUser,
     mockClerkSession,
     mockSessionWithTestData,
+    postHogCaptures,
     testEmail,
 } from '@/tests/unit.helpers'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import logger from '@/lib/logger'
-import { onUserAcceptInvite, onUserLogIn } from '@/server/events'
 import {
     getClaimedInviteAction,
     getOrgInfoForInviteAction,
@@ -29,8 +32,6 @@ import {
 } from './create-account.actions'
 
 beforeEach(enableClerkOrgSync)
-
-vi.mock('@/server/events')
 
 describe('Create Account Actions', () => {
     let org: { id: string; slug: string; name: string; type: 'enclave' | 'lab' } = {
@@ -115,7 +116,17 @@ describe('Create Account Actions', () => {
             .where('orgId', '=', org.id)
             .executeTakeFirstOrThrow()
         expect(membership.isAdmin).toBe(false)
-        expect(onUserAcceptInvite).toHaveBeenCalledWith({ userId: newUser.id, inviteId: invite.id, isNewAccount: true })
+        await flushDeferred()
+        expect(await getAuditEntriesWithMetadata(newUser.id, 'USER')).toContainEqual(
+            expect.objectContaining({ eventType: 'ACCEPTED_INVITE', metadata: { inviteId: invite.id } }),
+        )
+        expect(postHogCaptures()).toContainEqual(
+            expect.objectContaining({
+                distinctId: newUser.id,
+                event: 'accepted_invite',
+                properties: expect.objectContaining({ is_new_account: true }),
+            }),
+        )
     })
 
     describe('signup acknowledgements', () => {
@@ -896,7 +907,13 @@ describe('Create Account Actions', () => {
 
         await onPendingUserLoginAction({ inviteId: invite.id })
 
-        expect(onUserLogIn).toHaveBeenCalledWith({ userId: user.id })
+        await flushDeferred()
+        expect(await getAuditEntries(user.id, 'USER')).toContainEqual({
+            eventType: 'LOGGED_IN',
+            recordType: 'USER',
+            recordId: user.id,
+            userId: user.id,
+        })
     })
 
     it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {

@@ -6,6 +6,8 @@ import {
     enableClerkOrgSync,
     currentFakeClerkOrgsApi,
     fakeClerkRoleOf,
+    flushDeferred,
+    getAuditEntriesWithMetadata,
     insertTestOrg,
     insertTestUser,
     actionResult,
@@ -16,11 +18,8 @@ import {
 import { faker } from '@faker-js/faker'
 import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
-import { onUserRoleUpdate } from '@/server/events'
 
 beforeEach(enableClerkOrgSync)
-
-vi.mock('@/server/events')
 
 describe('User Actions', () => {
     it('findOrCreateSiUserId returns existing user id when user exists', async () => {
@@ -199,13 +198,14 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
-        expect(onUserRoleUpdate).toHaveBeenCalledWith({
-            userId: userToUpdate.id,
-            actorId: admin.id,
-            orgId: org.id,
-            before: expect.objectContaining({ isAdmin: false }),
-            after: { isAdmin: true },
-        })
+        await flushDeferred()
+        expect(await getAuditEntriesWithMetadata(userToUpdate.id, 'USER')).toContainEqual(
+            expect.objectContaining({
+                eventType: 'UPDATED',
+                userId: admin.id,
+                metadata: { roles: { before: expect.objectContaining({ isAdmin: false }), after: { isAdmin: true } } },
+            }),
+        )
     })
 
     test('updateUserRoleAction mirrors the role change into Clerk', async () => {
