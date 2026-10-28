@@ -296,6 +296,24 @@ describe('Action Builder', () => {
             await action()
             expect(Sentry.flush).toHaveBeenCalledOnce()
         })
+
+        it('flushes after it logs an unexpected error', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            vi.mocked(Sentry.flush).mockClear()
+            await new Action('bug-flush').handler(async () => {
+                throw new Error('boom')
+            })()
+            expect(Sentry.flush).toHaveBeenCalledOnce()
+            expect(errorSpy.mock.invocationCallOrder[0]).toBeLessThan(
+                vi.mocked(Sentry.flush).mock.invocationCallOrder[0],
+            )
+        })
+
+        it('does not flush on success', async () => {
+            vi.mocked(Sentry.flush).mockClear()
+            expect(await new Action('ok-no-flush').handler(async () => 'ok')()).toBe('ok')
+            expect(Sentry.flush).not.toHaveBeenCalled()
+        })
     })
 
     describe('API org', () => {
