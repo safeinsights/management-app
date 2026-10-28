@@ -1,7 +1,5 @@
 import { vi } from 'vitest'
-import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
 import {
-    act,
     actionResult,
     beforeAll,
     db,
@@ -9,11 +7,11 @@ import {
     expect,
     insertTestStudyJobData,
     it,
-    lexicalEditorFor,
     mockSessionWithTestData,
     preloadEditor,
     renderWithProviders,
     screen,
+    setEditorText,
     userEvent,
     waitFor,
     waitForPendingMutations,
@@ -61,16 +59,8 @@ async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
     }
 }
 
-// Through Lexical's API: happy-dom cannot dispatch the `beforeinput` events the editor listens for.
-async function fillFeedback(text = 'sample feedback body') {
-    const editor = lexicalEditorFor(await screen.findByRole('textbox', { name: 'Code review feedback' }))
-    await act(async () => {
-        editor.update(() => {
-            $getRoot()
-                .clear()
-                .append($createParagraphNode().append($createTextNode(text)))
-        })
-    })
+async function fillFeedback() {
+    await setEditorText(await screen.findByRole('textbox', { name: 'Code review feedback' }), 'sample feedback body')
 }
 
 const firstRadioIn = (testId: string) => within(screen.getByTestId(testId)).getAllByRole('radio')[0]

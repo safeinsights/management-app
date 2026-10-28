@@ -16,6 +16,7 @@ import {
     userEvent,
     type Mock,
     waitFor,
+    waitForPendingQueries,
     within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
@@ -103,18 +104,22 @@ async function insertScanLog(studyJobId: string, verdict: 'no findings' | 'findi
 
 // The poll runs the real action, so it is counted on the query cache as each poll starts.
 const watchPolls = (queryClient: ReturnType<typeof createTestQueryClient>) => {
-    const polls = {
-        started: 0,
-        failed: 0,
-        // A poll in flight absorbs the interval ticks, which would hide a poll that never stops.
-        landed: () => waitFor(() => expect(queryClient.isFetching()).toBe(0)),
-    }
+    const polls = { started: 0, failed: 0 }
     queryClient.getQueryCache().subscribe((event) => {
         if (event.type !== 'updated' || event.query.queryKey[0] !== 'job-analysis') return
         if (event.action.type === 'fetch') polls.started++
         if (event.action.type === 'error') polls.failed++
     })
     return polls
+}
+
+// A poll in flight absorbs the interval ticks, so it must land first. Counted across several
+// intervals: a count compared to itself inside waitFor passes against a poll that never stops.
+const expectPollingStopped = async (polls: ReturnType<typeof watchPolls>) => {
+    const settled = polls.started
+    await waitForPendingQueries()
+    await advanceTimers(200)
+    expect(polls.started).toBe(settled)
 }
 
 type Fixture = {
@@ -679,14 +684,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         )
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
-        // Sampled after several poll intervals: comparing the count to itself inside waitFor is
-        // satisfied on the first attempt, so it passes even against a poll that never stops — the
-        // regression this test is named for.
-        const settled = polls.started
-        await polls.landed()
-        await advanceTimers(200)
-
-        expect(polls.started).toBe(settled)
+        await expectPollingStopped(polls)
     })
 
     it('polls analysis for the current job', async () => {
@@ -729,10 +727,7 @@ describe('SubmittedCodeSection — Analysis polling', () => {
         expect(screen.getByText('Security scan pending')).toBeInTheDocument()
         await insertScanLog(fixture.job.id, 'findings found')
         await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
-        const settled = polls.started
-        await polls.landed()
-        await advanceTimers(200)
-        expect(polls.started).toBe(settled)
+        await expectPollingStopped(polls)
     })
 
     it('keeps polling until the summary arrives', async () => {
