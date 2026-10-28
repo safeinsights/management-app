@@ -22,11 +22,15 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
 // Plain text on purpose: the card rules out a mailto: link.
 const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) => (
-    <Group component="span" gap="xs" wrap="nowrap" display="inline-flex" role="status">
-        <Text component="span" fw={fontWeight.semibold}>
-            {SUPPORT_EMAIL}
-        </Text>
-        <ActionIcon variant="subtle" size="sm" aria-label="Copy email address" onClick={copy}>
+    <Group gap="sm" wrap="nowrap" role="status">
+        <Text fw={fontWeight.semibold}>{SUPPORT_EMAIL}</Text>
+        <ActionIcon
+            variant="subtle"
+            size="sm"
+            c={semanticColor('icon.dark')}
+            aria-label="Copy email address"
+            onClick={copy}
+        >
             {copied ? <CheckIcon size={ICON_SIZE} /> : <CopyIcon size={ICON_SIZE} />}
         </ActionIcon>
         <CopiedLabel isVisible={copied} />
@@ -37,13 +41,12 @@ export const SupportView: FC = () => (
     <Stack p="xxl" gap="xxl">
         <PageHeader title="Support" />
         <Paper shadow="xs" p="xxl">
-            <Text>
-                Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
+            <Stack gap="md">
+                <Text>Have a question or running into a problem? Email us and we’ll get back to you.</Text>
                 <CopyButton value={SUPPORT_EMAIL} timeout={COPIED_MS}>
                     {({ copied, copy }) => <CopyEmail copied={copied} copy={copy} />}
                 </CopyButton>
-                .
-            </Text>
+            </Stack>
         </Paper>
     </Stack>
 )
