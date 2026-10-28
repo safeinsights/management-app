@@ -79,7 +79,7 @@ test.describe('dates in the browser time zone', () => {
                 await goto(page, Routes.studyViewCode({ orgSlug: LAB_SLUG, studyId }))
                 await expect(timeAt(page, at)).toHaveText(day)
                 const activity = localParts(new Date(at.getTime() - 60_000), timezoneId)
-                await expect(page.getByText(/· Uploaded ·/)).toContainText(
+                await expect(page.getByText(/· Uploaded/)).toContainText(
                     `${activity.day}, ${activity.hour}:${activity.minute} ${activity.period.toLowerCase()}`,
                 )
 

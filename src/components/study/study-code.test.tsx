@@ -1624,11 +1624,9 @@ describe('StudyCode component', () => {
             )
 
             // The date sits in its own time element, so find the cell by its label, then read it whole.
-            const uploaded = await screen.findByText(new RegExp(`${user.fullName} · Uploaded ·`))
+            const uploaded = await screen.findByText(new RegExp(`${user.fullName} · Uploaded`))
             expect(uploaded).toHaveTextContent('Jul 15, 2026,')
-            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE ·`))).toHaveTextContent(
-                'Jul 21, 2026,',
-            )
+            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE`))).toHaveTextContent('Jul 21, 2026,')
             expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
         })
 
@@ -1655,8 +1653,8 @@ describe('StudyCode component', () => {
             )
 
             // The column reports the latest action, not a history.
-            expect(await screen.findByText(/Edited in IDE ·/)).toHaveTextContent('Jul 21, 2026,')
-            expect(screen.queryByText(/Uploaded ·/)).not.toBeInTheDocument()
+            expect(await screen.findByText(/· Edited in IDE/)).toHaveTextContent('Jul 21, 2026,')
+            expect(screen.queryByText(/· Uploaded/)).not.toBeInTheDocument()
         })
 
         it('records an upload against the researcher who uploaded it', async () => {

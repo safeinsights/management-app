@@ -7,7 +7,7 @@ import { DISPLAY_FORMAT } from '@/lib/dates'
 type LocalDateTimeProps = {
     value: Date | string | number
     format?: string
-    /** Shown with the date, outside the time element, e.g. a " • " separator. */
+    /** Lead-in shown with the date, outside the time element, e.g. a " • " separator or " on ". */
     prefix?: string
 }
 

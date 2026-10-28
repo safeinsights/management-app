@@ -1,4 +1,4 @@
-import { mockClerkSession, pageHeaderEyebrow, renderWithProviders } from '@/tests/unit.helpers'
+import { mockClerkSession, pageHeaderEyebrow, renderToServerHtml, renderWithProviders } from '@/tests/unit.helpers'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import router from 'next-router-mock'
 import { describe, expect, it } from 'vitest'
@@ -24,6 +24,13 @@ describe('Security key page', () => {
             `You generated a security key on ${dayjs('2026-07-08T15:00:00Z').format(DISPLAY_FORMAT)}.`,
         )
         expect(screen.getByText(/A new key cannot decrypt your current outputs\./).tagName).toBe('B')
+    })
+
+    it('leaves " on" out of the server HTML along with the date', () => {
+        mockClerkSession({ clerkUserId: 'user-id', orgSlug: 'dev', userId: 'user-id' })
+        const html = renderToServerHtml(<RegenerateKey generatedOn="2026-07-08T15:00:00Z" />)
+
+        expect(html).toMatch(/security key<time datetime="2026-07-08T15:00:00.000Z"/i)
     })
 
     // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.

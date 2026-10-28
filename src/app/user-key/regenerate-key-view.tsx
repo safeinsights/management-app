@@ -33,9 +33,10 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 </Title>
                 <Divider />
                 <Text fz="md">
-                    You generated a security key on <LocalDateTime value={generatedOn} />. For security reasons,
-                    SafeInsights does not store or display it again. You need this key to access your outputs in every
-                    organization you belong to.
+                    You generated a security key
+                    <LocalDateTime value={generatedOn} prefix=" on " />. For security reasons, SafeInsights does not
+                    store or display it again. You need this key to access your outputs in every organization you belong
+                    to.
                 </Text>
             </Stack>
 

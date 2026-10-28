@@ -26,8 +26,8 @@ const ACTION_LABELS: Record<WorkspaceFileActivitySummary['action'], string> = {
 /** `{researcherName} · {action} · {MMM DD, YYYY}, {hh:mm am/pm}` per the card. */
 const formatActivity = (activity: WorkspaceFileActivitySummary) => (
     <>
-        {activity.actorName} · {ACTION_LABELS[activity.action]} ·{' '}
-        <LocalDateTime value={activity.createdAt} format={DATE_TIME_FORMAT} />
+        {activity.actorName} · {ACTION_LABELS[activity.action]}
+        <LocalDateTime value={activity.createdAt} format={DATE_TIME_FORMAT} prefix=" · " />
     </>
 )
 

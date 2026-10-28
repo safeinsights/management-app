@@ -129,8 +129,8 @@ describe('YourFilesTable', () => {
             const html = renderToServerHtml(<YourFilesTable {...baseProps} files={files} />)
 
             expect(html).toContain('Ada Lovelace')
-            expect(html).toContain('Uploaded')
-            expect(html).toMatch(/datetime="2026-09-24T01:30:00.000Z"/i)
+            // No separator left dangling before the time element.
+            expect(html).toMatch(/Uploaded<time datetime="2026-09-24T01:30:00.000Z"/i)
             expect(html).not.toContain('Sep 2')
         })
 
@@ -138,7 +138,7 @@ describe('YourFilesTable', () => {
             const { recoverableErrors } = hydrateServerHtml(<YourFilesTable {...baseProps} files={files} />)
 
             // Tests run in America/Chicago.
-            expect(await screen.findByText(/Ada Lovelace · Uploaded ·/)).toHaveTextContent('Sep 23, 2026, 08:30 pm')
+            expect(await screen.findByText(/Ada Lovelace · Uploaded/)).toHaveTextContent('Sep 23, 2026, 08:30 pm')
             expect(recoverableErrors).toEqual([])
         })
     })

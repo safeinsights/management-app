@@ -20,7 +20,8 @@ const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ 
                 <XCircleIcon weight="fill" size={24} />
             )}
             <Text fz="xs" fw={fontWeight.semibold} c={color}>
-                {statusDisplay} on <LocalDateTime value={date} />
+                {statusDisplay}
+                <LocalDateTime value={date} prefix=" on " />
             </Text>
         </Group>
     )
