@@ -61,7 +61,7 @@ const insertStudyWithJob = (
     { enclave, lab }: { enclave: Org; lab: Org },
     studyStatus: StudyStatus,
     jobStatus: StudyJobStatus,
-) => insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus, jobStatus })
+) => insertTestStudyJobData({ org: enclave, submittedByOrg: lab, studyStatus, jobStatus, title: 'Study Title 1' })
 
 describe('Studies Table', () => {
     it('keeps the header, intro and data partner empty state with its docs link', async () => {
@@ -347,7 +347,8 @@ describe('Studies Table', () => {
             />,
         )
 
-        expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
+        await screen.findByRole('link', { name: 'Study Title 1' })
+        expect(screen.getByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
     })
 
     it('stops auto-refresh once every study is in a final state', async () => {
@@ -364,7 +365,8 @@ describe('Studies Table', () => {
             />,
         )
 
-        expect(await screen.findByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
+        await screen.findByRole('link', { name: 'Study Title 1' })
+        expect(screen.getByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
     })
 
     // The table owns its scope's dot, so a fetch patches that one org and refetches nothing (OTTER-838).
