@@ -14,6 +14,7 @@ import {
     mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
+    postHogCaptures,
 } from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
 import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
@@ -204,6 +205,13 @@ describe('User Actions', () => {
                 eventType: 'UPDATED',
                 userId: admin.id,
                 metadata: { roles: { before: expect.objectContaining({ isAdmin: false }), after: { isAdmin: true } } },
+            }),
+        )
+        expect(postHogCaptures()).toContainEqual(
+            expect.objectContaining({
+                distinctId: admin.id,
+                event: 'role_updated',
+                properties: expect.objectContaining({ target_user_id: userToUpdate.id, org_id: org.id }),
             }),
         )
     })
