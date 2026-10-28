@@ -393,16 +393,25 @@ export const theme = createTheme({
                     backgroundColor: semanticColor('surface.popover'),
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
                 },
+                // Figma draws the glyph itself at 32px with only the row gap around it; Mantine's slot
+                // adds a 28px disc and its own margins, as does the body.
+                icon: { width: rem(32), height: rem(32), marginInlineEnd: 0, backgroundColor: 'transparent' },
+                body: { marginInlineEnd: 0 },
                 title: { color: semanticColor('text.primary'), fontWeight: 700 },
-                description: { color: semanticColor('text.secondary') },
+                // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
+                // instead of Mantine's ellipsis cutting it off.
+                description: {
+                    color: semanticColor('text.secondary'),
+                    whiteSpace: 'pre-line',
+                    overflowWrap: 'anywhere',
+                },
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
-        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
-        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        // The toast container. Order and gap live in globals.css, on the wrapper div Mantine adds; the
+        // margin reset stops Mantine's sibling margin-top adding to that gap.
         Notifications: {
             styles: {
-                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
                 notification: { marginTop: 0 },
             },
         },
