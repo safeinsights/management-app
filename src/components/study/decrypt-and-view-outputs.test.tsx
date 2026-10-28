@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -13,10 +13,6 @@ import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
-
 describe('DecryptAndViewOutputs', () => {
     let org: Org
     let job: NonNullable<LatestJobForStudy>
@@ -27,12 +23,10 @@ describe('DecryptAndViewOutputs', () => {
         const { study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
         job = (await latestJobForStudy(study.id))!
 
-        const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedEncryptedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     it('renders the View outputs again security-key copy (OTTER-677 overrides)', async () => {
