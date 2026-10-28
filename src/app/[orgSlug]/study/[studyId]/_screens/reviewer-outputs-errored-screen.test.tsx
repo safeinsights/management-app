@@ -55,7 +55,7 @@ const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 }
 
 const setupWithArtifact = async () => {
@@ -89,7 +89,12 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
+            ),
+        ).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent('Code errored')
     })
 
@@ -103,7 +108,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
         expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
         expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
     })
 
     it('hides the outputs table, decision section and submit until a key validates', async () => {
@@ -127,7 +132,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         expect(
             await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
@@ -234,7 +239,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('There is no error log for this run.')
         expect(alert).toHaveTextContent('Enter your security key below')
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -390,7 +395,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
             }),
         )
 
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 

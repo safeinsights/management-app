@@ -35,12 +35,12 @@ describe('DecryptAndViewOutputs', () => {
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
-    it('renders the View outputs again security-key copy (OTTER-677 overrides)', async () => {
+    it('renders the code run key form with the view-again copy', async () => {
         renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
 
-        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
@@ -52,7 +52,7 @@ describe('DecryptAndViewOutputs', () => {
     it('renders nothing when the job holds no artifact a key could open', async () => {
         renderWithProviders(<DecryptAndViewOutputs job={job} isVisible={false} />)
 
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
@@ -60,14 +60,14 @@ describe('DecryptAndViewOutputs', () => {
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
 
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         await waitFor(() => {
             expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
         })
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
         expect(screen.getByText('summary.csv')).toBeInTheDocument()
     })
