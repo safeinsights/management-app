@@ -3,12 +3,12 @@
 import { semanticColor } from '@/theme/tokens'
 import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
-import { Anchor, Flex, VisuallyHidden } from '@mantine/core'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
+import { Anchor } from '@mantine/core'
+import Link from 'next/link'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
-import { ExternalLinks } from '@/lib/routes'
+import { Routes } from '@/lib/routes'
 import { plural } from '@/lib/string'
 
 const DAY_MINUTES = 24 * 60
@@ -31,19 +31,8 @@ export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
 }
 
 const SupportLink = () => (
-    <Anchor
-        href={ExternalLinks.support}
-        target="_blank"
-        rel="noopener noreferrer"
-        c={semanticColor('link.default')}
-        inherit
-        display="inline-flex"
-    >
-        <Flex component="span" align="center" gap="xxs">
-            here
-            <ArrowSquareOutIcon size={16} aria-hidden="true" />
-            <VisuallyHidden>(opens in a new tab)</VisuallyHidden>
-        </Flex>
+    <Anchor component={Link} href={Routes.support} c={semanticColor('link.default')} inherit>
+        here
     </Anchor>
 )
 

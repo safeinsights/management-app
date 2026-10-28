@@ -1,7 +1,7 @@
 import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
-import { ExternalLinks } from '@/lib/routes'
+import { Routes } from '@/lib/routes'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
@@ -52,13 +52,11 @@ describe('OutputsStatusAlert', () => {
 
     const expectPreparingCodeBodyWithSupportLink = () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\s*\(opens in a new tab\)\.$/,
+            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\.$/,
         )
         const link = screen.getByRole('link', { name: /here/ })
-        expect(link).toHaveAttribute('href', ExternalLinks.support)
-        expect(link).toHaveAttribute('target', '_blank')
-        expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-        expect(link).toHaveAccessibleName(/^here\s*\(opens in a new tab\)$/)
+        expect(link).toHaveAttribute('href', Routes.support)
+        expect(link).not.toHaveAttribute('target')
         expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
     }
 
