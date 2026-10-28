@@ -17,7 +17,7 @@ const recordAnnouncements = (page: Page) =>
         const win = window as AnnouncedWindow
         win.announced = []
         new MutationObserver(() => {
-            if (region.textContent) win.announced?.push(region.textContent)
+            if (region.textContent) win.announced?.push(region.textContent.trim())
         }).observe(region, { childList: true, subtree: true, characterData: true })
     })
 

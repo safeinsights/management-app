@@ -72,12 +72,13 @@ const navigate = (url: string) => act(() => mockRouter.push(url))
 
 const region = () => screen.getByTestId('route-announcer')
 
-// Every value the region held, so a wrong announcement that was later replaced still fails.
+// Every value the region held, so a wrong announcement that was later replaced still fails. Trimmed
+// of the no-break space that every second announcement ends in.
 function recordAnnouncements(): string[] {
     const history: string[] = []
     const node = region()
     new MutationObserver(() => {
-        if (node.textContent) history.push(node.textContent)
+        if (node.textContent) history.push(node.textContent.trim())
     }).observe(node, { childList: true, subtree: true, characterData: true })
     return history
 }
@@ -90,8 +91,9 @@ const outlastDelay = () => act(() => new Promise((resolve) => setTimeout(resolve
 describe('useRouteAnnouncement', () => {
     beforeEach(() => mockPathname(SETUP))
 
-    it('says nothing on the first load', () => {
+    it('says nothing on the first load', async () => {
         renderWithProviders(<App />)
+        await outlastDelay()
 
         expect(region()).toHaveTextContent('')
     })
@@ -173,6 +175,21 @@ describe('useRouteAnnouncement', () => {
         await waitFor(() => expect(region()).toHaveTextContent('Set up study - SafeInsights'))
 
         expect(region().firstChild).not.toBe(first)
+    })
+
+    it('announces the last page again when a quick Back returns to it during the hold', async () => {
+        renderWithProviders(<App />)
+        const history = recordAnnouncements()
+
+        await navigate(CODE)
+        await waitFor(() => expect(history).toEqual(['Study code - SafeInsights']))
+        const first = region().textContent
+        await navigate(SETUP)
+        await navigate(CODE)
+
+        await waitFor(() => expect(history).toEqual(['Study code - SafeInsights', 'Study code - SafeInsights']))
+        // Word for word the same text would go unspoken.
+        expect(region().textContent).not.toBe(first)
     })
 
     it('does not announce a title left over from the last page, even when other head tags change', async () => {
