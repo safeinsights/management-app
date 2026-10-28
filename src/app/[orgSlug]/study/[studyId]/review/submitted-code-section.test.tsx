@@ -30,15 +30,6 @@ import {
     truncateFileName,
 } from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
-import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
-
-// Only the poll is faked; the file actions stay real so their tests still exercise the database.
-vi.mock('@/server/actions/study-job.actions', async () => {
-    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
-        '@/server/actions/study-job.actions',
-    )
-    return { ...actual, getJobAnalysisAction: vi.fn(actual.getJobAnalysisAction) }
-})
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -102,6 +93,28 @@ async function insertFailedStudyReview(studyJobId: string) {
         .values({ studyJobId, report: null, summaryFailedAt: new Date() })
         .returningAll()
         .executeTakeFirstOrThrow()
+}
+
+// The verdict is parsed from the log's contents, which come from the storage mock.
+async function insertScanLog(studyJobId: string, verdict: 'no findings' | 'findings found') {
+    vi.mocked(fetchFileContents).mockResolvedValue(new Blob([`Semgrep scan: ${verdict}\n${SCAN_DETAILS}`]))
+    return insertStudyJobFile(studyJobId, 'security-scan-log.txt', 'SECURITY-SCAN-LOG')
+}
+
+// The poll runs the real action, so it is counted on the query cache as each poll starts.
+const watchPolls = (queryClient: ReturnType<typeof createTestQueryClient>) => {
+    const polls = {
+        started: 0,
+        failed: 0,
+        // A poll in flight absorbs the interval ticks, which would hide a poll that never stops.
+        landed: () => waitFor(() => expect(queryClient.isFetching()).toBe(0)),
+    }
+    queryClient.getQueryCache().subscribe((event) => {
+        if (event.type !== 'updated' || event.query.queryKey[0] !== 'job-analysis') return
+        if (event.action.type === 'fetch') polls.started++
+        if (event.action.type === 'error') polls.failed++
+    })
+    return polls
 }
 
 type Fixture = {
@@ -449,23 +462,24 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('keeps polling while the row reports a run in progress and the scan has settled', async () => {
         const pollFixture = await setupBaseFixture()
         await insertPendingStudyReview(pollFixture.job.id, new Date())
-        const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(
-            actionResult({ review: pendingReview, scan: scanResult('PASSED') }),
-        )
+        await insertScanLog(pollFixture.job.id, 'no findings')
+        const initialAnalysis = await jobAnalysisForJob(pollFixture.job)
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={pollFixture.job.id}
-                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED') }}
+                initialAnalysis={initialAnalysis}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
             >
                 <p>Code files block</p>
             </JobAnalysisPanels>,
+            { queryClient },
         )
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        await waitFor(() => expect(polls.started).toBeGreaterThan(1))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 
@@ -495,7 +509,6 @@ describe('SubmittedCodeSection — AI summary', () => {
     // report that was already in the database until a reload (OTTER-775 review).
     it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -512,8 +525,6 @@ describe('SubmittedCodeSection — AI summary', () => {
         await screen.findByTestId('ai-summary-error')
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
-        const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
 
         expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -526,11 +537,13 @@ describe('SubmittedCodeSection — AI summary', () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
+        // Another enclave's session may not view this job, so the refetch is refused.
+        await mockSessionWithTestData({ orgType: 'enclave' })
 
         // The test client opts out of refetchOnMount; the app's does not (OTTER-694).
         const queryClient = createTestQueryClient()
         queryClient.setDefaultOptions({ queries: { retry: false, refetchOnMount: true } })
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -544,7 +557,7 @@ describe('SubmittedCodeSection — AI summary', () => {
             { queryClient },
         )
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
+        await waitFor(() => expect(polls.failed).toBeGreaterThan(0))
         expect(screen.getByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -648,8 +661,9 @@ describe('SubmittedCodeSection — Analysis polling', () => {
     it('stops polling once both the summary and scan have arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
-        const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('PASSED') }))
+        await insertScanLog(fixture.job.id, 'no findings')
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
         fakeTimeouts()
         renderWithProviders(
@@ -661,21 +675,22 @@ describe('SubmittedCodeSection — Analysis polling', () => {
             >
                 <p>Code files block</p>
             </JobAnalysisPanels>,
+            { queryClient },
         )
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
         // Sampled after several poll intervals: comparing the count to itself inside waitFor is
         // satisfied on the first attempt, so it passes even against a poll that never stops — the
         // regression this test is named for.
-        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        const settled = polls.started
+        await polls.landed()
         await advanceTimers(200)
 
-        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+        expect(polls.started).toBe(settled)
     })
 
     it('polls analysis for the current job', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -687,18 +702,17 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 <p>Code files block</p>
             </JobAnalysisPanels>,
         )
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
-        for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
-            expect(args).toEqual({ studyJobId: fixture.job.id })
-        }
+        expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
     })
 
     it('keeps polling after the summary arrives until the scan settles', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanInProgress }))
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
         fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
@@ -709,19 +723,22 @@ describe('SubmittedCodeSection — Analysis polling', () => {
             >
                 <p>Code files block</p>
             </JobAnalysisPanels>,
+            { queryClient },
         )
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        await waitFor(() => expect(polls.started).toBeGreaterThan(1))
         expect(screen.getByText('Security scan pending')).toBeInTheDocument()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: scanResult('FAILED') }))
+        await insertScanLog(fixture.job.id, 'findings found')
         await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
-        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
+        const settled = polls.started
+        await polls.landed()
         await advanceTimers(200)
-        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+        expect(polls.started).toBe(settled)
     })
 
     it('keeps polling until the summary arrives', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: scanInProgress }))
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -732,11 +749,12 @@ describe('SubmittedCodeSection — Analysis polling', () => {
             >
                 <p>Code files block</p>
             </JobAnalysisPanels>,
+            { queryClient },
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
-        const afterFirst = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterFirst))
+        const afterFirst = polls.started
+        await waitFor(() => expect(polls.started).toBeGreaterThan(afterFirst))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 })
