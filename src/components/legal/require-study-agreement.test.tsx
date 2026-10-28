@@ -23,9 +23,10 @@ import { StudyAgreementPreparingNotice } from './study-agreement-preparing-notic
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
     captureException: vi.fn(),
-    // Called by Action when it has a session.
+    // Called by Action when it has a session, and on a failure (OTTER-842).
     setUser: vi.fn(),
     setTag: vi.fn(),
+    flush: vi.fn().mockResolvedValue(true),
 }))
 
 beforeEach(resetLegalDocuments)
