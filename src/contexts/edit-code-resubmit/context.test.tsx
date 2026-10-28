@@ -5,24 +5,47 @@ import { notifications } from '@mantine/notifications'
 import {
     advanceTimers,
     afterEach,
+    cleanupWorkspaceDirs,
+    codeResubmissionNoteDraftOf,
+    createWorkspaceDir,
     fakeTimeouts,
     fireEvent,
-    mockClerkSession,
+    insertTestCodeChangesRequested,
+    insertTestSubmittedCode,
+    mockSessionWithTestData,
     renderWithProviders,
     restoreRealTimers,
     screen,
     waitFor,
     waitForPendingMutations,
+    writeWorkspaceFiles,
 } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
-import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
+import { saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 
-vi.mock('@/server/actions/study-code.actions', () => ({
-    resubmitStudyCodeAction: vi.fn(),
-    saveCodeResubmissionNoteDraftAction: vi.fn(),
+// Real by default. A save that rejects after the provider unmounts is a transport failure no real
+// action produces, so that test fails the call itself.
+vi.mock('@/server/actions/study-code.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/study-code.actions')>()
+    return { ...actual, saveCodeResubmissionNoteDraftAction: vi.fn(actual.saveCodeResubmissionNoteDraftAction) }
+})
+
+// A resubmit emails the reviewers once it commits. Spread the real module: mailer reads SI_EMAIL from it.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
 }))
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
+
+const setupSubmittedCode = async ({ changesRequested = false } = {}) => {
+    const { org: lab, user } = await mockSessionWithTestData({ orgType: 'lab' })
+    ;(useParams as Mock).mockReturnValue({ orgSlug: lab.slug })
+    return insertTestSubmittedCode({ lab, researcherId: user.id, changesRequested })
+}
+
+const workspaceRoots: string[] = []
 
 function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) {
     const { noteForm, saveDraft, resubmit } = useEditCodeResubmit()
@@ -46,6 +69,7 @@ function Harness({ onSaveResult }: { onSaveResult: (result: boolean) => void }) 
 
 describe('EditCodeResubmitProvider', () => {
     afterEach(restoreRealTimers)
+    afterEach(() => cleanupWorkspaceDirs(workspaceRoots))
 
     // A Server Action posts to whatever route is current, so an autosave in flight across a
     // navigation rejects; reporting it would toast on a page the researcher already left.
@@ -85,15 +109,11 @@ describe('EditCodeResubmitProvider', () => {
     })
 
     it('retries the same note after a save failure instead of marking it saved', async () => {
-        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
-        const saveDraftAction = vi.mocked(saveCodeResubmissionNoteDraftAction)
-        saveDraftAction
-            .mockResolvedValueOnce({ error: 'temporary failure' })
-            .mockResolvedValueOnce({ studyId: STUDY_ID, savedAt: new Date().toISOString() })
+        const { study, job } = await setupSubmittedCode()
         const onSaveResult = vi.fn()
 
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="">
                 <Harness onSaveResult={onSaveResult} />
             </EditCodeResubmitProvider>,
         )
@@ -102,25 +122,27 @@ describe('EditCodeResubmitProvider', () => {
         fireEvent.change(screen.getByLabelText('Resubmission note'), { target: { value: note } })
         await waitFor(() => expect(screen.getByLabelText('Resubmission note')).toHaveValue(note))
 
+        // Refused until the reviewer has asked for changes.
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSaveResult).toHaveBeenCalledWith(false))
 
+        await insertTestCodeChangesRequested(job.id)
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSaveResult).toHaveBeenCalledWith(true))
 
-        expect(saveDraftAction).toHaveBeenCalledTimes(2)
-        expect(saveDraftAction).toHaveBeenNthCalledWith(1, { studyId: STUDY_ID, note })
-        expect(saveDraftAction).toHaveBeenNthCalledWith(2, { studyId: STUDY_ID, note })
+        expect(await codeResubmissionNoteDraftOf(study.id)).toBe(note)
     })
 
     // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
     it('broadcasts code-submitted from the code room after a successful resubmit', async () => {
-        ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab-1' })
-        mockClerkSession({ clerkUserId: 'user_erin', userId: STUDY_ID, orgSlug: 'lab-1', firstName: 'Erin' })
-        vi.mocked(resubmitStudyCodeAction).mockResolvedValue({ studyId: STUDY_ID } as never)
+        stubJobQueue()
+        const { study } = await setupSubmittedCode({ changesRequested: true })
+        const root = await createWorkspaceDir('resubmit-broadcast')
+        workspaceRoots.push(root)
+        await writeWorkspaceFiles(root, study.id, { 'main.r': 'print("fixed")' })
 
         renderWithProviders(
-            <EditCodeResubmitProvider studyId={STUDY_ID} orgName="Test Org" initialNote="fixed the loop">
+            <EditCodeResubmitProvider studyId={study.id} orgName="Test Org" initialNote="fixed the loop">
                 <Harness onSaveResult={vi.fn()} />
             </EditCodeResubmitProvider>,
         )
@@ -132,7 +154,7 @@ describe('EditCodeResubmitProvider', () => {
         await waitFor(() => expect(__instances[0].sendStateless).toHaveBeenCalledTimes(1))
         expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
             type: 'code-submitted',
-            studyId: STUDY_ID,
+            studyId: study.id,
         })
     })
 })
