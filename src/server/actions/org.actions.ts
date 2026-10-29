@@ -2,7 +2,13 @@
 
 import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
-import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
+import {
+    orgSchema,
+    orgSettingsDescriptionField,
+    orgSettingsNameField,
+    updateOrgSchema,
+    type PublicOrg,
+} from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
@@ -222,8 +228,8 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .params(
         z.object({
             orgSlug: z.string(),
-            name: z.string().trim().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-            description: z.string().max(250, 'Description cannot exceed 250 characters').nullable().optional(),
+            name: orgSettingsNameField,
+            description: orgSettingsDescriptionField.nullable().optional(),
         }),
     )
     .middleware(orgIdFromSlug)

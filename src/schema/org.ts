@@ -1,6 +1,25 @@
 import { z } from 'zod'
 import { Selectable } from 'kysely'
 import { Org as DefinedOrg } from '@/database/types'
+import { countCharacters } from '@/lib/field-limits'
+
+export const ORG_NAME_MAX_CHARACTERS = 50
+export const ORG_DESCRIPTION_MAX_CHARACTERS = 250
+
+// Org admin settings: measured like the on-screen counter, so they cannot disagree (OTTER-737).
+export const orgSettingsNameField = z
+    .string()
+    .trim()
+    .min(1, 'Name is required')
+    .refine((val) => countCharacters(val) <= ORG_NAME_MAX_CHARACTERS, {
+        error: `Name cannot exceed ${ORG_NAME_MAX_CHARACTERS} characters`,
+    })
+
+export const orgSettingsDescriptionField = z
+    .string()
+    .refine((val) => countCharacters(val) <= ORG_DESCRIPTION_MAX_CHARACTERS, {
+        error: `Description cannot exceed ${ORG_DESCRIPTION_MAX_CHARACTERS} characters`,
+    })
 
 const enclaveSettingsSchema = z.object({
     publicKey: z.string().min(1, { error: 'PubKey cannot be blank' }),
