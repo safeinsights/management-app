@@ -19,7 +19,7 @@ import { EditOrgForm } from './edit-org-form'
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 
 export function OrgsAdminTable() {
-    const { data = [], isLoading } = useQuery({
+    const { data = [], isFetching } = useQuery({
         queryKey: ['orgs'],
         queryFn: fetchAdminOrgsWithStatsAction,
     })
@@ -29,10 +29,7 @@ export function OrgsAdminTable() {
     })
     const sortedMembers = useMemo(() => {
         const accessor = sortStatus.columnAccessor as keyof Org
-        const newOrgs = R.sortBy(
-            data as Org[],
-            (org: Org) => org[accessor] as string | number | Date | boolean | bigint,
-        )
+        const newOrgs = R.sortBy(data as Org[], (org: Org) => org[accessor] as string | number | Date | boolean)
         return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
@@ -40,7 +37,7 @@ export function OrgsAdminTable() {
         <Flex direction={'column'}>
             <AddMember />
             <DataTable
-                fetching={isLoading}
+                fetching={isFetching}
                 withTableBorder
                 withColumnBorders
                 pinLastColumn
@@ -97,8 +94,8 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
 
     const { mutate: deleteOrg } = useMutation({
         mutationFn: deleteOrgAction,
-        onSettled: async () => {
-            return await queryClient.invalidateQueries({ queryKey: ['orgs'] })
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['orgs'] })
         },
     })
 

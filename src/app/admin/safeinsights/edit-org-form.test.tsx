@@ -1,4 +1,5 @@
 import {
+    act,
     renderWithProviders,
     faker,
     db,
@@ -125,7 +126,7 @@ describe('EditOrgForm', () => {
 
         await waitFor(() => expect(refetchOrgs).toHaveBeenCalledOnce())
         expect(onComplete).toHaveBeenCalledOnce()
-        finishRefetch()
+        await act(async () => finishRefetch())
 
         const saved = await db.selectFrom('org').select('name').where('id', '=', org.id).executeTakeFirstOrThrow()
         expect(saved.name).toBe('Renamed Org')

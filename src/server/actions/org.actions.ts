@@ -75,7 +75,8 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
                         eb
                             .selectFrom('study')
                             .select((sub) => sub.fn.countAll().as('count'))
-                            .whereRef('study.orgId', '=', 'org.id'),
+                            .whereRef('study.orgId', '=', 'org.id')
+                            .where('study.deletedAt', 'is', null),
                         'integer',
                     )
                     .as('totalStudies'),

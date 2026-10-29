@@ -207,6 +207,8 @@ describe('Org Actions', () => {
             ])
             await insertTestStudyOnly({ org, researcherId: researcher.id })
             await insertTestStudyOnly({ org, researcherId: researcher.id })
+            const { study: deletedStudy } = await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', deletedStudy.id).execute()
             await insertTestCodeEnv({ orgId: org.id })
             await insertTestDataSource({ orgId: org.id })
             await insertTestDataSource({ orgId: org.id })
