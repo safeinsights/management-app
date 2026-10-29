@@ -8,6 +8,7 @@ describe('SupportView', () => {
         renderWithProviders(<SupportView />)
 
         expect(screen.getByRole('heading', { level: 1, name: 'Support' })).toBeInTheDocument()
+        expect(screen.getByText(/Please don’t hesitate to email SafeInsights at/)).toBeInTheDocument()
         expect(screen.getByText(SUPPORT_EMAIL).closest('a')).toBeNull()
         expect(screen.queryByText('Copied')).toBeNull()
 
