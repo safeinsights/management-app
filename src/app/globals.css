@@ -4,6 +4,12 @@
     outline: none;
 }
 
+/* Next's announcer reads the title before the router commits it and falls back to the H1;
+   RouteAnnouncer speaks instead (OTTER-823). */
+next-route-announcer {
+    display: none;
+}
+
 .pi-symbol {
     position: fixed;
     bottom: 0px;

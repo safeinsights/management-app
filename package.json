@@ -9,7 +9,7 @@
     "type": "module",
     "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620",
     "engines": {
-        "node": ">=22",
+        "node": ">=24",
         "pnpm": ">=11"
     },
     "scripts": {
@@ -163,7 +163,7 @@
         "typescript-eslint": "^8.59.4",
         "vite": "^8.3.4",
         "vite-plugin-singlefile": "^2.3.3",
-        "vitest": "^4.1.11",
+        "vitest": "^4.1.12",
         "vitest-monocart-coverage": "^4.0.2"
     }
 }

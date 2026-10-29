@@ -1,4 +1,6 @@
-import { describe, expect, test, vi, type Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { mockClient } from 'aws-sdk-client-mock'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
@@ -30,7 +32,6 @@ import {
 } from './study-job.actions'
 import { codeSubmissionVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
-import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
@@ -45,12 +46,6 @@ vi.mock('@/server/storage', () => ({
 vi.mock('@/server/mailer', () => ({
     sendLabOutputsNeedReviewEmail: vi.fn(),
     sendLabCodeErroredEmail: vi.fn(),
-}))
-
-// Spy on the generation trigger only; the study submission actions depend on the rest of the module.
-vi.mock('@/server/events', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/events')>()),
-    onStudyReviewRequested: vi.fn(),
 }))
 
 async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJobStatus } = {}) {
@@ -970,6 +965,21 @@ describe('Study Job Actions', () => {
     })
 
     describe('regenerateStudyReviewAction', () => {
+        // With a queue configured, generation is requested rather than run in-process against the model.
+        const sqsMock = mockClient(SQSClient)
+        const enqueuedJobs = () =>
+            sqsMock.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
+
+        beforeEach(() => {
+            sqsMock.reset()
+            sqsMock.on(SendMessageCommand).resolves({})
+            vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
+        })
+
+        afterEach(() => {
+            vi.unstubAllEnvs()
+        })
+
         test('clears a failed review row and re-fires generation', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
@@ -986,7 +996,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeUndefined()
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
         })
 
         // An earlier round's failure is that round's own history, so regenerating this round must
@@ -1017,7 +1027,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .execute()
             expect(remaining.map((row) => row.round)).toEqual([1])
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 2 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 2 } }])
         })
 
         test('leaves a successful review row untouched and starts nothing', async () => {
@@ -1037,7 +1047,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
         })
 
         // Retry used to start a run whatever was happening, which is how one reviewer could pay
@@ -1054,7 +1064,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('in-progress')
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('summaryStartedAt')
@@ -1078,7 +1088,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('restarted')
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('id')
