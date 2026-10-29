@@ -6,23 +6,19 @@ import {
     beforeEach,
     renderHook,
     waitFor,
+    waitForPendingQueries,
     createTestQueryWrapper,
+    db,
+    insertTestStudyOnly,
+    mockSessionWithTestData,
+    stubCoder,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
+import { getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 
-// Ours, which the usual rule forbids mocking. CODER_DISABLED is fixed at import and true on CI, where
-// the real action answers "ready" at once, so build states only exist this way. coder.test.ts
-// covers the Coder calls underneath.
-vi.mock('@/server/actions/workspaces.actions', () => ({
-    getWorkspaceLaunchStatusAction: vi.fn(),
-}))
-
-import { getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
-
-const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
-const studyId = 'study-1'
+const coderStatusMock = getCoderWorkspaceLaunchStatus as unknown as Mock
 
 const status = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunchStatus => ({
     buildStatus: 'running',
@@ -38,16 +34,24 @@ const status = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunch
 })
 
 describe('useWorkspaceBuildStatus', () => {
-    beforeEach(() => {
+    let studyId: string
+
+    beforeEach(async () => {
         vi.clearAllMocks()
-        statusMock.mockResolvedValue(status())
+        stubCoder(status())
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+        // The action answers only the researcher the IDE is locked to, which a launch would claim.
+        await db.updateTable('study').set({ ideOwnerId: user.id }).where('id', '=', study.id).execute()
+        studyId = study.id
     })
 
-    it('does not poll while disabled', () => {
+    it('does not poll while disabled', async () => {
         renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: false }), {
             wrapper: createTestQueryWrapper(),
         })
-        expect(statusMock).not.toHaveBeenCalled()
+        await waitForPendingQueries()
+        expect(coderStatusMock).not.toHaveBeenCalled()
     })
 
     it('maps a provisioning status and keeps polling', async () => {
@@ -62,11 +66,11 @@ describe('useWorkspaceBuildStatus', () => {
         expect(result.current.agentLog).toBe('agent up')
         expect(result.current.lastUpdatedAt).toBeInstanceOf(Date)
         expect(result.current.isPolling).toBe(true)
-        expect(statusMock).toHaveBeenCalledWith({ studyId, cursors: undefined })
+        expect(coderStatusMock).toHaveBeenCalledWith(studyId, undefined)
     })
 
     it('surfaces the url and stops polling once ready', async () => {
-        statusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
+        coderStatusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
 
         const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), {
             wrapper: createTestQueryWrapper(),
@@ -78,7 +82,7 @@ describe('useWorkspaceBuildStatus', () => {
     })
 
     it('stops polling on a failed build', async () => {
-        statusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
+        coderStatusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
 
         const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), {
             wrapper: createTestQueryWrapper(),
@@ -91,7 +95,7 @@ describe('useWorkspaceBuildStatus', () => {
 
     // OTTER-824: the cache outlives the page, so a later mount must not read an earlier launch.
     it('reports nothing while disabled even when the cache holds a ready status', async () => {
-        statusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
+        coderStatusMock.mockResolvedValue(status({ ready: true, url: 'https://ws.example.com' }))
         const wrapper = createTestQueryWrapper()
 
         const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
@@ -106,7 +110,7 @@ describe('useWorkspaceBuildStatus', () => {
     })
 
     it('reports no failure while disabled even when the cache holds a failed status', async () => {
-        statusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
+        coderStatusMock.mockResolvedValue(status({ failed: true, reason: 'boom' }))
         const wrapper = createTestQueryWrapper()
 
         const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
@@ -120,7 +124,7 @@ describe('useWorkspaceBuildStatus', () => {
     })
 
     it('reports no error while disabled even when the cache holds a polling error', async () => {
-        statusMock.mockRejectedValue(new Error('network down'))
+        coderStatusMock.mockRejectedValue(new Error('network down'))
         const wrapper = createTestQueryWrapper()
 
         const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
