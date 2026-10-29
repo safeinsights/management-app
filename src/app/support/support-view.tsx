@@ -8,7 +8,7 @@ import { CheckIcon, CopyIcon } from '@phosphor-icons/react/dist/ssr'
 
 export const SUPPORT_EMAIL = 'beta-team@safeinsights.org'
 
-const ICON_SIZE = 16
+const ICON_SIZE = 20
 const COPIED_MS = 2000
 
 const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -22,11 +22,11 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
 // Plain text on purpose: the card rules out a mailto: link.
 const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) => (
-    <Group gap="sm" wrap="nowrap" role="status">
+    <Group gap="xs" wrap="nowrap" role="status">
         <Text fw={fontWeight.semibold}>{SUPPORT_EMAIL}</Text>
         <ActionIcon
             variant="subtle"
-            size="sm"
+            size={ICON_SIZE}
             c={semanticColor('icon.dark')}
             aria-label="Copy email address"
             onClick={copy}
