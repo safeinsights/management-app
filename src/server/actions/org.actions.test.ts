@@ -10,6 +10,7 @@ import {
     faker,
     actionResult,
     installFakeClerkOrgs,
+    NFD_E_ACUTE,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -324,9 +325,6 @@ describe('Org Actions', () => {
         })
 
         describe('limits counted like the on-screen counter', () => {
-            // Two code units, one character: `.length` would read double.
-            const NFD_E_ACUTE = 'é'
-
             const readOrg = () =>
                 db
                     .selectFrom('org')

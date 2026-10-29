@@ -1,9 +1,17 @@
-import { describe, expect, faker, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import {
+    describedElements,
+    describedError,
+    describe,
+    expect,
+    faker,
+    it,
+    NFD_E_ACUTE,
+    renderWithProviders,
+    screen,
+    userEvent,
+} from '@/tests/unit.helpers'
 import { type PublicOrg } from '@/schema/org'
 import { OrganizationSettingsEdit } from './organization-settings-edit'
-
-// Two code units, one character: `.length` would read double.
-const NFD_E_ACUTE = 'é'
 
 const org: PublicOrg = {
     id: faker.string.uuid(),
@@ -26,12 +34,6 @@ async function replaceValue(user: ReturnType<typeof userEvent.setup>, label: str
     return input
 }
 
-const describedBy = (input: HTMLElement) =>
-    (input.getAttribute('aria-describedby') ?? '').split(' ').map((id) => document.getElementById(id))
-
-// The error carries the design icon; the counter does not.
-const describedError = (input: HTMLElement) => describedBy(input).find((el) => el?.querySelector('svg'))
-
 describe('OrganizationSettingsEdit character counters', () => {
     it('hides the name counter while the name has no error', () => {
         renderForm()
@@ -47,7 +49,7 @@ describe('OrganizationSettingsEdit character counters', () => {
         expect(counters).toHaveLength(1)
         expect(screen.getAllByText('Name cannot exceed 50 characters')).toHaveLength(1)
         expect(describedError(input)?.textContent).toBe('Name cannot exceed 50 characters')
-        expect(describedBy(input)).toContain(counters[0])
+        expect(describedElements(input)).toContain(counters[0])
     })
 
     it('always shows the description counter once', () => {
