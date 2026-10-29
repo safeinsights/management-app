@@ -124,6 +124,7 @@ services:
         build:
             context: .
             dockerfile: ./Dockerfile.dev
+            target: dev
         volumes:
             - ./:/app/
             - node_modules:/app/node_modules

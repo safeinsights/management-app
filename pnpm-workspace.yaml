@@ -39,8 +39,8 @@ overrides:
     '@opentelemetry/core@<2.8.0': '>=2.8.0'
     '@babel/core@<=7.29.0': '>=7.29.1'
     # Keep @vitest/coverage-istanbul on Babel 7: @babel/core@8 declares node '^22.18.0 || >=24.11.0',
-    # narrower than this repo's engines.node '>=22'. Pin the coverage path back to the compatible 7.x
-    # the lockfile previously resolved so Node 22.0–22.17 stay supported.
+    # narrower than this repo's engines.node '>=24'. Pin the coverage path back to the compatible 7.x
+    # the lockfile previously resolved so Node 24.0–24.10 stay supported.
     '@vitest/coverage-istanbul>@babel/core': 7.29.7
     # shell-quote <1.8.5: GHSA-395f-4hp3-45gv (CVE-2026-13311, HIGH) — parse() is O(n^2), an
     # attacker-controlled string blocks the event loop (DoS), then GHSA-pqg4-j6r4-53mv (CRITICAL)
