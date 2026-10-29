@@ -9,24 +9,13 @@ import { SecurityKeyViewButton } from '@/components/study/security-key-view-butt
 import { useSecurityKeyForm } from '@/components/study/use-security-key-form'
 import type { JobFileInfo } from '@/lib/types'
 
-const DEFAULT_TITLE = 'Security key'
-const DEFAULT_DESCRIPTION = 'This key is required to access the outputs. It was issued to you during sign-up.'
-
 interface SecurityKeyFormProps {
     job: { id: string }
     type: 'researcher' | 'reviewer'
     onDecrypted: (files: JobFileInfo[]) => void
-    title?: string
-    description?: string
 }
 
-export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
-    job,
-    type,
-    onDecrypted,
-    title = DEFAULT_TITLE,
-    description = DEFAULT_DESCRIPTION,
-}) => {
+export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, type, onDecrypted }) => {
     const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
         job,
         type,
@@ -36,7 +25,11 @@ export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({
     return (
         <Paper p="xxl" data-testid="security-key-form">
             <Stack gap="lg">
-                <FormSectionHeader title={title} description={description} required />
+                <FormSectionHeader
+                    title="Security key"
+                    description="This key is required to access the outputs. It was issued to you during sign-up."
+                    required
+                />
                 <SecurityKeyInput
                     ref={inputRef}
                     autoFocus

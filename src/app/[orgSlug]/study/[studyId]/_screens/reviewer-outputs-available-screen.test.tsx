@@ -86,7 +86,7 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 }
 
 const textIncludes = (needle: string) => (_: string, element: Element | null) =>
@@ -123,7 +123,13 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
+            ),
+        ).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
@@ -143,7 +149,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()

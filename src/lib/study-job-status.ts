@@ -45,6 +45,19 @@ export function latestStatusAt(
     return latest.createdAt
 }
 
+const RUN_ENDED_JOB_STATUSES: readonly StudyJobStatus[] = ['JOB-ERRORED', 'RUN-COMPLETE']
+
+// A code run is dated by when the enclave finished it, errored or not, so a later outputs decision
+// does not move it (OTTER-882).
+export const codeRunEndedAt = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+): Date | string | null =>
+    statusChanges
+        .filter((c) => RUN_ENDED_JOB_STATUSES.includes(c.status))
+        .reduce<
+            Date | string | null
+        >((latest, c) => (latest && new Date(latest) >= new Date(c.createdAt) ? latest : c.createdAt), null)
+
 export const CODE_UNDER_REVIEW_JOB_STATUSES: readonly StudyJobStatus[] = ['CODE-SUBMITTED', 'CODE-SCANNED']
 
 export const isCodeUnderReviewStatus = (status: StudyJobStatus | undefined): boolean =>

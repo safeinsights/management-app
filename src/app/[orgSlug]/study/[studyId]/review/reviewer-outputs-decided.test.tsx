@@ -281,15 +281,31 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
     })
 
-    it('renders the View outputs again security-key section', async () => {
+    it('renders the code run key section with the view-again copy', async () => {
         const { org, study, job, raw } = await setupDecided()
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
+    })
+
+    // The decision lands later than the run, and must not move the date the run is known by.
+    it('dates the code run by when it finished, not by the outputs decision', async () => {
+        const { org, study, job } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        await db
+            .updateTable('jobStatusChange')
+            .set({ createdAt: new Date('2026-03-05T12:00:00Z') })
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'RUN-COMPLETE')
+            .execute()
+        await renderView(study, await requireRawState(study.id), org.slug)
+
+        expect(screen.getByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
     })
 
     // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
@@ -298,7 +314,7 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
@@ -308,7 +324,7 @@ describe('ReviewerOutputsDecided', () => {
         const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
