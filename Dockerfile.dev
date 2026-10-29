@@ -4,15 +4,24 @@ WORKDIR /app
 
 RUN corepack enable
 
+# Next.js collects completely anonymous telemetry data about general usage. Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line to disable telemetry at run time
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Unit tests install deps into a volume at run time (docker-compose.testunit.yml), so this
+# stage skips them and a package.json change never rebuilds it. The empty node_modules makes
+# a fresh volume start owned by node, which the corepack cache inside it needs.
+FROM base AS test-runner
+RUN mkdir -p /app/node_modules && chown -R node:node /app
+USER node
+
+FROM base AS dev
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
 #COPY .gitignore .editorconfig next.config.mjs tsconfig.json kysely.config.ts .eslintrc.json .prettierrc.json .
-
-# Next.js collects completely anonymous telemetry data about general usage. Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line to disable telemetry at run time
-ENV NEXT_TELEMETRY_DISABLED=1
 
 # Pre-create .next so the anonymous volume masking it (see docker-compose.yml)
 # initializes owned by node, not root — otherwise next dev hits EACCES on mkdir.

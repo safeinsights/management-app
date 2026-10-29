@@ -50,8 +50,9 @@ usage() {
     echo "      not yet applied are handled by 'kysely migrate:latest' on each run instead."
     echo ""
     echo "      Each run rebuilds the test-runner image from Dockerfile.dev first (about a"
-    echo "      second when nothing changed), so a new base image such as a Node upgrade"
-    echo "      applies on the next run without a manual rebuild."
+    echo "      second), so a new base image such as a Node upgrade applies on the next run"
+    echo "      without a manual rebuild. Dependency changes do not rebuild the image; the"
+    echo "      container installs them into its node_modules volume on each run."
     exit "${1:-0}"
 }
 
@@ -165,7 +166,8 @@ if [ "$prune" = true ]; then
 fi
 
 # `compose run` reuses an existing image by name and never notices a changed
-# Dockerfile.dev (e.g. a new Node base image), so rebuild it; cached layers make this ~1s.
+# Dockerfile.dev (e.g. a new Node base image), so rebuild it. The test-runner stage has
+# no dependency layers, so this stays ~1s even after a package.json or lockfile change.
 echo "Building the test-runner image..."
 docker compose -f "$COMPOSE_FILE" build --quiet test-runner
 
