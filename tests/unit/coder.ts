@@ -6,7 +6,7 @@ import {
     type WorkspaceLaunchStatus,
 } from '@/server/coder'
 
-// Turns Coder on for the rest of the test, as it runs outside CI, against the network calls
+// Turns Coder on for the rest of the test, against the network calls
 // tests/vitest.setup.ts mocks: the workspace is created and every launch status poll answers `status`.
 export const stubCoder = (status: WorkspaceLaunchStatus) => {
     vi.stubEnv('UNIT_CODER_STUBBED', 't')

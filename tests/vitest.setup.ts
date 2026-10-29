@@ -185,13 +185,13 @@ vi.mock('@/server/coder', async (importOriginal) => {
     }
 })
 
-// CODER_DISABLED is fixed at import and true on CI, so stubCoder() lifts it for one test through this env var.
+// Coder is off in every unit test, wherever it runs, until stubCoder() turns it on for one test through this env var.
 vi.mock('@/server/config', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/config')>()
     return {
         ...actual,
         get CODER_DISABLED() {
-            return actual.CODER_DISABLED && process.env.UNIT_CODER_STUBBED !== 't'
+            return process.env.UNIT_CODER_STUBBED !== 't'
         },
     }
 })
