@@ -3,11 +3,14 @@ import {
     describe,
     it,
     expect,
+    afterEach,
     beforeEach,
     renderHook,
     waitFor,
     act,
+    cleanupWorkspaceDirs,
     createTestQueryWrapper,
+    createWorkspaceDir,
     insertTestStudyOnly,
     mockSessionWithTestData,
     staleActionError,
@@ -93,14 +96,19 @@ const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => (
 
 describe('useWorkspaceLauncher', () => {
     let studyId: string
+    const workspaceRoots: string[] = []
 
     beforeEach(async () => {
         vi.clearAllMocks()
         mockWindowOpen.mockReturnValue({ closed: false })
         stubCoder(provisioningStatus())
+        // A launch looks for the study's workspace files, and CI configures no directory for them.
+        workspaceRoots.push(await createWorkspaceDir('workspace-launcher'))
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         studyId = (await insertTestStudyOnly({ org, researcherId: user.id })).study.id
     })
+
+    afterEach(() => cleanupWorkspaceDirs(workspaceRoots))
 
     describe('initial state', () => {
         it('should return initial state correctly', () => {
