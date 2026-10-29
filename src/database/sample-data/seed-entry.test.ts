@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely'
 import type { DB } from '@/database/types'
 import { describe, expect, it, vi } from '@/tests/unit.helpers'
-import { seed } from './1793200000000_sample_studies'
+import { seed } from '../seeds/1793200000000_sample_studies'
 
 describe('sample studies seed', () => {
     it('logs a failure instead of failing the migration', async () => {
