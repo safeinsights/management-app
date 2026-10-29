@@ -14,7 +14,23 @@ export async function orgRecipients(db: Kysely<DB>, orgIds: string[]): Promise<R
         .where('orgUser.orgId', 'in', orgIds)
         .execute()
     const byFingerprint = new Map(rows.map((row) => [row.fingerprint, row.publicKey]))
-    return [...byFingerprint].map(([fingerprint, key]) => ({ fingerprint, publicKey: new Uint8Array(key).buffer }))
+    const recipients = [...byFingerprint].map(([fingerprint, key]) => ({
+        fingerprint,
+        publicKey: new Uint8Array(key).buffer,
+    }))
+    const importable = await Promise.all(recipients.map((r) => canWrapFor(r.publicKey)))
+    return recipients.filter((_, i) => importable[i])
+}
+
+// Same import as wrapAesKey in si-encryption. A key that fails it cannot read the archive anyway,
+// and would otherwise make ResultsWriter throw for every other recipient too.
+async function canWrapFor(publicKey: ArrayBuffer) {
+    try {
+        await crypto.subtle.importKey('spki', publicKey, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
+        return true
+    } catch {
+        return false
+    }
 }
 
 export async function encryptFiles(

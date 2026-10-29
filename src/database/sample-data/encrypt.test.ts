@@ -1,4 +1,4 @@
-import { db, describe, expect, it, readTestSupportFile } from '@/tests/unit.helpers'
+import { db, describe, expect, insertTestOrg, it, readTestSupportFile } from '@/tests/unit.helpers'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { DEFAULT_REF_IDS } from './refs'
@@ -35,5 +35,21 @@ describe('orgRecipients', () => {
         const fingerprints = recipients.map((r) => r.fingerprint)
         expect(fingerprints.length).toBeGreaterThan(0)
         expect(new Set(fingerprints).size).toBe(fingerprints.length)
+    })
+
+    it('leaves out a member whose key cannot be imported, so one bad key does not block the archive', async () => {
+        const org = await insertTestOrg()
+        const user = await db
+            .insertInto('user')
+            .values({ clerkId: `bad-key-${org.id}`, firstName: 'Bad', lastName: 'Key' })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        await db.insertInto('orgUser').values({ userId: user.id, orgId: org.id, isAdmin: false }).execute()
+        await db
+            .insertInto('userPublicKey')
+            .values({ userId: user.id, publicKey: Buffer.from('testPublicKey'), fingerprint: `bad-${org.id}` })
+            .execute()
+
+        expect(await orgRecipients(db, [org.id])).toEqual([])
     })
 })
