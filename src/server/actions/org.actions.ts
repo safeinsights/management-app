@@ -51,25 +51,53 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
 export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
     .requireAbilityTo('manage', 'all')
     .handler(async ({ db }) => {
+        // One subquery per table: joining all four multiplies their rows per org (OTTER-877).
         return await db
             .selectFrom('org')
-            .leftJoin('study', 'study.orgId', 'org.id')
-            .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
-            .leftJoin('orgCodeEnv', 'orgCodeEnv.orgId', 'org.id')
-            .leftJoin('orgDataSource', 'orgDataSource.orgId', 'org.id')
-            .select([
+            .select((eb) => [
                 'org.id',
                 'org.name',
                 'org.email',
                 'org.slug',
                 'org.type',
                 'org.settings',
-                (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
-                (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
-                (eb) => eb.fn.count('orgCodeEnv.id').distinct().as('totalCodeEnvs'),
-                (eb) => eb.fn.count('orgDataSource.id').distinct().as('totalDataSources'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgUser')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgUser.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalUsers'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('study')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('study.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalStudies'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgCodeEnv')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgCodeEnv.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalCodeEnvs'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgDataSource')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgDataSource.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalDataSources'),
             ])
-            .groupBy(['org.id'])
             .execute()
     })
 

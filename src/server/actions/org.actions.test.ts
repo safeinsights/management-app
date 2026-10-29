@@ -7,6 +7,8 @@ import {
     insertTestOrg,
     insertTestUser,
     insertTestCodeEnv,
+    insertTestDataSource,
+    insertTestStudyOnly,
     faker,
     actionResult,
     installFakeClerkOrgs,
@@ -192,6 +194,37 @@ describe('Org Actions', () => {
             await mockSessionWithTestData({ isSiAdmin: true })
             const result = actionResult(await fetchAdminOrgsWithStatsAction())
             expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+
+        it('counts each related table once per org', async () => {
+            await mockSessionWithTestData({ isSiAdmin: true })
+            const org = await insertTestOrg({ slug: `stats-${faker.string.uuid()}` })
+            const emptyOrg = await insertTestOrg({ slug: `stats-empty-${faker.string.uuid()}` })
+            const [{ user: researcher }] = await Promise.all([
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+            ])
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await insertTestCodeEnv({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+
+            const result = actionResult(await fetchAdminOrgsWithStatsAction())
+
+            expect(result.find((row) => row.slug === org.slug)).toMatchObject({
+                totalUsers: 3,
+                totalStudies: 2,
+                totalCodeEnvs: 1,
+                totalDataSources: 2,
+            })
+            expect(result.find((row) => row.slug === emptyOrg.slug)).toMatchObject({
+                totalUsers: 0,
+                totalStudies: 0,
+                totalCodeEnvs: 0,
+                totalDataSources: 0,
+            })
         })
     })
 

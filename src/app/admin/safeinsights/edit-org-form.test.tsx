@@ -10,10 +10,10 @@ const mockOrg = {
     name: 'test',
     type: 'enclave' as const,
     settings: { publicKey: 'junk' },
-    totalUsers: BigInt(0),
-    totalStudies: BigInt(0),
-    totalCodeEnvs: BigInt(0),
-    totalDataSources: BigInt(0),
+    totalUsers: 0,
+    totalStudies: 0,
+    totalCodeEnvs: 0,
+    totalDataSources: 0,
 }
 
 describe('EditOrgForm', () => {
