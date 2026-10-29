@@ -124,6 +124,11 @@ export class ActionFailure extends Error {
     }
 }
 
+// An expected refusal, which Action already logs as a warning, so client code need not report it
+// to Sentry as an exception (OTTER-878).
+export const isPermissionDenied = (error: unknown): boolean =>
+    error instanceof ActionFailure && typeof error.error === 'object' && 'permission_denied' in error.error
+
 type ErrorToStringOptions = { clerkOverrides?: Record<string, string>; fallback?: string }
 
 export const errorToString = (error: unknown, { clerkOverrides, fallback }: ErrorToStringOptions = {}): string => {

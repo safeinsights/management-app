@@ -128,6 +128,8 @@ export const Routes = {
 
     accountSignin: '/account/signin' as Route,
 
+    accountInvitation: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}`, InviteParams),
+
     accountInvitationSignup: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/signup`, InviteParams),
 
     accountInvitationJoinTeam: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/join-team`, InviteParams),

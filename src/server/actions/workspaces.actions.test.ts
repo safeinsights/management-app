@@ -8,7 +8,10 @@ import {
     insertTestCodeEnv,
     insertTestStudyOnly,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
+    stampStudyOpened,
+    studyOpenedAt,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
@@ -360,6 +363,24 @@ describe('Workspace Actions', () => {
             actionResult(await ensureWorkspaceAction({ studyId: study.id }))
 
             expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+
+        // OTTER-937: opening the round moves the launcher's badge, so that launch counts as the visit.
+        test('a launch that opens the round leaves it read for the launcher, a relaunch stamps nothing', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(study.id, [user.id], earlier)
+
+            const { ensureWorkspaceAction } = await import('@/server/actions/workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+
+            await stampStudyOpened(study.id, [user.id], earlier)
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await studyOpenedAt(study.id, user.id)).toEqual(earlier)
         })
 
         test('uploading a code file opens the round', async () => {

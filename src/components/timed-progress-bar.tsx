@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { Progress, Stack, Text } from '@mantine/core'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { useTimedProgress, type TimedStep } from '@/hooks/use-timed-progress'
+import { useIsHydrated } from '@/hooks/use-is-hydrated'
 import { useSpyMode } from './spy-mode-context'
 
 // Kept out of the render body, which must stay pure, so the Date.now() read isn't flagged.
@@ -39,19 +40,21 @@ export function TimedProgressBar<T>({
 }: TimedProgressBarProps<T>) {
     const { value, secondsRemaining } = useTimedProgress(steps, data, isVisible)
     const { isSpyMode } = useSpyMode()
+    // Relative times read the clock, which differs between server and browser.
+    const isHydrated = useIsHydrated()
 
     if (!isVisible) return null
 
     const readyEstimate = lastUpdatedAt ? new Date(lastUpdatedAt.getTime() + secondsRemaining * 1000) : null
 
     let caption: ReactNode = null
-    if (lastUpdatedAt && readyEstimate && isFuture(readyEstimate)) {
+    if (isHydrated && lastUpdatedAt && readyEstimate && isFuture(readyEstimate)) {
         caption = (
             <>
                 Ready <RelativeTime date={readyEstimate} /> · updated <RelativeTime date={lastUpdatedAt} />
             </>
         )
-    } else if (lastUpdatedAt) {
+    } else if (isHydrated && lastUpdatedAt) {
         caption = (
             <>
                 Updated <RelativeTime date={lastUpdatedAt} />

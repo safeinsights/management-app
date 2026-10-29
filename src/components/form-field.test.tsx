@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import { TextInput } from '@mantine/core'
+import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, fieldDescribedBy, useWidgetBlur } from './form-field'
+import { FormField, fieldDescribedBy, fieldTestId, useWidgetBlur } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -40,6 +42,16 @@ describe('FormField', () => {
         )
     })
 
+    // OTTER-662: Mantine's own label weight is 500, which Figma does not have.
+    it('gives a bare Mantine label the FormField weight and gap', () => {
+        renderWithProviders(<TextInput label="Name" />)
+
+        const label = screen.getByText('Name')
+
+        expect(label.style.getPropertyValue('font-weight')).toBe('var(--si-font-weight-semibold)')
+        expect(label.style.getPropertyValue('margin-bottom')).toBe('var(--mantine-spacing-xxs)')
+    })
+
     // OTTER-769: theme styles reach the DOM as an inline style, so this covers every
     // Mantine-rendered asterisk in the app, not only this component's.
     it('paints the required asterisk with the design color', () => {
@@ -72,6 +84,30 @@ describe('FormField', () => {
         )
 
         expect(document.getElementById('field-error')).toBeNull()
+    })
+
+    // A row that mounts with its error pushes whatever is below it down, under a pending click.
+    it('reserves the error row before a blur error arrives', async () => {
+        const Harness = () => {
+            const [error, setError] = useState<string>()
+            return (
+                <>
+                    <FormField inputId="field" label="Study title" error={error} validatesOnBlur>
+                        <TextInput id="field" aria-label="Study title input" />
+                    </FormField>
+                    <button onClick={() => setError('This is required.')}>Raise error</button>
+                </>
+            )
+        }
+        renderWithProviders(<Harness />)
+        const row = screen.getByTestId(fieldTestId('field')).lastElementChild as HTMLElement
+
+        expect(row.style.minHeight).toBe(ERROR_LINE_MIN_HEIGHT)
+
+        await userEvent.click(screen.getByRole('button', { name: 'Raise error' }))
+
+        expect(screen.getByTestId(fieldTestId('field')).lastElementChild).toBe(row)
+        expect(row).toHaveTextContent('This is required.')
     })
 
     it('renders the footer slot alongside the error', () => {

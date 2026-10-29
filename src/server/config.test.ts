@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { getConfigValue } from './config'
+import { clerkOrgSyncEnabled, getConfigValue } from './config'
 
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 import { mockClient } from 'aws-sdk-client-mock'
@@ -55,5 +55,18 @@ describe('getConfigValue', () => {
         })
 
         await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('failed to find MY_CONFIG in config')
+    })
+})
+
+describe('clerkOrgSyncEnabled', () => {
+    it.each([
+        [{}, false],
+        [{ ENVIRONMENT_ID: 'local' }, false],
+        [{ ENVIRONMENT_ID: 'dev' }, true],
+        [{ ENVIRONMENT_ID: 'dev', DEPLOY_ID: 'pr123' }, false],
+        [{ ENVIRONMENT_ID: 'production' }, true],
+        [{ ENVIRONMENT_ID: 'staging', DEPLOY_ID: 'staging' }, true],
+    ])('%o -> %s', (env, enabled) => {
+        expect(clerkOrgSyncEnabled(env)).toBe(enabled)
     })
 })

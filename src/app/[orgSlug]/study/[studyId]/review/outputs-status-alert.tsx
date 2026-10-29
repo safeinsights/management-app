@@ -3,12 +3,13 @@
 import { semanticColor } from '@/theme/tokens'
 import { useCallback, useState, type ReactNode } from 'react'
 import dayjs from 'dayjs'
-import { Anchor, Flex } from '@mantine/core'
+import { Anchor, Flex, VisuallyHidden } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { StudyJobStatus } from '@/database/types'
 import { StatusAlert, STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import { useTimer } from '@/components/timer'
-import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { useIsHydrated } from '@/hooks/use-is-hydrated'
+import { ExternalLinks } from '@/lib/routes'
 import { plural } from '@/lib/string'
 
 const DAY_MINUTES = 24 * 60
@@ -30,9 +31,9 @@ export function formatStartedWhen(startedAtMs: number, nowMs: number): string {
     return `on ${dayjs(startedAtMs).format('MMM DD, YYYY [at] h:mm A')}`
 }
 
-const SlackDPSupportLink = () => (
+const SupportLink = () => (
     <Anchor
-        href={SAFE_INSIGHTS_SLACK_URL}
+        href={ExternalLinks.support}
         target="_blank"
         rel="noopener noreferrer"
         c={semanticColor('link.default')}
@@ -40,45 +41,48 @@ const SlackDPSupportLink = () => (
         display="inline-flex"
     >
         <Flex component="span" align="center" gap="xxs">
-            Slack
-            <ArrowSquareOutIcon size={16} />
+            here
+            <ArrowSquareOutIcon size={16} aria-hidden="true" />
+            <VisuallyHidden>(opens in a new tab)</VisuallyHidden>
         </Flex>
     </Anchor>
 )
 
-type StageCopy = { variant: StatusAlertVariant; title: (when: string) => string; body: ReactNode }
+const PREPARING_CODE_BODY = (
+    <>
+        Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, don’t hesitate to
+        contact SafeInsights <SupportLink />.
+    </>
+)
+
+type StageCopy = { variant: StatusAlertVariant; title: string; body: ReactNode }
 
 const STAGE_COPY = {
     // Approval is the first stage the reviewer sees: the containerizer reports JOB-PACKAGING later, so
     // /review lands here in the gap (OTTER-673, "Code approved" always steps forward).
     'CODE-APPROVED': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code approved ${when}`,
-        body: (
-            <>
-                Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact
-                SafeInsights via <SlackDPSupportLink />
-            </>
-        ),
+        title: 'Outputs not ready, code approved',
+        body: PREPARING_CODE_BODY,
     },
     'JOB-PACKAGING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code preparation started ${when}`,
-        body: 'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
+        title: 'Outputs not ready, code preparation started',
+        body: PREPARING_CODE_BODY,
     },
     'JOB-READY': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code queued ${when}`,
+        title: 'Outputs not ready, code queued',
         body: 'The code is packaged and ready to be picked up by the secure enclave. If it stays in this status for over 1 hour, contact your organization admin.',
     },
     'JOB-PROVISIONING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code queued ${when}`,
+        title: 'Outputs not ready, code queued',
         body: 'Preparing the secure enclave to run the code. If it stays in this status for over 1 hour, contact your organization admin.',
     },
     'JOB-RUNNING': {
         variant: STATUS_ALERT_VARIANT.informative,
-        title: (when) => `Outputs not ready, code started running ${when}`,
+        title: 'Outputs not ready, code started running',
         body: 'The code started running in the secure enclave. If it stays in this status for over 1 hour, contact your organization admin.',
     },
 } satisfies Record<string, StageCopy>
@@ -88,7 +92,7 @@ type OutputsStatusAlertProps = {
     startedAt: string | Date
 }
 
-function useStartedWhen(startedAt: string | Date): string {
+function useStartedWhen(startedAt: string | Date): string | null {
     const startedAtMs = new Date(startedAt).getTime()
     const [nowMs, setNowMs] = useState(() => Date.now())
     const tick = useCallback(() => setNowMs(Date.now()), [])
@@ -97,16 +101,37 @@ function useStartedWhen(startedAt: string | Date): string {
         every: { 1: 'minute' },
         trigger: tick,
     })
-    return formatStartedWhen(startedAtMs, nowMs)
+    const isHydrated = useIsHydrated()
+    // The server clock and zone are not the viewer's, so the phrase waits for the browser.
+    return isHydrated ? formatStartedWhen(startedAtMs, nowMs) : null
+}
+
+// Before hydration the title ends at the stage, with the instant in the time element.
+function StartedWhen({ startedAt }: { startedAt: string | Date }) {
+    const phrase = useStartedWhen(startedAt)
+
+    return (
+        <>
+            {phrase ? ' ' : null}
+            <time dateTime={new Date(startedAt).toISOString()}>{phrase}</time>
+        </>
+    )
 }
 
 export function OutputsStatusAlert({ stageStatus, startedAt }: OutputsStatusAlertProps) {
-    const when = useStartedWhen(startedAt)
     const copy = STAGE_COPY[stageStatus as keyof typeof STAGE_COPY]
     if (!copy) return null
 
     return (
-        <StatusAlert variant={copy.variant} title={copy.title(when)}>
+        <StatusAlert
+            variant={copy.variant}
+            title={
+                <>
+                    {copy.title}
+                    <StartedWhen startedAt={startedAt} />
+                </>
+            }
+        >
             {copy.body}
         </StatusAlert>
     )

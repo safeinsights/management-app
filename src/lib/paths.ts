@@ -43,9 +43,6 @@ export const pathForJobScanArtifacts = (parts: { studyJobId: string }) => `scan-
 export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
     `scan-artifacts/code-env/${parts.codeEnvId}`
 
-// Callers prefix APP_BASE_URL to make it absolute.
-export const pathForInvitation = (inviteId: string) => `/account/invitation/${inviteId}`
-
 // Everything under here answers with an attachment rather than a document, which callers that
 // navigate (rather than link) have to know about: the browser keeps the current page mounted.
 export const DOWNLOAD_PREFIX = '/dl/'

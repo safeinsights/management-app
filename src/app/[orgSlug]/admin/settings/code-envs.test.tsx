@@ -72,6 +72,18 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: /add code environment/i })).toBeInTheDocument()
     })
 
+    it('makes the language badge a button only when there is starter code to view', async () => {
+        await insertTestCodeEnv({ orgId: org.id, name: 'With Starter', language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, name: 'No Starter', language: 'R', starterCodeFileNames: [] })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'View R starter code for With Starter' })).toBeInTheDocument()
+        })
+        expect(screen.getByText('No Starter')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View R starter code for No Starter' })).not.toBeInTheDocument()
+    })
+
     it('opens the modal and creates a code environment that is displayed in table', async () => {
         renderWithProviders(<CodeEnvs />)
 
@@ -86,6 +98,7 @@ describe('CodeEnvs', async () => {
         await fillIn(screen.getByLabelText(/Name/i), envName)
         await fillIn(screen.getByLabelText(/Identifier/i), 'test_env')
         await fillIn(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
+        await fillIn(screen.getByLabelText(/Image digest/i), 'a'.repeat(64))
 
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
@@ -188,6 +201,37 @@ describe('CodeEnvs', async () => {
 
         expect(saved.name).toBe('Renamed Env')
         expect(saved.starterCodeFileNames).toEqual(['existing.R'])
+    })
+
+    describe('editing the last usable environment for a language', () => {
+        const openEdit = async (name: string) => {
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText(name)).toBeInTheDocument())
+            fireEvent.click(screen.getByRole('button', { name: `Edit ${name}` }))
+            await waitFor(() => {
+                expect(screen.getByRole('heading', { name: /Edit Code Environment/i })).toBeInTheDocument()
+            })
+        }
+
+        it('locks the testing checkbox and language select', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
+
+            await openEdit('Only R')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeDisabled()
+            expect(screen.getByRole('textbox', { name: /Language/i })).toBeDisabled()
+            expect(screen.getByText(/so it can't be made a testing image/)).toBeInTheDocument()
+        })
+
+        it('leaves them editable when another non-testing environment shares the language', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 1', language: 'R', isTesting: false })
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 2', language: 'R', isTesting: false })
+
+            await openEdit('R Image 1')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeEnabled()
+            expect(screen.getByRole('textbox', { name: /Language/i })).toBeEnabled()
+        })
     })
 
     it('hides delete when there is only one code environment', async () => {

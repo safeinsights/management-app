@@ -60,6 +60,23 @@ export const waitForPendingQueries = () =>
         expect(pendingTestQueryCount()).toBe(0)
     })
 
+// Captured before any test can fake timers, so the teardown bound below always elapses.
+const realSetTimeout = globalThis.setTimeout
+
+// A read still in flight at teardown would finish during the next test, after this test's rows are
+// rolled back and against the next test's mocks. Bounded: a test may leave a fetch that never settles.
+export const settleTestQueries = async (otherReads: Promise<unknown>[] = [], timeoutMs = 2000) => {
+    const inFlight = [...liveTestQueryClients].flatMap((client) =>
+        client
+            .getQueryCache()
+            .getAll()
+            .flatMap((query) => (query.state.fetchStatus === 'fetching' && query.promise ? [query.promise] : [])),
+    )
+    inFlight.push(...otherReads)
+    if (!inFlight.length) return
+    await Promise.race([Promise.allSettled(inFlight), new Promise((resolve) => realSetTimeout(resolve, timeoutMs))])
+}
+
 // The teardown check in vitest.setup.ts fails a test that leaves a write in flight. Use this when
 // the mutation is a side effect the test does not otherwise assert on — a first-visit record, an
 // optimistic save — rather than reaching for an unrelated assertion to stall on.

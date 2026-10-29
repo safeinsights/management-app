@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import type { Language } from '@/database/types'
+import type { DataSourceType } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { faker } from '@faker-js/faker'
 import jwt from 'jsonwebtoken'
@@ -64,7 +65,10 @@ export type InsertTestCodeEnvOptions = {
     isTesting?: boolean
     starterCodeFileNames?: string[]
     environment?: Array<{ name: string; value: string }>
+    dataSourceType?: DataSourceType
 }
+
+export const testImageRef = (repoAndTag = 'example.com/img:v1') => `${repoAndTag}@sha256:${'a'.repeat(64)}`
 
 export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
     const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
@@ -82,10 +86,13 @@ export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
             identifier: options.identifier || faker.string.alphanumeric(8).toLowerCase(),
             language,
             commandLines,
-            url: options.url || `example.com/${language.toLowerCase()}-base:${faker.string.alphanumeric(6)}`,
+            url:
+                options.url ||
+                testImageRef(`example.com/${language.toLowerCase()}-base:${faker.string.alphanumeric(6)}`),
             isTesting: options.isTesting ?? false,
             starterCodeFileNames: starterCodeFileNames,
             settings: { environment: options.environment ?? [] },
+            dataSourceType: options.dataSourceType ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()

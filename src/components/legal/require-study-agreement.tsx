@@ -2,6 +2,7 @@
 
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
+import { isPermissionDenied } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-acknowledgement.actions'
@@ -25,7 +26,7 @@ export const useStudyAgreementStatus = (studyId: string) => {
 
     // Failing open is right, but a gate that has quietly stopped asking must not also be invisible.
     useEffect(() => {
-        if (error) captureException(error)
+        if (error && !isPermissionDenied(error)) captureException(error)
     }, [error])
 
     // A gate that cannot be read blocks work just as a missing agreement does, so callers have to

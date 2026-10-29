@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
-import dayjs from 'dayjs'
 import { AlertNotFound } from '@/components/errors'
+import { LocalDateTime } from '@/components/local-date-time'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import type { Json } from '@/database/types'
 import { CollapseToggleLink } from './collapse-toggle-link'
@@ -16,10 +16,6 @@ type FeedbackEntryShape = {
     authorName: string
     createdAt: Date | string
     version?: number | null
-}
-
-function formatDate(date: Date | string): string {
-    return dayjs(date).format('MMM DD, YYYY')
 }
 
 const PROPOSAL_ENTRY_TITLES: Record<string, string> = {
@@ -45,7 +41,6 @@ type FeedbackEntryProps = {
 
 function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
     const title = entryTitle(entry)
-    const date = formatDate(entry.createdAt)
     const toggleLabel = isExpanded ? 'View less' : 'View more'
     const bodyRef = useRef<HTMLDivElement>(null)
     const [isTruncated, setIsTruncated] = useState(false)
@@ -82,7 +77,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                         {entry.authorName}
                     </Text>
                     <Text size="sm" c={semanticColor('text.secondary')}>
-                        {date}
+                        <LocalDateTime value={entry.createdAt} />
                     </Text>
                 </Stack>
                 {/* component="div" because Lexical renders block-level elements that can't nest inside <p> */}
@@ -94,7 +89,7 @@ function FeedbackEntry({ entry, isExpanded, onToggle }: FeedbackEntryProps) {
                     lineClamp={isExpanded ? undefined : COLLAPSED_LINE_CLAMP}
                     data-testid={`feedback-body-${entry.id}`}
                 >
-                    <ReadOnlyLexicalContent value={entry.body} />
+                    <ReadOnlyLexicalContent value={entry.body} label={`Feedback from ${entry.authorName}`} />
                 </Text>
                 <CollapseToggleLink
                     isVisible={isTruncated}

@@ -6,7 +6,7 @@ import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
 import { STUDIES_TABLE_QUERY_KEYS } from '@/components/dashboard/studies-table'
 import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
-import { actionResult } from '@/lib/utils'
+import { isPermissionDenied } from '@/lib/errors'
 import { markStudyOpenedAction } from '@/server/actions/study.actions'
 
 type Stamp = { studyId: string; isEnter: boolean }
@@ -17,7 +17,7 @@ type Stamp = { studyId: string; isEnter: boolean }
 function useMarkStudyOpened(studyId: string | undefined) {
     const queryClient = useQueryClient()
     const { mutate } = useMutation({
-        mutationFn: async ({ studyId: id }: Stamp) => actionResult(await markStudyOpenedAction({ studyId: id })),
+        mutationFn: ({ studyId: id }: Stamp) => markStudyOpenedAction({ studyId: id }),
         // The dashboard refetches on mount and can read the rows before the leave stamp lands. Only
         // entering refetches the nav: a dashboard reached on leaving patches its own dot.
         onSuccess: async (_, { isEnter }) => {
@@ -28,8 +28,11 @@ function useMarkStudyOpened(studyId: string | undefined) {
                 ),
             )
         },
-        // A stamp that keeps failing leaves every dot lit, and the reader cannot act on it.
-        onError: (error) => captureException(error),
+        // A stamp that keeps failing leaves every dot lit, and the reader cannot act on it. A refusal
+        // is a study the user cannot see, which the page already answers with "Study was not found".
+        onError: (error) => {
+            if (!isPermissionDenied(error)) captureException(error)
+        },
         networkMode: 'always',
     })
     const markedOnEnter = useRef<string | null>(null)

@@ -108,11 +108,10 @@ describe('AddTeam', () => {
 
     it('still leaves for the dashboard after a decline when storage is unavailable', async () => {
         await renderInviteFrom(faker.company.name())
-        // happy-dom binds Storage methods on first access, so a spy on setItem is bypassed.
-        const real = sessionStorage
+        // happy-dom's Storage is a proxy that ignores spies, so the global is replaced instead.
         vi.stubGlobal('sessionStorage', {
-            getItem: (key: string) => real.getItem(key),
-            removeItem: (key: string) => real.removeItem(key),
+            getItem: () => null,
+            removeItem: () => {},
             setItem: () => {
                 throw new DOMException('Quota exceeded', 'QuotaExceededError')
             },
@@ -125,5 +124,6 @@ describe('AddTeam', () => {
 
         await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.dashboard))
         expect(takeInvitationNotice()).toBeNull()
+        vi.unstubAllGlobals()
     })
 })

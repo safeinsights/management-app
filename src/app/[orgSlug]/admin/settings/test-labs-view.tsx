@@ -45,7 +45,7 @@ export function TestLabsTableView({ hasActions, children }: { hasActions: boolea
             <Table>
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th>Organization</Table.Th>
+                        <Table.Th w="30%">Organization</Table.Th>
                         <Table.Th>Added on</Table.Th>
                         <ActionsHeader isVisible={hasActions} />
                     </Table.Tr>

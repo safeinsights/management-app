@@ -1,9 +1,8 @@
 import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
 import { Box, Group, Input } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
-import { InputError } from '@/components/errors'
+import { ERROR_LINE_MIN_HEIGHT, InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
-import { fontWeight } from '@/theme/tokens'
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
@@ -133,6 +132,8 @@ export interface FormFieldProps {
     footer?: ReactNode
     /** Only for a field whose error can appear while the user is still typing in it (OTTER-690). */
     errorLive?: boolean
+    /** Reserves the error row up front, so an error raised on blur doesn't push the page down mid-click. */
+    validatesOnBlur?: boolean
     children: ReactNode
 }
 
@@ -154,17 +155,25 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     return message
 }
 
-const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode; errorLive?: boolean }> = ({
-    inputId,
-    error,
-    footer,
-    errorLive,
-}) => {
+const FieldFooterRow: FC<{
+    inputId: string
+    error?: ReactNode
+    footer?: ReactNode
+    errorLive?: boolean
+    validatesOnBlur?: boolean
+}> = ({ inputId, error, footer, errorLive, validatesOnBlur }) => {
     // `errorLive` keeps the row mounted: the live region has to exist before the message does.
-    if (!error && !footer && !errorLive) return null
+    if (!error && !footer && !errorLive && !validatesOnBlur) return null
 
     return (
-        <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt="xxs" wrap="nowrap">
+        <Group
+            justify={error ? 'space-between' : 'flex-end'}
+            align="flex-start"
+            gap="xs"
+            mt="xxs"
+            wrap="nowrap"
+            mih={ERROR_LINE_MIN_HEIGHT}
+        >
             <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>
@@ -179,6 +188,7 @@ export const FormField: FC<FormFieldProps> = ({
     error,
     footer,
     errorLive,
+    validatesOnBlur,
     children,
 }) => {
     return (
@@ -188,8 +198,7 @@ export const FormField: FC<FormFieldProps> = ({
                 label={label}
                 withAsterisk={required}
                 description={description}
-                // Mantine adds no gap under a label, so set it here.
-                labelProps={{ fw: fontWeight.semibold, fz: 'sm', mb: 'xxs' }}
+                labelProps={{ fz: 'sm' }}
                 descriptionProps={{ id: fieldDescriptionId(inputId), mb: 'xs' }}
                 // ARIA only: omitting 'error' from inputWrapperOrder keeps the visible message in
                 // FieldFooterRow beside the counter rather than rendered twice.
@@ -199,7 +208,13 @@ export const FormField: FC<FormFieldProps> = ({
             >
                 {children}
             </Input.Wrapper>
-            <FieldFooterRow inputId={inputId} error={error} footer={footer} errorLive={errorLive} />
+            <FieldFooterRow
+                inputId={inputId}
+                error={error}
+                footer={footer}
+                errorLive={errorLive}
+                validatesOnBlur={validatesOnBlur}
+            />
         </Box>
     )
 }

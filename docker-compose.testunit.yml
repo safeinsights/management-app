@@ -3,6 +3,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.dev
+            target: test-runner
         working_dir: /app
         # No env_file: the unit-test container needs none of .env's secrets. Clerk is
         # mocked and its keys are deleted in tests/vitest.setup.ts; Mailgun is optional

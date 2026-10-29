@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import { vi } from 'vitest'
 import {
     actionResult,
     beforeAll,
-    beforeEach,
+    db,
     describe,
     expect,
     insertTestStudyJobData,
@@ -12,8 +11,10 @@ import {
     preloadEditor,
     renderWithProviders,
     screen,
+    setEditorText,
     userEvent,
     waitFor,
+    waitForPendingMutations,
     within,
 } from '@/tests/unit.helpers'
 import { Routes } from '@/lib/routes'
@@ -21,21 +22,12 @@ import type { StepNav } from '@/lib/study-screen'
 import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { CodeReviewClient } from './code-review-client'
-import { useCodeReviewMutation } from '@/hooks/use-code-review-mutation'
-import { useReviewFeedback } from '@/hooks/use-review-feedback'
-import { REVIEW_FEEDBACK_MAX_CHARACTERS } from '@/lib/proposal-review'
 
-vi.mock('@/hooks/use-code-review-mutation', () => ({
-    useCodeReviewMutation: vi.fn(),
+// A recorded decision emails the lab. Spread the real module: mailer reads SI_EMAIL from it.
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
 }))
-
-vi.mock('@/hooks/use-review-feedback', () => ({
-    useReviewFeedback: vi.fn(),
-}))
-
-const mockUseCodeReviewMutation = vi.mocked(useCodeReviewMutation)
-const mockUseReviewFeedback = vi.mocked(useReviewFeedback)
-const submitReview = vi.fn()
 
 async function setupValidReviewableJob(
     labName = 'Rice University',
@@ -67,6 +59,10 @@ async function fillAllCriteria(user: ReturnType<typeof userEvent.setup>) {
     }
 }
 
+async function fillFeedback() {
+    await setEditorText(await screen.findByRole('textbox', { name: 'Code review feedback' }), 'sample feedback body')
+}
+
 const firstRadioIn = (testId: string) => within(screen.getByTestId(testId)).getAllByRole('radio')[0]
 
 // Blur a radio group without selecting: focus it, then click outside. A click on another control
@@ -79,25 +75,6 @@ async function visitAndLeave(user: ReturnType<typeof userEvent.setup>, testId: s
 beforeAll(preloadEditor)
 
 describe('CodeReviewClient decision selector', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-        submitReview.mockReset()
-        mockUseCodeReviewMutation.mockReturnValue({
-            submitReview,
-            isSubmitting: false,
-            pendingReview: undefined,
-        })
-        mockUseReviewFeedback.mockReturnValue({
-            value: 'sample feedback body',
-            onChange: vi.fn(),
-            onBlur: vi.fn(),
-            error: null,
-            characterCount: 100,
-            maxCharacters: REVIEW_FEEDBACK_MAX_CHARACTERS,
-            isValid: true,
-        })
-    })
-
     it('renders both decision options with their titles and descriptions', async () => {
         const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
@@ -208,9 +185,6 @@ describe('CodeReviewClient decision selector', () => {
 
     it('flags the empty feedback field with the lab name on submit click', async () => {
         const user = userEvent.setup()
-        const { useReviewFeedback: realUseReviewFeedback } =
-            await vi.importActual<typeof import('@/hooks/use-review-feedback')>('@/hooks/use-review-feedback')
-        mockUseReviewFeedback.mockImplementation(realUseReviewFeedback)
         const { study, job, orgSlug, nav } = await setupValidReviewableJob('Rice University')
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
@@ -265,6 +239,7 @@ describe('CodeReviewClient decision selector', () => {
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillFeedback()
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-submit'))
 
@@ -278,6 +253,7 @@ describe('CodeReviewClient decision selector', () => {
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillFeedback()
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-needs-clarification'))
         await user.click(screen.getByTestId('code-review-submit'))
@@ -298,6 +274,7 @@ describe('CodeReviewClient decision selector', () => {
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillFeedback()
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-approve'))
         await user.click(screen.getByTestId('code-review-submit'))
@@ -310,58 +287,52 @@ describe('CodeReviewClient decision selector', () => {
         expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
     })
 
-    it('calls submitReview with decision=needs-clarification on confirm', async () => {
+    it('records a needs-clarification decision with the feedback and criteria on confirm', async () => {
         const user = userEvent.setup()
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillFeedback()
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-needs-clarification'))
         await user.click(screen.getByTestId('code-review-submit'))
 
         const confirmButton = await screen.findByRole('button', { name: 'Request revision' })
         await user.click(confirmButton)
+        await waitForPendingMutations()
 
-        await waitFor(() => {
-            expect(submitReview.mock.calls[0][0]).toEqual({
-                decision: 'needs-clarification',
-                feedback: 'sample feedback body',
-                criteria: {
-                    proposalAlignment: 'yes',
-                    agreementCompliance: 'yes',
-                    privacyProtection: 'yes',
-                },
-            })
+        const decision = await db
+            .selectFrom('studyReviewComment')
+            .select(['decision', 'body', 'criteria'])
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'DECISION')
+            .executeTakeFirstOrThrow()
+        expect(decision.decision).toBe('NEEDS-CLARIFICATION')
+        expect(JSON.stringify(decision.body)).toContain('sample feedback body')
+        expect(decision.criteria).toEqual({
+            proposalAlignment: 'yes',
+            agreementCompliance: 'yes',
+            privacyProtection: 'yes',
         })
     })
 
     it('keeps the modal locked after the action resolves, while the navigation to the decided page is in flight', async () => {
         const user = userEvent.setup()
-        // The hook keeps isSubmitting true after isPending clears, for the whole navigation.
-        mockUseCodeReviewMutation.mockImplementation(() => {
-            const [isSubmitting, setIsSubmitting] = useState(false)
-            return {
-                submitReview: (...args: Parameters<typeof submitReview>) => {
-                    submitReview(...args)
-                    setIsSubmitting(true)
-                },
-                isSubmitting,
-                pendingReview: undefined,
-            }
-        })
         const { study, job, orgSlug, nav } = await setupValidReviewableJob()
         renderWithProviders(
             <CodeReviewClient orgSlug={orgSlug} study={study} job={job} latestJobStatus="CODE-SUBMITTED" nav={nav} />,
         )
 
+        await fillFeedback()
         await fillAllCriteria(user)
         await user.click(screen.getByTestId('code-review-decision-approve'))
         await user.click(screen.getByTestId('code-review-submit'))
 
         const dialog = await screen.findByRole('dialog')
         await user.click(within(dialog).getByRole('button', { name: 'Approve code' }))
+        await waitForPendingMutations()
 
         expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
         const confirm = within(dialog).getByRole('button', { name: 'Approve code' })

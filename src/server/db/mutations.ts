@@ -1,7 +1,9 @@
 import { currentDb } from '@/server/request-context'
+import { clerkOrgSyncEnabled } from '@/server/config'
+import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
-import { sql, type Kysely } from 'kysely'
+import { sql, type Kysely, type Updateable } from 'kysely'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 type SiUserOptionalAttrs = {
@@ -53,6 +55,25 @@ export async function findOrCreateOrgMembership({
         .execute()
 
     return { ...org, isAdmin }
+}
+
+// For bin scripts, which cannot load @clerk/nextjs; the sync is passed in. Call it once all of the
+// user's memberships are written: unlike the app's sync, a Clerk error throws, so a bin script fails loudly.
+export async function syncUserOrgsToClerk(userId: string, clerkSync: ReturnType<typeof createClerkOrgSync>) {
+    if (!clerkOrgSyncEnabled()) return
+    const executor = currentDb()
+    // Clerk must only hear of a committed row, and a caller's open transaction has not committed yet.
+    if (executor.isTransaction) throw new Error('cannot sync memberships to Clerk before they commit')
+    const memberships = await executor
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .innerJoin('user', 'user.id', 'orgUser.userId')
+        .select(['org.slug', 'org.name', 'org.type', 'orgUser.isAdmin', 'user.clerkId'])
+        .where('orgUser.userId', '=', userId)
+        .execute()
+    for (const membership of memberships) {
+        await clerkSync.syncMembership(membership, membership.clerkId, membership.isAdmin)
+    }
 }
 
 export type RoundJob = {
@@ -175,7 +196,7 @@ export function nextVersionForStudyComment({ studyId, increment }: { studyId: st
     return increment ? sql<number>`${current} + 1` : current
 }
 
-// Opening a study and saving your own edit both count as having seen it (OTTER-838). The stamp
+// Opening a study and making any change to it count as having seen it (OTTER-838, OTTER-937). The stamp
 // never moves back, and `seenAt` covers an edit time taken from the app clock rather than the DB's.
 export async function markStudyOpened(
     db: Kysely<DB>,
@@ -191,4 +212,18 @@ export async function markStudyOpened(
             })),
         )
         .execute()
+}
+
+// Moves Last updated and stamps the actor's visit together, so their own change never reads as unread (OTTER-937).
+export async function markStudyUpdated(
+    db: Kysely<DB>,
+    { studyId, userId, set = {} }: { studyId: string; userId: string; set?: Updateable<DB['study']> },
+) {
+    const updatedAt = new Date()
+    await db
+        .updateTable('study')
+        .set({ ...set, lastUpdatedAt: updatedAt })
+        .where('id', '=', studyId)
+        .execute()
+    await markStudyOpened(db, { studyId, userId, seenAt: updatedAt })
 }

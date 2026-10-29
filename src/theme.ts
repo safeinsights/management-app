@@ -159,6 +159,7 @@ type ExtendedCustomColors =
     | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxs' | 'xxl' | DefaultMantineSize
+type ExtendedCustomShadow = 'toast' | DefaultMantineSize
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
@@ -167,6 +168,7 @@ declare module '@mantine/core' {
 
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
+        shadows: Record<ExtendedCustomShadow, string>
     }
 
     export interface ButtonProps {
@@ -293,8 +295,12 @@ export const theme = createTheme({
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
         // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
+        // Every label is semibold with an xxs gap: Figma has no 500 weight.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[7] } },
+            styles: {
+                required: { color: semanticColor('error.text') },
+                label: { fontWeight: fontWeight.semibold, marginBottom: 'var(--mantine-spacing-xxs)' },
+            },
             vars: () => ({
                 label: {},
                 description: {},
@@ -355,8 +361,9 @@ export const theme = createTheme({
             defaultProps: { padding: 'xxl' },
             styles: {
                 header: {
-                    paddingBlock: 0,
+                    paddingBlock: 'var(--mantine-spacing-md)',
                     paddingInline: 'var(--mantine-spacing-xxl)',
+                    gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.sunken'),
                 },
                 body: { padding: 'var(--mb-padding)' },
@@ -369,7 +376,12 @@ export const theme = createTheme({
                     minHeight: rem(16),
                     minWidth: rem(16),
                 },
-                title: { fontSize: 'var(--mantine-font-size-xl)', fontWeight: fontWeight.semibold },
+                // Mantine's line-height 1 crams a title that wraps in a narrow modal.
+                title: {
+                    fontSize: 'var(--mantine-font-size-xl)',
+                    fontWeight: fontWeight.semibold,
+                    lineHeight: 'var(--si-line-height-heading)',
+                },
             },
         }),
         // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
@@ -385,22 +397,31 @@ export const theme = createTheme({
             defaultProps: { closeButtonProps: { 'aria-label': 'Close' } },
             styles: {
                 root: {
-                    borderRadius: 4,
-                    padding: '12px 16px',
-                    gap: 16,
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
+                    gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.popover'),
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                    boxShadow: 'var(--mantine-shadow-toast)',
                 },
-                title: { color: semanticColor('text.primary'), fontWeight: 700 },
-                description: { color: semanticColor('text.secondary') },
+                // Figma draws the glyph itself at 32px with only the row gap around it; Mantine's slot
+                // adds a 28px disc and its own margins, as does the body.
+                icon: { width: rem(32), height: rem(32), marginInlineEnd: 0, backgroundColor: 'transparent' },
+                body: { marginInlineEnd: 0 },
+                title: { color: semanticColor('text.primary'), fontWeight: fontWeight.bold },
+                // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
+                // instead of Mantine's ellipsis cutting it off.
+                description: {
+                    color: semanticColor('text.secondary'),
+                    whiteSpace: 'pre-line',
+                    overflowWrap: 'anywhere',
+                },
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
-        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
-        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        // The toast container. Order and gap live in globals.css, on the wrapper div Mantine adds; the
+        // margin reset stops Mantine's sibling margin-top adding to that gap.
         Notifications: {
             styles: {
-                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
                 notification: { marginTop: 0 },
             },
         },
@@ -436,6 +457,8 @@ export const theme = createTheme({
         md: '0 4px 6px rgba(0, 0, 0, 0.1)',
         lg: '0 10px 15px rgba(0, 0, 0, 0.15)',
         xl: '0 20px 25px rgba(0, 0, 0, 0.2)',
+        // OTTER-746's toast elevation, which none of the steps above matches.
+        toast: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
     },
 })
 

@@ -1,3 +1,4 @@
+import { Routes } from '@/lib/routes/definitions'
 import { expect, goto, test, withRole, type Page } from './e2e.helpers'
 import { seedApprovedWithPublishedStudyAgreement } from './e2e.seed'
 import { RESEARCHER_DASHBOARD, REVIEWER_DASHBOARD, viewStudyDetails } from './study.helpers'
@@ -31,7 +32,7 @@ test('a study with an unacknowledged Study Agreement is blocked until it is ackn
 
         // Declining has to lead somewhere: the modal covers the nav.
         await modal.getByRole('button', { name: 'Cancel' }).click()
-        await page.waitForURL(/\/dashboard/)
+        await page.waitForURL(Routes.dashboard)
 
         // Cancelling settles nothing — re-entering asks again.
         await openStudy(page, studyTitle)

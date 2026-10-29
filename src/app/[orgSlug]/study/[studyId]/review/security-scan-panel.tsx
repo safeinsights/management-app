@@ -29,7 +29,7 @@ function ScanResult({ scan, hasError }: { scan: JobScanResult | null; hasError: 
     if (status == null && !hasError) {
         return (
             <Group gap="xs" role="status">
-                <Loader size="sm" aria-label="Scan pending" />
+                <Loader size="sm" aria-hidden />
                 <Text size="sm" c="dimmed">
                     Security scan pending
                 </Text>

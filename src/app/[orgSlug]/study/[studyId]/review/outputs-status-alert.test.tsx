@@ -1,7 +1,17 @@
-import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
-import dayjs from 'dayjs'
+import {
+    act,
+    afterEach,
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+    vi,
+} from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { SAFE_INSIGHTS_SLACK_URL } from '@/lib/config'
+import { ExternalLinks } from '@/lib/routes'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
@@ -26,16 +36,15 @@ describe('formatStartedWhen', () => {
     const base = new Date('2026-07-20T10:00:00Z').getTime()
     const at = (minutes: number) => base + minutes * 60_000
 
-    const absolute = (ms: number) => `on ${dayjs(ms).format('MMM DD, YYYY [at] h:mm A')}`
-
     it('uses relative "ago" phrasing within 24 hours', () => {
         expect(formatStartedWhen(base, at(5))).toBe('5 minutes ago')
         expect(formatStartedWhen(base, at(23 * 60 + 59))).toBe('23 hours and 59 minutes ago')
     })
 
     it('switches to an absolute date/time at or past 24 hours', () => {
-        expect(formatStartedWhen(base, at(24 * 60))).toBe(absolute(base))
-        expect(formatStartedWhen(base, at(48 * 60 + 30))).toBe(absolute(base))
+        // Tests run in America/Chicago.
+        expect(formatStartedWhen(base, at(24 * 60))).toBe('on Jul 20, 2026 at 5:00 AM')
+        expect(formatStartedWhen(base, at(48 * 60 + 30))).toBe('on Jul 20, 2026 at 5:00 AM')
     })
 })
 
@@ -50,23 +59,31 @@ describe('OutputsStatusAlert', () => {
 
     afterEach(() => vi.useRealTimers())
 
+    const expectPreparingCodeBodyWithSupportLink = () => {
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\s*\(opens in a new tab\)\.$/,
+        )
+        const link = screen.getByRole('link', { name: /here/ })
+        expect(link).toHaveAttribute('href', ExternalLinks.support)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+        expect(link).toHaveAccessibleName(/^here\s*\(opens in a new tab\)$/)
+        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+    }
+
     // Approval routes the reviewer here before the containerizer reports a stage (OTTER-673).
-    it('shows the code-approved copy while no pipeline stage has been reported', () => {
+    it('shows the code-approved copy with the Support link while no pipeline stage has been reported', () => {
         renderAt('CODE-APPROVED')
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
-        expect(alert).toHaveTextContent('Preparing the code to run in the secure enclave')
-        expect(screen.getByRole('link', { name: /Slack/ })).toHaveAttribute('href', SAFE_INSIGHTS_SLACK_URL)
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('Outputs not ready, code approved 5 minutes ago')
+        expectPreparingCodeBodyWithSupportLink()
     })
 
-    it('shows the job-packaging copy directing the reviewer to SafeInsights without a Slack link', () => {
+    it('shows the job-packaging copy with the Support link', () => {
         renderAt('JOB-PACKAGING')
-        const alert = screen.getByTestId('status-alert')
-        expect(alert).toHaveTextContent('Outputs not ready, code preparation started 5 minutes ago')
-        expect(alert).toHaveTextContent(
-            'Preparing the code to run in the secure enclave. If it stays in this status for over 1 hour, contact SafeInsights.',
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            'Outputs not ready, code preparation started 5 minutes ago',
         )
-        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+        expectPreparingCodeBodyWithSupportLink()
     })
 
     it('shows the job-ready copy (queued, org-admin contact)', () => {
@@ -74,7 +91,7 @@ describe('OutputsStatusAlert', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('Outputs not ready, code queued 5 minutes ago')
         expect(alert).toHaveTextContent('ready to be picked up by the secure enclave')
-        expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link')).not.toBeInTheDocument()
     })
 
     it('shows the job-provisioning copy (queued, preparing the enclave)', () => {
@@ -107,9 +124,7 @@ describe('OutputsStatusAlert', () => {
         act(() => {
             vi.advanceTimersByTime(60_000)
         })
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            `on ${dayjs(new Date(STARTED)).format('MMM DD, YYYY [at] h:mm A')}`,
-        )
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('running on Jul 20, 2026 at 5:00 AM')
         expect(vi.getTimerCount()).toBe(0)
     })
 
@@ -118,5 +133,25 @@ describe('OutputsStatusAlert', () => {
         vi.setSystemTime(new Date(STARTED))
         renderWithProviders(<OutputsStatusAlert stageStatus="CODE-SUBMITTED" startedAt={STARTED} />)
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
+    })
+
+    it('ends the server HTML title at the stage, with only the instant after it', () => {
+        const html = renderToServerHtml(<OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />)
+
+        expect(html).toMatch(/Outputs not ready, code approved<time datetime="2026-07-20T10:00:00.000Z"><\/time>/i)
+        expect(html).not.toContain('ago')
+        expect(html).not.toContain(' on ')
+    })
+
+    it('hydrates without a mismatch, then shows when the stage started', async () => {
+        const { recoverableErrors } = hydrateServerHtml(
+            <OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />,
+        )
+
+        expect(await screen.findByText('on Jul 20, 2026 at 5:00 AM')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            'Outputs not ready, code approved on Jul 20, 2026 at 5:00 AM',
+        )
+        expect(recoverableErrors).toEqual([])
     })
 })

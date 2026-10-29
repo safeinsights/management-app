@@ -1,4 +1,6 @@
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, expect, goto, test } from './e2e.helpers'
+import { ENCLAVE_SLUG } from './e2e.seed'
 
 // OTTER-647. globals.css reserves the fixed header's height via Mantine variables; a Mantine upgrade
 // that renames or rescopes them leaves the rule present but inert, which only a browser can catch.
@@ -7,7 +9,7 @@ test.describe('app shell bars and scrolled-to content', () => {
     test.use({ storageState: authFileFor('reviewer') })
 
     test('keeps the footer in the page flow, never over content', async ({ page }) => {
-        await goto(page, '/openstax/dashboard')
+        await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
 
         const footer = page.getByRole('contentinfo')
         await expect(footer).toHaveText(/SafeInsights \| Rice University/)
@@ -29,7 +31,7 @@ test.describe('app shell bars and scrolled-to content', () => {
     test('ends a short page with the footer at the viewport bottom, with nothing to scroll', async ({ page }) => {
         // Taller than the security key page's content, so the page is short.
         await page.setViewportSize({ width: 1280, height: 2000 })
-        await goto(page, '/user-key')
+        await goto(page, Routes.userKey)
 
         const footer = page.getByRole('contentinfo')
         await expect(footer).toHaveText(/SafeInsights \| Rice University/)
@@ -46,7 +48,7 @@ test.describe('app shell bars and scrolled-to content', () => {
     })
 
     test('reserves the space the fixed header covers, at any viewport', async ({ page }) => {
-        await goto(page, '/openstax/dashboard')
+        await goto(page, Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG }))
 
         // A collapsed header keeps its height and is translated above the top edge, so coverage
         // is 0 rather than the header height.

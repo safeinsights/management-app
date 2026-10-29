@@ -147,6 +147,9 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
     )
 }
 
+// One InputError line: reserving it up front keeps the layout still when a message arrives.
+export const ERROR_LINE_MIN_HEIGHT = 'calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))'
+
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 

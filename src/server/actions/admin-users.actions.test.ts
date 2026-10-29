@@ -1,20 +1,27 @@
 import { db } from '@/database'
-import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
-import { actionResult, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    actionResult,
+    flushDeferred,
+    getAuditEntriesWithMetadata,
+    insertTestOrg,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { clerkClient } from '@clerk/nextjs/server'
 import { Mock, describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
 
-vi.mock('@/server/events', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/events')>()),
-    onUserInvited: vi.fn(),
-}))
 vi.mock('@/server/mailer', () => ({
     sendInviteEmail: vi.fn(),
 }))
 
 const mockClerkClient = clerkClient as unknown as Mock
+
+const invitedAuditMetadata = async (pendingId: string) => {
+    await flushDeferred()
+    const entries = await getAuditEntriesWithMetadata(pendingId, 'USER')
+    return entries.find((entry) => entry.eventType === 'INVITED')?.metadata
+}
 
 describe('Admin Users Actions', () => {
     it('orgAdminInviteUserAction invites a new user', async () => {
@@ -41,7 +48,7 @@ describe('Admin Users Actions', () => {
         expect(pendingUser).toBeDefined()
         expect(pendingUser?.isAdmin).toBe(true)
         expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: invite.email, inviteId: pendingUser!.id })
-        expect(onUserInvited).toHaveBeenCalledWith({ pendingId: pendingUser!.id, isResend: false })
+        expect(await invitedAuditMetadata(pendingUser!.id)).toEqual({ invitedEmail: invite.email, isResend: false })
     })
 
     it('orgAdminInviteUserAction resends a pending invite', async () => {
@@ -64,7 +71,7 @@ describe('Admin Users Actions', () => {
 
         expect(result).toEqual({ alreadyInvited: true })
         expect(sendInviteEmail).toHaveBeenCalledWith({ emailTo: 'pending@test.com', inviteId: pending.id })
-        expect(onUserInvited).toHaveBeenCalledWith({ pendingId: pending.id, isResend: true })
+        expect(await invitedAuditMetadata(pending.id)).toEqual({ invitedEmail: 'pending@test.com', isResend: true })
     })
 
     it('orgAdminInviteUserAction blocks invite when user is already in org (merged email)', async () => {
@@ -246,6 +253,9 @@ describe('Admin Users Actions', () => {
             emailTo: 'reinvite@test.com',
             inviteId: pendingUser.id,
         })
-        expect(onUserInvited).toHaveBeenCalledWith({ pendingId: pendingUser.id, isResend: true })
+        expect(await invitedAuditMetadata(pendingUser.id)).toEqual({
+            invitedEmail: 'reinvite@test.com',
+            isResend: true,
+        })
     })
 })

@@ -7,7 +7,7 @@ import { Routes } from '@/lib/routes'
 import { RegenerateKeyView } from './regenerate-key-view'
 
 type RegenerateKeyProps = {
-    generatedOn: string
+    generatedOn: Date | string
 }
 
 export const RegenerateKey: FC<RegenerateKeyProps> = ({ generatedOn }) => {

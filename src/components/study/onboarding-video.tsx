@@ -14,7 +14,7 @@ const PLAY_BUTTON_SIZE = 40
 
 const VideoHeading: FC = () => (
     <Stack gap="xxs">
-        <Text fz="sm" fw={fontWeight.bold} lh={1.2} c={semanticColor('text.primary')}>
+        <Text fz="sm" fw={fontWeight.bold} lh="var(--si-line-height-tight)" c={semanticColor('text.primary')}>
             {VIDEO_TITLE}
         </Text>
         <Text fz="sm" c={semanticColor('text.secondary')}>

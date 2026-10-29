@@ -9,12 +9,22 @@ import {
 } from '@/schema/legal-document'
 import { fetchUserParticipationAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
-import { agreementDateColumns, AgreementsPanel } from '@/components/legal/agreements-table'
+import {
+    agreementDateColumns,
+    AgreementsPanel,
+    clampedColumn,
+    TruncatedNameCell,
+} from '@/components/legal/agreements-table'
 
 type ParticipationAgreement = ActionSuccessType<typeof fetchUserParticipationAgreementsAction>[number]
 
 const columns: DataTableColumn<ParticipationAgreement>[] = [
-    { accessor: 'orgName', title: 'Organization' },
+    // Not a link: design has not yet decided whether an org name should open anything.
+    clampedColumn('40%', {
+        accessor: 'orgName',
+        title: 'Organization',
+        render: ({ orgName }) => <TruncatedNameCell name={orgName} />,
+    }),
     ...agreementDateColumns<ParticipationAgreement>(),
 ]
 

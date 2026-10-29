@@ -1,9 +1,10 @@
+import { Routes } from '@/lib/routes/definitions'
 import { CLERK_MFA_CODE, e2eSignOut, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
         test(`login as ${role}`, async ({ page }) => {
-            await page.goto('/account/signin')
+            await page.goto(Routes.accountSignin)
             await e2eSignOut(page)
 
             const fillForm = async () => {

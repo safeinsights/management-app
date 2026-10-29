@@ -1,222 +1,47 @@
 'use client'
 
-import { InputError } from '@/components/errors'
-import { BackLink } from '@/components/links'
-import { errorToString } from '@/lib/errors'
-import logger from '@/lib/logger'
-import { sleep } from '@/lib/utils'
-import { useReverification, useUser } from '@clerk/nextjs'
-import { PhoneNumberResource } from '@clerk/nextjs/types'
-import { Anchor, Box, Button, Container, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { useForm } from '@/common'
-import { isPossiblePhoneNumber } from 'react-phone-number-input'
-import { notifications } from '@mantine/notifications'
-import { showToast } from '@/components/toast-notifications'
-import { redirect } from 'next/navigation'
-import { useState } from 'react'
-import BackupCodes from '../app/backup-codes'
-import { Routes } from '@/lib/routes'
-import OtpInput from '@/components/otp-input'
-import { AddSmsMfaView } from './add-sms-mfa-view'
+import { Container, Paper, Stack } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
-
-// https://clerk.com/docs/custom-flows/add-phone
-// https://clerk.com/docs/custom-flows/manage-sms-based-mfa
+import BackupCodes from '../app/backup-codes'
+import { AddSmsMfaView, AddSmsOtpView } from './add-sms-mfa-view'
+import { useAddSmsMfa } from './use-add-sms-mfa'
 
 export function AddSMSMFA() {
-    const { isLoaded, user } = useUser()
-    const [isVerifying, setIsVerifying] = useState(false)
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
-    const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
-    const [isSendingSms, setIsSendingSms] = useState(false)
-    const [lastSentTime, setLastSentTime] = useState<number | null>(null)
-    const [isVerifyingCode, setIsVerifyingCode] = useState(false)
-    const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
-    const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
-        phone.setReservedForSecondFactor({ reserved: true }),
-    )
-    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
-    const createBackupCode = useReverification(() => user?.createBackupCode())
+    const {
+        isReady,
+        step,
+        phoneForm,
+        otpForm,
+        isSendingSms,
+        isVerifyingCode,
+        phoneLastFour,
+        backupCodes,
+        sendVerificationCode,
+        resendCode,
+        verifyCodeAndSetMfa,
+    } = useAddSmsMfa()
 
-    // OTTER-647. isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks real numbering
-    // plans and rejects Clerk's reserved test range the MFA e2e uses.
-    const phoneForm = useForm({
-        initialValues: {
-            phoneNumber: user?.phoneNumbers[0]?.toString() || '',
-        },
-        validate: {
-            phoneNumber: (value: string) => {
-                const phone = value.trim()
-                if (!phone) return 'Phone number is required'
-                return isPossiblePhoneNumber(phone) ? null : 'Enter a valid phone number'
-            },
-        },
-    })
-
-    const otpForm = useForm({
-        initialValues: {
-            code: '',
-        },
-        validate: {
-            code: (value: string) => (value.length !== 6 ? 'Code must be 6 digits' : null),
-        },
-    })
-
-    if (!isLoaded) return null
-
-    if (!user) {
-        notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
-        return redirect(Routes.home)
-    }
-
-    async function sendVerificationCode(values: typeof phoneForm.values) {
-        if (!phoneForm.isValid || isSendingSms) return
-
-        if (lastSentTime && Date.now() - lastSentTime < 30000) {
-            showToast({
-                category: 'warning',
-                title: 'You have recently requested a code. Please wait 30 seconds before trying again.',
-            })
-            return
-        }
-
-        setLastSentTime(Date.now())
-        setIsSendingSms(true)
-        try {
-            let res = user?.phoneNumbers.find((p) => p.phoneNumber === values.phoneNumber)
-            if (!res) {
-                res = await createPhoneNumber(values.phoneNumber)
-            }
-
-            await user?.reload()
-
-            const phoneNumber = user?.phoneNumbers.find((a) => a.id === res?.id)
-            setPhoneObj(phoneNumber)
-
-            await phoneNumber?.prepareVerification()
-            await sleep({ 3: 'seconds' })
-            setIsSendingSms(false)
-            setIsVerifying(true)
-        } catch (error) {
-            const errorMessage = errorToString(error)
-
-            if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
-                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
-            } else {
-                phoneForm.setFieldError('phoneNumber', errorMessage)
-            }
-
-            setIsSendingSms(false)
-        }
-    }
-
-    const resendCode = async () => {
-        await sendVerificationCode(phoneForm.values)
-        if (!(lastSentTime && Date.now() - lastSentTime < 30000)) {
-            showToast({ category: 'success', title: 'A new code has been sent!' })
-        }
-    }
-
-    const verifyCodeAndSetMfa = async (values: typeof otpForm.values) => {
-        if (!otpForm.isValid) return
-
-        if (!phoneObj) {
-            showToast({ category: 'error', title: 'No phone number found' })
-            return
-        }
-
-        setIsVerifyingCode(true)
-
-        try {
-            const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
-
-            if (phoneVerifyAttempt.verification.status === 'verified') {
-                try {
-                    await setReservedForSecondFactor(phoneObj)
-                    await makeDefaultSecondFactor(phoneObj)
-                    showToast({ category: 'success', title: 'MFA enabled' })
-                } catch (error) {
-                    console.error(error)
-                    otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
-                    return
-                }
-                try {
-                    if (user && !user.backupCodeEnabled) {
-                        const resource = await createBackupCode()
-                        setBackupCodes(resource?.codes || [])
-                    }
-                } catch (err) {
-                    logger.error({ err, message: 'Error generating backup codes' })
-                    setBackupCodes([])
-                }
-
-                showToast({ category: 'success', title: 'Verification successful' })
-            } else {
-                otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
-            }
-        } catch (err) {
-            otpForm.setFieldError(
-                'code',
-                errorToString(err, {
-                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
-                }),
-            )
-        } finally {
-            setIsVerifyingCode(false)
-        }
-    }
+    if (!isReady) return null
 
     return (
         <Container>
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: 'md', lg: 0 }}>
                 <Stack gap="lg">
-                    {!isVerifying && (
-                        <AddSmsMfaView
-                            form={phoneForm}
-                            onSubmit={(values) => sendVerificationCode(values)}
-                            isSendingSms={isSendingSms}
-                        />
-                    )}
-                    {isVerifying && !backupCodes && (
-                        <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
-                            <Stack align="center" gap="sm">
-                                <Title order={3}>Verify your code</Title>
-                                <Text>
-                                    We’ve sent a 6-digit code to your phone number ending in {'****'}
-                                    {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
-                                </Text>
-                                <Title order={4} ta="center" mt="xs">
-                                    Enter your code
-                                </Title>
-                                <OtpInput form={otpForm} errorId="add-sms-mfa-code-error" />
-                                <Box id="add-sms-mfa-code-error">
-                                    {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
-                                </Box>
-                                <Button
-                                    type="submit"
-                                    w="100%"
-                                    size="md"
-                                    radius="sm"
-                                    loading={isVerifyingCode}
-                                    disabled={!/\d{6,}/.test(otpForm.values.code)}
-                                >
-                                    Verify code
-                                </Button>
-                                <Group>
-                                    <Text fz="md" c={semanticColor('text.secondary')}>
-                                        Didn’t receive a code?{' '}
-                                        <Anchor component="button" onClick={resendCode}>
-                                            Resend code
-                                        </Anchor>
-                                    </Text>
-                                </Group>
-                                <Group gap="xs" justify="center">
-                                    <BackLink href={Routes.accountMfa}>Back to options</BackLink>
-                                </Group>
-                            </Stack>
-                        </form>
-                    )}
-                    {backupCodes && <BackupCodes codes={backupCodes} />}
+                    <AddSmsMfaView
+                        isVisible={step === 'phone'}
+                        form={phoneForm}
+                        onSubmit={sendVerificationCode}
+                        isSendingSms={isSendingSms}
+                    />
+                    <AddSmsOtpView
+                        isVisible={step === 'otp'}
+                        form={otpForm}
+                        onSubmit={verifyCodeAndSetMfa}
+                        onResend={resendCode}
+                        isVerifyingCode={isVerifyingCode}
+                        phoneLastFour={phoneLastFour}
+                    />
+                    <BackupCodes isVisible={step === 'backup'} codes={backupCodes} />
                 </Stack>
             </Paper>
         </Container>
