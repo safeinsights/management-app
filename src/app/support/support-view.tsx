@@ -22,7 +22,7 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
 // Plain text on purpose: the card rules out a mailto: link.
 const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) => (
-    <Group gap="xs" wrap="nowrap" role="status">
+    <Group gap="xs" wrap="nowrap">
         <Text>
             Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
             <Text component="span" fw={fontWeight.semibold}>
@@ -39,7 +39,9 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
         >
             {copied ? <CheckIcon size={ICON_SIZE} /> : <CopyIcon size={ICON_SIZE} />}
         </ActionIcon>
-        <CopiedLabel isVisible={copied} />
+        <span role="status">
+            <CopiedLabel isVisible={copied} />
+        </span>
     </Group>
 )
 
