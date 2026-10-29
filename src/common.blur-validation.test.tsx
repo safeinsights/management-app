@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { Checkbox, MultiSelect, Select, TextInput } from '@mantine/core'
 import { z } from 'zod'
-import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { describedError, findFieldErrorShownOnce, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
-import { InputError } from '@/components/errors'
 import { FormField, nativeFieldProps } from '@/components/form-field'
-
-// The error the field announces, found only when it carries the design's icon.
-function describedError(input: HTMLElement) {
-    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? []
-    return ids.map((id) => document.getElementById(id)).find((el) => el?.querySelector('svg'))
-}
 
 // OTTER-647: Mantine defaults `validateInputOnBlur` to false, so this exercises the @/common
 // `useForm` wrapper that turns it on.
@@ -225,9 +218,17 @@ describe('error icon from the shared useForm', () => {
 
     type Options = { withError?: boolean; withFocus?: boolean }
 
-    function IconHarness({ options, override }: { options?: Options; override?: boolean }) {
-        const form = useForm({ initialValues: { title: '' }, validate: zodResolver(titleSchema) })
-        const ownError = override && form.errors.title ? <InputError error={form.errors.title} /> : undefined
+    type HarnessProps = { options?: Options; override?: boolean; enhance?: boolean }
+
+    function IconHarness({ options, override, enhance }: HarnessProps) {
+        const form = useForm({
+            initialValues: { title: '' },
+            validate: zodResolver(titleSchema),
+            enhanceGetInputProps: ({ inputProps }) =>
+                enhance && inputProps.error ? { error: 'Enhancer says no.' } : {},
+        })
+        // Plain text, so a test can tell the caller's error from the shared wrap's.
+        const ownError = override && form.errors.title ? 'Caller says no.' : undefined
 
         return (
             <>
@@ -284,8 +285,20 @@ describe('error icon from the shared useForm', () => {
 
         await user.click(screen.getByRole('button', { name: 'reject' }))
 
-        expect(screen.getAllByText('Server says no.')).toHaveLength(1)
-        expect(describedError(screen.getByLabelText('Title'))?.querySelectorAll('svg')).toHaveLength(1)
+        expect(screen.getByText('Caller says no.')).toBeInTheDocument()
+        expect(screen.queryByText('Server says no.')).not.toBeInTheDocument()
+        expect(describedError(screen.getByLabelText('Title'))).toBeUndefined()
+    })
+
+    it("keeps the error the caller's own enhancer returns", async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness enhance />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        expect(screen.getByText('Enhancer says no.')).toBeInTheDocument()
+        expect(screen.queryByText('Server says no.')).not.toBeInTheDocument()
+        expect(describedError(screen.getByLabelText('Title'))).toBeUndefined()
     })
 
     it('passes a boolean error through as invalid with no message', async () => {
@@ -318,6 +331,6 @@ describe('error icon from the shared useForm', () => {
 
         await user.click(screen.getByRole('button', { name: 'reject' }))
 
-        expect(screen.getByText('Accept to continue.').closest('p')?.querySelector('svg')).toBeInTheDocument()
+        await findFieldErrorShownOnce('Accept to continue.')
     })
 })
