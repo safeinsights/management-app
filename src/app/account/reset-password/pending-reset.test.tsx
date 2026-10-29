@@ -2,6 +2,7 @@ import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import {
     db,
+    findFieldErrorShownOnce,
     fireEvent,
     getAuditEntries,
     insertKeylessInvitedUser,
@@ -94,8 +95,6 @@ describe('PendingReset', () => {
         await userEvent.type(screen.getByLabelText('Confirm New password'), `${VALID_PASSWORD}x`)
         await userEvent.tab()
 
-        const matches = await screen.findAllByText('Passwords do not match. Please re-enter them.')
-        expect(matches).toHaveLength(1)
-        expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+        await findFieldErrorShownOnce('Passwords do not match. Please re-enter them.')
     })
 })

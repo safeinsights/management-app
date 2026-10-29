@@ -5,6 +5,7 @@ import { db } from '@/database'
 import {
     actionResult,
     faker,
+    findFieldErrorShownOnce,
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
@@ -186,9 +187,7 @@ describe('SetupAccountForm field errors', () => {
         await userEvent.tab()
 
         for (const message of ['Name must be 2-50 characters', 'Passwords do not match. Please re-enter them.']) {
-            const matches = await screen.findAllByText(message)
-            expect(matches).toHaveLength(1)
-            expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+            await findFieldErrorShownOnce(message)
         }
     })
 })

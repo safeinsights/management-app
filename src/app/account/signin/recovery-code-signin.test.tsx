@@ -1,5 +1,6 @@
 import {
     db,
+    findFieldErrorShownOnce,
     fireEvent,
     insertKeylessInvitedUser,
     Mock,
@@ -111,9 +112,7 @@ describe('RecoveryCodeSignIn', () => {
         await userEvent.type(input, 'not-valid!')
         await userEvent.tab()
 
-        const matches = await screen.findAllByText('Only alphanumeric characters are allowed')
-        expect(matches).toHaveLength(1)
+        await findFieldErrorShownOnce('Only alphanumeric characters are allowed')
         expect(input).toHaveAttribute('aria-invalid', 'true')
-        expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
     })
 })
