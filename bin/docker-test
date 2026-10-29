@@ -48,6 +48,10 @@ usage() {
     echo "Note: Database is automatically rebuilt when an applied migration is missing"
     echo "      from the codebase (e.g. after a branch switch / rollback). New migrations"
     echo "      not yet applied are handled by 'kysely migrate:latest' on each run instead."
+    echo ""
+    echo "      Each run rebuilds the test-runner image from Dockerfile.dev first (about a"
+    echo "      second when nothing changed), so a new base image such as a Node upgrade"
+    echo "      applies on the next run without a manual rebuild."
     exit "${1:-0}"
 }
 
@@ -159,6 +163,11 @@ if [ "$prune" = true ]; then
     echo "The next run will rebuild node_modules and re-download packages from the network."
     exit 0
 fi
+
+# `compose run` reuses an existing image by name and never notices a changed
+# Dockerfile.dev (e.g. a new Node base image), so rebuild it; cached layers make this ~1s.
+echo "Building the test-runner image..."
+docker compose -f "$COMPOSE_FILE" build --quiet test-runner
 
 # Set when the DB volume is wiped or empty, so the targeted-test path (which
 # overrides the default command's migrate+seed) knows to migrate + seed first.
