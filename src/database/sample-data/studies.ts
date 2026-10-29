@@ -28,6 +28,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         daysAgo: 9,
         question: 'Does highlighting in yellow predict higher exam scores than highlighting in pink?',
         summary: 'We compare highlight colors in the digital textbook with chapter quiz scores.',
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'proposal-submitted', reviewer: 'proposal-needs-review' },
     },
     {
@@ -75,6 +76,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
                 text: 'We now use the attachment type only and do not open the images.',
             },
         ],
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'proposal-submitted', reviewer: 'proposal-needs-review' },
     },
     {
@@ -107,6 +109,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         daysAgo: 12,
         question: 'Do students who open the syllabus page do better in the first month?',
         summary: 'We link syllabus page views to first-month assignment scores.',
+        openedBy: ['reviewer'],
         expectedPills: { researcher: 'proposal-approved', reviewer: 'proposal-approved' },
     },
     {
@@ -119,7 +122,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Do students with many open browser tabs make more mistakes?',
         summary: 'We use focus-change events as a proxy for tab count.',
         job: { statuses: ['INITIATED'] },
-        openedBy: ['researcher'],
+        openedBy: ['researcher', 'reviewer'],
         expectedPills: { researcher: 'code-draft', reviewer: 'code-awaiting' },
     },
     {
@@ -132,6 +135,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Does video playback speed change quiz performance on the same topic?',
         summary: 'We compare playback speed with the next quiz score for each video.',
         job: { statuses: SUBMITTED },
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'code-submitted', reviewer: 'code-needs-review' },
     },
     {
@@ -155,7 +159,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
                 },
             ],
         },
-        openedBy: ['researcher'],
+        openedBy: ['reviewer'],
         expectedPills: { researcher: 'code-needs-revision', reviewer: 'code-revision-requested' },
     },
     {
@@ -185,6 +189,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
                 },
             ],
         },
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'code-submitted', reviewer: 'code-needs-review' },
     },
     {
@@ -221,6 +226,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Are quiz scores lower on Mondays?',
         summary: 'We group quiz scores by weekday and report the mean for each day.',
         job: { statuses: APPROVED },
+        openedBy: ['reviewer'],
         expectedPills: { researcher: 'code-approved', reviewer: 'code-approved' },
     },
     {
@@ -233,6 +239,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'How often do biology students look up "mitochondria", and does it help?',
         summary: 'We count glossary lookups by term and compare them with unit test scores.',
         job: { statuses: [...APPROVED, 'JOB-PACKAGING'] },
+        openedBy: ['researcher', 'reviewer'],
         expectedPills: { researcher: 'code-processing', reviewer: 'code-preparing' },
     },
     {
@@ -246,6 +253,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         summary: 'We use voice-note uploads as a proxy for rubber duck use.',
         // No JOB-READY: an enclave runner polling openstax would pick the job up.
         job: { statuses: [...APPROVED, 'JOB-PACKAGING', 'JOB-PROVISIONING'] },
+        openedBy: ['researcher', 'reviewer'],
         expectedPills: { researcher: 'code-processing', reviewer: 'code-queued' },
     },
     {
@@ -258,7 +266,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Do rainy days increase physics homework completion?',
         summary: 'We join homework completion with daily regional weather.',
         job: { statuses: RUNNING },
-        openedBy: ['reviewer'],
+        openedBy: ['researcher', 'reviewer'],
         expectedPills: { researcher: 'code-processing', reviewer: 'code-running' },
     },
     {
@@ -271,6 +279,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Do submissions with "final" in the file name more than once get better grades?',
         summary: 'We count occurrences of "final" in uploaded file names and compare grades.',
         job: { statuses: [...RUNNING, 'RUN-COMPLETE'], artifact: 'result' },
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'outputs-awaiting', reviewer: 'outputs-need-review' },
     },
     {
@@ -283,6 +292,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         question: 'Do students who increase the font size read for longer?',
         summary: 'We relate font-size settings to reading session length.',
         job: { statuses: [...RUNNING, 'JOB-ERRORED'], artifact: 'error-log' },
+        openedBy: ['researcher'],
         expectedPills: { researcher: 'outputs-awaiting', reviewer: 'code-errored' },
     },
     {
@@ -304,6 +314,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
                 text: 'Aggregates only. Approved. Please stop snoozing this approval email.',
             },
         },
+        openedBy: ['reviewer'],
         expectedPills: { researcher: 'outputs-need-review', reviewer: 'outputs-reviewed' },
     },
     {
@@ -347,6 +358,7 @@ export const SAMPLE_STUDIES: StudySpec[] = [
                 text: 'Two cells have fewer than five students. Please suppress small counts and run again.',
             },
         },
+        openedBy: ['reviewer'],
         expectedPills: { researcher: 'outputs-need-review', reviewer: 'outputs-reviewed' },
     },
     {

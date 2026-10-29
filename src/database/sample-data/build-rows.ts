@@ -25,7 +25,15 @@ import type { StudySpec } from './spec'
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
-export type BuildContext = { now: Date; refs: SampleRefs; people: Record<PersonKey, string>; partyUserIds: string[] }
+type Side = 'researcher' | 'reviewer'
+
+// members: the lab's users (researcher side) and the enclave's users (reviewer side).
+export type BuildContext = {
+    now: Date
+    refs: SampleRefs
+    people: Record<PersonKey, string>
+    members: Record<Side, string[]>
+}
 
 export type EncryptedArtifact = {
     fileId: string
@@ -335,7 +343,8 @@ function buildAgreement(spec: StudySpec, ctx: BuildContext, t: ReturnType<typeof
         publishedBy: ctx.refs.adminId,
         signedAt: t.decided.toISOString().slice(0, 10),
     }
-    const acknowledgements = ctx.partyUserIds.map((userId) => ({
+    const partyUserIds = [...new Set([...ctx.members.researcher, ...ctx.members.reviewer])]
+    const acknowledgements = partyUserIds.map((userId) => ({
         legalDocumentVersionId: version.id,
         userId,
         ackedAt: new Date(t.decided.getTime() + HOUR),
@@ -357,10 +366,17 @@ export function buildStudyRows(spec: StudySpec, ctx: BuildContext): StudyRows {
         study: buildStudy(spec, ctx, t),
         agreement,
         proposalComments: buildProposalComments(spec, ctx, t),
-        lastOpened: (spec.openedBy ?? []).map((who) => ({
-            studyId: studyId(spec.n),
-            userId: who === 'researcher' ? ctx.refs.researcherId : ctx.refs.reviewerId,
-            openedAt: ctx.now,
-        })),
+        lastOpened: buildLastOpened(spec, ctx),
     }
+}
+
+// Every member of a side in openedBy has opened the study. A member of both orgs keeps the dot while
+// a side that lists the study (the reviewer does not list drafts) has not opened it.
+export function buildLastOpened(spec: StudySpec, ctx: BuildContext): Insertable<DB['studyLastOpened']>[] {
+    const opened = new Set(spec.openedBy)
+    const listing: Side[] = spec.expectedPills.reviewer ? ['researcher', 'reviewer'] : ['researcher']
+    const users = new Set(listing.flatMap((side) => ctx.members[side]))
+    return [...users]
+        .filter((userId) => listing.every((side) => opened.has(side) || !ctx.members[side].includes(userId)))
+        .map((userId) => ({ studyId: studyId(spec.n), userId, openedAt: ctx.now }))
 }

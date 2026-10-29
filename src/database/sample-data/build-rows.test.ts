@@ -15,7 +15,7 @@ const ctx: BuildContext = {
     now: new Date('2026-10-28T12:00:00Z'),
     refs,
     people: personIds(refs),
-    partyUserIds: [refs.researcherId, refs.reviewerId],
+    members: { researcher: [refs.researcherId], reviewer: [refs.reviewerId] },
 }
 const spec = (n: number) => SAMPLE_STUDIES.find((s) => s.n === n)!
 

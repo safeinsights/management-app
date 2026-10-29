@@ -43,7 +43,8 @@ export type StudySpec = {
     halfFilled?: boolean
     proposalNotes?: ProposalNote[]
     job?: JobSpec
-    openedBy?: ('researcher' | 'reviewer')[]
+    // Sides with no unread dot: leave out the side that must act next.
+    openedBy: ('researcher' | 'reviewer')[]
     // reviewer null: the reviewer dashboard does not list the study (DRAFT)
     expectedPills: { researcher: PillId; reviewer: PillId | null }
 }

@@ -1,6 +1,7 @@
 import { actionResult, beforeAll, db, describe, expect, it, mockClerkSession } from '@/tests/unit.helpers'
 import { fetchStudiesForOrgAction } from '@/server/actions/study-dashboard.actions'
-import { rowStudyState } from '@/lib/study-screen/dashboard-raw-state'
+import { isStudyUnread, rowStudyState } from '@/lib/study-screen/dashboard-raw-state'
+import { TEST_USERS } from '../seeds/1743608138837_test_users'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { resolvePillId } from '@/lib/study-screen'
 import { DEFAULT_REF_IDS } from './refs'
@@ -10,8 +11,12 @@ import { seedSampleData } from './seed-sample-data'
 
 const quiet = () => {}
 
-const dashboardRows = async (role: 'researcher' | 'reviewer') => {
-    const userId = role === 'researcher' ? DEFAULT_REF_IDS.researcherId : DEFAULT_REF_IDS.reviewerId
+const testUserId = (key: string) => TEST_USERS.find((u) => u.key === key)!.id
+
+const dashboardRows = async (
+    role: 'researcher' | 'reviewer',
+    userId = role === 'researcher' ? DEFAULT_REF_IDS.researcherId : DEFAULT_REF_IDS.reviewerId,
+) => {
     const orgId = role === 'researcher' ? DEFAULT_REF_IDS.labId : DEFAULT_REF_IDS.enclaveId
     const user = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
     const org = await db.selectFrom('org').select('slug').where('id', '=', orgId).executeTakeFirstOrThrow()
@@ -46,6 +51,33 @@ describe('seedSampleData', () => {
             }
         },
     )
+
+    // QA accounts, not the fixed test users: an older spec wrote opened rows for those, and they stay.
+    it.each([
+        ['researcher', 'qa-researcher'],
+        ['reviewer', 'qa-dp'],
+    ] as const)('shows the %s side its unread dot only where it must act next (%s)', async (role, key) => {
+        const rows = await dashboardRows(role, testUserId(key))
+        for (const spec of SAMPLE_STUDIES.filter((s) => s.expectedPills[role] !== null)) {
+            const row = rows.find((r) => r.id === studyId(spec.n))!
+            expect(isStudyUnread(row, role), `#${spec.n} ${spec.title}`).toBe(!spec.openedBy.includes(role))
+        }
+    })
+
+    it('adds missing opened rows for a study that already exists', async () => {
+        const userId = testUserId('qa-dp')
+        await db.deleteFrom('studyLastOpened').where('studyId', '=', studyId(19)).where('userId', '=', userId).execute()
+
+        await seedSampleData(db, { uploader: null, log: quiet })
+
+        const row = await db
+            .selectFrom('studyLastOpened')
+            .select('id')
+            .where('studyId', '=', studyId(19))
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+        expect(row).toBeDefined()
+    })
 
     it('writes nothing on a second run', async () => {
         const summary = await seedSampleData(db, { uploader: null, log: quiet })

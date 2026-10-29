@@ -1,6 +1,12 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from '@/database/types'
-import { buildStudyRows, type BuildContext, type EncryptedArtifact, type StudyRows } from './build-rows'
+import {
+    buildLastOpened,
+    buildStudyRows,
+    type BuildContext,
+    type EncryptedArtifact,
+    type StudyRows,
+} from './build-rows'
 import { encryptFiles, orgRecipients, type Recipient } from './encrypt'
 import { personIds, seedExtras } from './extras'
 import { studyId } from './ids'
@@ -113,7 +119,16 @@ async function insertStudy(trx: Transaction<DB>, rows: StudyRows, encrypted: Enc
     if (rows.reviewComments.length) await trx.insertInto('studyReviewComment').values(rows.reviewComments).execute()
     if (rows.workspaceActivity.length)
         await trx.insertInto('workspaceFileActivity').values(rows.workspaceActivity).execute()
-    if (rows.lastOpened.length) await trx.insertInto('studyLastOpened').values(rows.lastOpened).execute()
+    await insertLastOpened(trx, rows.lastOpened)
+}
+
+async function insertLastOpened(db: Kysely<DB>, rows: StudyRows['lastOpened']) {
+    if (!rows.length) return
+    await db
+        .insertInto('studyLastOpened')
+        .values(rows)
+        .onConflict((oc) => oc.constraint('study_last_opened_user_study_unique').doNothing())
+        .execute()
 }
 
 async function partyUserIds(db: Kysely<DB>, orgIds: string[]) {
@@ -138,7 +153,10 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
         now: options.now ?? new Date(),
         refs,
         people: personIds(refs),
-        partyUserIds: await partyUserIds(db, [refs.enclave.id, refs.lab.id]),
+        members: {
+            researcher: await partyUserIds(db, [refs.lab.id]),
+            reviewer: await partyUserIds(db, [refs.enclave.id]),
+        },
     }
     const recipients: Recipients = {
         enclave: await orgRecipients(db, [refs.enclave.id]),
@@ -148,6 +166,12 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
     for (const spec of options.specs ?? SAMPLE_STUDIES) {
         const exists = await db.selectFrom('study').select('id').where('id', '=', studyId(spec.n)).executeTakeFirst()
         if (exists) {
+            // Org members can change after the study was written, so add missing opened rows. Existing rows stay.
+            try {
+                await insertLastOpened(db, buildLastOpened(spec, ctx))
+            } catch (error) {
+                log(`sample-data: #${spec.n} opened rows not written: ${String(error)}`)
+            }
             summary.skipped++
             continue
         }
