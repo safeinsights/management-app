@@ -3,7 +3,6 @@ import { Box, Group, Input } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
 import { ERROR_LINE_MIN_HEIGHT, InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
-import { fontWeight } from '@/theme/tokens'
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
@@ -199,8 +198,7 @@ export const FormField: FC<FormFieldProps> = ({
                 label={label}
                 withAsterisk={required}
                 description={description}
-                // Mantine adds no gap under a label, so set it here.
-                labelProps={{ fw: fontWeight.semibold, fz: 'sm', mb: 'xxs' }}
+                labelProps={{ fz: 'sm' }}
                 descriptionProps={{ id: fieldDescriptionId(inputId), mb: 'xs' }}
                 // ARIA only: omitting 'error' from inputWrapperOrder keeps the visible message in
                 // FieldFooterRow beside the counter rather than rendered twice.

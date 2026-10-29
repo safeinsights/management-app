@@ -56,7 +56,7 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
     } = useSetupAccountForm(invite)
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
                 <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                     <Title mb="lg" order={3} ta="center">

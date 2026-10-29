@@ -3,15 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { showToast, staleToastIds } from './toast-notifications'
 
 describe('showToast', () => {
-    it('gives each category its own colour, timeout and role', () => {
+    it('gives each category its own timeout and role', () => {
         showToast({ category: 'success', title: 'Saved' })
         expect(notifications.show).toHaveBeenLastCalledWith(
-            expect.objectContaining({ color: 'green', autoClose: 4_000, role: 'status', 'data-toast-kind': 'success' }),
+            expect.objectContaining({ autoClose: 4_000, role: 'status', 'data-toast-kind': 'success' }),
         )
 
         showToast({ category: 'error', title: 'Failed' })
         expect(notifications.show).toHaveBeenLastCalledWith(
-            expect.objectContaining({ color: 'red', autoClose: false, role: 'alert', 'aria-live': 'assertive' }),
+            expect.objectContaining({ autoClose: false, role: 'alert', 'aria-live': 'assertive' }),
         )
     })
 

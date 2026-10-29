@@ -9,6 +9,7 @@ import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/stu
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import { codeSubmissionVersion, latestJobForStudyOrNull, fetchUserFullName } from '@/server/db/queries'
+import { markStudyUpdated } from '@/server/db/mutations'
 import { purgeCodeReviewFeedbackYjsDoc } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyCodeApproved, onStudyCodeChangesRequested } from '@/server/events'
 import { Action, z } from './action'
@@ -111,22 +112,22 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
         // Re-asserts APPROVED to self-heal legacy rows still at PENDING-REVIEW with approvedAt set.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-                .where('id', '=', studyId)
-                .execute()
+            await markStudyUpdated(db, {
+                studyId,
+                userId,
+                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
+            })
             onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
             await db
                 .insertInto('jobStatusChange')
                 .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
                 .executeTakeFirstOrThrow()
-            await db
-                .updateTable('study')
-                .set({ status: 'APPROVED', rejectedAt: null, reviewerId: userId, lastUpdatedAt: new Date() })
-                .where('id', '=', studyId)
-                .execute()
+            await markStudyUpdated(db, {
+                studyId,
+                userId,
+                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
+            })
             onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 

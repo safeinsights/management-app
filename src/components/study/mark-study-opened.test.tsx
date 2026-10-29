@@ -5,6 +5,7 @@ import {
     describe,
     expect,
     faker,
+    insertTestOrg,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -16,14 +17,16 @@ import {
 import { vi } from 'vitest'
 import { captureException } from '@sentry/nextjs'
 import { useParams } from 'next/navigation'
+import logger from '@/lib/logger'
 import { MarkStudyOpened } from './mark-study-opened'
 
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
     captureException: vi.fn(),
-    // Called by Action when it has a session.
+    // Called by Action when it has a session, and on a failure (OTTER-842).
     setUser: vi.fn(),
     setTag: vi.fn(),
+    flush: vi.fn().mockResolvedValue(true),
 }))
 
 const onRoute = (params: { orgSlug: string; studyId?: string }) => (useParams as Mock).mockReturnValue(params)
@@ -157,5 +160,23 @@ describe('MarkStudyOpened', () => {
         await waitFor(() => expect(captureException).toHaveBeenCalledWith(expect.any(Error)))
         unmount()
         await waitFor(() => expect(queryClient.isMutating()).toBe(0))
+    })
+
+    // OTTER-878: the page tells this user "Study was not found"; the refusal is no exception.
+    it('does not report a stamp refused for a study of another lab', async () => {
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const otherLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyJobData({ org: enclave, submittedByOrg: otherLab })
+        const queryClient = createTestQueryClient()
+        onRoute({ orgSlug: org.slug, studyId: study.id })
+
+        const { unmount } = renderWithProviders(<MarkStudyOpened />, { queryClient })
+        unmount()
+
+        await waitFor(() => expect(logger.warn).toHaveBeenCalledTimes(2))
+        await waitFor(() => expect(queryClient.isMutating()).toBe(0))
+        expect(captureException).not.toHaveBeenCalled()
     })
 })
