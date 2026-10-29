@@ -209,8 +209,8 @@ importers:
         specifier: ^2.34.1
         version: 2.34.1
       si-encryption:
-        specifier: github:safeinsights/encryption#a9b68887be485c1e569cbc71908d67a9426d50b5
-        version: https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5
+        specifier: github:safeinsights/encryption#2ae5fb536d814ce0f731481fae588d7882d94785
+        version: https://codeload.github.com/safeinsights/encryption/tar.gz/2ae5fb536d814ce0f731481fae588d7882d94785
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
@@ -5512,8 +5512,8 @@ packages:
     resolution: {integrity: sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==}
     engines: {node: '>= 0.4'}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5:
-    resolution: {gitHosted: true, integrity: sha512-FyH9fnrW4VddMAa6xG/ujdck3zhJimRR/0PZ2q9/DEEW+uTnvpJ0/r8nBIptEjbhdrnNqFfhvQ6wttUEbe6Cfg==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5}
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/2ae5fb536d814ce0f731481fae588d7882d94785:
+    resolution: {gitHosted: true, integrity: sha512-4YGxXV8bEwNjD8PJeFrCGg1tDtl3Ucd2NygmEgYXed5FZwNU/lTfA11L2UTY9KbScBkO7pJC9Ygm8Hm1npWubA==, tarball: https://codeload.github.com/safeinsights/encryption/tar.gz/2ae5fb536d814ce0f731481fae588d7882d94785}
     version: 0.0.1
 
   side-channel-list@1.0.1:
@@ -12384,12 +12384,9 @@ snapshots:
 
   shell-quote@1.12.0: {}
 
-  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/a9b68887be485c1e569cbc71908d67a9426d50b5:
+  si-encryption@https://codeload.github.com/safeinsights/encryption/tar.gz/2ae5fb536d814ce0f731481fae588d7882d94785:
     dependencies:
       '@zip.js/zip.js': 2.15.0
-      debug: 4.4.3
-    transitivePeerDependencies:
-      - supports-color
 
   side-channel-list@1.0.1:
     dependencies:
