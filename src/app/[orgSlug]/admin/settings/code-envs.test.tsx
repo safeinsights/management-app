@@ -148,7 +148,8 @@ describe('CodeEnvs', async () => {
 
         fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
-        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+        const message = await screen.findByText(/At least one starter code file is required/i)
+        expect(message.parentElement?.querySelector('svg')).toBeInTheDocument()
     })
 
     // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the
