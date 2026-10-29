@@ -1,4 +1,5 @@
 import { cssVariablesResolver, theme } from '@/theme'
+import { semanticColor } from '@/theme/tokens'
 import { MantineProvider } from '@mantine/core'
 import { Notifications, notifications } from '@mantine/notifications'
 import { render, screen } from '@testing-library/react'
@@ -36,6 +37,50 @@ describe('toast rendering', () => {
         showToast({ category: 'warning', title: 'Check your inputs' })
 
         expect(await screen.findByRole('status')).toHaveAttribute('data-toast-kind', 'warning')
+    })
+
+    // Layout is not measurable here, so this pins the DOM shape the globals.css stack rule reverses.
+    it('renders every toast in one wrapper, oldest first', async () => {
+        mount()
+        showToast({ category: 'error', title: 'Save failed' })
+        showToast({ category: 'success', title: 'Saved' })
+
+        const older = (await screen.findByText('Save failed')).closest('.mantine-Notification-root')
+        const newer = (await screen.findByText('Saved')).closest('.mantine-Notification-root')
+
+        expect(older?.parentElement).toBe(newer?.parentElement)
+        expect(older?.parentElement?.parentElement).toHaveClass('mantine-Notifications-root')
+        expect(older?.compareDocumentPosition(newer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
+    // All-b is the widest 32-character id in the app font. Layout is not measurable here, so this
+    // pins the styles that wrap it, not that it fits.
+    it('keeps the break before the reference and lets a long id wrap', async () => {
+        mount()
+        showToast({ category: 'error', title: 'Save failed', message: `Try again.\nReference: ${'b'.repeat(32)}` })
+
+        const description = (await screen.findByText(/Reference:/)).closest('.mantine-Notification-description')
+
+        expect(description).toHaveStyle({ whiteSpace: 'pre-line', overflowWrap: 'anywhere' })
+    })
+
+    it.each([
+        ['success', 'success.bg.dark'],
+        ['warning', 'warning.bg.dark'],
+        ['info', 'info.bg.dark'],
+        ['error', 'error.bg.dark'],
+    ] as const)('draws the %s status as one 32px glyph in its status color', async (category, token) => {
+        mount()
+        showToast({ category, title: `Toast ${category}` })
+
+        const toast = (await screen.findByText(`Toast ${category}`)).closest('.mantine-Notification-root')
+        const slot = toast?.querySelector('.mantine-Notification-icon')
+        const glyph = slot?.querySelector('svg')
+
+        expect(glyph).toHaveAttribute('width', '32')
+        expect(glyph).toHaveAttribute('height', '32')
+        expect(glyph).toHaveAttribute('fill', semanticColor(token))
+        expect(slot).toHaveStyle({ backgroundColor: 'transparent' })
     })
 
     it('marks an error assertive and everything else polite', async () => {

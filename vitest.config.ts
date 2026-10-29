@@ -27,8 +27,9 @@ export default defineConfig({
         ],
     },
     test: {
-        // Prevent AWS SSO profile from overriding local S3 credentials (from .env)
-        env: { AWS_PROFILE: '' },
+        // Prevent AWS SSO profile from overriding local S3 credentials (from .env). A non-UTC zone,
+        // so a date formatted in UTC instead of the browser's zone fails its test.
+        env: { AWS_PROFILE: '', TZ: 'America/Chicago' },
         mockReset: true,
         reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',

@@ -92,6 +92,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .executeTakeFirstOrThrow()
 
         await snapshotCodeEnv(db, studyId)
+        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         onStudyDraftCreated({ studyId, userId })
 
         return { studyId }
@@ -291,6 +292,8 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             triggerCodeScan(latestJob.id, orgSlug, studyId, round)
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
+
+        await markStudyOpened(db, { studyId, userId, seenAt: submittedAt })
 
         onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 

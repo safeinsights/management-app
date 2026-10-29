@@ -3,7 +3,7 @@ import { clerkOrgSyncEnabled } from '@/server/config'
 import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
-import { sql, type Kysely } from 'kysely'
+import { sql, type Kysely, type Updateable } from 'kysely'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 type SiUserOptionalAttrs = {
@@ -196,7 +196,7 @@ export function nextVersionForStudyComment({ studyId, increment }: { studyId: st
     return increment ? sql<number>`${current} + 1` : current
 }
 
-// Opening a study and saving your own edit both count as having seen it (OTTER-838). The stamp
+// Opening a study and making any change to it count as having seen it (OTTER-838, OTTER-937). The stamp
 // never moves back, and `seenAt` covers an edit time taken from the app clock rather than the DB's.
 export async function markStudyOpened(
     db: Kysely<DB>,
@@ -212,4 +212,18 @@ export async function markStudyOpened(
             })),
         )
         .execute()
+}
+
+// Moves Last updated and stamps the actor's visit together, so their own change never reads as unread (OTTER-937).
+export async function markStudyUpdated(
+    db: Kysely<DB>,
+    { studyId, userId, set = {} }: { studyId: string; userId: string; set?: Updateable<DB['study']> },
+) {
+    const updatedAt = new Date()
+    await db
+        .updateTable('study')
+        .set({ ...set, lastUpdatedAt: updatedAt })
+        .where('id', '=', studyId)
+        .execute()
+    await markStudyOpened(db, { studyId, userId, seenAt: updatedAt })
 }

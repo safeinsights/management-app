@@ -47,6 +47,14 @@
     overflow: hidden;
 }
 
+/* Mantine wraps all toasts in one unclassed transition div, which a theme style on the Notifications
+   root cannot reach. Toasts are in raise order, so reversing puts the newest on top (OTTER-840). */
+.mantine-Notifications-root > div {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--mantine-spacing-xs);
+}
+
 .clickable {
     cursor: pointer;
 }
@@ -192,30 +200,6 @@ button:disabled {
 /* The frame shows focus on its border instead. */
 .editable-text-content {
     outline: none;
-}
-
-/* Yjs collaboration cursor styles */
-.yjs-cursor {
-    position: relative;
-    border-left: 2px solid;
-    margin-left: -1px;
-    margin-right: -1px;
-    pointer-events: none;
-    word-break: normal;
-}
-
-.yjs-cursor > div {
-    position: absolute;
-    top: -1.2em;
-    left: -1px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    line-height: 1;
-    padding: 2px 4px;
-    border-radius: 3px 3px 3px 0;
-    white-space: nowrap;
-    color: var(--si-color-text-white);
-    pointer-events: none;
 }
 
 /* Stop scroll-into-view clear of the fixed header and of the focused screens' fixed footer, so

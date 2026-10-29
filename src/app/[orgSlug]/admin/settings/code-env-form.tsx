@@ -29,6 +29,7 @@ import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { semanticColor } from '@/theme/tokens'
+import { languageLabels } from '@/lib/languages'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -265,10 +266,28 @@ function FormErrorSummary({ isVisible, errors }: { isVisible: boolean; errors: s
 
 interface CodeEnvFormProps {
     image?: CodeEnv
+    isLastUsable?: boolean
     onCompleteAction: () => void
 }
 
-export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
+// The server refuses these edits regardless (OTTER-527); this explains it before the admin tries.
+const lastUsableLockFor = (image: CodeEnv | undefined, isLastUsable: boolean) => {
+    if (!image || !isLastUsable) {
+        return {
+            isLocked: false,
+            isTestingDescription: 'Only admins can use testing images',
+            languageDescription: undefined,
+        }
+    }
+    const language = languageLabels[image.language]
+    return {
+        isLocked: true,
+        isTestingDescription: `This is the last usable ${language} environment, so it can't be made a testing image`,
+        languageDescription: `This is the last usable ${language} environment, so its language can't change`,
+    }
+}
+
+export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: CodeEnvFormProps) {
     const {
         form,
         formErrors,
@@ -286,6 +305,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const { setStarterCodes, removeStarterCode } = starterCodeActions
     const { addCommandLine, updateCommandLine, removeCommandLine } = commandLineActions
     const starterCodes = (form.values.starterCodes as File[] | undefined) || []
+    const lastUsableLock = lastUsableLockFor(image, isLastUsable)
 
     return (
         <form onSubmit={onSubmit}>
@@ -301,7 +321,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     />
                     <Checkbox
                         label="Is testing image"
-                        description="Only admins can use testing images"
+                        description={lastUsableLock.isTestingDescription}
+                        disabled={lastUsableLock.isLocked}
                         {...form.getInputProps('isTesting', { type: 'checkbox' })}
                         mb="xxs"
                     />
@@ -317,6 +338,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     label="Language"
                     withAsterisk
                     placeholder="Select language"
+                    description={lastUsableLock.languageDescription}
+                    disabled={lastUsableLock.isLocked}
                     data={[
                         { value: 'R', label: 'R' },
                         { value: 'PYTHON', label: 'Python' },
@@ -424,7 +447,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             onChange={setSampleDataFiles}
                         />
                         <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
-                            <Flex gap="md" mt="xs">
+                            <Flex gap="md">
                                 {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
                                     <Radio key={value} value={value} label={label} />
                                 ))}

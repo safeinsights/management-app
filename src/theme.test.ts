@@ -216,7 +216,8 @@ describe('required asterisk color', () => {
     it('paints every Mantine-rendered asterisk from it', () => {
         const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
 
-        expect(styles?.required?.color).toBe('#7e241e')
+        expect(styles?.required?.color).toBe(semanticColor('error.text'))
+        expect(semanticShades['error.text']).toBe('red.7')
     })
 })
 
