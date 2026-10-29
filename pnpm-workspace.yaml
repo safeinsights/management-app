@@ -76,8 +76,9 @@ overrides:
     'source-map-js@>=1.0.0 <1.2.2': '>=1.2.2 <2'
     # decode-uri-component <=0.4.2: GHSA-vcc3-ghjq-m6fr — exponential decoding of malformed
     # percent-encoded input (DoS). Dev-only transitive via @ladle/react>query-string, which asks
-    # for ^0.4.1; 0.5.0 is the advisory's first patched version, so the pin crosses a minor.
-    'decode-uri-component@<0.5.0': '>=0.5.0 <0.6'
+    # for ^0.4.1; 0.5.0 is the advisory's first patched version, so the pin crosses a minor. Then
+    # CVE-2026-118664 (GHSA-qr28-fpjm-wq7f) against 0.5.0 — quadratic replacement of percent-encoded runs.
+    'decode-uri-component@<0.5.1': '>=0.5.1 <0.6'
     # dompurify <3.4.17: GHSA-p98j-92pf-mc4p against 3.4.13–3.4.15 (DOM XSS via IN_PLACE afterSanitize
     # hook), then GHSA-cg2g-xh64-v4q7 (SAFE_FOR_TEMPLATES bypass) and GHSA-mrv2-3pqr-j5jr against 3.4.16.
     # Via posthog-js.
