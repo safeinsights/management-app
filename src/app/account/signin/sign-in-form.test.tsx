@@ -127,6 +127,9 @@ describe('SignInForm', () => {
 
         await waitFor(() => expect(screen.getByText(clerkErrorOverrides.form_password_incorrect)).toBeInTheDocument())
         expect(memoryRouter.asPath).toBe('/account/signin')
+        expect(
+            screen.getByText(clerkErrorOverrides.form_password_incorrect).closest('p')?.querySelector('svg'),
+        ).toBeInTheDocument()
 
         const email = screen.getByLabelText('Email')
         expect(email).toHaveAttribute('aria-invalid', 'true')
@@ -144,6 +147,7 @@ describe('SignInForm', () => {
 
         expect(await screen.findByText('Email is required')).toBeInTheDocument()
         expect(screen.queryByText('Invalid email')).not.toBeInTheDocument()
+        expect(screen.getByText('Email is required').closest('p')?.querySelector('svg')).toBeInTheDocument()
     })
 
     it('still says the email is invalid when it is malformed', async () => {

@@ -4,7 +4,6 @@ import { type KeyboardEvent } from 'react'
 import { Button, Group, Stack, TextInput } from '@mantine/core'
 import { useForm, zodResolver, z } from '@/common'
 import { isValidUrl } from '@/components/editable-text/config'
-import { InputError } from '@/components/errors'
 import { EMPTY_TEXT_MESSAGE, INVALID_URL_MESSAGE, LINK_TEXT_FIELD_LABEL, LINK_URL_FIELD_LABEL } from './copy'
 
 // Refined on the trimmed value rather than trimmed in the schema: the resolver only validates, so
@@ -33,13 +32,6 @@ function useLinkEditForm({
         transformValues: trimValues,
     })
 
-    // A node rather than the bare string, so Mantine shows the design's error icon and still wires
-    // the message into `aria-describedby`.
-    const inputProps = (path: keyof LinkEditValues) => ({
-        ...form.getInputProps(path),
-        error: form.errors[path] ? <InputError error={form.errors[path]} /> : undefined,
-    })
-
     // Mantine hands the submit event along as a second argument; the caller only wants values.
     const handleSubmit = form.onSubmit((values) => onSave(values))
     const submit = () => handleSubmit()
@@ -51,7 +43,7 @@ function useLinkEditForm({
         submit()
     }
 
-    return { form, inputProps, submit, submitOnEnter }
+    return { form, submit, submitOnEnter }
 }
 
 interface LinkEditFormProps {
@@ -63,7 +55,7 @@ interface LinkEditFormProps {
 }
 
 export function LinkEditForm({ initialText, initialUrl, textInputRef, onCancel, onSave }: LinkEditFormProps) {
-    const { form, inputProps, submit, submitOnEnter } = useLinkEditForm({ initialText, initialUrl, onSave })
+    const { form, submit, submitOnEnter } = useLinkEditForm({ initialText, initialUrl, onSave })
 
     return (
         <Stack gap="sm">
@@ -71,14 +63,14 @@ export function LinkEditForm({ initialText, initialUrl, textInputRef, onCancel, 
                 ref={textInputRef}
                 label={LINK_TEXT_FIELD_LABEL}
                 key={form.key('text')}
-                {...inputProps('text')}
+                {...form.getInputProps('text')}
                 onKeyDown={submitOnEnter}
                 data-autofocus
             />
             <TextInput
                 label={LINK_URL_FIELD_LABEL}
                 key={form.key('url')}
-                {...inputProps('url')}
+                {...form.getInputProps('url')}
                 onKeyDown={submitOnEnter}
             />
             <Group gap="md" justify="flex-end">

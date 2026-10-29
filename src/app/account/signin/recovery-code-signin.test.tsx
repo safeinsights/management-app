@@ -98,4 +98,22 @@ describe('RecoveryCodeSignIn', () => {
             ),
         )
     })
+
+    it('shows a code error one time, with the error icon', async () => {
+        ;(useSignIn as Mock).mockReturnValue({
+            isLoaded: true,
+            signIn: { attemptSecondFactor: vi.fn() },
+            setActive: vi.fn(),
+        })
+        renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
+
+        const input = screen.getByLabelText(/Enter recovery code/i)
+        await userEvent.type(input, 'not-valid!')
+        await userEvent.tab()
+
+        const matches = await screen.findAllByText('Only alphanumeric characters are allowed')
+        expect(matches).toHaveLength(1)
+        expect(input).toHaveAttribute('aria-invalid', 'true')
+        expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+    })
 })

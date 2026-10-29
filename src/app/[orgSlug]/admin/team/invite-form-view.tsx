@@ -1,6 +1,6 @@
 'use client'
 
-import type { ComponentPropsWithoutRef, FocusEvent, FormEventHandler, ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, FocusEvent, FormEventHandler } from 'react'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
 import { useWidgetBlur } from '@/components/form-field'
 import { fontWeight } from '@/theme/tokens'
@@ -10,9 +10,7 @@ import { fontWeight } from '@/theme/tokens'
 export type InviteFormViewProps = {
     onSubmit: FormEventHandler<HTMLFormElement>
     emailProps: Partial<ComponentPropsWithoutRef<typeof TextInput>>
-    emailError?: ReactNode
     permissionProps: Partial<ComponentPropsWithoutRef<typeof Radio.Group>>
-    permissionError?: ReactNode
     isSubmitting: boolean
     isSubmitDisabled: boolean
 }
@@ -20,9 +18,7 @@ export type InviteFormViewProps = {
 export function InviteFormView({
     onSubmit,
     emailProps,
-    emailError,
     permissionProps,
-    permissionError,
     isSubmitting,
     isSubmitDisabled,
 }: InviteFormViewProps) {
@@ -49,7 +45,6 @@ export function InviteFormView({
                 mb="md"
                 size="md"
                 {...emailProps}
-                error={emailError}
             />
 
             <Flex mb="sm" fw={fontWeight.semibold} direction="column">
@@ -61,7 +56,6 @@ export function InviteFormView({
                     ref={permissionRef}
                     onFocus={handlePermissionFocus}
                     onBlur={leavePermissionGroup}
-                    error={permissionError}
                 >
                     <Flex gap="md" mt="xs" direction="column">
                         <Radio

@@ -85,11 +85,6 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
                         placeholder="********"
                         aria-label="Confirm New password"
                         mb="md"
-                        error={
-                            verificationForm.errors.confirmPassword && (
-                                <InputError error={verificationForm.errors.confirmPassword} />
-                            )
-                        }
                         // PasswordInput's inner <input> has withAria disabled, so `error` alone
                         // never marks it invalid to assistive tech (OTTER-647).
                         aria-invalid={!!verificationForm.errors.confirmPassword || undefined}

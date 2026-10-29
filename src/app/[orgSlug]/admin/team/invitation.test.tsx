@@ -77,4 +77,15 @@ describe('InviteButton', () => {
             .executeTakeFirst()
         expect(pending).toBeDefined()
     })
+
+    it('shows an email error one time, with the error icon', async () => {
+        await renderInviteModal()
+
+        await userEvent.type(screen.getByLabelText('Invite by email'), 'not-an-email')
+        await userEvent.tab()
+
+        const matches = await screen.findAllByText('Invalid email address')
+        expect(matches).toHaveLength(1)
+        expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+    })
 })

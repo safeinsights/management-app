@@ -1,7 +1,7 @@
 'use client'
 
 import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
-import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { SuccessPanel } from '@/components/panel'
 import { useSession } from '@/hooks/session'
@@ -65,13 +65,9 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 }),
             )}
             emailProps={studyProposalForm.getInputProps('email')}
-            emailError={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
             // With type 'checkbox' Mantine returns `checked` instead of `value`, which
             // Radio.Group ignores, so the group stops following form state (OTTER-647).
             permissionProps={studyProposalForm.getInputProps('permission')}
-            permissionError={
-                studyProposalForm.errors.permission && <InputError error={studyProposalForm.errors.permission} />
-            }
             isSubmitting={isInviting}
             isSubmitDisabled={!studyProposalForm.isValid() || !isLoaded}
         />

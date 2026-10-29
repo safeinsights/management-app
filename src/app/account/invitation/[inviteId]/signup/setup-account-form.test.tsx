@@ -170,3 +170,25 @@ describe('SetupAccountForm legal documents', () => {
         expect(createAccountButton()).toBeDisabled()
     })
 })
+
+describe('SetupAccountForm field errors', () => {
+    it('shows each field error one time, with the error icon', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        await userEvent.type(screen.getByLabelText('First name'), 'A')
+        await userEvent.type(screen.getByLabelText('Last name'), 'User')
+        await userEvent.type(screen.getByLabelText('Enter password'), 'Testing1234!')
+        await userEvent.type(screen.getByLabelText('Confirm password'), 'Testing1234?')
+        await userEvent.tab()
+
+        for (const message of ['Name must be 2-50 characters', 'Passwords do not match. Please re-enter them.']) {
+            const matches = await screen.findAllByText(message)
+            expect(matches).toHaveLength(1)
+            expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+        }
+    })
+})

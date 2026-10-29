@@ -85,4 +85,17 @@ describe('PendingReset', () => {
             .executeTakeFirst()
         expect(membership).toBeDefined()
     })
+
+    it('shows a confirm password error one time, with the error icon', async () => {
+        mockCompletedReset()
+        renderWithProviders(<PendingReset pendingReset={{} as SignInResource} />)
+
+        await userEvent.type(screen.getByLabelText('New password'), VALID_PASSWORD)
+        await userEvent.type(screen.getByLabelText('Confirm New password'), `${VALID_PASSWORD}x`)
+        await userEvent.tab()
+
+        const matches = await screen.findAllByText('Passwords do not match. Please re-enter them.')
+        expect(matches).toHaveLength(1)
+        expect(matches[0].closest('p')?.querySelectorAll('svg')).toHaveLength(1)
+    })
 })
