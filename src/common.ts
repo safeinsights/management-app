@@ -30,7 +30,7 @@ export function useForm<
         ...input,
         // Deliberately after the spread, the one exception to "caller options win": the caller's
         // enhancer is wrapped rather than trusted, so it cannot drop the server-error onBlur
-        // guard below (OTTER-647) or the design's error icon (OTTER-873).
+        // guard below (OTTER-647).
         enhanceGetInputProps: (payload) => {
             const callerProps = input.enhanceGetInputProps?.(payload) || {}
             const errorProps =
