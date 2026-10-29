@@ -10,7 +10,7 @@ import {
     createWorkspaceDir,
     fakeTimeouts,
     fireEvent,
-    insertTestCodeChangesRequested,
+    insertTestJobStatuses,
     insertTestSubmittedCode,
     mockSessionWithTestData,
     renderWithProviders,
@@ -126,7 +126,7 @@ describe('EditCodeResubmitProvider', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSaveResult).toHaveBeenCalledWith(false))
 
-        await insertTestCodeChangesRequested(job.id)
+        await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED'])
         fireEvent.click(screen.getByRole('button', { name: 'Save' }))
         await waitFor(() => expect(onSaveResult).toHaveBeenCalledWith(true))
 

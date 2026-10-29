@@ -237,14 +237,6 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         .execute()
 }
 
-// Reopens a submitted round for resubmission. Dated a second on, as it would otherwise tie on now()
-// with the CODE-SUBMITTED row the job fixtures write.
-export const insertTestCodeChangesRequested = (studyJobId: string) =>
-    db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId, status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() + 1000) })
-        .execute()
-
 // A lab researcher's submitted code. The code resubmit actions accept it once the reviewer has asked
 // for changes.
 export const insertTestSubmittedCode = async ({
@@ -261,7 +253,7 @@ export const insertTestSubmittedCode = async ({
         researcherId,
         jobStatus: 'CODE-SUBMITTED',
     })
-    if (changesRequested) await insertTestCodeChangesRequested(job.id)
+    if (changesRequested) await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED'])
     return { study, job }
 }
 
