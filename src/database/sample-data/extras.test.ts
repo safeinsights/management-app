@@ -1,6 +1,7 @@
 import { db, describe, expect, insertTestOrg, it } from '@/tests/unit.helpers'
 import { resolveRefs } from './refs'
-import { FAKE_PEOPLE, seedExtras } from './extras'
+import { FAKE_PEOPLE, PENDING_INVITES, seedExtras } from './extras'
+import { ORGS } from '../seeds/1743608138837_test_users'
 
 const refsOrThrow = async () => {
     const result = await resolveRefs(db)
@@ -44,13 +45,13 @@ describe('seedExtras', () => {
         expect(profile.educationDegree).toBe('Kept by QA')
     })
 
-    it('gives a code env with no scan a completed one', async () => {
+    it('leaves code envs outside the fixed test orgs unscanned', async () => {
         const org = await insertTestOrg()
         const codeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
-                name: 'Unscanned env',
+                name: 'Real org env',
                 language: 'PYTHON',
                 url: 'public.ecr.aws/docker/library/python:latest',
                 commandLines: { py: 'python main.py' },
@@ -61,7 +62,37 @@ describe('seedExtras', () => {
 
         await seedExtras(db, await refsOrThrow())
 
-        const scans = await db.selectFrom('codeScan').select('status').where('codeEnvId', '=', codeEnv.id).execute()
-        expect(scans).toEqual([{ status: 'SCAN-COMPLETE' }])
+        expect(await db.selectFrom('codeScan').select('id').where('codeEnvId', '=', codeEnv.id).execute()).toEqual([])
+    })
+
+    it('gives each code env of the fixed test orgs a completed scan', async () => {
+        await seedExtras(db, await refsOrThrow())
+        const envs = await db
+            .selectFrom('orgCodeEnv')
+            .select('id')
+            .where(
+                'orgId',
+                'in',
+                ORGS.map((o) => o.id),
+            )
+            .execute()
+        const scanned = await db
+            .selectFrom('codeScan')
+            .select('codeEnvId')
+            .distinct()
+            .where('status', '=', 'SCAN-COMPLETE')
+            .where(
+                'codeEnvId',
+                'in',
+                envs.map((e) => e.id),
+            )
+            .execute()
+        expect(envs.length).toBeGreaterThan(0)
+        expect(scanned).toHaveLength(envs.length)
+    })
+
+    it('uses mailinator addresses, like the other test users, so no mail bounces', () => {
+        for (const person of FAKE_PEOPLE) expect(person.email).toMatch(/@mailinator\.com$/)
+        for (const email of PENDING_INVITES) expect(email).toMatch(/@mailinator\.com$/)
     })
 })

@@ -18,5 +18,10 @@ export async function seed(db: Kysely<DB>): Promise<void> {
 
     const uploader = createUploader()
     if (!uploader) console.warn('sample-data: BUCKET_NAME is not set, so studies get rows but no files.')
-    await seedSampleData(db, { uploader })
+    // Sample data is optional: a bug here must not fail the migration and block a deploy.
+    try {
+        await seedSampleData(db, { uploader })
+    } catch (error) {
+        console.error(`sample-data: seed failed, no sample data written: ${String(error)}`)
+    }
 }

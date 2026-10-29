@@ -65,7 +65,8 @@ export function helperCode(spec: StudySpec) {
 }
 
 export const scanLog = (spec: StudySpec) =>
-    [`Security scan for "${spec.title}"`, 'Dependencies checked: 42', 'Findings: 0', 'Result: PASS', ''].join('\n')
+    // The scan panel reads its verdict from the first line only.
+    ['Semgrep scan: no findings', `Scanned "${spec.title}"`, 'Rules checked: 42', ''].join('\n')
 
 export const resultFiles = (spec: StudySpec) => [
     { name: 'results.csv', content: 'week,n,mean\n1,128,0.71\n2,131,0.68\n3,119,0.74\n' },

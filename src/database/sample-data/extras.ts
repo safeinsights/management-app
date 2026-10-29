@@ -2,17 +2,18 @@ import type { Kysely } from 'kysely'
 import type { DB } from '@/database/types'
 import { fakeUserId } from './ids'
 import type { SampleRefs } from './refs'
+import { ORGS } from '../seeds/1743608138837_test_users'
 
 export type PersonKey = 'researcher' | 'reviewer' | 'wanda' | 'ima' | 'barry'
 
-// .test is a reserved TLD, so no mail ever leaves for these.
+// Mailinator, like the test users: the app mails org members, and an undeliverable address bounces.
 export const FAKE_PEOPLE = [
     {
         key: 'wanda',
         id: fakeUserId(1),
         firstName: 'Wanda',
         lastName: 'Variance',
-        email: 'wanda.variance@sample.safeinsights.test',
+        email: 'si-sample-wanda-dbfyq3@mailinator.com',
         org: 'enclave',
         isAdmin: false,
     },
@@ -21,7 +22,7 @@ export const FAKE_PEOPLE = [
         id: fakeUserId(2),
         firstName: 'Ima',
         lastName: 'Hypothesis',
-        email: 'ima.hypothesis@sample.safeinsights.test',
+        email: 'si-sample-ima-dbfyq3@mailinator.com',
         org: 'lab',
         isAdmin: false,
     },
@@ -30,13 +31,16 @@ export const FAKE_PEOPLE = [
         id: fakeUserId(3),
         firstName: 'Barry',
         lastName: 'Outlier',
-        email: 'barry.outlier@sample.safeinsights.test',
+        email: 'si-sample-barry-dbfyq3@mailinator.com',
         org: 'enclave',
         isAdmin: true,
     },
 ] as const
 
-const PENDING_INVITES = ['newbie.grad@sample.safeinsights.test', 'tenure.track@sample.safeinsights.test']
+export const PENDING_INVITES = [
+    'si-sample-newbie-grad-dbfyq3@mailinator.com',
+    'si-sample-tenure-track-dbfyq3@mailinator.com',
+]
 
 export const personIds = (refs: SampleRefs): Record<PersonKey, string> => ({
     researcher: refs.researcherId,
@@ -58,7 +62,7 @@ async function seedFakePeople(db: Kysely<DB>, refs: SampleRefs) {
                 email: p.email,
             })),
         )
-        .onConflict((oc) => oc.doNothing())
+        .onConflict((oc) => oc.column('id').doUpdateSet((eb) => ({ email: eb.ref('excluded.email') })))
         .execute()
 
     for (const person of FAKE_PEOPLE) {
@@ -128,10 +132,16 @@ async function seedResearcherProfile(db: Kysely<DB>, refs: SampleRefs) {
         .execute()
 }
 
+// Only the fixed test orgs: a made-up passing scan on a real org's code env would be false.
 async function seedCodeEnvScans(db: Kysely<DB>) {
     const unscanned = await db
         .selectFrom('orgCodeEnv')
         .select('orgCodeEnv.id')
+        .where(
+            'orgCodeEnv.orgId',
+            'in',
+            ORGS.map((org) => org.id),
+        )
         .where(({ not, exists, selectFrom }) =>
             not(
                 exists(

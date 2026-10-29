@@ -244,7 +244,8 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         daysAgo: 24,
         question: 'Do students who explain their work out loud make fewer errors in R exercises?',
         summary: 'We use voice-note uploads as a proxy for rubber duck use.',
-        job: { statuses: [...APPROVED, 'JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING'] },
+        // No JOB-READY: an enclave runner polling openstax would pick the job up.
+        job: { statuses: [...APPROVED, 'JOB-PACKAGING', 'JOB-PROVISIONING'] },
         expectedPills: { researcher: 'code-processing', reviewer: 'code-queued' },
     },
     {
