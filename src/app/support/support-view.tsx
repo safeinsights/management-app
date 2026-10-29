@@ -25,7 +25,7 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
     <Group gap="xs" wrap="nowrap">
         <Text>
             Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
-            <Text component="span" fw={fontWeight.semibold}>
+            <Text component="span" fw={fontWeight.semibold} style={{ whiteSpace: 'nowrap' }}>
                 {SUPPORT_EMAIL}
             </Text>
             .
