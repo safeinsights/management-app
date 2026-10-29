@@ -27,6 +27,7 @@ import { Refresher } from '@/components/refresher'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
+import { orgDataSourcesQueryKey } from '@/hooks/use-org-data-sources'
 import { CodeViewer, FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
@@ -43,7 +44,7 @@ const useInvalidateCodeEnvs = (orgSlug: string) => {
     const queryClient = useQueryClient()
     return () => {
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: orgDataSourcesQueryKey(orgSlug) })
     }
 }
 
