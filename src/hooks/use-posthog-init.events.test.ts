@@ -3,8 +3,8 @@ import { vi } from 'vitest'
 import posthog from 'posthog-js'
 import { usePostHogInit } from './use-posthog-init'
 
-// posthog-js keeps the fetch it finds at import, so the stub has to land first. A plain function,
-// since mockReset would clear a vi.fn before the test runs.
+// posthog-js keeps the fetch it finds at import, so the stub has to land first. Not
+// vi.fn().mockResolvedValue: mockReset clears that before the test runs.
 vi.hoisted(() => {
     globalThis.fetch = () => Promise.resolve(new Response('{}'))
 })

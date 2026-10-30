@@ -33,7 +33,7 @@ export const MAIN_CONTENT_PROPS = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
 
-// Lets dashboards split the PostHog projects the website, this app and the docs share.
+// Lets dashboards split the PostHog projects the website, this app and (soon) the docs share.
 export const POSTHOG_SURFACE = 'app'
 
 // Clerk's signOut can hang instead of settling, which strands whatever awaits it. Shared so the
