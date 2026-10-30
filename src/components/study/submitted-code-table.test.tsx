@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
-import type { LatestJobForStudy } from '@/server/db/queries'
+import { describe, it, expect, vi } from 'vitest'
+import {
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    storeTestCodeFile,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
+import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeTable } from './submitted-code-table'
-
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchStudyJobCodeFileAction: vi.fn(),
-}))
-
-import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
-
-const mockFetch = fetchStudyJobCodeFileAction as unknown as Mock
 
 const buildFile = (overrides: Partial<LatestJobForStudy['files'][number]>): LatestJobForStudy['files'][number] => ({
     id: 'file-1',
@@ -20,32 +20,24 @@ const buildFile = (overrides: Partial<LatestJobForStudy['files'][number]>): Late
     ...overrides,
 })
 
-const bytes = (text: string) => new TextEncoder().encode(text).buffer
+const setupJobWithFiles = async (files: Parameters<typeof storeTestCodeFile>[1][]) => {
+    const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const { study, job } = await insertTestStudyJobData({ org })
+    for (const file of files) await storeTestCodeFile(job.id, file)
+    return latestJobForStudy(study.id)
+}
 
 describe('SubmittedCodeTable', () => {
-    beforeEach(() => {
-        mockFetch.mockReset()
-    })
-
     it('opens the preview modal with a loader while contents are fetching, then renders the code', async () => {
-        let resolveFetch: (v: { fileName: string; contents: ArrayBuffer }) => void = () => {}
-        mockFetch.mockReturnValue(
-            new Promise((resolve) => {
-                resolveFetch = resolve
-            }),
-        )
-
-        const files = [buildFile({ name: 'main.py' })]
+        const job = await setupJobWithFiles([{ name: 'main.py', contents: 'print("hi")' }])
         renderWithProviders(
-            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+            <SubmittedCodeTable activityByName={{}} jobId={job.id} dataPartnerName="OpenStax" files={job.files} />,
         )
 
         const interact = userEvent.setup()
         await interact.click(screen.getByRole('button', { name: 'View main.py' }))
 
         expect(await screen.findByTestId('file-preview-loading')).toBeInTheDocument()
-
-        resolveFetch({ fileName: 'main.py', contents: bytes('print("hi")') })
 
         await waitFor(() => {
             expect(screen.queryByTestId('file-preview-loading')).not.toBeInTheDocument()
@@ -72,11 +64,11 @@ describe('SubmittedCodeTable', () => {
     })
 
     it('opens an image preview for a png file (OTTER-516)', async () => {
-        mockFetch.mockResolvedValue({ fileName: 'plot.png', contents: bytes('fake-png-bytes') })
-
-        const files = [buildFile({ name: 'plot.png', fileType: 'SUPPLEMENTAL-CODE' })]
+        const job = await setupJobWithFiles([
+            { name: 'plot.png', contents: 'fake-png-bytes', fileType: 'SUPPLEMENTAL-CODE' },
+        ])
         renderWithProviders(
-            <SubmittedCodeTable activityByName={{}} jobId="job-1" dataPartnerName="OpenStax" files={files} />,
+            <SubmittedCodeTable activityByName={{}} jobId={job.id} dataPartnerName="OpenStax" files={job.files} />,
         )
 
         const interact = userEvent.setup()
@@ -86,15 +78,9 @@ describe('SubmittedCodeTable', () => {
     })
 
     it('closes the modal when onClose is fired', async () => {
-        mockFetch.mockResolvedValue({ fileName: 'main.py', contents: bytes('x = 1') })
-
+        const job = await setupJobWithFiles([{ name: 'main.py', contents: 'x = 1' }])
         renderWithProviders(
-            <SubmittedCodeTable
-                activityByName={{}}
-                jobId="job-1"
-                dataPartnerName="OpenStax"
-                files={[buildFile({ name: 'main.py' })]}
-            />,
+            <SubmittedCodeTable activityByName={{}} jobId={job.id} dataPartnerName="OpenStax" files={job.files} />,
         )
 
         const interact = userEvent.setup()

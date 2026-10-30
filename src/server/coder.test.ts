@@ -24,10 +24,12 @@ import {
     type InsertTestCodeEnvOptions,
 } from '@/tests/unit.helpers'
 import { fetchFileContents } from './storage'
-import { getAgentContextAction } from './actions/agent-context.actions'
 
 vi.mock('./config', () => ({
     getConfigValue: vi.fn(),
+    get env() {
+        return process.env
+    },
 }))
 
 vi.mock('./storage', () => ({
@@ -51,10 +53,6 @@ vi.mock('node:fs/promises', () => ({
     utimes: vi.fn().mockResolvedValue(undefined),
     // ENOENT is the "no context written yet" path, which is what a fresh workspace looks like.
     readFile: vi.fn().mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })),
-}))
-
-vi.mock('@/server/actions/agent-context.actions', () => ({
-    getAgentContextAction: vi.fn(),
 }))
 
 global.fetch = vi.fn()
@@ -332,7 +330,6 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
-        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
     })
 
     afterEach(() => {
