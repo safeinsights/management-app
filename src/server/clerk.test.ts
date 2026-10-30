@@ -5,6 +5,9 @@ import { db, insertTestOrg, insertTestUser, faker, mockClerkSession } from '@/te
 vi.mock('./config', () => ({
     PROD_ENV: false,
     ENVIRONMENT_ID: 'development',
+    get env() {
+        return process.env
+    },
 }))
 
 const currentUserMock = currentUser as unknown as Mock

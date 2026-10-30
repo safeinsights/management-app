@@ -1,9 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { env } from '@/server/config'
 import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
 import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
+const DEFAULT_MODEL = env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
 // A ceiling, not the length control: the schema property descriptions carry that.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3

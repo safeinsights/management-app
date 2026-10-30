@@ -66,7 +66,8 @@ export function orgSubnav(org: NavOrg): NavItem[] {
     return items
 }
 
-export function externalNavLinks(orgs: NavOrg[]): NavItem[] {
+// The docs sites open in new tabs; Support is a page of the app (OTTER-934).
+export function helpNavLinks(orgs: NavOrg[]): NavItem[] {
     const links: NavItem[] = []
     if (orgs.some(isResearchLab)) {
         links.push({ label: 'Data catalog', url: ExternalLinks.dataCatalog, icon: 'catalog' })
@@ -74,7 +75,7 @@ export function externalNavLinks(orgs: NavOrg[]): NavItem[] {
     if (orgs.some(isDataPartner)) {
         links.push({ label: 'Resource center', url: ExternalLinks.resourceCenter, icon: 'resources' })
     }
-    links.push({ label: 'Support', url: ExternalLinks.support, icon: 'support' })
+    links.push({ label: 'Support', url: Routes.support, icon: 'support' })
     return links
 }
 

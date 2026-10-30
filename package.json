@@ -87,6 +87,7 @@
         "@swc/helpers": "0.5.15",
         "@tanstack/react-query": "^5.100.11",
         "@zip.js/zip.js": "^2.8.26",
+        "aws-ssl-profiles": "^1.1.2",
         "clsx": "^2.1.1",
         "commander": "^14.0.3",
         "dayjs": "^1.11.20",
@@ -163,7 +164,7 @@
         "typescript-eslint": "^8.59.4",
         "vite": "^8.3.4",
         "vite-plugin-singlefile": "^2.3.3",
-        "vitest": "^4.1.11",
+        "vitest": "^4.1.12",
         "vitest-monocart-coverage": "^4.0.2"
     }
 }

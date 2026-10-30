@@ -12,7 +12,7 @@ import {
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } from '../aws'
-import { getConfigValue } from '../config'
+import { env, getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
@@ -203,7 +203,7 @@ async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetc
         codeEnvId: codeEnv.id,
         sampleDataPath: codeEnv.sampleDataPath ?? undefined,
     })
-    const bucketRegion = process.env.AWS_REGION || 'us-east-1'
+    const bucketRegion = env.AWS_REGION || 'us-east-1'
     environment.push({ name: `${prefix}_S3_BUCKET_NAME`, value: bucketName })
     environment.push({ name: `${prefix}_S3_BUCKET_PREFIX`, value: bucketPrefix })
     environment.push({ name: `${prefix}_S3_BUCKET_REGION`, value: bucketRegion })

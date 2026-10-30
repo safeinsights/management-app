@@ -13,10 +13,8 @@ import {
     requireRawState,
     screen,
     waitFor,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
-// vi from vitest itself: vi.mock is hoisted above the imports, so it must come from the module the
-// hoister rewrites, not a re-export.
-import { vi } from 'vitest'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { notFound, useParams } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
@@ -30,13 +28,6 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { SharedOutputsScreen } from './shared-outputs-screen'
 import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
-
-// Same seam the panel test uses: decrypting for real needs the wrapped-key fetch to return a
-// fixture artifact, since the DB seed has no researcher-wrapped keys.
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-    markOutputsDecisionViewedAction: vi.fn(() => ({})),
-}))
 
 const APPROVED_AT = new Date('2026-06-20T12:00:00Z')
 const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
@@ -102,8 +93,8 @@ const renderScreen = async (
     study: ScreenComponentProps['study'],
     raw: RawStudyState,
     orgSlug: string,
-) =>
-    renderWithProviders(
+) => {
+    const rendered = renderWithProviders(
         await SharedOutputsScreen({
             descriptor: { screen: variant.screen },
             study,
@@ -114,6 +105,10 @@ const renderScreen = async (
             }),
         }),
     )
+    // Opening the page records the decision as viewed, a write that has to land before the test ends.
+    await waitForPendingMutations()
+    return rendered
+}
 
 const decrypt = async () => {
     await screen.findByRole('button', { name: 'View' })
@@ -178,13 +173,11 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
         })
     }
 
-    // Assigned per setup so the mock's value cannot leak between tests.
-    const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-    const artifact = await seedEncryptedArtifact(job.id, {
+    await seedEncryptedArtifact(job.id, {
         fileType: 'ENCRYPTED-RESULT',
         files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+        sharedWith: user.id,
     })
-    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)

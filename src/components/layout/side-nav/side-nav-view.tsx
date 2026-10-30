@@ -1,4 +1,4 @@
-import { externalNavLinks, hasMyStudiesUnread, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
+import { helpNavLinks, hasMyStudiesUnread, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import Link from 'next/link'
 import { SafeInsightsLogo } from '../svg/si-logo'
@@ -18,7 +18,7 @@ export type SideNavViewProps = {
 }
 
 export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, pathname, unread }) => {
-    const links = externalNavLinks(orgs)
+    const links = helpNavLinks(orgs)
     const isOnMyStudies = pathname === Routes.dashboard
 
     return (
@@ -49,7 +49,7 @@ export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, 
                     <ul className={styles.list}>
                         {links.map((link) => (
                             <li key={link.url}>
-                                <NavRow {...link} />
+                                <NavRow {...link} isCurrent={pathname === link.url} />
                             </li>
                         ))}
                     </ul>
