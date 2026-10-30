@@ -13,18 +13,20 @@ import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { Readable } from 'stream'
 import { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
+import logger from '@/lib/logger'
+import { env } from '@/server/config'
 import { getS3BrowserClient, getS3Client, objectToAWSTags } from './clients'
 
 export const s3BucketName = () => {
-    if (!process.env.BUCKET_NAME) {
+    if (!env.BUCKET_NAME) {
         throw new Error('BUCKET_NAME env var not set')
     }
-    return process.env.BUCKET_NAME
+    return env.BUCKET_NAME
 }
 
 // Lets multiple environments share one bucket without colliding; a no-op when unset.
 export const s3KeyPrefix = (): string => {
-    const raw = process.env.S3_KEY_PREFIX
+    const raw = env.S3_KEY_PREFIX
     if (!raw) return ''
     const trimmed = raw.replace(/^\/+/, '').replace(/\/+$/, '')
     return trimmed ? `${trimmed}/` : ''
@@ -96,7 +98,7 @@ export const deleteFolderContents = async (folderPath: string) => {
     const listedObjects = await getS3Client().send(listCommand)
 
     if (!listedObjects.Contents) {
-        console.error('No objects found in the folder.')
+        logger.info('No objects found in the folder.')
         return
     }
 

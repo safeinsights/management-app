@@ -7,13 +7,15 @@ import {
     insertTestOrg,
     insertTestUser,
     insertTestCodeEnv,
+    insertTestDataSource,
+    insertTestStudyOnly,
     faker,
     actionResult,
     installFakeClerkOrgs,
     insertClaimedInvite,
-    insertTestStudyOnly,
     testEmail,
     type MinimalTestOrg,
+    NFD_E_ACUTE,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -248,6 +250,39 @@ describe('Org Actions', () => {
             const result = actionResult(await fetchAdminOrgsWithStatsAction())
             expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
+
+        it('counts each related table once per org', async () => {
+            await mockSessionWithTestData({ isSiAdmin: true })
+            const org = await insertTestOrg({ slug: `stats-${faker.string.uuid()}` })
+            const emptyOrg = await insertTestOrg({ slug: `stats-empty-${faker.string.uuid()}` })
+            const [{ user: researcher }] = await Promise.all([
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+            ])
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            const { study: deletedStudy } = await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', deletedStudy.id).execute()
+            await insertTestCodeEnv({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+
+            const result = actionResult(await fetchAdminOrgsWithStatsAction())
+
+            expect(result.find((row) => row.slug === org.slug)).toMatchObject({
+                totalUsers: 3,
+                totalStudies: 2,
+                totalCodeEnvs: 1,
+                totalDataSources: 2,
+            })
+            expect(result.find((row) => row.slug === emptyOrg.slug)).toMatchObject({
+                totalUsers: 0,
+                totalStudies: 0,
+                totalCodeEnvs: 0,
+                totalDataSources: 0,
+            })
+        })
     })
 
     describe('updateOrgAction', () => {
@@ -376,6 +411,45 @@ describe('Org Actions', () => {
                 description: 'Valid Description',
             })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
+
+        describe('limits counted like the on-screen counter', () => {
+            const readOrg = () =>
+                db
+                    .selectFrom('org')
+                    .select(['name', 'description'])
+                    .where('id', '=', targetOrg.id)
+                    .executeTakeFirstOrThrow()
+
+            it('accepts a name and description exactly at their limits', async () => {
+                const name = NFD_E_ACUTE.repeat(50)
+                const description = NFD_E_ACUTE.repeat(250)
+
+                actionResult(await updateOrgSettingsAction({ orgSlug: targetOrgSlug, name, description }))
+
+                expect(await readOrg()).toEqual({ name, description })
+            })
+
+            it('rejects a name one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: NFD_E_ACUTE.repeat(51),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).name).toBe(initialName)
+            })
+
+            it('rejects a description one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: 'Valid Name',
+                    description: NFD_E_ACUTE.repeat(251),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).description).toBe(initialDescription)
+            })
         })
     })
 

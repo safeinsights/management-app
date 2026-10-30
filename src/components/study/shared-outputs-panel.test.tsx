@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -17,10 +17,6 @@ import type { PhasedStepNav } from '@/lib/study-screen'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
-
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
 
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
@@ -109,12 +105,11 @@ describe('SharedOutputsPanel', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         job = (await latestJobForStudy(study.id))!
 
-        const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedEncryptedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+            sharedWith: user.id,
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     describe('before decryption', () => {
@@ -159,11 +154,12 @@ describe('SharedOutputsPanel', () => {
             ).toBeInTheDocument()
         })
 
+        // The outputs are encrypted to the enclave, so the researcher's key opens them only through
+        // the wraps the researcher key set carries.
         it("asks for the RESEARCHER key set, not the reviewer's", async () => {
-            const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
             renderPanel()
-            await screen.findByRole('button', { name: 'View' })
-            expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type: 'researcher' })
+            await decrypt()
+            expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
         it('shows the feedback section and no outputs table', () => {

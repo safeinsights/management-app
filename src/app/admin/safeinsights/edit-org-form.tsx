@@ -39,6 +39,25 @@ const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
     }
 }
 
+const useUpsertOrg = (org: Org | NewOrg | undefined, onCompleteAction?: () => void) => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (data: ValidatedOrg) => {
+            if (org && 'id' in org) return await updateOrgAction({ id: org.id, ...data })
+            return await insertOrgAction(data)
+        },
+        onError: (error: unknown) => {
+            reportError(error)
+        },
+        // Not awaited: refetching every org's counts would hold the dialog open (OTTER-877).
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['orgs'] })
+            onCompleteAction?.()
+        },
+    })
+}
+
 export const EditOrgForm: FC<{
     org?: Org | NewOrg
     onCompleteAction?: () => void
@@ -48,21 +67,7 @@ export const EditOrgForm: FC<{
         initialValues: getInitialValues(org),
         validateInputOnBlur: true,
     })
-    const queryClient = useQueryClient()
-
-    const { isPending, mutate: upsertOrg } = useMutation({
-        mutationFn: async (data: ValidatedOrg) => {
-            if (org && 'id' in org) return await updateOrgAction({ id: org.id, ...data })
-            return await insertOrgAction(data)
-        },
-        onError: (error: unknown) => {
-            reportError(error)
-        },
-        onSettled: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['orgs'] })
-            onCompleteAction?.()
-        },
-    })
+    const { isPending, mutate: upsertOrg } = useUpsertOrg(org, onCompleteAction)
 
     const isEnclave = form.values.type === 'enclave'
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
 import { screen, waitFor, fireEvent, act } from '@testing-library/react'
 import {
+    findFieldErrorShownOnce,
     renderWithProviders,
     userEvent,
     mockSessionWithTestData,
@@ -232,6 +233,21 @@ describe('ResearchDetailsSection', () => {
                 expect(pills.length).toBe(1)
             })
         })
+    })
+
+    it('shows the research interests error one time, with the error icon', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        renderWithProviders(<ResearchDetailsSection data={data} refetch={vi.fn()} />)
+
+        await userEvents.click(screen.getByPlaceholderText('Type a research interest and press enter'))
+        await userEvents.tab()
+
+        await findFieldErrorShownOnce('Research interests is required.')
     })
 
     it('should save research details', async () => {

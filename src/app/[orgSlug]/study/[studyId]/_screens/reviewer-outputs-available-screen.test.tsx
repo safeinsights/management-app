@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { describe, expect, it, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
@@ -25,18 +25,10 @@ import { theme } from '@/theme'
 import type { StudyJobStatus } from '@/database/types'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { setupStudyAction } from '@/tests/db-action.helpers'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
-
-vi.mock('@/server/actions/study-job.actions', async () => {
-    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
-        '@/server/actions/study-job.actions',
-    )
-    return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
-})
 
 const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -93,10 +85,6 @@ const textIncludes = (needle: string) => (_: string, element: Element | null) =>
     !!element && element.children.length === 0 && (element.textContent ?? '').includes(needle)
 
 describe('ReviewerOutputsAvailableScreen before decryption', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     it('renders the shared page and section headers', async () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
@@ -133,14 +121,12 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
     // screen embeds.
     it('keeps the outputs hidden when the key is wrong', async () => {
         const { org, study, job, raw } = await setupAvailable()
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, {
-                fileType: 'ENCRYPTED-RESULT',
-                files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
-            }),
-        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
@@ -183,20 +169,14 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
 })
 
 describe('ReviewerOutputsAvailableScreen after decryption', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     const setupDecrypted = async (
         files: { name: string; content: string }[],
         doRender: typeof renderScreen = renderScreen,
     ) => {
         const { org, study, job, raw } = await setupAvailable()
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files }),
-        ])
+        await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files })
         await doRender({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and

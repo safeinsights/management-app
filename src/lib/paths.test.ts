@@ -8,6 +8,7 @@ describe('extractOrgSlugFromPath', () => {
     it.each([
         ['/404', null],
         ['/dashboard', null],
+        ['/support', null],
         ['/editor-demo', null],
         ['/about', null],
         ['/account/signin', null],
