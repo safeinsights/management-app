@@ -1,7 +1,9 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
+import { reportMutationError } from '@/components/errors'
 import { SuretyGuard } from '@/components/surety-guard'
+import { showToast } from '@/components/toast-notifications'
 import { InfoTooltip } from '@/components/tooltip'
 import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
@@ -97,6 +99,10 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
 
     const { mutate: deleteOrg } = useMutation({
         mutationFn: deleteOrgAction,
+        onSuccess: () => {
+            showToast({ category: 'success', title: 'Success', message: `${org.name} was deleted` })
+        },
+        onError: reportMutationError('Failed to delete organization'),
         onSettled: async () => {
             return await queryClient.invalidateQueries({ queryKey: ['orgs'] })
         },

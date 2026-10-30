@@ -10,6 +10,10 @@ import {
     faker,
     actionResult,
     installFakeClerkOrgs,
+    insertClaimedInvite,
+    insertTestStudyOnly,
+    testEmail,
+    type MinimalTestOrg,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -87,6 +91,56 @@ describe('Org Actions', () => {
             await deleteOrgAction({ orgId: org.id })
             const result = await fetchUsersOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+
+        describe('an org with other records', () => {
+            let org: MinimalTestOrg
+
+            beforeEach(async () => {
+                org = await db
+                    .selectFrom('org')
+                    .select(['id', 'slug', 'type'])
+                    .where('slug', '=', newOrg.slug)
+                    .executeTakeFirstOrThrow()
+            })
+
+            const orgExists = async () =>
+                Boolean(await db.selectFrom('org').select('id').where('id', '=', org.id).executeTakeFirst())
+
+            it('deletes its pending invites and members with it', async () => {
+                const { user } = await insertTestUser({ org })
+                await insertClaimedInvite({ userId: user.id, orgId: org.id })
+                await db
+                    .insertInto('pendingUser')
+                    .values({ email: testEmail(), orgId: org.id, isAdmin: false })
+                    .execute()
+
+                actionResult(await deleteOrgAction({ orgId: org.id }))
+
+                expect(await orgExists()).toBe(false)
+                // Only the membership goes; the person keeps their account.
+                expect(
+                    await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst(),
+                ).toBeDefined()
+            })
+
+            it.each([
+                ['studies on its data', () => insertTestStudyOnly({ org })],
+                ['studies it submitted', () => insertTestStudyOnly({ submittedByOrg: org })],
+                [
+                    'legal documents',
+                    () => db.insertInto('legalDocument').values({ orgId: org.id, type: 'DOPA' }).execute(),
+                ],
+            ])('refuses while it has %s', async (_records, insertRecord) => {
+                await insertRecord()
+
+                const result = await deleteOrgAction({ orgId: org.id })
+
+                expect(result).toEqual({
+                    error: "This organization has studies or legal documents, so it can't be deleted.",
+                })
+                expect(await orgExists()).toBe(true)
+            })
         })
     })
 

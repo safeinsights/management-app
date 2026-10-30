@@ -5,7 +5,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
+import { type DBExecutor } from '@/database'
 import { Language } from '@/database/types'
 import { deleteOrgFromClerk, syncOrgToClerk } from '@/server/clerk-org-sync'
 
@@ -73,11 +74,30 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .execute()
     })
 
+// Invites and memberships go with the org, but studies and legal documents are records a purge must
+// not take with it, so deleting an org that has any is refused (OTTER-876).
+const orgHasRecords = async (db: DBExecutor, orgId: string) => {
+    const [study, legalDocument] = await Promise.all([
+        db
+            .selectFrom('study')
+            .select('id')
+            .where((eb) => eb.or([eb('orgId', '=', orgId), eb('submittedByOrgId', '=', orgId)]))
+            .executeTakeFirst(),
+        db.selectFrom('legalDocument').select('id').where('orgId', '=', orgId).executeTakeFirst(),
+    ])
+    return Boolean(study || legalDocument)
+}
+
 export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations: true })
     .params(z.object({ orgId: z.string() }))
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => {
         const org = await db.selectFrom('org').select('slug').where('id', '=', orgId).executeTakeFirstOrThrow()
+        if (await orgHasRecords(db, orgId)) {
+            throw new ActionFailure("This organization has studies or legal documents, so it can't be deleted.")
+        }
+        await db.deleteFrom('pendingUser').where('orgId', '=', orgId).execute()
+        await db.deleteFrom('orgUser').where('orgId', '=', orgId).execute()
         const result = await db.deleteFrom('org').where('id', '=', orgId).execute()
         await deleteOrgFromClerk(org.slug)
         return result
