@@ -11,6 +11,7 @@ import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
+import { useSubmitOnce } from '@/hooks/use-submit-once'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
@@ -38,7 +39,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
     const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
 
     const {
-        mutate: submitReview,
+        mutate,
         isPending,
         isSuccess,
         variables: pendingReview,
@@ -68,6 +69,8 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
+
+    const submitReview = useSubmitOnce(mutate)
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }

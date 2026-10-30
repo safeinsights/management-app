@@ -9,6 +9,7 @@ import { captureException } from '@sentry/nextjs'
 import { pushDecided } from '@/lib/navigation'
 import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
+import { useSubmitOnce } from '@/hooks/use-submit-once'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
@@ -38,7 +39,7 @@ export function useProposalReviewMutation({
     const editorProvider = useReviewFeedbackProvider()
 
     const {
-        mutate: submitReview,
+        mutate,
         isPending,
         isSuccess,
         variables: pendingReview,
@@ -68,6 +69,8 @@ export function useProposalReviewMutation({
             pushDecided(router, pathname, Routes.studyReview({ orgSlug, studyId }))
         },
     })
+
+    const submitReview = useSubmitOnce(mutate)
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
