@@ -7,7 +7,6 @@ import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { errorToString } from '@/lib/errors'
-import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
 import { useRequireUser } from '../use-require-user'
 import type { PhoneFormValues } from './add-sms-mfa-view'
@@ -30,8 +29,6 @@ export function useAddSmsMfa() {
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
     )
-    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
-    const createBackupCode = useReverification(() => user?.createBackupCode())
 
     // OTTER-647. isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks real numbering
     // plans and rejects Clerk's reserved test range the MFA e2e uses.
@@ -124,25 +121,14 @@ export function useAddSmsMfa() {
             }
 
             try {
-                await setReservedForSecondFactor(phoneObj)
-                await makeDefaultSecondFactor(phoneObj)
+                // Clerk returns first-time codes here; createBackupCode would need a fresh second factor.
+                const reserved = await setReservedForSecondFactor(phoneObj)
+                setBackupCodes(reserved?.backupCodes ?? [])
                 showToast({ category: 'success', title: 'MFA enabled' })
             } catch (error) {
                 console.error(error)
                 otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
-                return
             }
-            try {
-                if (user && !user.backupCodeEnabled) {
-                    const resource = await createBackupCode()
-                    setBackupCodes(resource?.codes || [])
-                }
-            } catch (err) {
-                logger.error({ err, message: 'Error generating backup codes' })
-                setBackupCodes([])
-            }
-
-            showToast({ category: 'success', title: 'Verification successful' })
         } catch (err) {
             otpForm.setFieldError(
                 'code',
