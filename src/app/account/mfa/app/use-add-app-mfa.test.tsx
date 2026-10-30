@@ -1,4 +1,4 @@
-import { useReverification, useUser } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import {
     act,
     afterEach,
@@ -15,16 +15,14 @@ import { useAddAppMfa } from './use-add-app-mfa'
 
 const TOTP_URI = 'otpauth://totp/SafeInsights:me?secret=JBSWY3DPEHPK3PXP&issuer=SafeInsights'
 
-const mockTotpUser = ({ backupCodeEnabled = false } = {}) => {
+const mockTotpUser = () => {
     const user = {
         id: 'user-1',
-        backupCodeEnabled,
         createTOTP: vi.fn().mockResolvedValue({ uri: TOTP_URI }),
-        verifyTOTP: vi.fn().mockResolvedValue(undefined),
-        createBackupCode: vi.fn().mockResolvedValue({ codes: ['code-1', 'code-2'] }),
+        verifyTOTP: vi.fn().mockResolvedValue({ verified: true, backupCodes: ['code-1', 'code-2'] }),
+        createBackupCode: vi.fn(),
     }
     ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: true, user })
-    ;(useReverification as Mock).mockImplementation((fn: unknown) => fn)
     return user
 }
 
@@ -44,25 +42,28 @@ describe('useAddAppMfa', () => {
         expect(result.current.totpUri).toBe(TOTP_URI)
     })
 
-    it('moves to the success step with fresh backup codes after a valid code', async () => {
+    it('shows the backup codes that verifying the first code returns', async () => {
         const user = mockTotpUser()
         const { result } = renderAppMfa()
 
         await act(() => result.current.verifyTotp({ code: '123456' }))
 
         expect(user.verifyTOTP).toHaveBeenCalledWith({ code: '123456' })
+        expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('success')
         expect(result.current.backupCodes).toEqual(['code-1', 'code-2'])
     })
 
-    it('does not regenerate backup codes the user already has', async () => {
-        const user = mockTotpUser({ backupCodeEnabled: true })
+    it('finishes with no codes when the user already has backup codes', async () => {
+        const user = mockTotpUser()
+        user.verifyTOTP.mockResolvedValue({ verified: true })
         const { result } = renderAppMfa()
 
         await act(() => result.current.verifyTotp({ code: '123456' }))
 
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('success')
+        expect(result.current.backupCodes).toEqual([])
     })
 
     it('stays on the add step with an error for a rejected code', async () => {

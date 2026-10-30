@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useEffectEvent, useState } from 'react'
-import { useReverification } from '@clerk/nextjs'
 import type { TOTPResource } from '@clerk/nextjs/types'
 import { useForm } from '@/common'
 import { reportError } from '@/components/errors'
@@ -24,7 +23,6 @@ function secretFromUri(uri?: string) {
 
 export function useAddAppMfa() {
     const { isLoaded, user } = useRequireUser()
-    const createBackupCode = useReverification(() => user?.createBackupCode())
     const [step, setStep] = useState<AddAppMfaStep>('add')
     const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
@@ -68,18 +66,12 @@ export function useAddAppMfa() {
     }
 
     const verifyTotp = async (values: { code: string }) => {
+        if (!user) return
         setIsVerifying(true)
         try {
-            await user?.verifyTOTP({ code: values.code })
-            if (user && !user.backupCodeEnabled) {
-                try {
-                    const resource = await createBackupCode()
-                    setBackupCodes(resource?.codes || [])
-                } catch (err) {
-                    logger.error({ err, message: 'Error generating backup codes' })
-                    setBackupCodes([])
-                }
-            }
+            // Clerk returns first-time codes here; createBackupCode would need a fresh second factor.
+            const verified = await user.verifyTOTP({ code: values.code })
+            setBackupCodes(verified.backupCodes ?? [])
             setStep('success')
         } catch {
             form.setErrors({ code: 'Invalid verification code. Please try again.' })
