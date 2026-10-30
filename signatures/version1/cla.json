@@ -119,6 +119,14 @@
       "created_at": "2026-10-21T22:00:35Z",
       "repoId": 858865323,
       "pullRequestNo": 1222
+    },
+    {
+      "name": "si-bob",
+      "id": 342597800,
+      "comment_id": 6532562299,
+      "created_at": "2026-10-30T20:14:51Z",
+      "repoId": 858865323,
+      "pullRequestNo": 1267
     }
   ]
 }
