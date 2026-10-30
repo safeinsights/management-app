@@ -284,8 +284,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 ...fieldValues
             } = params
 
-            // Not in middleware: middleware keys become the CASL subject, which a denied
-            // ability check returns to the caller — leaking plaintext env var values.
+            // Read after the check: the prior row's settings hold plaintext env var values.
             const priorCodeEnv = await priorCodeEnvFor(db, codeEnvId)
 
             // Must run before any S3 or DB side effect so a refused edit changes nothing.
@@ -484,8 +483,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
     })
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug }, db, session, ...codeEnv }) => {
-        // Captured before the row is destroyed, and not in middleware: middleware keys reach the
-        // caller in a denied ability check's error message.
+        // Captured before the row is destroyed.
         const priorCodeEnv = await priorCodeEnvFor(db, codeEnv.id)
 
         if (!codeEnv.isTesting) {

@@ -228,8 +228,7 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         return { starterCodeUrls }
     })
 
-// On the unconditioned `view Org`, so the row is read in the HANDLER and narrowed to PublicOrg:
-// a middleware read would echo settings and email back in the permission_denied message (MA-6).
+// On the unconditioned `view Org`, so the handler narrows the row to PublicOrg columns (MA-6).
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(orgIdFromSlug)
