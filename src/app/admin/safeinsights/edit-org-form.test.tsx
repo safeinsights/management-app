@@ -124,8 +124,8 @@ describe('EditOrgForm', () => {
         await userEvent.type(nameInput, 'Renamed Org')
         await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
 
-        await waitFor(() => expect(refetchOrgs).toHaveBeenCalledOnce())
-        expect(onComplete).toHaveBeenCalledOnce()
+        await waitFor(() => expect(onComplete).toHaveBeenCalledOnce())
+        expect(refetchOrgs).toHaveBeenCalledOnce()
         await act(async () => finishRefetch())
 
         const saved = await db.selectFrom('org').select('name').where('id', '=', org.id).executeTakeFirstOrThrow()
