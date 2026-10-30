@@ -2,13 +2,7 @@
 
 import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
-import {
-    orgSchema,
-    orgSettingsDescriptionField,
-    orgSettingsNameField,
-    updateOrgSchema,
-    type PublicOrg,
-} from '@/schema/org'
+import { orgSchema, orgDescriptionField, orgNameField, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
@@ -228,8 +222,8 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .params(
         z.object({
             orgSlug: z.string(),
-            name: orgSettingsNameField,
-            description: orgSettingsDescriptionField.nullable().optional(),
+            name: orgNameField,
+            description: orgDescriptionField.nullable().optional(),
         }),
     )
     .middleware(orgIdFromSlug)

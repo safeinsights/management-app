@@ -20,8 +20,8 @@ import { z } from 'zod'
 import {
     ORG_DESCRIPTION_MAX_CHARACTERS,
     ORG_NAME_MAX_CHARACTERS,
-    orgSettingsDescriptionField,
-    orgSettingsNameField,
+    orgDescriptionField,
+    orgNameField,
     type PublicOrg,
 } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
@@ -31,8 +31,8 @@ import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
 export const settingsFormSchema = z.object({
-    name: orgSettingsNameField,
-    description: orgSettingsDescriptionField.default(''),
+    name: orgNameField,
+    description: orgDescriptionField.default(''),
 })
 
 const COUNTER_BELOW_INPUT: InputWrapperProps['inputWrapperOrder'] = ['label', 'input', 'description', 'error']
