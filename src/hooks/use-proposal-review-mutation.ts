@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { usePathname, useRouter } from 'next/navigation'
+import { useRef } from 'react'
 
 import { useMutation, useQueryClient } from '@/common'
 import { showToast } from '@/components/toast-notifications'
@@ -37,8 +38,11 @@ export function useProposalReviewMutation({
     // passes; a private provider could still be mid-handshake and get dropped silently.
     const editorProvider = useReviewFeedbackProvider()
 
+    // isPending flips only on the next render, so both clicks of a double-click would get past it.
+    const isLocked = useRef(false)
+
     const {
-        mutate: submitReview,
+        mutate,
         isPending,
         isSuccess,
         variables: pendingReview,
@@ -46,6 +50,7 @@ export function useProposalReviewMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
         onError: (err) => {
+            isLocked.current = false
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
@@ -68,6 +73,12 @@ export function useProposalReviewMutation({
             pushDecided(router, pathname, Routes.studyReview({ orgSlug, studyId }))
         },
     })
+
+    const submitReview: typeof mutate = (args, options) => {
+        if (isLocked.current) return
+        isLocked.current = true
+        mutate(args, options)
+    }
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }

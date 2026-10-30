@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
+import { useRef } from 'react'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
@@ -37,14 +38,18 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
 
     const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
 
+    // isPending flips only on the next render, so both clicks of a double-click would get past it.
+    const isLocked = useRef(false)
+
     const {
-        mutate: submitReview,
+        mutate,
         isPending,
         isSuccess,
         variables: pendingReview,
     } = useMutation({
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: (err) => {
+            isLocked.current = false
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
@@ -68,6 +73,12 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
             pushDecided(router, pathname, Routes.studyReviewCode({ orgSlug, studyId }))
         },
     })
+
+    const submitReview: typeof mutate = (args, options) => {
+        if (isLocked.current) return
+        isLocked.current = true
+        mutate(args, options)
+    }
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
