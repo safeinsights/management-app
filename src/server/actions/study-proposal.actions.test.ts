@@ -1208,8 +1208,7 @@ describe('Request Study Actions', () => {
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             const result = await getDraftStudyAction({ studyId })
             const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
-            expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
-            expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
+            expect(permissionDenied).toBe('in getDraftStudyAction action; cannot view Study.')
         })
 
         // The page header eyebrow reads submittingLabName. Before OTTER-619 this select carried the
@@ -2542,8 +2541,13 @@ describe('getDraftStudyAction subject (MA-6)', () => {
         const result = await getDraftStudyAction({ studyId })
         const denied = (result as { error: { permission_denied: string } }).error.permission_denied
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
         expect(denied).not.toContain('Confidential research question')
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(studyId)
+        expect(warning).not.toContain('Confidential draft title')
+        expect(warning).not.toContain('Confidential research question')
     })
 })

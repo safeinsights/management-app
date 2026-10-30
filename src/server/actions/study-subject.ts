@@ -17,7 +17,7 @@ export const withStudyAccessSubject = async ({ params: { studyId } }: { params: 
     return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
 }
 
-// Ids only: requireAbilityTo echoes the subject to a refused caller (MA-6).
+// Ids only: every top-level key is a CASL condition input.
 export const withStudyJobSubject = ({ params }: { params: JobIdParams }) => getInfoForStudyJobId(jobIdFrom(params))
 
 // No submittedByOrgId, so 'view StudyJob' does not admit the submitting lab.
@@ -26,7 +26,7 @@ export async function withReviewerStudyJobSubject(ctx: { params: JobIdParams }) 
     return subject
 }
 
-// After requireAbilityTo only: the full row carries the title and file paths.
+// After requireAbilityTo, so a refused caller never costs the full row read.
 export const loadStudyJob = async ({ studyJobId }: { studyJobId: string }) => ({
     studyJob: await getStudyJobInfo(studyJobId),
 })

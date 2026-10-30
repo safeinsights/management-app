@@ -212,8 +212,7 @@ const studyInfoQuery = (studyId: string) =>
             'study.researcherId',
             'study.status',
             'study.submittedByOrgId',
-            // This output becomes the ability subject, which requireAbilityTo serializes into
-            // permission_denied, so a title selected here would leak to a guessed study id (MA-6).
+            // This output is the ability subject: a column added here becomes a CASL condition input (MA-6).
         ])
         .where('study.id', '=', studyId)
 

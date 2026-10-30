@@ -1834,6 +1834,39 @@ describe('submitCodeReviewDecisionAction', () => {
     const simulateResubmitOnSameJob = (jobId: string, userId: string) =>
         db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId }).execute()
 
+    it('gives a refused caller no study content and sends only ids to the warning (OTTER-891)', async () => {
+        const enclave = await insertTestOrg({ slug: 'otter891-code-review-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .updateTable('study')
+            .set({ containerLocation: 'confidential/container-location' })
+            .where('id', '=', study.id)
+            .execute()
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: 'confidential reviewer feedback',
+            criteria: validCriteria,
+        })
+
+        expect(result).toEqual({
+            error: { permission_denied: 'in submitCodeReviewDecisionAction action; cannot review Study.' },
+        })
+        const warning = String(warnSpy.mock.calls[0][0])
+        expect(warning).toContain(study.id)
+        expect(warning).not.toContain('confidential/container-location')
+        expect(warning).not.toContain('confidential reviewer feedback')
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
     it('rejects feedback one character over the cap and writes nothing', async () => {
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
 
@@ -3040,6 +3073,7 @@ describe('softDeleteStudyAction', () => {
 describe('study subjects carry ids only (MA-6)', () => {
     const permissionDenied = (result: unknown) =>
         (result as { error: { permission_denied: string } }).error.permission_denied
+    const warning = () => String(vi.mocked(logger.warn).mock.calls[0][0])
 
     const seedStudy = async (studyStatus: StudyStatus = 'PENDING-REVIEW') => {
         const enclave = await insertTestOrg({ slug: 'ma6-study-enclave', type: 'enclave' })
@@ -3102,8 +3136,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getProposalFeedbackForStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain('confidential reviewer notes')
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain('confidential reviewer notes')
     })
 
     it('gives a refused caller of getStudyAction no title or document path', async () => {
@@ -3113,9 +3149,12 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(descriptionDocPath)
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain(study.title)
+        expect(warning()).not.toContain(descriptionDocPath)
     })
 
     it('still refuses an enclave reviewer the study of an unsubmitted draft', async () => {
@@ -3149,8 +3188,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await softDeleteStudyAction({ studyId }))
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
+        expect(warning()).toContain(studyId)
+        expect(warning()).not.toContain('Confidential draft title')
     })
 
     it('still keeps an SI admin who is not the author from deleting a draft', async () => {
