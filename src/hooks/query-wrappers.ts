@@ -6,6 +6,7 @@ import {
     type UseMutationOptions,
     type UseQueryResult,
     type UseMutationResult,
+    type UseMutateFunction,
     useQueryClient,
     skipToken,
     keepPreviousData,
@@ -48,7 +49,7 @@ export const reportQueryError = (error: unknown, query: { meta?: QueryMeta; stat
 }
 
 export { useTanStackMutation, useTanStackQuery, useQueryClient, skipToken, keepPreviousData }
-export type { UseQueryResult }
+export type { UseQueryResult, UseMutateFunction }
 
 function processResponse<T>(response: ActionResponse<T>): T {
     if (isActionError(response)) {

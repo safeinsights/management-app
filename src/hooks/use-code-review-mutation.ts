@@ -1,7 +1,6 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useRef } from 'react'
 
 import { useUser } from '@clerk/nextjs'
 import { useMutation, useQueryClient } from '@/common'
@@ -12,6 +11,7 @@ import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { useBroadcastProvider } from '@/hooks/use-broadcast-provider'
+import { useSubmitOnce } from '@/hooks/use-submit-once'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import type { CodeReviewCriteria } from '@/hooks/use-code-review-evaluation-map'
@@ -38,9 +38,6 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
 
     const broadcastProvider = useBroadcastProvider(codeReviewFeedbackDocName(jobId))
 
-    // isPending flips only on the next render, so both clicks of a double-click would get past it.
-    const isLocked = useRef(false)
-
     const {
         mutate,
         isPending,
@@ -49,7 +46,6 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
     } = useMutation({
         mutationFn: (args: SubmitCodeReviewArgs) => submitCodeReviewDecisionAction({ orgSlug, studyId, ...args }),
         onError: (err) => {
-            isLocked.current = false
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
@@ -74,11 +70,7 @@ export function useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId }:
         },
     })
 
-    const submitReview: typeof mutate = (args, options) => {
-        if (isLocked.current) return
-        isLocked.current = true
-        mutate(args, options)
-    }
+    const submitReview = useSubmitOnce(mutate)
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }

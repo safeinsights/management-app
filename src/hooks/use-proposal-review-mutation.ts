@@ -2,7 +2,6 @@
 
 import { useUser } from '@clerk/nextjs'
 import { usePathname, useRouter } from 'next/navigation'
-import { useRef } from 'react'
 
 import { useMutation, useQueryClient } from '@/common'
 import { showToast } from '@/components/toast-notifications'
@@ -10,6 +9,7 @@ import { captureException } from '@sentry/nextjs'
 import { pushDecided } from '@/lib/navigation'
 import { DECISION_NOTICES, type Decision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
+import { useSubmitOnce } from '@/hooks/use-submit-once'
 import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
@@ -38,9 +38,6 @@ export function useProposalReviewMutation({
     // passes; a private provider could still be mid-handshake and get dropped silently.
     const editorProvider = useReviewFeedbackProvider()
 
-    // isPending flips only on the next render, so both clicks of a double-click would get past it.
-    const isLocked = useRef(false)
-
     const {
         mutate,
         isPending,
@@ -50,7 +47,6 @@ export function useProposalReviewMutation({
         mutationFn: async (args: SubmitReviewArgs) =>
             actionResult(await submitProposalReviewAction({ orgSlug, studyId, reviewVersion, ...args })),
         onError: (err) => {
-            isLocked.current = false
             captureException(err)
             showToast(DECISION_NOTICES.failed)
         },
@@ -74,11 +70,7 @@ export function useProposalReviewMutation({
         },
     })
 
-    const submitReview: typeof mutate = (args, options) => {
-        if (isLocked.current) return
-        isLocked.current = true
-        mutate(args, options)
-    }
+    const submitReview = useSubmitOnce(mutate)
 
     // isPending clears when the action resolves, before the decided page replaces this one.
     return { submitReview, isSubmitting: isPending || isSuccess, pendingReview }
