@@ -5,6 +5,7 @@ import { db } from '@/database'
 import {
     actionResult,
     faker,
+    findFieldErrorShownOnce,
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
@@ -168,5 +169,25 @@ describe('SetupAccountForm legal documents', () => {
         await fillValidForm()
 
         expect(createAccountButton()).toBeDisabled()
+    })
+})
+
+describe('SetupAccountForm field errors', () => {
+    it('shows each field error one time, with the error icon', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        await userEvent.type(screen.getByLabelText('First name'), 'A')
+        await userEvent.type(screen.getByLabelText('Last name'), 'User')
+        await userEvent.type(screen.getByLabelText('Enter password'), 'Testing1234!')
+        await userEvent.type(screen.getByLabelText('Confirm password'), 'Testing1234?')
+        await userEvent.tab()
+
+        for (const message of ['Name must be 2-50 characters', 'Passwords do not match. Please re-enter them.']) {
+            await findFieldErrorShownOnce(message)
+        }
     })
 })

@@ -37,6 +37,7 @@ describe('SecurityKeyInput', () => {
 
         const alert = screen.getByRole('alert')
         expect(alert).toHaveTextContent('Something went wrong')
+        expect(alert.querySelectorAll('svg')).toHaveLength(1)
 
         const describedBy = textbox.getAttribute('aria-describedby')
         expect(describedBy).toBeTruthy()

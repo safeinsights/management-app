@@ -8,6 +8,7 @@ import {
     waitFor,
     mockSessionWithTestData,
     faker,
+    findFieldErrorShownOnce,
     renderWithProviders,
     insertTestCodeEnv,
     insertTestDataSource,
@@ -148,7 +149,7 @@ describe('CodeEnvs', async () => {
 
         fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
-        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+        await findFieldErrorShownOnce(/At least one starter code file is required/i)
     })
 
     // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the

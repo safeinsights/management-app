@@ -28,10 +28,13 @@ import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { semanticColor } from '@/theme/tokens'
+import { InputError } from '@/components/errors'
 import { languageLabels } from '@/lib/languages'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
+
+// Row errors never pass through the shared useForm, so they carry the design's error icon themselves.
+const requiredError = (value: string, message: string) => (value.trim() ? null : <InputError error={message} />)
 
 interface EnvVarLineProps {
     envVar: EnvVar
@@ -51,7 +54,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 flex={1}
                 placeholder="Variable name"
                 aria-label="Variable name"
-                error={!envVar.name.trim() ? 'Variable name is required' : null}
+                error={requiredError(envVar.name, 'Variable name is required')}
             />
             <TextInput
                 value={envVar.value}
@@ -59,12 +62,22 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 flex={1}
                 placeholder="Value"
                 aria-label="Variable value"
-                error={!envVar.value.trim() ? 'Value is required' : null}
+                error={requiredError(envVar.value, 'Value is required')}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs" aria-label="Remove variable">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
+    )
+}
+
+function StarterCodeError({ isVisible, error }: { isVisible: boolean; error?: string }) {
+    if (!isVisible) return null
+
+    return (
+        <Box mt="xs">
+            <InputError error={error ?? 'At least one starter code file is required.'} />
+        </Box>
     )
 }
 
@@ -125,11 +138,7 @@ function StarterCodeSection({
                     </Text>
                 </Group>
             </Dropzone>
-            {(error || isMissing) && (
-                <Text size="sm" c={semanticColor('error.text')} mt="xs">
-                    {error ?? 'At least one starter code file is required.'}
-                </Text>
-            )}
+            <StarterCodeError isVisible={!!error || isMissing} error={error} />
             {starterCodes.length > 0 && (
                 <Stack gap="xs" mt="sm">
                     {starterCodes.map((file) => (
@@ -175,7 +184,7 @@ function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps
                 flex={2}
                 placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
                 aria-label={`Command for .${ext} files`}
-                error={!cmd.trim() ? 'Command is required' : null}
+                error={requiredError(cmd, 'Command is required')}
             />
             <ActionIcon
                 color="red"
