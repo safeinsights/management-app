@@ -5,6 +5,7 @@ import {
     actionResult,
     db,
     insertTestOrg,
+    insertTestLaterJob,
     insertTestStudyJobData,
     insertTestUser,
     isUnreadOnOrgDashboard,
@@ -116,6 +117,36 @@ describe('Study Job Actions', () => {
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
         expect(result[0].studyJobFileId).toBe(file.id)
         expect(result[0].recipientKeys).toEqual({})
+    })
+
+    // OTTER-882: the code run card decrypts the latest run alone; earlier runs belong to the history.
+    test('fetchEncryptedJobFilesAction returns only the requested run when the study has earlier runs', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job: earlierJob } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'earlier/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: earlierJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+        const latestJob = await insertTestLaterJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
+        const latestFile = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'latest/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: latestJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: latestJob.id, type: 'reviewer' }))
+
+        expect(result.map((file) => file.studyJobFileId)).toEqual([latestFile.id])
     })
 
     test('fetchEncryptedJobFilesAction returns researcher keys for shared files', async () => {

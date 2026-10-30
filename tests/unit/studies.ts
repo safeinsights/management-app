@@ -278,6 +278,18 @@ export const insertTestJobStatuses = async (studyJobId: string, statuses: StudyJ
     }
 }
 
+// A second run on a study that already has one. Inserted afterwards and dated a minute later, so
+// both the createdAt and the v7-id orderings of "latest job" pick it.
+export const insertTestLaterJob = async (studyId: string, statuses: StudyJobStatus[]) => {
+    const job = await db
+        .insertInto('studyJob')
+        .values({ studyId, createdAt: new Date(Date.now() + 60_000) })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    await insertTestJobStatuses(job.id, statuses)
+    return job
+}
+
 type InsertTestCodeResubmissionNoteOptions = {
     studyId: string
     studyJobId: string
