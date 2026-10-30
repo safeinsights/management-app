@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
-import { insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
 import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
 import type { Org } from '@/schema/org'
@@ -287,6 +287,37 @@ describe('Action Builder', () => {
             expect(errorSpy).not.toHaveBeenCalled()
             expect(warnSpy).toHaveBeenCalledTimes(1)
             expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
+        })
+
+        it('keeps the subject out of the denial text and sends only its ids to the warning', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            const { user } = await mockSessionWithTestData()
+            const studyId = faker.string.uuid()
+            const orgId = faker.string.uuid()
+            const action = new Action('denied-subject')
+                .params(z.object({ studyId: z.string(), note: z.string(), fakeId: z.string() }))
+                .middleware(async () => ({ orgId, title: 'Confidential title', path: 'confidential/path.pdf' }))
+                .requireAbilityTo('manage', 'all')
+                .handler(async () => 'ok')
+
+            const result = await action({ studyId, note: 'confidential caller note', fakeId: 'not-a-uuid secret' })
+
+            expect(result).toEqual({ error: { permission_denied: 'in denied-subject action; cannot manage all.' } })
+            expect(errorSpy).not.toHaveBeenCalled()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            const warning = String(warnSpy.mock.calls[0][0])
+            expect(warning).toContain(user.id)
+            expect(warning).toContain(studyId)
+            expect(warning).toContain(orgId)
+            for (const content of [
+                'Confidential title',
+                'confidential/path.pdf',
+                'confidential caller note',
+                'not-a-uuid secret',
+            ]) {
+                expect(warning).not.toContain(content)
+            }
         })
 
         it('flushes Sentry before returning a failure, so the warning leaves the Lambda', async () => {
