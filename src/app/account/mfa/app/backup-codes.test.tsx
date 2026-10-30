@@ -45,6 +45,25 @@ describe('BackupCodes', () => {
         expect(screen.queryByText('Have you stored your MFA recovery codes?')).toBeNull()
     })
 
+    it('says the existing codes still work and leaves without confirmation when there are no new codes', async () => {
+        const user = userEvent.setup()
+        await mockSessionWithTestData({ orgType: 'lab' })
+        renderWithProviders(<BackupCodes isVisible codes={[]} />)
+
+        expect(
+            screen.getByText(
+                'Your existing recovery codes still work. Use one of them if you lose access to your authentication device.',
+            ),
+        ).toBeDefined()
+        expect(screen.queryByRole('button', { name: 'Copy codes' })).toBeNull()
+        expect(screen.queryByText('Generating recovery codes...')).toBeNull()
+
+        await user.click(screen.getByRole('button', { name: 'Go to SafeInsights' }))
+
+        await waitFor(() => expect(router.asPath).toBe('/dashboard'))
+        expect(screen.queryByText('Have you stored your MFA recovery codes?')).toBeNull()
+    })
+
     it('renders nothing when not visible', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
         renderWithProviders(<BackupCodes isVisible={false} codes={['code-1']} />)

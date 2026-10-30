@@ -22,18 +22,18 @@ const mockSmsUser = ({ verified = true } = {}) => {
         phoneNumber: PHONE,
         prepareVerification: vi.fn().mockResolvedValue(undefined),
         attemptVerification: vi.fn().mockResolvedValue({ verification: { status: verified ? 'verified' : 'failed' } }),
-        setReservedForSecondFactor: vi.fn().mockResolvedValue(undefined),
-        makeDefaultSecondFactor: vi.fn().mockResolvedValue(undefined),
+        setReservedForSecondFactor: vi
+            .fn<() => Promise<{ backupCodes?: string[] }>>()
+            .mockResolvedValue({ backupCodes: ['code-1', 'code-2'] }),
     }
     const user = {
         id: 'user-1',
         phoneNumbers: [] as (typeof phone)[],
-        backupCodeEnabled: false,
         createPhoneNumber: vi.fn(async () => {
             user.phoneNumbers.push(phone)
             return phone
         }),
-        createBackupCode: vi.fn().mockResolvedValue({ codes: ['code-1', 'code-2'] }),
+        createBackupCode: vi.fn(),
         reload: vi.fn().mockResolvedValue(undefined),
     }
     ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: true, user })
@@ -97,7 +97,7 @@ describe('useAddSmsMfa', () => {
         expect(toastTitles()).toContain('A new code has been sent!')
     })
 
-    it('enables MFA on a verified code and shows the backup codes', async () => {
+    it('enables MFA on a verified code and shows the backup codes Clerk returns', async () => {
         const { user, phone } = mockSmsUser()
         const { result } = renderSmsMfa()
         await sendCode(result)
@@ -105,10 +105,23 @@ describe('useAddSmsMfa', () => {
         await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
 
         expect(phone.setReservedForSecondFactor).toHaveBeenCalledWith({ reserved: true })
-        expect(phone.makeDefaultSecondFactor).toHaveBeenCalled()
-        expect(user.createBackupCode).toHaveBeenCalled()
+        expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('backup')
         expect(result.current.backupCodes).toEqual(['code-1', 'code-2'])
+        expect(toastTitles()).toEqual(['MFA enabled'])
+    })
+
+    it('finishes on the backup step with no codes when the user already has backup codes', async () => {
+        const { user, phone } = mockSmsUser()
+        phone.setReservedForSecondFactor.mockResolvedValue({})
+        const { result } = renderSmsMfa()
+        await sendCode(result)
+
+        await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
+
+        expect(user.createBackupCode).not.toHaveBeenCalled()
+        expect(result.current.step).toBe('backup')
+        expect(result.current.backupCodes).toEqual([])
     })
 
     it('keeps the code step and does not enable MFA when the code is not verified', async () => {

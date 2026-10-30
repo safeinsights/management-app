@@ -20,7 +20,7 @@ type BackupCodesProps = {
     codes?: string[] | null
 }
 
-function useBackupCodes() {
+function useBackupCodes(codes?: string[] | null) {
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
@@ -34,13 +34,17 @@ function useBackupCodes() {
         router.push(Routes.dashboard)
     }
 
-    // Leaving without copying gets a confirmation, since the codes are never shown again.
+    const hasCodes = Boolean(codes?.length)
+
+    // Leaving without copying gets a confirmation, since the codes are never shown again. Clerk returns
+    // no codes when the user already has some, so then there is nothing to lose.
     const leave = () => {
-        if (hasCopied) goToDashboard()
+        if (hasCopied || !hasCodes) goToDashboard()
         else setModalOpened(true)
     }
 
     return {
+        hasCodes,
         isSessionLoaded,
         modalOpened,
         isRedirecting,
@@ -51,23 +55,72 @@ function useBackupCodes() {
     }
 }
 
-const CodesList: FC<{ codes?: string[] | null }> = ({ codes }) => {
-    if (!codes?.length) {
-        return (
-            <Text size="sm" c="dimmed">
-                Generating recovery codes...
-            </Text>
-        )
-    }
+type CodesProps = {
+    isVisible: boolean
+    codes?: string[] | null
+}
+
+const NewCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
+    if (!isVisible) return null
 
     return (
-        <Stack gap="xxs">
-            {codes.map((code, index) => (
-                <Text key={index} size="sm">
-                    {code}
-                </Text>
-            ))}
-        </Stack>
+        <>
+            <Text mb="xs" size="md">
+                These are your recovery codes. Please store them in a secure location. You will need one of them to
+                access your account <b>if you lose access</b> to your authentication device.
+            </Text>
+
+            <ScrollArea.Autosize
+                mah={130}
+                type="auto"
+                bg={semanticColor('surface.sunken')}
+                py="md"
+                px="lg"
+                bd={`1px solid ${semanticColor('border.dark')}`}
+            >
+                <Stack gap="xxs">
+                    {codes?.map((code, index) => (
+                        <Text key={index} size="sm">
+                            {code}
+                        </Text>
+                    ))}
+                </Stack>
+            </ScrollArea.Autosize>
+        </>
+    )
+}
+
+const ExistingCodesNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return (
+        <Text mb="xs" size="md">
+            Your existing recovery codes still work. Use one of them if you lose access to your authentication device.
+        </Text>
+    )
+}
+
+const CopyCodesButton: FC<CodesProps & { onCopied: () => void }> = ({ isVisible, codes, onCopied }) => {
+    if (!isVisible) return null
+
+    return (
+        <CopyButton value={codes?.join('\n') ?? ''} timeout={1000}>
+            {({ copied, copy }) => (
+                <Stack gap="xxs">
+                    <Button
+                        fullWidth
+                        size="lg"
+                        onClick={() => {
+                            copy()
+                            onCopied()
+                        }}
+                    >
+                        Copy codes
+                    </Button>
+                    <CopiedNotice isVisible={copied} />
+                </Stack>
+            )}
+        </CopyButton>
     )
 }
 
@@ -86,8 +139,8 @@ const CopiedNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
 const BackupCodes = ({ isVisible, codes }: BackupCodesProps) => {
     const { isLoaded } = useUser()
-    const { isSessionLoaded, modalOpened, isRedirecting, markCopied, closeModal, leave, goToDashboard } =
-        useBackupCodes()
+    const { hasCodes, isSessionLoaded, modalOpened, isRedirecting, markCopied, closeModal, leave, goToDashboard } =
+        useBackupCodes(codes)
 
     if (!isVisible || !isLoaded) return null
 
@@ -97,41 +150,11 @@ const BackupCodes = ({ isVisible, codes }: BackupCodesProps) => {
                 <Title mb="xs" ta="center" order={3}>
                     Multi-factor authentication is set up successfully!
                 </Title>
-                <Text mb="xs" size="md">
-                    These are your recovery codes. Please store them in a secure location. You will need one of them to
-                    access your account <b>if you lose access</b> to your authentication device.
-                </Text>
-
-                <ScrollArea.Autosize
-                    mah={130}
-                    type="auto"
-                    bg={semanticColor('surface.sunken')}
-                    py="md"
-                    px="lg"
-                    bd={`1px solid ${semanticColor('border.dark')}`}
-                >
-                    <CodesList codes={codes} />
-                </ScrollArea.Autosize>
+                <NewCodesList isVisible={hasCodes} codes={codes} />
+                <ExistingCodesNotice isVisible={!hasCodes} />
 
                 <Stack gap="md" mt="xs">
-                    <CopyButton value={codes?.join('\n') ?? ''} timeout={1000}>
-                        {({ copied, copy }) => (
-                            <Stack gap="xxs">
-                                <Button
-                                    fullWidth
-                                    size="lg"
-                                    onClick={() => {
-                                        copy()
-                                        markCopied()
-                                    }}
-                                    disabled={!codes?.length}
-                                >
-                                    Copy codes
-                                </Button>
-                                <CopiedNotice isVisible={copied} />
-                            </Stack>
-                        )}
-                    </CopyButton>
+                    <CopyCodesButton isVisible={hasCodes} codes={codes} onCopied={markCopied} />
 
                     <Button
                         loading={isRedirecting}

@@ -6,6 +6,8 @@ export type FakeUser = ReturnType<typeof buildFakeUser>
 // this a verified address would vanish on the next reload() and the linking flow could never settle.
 const linkedEmails = new Map<string, string[]>()
 
+const BACKUP_CODES = ['11111111', '22222222', '33333333']
+
 export function buildFakeUser(fixture: FakeFixture) {
     const emailAddress = fixture.email
     const currentOrgSlug = defaultOrgSlug(fixture)
@@ -38,8 +40,8 @@ export function buildFakeUser(fixture: FakeFixture) {
             secret: 'JBSWY3DPEHPK3PXP',
             uri: 'otpauth://totp/e2e?secret=JBSWY3DPEHPK3PXP',
         }),
-        verifyTOTP: async () => ({ verified: true }),
-        createBackupCode: async () => ({ codes: ['11111111', '22222222', '33333333'] }),
+        verifyTOTP: async () => ({ verified: true, backupCodes: BACKUP_CODES }),
+        createBackupCode: async () => ({ codes: BACKUP_CODES }),
         createEmailAddress: async ({ email }: { email: string }) => ({
             id: `fake-email-${email}`,
             emailAddress: email,
@@ -59,8 +61,7 @@ export function buildFakeUser(fixture: FakeFixture) {
             phoneNumber,
             prepareVerification: async () => {},
             attemptVerification: async () => ({ verification: { status: 'verified' } }),
-            setReservedForSecondFactor: async () => {},
-            makeDefaultSecondFactor: async () => {},
+            setReservedForSecondFactor: async () => ({ backupCodes: BACKUP_CODES }),
         }),
         reload: async () => {},
     }
