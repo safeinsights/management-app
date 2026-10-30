@@ -29,7 +29,7 @@ const DownloadAllButton: FC<DownloadAllButtonProps> = ({ isVisible, isPreparing,
 
     return (
         <Button
-            variant="outline"
+            variant="subtle"
             onClick={onClick}
             loading={isPreparing}
             // Decorative: the button already has a visible label, unlike the per-row icon.
