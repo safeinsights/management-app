@@ -337,6 +337,9 @@ describe('useProposalReviewMutation', () => {
             result.current.submitReview({ decision: 'reject', feedback: validFeedback })
         })
         await waitForPendingMutations()
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
         await setTestStudyStatus(study.id, 'PENDING-REVIEW')
 
         await act(async () => {
