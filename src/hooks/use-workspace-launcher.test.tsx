@@ -3,27 +3,44 @@ import {
     describe,
     it,
     expect,
+    afterEach,
     beforeEach,
     renderHook,
     waitFor,
     act,
-    faker,
+    cleanupWorkspaceDirs,
     createTestQueryWrapper,
+    createWorkspaceDir,
+    insertTestStudyOnly,
+    mockSessionWithTestData,
     staleActionError,
+    stubCoder,
     type Mock,
 } from '@/tests/unit.helpers'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 
-vi.mock('@/server/actions/workspaces.actions', () => ({
-    ensureWorkspaceAction: vi.fn(),
-    getWorkspaceLaunchStatusAction: vi.fn(),
-}))
+// Real by default. A stale deployment fails the call itself, which no real action produces.
+vi.mock('@/server/actions/workspaces.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/workspaces.actions')>()
+    return {
+        ...actual,
+        ensureWorkspaceAction: vi.fn(actual.ensureWorkspaceAction),
+        getWorkspaceLaunchStatusAction: vi.fn(actual.getWorkspaceLaunchStatusAction),
+    }
+})
 
 // Spied rather than stubbed, so the launcher still gets a real event id for the modal's Ref.
 vi.mock('@sentry/nextjs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@sentry/nextjs')>()
-    return { ...actual, captureException: vi.fn(actual.captureException) }
+    return {
+        ...actual,
+        captureException: vi.fn(actual.captureException),
+        // Called by Action: setUser and setTag when it has a session, flush on any failure.
+        setUser: vi.fn(),
+        setTag: vi.fn(),
+        flush: vi.fn().mockResolvedValue(true),
+    }
 })
 
 const mockWindowOpen = vi.fn()
@@ -33,14 +50,13 @@ Object.defineProperty(window, 'open', {
 })
 
 import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
+import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
 
-const studyId = faker.string.uuid()
-
-const ensureMock = ensureWorkspaceAction as unknown as Mock
-const statusMock = getWorkspaceLaunchStatusAction as unknown as Mock
+const createWorkspaceMock = createUserAndWorkspace as unknown as Mock
+const coderStatusMock = getCoderWorkspaceLaunchStatus as unknown as Mock
 
 const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStatus => ({
     buildStatus: 'running',
@@ -79,12 +95,20 @@ const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => (
 })
 
 describe('useWorkspaceLauncher', () => {
-    beforeEach(() => {
+    let studyId: string
+    const workspaceRoots: string[] = []
+
+    beforeEach(async () => {
         vi.clearAllMocks()
         mockWindowOpen.mockReturnValue({ closed: false })
-        ensureMock.mockResolvedValue({ success: true, workspace: { id: 'workspace-456' } })
-        statusMock.mockResolvedValue(provisioningStatus())
+        stubCoder(provisioningStatus())
+        // A launch looks for the study's workspace files, and CI configures no directory for them.
+        workspaceRoots.push(await createWorkspaceDir('workspace-launcher'))
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        studyId = (await insertTestStudyOnly({ org, researcherId: user.id })).study.id
     })
+
+    afterEach(() => cleanupWorkspaceDirs(workspaceRoots))
 
     describe('initial state', () => {
         it('should return initial state correctly', () => {
@@ -103,11 +127,10 @@ describe('useWorkspaceLauncher', () => {
     describe('launchWorkspace', () => {
         it('should set isLaunching true while the ensure mutation is in flight', async () => {
             let finishEnsure!: (value: unknown) => void
-            ensureMock.mockImplementation(
-                () =>
-                    new Promise((resolve) => {
-                        finishEnsure = resolve
-                    }),
+            createWorkspaceMock.mockReturnValue(
+                new Promise((resolve) => {
+                    finishEnsure = resolve
+                }),
             )
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
@@ -132,9 +155,8 @@ describe('useWorkspaceLauncher', () => {
 
             act(() => result.current.launchWorkspace())
 
-            await waitFor(() => expect(statusMock).toHaveBeenCalled())
-            await waitFor(() => expect(result.current.isLaunching).toBe(true))
-            expect(result.current.status?.reason).toBe('build status=running, no agent yet')
+            await waitFor(() => expect(result.current.status?.reason).toBe('build status=running, no agent yet'))
+            expect(result.current.isLaunching).toBe(true)
             expect(result.current.buildLog).toBe('pulling base image')
             expect(result.current.status?.agentStatus).toEqual({
                 lifecycle: 'starting',
@@ -150,12 +172,12 @@ describe('useWorkspaceLauncher', () => {
 
             act(() => result.current.launchWorkspace())
 
-            await waitFor(() => expect(statusMock).toHaveBeenCalledWith({ studyId, cursors: undefined }))
+            await waitFor(() => expect(coderStatusMock).toHaveBeenCalledWith(studyId, undefined))
         })
 
         it('should open the workspace in a new tab once the status reports a url', async () => {
             const url = 'https://workspace.example.com'
-            statusMock.mockResolvedValue(readyStatus(url))
+            coderStatusMock.mockResolvedValue(readyStatus(url))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -172,7 +194,7 @@ describe('useWorkspaceLauncher', () => {
         // sameWindow keeps the IDE in the same Playwright page context for e2e testing.
         it('should open workspace in the same tab when launched with sameWindow', async () => {
             const url = 'https://workspace.example.com'
-            statusMock.mockResolvedValue(readyStatus(url))
+            coderStatusMock.mockResolvedValue(readyStatus(url))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -192,7 +214,7 @@ describe('useWorkspaceLauncher', () => {
         // clickable fallback notification.
         it('should show fallback notification without erroring when popup is blocked', async () => {
             mockWindowOpen.mockReturnValue(null)
-            statusMock.mockResolvedValue(readyStatus())
+            coderStatusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -215,7 +237,7 @@ describe('useWorkspaceLauncher', () => {
 
         it('should detect popup blocked when window.closed is true', async () => {
             mockWindowOpen.mockReturnValue({ closed: true })
-            statusMock.mockResolvedValue(readyStatus())
+            coderStatusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -234,7 +256,7 @@ describe('useWorkspaceLauncher', () => {
 
     describe('error handling', () => {
         it('should surface an ensure (create/start) mutation error', async () => {
-            ensureMock.mockResolvedValue({ error: 'Failed to create workspace' })
+            createWorkspaceMock.mockRejectedValue(new Error('Failed to create workspace'))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -249,9 +271,10 @@ describe('useWorkspaceLauncher', () => {
         })
 
         it('should surface a friendly fallback for a non-string ensure error', async () => {
-            ensureMock.mockResolvedValue({ error: { code: 500 } })
+            // A study from an org the researcher isn't in, whose permission refusal comes back as an object.
+            const { study } = await insertTestStudyOnly()
 
-            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId: study.id }), {
                 wrapper: createTestQueryWrapper(),
             })
 
@@ -261,7 +284,7 @@ describe('useWorkspaceLauncher', () => {
         })
 
         it('should surface a status polling error', async () => {
-            statusMock.mockResolvedValue({ error: 'workspace not found' })
+            coderStatusMock.mockRejectedValue(new Error('workspace not found'))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -276,7 +299,7 @@ describe('useWorkspaceLauncher', () => {
         })
 
         it('should surface a failed build as an error using its reason', async () => {
-            statusMock.mockResolvedValue(failedStatus('terraform exploded'))
+            coderStatusMock.mockResolvedValue(failedStatus('terraform exploded'))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -292,13 +315,13 @@ describe('useWorkspaceLauncher', () => {
 
         // OTTER-832: the failure modal is the only surface, so each path captures without a toast.
         it.each([
-            ['an ensure failure', 'boom', () => ensureMock.mockResolvedValue({ error: 'boom' })],
+            ['an ensure failure', 'boom', () => createWorkspaceMock.mockRejectedValue(new Error('boom'))],
             [
                 'a status polling error',
                 'workspace not found',
-                () => statusMock.mockResolvedValue({ error: 'workspace not found' }),
+                () => coderStatusMock.mockRejectedValue(new Error('workspace not found')),
             ],
-            ['a failed build', 'terraform exploded', () => statusMock.mockResolvedValue(failedStatus())],
+            ['a failed build', 'terraform exploded', () => coderStatusMock.mockResolvedValue(failedStatus())],
         ])('reports %s to Sentry without a toast', async (_label, message, arrange) => {
             arrange()
 
@@ -316,7 +339,7 @@ describe('useWorkspaceLauncher', () => {
         })
 
         it('still offers a reload when a deploy left the launch action stale', async () => {
-            ensureMock.mockRejectedValue(staleActionError())
+            vi.mocked(ensureWorkspaceAction).mockRejectedValue(staleActionError())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -333,7 +356,7 @@ describe('useWorkspaceLauncher', () => {
 
         // The shared query cache handler reports every stale action id, so this caught a double send.
         it('reports a stale status poll to Sentry once', async () => {
-            statusMock.mockRejectedValue(staleActionError())
+            vi.mocked(getWorkspaceLaunchStatusAction).mockRejectedValue(staleActionError())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -351,7 +374,7 @@ describe('useWorkspaceLauncher', () => {
 
     describe('clearError and retry', () => {
         it('should clear error state', async () => {
-            ensureMock.mockResolvedValue({ error: 'Some error' })
+            createWorkspaceMock.mockRejectedValue(new Error('Some error'))
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
@@ -365,11 +388,8 @@ describe('useWorkspaceLauncher', () => {
         })
 
         it('should allow retrying after an ensure error', async () => {
-            ensureMock.mockResolvedValueOnce({ error: 'First attempt failed' }).mockResolvedValueOnce({
-                success: true,
-                workspace: { id: 'workspace-789' },
-            })
-            statusMock.mockResolvedValue(readyStatus())
+            createWorkspaceMock.mockRejectedValueOnce(new Error('First attempt failed'))
+            coderStatusMock.mockResolvedValue(readyStatus())
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
                 wrapper: createTestQueryWrapper(),
