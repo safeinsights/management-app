@@ -28,7 +28,7 @@ describe('OrgsAdminTable', () => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({
                     title: 'Failed to delete organization',
-                    message: expect.stringContaining('has studies or legal documents'),
+                    message: expect.stringContaining("so it can't be deleted"),
                 }),
             )
         })

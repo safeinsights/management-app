@@ -131,13 +131,14 @@ describe('Org Actions', () => {
                     'legal documents',
                     () => db.insertInto('legalDocument').values({ orgId: org.id, type: 'DOPA' }).execute(),
                 ],
+                ['code environments', () => insertTestCodeEnv({ orgId: org.id })],
             ])('refuses while it has %s', async (_records, insertRecord) => {
                 await insertRecord()
 
                 const result = await deleteOrgAction({ orgId: org.id })
 
                 expect(result).toEqual({
-                    error: "This organization has studies or legal documents, so it can't be deleted.",
+                    error: "This organization has studies, legal documents or code environments, so it can't be deleted.",
                 })
                 expect(await orgExists()).toBe(true)
             })

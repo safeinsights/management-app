@@ -74,18 +74,19 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .execute()
     })
 
-// Invites and memberships go with the org, but studies and legal documents are records a purge must
-// not take with it, so deleting an org that has any is refused (OTTER-876).
+// Invites and memberships go with the org. Studies, legal documents and code environments need a purge
+// the cascade can't do (code envs own Athena/Postgres databases and S3 data), so they block it (OTTER-986).
 const orgHasRecords = async (db: DBExecutor, orgId: string) => {
-    const [study, legalDocument] = await Promise.all([
+    const [study, legalDocument, codeEnv] = await Promise.all([
         db
             .selectFrom('study')
             .select('id')
             .where((eb) => eb.or([eb('orgId', '=', orgId), eb('submittedByOrgId', '=', orgId)]))
             .executeTakeFirst(),
         db.selectFrom('legalDocument').select('id').where('orgId', '=', orgId).executeTakeFirst(),
+        db.selectFrom('orgCodeEnv').select('id').where('orgId', '=', orgId).executeTakeFirst(),
     ])
-    return Boolean(study || legalDocument)
+    return Boolean(study || legalDocument || codeEnv)
 }
 
 export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations: true })
@@ -94,7 +95,9 @@ export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations
     .handler(async ({ db, params: { orgId } }) => {
         const org = await db.selectFrom('org').select('slug').where('id', '=', orgId).executeTakeFirstOrThrow()
         if (await orgHasRecords(db, orgId)) {
-            throw new ActionFailure("This organization has studies or legal documents, so it can't be deleted.")
+            throw new ActionFailure(
+                "This organization has studies, legal documents or code environments, so it can't be deleted.",
+            )
         }
         await db.deleteFrom('pendingUser').where('orgId', '=', orgId).execute()
         await db.deleteFrom('orgUser').where('orgId', '=', orgId).execute()
