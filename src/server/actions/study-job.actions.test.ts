@@ -1155,9 +1155,14 @@ describe('job subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
 
-        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(job.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(path)
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(job.id)
+        expect(warning).not.toContain(study.title)
+        expect(warning).not.toContain(path)
     })
 
     test('an SI admin outside both orgs can still fetch a code file', async () => {

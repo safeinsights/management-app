@@ -3040,6 +3040,7 @@ describe('softDeleteStudyAction', () => {
 describe('study subjects carry ids only (MA-6)', () => {
     const permissionDenied = (result: unknown) =>
         (result as { error: { permission_denied: string } }).error.permission_denied
+    const warning = () => String(vi.mocked(logger.warn).mock.calls[0][0])
 
     const seedStudy = async (studyStatus: StudyStatus = 'PENDING-REVIEW') => {
         const enclave = await insertTestOrg({ slug: 'ma6-study-enclave', type: 'enclave' })
@@ -3102,8 +3103,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getProposalFeedbackForStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain('confidential reviewer notes')
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain('confidential reviewer notes')
     })
 
     it('gives a refused caller of getStudyAction no title or document path', async () => {
@@ -3113,9 +3116,12 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(descriptionDocPath)
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain(study.title)
+        expect(warning()).not.toContain(descriptionDocPath)
     })
 
     it('still refuses an enclave reviewer the study of an unsubmitted draft', async () => {
@@ -3149,8 +3155,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await softDeleteStudyAction({ studyId }))
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
+        expect(warning()).toContain(studyId)
+        expect(warning()).not.toContain('Confidential draft title')
     })
 
     it('still keeps an SI admin who is not the author from deleting a draft', async () => {
