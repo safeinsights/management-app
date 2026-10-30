@@ -1,10 +1,14 @@
 import { screen } from '@testing-library/react'
 import { expect } from 'vitest'
 
+export function describedElements(input: HTMLElement) {
+    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? []
+    return ids.map((id) => document.getElementById(id))
+}
+
 // The error the field announces, found only when it carries the design's icon.
 export function describedError(input: HTMLElement) {
-    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? []
-    return ids.map((id) => document.getElementById(id)).find((el) => el?.querySelector('svg'))
+    return describedElements(input).find((el) => el?.querySelector('svg'))
 }
 
 // Count icons in Mantine's whole error `<p>` so a doubly wrapped error fails. A standalone

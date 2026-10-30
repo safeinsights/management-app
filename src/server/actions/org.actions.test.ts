@@ -12,6 +12,7 @@ import {
     faker,
     actionResult,
     installFakeClerkOrgs,
+    NFD_E_ACUTE,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -356,6 +357,45 @@ describe('Org Actions', () => {
                 description: 'Valid Description',
             })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
+
+        describe('limits counted like the on-screen counter', () => {
+            const readOrg = () =>
+                db
+                    .selectFrom('org')
+                    .select(['name', 'description'])
+                    .where('id', '=', targetOrg.id)
+                    .executeTakeFirstOrThrow()
+
+            it('accepts a name and description exactly at their limits', async () => {
+                const name = NFD_E_ACUTE.repeat(50)
+                const description = NFD_E_ACUTE.repeat(250)
+
+                actionResult(await updateOrgSettingsAction({ orgSlug: targetOrgSlug, name, description }))
+
+                expect(await readOrg()).toEqual({ name, description })
+            })
+
+            it('rejects a name one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: NFD_E_ACUTE.repeat(51),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).name).toBe(initialName)
+            })
+
+            it('rejects a description one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: 'Valid Name',
+                    description: NFD_E_ACUTE.repeat(251),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).description).toBe(initialDescription)
+            })
         })
     })
 
