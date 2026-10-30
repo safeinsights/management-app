@@ -1,7 +1,26 @@
-import { renderWithProviders, faker } from '@/tests/unit.helpers'
-import { describe, expect, it } from 'vitest'
-import { fireEvent, screen } from '@testing-library/react'
+import {
+    act,
+    renderWithProviders,
+    faker,
+    db,
+    describe,
+    expect,
+    fireEvent,
+    insertTestOrg,
+    it,
+    mockSessionWithTestData,
+    screen,
+    userEvent,
+    vi,
+    waitFor,
+} from '@/tests/unit.helpers'
+import { useTanStackQuery, type FC } from '@/common'
 import { EditOrgForm } from './edit-org-form'
+
+const OrgsListObserver: FC<{ queryFn: () => Promise<unknown[]> }> = ({ queryFn }) => {
+    useTanStackQuery({ queryKey: ['orgs'], queryFn, initialData: [] })
+    return null
+}
 
 const mockOrg = {
     id: '1',
@@ -10,10 +29,10 @@ const mockOrg = {
     name: 'test',
     type: 'enclave' as const,
     settings: { publicKey: 'junk' },
-    totalUsers: BigInt(0),
-    totalStudies: BigInt(0),
-    totalCodeEnvs: BigInt(0),
-    totalDataSources: BigInt(0),
+    totalUsers: 0,
+    totalStudies: 0,
+    totalCodeEnvs: 0,
+    totalDataSources: 0,
 }
 
 describe('EditOrgForm', () => {
@@ -65,5 +84,51 @@ describe('EditOrgForm', () => {
         expect(nameInput.value).toBe('New Name')
         expect(emailInput.value).toBe('new@example.com')
         expect(publicKeyTextarea.value).toBe('new-key')
+    })
+
+    it('completes before the organizations list finishes refetching', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const org = await insertTestOrg({ slug: `edit-org-${faker.string.uuid()}`, type: 'lab' })
+        let finishRefetch = () => {}
+        const refetchOrgs = vi.fn(
+            () =>
+                new Promise<unknown[]>((resolve) => {
+                    finishRefetch = () => resolve([])
+                }),
+        )
+        const onComplete = vi.fn()
+
+        renderWithProviders(
+            <>
+                <OrgsListObserver queryFn={refetchOrgs} />
+                <EditOrgForm
+                    org={{
+                        id: org.id,
+                        slug: org.slug,
+                        name: org.name,
+                        email: org.email,
+                        type: org.type,
+                        settings: org.settings,
+                        totalUsers: 0,
+                        totalStudies: 0,
+                        totalCodeEnvs: 0,
+                        totalDataSources: 0,
+                    }}
+                    onCompleteAction={onComplete}
+                />
+            </>,
+        )
+
+        const nameInput = screen.getByPlaceholderText('Enter your name')
+        await userEvent.clear(nameInput)
+        await userEvent.type(nameInput, 'Renamed Org')
+        await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
+
+        await waitFor(() => expect(onComplete).toHaveBeenCalledOnce())
+        expect(refetchOrgs).toHaveBeenCalledOnce()
+        await act(async () => finishRefetch())
+
+        const saved = await db.selectFrom('org').select('name').where('id', '=', org.id).executeTakeFirstOrThrow()
+        expect(saved.name).toBe('Renamed Org')
     })
 })
