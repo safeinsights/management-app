@@ -222,6 +222,31 @@ describe('Data Source Actions', () => {
         expect(deletedUrl2).toHaveLength(0)
     })
 
+    it('refuses to update a url row that belongs to another org', async () => {
+        const otherOrg = await insertTestOrg({ slug: 'other-org-data-source-urls' })
+        const otherDs = await insertTestDataSource({
+            orgId: otherOrg.id,
+            urls: [{ url: 'https://example.com/theirs', description: 'Theirs' }],
+        })
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const ownDs = await insertTestDataSource({ orgId: org.id, name: 'Own' })
+
+        const result = await updateOrgDataSourceAction({
+            orgSlug: org.slug,
+            dataSourceId: ownDs.id,
+            name: 'Own',
+            urls: [{ id: otherDs.urls[0].id, url: 'https://example.com/hijacked', description: 'Hijacked' }],
+        })
+
+        expect(isActionError(result)).toBe(true)
+        const otherUrl = await db
+            .selectFrom('orgDataSourceUrl')
+            .select(['url', 'description'])
+            .where('id', '=', otherDs.urls[0].id)
+            .executeTakeFirstOrThrow()
+        expect(otherUrl).toEqual({ url: 'https://example.com/theirs', description: 'Theirs' })
+    })
+
     it('deletes a data source and cascades join rows', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })
