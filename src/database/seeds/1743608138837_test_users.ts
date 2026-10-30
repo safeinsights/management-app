@@ -22,7 +22,7 @@ UdB9nPRag5tVlOVm412S8aUCAwEAAQ==
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
 // Fixed UUIDs so concurrent CI runs sharing a Clerk instance don't stomp on each other.
-const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
+export const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
     { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
     { slug: 'openstax', type: 'enclave', id: '00000000-0000-4000-8000-000000000103' },
@@ -31,12 +31,12 @@ const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'reviewer-is-org-admin', type: 'enclave', id: '00000000-0000-4000-8000-000000000106' },
 ]
 
-type TestUserRole = 'admin' | 'researcher' | 'reviewer'
+export type TestUserRole = 'admin' | 'researcher' | 'reviewer'
 
 // Keyed by `key` rather than role so multiple users can share a role.
-type TestUser = { key: string; role: TestUserRole; id: string; email: string }
+export type TestUser = { key: string; role: TestUserRole; id: string; email: string }
 
-const TEST_USERS: TestUser[] = [
+export const TEST_USERS: TestUser[] = [
     { key: 'admin', role: 'admin', id: '00000000-0000-4000-8000-000000000001', email: 'si-adm-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000002', email: 'si-research-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'reviewer', role: 'reviewer', id: '00000000-0000-4000-8000-000000000003', email: 'si-member-tester-dbfyq3@mailinator.com' }, // prettier-ignore
