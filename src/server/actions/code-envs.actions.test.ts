@@ -14,9 +14,11 @@ import {
     fetchCodeEnvHistoryAction,
     fetchOrgCodeEnvsAction,
     fetchStarterCodeAction,
+    getSampleDataUploadUrlAction,
     updateOrgCodeEnvAction,
 } from './code-envs.actions'
 import { db } from '@/database'
+import logger from '@/lib/logger'
 import { isActionError } from '@/lib/errors'
 import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
@@ -299,8 +301,6 @@ describe('Code Environment Actions', () => {
         expect(isActionError(result)).toBe(true)
     })
 
-    // A denied ability check stringifies the whole CASL subject into the error it returns, so a
-    // row loaded in middleware puts its plaintext env var values in that message.
     it('updateOrgCodeEnvAction does not leak env var values to a denied non-admin', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false })
 
@@ -1347,5 +1347,94 @@ describe('Code Environment audit logging', () => {
             fileName: 'starter.R',
         })
         expect(isActionError(result)).toBe(true)
+    })
+})
+
+describe('a refused caller gets no code env content (OTTER-891)', () => {
+    const seedOtherOrgEnv = async () => {
+        const otherOrg = await insertTestOrg()
+        const env = await insertTestCodeEnv({
+            orgId: otherOrg.id,
+            identifier: 'confidential_ident',
+            starterCodeFileNames: ['confidential-starter.R'],
+            environment: [{ name: 'DB_PASSWORD', value: 'confidential-env-value' }],
+            isTesting: true,
+        })
+        await db
+            .updateTable('orgCodeEnv')
+            .set({ sampleDataPath: 'confidential-sample' })
+            .where('id', '=', env.id)
+            .execute()
+        await mockSessionWithTestData({ isAdmin: true })
+        const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        return { otherOrg, env, warnSpy }
+    }
+
+    const expectNoContent = (
+        result: unknown,
+        expectedText: string,
+        { env, otherOrg, warnSpy }: Awaited<ReturnType<typeof seedOtherOrgEnv>>,
+        extra: string[] = [],
+    ) => {
+        expect(result).toEqual({ error: { permission_denied: expectedText } })
+        const warning = String(warnSpy.mock.calls[0][0])
+        expect(warning).toContain(env.id)
+        expect(warning).toContain(otherOrg.id)
+        for (const content of [
+            env.url,
+            'confidential_ident',
+            'confidential-starter.R',
+            'confidential-env-value',
+            'confidential-sample',
+            ...extra,
+        ]) {
+            expect(JSON.stringify(result)).not.toContain(content)
+            expect(warning).not.toContain(content)
+        }
+    }
+
+    it('updateOrgCodeEnvAction', async () => {
+        const seeded = await seedOtherOrgEnv()
+        const result = await updateOrgCodeEnvAction({
+            orgSlug: seeded.otherOrg.slug,
+            codeEnvId: seeded.env.id,
+            name: 'Attempted Update',
+            identifier: 'confidential_ident',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: testImageRef('example.com/attempted-url'),
+            isTesting: true,
+            settings: { environment: [{ name: 'X', value: 'caller-sent-secret' }] },
+            dataSourceIds: [],
+        })
+        expectNoContent(result, 'in updateOrgCodeEnvAction action; cannot update Org.', seeded, ['caller-sent-secret'])
+    })
+
+    it('deleteOrgCodeEnvAction', async () => {
+        const seeded = await seedOtherOrgEnv()
+        const result = await deleteOrgCodeEnvAction({ orgSlug: seeded.otherOrg.slug, codeEnvId: seeded.env.id })
+        expectNoContent(result, 'in deleteOrgCodeEnvAction action; cannot update Org.', seeded)
+    })
+
+    it('fetchCodeEnvHistoryAction', async () => {
+        const seeded = await seedOtherOrgEnv()
+        const result = await fetchCodeEnvHistoryAction({ orgSlug: seeded.otherOrg.slug, codeEnvId: seeded.env.id })
+        expectNoContent(result, 'in fetchCodeEnvHistoryAction action; cannot update Org.', seeded)
+    })
+
+    it('fetchStarterCodeAction', async () => {
+        const seeded = await seedOtherOrgEnv()
+        const result = await fetchStarterCodeAction({
+            orgSlug: seeded.otherOrg.slug,
+            codeEnvId: seeded.env.id,
+            fileName: 'confidential-starter.R',
+        })
+        expectNoContent(result, 'in fetchStarterCodeAction action; cannot view OrgConfig.', seeded)
+    })
+
+    it('getSampleDataUploadUrlAction', async () => {
+        const seeded = await seedOtherOrgEnv()
+        const result = await getSampleDataUploadUrlAction({ codeEnvId: seeded.env.id })
+        expectNoContent(result, 'in getSampleDataUploadUrlAction action; cannot update Org.', seeded)
     })
 })

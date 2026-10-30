@@ -1834,6 +1834,39 @@ describe('submitCodeReviewDecisionAction', () => {
     const simulateResubmitOnSameJob = (jobId: string, userId: string) =>
         db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId }).execute()
 
+    it('gives a refused caller no study content and sends only ids to the warning (OTTER-891)', async () => {
+        const enclave = await insertTestOrg({ slug: 'otter891-code-review-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .updateTable('study')
+            .set({ containerLocation: 'confidential/container-location' })
+            .where('id', '=', study.id)
+            .execute()
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: 'confidential reviewer feedback',
+            criteria: validCriteria,
+        })
+
+        expect(result).toEqual({
+            error: { permission_denied: 'in submitCodeReviewDecisionAction action; cannot review Study.' },
+        })
+        const warning = String(warnSpy.mock.calls[0][0])
+        expect(warning).toContain(study.id)
+        expect(warning).not.toContain('confidential/container-location')
+        expect(warning).not.toContain('confidential reviewer feedback')
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
+
     it('rejects feedback one character over the cap and writes nothing', async () => {
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
 
