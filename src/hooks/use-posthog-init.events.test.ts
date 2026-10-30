@@ -1,6 +1,13 @@
-import { describe, expect, it, renderHook, vi } from '@/tests/unit.helpers'
+import { describe, expect, it, renderHook } from '@/tests/unit.helpers'
+import { vi } from 'vitest'
 import posthog from 'posthog-js'
 import { usePostHogInit } from './use-posthog-init'
+
+// posthog-js keeps the fetch it finds at import, so the stub has to land first. A plain function,
+// since mockReset would clear a vi.fn before the test runs.
+vi.hoisted(() => {
+    globalThis.fetch = () => Promise.resolve(new Response('{}'))
+})
 
 const captureEvent = (name: string) => {
     const events: { properties: Record<string, unknown> }[] = []
@@ -14,7 +21,6 @@ describe('usePostHogInit surface', () => {
     it('tags events after init and after reset(), which clears registered properties', () => {
         // posthog-js drops events from what it takes for a bot, and happy-dom reports webdriver.
         vi.spyOn(navigator, 'webdriver', 'get').mockReturnValue(false)
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}')))
         renderHook(() => usePostHogInit('phc_test'))
 
         expect(captureEvent('before_reset')).toMatchObject({ surface: 'app' })
