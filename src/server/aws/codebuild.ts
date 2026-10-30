@@ -1,12 +1,12 @@
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
-import { ENVIRONMENT_ID, getConfigValue } from '@/server/config'
+import { ENVIRONMENT_ID, env, getConfigValue } from '@/server/config'
 import { pathForCodeEnvScanArtifacts, pathForJobScanArtifacts, pathForStudyJobCode } from '@/lib/paths'
 import { substituteEntryPointFile } from '@/lib/string'
 import { MinimalJobInfo, MinimalStudyInfo } from '@/lib/types'
 import { withS3Prefix } from './s3'
 
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
-    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`
+    return env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`
 }
 
 async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<string, string | object>) {
@@ -15,7 +15,7 @@ async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<strin
         WEBHOOK_ENDPOINT: webhookEndpoint,
         // The CodeBuild project's default is the base environment's domain, so a PR preview's
         // webhooks would otherwise land on an app whose database does not have the job.
-        ...(process.env.DOMAIN_NAME && { ASSIGNED_DOMAIN: process.env.DOMAIN_NAME }),
+        ...(env.DOMAIN_NAME && { ASSIGNED_DOMAIN: env.DOMAIN_NAME }),
         ...vars,
     }).map(([name, value]) => ({ name, value: typeof value === 'object' ? JSON.stringify(value) : value }))
 }
@@ -33,7 +33,7 @@ export async function buildTriggerBuildImageCommandInput(
     // Shell-quotes the filename so metacharacters don't break the containerizer's /bin/sh (OTTER-477).
     const cmd = substituteEntryPointFile(info.cmdLine, info.codeEntryPointFileName)
     return {
-        projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
+        projectName: env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
             ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-PACKAGING' },
             ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
@@ -65,7 +65,7 @@ export async function triggerBuildImageForJob(
 // than reporting on code nobody is reviewing any more (OTTER-779).
 export async function buildTriggerScanForStudyJobCommandInput(info: MinimalJobInfo & { round: number }) {
     return {
-        projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+        projectName: env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
         environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
             // No ON_START_PAYLOAD: a start webhook would re-post CODE-SUBMITTED, reopening a decided
             // round. A failed scan posts CODE-SCANNED too, since the scan is advisory.
@@ -89,7 +89,7 @@ export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl:
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+            projectName: env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
             environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/code-env-scan-results', {
                 ON_START_PAYLOAD: { codeEnvId: info.codeEnvId, status: 'SCAN-RUNNING' },
                 ON_SUCCESS_PAYLOAD: { codeEnvId: info.codeEnvId, status: 'SCAN-COMPLETE' },

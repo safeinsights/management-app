@@ -1,10 +1,11 @@
 import { CopyObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import logger from '@/lib/logger'
+import { env } from '@/server/config'
 import { getS3Client } from './clients'
 import { sanitizeColumnName } from './naming'
 import { s3BucketName, withS3Prefix } from './s3'
 
-export const testDataBucketName = (): string | null => process.env.TEST_DATA_BUCKET_NAME || null
+export const testDataBucketName = (): string | null => env.TEST_DATA_BUCKET_NAME || null
 
 export type CopiedTable = { tableName: string; sourceKey: string }
 

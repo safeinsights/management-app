@@ -27,6 +27,9 @@ import { fetchFileContents } from './storage'
 
 vi.mock('./config', () => ({
     getConfigValue: vi.fn(),
+    get env() {
+        return process.env
+    },
 }))
 
 vi.mock('./storage', () => ({
