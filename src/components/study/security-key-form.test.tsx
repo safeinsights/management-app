@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
-    db,
     fireEvent,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -9,65 +8,11 @@ import {
     screen,
     waitFor,
 } from '@/tests/unit.helpers'
+import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
-import { type FileType } from '@/database/types'
-import { ResultsWriter } from 'si-encryption/job-results/writer'
-import { tamper } from 'si-encryption/testing/archive'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { SecurityKeyForm } from './security-key-form'
-
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
-
-const toArrayBuffer = (str: string): ArrayBuffer => {
-    const buf = Buffer.from(str, 'utf-8')
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
-}
-
-// Encrypts one artifact the way TOA would. The reviewer is a manifest recipient, so
-// recipientKeys is empty and they decrypt with their own key.
-async function seedArtifact(
-    jobId: string,
-    { fileType, files }: { fileType: FileType; files: { name: string; content: string }[] },
-) {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const fingerprint = await fingerprintKeyData(publicKey)
-    const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId })
-    for (const f of files) await writer.addFile(f.name, toArrayBuffer(f.content))
-    const zip = await writer.generate()
-
-    // A unique index allows one row per artifact slot, so re-seeding replaces the row rather
-    // than adding a second, mirroring storeJobFile.
-    const path = `test-org/${jobId}/results/encrypted-logs/encrypted-results.zip`
-    const inserted = await db
-        .insertInto('studyJobFile')
-        .values({ studyJobId: jobId, name: 'encrypted-results.zip', path, fileType })
-        .onConflict((oc) => oc.doNothing())
-        .returning('id')
-        .executeTakeFirst()
-
-    const row =
-        inserted ??
-        (await db
-            .selectFrom('studyJobFile')
-            .select('id')
-            .where('studyJobId', '=', jobId)
-            .where('path', '=', path)
-            .where('fileType', '=', fileType)
-            .executeTakeFirstOrThrow())
-
-    return {
-        studyJobFileId: row.id,
-        fileType,
-        name: 'encrypted-results.zip',
-        encryptedBody: await zip.arrayBuffer(),
-        recipientKeys: {} as Record<string, string>,
-    }
-}
 
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
 const INVALID_ERROR = 'Invalid key. Check that you copied the full key and enter it again.'
@@ -88,21 +33,26 @@ const blurInput = () => {
 
 describe('SecurityKeyForm', () => {
     let org: Org
+    let userId: string
     let job: LatestJobForStudy
     let onDecrypted: Mock
+
+    const insertJob = async () => {
+        const { study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
+        return latestJobForStudy(study.id)
+    }
 
     beforeEach(async () => {
         const resp = await mockSessionWithTestData()
         org = resp.org
-        const { study } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
-        job = await latestJobForStudy(study.id)
+        userId = resp.user.id
+        job = await insertJob()
         onDecrypted = vi.fn()
 
-        const artifact = await seedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
             files: [{ name: 'run.log', content: 'log output' }],
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     it('renders the key-entry section with a required indicator and body copy', async () => {
@@ -141,14 +91,38 @@ describe('SecurityKeyForm', () => {
         expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
     })
 
-    // A reviewer holds no re-wrapped per-file keys, so asking as a researcher returns [] and
-    // strands the outputs step on the locked phase.
-    it.each(['reviewer', 'researcher'] as const)('requests the %s key set when acting as one', async (type) => {
-        renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
+    // Shared with this user, the archive opens only through the wraps in the researcher key set,
+    // so the key set the form asked for decides whether the key opens it.
+    describe('with outputs shared to this user', () => {
+        beforeEach(async () => {
+            job = await insertJob()
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+                sharedWith: userId,
+            })
+        })
 
-        await screen.findByRole('button', { name: 'View' })
+        it('requests the researcher key set when acting as a researcher', async () => {
+            renderWithProviders(<SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />)
 
-        expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type })
+            await screen.findByRole('button', { name: 'View' })
+            enterKey(await readTestSupportFile('private_key.pem'))
+            clickView()
+
+            await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
+        })
+
+        it('requests the reviewer key set when acting as a reviewer', async () => {
+            renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
+
+            await screen.findByRole('button', { name: 'View' })
+            enterKey(await readTestSupportFile('private_key.pem'))
+            clickView()
+
+            expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+            expect(onDecrypted).not.toHaveBeenCalled()
+        })
     })
 
     it('focuses the input on mount', async () => {
@@ -222,9 +196,8 @@ describe('SecurityKeyForm', () => {
         { type: 'researcher', emptyListError: INVALID_ERROR },
     ] as const)('as a $type with no files', ({ type, emptyListError }) => {
         it('shows an error without decrypting when the fetch returns an empty list', async () => {
-            vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-
-            renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
+            const emptyJob = await insertJob()
+            renderWithProviders(<SecurityKeyForm job={emptyJob} type={type} onDecrypted={onDecrypted} />)
 
             await screen.findByRole('button', { name: 'View' })
 
@@ -236,8 +209,8 @@ describe('SecurityKeyForm', () => {
         })
 
         it('shows a no-files error when the fetch rejects', async () => {
-            vi.mocked(fetchEncryptedJobFilesAction).mockRejectedValue(new Error('network error'))
-
+            // Another enclave's session may not view this job, so the fetch is refused.
+            await mockSessionWithTestData()
             renderWithProviders(<SecurityKeyForm job={job} type={type} onDecrypted={onDecrypted} />)
 
             await screen.findByRole('button', { name: 'View' })
@@ -284,8 +257,7 @@ describe('SecurityKeyForm', () => {
     // OTTER-675: an archive holding no files decrypts "successfully" with any syntactically valid
     // PEM, so accepting it would present an unopened job as reviewed.
     it('rejects a key that opened nothing rather than reporting an empty review', async () => {
-        const artifact = await seedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: [] })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
+        await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: [] })
 
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
@@ -299,14 +271,11 @@ describe('SecurityKeyForm', () => {
     })
 
     it('blames the archive, not the key, when a file has been dropped from it', async () => {
-        const artifact = await seedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
             files: [{ name: 'run.log', content: 'log output' }],
+            tamperWith: { drop: ['run.log'] },
         })
-        const altered = await tamper(new Blob([artifact.encryptedBody]), { drop: ['run.log'] })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            { ...artifact, encryptedBody: await altered.arrayBuffer() },
-        ])
 
         renderWithProviders(<SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />)
 

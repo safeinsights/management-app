@@ -34,8 +34,7 @@ import { submitProposalReviewAction } from '@/server/actions/proposal-review.act
 import { fetchNavUnreadAction } from '@/server/actions/study-dashboard.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { mockClient } from 'aws-sdk-client-mock'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
@@ -68,6 +67,7 @@ import { resolvePillId } from '@/lib/study-screen'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { pathForStudyJobCodeFile } from '@/lib/paths'
 import { flushDeferred } from '@/tests/vitest.setup'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -373,8 +373,8 @@ describe('Request Study Actions', () => {
         const { id: studyJobId } = await insertTestBaselineJob(draft.studyId)
 
         const visibleWhenSent: boolean[] = []
-        const sqsMock = mockClient(SQSClient)
-        sqsMock.on(SendMessageCommand).callsFake(async () => {
+        const queue = stubJobQueue()
+        queue.on(SendMessageCommand).callsFake(async () => {
             const submitted = await db
                 .selectFrom('jobStatusChange')
                 .select('id')
@@ -384,12 +384,9 @@ describe('Request Study Actions', () => {
             visibleWhenSent.push(submitted != null)
             return {}
         })
-        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 
-        vi.unstubAllEnvs()
-        sqsMock.restore()
         expect(visibleWhenSent).toEqual([true])
     })
 

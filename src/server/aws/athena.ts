@@ -9,9 +9,9 @@ import {
     type DatabaseInput,
     type Column,
 } from '@aws-sdk/client-glue'
-import { fromIni } from '@aws-sdk/credential-providers'
 import { parseCsv } from '@/lib/file-content-helpers'
-import { getS3Client } from './clients'
+import { env } from '@/server/config'
+import { awsCredentials, getS3Client } from './clients'
 import { sanitizeColumnName } from './naming'
 import { s3BucketName, withS3Prefix } from './s3'
 
@@ -19,8 +19,8 @@ let _glueClient: GlueClient | null = null
 const getGlueClient = () =>
     _glueClient ||
     (_glueClient = new GlueClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+        region: env.AWS_REGION || 'us-east-1',
+        credentials: awsCredentials(),
     }))
 
 export async function createAthenaDatabase(dbName: string) {

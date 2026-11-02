@@ -17,6 +17,7 @@ import {
     codeSubmissionVersion,
     outputsDecisionVersion,
     currentReviewVersion,
+    fetchCodeEnvForStudyIdOrNull,
     getStudyReviewForJob,
     latestJobForStudy,
     getOrgIdForJobId,
@@ -64,6 +65,13 @@ async function insertRecords() {
         org2User2,
     }
 }
+
+describe('fetchCodeEnvForStudyIdOrNull', () => {
+    it('returns null for an unknown study but rethrows other database errors', async () => {
+        await expect(fetchCodeEnvForStudyIdOrNull(BLANK_UUID, db)).resolves.toBeNull()
+        await expect(fetchCodeEnvForStudyIdOrNull('not-a-uuid', db)).rejects.toThrow()
+    })
+})
 
 describe('getUserPublicKey', () => {
     it('returns public key when userId is valid', async () => {

@@ -11,6 +11,7 @@
 // Deletion order is FK-safe by hand: a new table referencing user.id without ON DELETE CASCADE
 // breaks deletion at runtime, so give it a cascade or add it below.
 import { sql, type Kysely } from 'kysely'
+import { env } from '@/server/config'
 import { type DB } from '@/database/types'
 import { type SessionUser } from '@/lib/types'
 import { clerkClient, verifyToken } from '@clerk/nextjs/server'
@@ -66,7 +67,7 @@ export async function requireQaAuth(): Promise<QaAuthResult> {
         // The standalone verifyToken (unlike auth()/clerkClient()) does not read CLERK_SECRET_KEY
         // from the environment on its own — it only uses the key passed in options. Without it,
         // JWK resolution fails and the guard rejects every request, so pass the secret explicitly.
-        claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
+        claims = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY })
     } catch (error) {
         logger.warn('QA cleanup token verification failed', error)
         return { ok: false, status: 401, message: 'Authentication required' }

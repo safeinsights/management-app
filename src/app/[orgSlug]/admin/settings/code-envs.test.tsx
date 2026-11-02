@@ -8,33 +8,17 @@ import {
     waitFor,
     mockSessionWithTestData,
     faker,
+    findFieldErrorShownOnce,
     renderWithProviders,
     insertTestCodeEnv,
     insertTestDataSource,
 } from '@/tests/unit.helpers'
-import { vi } from 'vitest'
 import { Selectable } from 'kysely'
 import { db } from '@/database'
 import { CodeEnvs } from './code-envs'
 import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
-
-vi.mock('@/hooks/upload', () => ({
-    uploadFiles: vi.fn().mockResolvedValue([]),
-}))
-
-vi.mock('@/server/aws', async () => {
-    const actual = await vi.importActual('@/server/aws')
-    return {
-        ...actual,
-        storeS3File: vi.fn().mockResolvedValue(undefined),
-        deleteS3File: vi.fn().mockResolvedValue(undefined),
-        deleteFolderContents: vi.fn().mockResolvedValue(undefined),
-        createSignedUploadUrl: vi.fn().mockResolvedValue({ url: 'https://s3.example.com', fields: { key: 'test' } }),
-        triggerScanForCodeEnv: vi.fn().mockResolvedValue(undefined),
-    }
-})
 
 // Typing a long value keystroke by keystroke re-renders the whole form each time, which once
 // pushed the creation test past the CI timeout. Pasting enters each value in one event.
@@ -165,7 +149,7 @@ describe('CodeEnvs', async () => {
 
         fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
-        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+        await findFieldErrorShownOnce(/At least one starter code file is required/i)
     })
 
     // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the

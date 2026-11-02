@@ -1,4 +1,4 @@
-import { renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
+import { describedError, renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
 import { LinkEditForm } from './link-edit-form'
 import { EMPTY_TEXT_MESSAGE, INVALID_URL_MESSAGE } from './copy'
 
@@ -20,12 +20,6 @@ function renderForm(onSave = vi.fn(), onCancel = vi.fn()) {
         save: screen.getByRole('button', { name: 'Save' }),
         cancel: screen.getByRole('button', { name: 'Cancel' }),
     }
-}
-
-// The error the field announces, found only when it carries the design's icon.
-function describedError(input: HTMLElement) {
-    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? []
-    return ids.map((id) => document.getElementById(id)).find((el) => el?.querySelector('svg'))
 }
 
 describe('LinkEditForm', () => {

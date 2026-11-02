@@ -1,6 +1,5 @@
 'use client'
 
-import { InputError } from '@/components/errors'
 import { useMutation } from '@/hooks/query-wrappers'
 import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs/legacy'
@@ -78,9 +77,6 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        // Handed to Mantine so the message lands in `aria-describedby` rather than
-                        // being visual only.
-                        error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />
                     <Button
