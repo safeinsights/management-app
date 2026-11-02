@@ -387,7 +387,8 @@ describe('Request Study Actions', () => {
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 
-        expect(visibleWhenSent).toEqual([true])
+        // The review and the two proposal emails (OTTER-855) all leave after the commit.
+        expect(visibleWhenSent).toEqual([true, true, true])
     })
 
     it('submission flow works with Python language', async () => {
