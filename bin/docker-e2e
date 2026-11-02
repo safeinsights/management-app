@@ -276,6 +276,41 @@ print_ui_url() {
     done
 }
 
+# All stacks share the Docker VM's CPU and memory, so a failure next to another busy stack may be
+# timing-related. Listed at the start and again as the last lines, because long command output is
+# often cut in the middle. It never blocks a run or changes the exit code.
+stack_notice=()
+collect_other_stacks() {
+    local rows proj service dir
+    rows=$(docker ps --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u || true)
+    while IFS='|' read -r proj service dir; do
+        case "$proj|$service" in
+            "$project|"*) ;;
+            mgmt-app-e2e-*"|e2e-runner" | mgmt-app-e2e-*"|e2e-session")
+                stack_notice+=("WARNING  another e2e stack: $dir ($proj)") ;;
+            mgmt-app-test-*"|test-runner")
+                stack_notice+=("info     unit tests (./bin/docker-test): $dir ($proj)") ;;
+        esac
+        if [ "$service" = mgmnt-app ]; then stack_notice+=("info     dev stack (docker compose up): $dir"); fi
+    done <<<"$rows"
+}
+
+print_stack_notice() {
+    [ ${#stack_notice[@]} -gt 0 ] || return 0
+    echo ""
+    echo "################################################################################"
+    echo "[docker-e2e] NOTICE: other Docker stacks were running when this run started"
+    printf '  %s\n' "${stack_notice[@]}"
+    echo "  They share the Docker VM's CPU and memory. Before debugging a failure, rerun it"
+    echo "  alone: ./bin/docker-e2e -- <spec>. A test that then passes is still flaky and"
+    echo "  needs a root-cause fix (no retries, no longer timeouts)."
+    echo "################################################################################"
+    echo ""
+}
+
+collect_other_stacks
+print_stack_notice
+
 ui_url_printer=
 stop_ui_url_printer() {
     if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
@@ -296,7 +331,7 @@ if [ -n "$session" ]; then
     }
     trap 'stop_session_run; exit 130' INT
     trap 'stop_session_run; exit 143' TERM
-    trap stop_ui_url_printer EXIT
+    trap 'stop_ui_url_printer; print_stack_notice' EXIT
 
     command=test
     if [ "$action" = ui ]; then
@@ -369,6 +404,7 @@ fi
 teardown() {
     stop_ui_url_printer
     compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
+    print_stack_notice
 }
 trap teardown EXIT
 trap 'exit 130' INT
