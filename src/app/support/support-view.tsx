@@ -21,12 +21,18 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 }
 
 // Plain text on purpose: the card rules out a mailto: link.
+// Only break opportunity in the address is after the @, so the hyphen never splits it and a phone
+// width still keeps the icon beside the address (OTTER-934 QA).
+const [localPart, domain] = SUPPORT_EMAIL.split('@')
+
 const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) => (
     <Text>
         Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
-        <Group component="span" display="inline-flex" gap={0} wrap="nowrap" align="center">
-            <Text component="span" fw={fontWeight.semibold} className="nowrap">
-                {SUPPORT_EMAIL}
+        <Group component="span" display="inline-flex" gap={0} wrap="nowrap" align="flex-end">
+            <Text component="span" fw={fontWeight.semibold}>
+                <span className="nowrap">{localPart}@</span>
+                <wbr />
+                {domain}
             </Text>
             <ActionIcon
                 variant="subtle"
