@@ -204,6 +204,7 @@ async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
         // eslint-disable-next-line custom/noJobStatusWrites -- the jobs themselves are deleted below
         await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
         await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
+        // eslint-disable-next-line custom/noJobStatusWrites -- every job of the study goes, with the study
         await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
     }
     await db.deleteFrom('yjsDocument').where('studyId', '=', studyId).execute()

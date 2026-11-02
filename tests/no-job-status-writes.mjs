@@ -1,9 +1,10 @@
 // Job statuses change only through the transition table (OTTER-973), so every write to the status
-// log, and every new study job, goes through src/database/job-status-writer.ts.
+// log, every new or deleted study job, and every write to the job state columns goes through
+// src/database/job-status-writer.ts. A deleted job shifts the stored round of the jobs after it.
 const WRITE_METHODS = new Set(['insertInto', 'updateTable', 'deleteFrom', 'replaceInto', 'mergeInto'])
 const STATUS_TABLES = new Set(['jobStatusChange', 'job_status_change'])
 const JOB_TABLES = new Set(['studyJob', 'study_job'])
-const RAW_WRITE = /(insert\s+into|update|delete\s+from)\s+("?public"?\.)?"?job_status_change\b/i
+const RAW_WRITE = /(insert\s+into|update|delete\s+from)\s+("?public"?\.)?"?(job_status_change|study_job)\b/i
 // The job state columns the writer keeps in step with the log.
 const STATE_COLUMNS = new Set(['currentStatus', 'current_status', 'round', 'statusChangedAt', 'status_changed_at'])
 
@@ -40,14 +41,21 @@ const updatesStudyJob = (node) => {
     return false
 }
 
-const setsStateColumn = (argument) =>
-    argument?.type === 'ObjectExpression' &&
-    argument.properties.some(
-        (property) =>
-            property.type === 'Property' &&
-            !property.computed &&
-            STATE_COLUMNS.has(property.key.type === 'Identifier' ? property.key.name : String(property.key.value)),
-    )
+const isStateColumn = (property) =>
+    property.type === 'SpreadElement' ||
+    (property.type === 'Property' &&
+        (property.computed ||
+            STATE_COLUMNS.has(property.key.type === 'Identifier' ? property.key.name : String(property.key.value))))
+
+// A spread, a computed key or a callback that is not a plain object literal cannot be checked, so it counts.
+const setsStateColumn = (argument) => {
+    if (!argument) return false
+    if (argument.type === 'ObjectExpression') return argument.properties.some(isStateColumn)
+    if (argument.type === 'ArrowFunctionExpression' || argument.type === 'FunctionExpression') {
+        return argument.body.type !== 'ObjectExpression' || argument.body.properties.some(isStateColumn)
+    }
+    return true
+}
 
 const isSqlTag = (tag) => tag.type === 'Identifier' && tag.name === 'sql'
 
@@ -94,7 +102,8 @@ const noJobStatusWrites = {
                 const value = stringValue(node.arguments[0])
                 if (!value) return
                 const table = tableName(value)
-                if (STATUS_TABLES.has(table) || (method === 'insertInto' && JOB_TABLES.has(table))) report(node)
+                const writesJobRow = (method === 'insertInto' || method === 'deleteFrom') && JOB_TABLES.has(table)
+                if (STATUS_TABLES.has(table) || writesJobRow) report(node)
             },
             TaggedTemplateExpression(node) {
                 if (!isSqlTag(node.tag)) return
