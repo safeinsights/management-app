@@ -63,11 +63,15 @@ usage() {
     echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
     echo "      Values in host .env files are not part of the fingerprint: use --rebuild after changing them."
     echo ""
-    echo "      Migrations are applied on every run. The test database keeps the data of earlier runs; it"
-    echo "      is recreated by --clean and when an applied migration is missing from the codebase."
+    echo "      Every run starts on a fresh test database: a copy of a migrated and seeded template, which"
+    echo "      is rebuilt when src/database/migrations, src/database/seeds or bin/seed-environment.ts change."
+    echo "      In a session this restarts the app server on each run. After changing seed helpers, --clean."
     echo ""
-    echo "      PLAYWRIGHT_WORKERS=<n> caps the workers (default: one per CPU of the Docker VM), e.g. when"
-    echo "      several checkouts run at once. A cap is fixed for the whole run."
+    echo "      Workers: one per CPU that Docker reports (docker info). When other e2e runs are active at the"
+    echo "      start, each new run takes an even share (at least 2). PLAYWRIGHT_WORKERS=<n> overrides it."
+    echo ""
+    echo "      Timeouts are the CI ones (60s per test, 30s per action and expect), because the Docker"
+    echo "      host's CPUs are shared with every other stack."
     echo ""
     echo "      Each run rebuilds the e2e-runner image from Dockerfile.dev first (about a second when"
     echo "      nothing changed). Chromium lives in image layers keyed on the locked Playwright versions."
@@ -288,16 +292,31 @@ stack_log=$(mktemp "${TMPDIR:-/tmp}/docker-e2e-stacks.XXXXXX")
 stack_watcher=
 trap 'rm -f "$stack_log"' EXIT
 
+# A session is busy while a run prepares (the runner script) or tests (Playwright); docker-init
+# keeps the session's startup arguments. docker top works on any Docker host.
+session_busy() {
+    local procs
+    procs=$(docker top "$1" 2>/dev/null || true)
+    # awk reads all input: an early-exiting grep -q would SIGPIPE docker top and, under pipefail,
+    # report an idle session.
+    awk '!/docker-init/ && /e2e-runner\.sh|@playwright\/test\/cli\.js test/ { busy = 1 } END { exit !busy }' <<<"$procs"
+}
+
 list_other_stacks() {
-    local rows proj service dir
-    rows=$(docker ps --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u || true)
-    while IFS='|' read -r proj service dir; do
+    local rows id proj service dir
+    rows=$(docker ps --format '{{.ID}}|{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)
+    while IFS='|' read -r id proj service dir; do
         case "$proj|$service" in
             "$project|"*) ;;
             mgmt-app-e2e-*"|e2e-runner")
                 echo "WARNING  another e2e run: $dir ($proj)" ;;
             mgmt-app-e2e-*"|e2e-session")
-                echo "info     an e2e session, maybe idle: $dir ($proj)" ;;
+                if session_busy "$id"; then
+                    echo "WARNING  another e2e run (in a session): $dir ($proj)"
+                else
+                    echo "info     an e2e session, idle: $dir ($proj)"
+                fi
+                ;;
             mgmt-app-test-*"|test-runner")
                 echo "info     unit tests (./bin/docker-test): $dir ($proj)" ;;
         esac
@@ -341,6 +360,19 @@ finish_stack_notice() {
 list_other_stacks >"$stack_log"
 print_stack_notice "when this run started"
 
+# Workers default to one per CPU of the Docker host. Other e2e runs at the start get an even
+# share each; runs that start later are not seen, and a run never shrinks once started.
+if [ -z "${PLAYWRIGHT_WORKERS:-}" ] && [ "$action" != up ]; then
+    other_runs=$(grep -c '^WARNING' "$stack_log" || true)
+    docker_cpus=$(docker info --format '{{.NCPU}}' 2>/dev/null || true)
+    if [ "${other_runs:-0}" -gt 0 ] && [ "${docker_cpus:-0}" -gt 0 ] 2>/dev/null; then
+        PLAYWRIGHT_WORKERS=$((docker_cpus / (other_runs + 1)))
+        if [ "$PLAYWRIGHT_WORKERS" -lt 2 ]; then PLAYWRIGHT_WORKERS=2; fi
+        export PLAYWRIGHT_WORKERS
+        echo "[docker-e2e] $other_runs other e2e run(s) active: using $PLAYWRIGHT_WORKERS of $docker_cpus CPUs as workers (set PLAYWRIGHT_WORKERS to override)"
+    fi
+fi
+
 ui_url_printer=
 stop_ui_url_printer() {
     if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
@@ -374,6 +406,7 @@ if [ -n "$session" ]; then
     status=0
     compose exec ${tty_flag[@]+"${tty_flag[@]}"} \
         -e E2E_APP_FINGERPRINT="$E2E_APP_FINGERPRINT" -e E2E_REBUILD="$E2E_REBUILD" -e E2E_RUN_ID="$run_id" \
+        ${PLAYWRIGHT_WORKERS:+-e PLAYWRIGHT_WORKERS="$PLAYWRIGHT_WORKERS"} \
         e2e-session bin/lib/e2e-runner.sh --prepare -- "$command" ${extra_args[@]+"${extra_args[@]}"} || status=$?
     compose exec -T e2e-session rm -f "/tmp/e2e-run-${run_id}.pid" >/dev/null 2>&1 || true
     exit "$status"
