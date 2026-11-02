@@ -8,9 +8,9 @@ import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Link } from '@/components/links'
 import { studyAgreementDisplayTitle } from '@/schema/legal-document'
-import { semanticColor } from '@/theme/tokens'
-import { Box, Group, Stack, Text, Tooltip } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretUpDownIcon, CaretUpIcon } from '@phosphor-icons/react/dist/ssr'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
+import { Group, Stack, Text, Tooltip } from '@mantine/core'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import type { Route } from 'next'
 import { useState, type ReactNode } from 'react'
@@ -151,27 +151,6 @@ const NothingAcknowledged: FC<{ label: string }> = ({ label }) => (
 )
 
 const EMPTY_ROWS: never[] = []
-
-// Overrides the library's grey.
-const SortIcon: FC<{ children: ReactNode }> = ({ children }) => (
-    <Box component="span" display="flex" c={semanticColor('text.primary')}>
-        {children}
-    </Box>
-)
-
-// The library flips `sorted` for a descending sort.
-const SORT_ICONS = {
-    unsorted: (
-        <SortIcon>
-            <CaretUpDownIcon size={12} />
-        </SortIcon>
-    ),
-    sorted: (
-        <SortIcon>
-            <CaretUpIcon size={12} />
-        </SortIcon>
-    ),
-}
 
 // No choice yet means the caller's default, so that default lives in one place.
 const queryFor = <T, Column extends string>(props: Props<T, Column>, chosenSort?: AgreementSort<Column>) => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import { reportMutationError } from '@/components/errors'
 import { SuretyGuard } from '@/components/surety-guard'
 import { showToast } from '@/components/toast-notifications'
@@ -49,6 +50,7 @@ export function OrgsAdminTable() {
                 records={sortedMembers}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
+                sortIcons={SORT_ICONS}
                 columns={[
                     { accessor: 'slug', sortable: true },
                     { accessor: 'name', sortable: true },

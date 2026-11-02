@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useState, type FC } from '@/common'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
@@ -104,6 +105,7 @@ export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ t
                 columns={ACKNOWLEDGEMENT_COLUMNS}
                 sortStatus={sort}
                 onSortStatusChange={onSortStatusChange}
+                sortIcons={SORT_ICONS}
                 totalRecords={totalRecords}
                 recordsPerPage={ACKNOWLEDGEMENTS_PAGE_SIZE}
                 page={page}
