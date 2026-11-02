@@ -120,10 +120,9 @@ start_server() {
     mkdir -p test-results
     echo "=== app server start $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >>"$SERVER_LOG"
     note "starting the app server on :4100 (log: $SERVER_LOG)"
-    # Docker sets HOSTNAME to the container ID, and the standalone server binds to it, not to
-    # localhost. The subshell orphans the server to the container's init, which reaps it when it
-    # stops; a session's runner execs into `timeout`, which would leave it a zombie. setsid and
-    # 9>&- keep it out of the caller's signals and lock.
+    # HOSTNAME: Docker sets it to the container ID, which the standalone server would bind to. The
+    # subshell hands the server to the container's init, which reaps it; a session's `timeout` would
+    # leave a zombie. setsid and 9>&- keep it out of the caller's signals and lock.
     (
         CI=true HOSTNAME=0.0.0.0 setsid node .next/standalone/server.js >>"$SERVER_LOG" 2>&1 9>&- &
         echo $! >"$SERVER_PID_FILE"

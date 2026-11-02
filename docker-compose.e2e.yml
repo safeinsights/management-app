@@ -1,8 +1,6 @@
-# Fully dockerized e2e stack, driven by ./bin/docker-e2e (always with -p mgmt-app-e2e-<hash>).
-# App server, Playwright and Chromium share the runner container, so localhost:4100 and the
-# localhost cookie domain of tests/.auth keep their defaults. No service publishes a host port
-# (except the UI port in a session) and none sets container_name, so the stack never collides
-# with the dev stack (docker-compose.yml) or ./bin/docker-test.
+# Driven by ./bin/docker-e2e with -p mgmt-app-e2e-<hash>. App, Playwright and Chromium share one
+# container, so localhost:4100 and the cookie domain of tests/.auth keep their defaults. No
+# container_name and no host ports (except the UI's), so it never collides with other stacks.
 
 # Shared by the one-shot runner and the interactive session.
 x-runner: &runner
@@ -32,11 +30,9 @@ x-runner: &runner
         - ASSETS_PREFIX=/
         - CODER_FILES=./coder-files
         - NODE_OPTIONS=--max-old-space-size=4096
-        # Next's env loader and dotenv both skip a key that is already set, even to "", so
-        # these keep a host .env / .env.test (bind-mounted) from pointing the run at real
-        # services. Every reader of these keys treats "" like unset. Never blank a required
-        # key such as MAILGUN_DOMAIN or CODER_*: getConfigValue returns "" for it instead of
-        # behaving as in CI, where the key is unset.
+        # Next's env loader and dotenv skip keys that are already set, even to "", so these keep a
+        # bind-mounted .env / .env.test away from real services. Every reader treats "" as unset;
+        # never blank a required key (MAILGUN_DOMAIN, CODER_*), getConfigValue would return "".
         - AWS_PROFILE=
         - DB_SECRET_ARN=
         - SECRETS_ARN=
