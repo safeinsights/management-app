@@ -111,22 +111,13 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
-        // Re-asserts APPROVED to self-heal legacy rows still at PENDING-REVIEW with approvedAt set.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
-            await markStudyUpdated(db, {
-                studyId,
-                userId,
-                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
-            })
+            await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
             await transitionJob(db, claimedJob.id, 'CODE-CHANGES-REQUESTED', { actor: 'reviewer', userId })
-            await markStudyUpdated(db, {
-                studyId,
-                userId,
-                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
-            })
+            await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 

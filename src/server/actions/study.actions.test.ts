@@ -1933,7 +1933,7 @@ describe('submitCodeReviewDecisionAction', () => {
         const { study, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
+            studyStatus: 'APPROVED',
             jobStatus: 'CODE-SUBMITTED',
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()

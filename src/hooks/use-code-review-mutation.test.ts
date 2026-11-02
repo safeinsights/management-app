@@ -47,7 +47,7 @@ const setApprovedStudyAndCodeSubmitted = async () => {
     const { study, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        studyStatus: 'PENDING-REVIEW',
+        studyStatus: 'APPROVED',
         jobStatus: 'CODE-SUBMITTED',
     })
     await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
@@ -80,19 +80,19 @@ describe('useCodeReviewMutation', () => {
         await act(async () => {
             result.current.submitReview(approval)
         })
-        // Status lands only once the action has resolved. isSubmitting is also true while the
-        // request is in flight, so the lock has to still be on after that write.
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select('status')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('APPROVED')
+        // The broadcast goes out only once the action has resolved, and the lock has to still be on then.
+        await waitFor(() => {
+            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
             expect(result.current.isSubmitting).toBe(true)
         })
+        const approved = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-APPROVED')
+            .executeTakeFirst()
+        expect(approved).toBeDefined()
 
-        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
         expect(payload.type).toBe('code-review-submitted')
         expect(payload.studyId).toBe(study.id)
