@@ -30,6 +30,7 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
+import { openStudyJob } from '@/database/job-status-writer'
 import { ackAgreementsAction, markStudyOpenedAction, getStudyAction, softDeleteStudyAction } from './study.actions'
 import {
     fetchStudiesForCurrentResearcherUserAction,
@@ -227,6 +228,27 @@ describe('Study Actions', () => {
                 .select('jobStatusChange.id')
                 .execute()
             expect(jobStatusChanges).toHaveLength(0)
+        })
+
+        it('approves a proposal whose job was opened but never had code submitted', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const study = await insertProposalOnlyStudy(org, user.id)
+            const job = await openStudyJob(db, study.id, { actor: 'system' })
+
+            actionResult(await approveProposal(study.id, org.slug))
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            const statuses = await db
+                .selectFrom('jobStatusChange')
+                .select('status')
+                .where('studyJobId', '=', job.id)
+                .execute()
+            expect(statuses).toEqual([{ status: 'INITIATED' }])
         })
     })
 

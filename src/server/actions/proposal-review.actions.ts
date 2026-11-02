@@ -65,6 +65,8 @@ async function performStudyProposalApproval({
     if (!latestJob) return
 
     const job = await latestJobForStudy(studyId)
+    // A job opened by an IDE launch or upload but never submitted has no code to approve.
+    if (!job.statusChanges.some((change) => change.status === 'CODE-SUBMITTED')) return
 
     await approveJobCode({ db, job, study, userId, studyId, orgSlug })
 }
