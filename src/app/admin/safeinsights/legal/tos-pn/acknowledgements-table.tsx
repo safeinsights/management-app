@@ -95,7 +95,6 @@ export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ t
         <Stack>
             <Title order={4}>{legalDocumentTypeLabels[type]} acknowledgements</Title>
             <DataTable
-                withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 fetching={isLoading}

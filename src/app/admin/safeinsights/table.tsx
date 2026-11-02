@@ -41,8 +41,6 @@ export function OrgsAdminTable() {
             <AddMember />
             <DataTable
                 fetching={isFetching}
-                withTableBorder
-                withColumnBorders
                 pinLastColumn
                 idAccessor="slug"
                 noRecordsText="No organizations yet, add some using the button below"
