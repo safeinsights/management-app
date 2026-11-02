@@ -10,13 +10,8 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { CodeRunKeyForm } from './code-run-key-form'
-
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
 
 const DESCRIPTION =
     'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'
@@ -37,12 +32,10 @@ describe('CodeRunKeyForm', () => {
         job = (await latestJobForStudy(study.id))!
         onDecrypted = vi.fn()
 
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, {
-                fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                files: [{ name: 'run.log', content: 'boom' }],
-            }),
-        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        })
     })
 
     it('titles the card with the date the run finished', async () => {

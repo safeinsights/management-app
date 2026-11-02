@@ -1,13 +1,20 @@
 import type { ReactNode } from 'react'
 import { Alert, Stack, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
+import { LocalDateTime } from '@/components/local-date-time'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 export const STATUS_ALERT_SEPARATOR = '•'
 
-export const statusAlertTitle = (title: string, at: Date | string | null | undefined): string =>
-    at ? `${title} ${STATUS_ALERT_SEPARATOR} ${dayjs(at).format('MMM DD, YYYY')}` : title
+export const statusAlertTitle = (title: string, at: Date | string | null | undefined): ReactNode =>
+    at ? (
+        <>
+            {title}
+            <LocalDateTime value={at} prefix={` ${STATUS_ALERT_SEPARATOR} `} />
+        </>
+    ) : (
+        title
+    )
 
 export const STATUS_ALERT_VARIANT = {
     informative: 'informative',

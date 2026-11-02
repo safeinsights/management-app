@@ -258,7 +258,8 @@ async function insertSubmittedJob(
         withMainCode = true,
         withReview = true,
         reviewRound = 1,
-    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number } = {},
+        endingAt,
+    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number; endingAt?: Date } = {},
 ) {
     const actors = { researcherId: await resolveUserId('researcher'), reviewerId: await resolveUserId('reviewer') }
     const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
@@ -287,7 +288,7 @@ async function insertSubmittedJob(
     }
 
     // Backdated so a status a later step appends at server-now sorts after the seeded ones.
-    const now = Date.now()
+    const last = endingAt?.getTime() ?? Date.now() - 1000
     await db
         .insertInto('jobStatusChange')
         .values(
@@ -295,7 +296,7 @@ async function insertSubmittedJob(
                 studyJobId: job.id,
                 status,
                 userId: seededStatusActor(status, actors),
-                createdAt: new Date(now - (statuses.length - i) * 1000),
+                createdAt: new Date(last - (statuses.length - 1 - i) * 1000),
             })),
         )
         .execute()
@@ -369,6 +370,30 @@ export async function storeSeededMainCode(studyId: string, jobId: string) {
 export async function seedCodeApprovedJobReady(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// Every date backdated to `at`, so a spec can pick an instant whose local day differs from its UTC
+// day. The file activity precedes the submission, which bounds what the submitted code table shows.
+export async function seedCodeApprovedAt(title: string, at: Date): Promise<Required<SeedResult>> {
+    const { study } = await insertStudy({
+        title,
+        status: 'APPROVED',
+        submittedAt: at,
+        approvedAt: at,
+        agreementsAcked: true,
+    })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'], { endingAt: at })
+    await db
+        .insertInto('workspaceFileActivity')
+        .values({
+            studyId: study.id,
+            fileName: 'analysis.r',
+            userId: await resolveUserId('researcher'),
+            action: 'UPLOADED',
+            createdAt: new Date(at.getTime() - 60_000),
+        })
+        .execute()
     return { studyId: study.id, jobId: job.id }
 }
 

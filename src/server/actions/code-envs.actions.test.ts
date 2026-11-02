@@ -21,6 +21,7 @@ import { isActionError } from '@/lib/errors'
 import { REDACTED_ENV_VALUE, codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
 import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import { OrgCodeEnvSettings } from '@/database/types'
+import { deleteFolderContents } from '@/server/aws'
 
 vi.mock('@/server/actions/simulate-scan', async () => {
     const actual = await vi.importActual('@/server/actions/simulate-scan')
@@ -142,6 +143,8 @@ describe('Code Environment Actions', () => {
 
     it('updateOrgCodeEnvAction updates a code environment without changing starter code', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
+        // Keeps R usable once this env becomes a testing Python image.
+        await insertTestCodeEnv({ orgId: org.id, name: 'Remaining R Image', language: 'R', isTesting: false })
         const codeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
@@ -222,6 +225,8 @@ describe('Code Environment Actions', () => {
 
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
+        // Keeps R usable once this env becomes a testing Python image.
+        await insertTestCodeEnv({ orgId: org.id, name: 'Remaining R Image', language: 'R', isTesting: false })
         const codeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
@@ -401,6 +406,8 @@ describe('Code Environment Actions', () => {
 
     it('updateOrgCodeEnvAction allows SI admin to update even if not org admin', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false, isSiAdmin: true })
+        // Keeps R usable once this env becomes a testing Python image.
+        await insertTestCodeEnv({ orgId: org.id, name: 'Remaining R Image', language: 'R', isTesting: false })
 
         const codeEnv = await db
             .insertInto('orgCodeEnv')
@@ -597,6 +604,144 @@ describe('Code Environment Actions', () => {
         expect(deleted).toBeUndefined()
     })
 
+    describe('updateOrgCodeEnvAction keeps a usable code environment per language', () => {
+        const updateParams = (
+            orgSlug: string,
+            codeEnv: Awaited<ReturnType<typeof insertTestCodeEnv>>,
+            overrides: Partial<{
+                name: string
+                language: 'R' | 'PYTHON'
+                isTesting: boolean
+                starterCodeFileNames: string[]
+                starterCodeUploaded: boolean
+            }> = {},
+        ) => ({
+            orgSlug,
+            codeEnvId: codeEnv.id,
+            name: codeEnv.name,
+            identifier: codeEnv.identifier,
+            commandLines: codeEnv.commandLines as Record<string, string>,
+            language: codeEnv.language,
+            url: codeEnv.url,
+            isTesting: codeEnv.isTesting,
+            settings: { environment: [] },
+            dataSourceIds: [],
+            ...overrides,
+        })
+
+        const reloadCodeEnv = (id: string) =>
+            db
+                .selectFrom('orgCodeEnv')
+                .select(['name', 'language', 'isTesting'])
+                .where('id', '=', id)
+                .executeTakeFirstOrThrow()
+
+        it('refuses marking the only non-testing R environment as testing', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const rImage = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            await insertTestCodeEnv({ orgId: org.id, language: 'PYTHON', isTesting: false })
+
+            const result = await updateOrgCodeEnvAction(updateParams(org.slug, rImage, { isTesting: true }))
+
+            expect(isActionError(result)).toBe(true)
+            if (isActionError(result)) {
+                expect(result.error).toContain('Cannot mark the last non-testing R code environment as testing')
+            }
+            expect(await reloadCodeEnv(rImage.id)).toMatchObject({ isTesting: false, language: 'R' })
+            expect(await getAuditEntriesWithMetadata(rImage.id, 'CODE_ENV')).toHaveLength(0)
+        })
+
+        it('refuses changing the language of the only non-testing R environment', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const rImage = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+
+            const result = await updateOrgCodeEnvAction(
+                updateParams(org.slug, rImage, {
+                    language: 'PYTHON',
+                    name: 'Renamed',
+                    starterCodeFileNames: ['main.py'],
+                    starterCodeUploaded: true,
+                }),
+            )
+
+            expect(isActionError(result)).toBe(true)
+            if (isActionError(result)) {
+                expect(result.error).toContain('non-testing R code environment')
+                expect(result.error).toContain('change its language')
+            }
+            expect(await reloadCodeEnv(rImage.id)).toMatchObject({
+                name: rImage.name,
+                isTesting: false,
+                language: 'R',
+            })
+            expect(await getAuditEntriesWithMetadata(rImage.id, 'CODE_ENV')).toHaveLength(0)
+            expect(deleteFolderContents).not.toHaveBeenCalled()
+        })
+
+        it('refuses marking the only scan-passed R environment as testing', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const passed = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            const failed = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            await db.insertInto('codeScan').values({ codeEnvId: passed.id, status: 'SCAN-COMPLETE' }).execute()
+            await db.insertInto('codeScan').values({ codeEnvId: failed.id, status: 'SCAN-FAILED' }).execute()
+
+            const result = await updateOrgCodeEnvAction(updateParams(org.slug, passed, { isTesting: true }))
+
+            expect(isActionError(result)).toBe(true)
+            if (isActionError(result)) {
+                expect(result.error).toContain('passed scanning')
+            }
+            expect(await reloadCodeEnv(passed.id)).toMatchObject({ isTesting: false })
+            expect(await getAuditEntriesWithMetadata(passed.id, 'CODE_ENV')).toHaveLength(0)
+        })
+
+        it('allows marking an R environment as testing when another non-testing one exists', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const rImage = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+
+            actionResult(await updateOrgCodeEnvAction(updateParams(org.slug, rImage, { isTesting: true })))
+
+            expect(await reloadCodeEnv(rImage.id)).toMatchObject({ isTesting: true })
+        })
+
+        it('allows marking a scan-passed R environment as testing when another passed one exists', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const passed1 = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            const passed2 = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+            await db.insertInto('codeScan').values({ codeEnvId: passed1.id, status: 'SCAN-COMPLETE' }).execute()
+            await db.insertInto('codeScan').values({ codeEnvId: passed2.id, status: 'SCAN-COMPLETE' }).execute()
+
+            actionResult(await updateOrgCodeEnvAction(updateParams(org.slug, passed1, { isTesting: true })))
+
+            expect(await reloadCodeEnv(passed1.id)).toMatchObject({ isTesting: true })
+        })
+
+        it('allows editing other fields of the only non-testing R environment', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const rImage = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: false })
+
+            actionResult(await updateOrgCodeEnvAction(updateParams(org.slug, rImage, { name: 'Renamed R Image' })))
+
+            expect(await reloadCodeEnv(rImage.id)).toMatchObject({
+                name: 'Renamed R Image',
+                isTesting: false,
+                language: 'R',
+            })
+        })
+
+        it('allows unticking testing and changing the language of a testing environment', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const testing = await insertTestCodeEnv({ orgId: org.id, language: 'R', isTesting: true })
+
+            actionResult(
+                await updateOrgCodeEnvAction(updateParams(org.slug, testing, { language: 'PYTHON', isTesting: false })),
+            )
+
+            expect(await reloadCodeEnv(testing.id)).toMatchObject({ isTesting: false, language: 'PYTHON' })
+        })
+    })
+
     it('createOrgCodeEnvAction with athena does not call createAthenaDatabase in test env', async () => {
         const { createAthenaDatabase } = await import('@/server/aws')
         const { org } = await mockSessionWithTestData({ isAdmin: true })
@@ -712,6 +857,8 @@ describe('Code Environment Actions', () => {
 
     it('updateOrgCodeEnvAction allows org admin to update a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
+        // Keeps R usable once this env becomes a testing Python image.
+        await insertTestCodeEnv({ orgId: org.id, name: 'Remaining R Image', language: 'R', isTesting: false })
 
         const codeEnv = await insertTestCodeEnv({
             orgId: org.id,

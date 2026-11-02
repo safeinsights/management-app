@@ -230,15 +230,14 @@ const eslintConfig = [
     },
     // The theme is where raw values are supposed to live: it is what the tokens resolve to.
     {
-        files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        files: ['src/theme.ts', 'src/theme/**/*.ts'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },
     },
-    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
-    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    // Brand artwork is not themeable: the logo hexes are the mark itself.
     {
-        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
+        files: ['src/components/layout/svg/**'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },

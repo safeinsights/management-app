@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
-import { ErrorAlert, InputError } from '@/components/errors'
+import { ERROR_LINE_MIN_HEIGHT, ErrorAlert, InputError } from '@/components/errors'
 import { useWidgetBlur } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { RequiredIndicator } from '@/components/required-indicator'
@@ -20,15 +20,13 @@ const TITLE_ID = 'programming-language-title'
 const HELPER_ID = 'programming-language-helper'
 const ERROR_ID = 'programming-language-error'
 
-const ErrorLine: React.FC<{ error: React.ReactNode }> = ({ error }) => {
-    if (!error) return null
-
-    return (
-        <span id={ERROR_ID}>
-            <InputError error={error} />
-        </span>
-    )
-}
+// Mounted before any error: the group validates on blur, and a line appearing then would push
+// Save & continue down under a pending click.
+const ErrorLine: React.FC<{ error: React.ReactNode }> = ({ error }) => (
+    <Box id={ERROR_ID} mih={ERROR_LINE_MIN_HEIGHT}>
+        <InputError error={error} />
+    </Box>
+)
 
 interface ProgrammingLanguageFieldProps {
     form: UseFormReturnType<StudyProposalFormValues>
@@ -156,6 +154,8 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                 <Text id={HELPER_ID} size="xs" c="dimmed">
                     {helperText}
                 </Text>
+                {/* Above the radios by design, not by mistake (Figma Error/empty, OTTER-880). */}
+                <ErrorLine error={error} />
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
@@ -176,7 +176,6 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                     {/* Stacked, not a row: the multi-language design lists the options vertically. */}
                     <Stack gap="xs">{languageRadios}</Stack>
                 </Radio.Group>
-                <ErrorLine error={error} />
             </>
         )
     }

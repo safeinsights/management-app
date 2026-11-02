@@ -135,7 +135,7 @@ export function AddAppMFA() {
     if (!isReady) return null
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: 'md', lg: 0 }}>
             <AddTotpStep
                 isVisible={step === 'add'}
                 uri={totpUri}

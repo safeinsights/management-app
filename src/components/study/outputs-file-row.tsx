@@ -7,6 +7,7 @@ import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import type { JobFileActivity } from '@/server/db/queries'
 import { OUTPUTS_FILE_NAME_MAX_LENGTH } from '@/lib/outputs-review'
+import { DATE_TIME_FORMAT } from '@/lib/dates'
 import classes from './outputs-file-row.module.css'
 
 /**
@@ -31,7 +32,7 @@ export const truncateFileName = (name: string): string =>
 
 const ACTION_LABEL = { VIEWED: 'Viewed', DOWNLOADED: 'Downloaded' } as const
 
-export const formatActivityDate = (date: Date | string): string => dayjs(date).format('MMM DD, YYYY, hh:mm a')
+export const formatActivityDate = (date: Date | string): string => dayjs(date).format(DATE_TIME_FORMAT)
 
 // The dots are hidden from AT and paired with connective text; read straight through they would
 // announce as one run-on phrase.

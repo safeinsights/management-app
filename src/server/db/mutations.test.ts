@@ -7,6 +7,8 @@ import {
     insertTestStudyJobData,
     insertTestStudyOnly,
     insertTestUser,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
 import { NotFoundError } from '@/lib/errors'
 import { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
@@ -17,6 +19,7 @@ import {
     ensureRoundJobForUpload,
     findOrCreateOrgMembership,
     getOrCreateCurrentRoundJob,
+    markStudyUpdated,
     syncUserOrgsToClerk,
 } from './mutations'
 
@@ -409,5 +412,30 @@ describe('syncUserOrgsToClerk', () => {
         )
 
         expect(fake.api.getOrganization).not.toHaveBeenCalled()
+    })
+})
+
+describe('markStudyUpdated (OTTER-937)', () => {
+    it('moves Last updated, applies the extra columns, and stamps only the actor as having seen it', async () => {
+        const org = await insertTestOrg()
+        const { user: actor } = await insertTestUser({ org })
+        const { user: other } = await insertTestUser({ org })
+        const { study } = await insertTestStudyOnly({ org, status: 'PENDING-REVIEW' })
+        const earlier = new Date(Date.now() - 60_000)
+        await stampStudyOpened(study.id, [actor.id, other.id], earlier)
+
+        await markStudyUpdated(db, { studyId: study.id, userId: actor.id, set: { status: 'CHANGE-REQUESTED' } })
+
+        const updated = await db
+            .selectFrom('study')
+            .select(['status', 'lastUpdatedAt'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('CHANGE-REQUESTED')
+        expect(updated.lastUpdatedAt.getTime()).toBeGreaterThan(earlier.getTime())
+        expect((await studyOpenedAt(study.id, actor.id))!.getTime()).toBeGreaterThanOrEqual(
+            updated.lastUpdatedAt.getTime(),
+        )
+        expect(await studyOpenedAt(study.id, other.id)).toEqual(earlier)
     })
 })

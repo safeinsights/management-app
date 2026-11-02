@@ -307,7 +307,10 @@ export function assertStatelessEventConsistent(args: {
 // pg.Pool-compatible query interface (small surface so tests can pass a
 // hand-rolled stub without depending on `pg`).
 export type DbQuery = {
-    query<T>(text: string, values?: unknown[]): Promise<{ rows: T[]; rowCount: number | null }>
+    query<T extends Record<string, unknown>>(
+        text: string,
+        values?: unknown[],
+    ): Promise<{ rows: T[]; rowCount: number | null }>
 }
 
 export type VerifyTokenFn = (

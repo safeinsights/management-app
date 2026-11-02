@@ -113,7 +113,21 @@ describe('mailgun email functions', () => {
         await mailgun.sendStudyProposalEmails(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
-        expect(message.vars.submittedOn).toBe('03/10/2026')
+        expect(message.vars.submittedOn).toBe('Mar 10, 2026 (UTC)')
+    })
+
+    it('sendStudyProposalEmails names the UTC day for a submission after UTC midnight', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        await db
+            .updateTable('study')
+            .set({ submittedAt: new Date('2026-03-11T01:30:00Z') })
+            .where('id', '=', study.id)
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
+        expect(message.vars.submittedOn).toBe('Mar 11, 2026 (UTC)')
     })
 
     it('sendStudyAgreementReadyEmail reaches the researcher, greeted by name', async () => {

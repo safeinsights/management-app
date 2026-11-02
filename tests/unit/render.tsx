@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import * as RouterMock from 'next-router-mock'
 import { FC, ReactElement, ReactNode, useEffect } from 'react'
+import { renderToString } from 'react-dom/server'
 import { vi } from 'vitest'
 import { getMockedLayoutUserInfo } from './layout-user-info'
 import { createTestQueryClient } from './query-client'
@@ -31,32 +32,59 @@ export const createTestQueryWrapper = (options?: SessionInfoOption & { queryClie
     return Wrapper
 }
 
+type ProviderOptions = SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient }
+
 /**
  * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, putting
  * the editable node in the DOM instead of behind a skeleton awaiting a live websocket.
  */
-export function renderWithProviders(
-    ui: ReactElement,
-    options?: Parameters<typeof render>[1] &
-        SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient },
-) {
-    // A caller-supplied client lets a test prime a query before the first render.
-    const testQueryClient = options?.queryClient ?? createTestQueryClient()
+const TestProviders: FC<{ client: QueryClient; options?: ProviderOptions; children: ReactNode }> = ({
+    client,
+    options,
+    children,
+}) => (
+    <QueryClientProvider client={client}>
+        <SessionInfoProvider userInfo={layoutUserInfo(options)}>
+            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+                <SpyModeProvider>
+                    <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
+                        <ModalsProvider>{children}</ModalsProvider>
+                    </YjsWebsocketProvider>
+                </SpyModeProvider>
+            </MantineProvider>
+        </SessionInfoProvider>
+    </QueryClientProvider>
+)
 
-    return render(
-        <QueryClientProvider client={testQueryClient}>
-            <SessionInfoProvider userInfo={layoutUserInfo(options)}>
-                <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
-                    <SpyModeProvider>
-                        <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
-                            <ModalsProvider>{ui}</ModalsProvider>
-                        </YjsWebsocketProvider>
-                    </SpyModeProvider>
-                </MantineProvider>
-            </SessionInfoProvider>
-        </QueryClientProvider>,
-        options,
-    )
+// One builder, so a server render and its hydration can never wrap the UI in different providers.
+// A caller-supplied client lets a test prime a query before the first render.
+const withTestProviders = (ui: ReactElement, options?: ProviderOptions) => (
+    <TestProviders client={options?.queryClient ?? createTestQueryClient()} options={options}>
+        {ui}
+    </TestProviders>
+)
+
+export const renderWithProviders = (ui: ReactElement, options?: Parameters<typeof render>[1] & ProviderOptions) =>
+    render(withTestProviders(ui, options), options)
+
+// The HTML the server sends, for asserting what reaches the page before hydration.
+export const renderToServerHtml = (ui: ReactElement, options?: ProviderOptions) =>
+    renderToString(withTestProviders(ui, options))
+
+// Hydrates the server HTML as the browser does; a mismatch lands in `recoverableErrors`.
+export function hydrateServerHtml(ui: ReactElement, options?: ProviderOptions) {
+    const tree = withTestProviders(ui, options)
+    const container = document.createElement('div')
+    container.innerHTML = renderToString(tree)
+    document.body.appendChild(container)
+
+    const recoverableErrors: unknown[] = []
+    const result = render(tree, {
+        container,
+        hydrate: true,
+        onRecoverableError: (error: unknown) => recoverableErrors.push(error),
+    })
+    return { ...result, recoverableErrors }
 }
 
 // Spy mode is otherwise driven by the hidden pi symbol. It switches on in an effect, so the first

@@ -96,7 +96,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const { orgName, isAdmin } = pendingInvite
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
                     You’ve been invited to join SafeInsights!

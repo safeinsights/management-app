@@ -1,9 +1,10 @@
+import dayjs from 'dayjs'
 import { parseLogMessages } from '@/lib/file-content-helpers'
 import { Code, ScrollArea, Table } from '@mantine/core'
 import type { ReactNode } from 'react'
 
 function formatTimestamp(ts: number): string {
-    return new Date(ts).toLocaleTimeString()
+    return dayjs(ts).format('hh:mm:ss a')
 }
 
 export function logViewer(_path: string, text: string): ReactNode | null {

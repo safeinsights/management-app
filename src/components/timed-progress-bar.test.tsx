@@ -1,4 +1,13 @@
-import { describe, expect, it, renderWithProviders, screen, SpyMode } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+    SpyMode,
+} from '@/tests/unit.helpers'
 import { type TimedStep } from '@/hooks/use-timed-progress'
 import { TimedProgressBar } from './timed-progress-bar'
 
@@ -59,5 +68,24 @@ describe('TimedProgressBar', () => {
         expect(container.textContent).not.toContain('Ready')
         expect(container.textContent).toContain('Updated')
         expect(container.querySelectorAll('time')).toHaveLength(1)
+    })
+
+    it('leaves the relative times out of the server HTML', () => {
+        const html = renderToServerHtml(
+            <TimedProgressBar isVisible={true} steps={steps} data={0} lastUpdatedAt={new Date()} />,
+        )
+
+        expect(html).not.toContain('Ready')
+        expect(html).not.toContain('Updated')
+        expect(html).not.toContain('<time')
+    })
+
+    it('hydrates without a mismatch, then shows the caption', async () => {
+        const { recoverableErrors } = hydrateServerHtml(
+            <TimedProgressBar isVisible={true} steps={steps} data={0} lastUpdatedAt={new Date()} />,
+        )
+
+        expect(await screen.findByText('just now')).toBeInTheDocument()
+        expect(recoverableErrors).toEqual([])
     })
 })

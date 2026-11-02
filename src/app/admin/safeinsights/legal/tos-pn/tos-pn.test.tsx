@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, within } from '@testing-library/react'
 import {
     actionResult,
+    db,
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
@@ -63,6 +64,21 @@ describe('TosPnPanel', () => {
 
         expect(await screen.findByRole('button', { name: 'Version 1' })).toBeDefined()
         expect(screen.getByText(/Published on/)).toBeDefined()
+    })
+
+    // Matches "Effective on" on the user's legal page, which reads the same instant as a UTC day.
+    it('dates the current version by its UTC day', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const published = await seedPublishedTos('terms.md')
+        await db
+            .updateTable('legalDocumentVersion')
+            .set({ publishedAt: new Date('2026-09-24T01:30:00Z') })
+            .where('id', '=', published.id)
+            .execute()
+
+        renderWithProviders(<TosPnPanel doctype="TOS" />)
+
+        expect(await screen.findByText('Published on Sep 24, 2026')).toBeDefined()
     })
 
     it('lists prior versions in the history modal', async () => {

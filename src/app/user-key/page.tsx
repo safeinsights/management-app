@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import dayjs from 'dayjs'
 import { redirect } from 'next/navigation'
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
@@ -13,7 +12,5 @@ export default async function ManageKeysPage() {
     const key = actionResult(await getUserPublicKeyAction())
     if (!key) redirect(Routes.accountKeys)
 
-    const generatedOn = dayjs(key.updatedAt).format('MMM DD, YYYY')
-
-    return <RegenerateKey generatedOn={generatedOn} />
+    return <RegenerateKey generatedOn={key.updatedAt} />
 }

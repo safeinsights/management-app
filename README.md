@@ -16,7 +16,7 @@ It's responsible for:
 
 ### Production Environment
 
-- Node.js version 20.x or higher
+- Node.js 24.x
 - PostgreSQL
 
 ### Development Environment

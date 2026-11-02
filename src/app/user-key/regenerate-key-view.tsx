@@ -2,13 +2,14 @@
 
 import { FC } from 'react'
 import { Button, Divider, Group, Stack, Text, Title } from '@mantine/core'
+import { LocalDateTime } from '@/components/local-date-time'
 import { AppModal } from '@/components/modals/app-modal'
 import { PageHeader } from '@/components/page-header'
 import { fontWeight } from '@/theme/tokens'
 import { KEY_RESET_CONFIRM_COLOR, KEY_RESET_MODAL_BODY, KEY_RESET_MODAL_TITLE, KEY_RESET_WARNING } from './copy'
 
 export type RegenerateKeyViewProps = {
-    generatedOn: string
+    generatedOn: Date | string
     isModalOpen: boolean
     onOpenModal: () => void
     onCloseModal: () => void
@@ -32,8 +33,10 @@ export const RegenerateKeyView: FC<RegenerateKeyViewProps> = ({
                 </Title>
                 <Divider />
                 <Text fz="md">
-                    You generated a security key on {generatedOn}. For security reasons, SafeInsights does not store or
-                    display it again. You need this key to access your outputs in every organization you belong to.
+                    You generated a security key
+                    <LocalDateTime value={generatedOn} prefix=" on " />. For security reasons, SafeInsights does not
+                    store or display it again. You need this key to access your outputs in every organization you belong
+                    to.
                 </Text>
             </Stack>
 

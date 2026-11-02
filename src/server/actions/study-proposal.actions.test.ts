@@ -17,20 +17,24 @@ import {
     insertTestStudyJobData,
     seedAcknowledgedStudyAgreement,
     insertTestStudyOnly,
+    isUnreadOnMyStudies,
+    isUnreadOnOrgDashboard,
     mockSessionWithTestData,
     postHogCaptures,
     renameTestOrg,
     setTestStudyStatus,
+    stampStudyOpened,
+    studyOpenedAt,
     writeWorkspaceFiles,
     insertTestUser,
 } from '@/tests/unit.helpers'
 import { RESUBMIT_NOTE_MAX_CHARACTERS } from '@/schema/resubmission-note'
 import { submitCodeReviewDecisionAction } from '@/server/actions/code-review.actions'
 import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
+import { fetchNavUnreadAction } from '@/server/actions/study-dashboard.actions'
 import type { StudyJobStatus } from '@/database/types'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { mockClient } from 'aws-sdk-client-mock'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import { deliver } from '@/server/mailgun'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
@@ -63,6 +67,7 @@ import { resolvePillId } from '@/lib/study-screen'
 import { lexicalJson, lexicalToText } from '@/lib/lexical'
 import { pathForStudyJobCodeFile } from '@/lib/paths'
 import { flushDeferred } from '@/tests/vitest.setup'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -368,8 +373,8 @@ describe('Request Study Actions', () => {
         const { id: studyJobId } = await insertTestBaselineJob(draft.studyId)
 
         const visibleWhenSent: boolean[] = []
-        const sqsMock = mockClient(SQSClient)
-        sqsMock.on(SendMessageCommand).callsFake(async () => {
+        const queue = stubJobQueue()
+        queue.on(SendMessageCommand).callsFake(async () => {
             const submitted = await db
                 .selectFrom('jobStatusChange')
                 .select('id')
@@ -379,12 +384,9 @@ describe('Request Study Actions', () => {
             visibleWhenSent.push(submitted != null)
             return {}
         })
-        vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 
-        vi.unstubAllEnvs()
-        sqsMock.restore()
         expect(visibleWhenSent).toEqual([true])
     })
 
@@ -2339,6 +2341,84 @@ describe('Request Study Actions', () => {
                 resubmissionNote: wordsString(10),
             })
             expect(result).toHaveProperty('error')
+        })
+    })
+
+    // OTTER-937: the actor reads their own change as seen even when no leave stamp follows it.
+    describe('own changes are not unread for their author', () => {
+        const anHourAgo = () => new Date(Date.now() - 60 * 60 * 1000)
+
+        it('creating a draft leaves it read for its creator only', async () => {
+            const { lab, studyId, user } = await createTestProposalDraft({ enclaveSlug: 'otter-937-create' })
+            const { user: teammate } = await insertTestUser({ org: lab })
+
+            expect(await isUnreadOnOrgDashboard(lab.slug, studyId, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(studyId, user.id)).not.toBeNull()
+            expect(await studyOpenedAt(studyId, teammate.id)).toBeNull()
+        })
+
+        it('submitting a proposal leaves it read for the submitter, not for a co-author', async () => {
+            const { lab, studyId, user } = await createTestProposalDraft({ enclaveSlug: 'otter-937-submit' })
+            const { user: coAuthor } = await insertTestUser({ org: lab })
+            const earlier = anHourAgo()
+            await stampStudyOpened(studyId, [user.id, coAuthor.id], earlier)
+
+            actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+            expect(await isUnreadOnOrgDashboard(lab.slug, studyId, 'researcher')).toBe(false)
+            expect(await isUnreadOnMyStudies(studyId)).toBe(false)
+            expect(actionResult(await fetchNavUnreadAction())).toEqual({
+                myStudies: { researcher: false, reviewer: false },
+                orgSlugs: [],
+            })
+            expect(await studyOpenedAt(studyId, coAuthor.id)).toEqual(earlier)
+        })
+
+        it('submitting code leaves the study read for the submitter, not for a co-author', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { user: coAuthor } = await insertTestUser({ org })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            await ensureRoundJobForLaunch(db, study.id)
+            const root = await createWorkspaceDir('otter-937-submit-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+            const earlier = anHourAgo()
+            await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
+
+            actionResult(
+                await submitStudyCodeAction({ studyId: study.id, mainFileName: 'main.R', fileNames: ['main.R'] }),
+            )
+
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
+        })
+
+        it('resubmitting code leaves the study read for the resubmitter, not for a co-author', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { user: coAuthor } = await insertTestUser({ org })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-CHANGES-REQUESTED',
+            })
+            const root = await createWorkspaceDir('otter-937-resubmit-code')
+            workspaceRoots.push(root)
+            await writeWorkspaceFiles(root, study.id, { 'main.R': 'print("main")' })
+            const earlier = anHourAgo()
+            await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
+
+            actionResult(
+                await resubmitStudyCodeAction({
+                    studyId: study.id,
+                    mainFileName: 'main.R',
+                    fileNames: ['main.R'],
+                    resubmissionNote: buildFeedback(10),
+                }),
+            )
+
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
         })
     })
 

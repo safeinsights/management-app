@@ -2,6 +2,7 @@ import { Routes } from '@/lib/routes'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import {
     db,
+    findFieldErrorShownOnce,
     fireEvent,
     getAuditEntries,
     insertKeylessInvitedUser,
@@ -84,5 +85,16 @@ describe('PendingReset', () => {
             .where('orgId', '=', invitingOrg.id)
             .executeTakeFirst()
         expect(membership).toBeDefined()
+    })
+
+    it('shows a confirm password error one time, with the error icon', async () => {
+        mockCompletedReset()
+        renderWithProviders(<PendingReset pendingReset={{} as SignInResource} />)
+
+        await userEvent.type(screen.getByLabelText('New password'), VALID_PASSWORD)
+        await userEvent.type(screen.getByLabelText('Confirm New password'), `${VALID_PASSWORD}x`)
+        await userEvent.tab()
+
+        await findFieldErrorShownOnce('Passwords do not match. Please re-enter them.')
     })
 })

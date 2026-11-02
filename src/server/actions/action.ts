@@ -8,6 +8,7 @@ import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 import { setSentryFromSession } from '@/lib/sentry'
+import * as Sentry from '@sentry/nextjs'
 import {
     afterCommitQueue,
     localStorageContext,
@@ -172,13 +173,11 @@ export class Action<
                 return result
             } catch (error) {
                 // ActionFailure is the expected validation / permission path; only the rest is a bug.
-                if (error instanceof ActionFailure) {
-                    return { error: error.error }
-                }
-                logger.error(error)
-
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-                return { error: errorMessage }
+                if (!(error instanceof ActionFailure)) logger.error(error)
+                // The Lambda freezes once the response ends, and nothing else flushes a page render (OTTER-842).
+                await Sentry.flush(2000)
+                if (error instanceof ActionFailure) return { error: error.error }
+                return { error: error instanceof Error ? error.message : 'Unknown error occurred' }
             }
         }
 

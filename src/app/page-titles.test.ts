@@ -25,8 +25,8 @@ const declaredTitle = (file: string): string | undefined =>
 // A client page cannot export metadata, so its title sits in a layout beside it.
 const titleFor = (page: string) => declaredTitle(page) ?? declaredTitle(join(dirname(page), 'layout.tsx'))
 
-// OTTER-734. Next announces a client-side navigation by reading the new document title, and says
-// nothing when it has not changed, so a page left on the root default is silent to a screen reader.
+// OTTER-734. RouteAnnouncer speaks the new document title on a client-side navigation and skips the
+// root default (OTTER-823), so a page left on the default is silent to a screen reader.
 describe('page titles', () => {
     it('gives every route a title of its own', () => {
         const pages = screenFiles(APP_DIR)

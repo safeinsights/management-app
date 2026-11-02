@@ -67,16 +67,22 @@ describe('AcknowledgementsTable', () => {
         expect(row.closest('tr')?.textContent).toContain('None')
     })
 
-    it('reports the version a user agreed to and when', async () => {
+    it('reports the version a user agreed to and the UTC day they agreed on', async () => {
         const { user } = await mockSessionWithTestData({ isSiAdmin: true })
         await sortNearFront(user.id)
         const published = await publishTos()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: published.id }))
+        // Still Sep 23 in the test zone (America/Chicago), so a local day would read differently.
+        await db
+            .updateTable('legalDocumentAcknowledgement')
+            .set({ ackedAt: new Date('2026-09-24T01:30:00Z') })
+            .where('userId', '=', user.id)
+            .execute()
 
         renderWithProviders(<AcknowledgementsTable type="TOS" />)
 
         const row = (await screen.findByText(user.email!)).closest('tr')
-        expect(row?.textContent).toContain(dayjs().format('MMM DD, YYYY'))
+        expect(row?.textContent).toContain('Sep 24, 2026')
         expect(row?.textContent).not.toContain('None')
     })
 
