@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import logger from '@/lib/logger'
+import { env } from '@/server/config'
 import { runJob } from '@/server/jobs/registry'
 
 // The job worker Lambda runs this same app behind the Lambda Web Adapter, which POSTs each SQS
@@ -13,7 +14,7 @@ const sqsEventSchema = z.object({
 // records its own failure where the user can retry it, and a redelivery would only land a full
 // visibility timeout later. Only a crash or a timeout of the Lambda leaves the message to SQS (OTTER-799).
 export async function POST(request: Request) {
-    if (process.env.JOB_WORKER !== 't') return new Response(null, { status: 404 })
+    if (env.JOB_WORKER !== 't') return new Response(null, { status: 404 })
 
     const { Records } = sqsEventSchema.parse(await request.json())
     for (const record of Records) {
