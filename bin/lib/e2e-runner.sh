@@ -30,10 +30,18 @@ install_deps() {
     # applies the minimumReleaseAge of pnpm-workspace.yaml here exactly as on the host.
     pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile \
         --prefer-offline --config.confirmModulesPurge=false || {
-        echo "docker-e2e: pnpm-lock.yaml is out of sync with package.json (--frozen-lockfile failed)." >&2
-        echo "docker-e2e: run  pnpm install  on the host to refresh the lockfile, then re-run." >&2
+        echo "docker-e2e: pnpm install failed. On ERR_PNPM_OUTDATED_LOCKFILE, run  pnpm install  on the host;" >&2
+        echo "docker-e2e: otherwise reset this checkout's dependencies with  ./bin/docker-e2e --clean" >&2
         exit 1
     }
+    # An interrupted install can leave node_modules that pnpm reports as up to date.
+    local package
+    for package in kysely-ctl next @playwright/test tsx; do
+        if [ ! -f "node_modules/$package/package.json" ]; then
+            echo "docker-e2e: node_modules is incomplete ($package is missing); run  ./bin/docker-e2e --clean" >&2
+            exit 1
+        fi
+    done
 }
 
 psql_e2e() {
@@ -97,23 +105,29 @@ server_log_tail() {
     echo "-----" >&2
 }
 
-# Returns 0 when it built, so the caller knows a running server is stale.
+# Sets app_rebuilt, so the caller knows a running server is stale. Never call it as an `if`
+# condition: bash then ignores set -e inside it, and a failed build would carry on.
+app_rebuilt=false
 build_app_if_changed() {
     local want=${E2E_APP_FINGERPRINT:?E2E_APP_FINGERPRINT is set by bin/docker-e2e}
     if [ "${E2E_REBUILD:-}" != 1 ] && [ -f .next/standalone/server.js ] &&
         [ "$(cat "$FINGERPRINT_FILE" 2>/dev/null)" = "$want" ]; then
         note "app sources unchanged since the last build; skipping next build"
-        return 1
+        return 0
     fi
     stop_server
     note "building the app (E2E_FAKE_CLERK=1)"
     rm -f "$FINGERPRINT_FILE"
-    CI=true pnpm exec next build
+    CI=true pnpm exec next build || {
+        echo "docker-e2e: next build failed; see its output above." >&2
+        exit 1
+    }
     # The same copy steps as bin/app-test and bin/ci-server.
     cp -r public .next/standalone/
     mkdir -p .next/standalone/coder-files
     cp -r .next/static .next/standalone/.next/
     echo "$want" >"$FINGERPRINT_FILE"
+    app_rebuilt=true
 }
 
 start_server() {
@@ -149,12 +163,11 @@ start_server() {
 # Never hand off to Playwright with :4100 down: its webServer would then start `pnpm run app:test`,
 # which sources a bind-mounted .env.test and points the app at the host's database.
 ensure_server() {
-    local rebuilt=false
-    if build_app_if_changed; then rebuilt=true; fi
+    build_app_if_changed
     if server_running; then
         return 0
     fi
-    if [ -f "$SERVER_PID_FILE" ] && [ "$rebuilt" = false ]; then
+    if [ -f "$SERVER_PID_FILE" ] && [ "$app_rebuilt" = false ]; then
         echo "docker-e2e: the app server of this session has stopped." >&2
         server_log_tail
         echo "docker-e2e: end the session with ./bin/docker-e2e --down and start a new one." >&2

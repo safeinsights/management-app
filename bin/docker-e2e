@@ -33,13 +33,15 @@ usage() {
     echo "Options:"
     echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
     echo "  --clean               Fresh test database, storage, node_modules and build, but KEEP the pnpm"
-    echo "                        store & corepack cache (fast offline reinstall). Combines with a run."
-    echo "                        Refused while a session is up."
+    echo "                        store & corepack cache (fast offline reinstall). Combines with a run or"
+    echo "                        --up. Refused while a session is up. Also the fix for a broken install."
     echo "  --ui                  Open Playwright UI mode, served from the container. Prints a"
     echo "                        http://127.0.0.1:<port> URL to open in any browser; Ctrl-C stops it."
     echo "  --up                  Start an interactive session (stack + app server) and keep it running."
     echo "                        On a running session, print its status. Runs and --ui then use it."
-    echo "  --exec -- <cmd...>    Run a command in the session, e.g. pnpm exec playwright-cli ..."
+    echo "  --exec -- <cmd...>    Run a command in the session, e.g. pnpm exec playwright-cli ... Commands run"
+    echo "                        in the checkout root; playwright-cli writes to test-results/cli/ unless a"
+    echo "                        --filename path says otherwise (relative paths start at the checkout root)."
     echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
     echo "                        session. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
@@ -380,7 +382,10 @@ if [ "$action" = up ]; then
     echo "Starting an e2e session for this checkout (project $project)..."
     compose up -d e2e-session
     session=$(compose ps -a -q e2e-session)
-    compose logs -f --no-log-prefix e2e-session &
+    # Not through compose(): `$!` of a backgrounded function is its subshell, and killing that
+    # would leave `docker compose logs -f` running and holding stdout open.
+    docker compose -p "$project" -f "$repo_root/docker-compose.e2e.yml" --env-file /dev/null \
+        logs -f --no-log-prefix e2e-session &
     log_follower=$!
     # Healthy once the runner wrote its ready file (deps, DB, build and server done).
     state=
