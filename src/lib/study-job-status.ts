@@ -10,6 +10,10 @@ type Assert<T extends true> = T
 export type JobStatusMatchesDb = Assert<Equals<JobStatus, StudyJobStatus>>
 export type StudyStatusMatchesDb = Assert<Equals<StudyStatusValue, StudyStatus>>
 
+// The statuses no transition leaves. JOB-ERRORED is not one: the reviewer can still approve the code,
+// and the enclave can still complete the run.
+export const JOB_FINAL_STATUSES: readonly StudyJobStatus[] = ['CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
+
 export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
     'RUN-COMPLETE',
     'FILES-APPROVED',
