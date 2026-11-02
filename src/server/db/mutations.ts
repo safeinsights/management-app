@@ -5,7 +5,9 @@ import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
-import { openStudyJob } from '@/database/job-status-writer'
+import { openStudyJob, resolveJobState } from '@/database/job-status-writer'
+
+type RoundClosingStatus = (typeof ROUND_CLOSING_JOB_STATUSES)[number]
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -101,19 +103,6 @@ export async function getOrCreateCurrentRoundJob(
     const latest = await db
         .selectFrom('studyJob')
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
-        // Existence checks, not "latest status": createdAt is constant within a transaction and v7
-        // ids are not monotonic inside a millisecond, so ordering could flip the round decision.
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
-                )
-                .as('roundClosed'),
-        )
         .select((eb) =>
             eb
                 .exists(
@@ -132,7 +121,12 @@ export async function getOrCreateCurrentRoundJob(
         .limit(1)
         .executeTakeFirst()
 
-    if (!latest || latest.roundClosed) {
+    // From the log under the job lock, not the stored column, which an older app version may have left behind.
+    const roundClosed =
+        latest &&
+        ROUND_CLOSING_JOB_STATUSES.includes((await resolveJobState(db, latest.id)).status as RoundClosingStatus)
+
+    if (!latest || roundClosed) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
     }
     return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }

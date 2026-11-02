@@ -5,6 +5,7 @@ import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
 import {
+    CODE_ROUND_CLOSING_JOB_STATUSES,
     decideJobTransition,
     replayJobStatus,
     sortJobStatusRows,
@@ -72,14 +73,132 @@ export async function lockJobForTransition(trx: Transaction<DB>, jobId: string):
     return { studyId: job.studyId }
 }
 
+// Postgres keeps microseconds and a JS Date only milliseconds, so times are compared as text.
+const micros = (column: string) => sql<string>`(extract(epoch from ${sql.ref(column)}) * 1000000)::bigint::text`
+
 async function jobStatusRows(trx: Transaction<DB>, jobId: string) {
     const rows = await trx
         .selectFrom('jobStatusChange')
         .select(['id', 'status', 'message', 'createdAt'])
-        .select(sql<string>`(extract(epoch from created_at) * 1000000)::bigint::text`.as('createdAtMicros'))
+        .select(micros('jobStatusChange.createdAt').as('createdAtMicros'))
         .where('studyJobId', '=', jobId)
         .execute()
     return sortJobStatusRows(rows)
+}
+
+// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions.
+// Submissions and change requests alternate on a job, so its Nth submission is round N of its own.
+function jobRoundSql(jobId: string) {
+    return sql<number>`(
+        1 + (
+            SELECT count(*)
+            FROM job_status_change closer
+            JOIN study_job sibling ON sibling.id = closer.study_job_id
+            JOIN study_job job ON job.id = ${jobId}::uuid
+            WHERE sibling.study_id = job.study_id
+              AND (sibling.created_at, sibling.id) < (job.created_at, job.id)
+              AND closer.status = ANY(${CODE_ROUND_CLOSING_JOB_STATUSES}::study_job_status[])
+        ) + greatest(0, (
+            SELECT count(*)
+            FROM job_status_change submission
+            WHERE submission.study_job_id = ${jobId}::uuid
+              AND submission.status = 'CODE-SUBMITTED'
+        ) - 1)
+    )::int`
+}
+
+export type JobState = { status: JobStatus; round: number; statusChangedAt: Date }
+
+// Rewrites the job's columns from its log when they differ. Older app versions write log rows without
+// the columns during a deploy, so the log, read under the job lock, is what decides.
+async function repairJobState(
+    trx: Transaction<DB>,
+    jobId: string,
+    rows: Awaited<ReturnType<typeof jobStatusRows>>,
+): Promise<JobState & { repaired: boolean }> {
+    const { status, changedRow } = replayJobStatus(rows)
+    const stored = await trx
+        .selectFrom('studyJob')
+        .select(['currentStatus', 'round', 'statusChangedAt', 'createdAt'])
+        .select(micros('studyJob.statusChangedAt').as('statusChangedAtMicros'))
+        .select(micros('studyJob.createdAt').as('createdAtMicros'))
+        .select(jobRoundSql(jobId).as('computedRound'))
+        .where('id', '=', jobId)
+        .executeTakeFirstOrThrow()
+
+    const state = {
+        status: status ?? 'INITIATED',
+        round: stored.computedRound,
+        statusChangedAt: changedRow ? new Date(changedRow.createdAt) : stored.createdAt,
+    }
+    const changedMicros = changedRow?.createdAtMicros ?? stored.createdAtMicros
+    const repaired =
+        stored.currentStatus !== state.status ||
+        stored.round !== state.round ||
+        stored.statusChangedAtMicros !== changedMicros
+    if (repaired) {
+        await trx
+            .updateTable('studyJob')
+            .set({
+                currentStatus: state.status,
+                round: state.round,
+                // Copied in SQL so the stored time keeps the row's microseconds.
+                statusChangedAt: changedRow
+                    ? sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${changedRow.id}::uuid)`
+                    : sql<Date>`created_at`,
+            })
+            .where('id', '=', jobId)
+            .execute()
+    }
+    return { ...state, repaired }
+}
+
+// For a write path that decides before it writes: the job's state from its log, with the columns repaired.
+export async function resolveJobState(
+    executor: Executor,
+    jobId: string,
+): Promise<JobState & { studyId: string; repaired: boolean }> {
+    return inTransaction(executor, async (trx) => {
+        const { studyId } = await lockJobForTransition(trx, jobId)
+        return { studyId, ...(await repairJobState(trx, jobId, await jobStatusRows(trx, jobId))) }
+    })
+}
+
+// Repairs every job (or one study's), one transaction per job so a live writer waits on one lock at most.
+export async function recomputeJobStates(
+    db: Kysely<DB>,
+    { studyId, dryRun = false }: { studyId?: string; dryRun?: boolean } = {},
+): Promise<Array<{ jobId: string } & JobState>> {
+    let query = db.selectFrom('studyJob').select('id').orderBy('id')
+    if (studyId) query = query.where('studyId', '=', studyId)
+    const changed: Array<{ jobId: string } & JobState> = []
+    for (const { id } of await query.execute()) {
+        const state = await db
+            .transaction()
+            .execute(async (trx) => {
+                const result = await resolveJobState(trx, id)
+                if (dryRun && result.repaired) throw new DryRunRollback(result)
+                return result
+            })
+            .catch((error: unknown) => {
+                if (error instanceof DryRunRollback) return error.state
+                throw error
+            })
+        if (state.repaired)
+            changed.push({
+                jobId: id,
+                status: state.status,
+                round: state.round,
+                statusChangedAt: state.statusChangedAt,
+            })
+    }
+    return changed
+}
+
+class DryRunRollback extends Error {
+    constructor(readonly state: JobState & { repaired: boolean }) {
+        super('dry run')
+    }
 }
 
 export async function writeJobStatus(
@@ -105,6 +224,7 @@ export async function writeJobStatus(
         if (decision.kind === 'refused') throw new JobTransitionRefusedError(jobId, from, to, actor, decision.reason)
 
         if (decision.kind === 'repeat') {
+            await repairJobState(trx, jobId, rows)
             const existing = rows.findLast((row) => row.status === to)
             return {
                 outcome: 'repeat',
@@ -114,7 +234,10 @@ export async function writeJobStatus(
                 existing: existing && { id: existing.id, message: existing.message },
             }
         }
-        if (decision.kind === 'noop') return { outcome: 'noop', studyId, from, observed: false }
+        if (decision.kind === 'noop') {
+            await repairJobState(trx, jobId, rows)
+            return { outcome: 'noop', studyId, from, observed: false }
+        }
 
         // clock_timestamp(), not the now() default: now() is fixed for the whole transaction, so two
         // writes in one transaction would tie and the replay could not tell which came first.
@@ -123,6 +246,7 @@ export async function writeJobStatus(
             .values({ studyJobId: jobId, status: to, userId, message, createdAt: at ?? sql<Date>`clock_timestamp()` })
             .returning('id')
             .executeTakeFirstOrThrow()
+        await repairJobState(trx, jobId, await jobStatusRows(trx, jobId))
 
         return {
             outcome: decision.effect === 'move' ? 'moved' : 'logged',
@@ -145,7 +269,7 @@ export async function openStudyJob(
     executor: Executor,
     studyId: string,
     { actor, createdAt, at }: OpenStudyJobOptions,
-): Promise<{ id: string; createdAt: Date; statusChangeId: string }> {
+): Promise<{ id: string; createdAt: Date; statusChangeId: string; round: number }> {
     if (at && actor !== 'qa') throw new Error('only a qa write may set its own timestamp')
 
     return inTransaction(executor, async (trx) => {
@@ -161,7 +285,8 @@ export async function openStudyJob(
             .values({ studyJobId: job.id, status: 'INITIATED', createdAt: at ?? sql<Date>`clock_timestamp()` })
             .returning('id')
             .executeTakeFirstOrThrow()
-        return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id }
+        const state = await repairJobState(trx, job.id, await jobStatusRows(trx, job.id))
+        return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round: state.round }
     })
 }
 

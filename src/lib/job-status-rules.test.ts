@@ -162,7 +162,10 @@ describe('replayJobStatus', () => {
             row('JOB-RUNNING', '2026-01-01T00:00:05Z'),
             row('JOB-PROVISIONING', '2026-01-01T00:00:06Z'),
         ]
-        expect(replayJobStatus(rows)).toEqual({ status: 'JOB-RUNNING', changedAt: new Date('2026-01-01T00:00:05Z') })
+        expect(replayJobStatus(rows)).toMatchObject({
+            status: 'JOB-RUNNING',
+            changedAt: new Date('2026-01-01T00:00:05Z'),
+        })
     })
 
     it('stays on the decision after RESULTS-VIEWED', () => {
@@ -204,7 +207,7 @@ describe('replayJobStatus', () => {
 
     it('starts from a legacy first row that is not INITIATED, and from nothing at all', () => {
         expect(replayJobStatus([row('JOB-READY', '2026-01-01T00:00:00Z')]).status).toBe('JOB-READY')
-        expect(replayJobStatus([])).toEqual({ status: null, changedAt: null })
+        expect(replayJobStatus([])).toEqual({ status: null, changedAt: null, changedRow: null })
     })
 
     it.each(['CODE-SCANNED', 'JOB-RUNNING', 'JOB-ERRORED', 'CODE-SUBMITTED'] as const)(

@@ -233,19 +233,15 @@ export const sortJobStatusRows = <T extends ReplayRow>(rows: readonly T[]): T[] 
             (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     )
 
-// Only the writer orders rows; screens stay set-based (docs/study-screens-logic.md).
-export function replayJobStatus(rows: readonly ReplayRow[]): {
-    status: JobStatus | null
-    changedAt: Date | string | null
-} {
-    let status: JobStatus | null = null
-    let changedAt: Date | string | null = null
+// Only the writer orders rows; screens stay set-based (docs/study-screens-logic.md). `changedRow` is the
+// row the job is in, or null for a job with no rows.
+export function replayJobStatus<T extends ReplayRow>(
+    rows: readonly T[],
+): { status: JobStatus | null; changedAt: Date | string | null; changedRow: T | null } {
+    let current: T | null = null
     for (const row of sortJobStatusRows(rows)) {
-        if (row.status === status) continue
-        if (replayEffect(status, row.status) === 'move') {
-            status = row.status
-            changedAt = row.createdAt
-        }
+        if (row.status === current?.status) continue
+        if (replayEffect(current?.status ?? null, row.status) === 'move') current = row
     }
-    return { status, changedAt }
+    return { status: current?.status ?? null, changedAt: current?.createdAt ?? null, changedRow: current }
 }
