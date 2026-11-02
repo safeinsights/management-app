@@ -610,6 +610,18 @@ A repeat or a `log` row sends nothing, so a results delivery that follows the ru
 
 ---
 
+## What `study.status` means
+
+`study.status` holds the proposal decision only: `DRAFT`, `PENDING-REVIEW`, `APPROVED`,
+`CHANGE-REQUESTED`, `REJECTED` (and `ARCHIVED`, which nothing in the app writes). Code and results
+rounds live on the job: `studyJob.currentStatus` and `studyJob.round`, with the log for history. A code
+decision or a resubmission does not touch `study.status`, so the screens read the proposal decision
+from `study.status` alone (`proposalReviewDecision`). Older app versions flipped the status back to
+`PENDING-REVIEW` on a code resubmit; migration `1780300000000` moved those rows to `APPROVED`
+(OTTER-621).
+
+---
+
 ## Job round semantics
 
 - A round **closes** only on `FILES-APPROVED` / `FILES-REJECTED`.
