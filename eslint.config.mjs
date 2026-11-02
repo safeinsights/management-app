@@ -218,6 +218,28 @@ const eslintConfig = [
             ],
         },
     },
+    // Server config is read through the env schema, so every variable is declared once and typed
+    // (OTTER-848). The schema itself, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts, and
+    // the proxy/client helpers that take env as a parameter are the exceptions.
+    {
+        files: ['src/server/**/*.ts', 'src/lib/**/*.ts'],
+        ignores: [
+            'src/**/*.test.ts',
+            'src/server/config.ts',
+            'src/lib/config.ts',
+            'src/lib/csp.ts',
+            'src/lib/sentry-deploy.ts',
+        ],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: "MemberExpression[object.name='process'][property.name='env']",
+                    message: 'Read config through `env` from @/server/config, not process.env.',
+                },
+            ],
+        },
+    },
     // Theme tokens over ad-hoc styling.
     {
         // `.ts` too: the status pills and app-shell backgrounds are plain colour constants, and a
