@@ -222,23 +222,40 @@ describe('Data Source Actions', () => {
         expect(deletedUrl2).toHaveLength(0)
     })
 
-    it('refuses to update a url row that belongs to another org', async () => {
-        const otherOrg = await insertTestOrg({ slug: 'other-org-data-source-urls' })
+    it.each([
+        ['another org', async () => (await insertTestOrg({ slug: 'other-org-data-source-urls' })).id],
+        ['another data source in the same org', async (orgId: string) => orgId],
+    ])('refuses a url row from %s and rolls back the whole update', async (_, otherOrgId) => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
         const otherDs = await insertTestDataSource({
-            orgId: otherOrg.id,
+            orgId: await otherOrgId(org.id),
             urls: [{ url: 'https://example.com/theirs', description: 'Theirs' }],
         })
-        const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const ownDs = await insertTestDataSource({ orgId: org.id, name: 'Own' })
+        const ownDs = await insertTestDataSource({
+            orgId: org.id,
+            name: 'Own',
+            urls: [{ url: 'https://example.com/own', description: 'Own url' }],
+        })
+        const foreignUrlId = otherDs.urls[0].id
 
         const result = await updateOrgDataSourceAction({
             orgSlug: org.slug,
             dataSourceId: ownDs.id,
-            name: 'Own',
-            urls: [{ id: otherDs.urls[0].id, url: 'https://example.com/hijacked', description: 'Hijacked' }],
+            name: 'Renamed',
+            urls: [
+                { id: ownDs.urls[0].id, url: 'https://example.com/own-changed', description: 'Changed' },
+                { id: foreignUrlId, url: 'https://example.com/hijacked', description: 'Hijacked' },
+            ],
         })
 
-        expect(isActionError(result)).toBe(true)
+        expect(JSON.stringify(result)).toContain(`Data source url with id ${foreignUrlId} was not found`)
+        const own = await db
+            .selectFrom('orgDataSource')
+            .innerJoin('orgDataSourceUrl', 'orgDataSourceUrl.orgDataSourceId', 'orgDataSource.id')
+            .select(['orgDataSource.name', 'orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+            .where('orgDataSource.id', '=', ownDs.id)
+            .execute()
+        expect(own).toEqual([{ name: 'Own', url: 'https://example.com/own', description: 'Own url' }])
         const otherUrl = await db
             .selectFrom('orgDataSourceUrl')
             .select(['url', 'description'])
