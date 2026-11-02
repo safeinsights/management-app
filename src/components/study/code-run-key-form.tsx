@@ -2,12 +2,9 @@
 
 import { Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC } from 'react'
-import { LostKeyPopover } from '@/components/study/lost-key-popover'
-import { SecurityKeyInput } from '@/components/study/security-key-input'
-import { SecurityKeyViewButton } from '@/components/study/security-key-view-button'
-import { useSecurityKeyForm } from '@/components/study/use-security-key-form'
+import { LocalDateTime } from '@/components/local-date-time'
+import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { StudyJobStatus } from '@/database/types'
-import { formatInstant } from '@/lib/dates'
 import { codeRunEndedAt } from '@/lib/study-job-status'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -20,18 +17,13 @@ interface CodeRunKeyFormProps {
 
 // The reviewer's key form for the latest run. Researchers keep SecurityKeyForm.
 export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDecrypted }) => {
-    const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
-        job,
-        type: 'reviewer',
-        onDecrypted,
-    })
-    const runDate = formatInstant(codeRunEndedAt(job.statusChanges))
+    const runEndedAt = codeRunEndedAt(job.statusChanges)
 
     return (
         <Paper p="xxl" data-testid="security-key-form">
             <Stack gap="lg">
                 <Title fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')} order={3}>
-                    Code run • {runDate}
+                    Code run{runEndedAt ? <LocalDateTime value={runEndedAt} prefix=" • " /> : ' • —'}
                 </Title>
                 <Divider />
                 <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
@@ -48,22 +40,9 @@ export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDe
                         {description}
                     </Text>
                 </Stack>
-                <SecurityKeyInput
-                    ref={inputRef}
-                    autoFocus
-                    placeholder="Enter your security key"
-                    value={value}
-                    onChange={(event) => setValue(event.currentTarget.value)}
-                    error={error}
-                    disabled={isDecrypting}
-                />
-                <SecurityKeyViewButton
-                    isDecrypting={isDecrypting}
-                    isLoading={isLoadingFiles}
-                    idleLabel="View files"
-                    onClick={handleSubmit}
-                />
-                <LostKeyPopover />
+                {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
+                    keys, so the researcher key set would come back empty. */}
+                <SecurityKeyFields job={job} type="reviewer" buttonLabel="View files" onDecrypted={onDecrypted} />
             </Stack>
         </Paper>
     )

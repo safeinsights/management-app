@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
     db,
     fireEvent,
+    hydrateServerHtml,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -54,6 +55,20 @@ describe('CodeRunKeyForm', () => {
         expect(screen.getByText(DESCRIPTION)).toBeInTheDocument()
         expect(screen.queryByText(/It was issued to you during sign-up/)).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
+    })
+
+    // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
+    it('hydrates without a mismatch when the run ended after UTC midnight', async () => {
+        const lateRun = {
+            ...job,
+            statusChanges: [{ status: 'JOB-ERRORED' as const, createdAt: '2026-09-24T01:30:00Z' }],
+        }
+        const { recoverableErrors } = hydrateServerHtml(
+            <CodeRunKeyForm job={lateRun} description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
+
+        expect(await screen.findByRole('heading', { name: 'Code run • Sep 23, 2026' })).toBeInTheDocument()
+        expect(recoverableErrors).toEqual([])
     })
 
     it('falls back to a dash when the run has no finish time', async () => {

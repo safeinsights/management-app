@@ -136,8 +136,6 @@ const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, nav, onDecrypted })
     if (!isVisible) return null
     return (
         <>
-            {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
-                keys, so the researcher key set would come back empty. */}
             <CodeRunKeyForm
                 job={job}
                 description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
