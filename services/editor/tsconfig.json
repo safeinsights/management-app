@@ -14,6 +14,7 @@
         "**/*.ts",
         "../../src/lib/collaboration-documents.ts",
         "../../src/lib/db-connection.ts",
+        "../../src/lib/job-status-rules.ts",
         "../../src/lib/resilient-pool.ts"
     ],
     "exclude": ["node_modules"]

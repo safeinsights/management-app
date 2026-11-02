@@ -31,12 +31,18 @@ export const STUDY_STATUSES = [
 
 export type StudyStatusValue = (typeof STUDY_STATUSES)[number]
 
+export const SUBMITTED_PROPOSAL_REVIEW_STATUSES = [
+    'APPROVED',
+    'CHANGE-REQUESTED',
+    'REJECTED',
+] as const satisfies readonly StudyStatusValue[]
+
 // A round closes only after a post-run results decision; pre-run outcomes and a not-yet-reviewed
 // JOB-ERRORED continue the SAME job.
 export const ROUND_CLOSING_JOB_STATUSES = ['FILES-APPROVED', 'FILES-REJECTED'] as const satisfies readonly JobStatus[]
 
 // Closes a submission round rather than the job: a change request reopens the same job for new code.
-// CODE-REJECTED is omitted because reject is terminal (see codeSubmissionVersion).
+// CODE-REJECTED is omitted because reject is terminal (see canResearcherResubmitCode).
 export const CODE_ROUND_CLOSING_JOB_STATUSES = [
     'CODE-CHANGES-REQUESTED',
     'FILES-APPROVED',
