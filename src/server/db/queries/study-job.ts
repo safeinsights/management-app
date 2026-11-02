@@ -95,6 +95,31 @@ export const latestSubmittedJobForStudy = async (studyId: string): Promise<Lates
     return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
 }
 
+export type PriorCodeRun = Awaited<ReturnType<typeof priorCodeRunsForStudy>>[number]
+
+// A job counts as a code run only once the enclave finished it, errored or not; rounds closed
+// before running never produced outputs to review (OTTER-882).
+export async function priorCodeRunsForStudy(studyId: string, latestJobId: string) {
+    return await currentDb()
+        .selectFrom('studyJob')
+        .innerJoin(
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select((eb) => ['jobStatusChange.studyJobId', eb.fn.max('jobStatusChange.createdAt').as('ranAt')])
+                    .where('jobStatusChange.status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE'])
+                    .groupBy('jobStatusChange.studyJobId')
+                    .as('run'),
+            (join) => join.onRef('run.studyJobId', '=', 'studyJob.id'),
+        )
+        .select(['studyJob.id', 'run.ranAt'])
+        .where('studyJob.studyId', '=', studyId)
+        .where('studyJob.id', '!=', latestJobId)
+        .orderBy('run.ranAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .execute()
+}
+
 // jobStatusChange.message can hold raw service/AWS text, so it must not be selected in queries the
 // researcher can reach; the filter to known codes stops a duplicate JOB-ERRORED masking the real one.
 // (OTTER-524)

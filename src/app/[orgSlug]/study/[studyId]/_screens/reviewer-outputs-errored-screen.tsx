@@ -7,7 +7,7 @@ import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
-import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestRecordedJobFailureReason, latestSubmittedJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
 // OTTER-524 names the stage that failed and says plainly when no error log exists. OTTER-769
@@ -42,12 +42,14 @@ export async function ReviewerOutputsErroredScreen({
     // Banner copy and key gate read the same predicate, so the screen cannot promise a key form
     // it does not render (OTTER-524).
     const details = jobErrorDetails(job.statusChanges, job.files ?? [], recordedReason)
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
 
     return (
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
             job={job}
+            priorRuns={priorRuns}
             labName={labName}
             header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}

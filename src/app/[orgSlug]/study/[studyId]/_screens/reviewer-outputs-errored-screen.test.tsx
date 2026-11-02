@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
+import dayjs from 'dayjs'
 import {
     actionResult,
     db,
     fireEvent,
+    insertTestPriorCodeRun,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -516,5 +518,31 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
         expect(rows).toHaveLength(1)
         expect(rows[0].action).toBe('VIEWED')
         expect(rows[0].filePath).toBe('run.log')
+    })
+})
+
+describe('ReviewerOutputsErroredScreen code run history', () => {
+    beforeEach(() => {
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+    })
+
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        await renderScreen({ study, raw }, org.slug)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('counts the earlier runs before the outputs are decrypted', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        for (const days of [2, 4, 6]) {
+            await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(days, 'day').toDate() })
+        }
+        await renderScreen({ study, raw }, org.slug)
+        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+
+        expect(screen.getByRole('heading', { name: 'Code run history (3)' })).toBeInTheDocument()
+        expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
     })
 })

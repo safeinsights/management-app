@@ -7,11 +7,12 @@ import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/prop
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
+import { CodeRunHistory } from '@/components/study/code-run-history'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy, priorCodeRunsForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
@@ -55,6 +56,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
     const labName = study.submittingLabName
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const { reviewerName, decidedAt } = outputsDecisionAttribution(feedbackEntries, job.statusChanges)
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
 
     // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
     // submission-time scan log does not count as an output (OTTER-524).
@@ -79,6 +81,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                 />
                 <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
+                <CodeRunHistory runs={priorRuns} />
                 <StepNavigation nav={nav} />
             </Stack>
         </Box>
