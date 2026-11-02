@@ -6,6 +6,7 @@ import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
 import { isRoundClosing } from '@/lib/job-status-rules'
 import { openStudyJob } from '@/database/job-status-writer'
+import { latestJobQuery } from '@/server/db/queries'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -98,8 +99,7 @@ export async function getOrCreateCurrentRoundJob(
 ): Promise<RoundJob> {
     // Study first, as the status writer locks it, so two requests cannot both open the next round.
     await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
-    const latest = await db
-        .selectFrom('studyJob')
+    const latest = await latestJobQuery(db, studyId)
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt', 'studyJob.currentStatus as currentStatus'])
         .select((eb) =>
             eb
@@ -112,11 +112,6 @@ export async function getOrCreateCurrentRoundJob(
                 )
                 .as('hasSubmission'),
         )
-        .where('studyJob.studyId', '=', studyId)
-        // By id, not createdAt: ensureRoundJobForUpload backdates createdAt, which would rank a new
-        // round job behind the prior submission and open yet another round.
-        .orderBy('studyJob.id', 'desc')
-        .limit(1)
         .executeTakeFirst()
 
     // Read under the study lock, which every status write takes first.

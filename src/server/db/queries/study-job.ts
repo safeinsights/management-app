@@ -1,5 +1,5 @@
 import { Selectable } from 'kysely'
-import { jsonArrayFrom } from '@/database'
+import { jsonArrayFrom, type DBExecutor } from '@/database'
 import { ActionSuccessType } from '@/lib/types'
 import { throwNotFound } from '@/lib/errors'
 import { currentDb } from '@/server/request-context'
@@ -41,9 +41,21 @@ export async function getStudyJobInfo(studyJobId: string) {
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 
-function latestJobForStudyQuery(studyId: string) {
-    return currentDb()
+// The one "latest job" rule (OTTER-973): highest code round, then newest id. `submitted` skips a job
+// still waiting for its first submission, so routing that anchors on the submitted code is not masked
+// by a round that has only just opened. Job createdAt is moved for file staleness and never orders jobs.
+export function latestJobQuery(executor: DBExecutor, studyId: string, { submitted = false } = {}) {
+    const query = executor
         .selectFrom('studyJob')
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('studyJob.round', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .limit(1)
+    return submitted ? query.where('studyJob.currentStatus', '!=', 'INITIATED') : query
+}
+
+function latestJobForStudyQuery(studyId: string, options: { submitted?: boolean } = {}) {
+    return latestJobQuery(currentDb(), studyId, options)
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select(['study.orgId', 'study.language', 'study.status'])
@@ -63,24 +75,6 @@ function latestJobForStudyQuery(studyId: string) {
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .orderBy('studyJob.id', 'desc')
-        .limit(1)
-}
-
-// Routing that must anchor on the *submitted* code uses this, so an in-progress new round does not
-// mask the submission still under review.
-function latestSubmittedJobForStudyQuery(studyId: string) {
-    return latestJobForStudyQuery(studyId).where((eb) =>
-        eb.exists(
-            eb
-                .selectFrom('jobStatusChange')
-                .select('jobStatusChange.id')
-                .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                .where('jobStatusChange.status', '!=', 'INITIATED'),
-        ),
-    )
 }
 
 export const latestJobForStudy = async (studyId: string) => {
@@ -92,7 +86,17 @@ export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJo
 }
 
 export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
-    return (await latestSubmittedJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+    return (await latestJobForStudyQuery(studyId, { submitted: true }).executeTakeFirst()) ?? null
+}
+
+// The code round the job carries, stored by the status writer (OTTER-973).
+export async function jobRound(studyJobId: string, executor: DBExecutor): Promise<number> {
+    const job = await executor
+        .selectFrom('studyJob')
+        .select('round')
+        .where('id', '=', studyJobId)
+        .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
+    return job.round
 }
 
 // jobStatusChange.message can hold raw service/AWS text, so it must not be selected in queries the

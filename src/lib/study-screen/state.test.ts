@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { RawStudyState, RawJob } from './state.types'
+import { rawJob } from '@/tests/unit/job-histories'
+import type { RawStudyState } from './state.types'
 import {
     codeDecisionForScreen,
     isErroredOutputsSharedOutcome,
@@ -9,10 +10,7 @@ import {
 } from './state'
 import { resolveResearcherCodeScreen, resolveScreen } from './resolve'
 
-const job = (id: string, statuses: string[]): RawJob => ({
-    id,
-    statusChanges: statuses.map((status) => ({ status: status as RawJob['statusChanges'][number]['status'] })),
-})
+const job = rawJob
 
 const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     status: 'DRAFT',
@@ -46,7 +44,6 @@ describe('projectStudyState', () => {
         expect(s.codeAwaitingDecision).toBe(false)
         expect(s.hasResults).toBe(false)
         expect(s.isDraft).toBe(true)
-        expect(s.submissionRound).toBe(0)
     })
 
     it('CODE-APPROVED stays approved even with a later CODE-SCANNED on the same job', () => {
@@ -63,7 +60,6 @@ describe('projectStudyState', () => {
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [older, newer] }))
         expect(s.codeDecision).toBeNull()
         expect(s.codeAwaitingDecision).toBe(true)
-        expect(s.submissionRound).toBe(2)
     })
 
     // A same-job resubmit appends a second CODE-SUBMITTED, so submittedCount exceeds decisionCount

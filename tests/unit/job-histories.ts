@@ -1,4 +1,22 @@
 import type { StudyJobStatus } from '@/database/types'
+import { replayJobStatus } from '@/lib/job-status-rules'
+import type { RawJob } from '@/lib/study-screen'
+
+// A RawJob for pure projection tests. Its current status is the replay of `statuses` in order, as the
+// status writer would have stored it.
+export const rawJob = (id: string, statuses: readonly string[], round = 1): RawJob => ({
+    id,
+    round,
+    currentStatus:
+        replayJobStatus(
+            statuses.map((status, index) => ({
+                id: String(index),
+                status: status as StudyJobStatus,
+                createdAt: new Date(index * 1000),
+            })),
+        ).status ?? 'INITIATED',
+    statusChanges: statuses.map((status) => ({ status: status as StudyJobStatus })),
+})
 
 // Raw job histories for the job state parity test: each inner list is one job, oldest row first.
 export type JobHistory = { name: string; jobs: StudyJobStatus[][] }

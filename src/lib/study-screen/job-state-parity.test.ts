@@ -37,12 +37,13 @@ const jobColumns = (studyId: string) =>
         .orderBy('id')
         .execute()
 
-// The projection before OTTER-973 is the oracle: moving job state onto stored columns must not change
-// a single fact or the screen either role is routed to.
+// The projection before OTTER-973 is the oracle: reading the latest job from stored columns must not
+// change a single fact or the screen either role is routed to.
 describe('job state parity with the projection before OTTER-973', () => {
     it.each(JOB_HISTORIES)('agrees for $name', async ({ jobs }) => {
         const { raw } = await seedHistory(jobs)
-        const legacy = legacyProjectStudyState(raw)
+        // Intended difference: submissionRound had no reader and is gone; studyJob.round replaces it.
+        const { submissionRound: _, ...legacy } = legacyProjectStudyState(raw)
         const current = projectStudyState(raw)
 
         expect(current).toEqual(legacy)

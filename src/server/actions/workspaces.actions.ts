@@ -13,7 +13,12 @@ import {
     type WorkspaceLaunchStatus,
 } from '../coder'
 import { CODER_DISABLED } from '@/server/config'
-import { latestActivityPerWorkspaceFile, latestCodeSubmissionAt, latestSubmittedJobForStudy } from '@/server/db/queries'
+import {
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestJobQuery,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { ensureRoundJobForLaunch, markStudyOpened } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -305,12 +310,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             }
         }
 
-        const studyJob = await db
-            .selectFrom('studyJob')
-            .select(['createdAt'])
-            .where('studyId', '=', studyId)
-            .orderBy('id', 'desc')
-            .executeTakeFirst()
+        const studyJob = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
 
         if (!studyJob) return null
 

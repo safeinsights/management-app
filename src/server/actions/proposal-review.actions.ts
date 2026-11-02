@@ -8,7 +8,7 @@ import { assertDecisionFeedback } from './decision-feedback'
 import { toReviewDecision, type Decision } from '@/lib/review-decision'
 import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { sleep } from '@/lib/utils'
-import { currentReviewVersion, latestJobForStudy, fetchUserFullName } from '@/server/db/queries'
+import { currentReviewVersion, latestJobForStudy, latestJobQuery, fetchUserFullName } from '@/server/db/queries'
 import { markStudyOpened, markStudyUpdated, nextVersionForStudyComment } from '@/server/db/mutations'
 import { purgeReviewFeedbackYjsDocBeforeAt } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyApproved, onStudyNeedsClarification, onStudyRejected } from '@/server/events'
@@ -55,12 +55,7 @@ async function performStudyProposalApproval({
 
     onStudyApproved({ studyId, userId })
 
-    const latestJob = await db
-        .selectFrom('studyJob')
-        .select('id')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .executeTakeFirst()
+    const latestJob = await latestJobQuery(db, studyId).select('studyJob.id').executeTakeFirst()
 
     if (!latestJob) return
 
