@@ -263,14 +263,10 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
 })
 
 describe('ReviewerOutputsAvailableScreen code run history', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     it('is absent when the latest run is the only one', async () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
 
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
@@ -283,14 +279,12 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
             outcome: 'JOB-ERRORED',
             decision: 'FILES-REJECTED',
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, {
-                fileType: 'ENCRYPTED-RESULT',
-                files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
-            }),
-        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
 
         const history = screen.getByTestId('code-run-history')
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()

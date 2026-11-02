@@ -14,6 +14,7 @@ import {
     screen,
     type ScreenInputs,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
@@ -496,14 +497,10 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
 })
 
 describe('ReviewerOutputsErroredScreen code run history', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     it('is absent when the latest run is the only one', async () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
 
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
@@ -514,7 +511,7 @@ describe('ReviewerOutputsErroredScreen code run history', () => {
             await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(days, 'day').toDate() })
         }
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
 
         expect(screen.getByRole('heading', { name: 'Code run history (3)' })).toBeInTheDocument()
         expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
