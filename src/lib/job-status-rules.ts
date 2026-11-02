@@ -43,6 +43,11 @@ export const CODE_ROUND_CLOSING_JOB_STATUSES = [
     'FILES-REJECTED',
 ] as const satisfies readonly JobStatus[]
 
+// The submission version a user sees: a change request or an outputs decision already counts toward
+// the next round, while `round` stays on the code the job carries (OTTER-779).
+export const nextCodeSubmissionVersion = (job: { round: number; currentStatus: JobStatus }): number =>
+    job.round + ((CODE_ROUND_CLOSING_JOB_STATUSES as readonly JobStatus[]).includes(job.currentStatus) ? 1 : 0)
+
 export const JOB_ACTORS = ['researcher', 'reviewer', 'enclave', 'service', 'system', 'qa'] as const
 
 export type JobActor = (typeof JOB_ACTORS)[number]
