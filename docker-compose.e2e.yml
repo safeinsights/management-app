@@ -71,6 +71,10 @@ services:
             - next_e2e:/app/.next
         entrypoint: ['bin/lib/e2e-runner.sh', '--deps', '--prepare', '--']
         command: ['test']
+        # Playwright UI mode. Loopback only, because the UI can run tests and read project files;
+        # no host port, so Docker picks a free one and parallel checkouts never collide.
+        ports:
+            - '127.0.0.1::9323'
         depends_on:
             db-e2e:
                 condition: service_healthy

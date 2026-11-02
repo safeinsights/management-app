@@ -23,7 +23,7 @@ project_hash=$(printf '%s' "$repo_root" | sha256_hex | cut -c1-8)
 project="mgmt-app-e2e-${project_hash}"
 
 usage() {
-    echo "Usage: $0 [--rebuild] [--clean] [-- <playwright-args>]"
+    echo "Usage: $0 [--rebuild] [--clean] [--ui] [-- <playwright-args>]"
     echo "       $0 --down | --prune | --print-project-name | --help"
     echo ""
     echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
@@ -34,6 +34,8 @@ usage() {
     echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
     echo "  --clean               Fresh test database, storage, node_modules and build, but KEEP the pnpm"
     echo "                        store & corepack cache (fast offline reinstall). Combines with a run."
+    echo "  --ui                  Open Playwright UI mode, served from the container. Prints a"
+    echo "                        http://127.0.0.1:<port> URL to open in any browser; Ctrl-C stops it."
     echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
     echo "                        pnpm store & corepack cache. The runner image is kept. Then exits."
@@ -45,6 +47,7 @@ usage() {
     echo "  $0 -- tests/signin.spec.ts                # Run one spec"
     echo "  $0 -- -g 'creates a study' --trace on     # Filter by title, keep traces of passing tests"
     echo "  $0 --clean -- tests/signin.spec.ts        # Fresh state, then one spec"
+    echo "  $0 --ui -- tests/study-flow.spec.ts       # UI mode, filtered to one spec"
     echo ""
     echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, the"
     echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
@@ -77,6 +80,7 @@ while [ $# -gt 0 ]; do
         --clean) clean=true ;;
         --down) set_action down ;;
         --prune) set_action prune ;;
+        --ui) set_action ui ;;
         --print-project-name)
             echo "$project"
             exit 0
@@ -204,14 +208,45 @@ export E2E_APP_FINGERPRINT E2E_REBUILD
 tty_flag=(-T)
 if [ -t 0 ] && [ -t 1 ]; then tty_flag=(); fi
 
+# Waits until the UI answers on the published loopback port, then prints its URL.
+print_ui_url() {
+    local container port i
+    for i in $(seq 1 1800); do
+        container=$(runner_containers True)
+        port=
+        if [ -n "$container" ]; then
+            port=$(docker port "$container" 9323/tcp 2>/dev/null | head -n 1 | sed 's/.*://')
+        fi
+        if [ -n "$port" ] && curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$port"; then
+            echo ""
+            echo "[docker-e2e] Playwright UI: open http://127.0.0.1:$port  (Ctrl-C stops it)"
+            echo ""
+            return 0
+        fi
+        sleep 1
+    done
+}
+
+ui_url_printer=
 teardown() {
+    if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
     compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
 }
 trap teardown EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-echo "Running e2e tests in Docker (project $project)..."
 status=0
-compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm e2e-runner test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+if [ "$action" = ui ]; then
+    echo "Starting Playwright UI mode in Docker (project $project)..."
+    print_ui_url &
+    ui_url_printer=$!
+    # Plain `run` publishes no ports; --service-ports publishes the loopback-only UI port.
+    compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm --service-ports e2e-runner \
+        ui ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+else
+    echo "Running e2e tests in Docker (project $project)..."
+    compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm e2e-runner \
+        test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+fi
 exit "$status"
