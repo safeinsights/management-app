@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve the canonical repo root, following symlinks, so a clone reached via a symlink and one
+# reached directly map to the same project (same algorithm as bin/docker-test).
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+cd "$repo_root"
+
+sha256_hex() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -d' ' -f1
+    else
+        echo "Error: neither 'shasum' nor 'sha256sum' is available; install one of them." >&2
+        exit 1
+    fi
+}
+
+# One Compose project per checkout and per git worktree, so runs in different checkouts never
+# share containers, volumes or networks.
+project_hash=$(printf '%s' "$repo_root" | sha256_hex | cut -c1-8)
+project="mgmt-app-e2e-${project_hash}"
+
+usage() {
+    echo "Usage: $0 [--rebuild] [--clean] [-- <playwright-args>]"
+    echo "       $0 --down | --prune | --print-project-name | --help"
+    echo ""
+    echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
+    echo "and Chromium. Nothing is published on host ports. Containers are removed when the run ends;"
+    echo "volumes are kept, so the next run is warm. Results land in test-results/e2e/."
+    echo ""
+    echo "Options:"
+    echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
+    echo "  --clean               Fresh test database, storage, node_modules and build, but KEEP the pnpm"
+    echo "                        store & corepack cache (fast offline reinstall). Combines with a run."
+    echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Then exits."
+    echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
+    echo "                        pnpm store & corepack cache. The runner image is kept. Then exits."
+    echo "  --print-project-name  Print this checkout's Compose project name and exit"
+    echo "  --help                Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                                        # Run the whole suite"
+    echo "  $0 -- tests/signin.spec.ts                # Run one spec"
+    echo "  $0 -- -g 'creates a study' --trace on     # Filter by title, keep traces of passing tests"
+    echo "  $0 --clean -- tests/signin.spec.ts        # Fresh state, then one spec"
+    echo ""
+    echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, the"
+    echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
+    echo "      Values in host .env files are not part of the fingerprint: use --rebuild after changing them."
+    echo ""
+    echo "      Migrations are applied on every run. The test database is recreated when an applied"
+    echo "      migration is missing from the codebase (e.g. after a branch switch)."
+    echo ""
+    echo "      Each run rebuilds the e2e-runner image from Dockerfile.dev first (about a second when"
+    echo "      nothing changed). Chromium lives in an image layer keyed on the locked Playwright version."
+    exit "${1:-0}"
+}
+
+rebuild=false
+clean=false
+action=run
+playwright_args=()
+
+set_action() {
+    if [ "$action" != run ]; then
+        echo "Error: --$action and --$1 cannot be combined." >&2
+        usage 1
+    fi
+    action=$1
+}
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --rebuild) rebuild=true ;;
+        --clean) clean=true ;;
+        --down) set_action down ;;
+        --prune) set_action prune ;;
+        --print-project-name)
+            echo "$project"
+            exit 0
+            ;;
+        --help | -h) usage ;;
+        --)
+            shift
+            # An array keeps spaced arguments such as -g 'two words' intact.
+            playwright_args=("$@")
+            break
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage 1
+            ;;
+    esac
+    shift
+done
+
+# Without an explicit project name Compose falls back to the folder name, which is the dev stack's
+# project; a teardown with --remove-orphans would then remove the running dev containers.
+case $project in
+    mgmt-app-e2e-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+    *)
+        echo "Error: unexpected Compose project name '$project'." >&2
+        exit 1
+        ;;
+esac
+
+# --env-file /dev/null keeps a host .env (COMPOSE_* or anything else) out of the interpolation.
+compose() {
+    docker compose -p "$project" -f "$repo_root/docker-compose.e2e.yml" --env-file /dev/null "$@"
+}
+
+runner_containers() {
+    docker ps -q \
+        --filter "label=com.docker.compose.project=$project" \
+        --filter "label=com.docker.compose.service=e2e-runner" \
+        --filter "label=com.docker.compose.oneoff=$1" 2>/dev/null || true
+}
+
+if [ "$action" = down ]; then
+    echo "Removing e2e containers + network for this checkout (volumes kept)..."
+    compose down -t 1 --remove-orphans
+    exit 0
+fi
+
+if [ "$action" = prune ]; then
+    echo "Removing ALL e2e Docker resources for this checkout (the runner image is kept)..."
+    compose down -t 1 -v --remove-orphans
+    # `down -v` only removes volumes the current compose file still declares.
+    leftover=$(docker volume ls -q --filter "name=^${project}_" 2>/dev/null || true)
+    if [ -n "$leftover" ]; then
+        echo "Removing leftover volumes:"
+        echo "$leftover" | sed 's/^/  /'
+        echo "$leftover" | xargs docker volume rm >/dev/null 2>&1 || true
+    fi
+    echo "Done. The next run reinstalls dependencies from the network and builds the app from cold."
+    exit 0
+fi
+
+# One run per checkout: a running one-shot runner container is the lock. Checked after argument
+# parsing so --help and --print-project-name work with Docker stopped.
+if [ -n "$(runner_containers True)" ]; then
+    echo "Error: a ./bin/docker-e2e run is already active for this checkout." >&2
+    echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
+    exit 1
+fi
+
+# Read from the lockfile, so no host node_modules is needed.
+importer_version() {
+    awk -v key="      '$1':" '
+        $0 == key { found = 1; next }
+        found && $1 == "version:" { sub(/\(.*/, "", $2); print $2; exit }
+    ' pnpm-lock.yaml
+}
+
+PNPM_PACKAGE_MANAGER=$(sed -nE 's/^ *"packageManager": *"([^"]+)".*/\1/p' package.json)
+PLAYWRIGHT_VERSION=$(importer_version '@playwright/test')
+if [ -z "$PNPM_PACKAGE_MANAGER" ] || [ -z "$PLAYWRIGHT_VERSION" ]; then
+    echo "Error: could not read packageManager from package.json or @playwright/test from pnpm-lock.yaml." >&2
+    exit 1
+fi
+export PNPM_PACKAGE_MANAGER PLAYWRIGHT_VERSION
+
+# Computed on the host, because git inside the container breaks for worktrees (their .git file
+# points at a host path). Covers committed, staged, unstaged and untracked app inputs.
+app_fingerprint() {
+    local image_id=$1
+    local inputs=(src public next.config.ts package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json postcss.config.mjs)
+    local exclude=':(exclude)*.test.*'
+    {
+        git ls-files -s -- "${inputs[@]}" "$exclude"
+        git diff HEAD -- "${inputs[@]}" "$exclude"
+        git ls-files -o --exclude-standard -z -- "${inputs[@]}" "$exclude" |
+            while IFS= read -r -d '' file; do
+                printf '%s %s\n' "$(git hash-object -- "$file")" "$file"
+            done
+        echo "$image_id"
+    } | sha256_hex
+}
+
+echo "Building the e2e-runner image..."
+compose build --quiet e2e-runner
+# Layers + config, not the image ID: with the containerd image store the ID changes on every
+# fully cached build, which would rebuild the app on every run.
+image_key() {
+    docker image inspect -f '{{json .RootFS.Layers}}{{json .Config}}' "$1" | sha256_hex
+}
+image_id=$(image_key "${project}-e2e-runner")
+
+if [ "$clean" = true ]; then
+    echo "Cleaning the test database, storage, build and node_modules (pnpm store + corepack cache kept)..."
+    compose down -t 1 --remove-orphans
+    docker volume rm "${project}_pgdata-e2e" "${project}_seaweedfs-data-e2e" "${project}_next_e2e" >/dev/null 2>&1 || true
+    compose run -T --rm --no-deps --entrypoint sh e2e-runner \
+        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' || true
+fi
+
+E2E_APP_FINGERPRINT=$(app_fingerprint "$image_id")
+E2E_REBUILD=
+if [ "$rebuild" = true ]; then E2E_REBUILD=1; fi
+export E2E_APP_FINGERPRINT E2E_REBUILD
+
+tty_flag=(-T)
+if [ -t 0 ] && [ -t 1 ]; then tty_flag=(); fi
+
+teardown() {
+    compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
+}
+trap teardown EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+echo "Running e2e tests in Docker (project $project)..."
+status=0
+compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm e2e-runner test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+exit "$status"
