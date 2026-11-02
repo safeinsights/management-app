@@ -63,8 +63,11 @@ usage() {
     echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
     echo "      Values in host .env files are not part of the fingerprint: use --rebuild after changing them."
     echo ""
-    echo "      Migrations are applied on every run. The test database is recreated when an applied"
-    echo "      migration is missing from the codebase (e.g. after a branch switch)."
+    echo "      Migrations are applied on every run. The test database keeps the data of earlier runs; it"
+    echo "      is recreated by --clean and when an applied migration is missing from the codebase."
+    echo ""
+    echo "      PLAYWRIGHT_WORKERS=<n> caps the workers (default: one per CPU of the Docker VM), e.g. when"
+    echo "      several checkouts run at once. A cap is fixed for the whole run."
     echo ""
     echo "      Each run rebuilds the e2e-runner image from Dockerfile.dev first (about a second when"
     echo "      nothing changed). Chromium lives in image layers keyed on the locked Playwright versions."
@@ -288,8 +291,10 @@ collect_other_stacks() {
     while IFS='|' read -r proj service dir; do
         case "$proj|$service" in
             "$project|"*) ;;
-            mgmt-app-e2e-*"|e2e-runner" | mgmt-app-e2e-*"|e2e-session")
-                stack_notice+=("WARNING  another e2e stack: $dir ($proj)") ;;
+            mgmt-app-e2e-*"|e2e-runner")
+                stack_notice+=("WARNING  another e2e run: $dir ($proj)") ;;
+            mgmt-app-e2e-*"|e2e-session")
+                stack_notice+=("info     an e2e session, maybe idle: $dir ($proj)") ;;
             mgmt-app-test-*"|test-runner")
                 stack_notice+=("info     unit tests (./bin/docker-test): $dir ($proj)") ;;
         esac
