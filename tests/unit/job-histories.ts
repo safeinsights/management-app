@@ -25,6 +25,7 @@ export const JOB_HISTORIES: JobHistory[] = [
     { name: 'viewed outputs', jobs: [[...COMPLETE, 'FILES-APPROVED', 'RESULTS-VIEWED']] },
     { name: 'shared errored outputs', jobs: [[...APPROVED, 'JOB-ERRORED', 'FILES-APPROVED']] },
     { name: 'contradictory legacy decisions', jobs: [[...COMPLETE, 'FILES-APPROVED', 'FILES-REJECTED']] },
+    { name: 'a late scan after the outputs decision', jobs: [[...COMPLETE, 'FILES-REJECTED', 'CODE-SCANNED']] },
     { name: 'a rejected code submission', jobs: [[...SUBMITTED, 'CODE-REJECTED']] },
     { name: 'a decided round and a baseline job', jobs: [[...COMPLETE, 'FILES-REJECTED'], ['INITIATED']] },
     { name: 'a decided round and new code', jobs: [[...COMPLETE, 'FILES-REJECTED'], SUBMITTED] },

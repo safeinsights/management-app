@@ -1,13 +1,15 @@
 import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
+import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { sql, type Kysely } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
-import { JOB_STATUSES, REPLAY_TIE_RANK, findTransition } from '@/lib/job-status-rules'
+import { JOB_STATUSES, REPLAY_TIE_RANK, findTransition, replayEffect } from '@/lib/job-status-rules'
 import { codeRoundForJob } from '@/server/db/code-round'
 import { openStudyJob, recomputeJobStates, resolveJobState, writeJobStatus } from '@/database/job-status-writer'
 import {
     BACKFILL_LOG_PAIRS,
     BACKFILL_ROUND_CLOSING_STATUSES,
     BACKFILL_TIE_RANK,
+    backfillEffect,
     backfillStudyJobState,
 } from './migrations/1787900000000_study_job_current_status'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
@@ -130,6 +132,13 @@ const CASES: Case[] = [
         round: 1,
     },
     {
+        name: 'a late scan after the outputs decision',
+        history: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'CODE-SCANNED'],
+        status: 'FILES-REJECTED',
+        changedAtRow: 4,
+        round: 1,
+    },
+    {
         name: 'RESULTS-VIEWED after the decision',
         history: ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'RESULTS-VIEWED'],
         status: 'FILES-APPROVED',
@@ -231,6 +240,14 @@ describe('pinned backfill rule', () => {
         }
     })
 
+    it('gives every pair the effect the runtime replay gives it', () => {
+        for (const to of JOB_STATUSES) {
+            for (const from of JOB_STATUSES) {
+                expect(backfillEffect(from, to), `${from} -> ${to}`).toBe(replayEffect(from, to))
+            }
+        }
+    })
+
     it('breaks ties and counts rounds as the runtime does', () => {
         expect(BACKFILL_TIE_RANK).toEqual(REPLAY_TIE_RANK)
         expect(BACKFILL_ROUND_CLOSING_STATUSES).toEqual(CODE_ROUND_CLOSING_JOB_STATUSES)
@@ -317,5 +334,25 @@ describe('a job that older code touched during a deploy', () => {
         await recomputeJobStates(db, { studyId })
         expect((await columnsOf(jobId)).currentStatus).toBe('CODE-APPROVED')
         expect(await recomputeJobStates(db, { studyId })).toEqual([])
+    })
+
+    it('opens the next round when a late scan followed the outputs decision', async () => {
+        const { study } = await insertTestStudyOnly()
+        const jobId = await insertLegacyJob(study.id, [
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'RUN-COMPLETE',
+            'FILES-REJECTED',
+        ])
+        // eslint-disable-next-line custom/noJobStatusWrites -- an older scanner callback appended it
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: jobId, status: 'CODE-SCANNED', createdAt: sql<Date>`clock_timestamp()` })
+            .execute()
+
+        const next = await getOrCreateCurrentRoundJob(db, study.id)
+
+        expect(next).toMatchObject({ created: true })
+        expect((await columnsOf(jobId)).currentStatus).toBe('FILES-REJECTED')
     })
 })

@@ -12,7 +12,7 @@ import { type Kysely, sql } from 'kysely'
 // one. study_job_current_status.test.ts compares both with the runtime rule.
 const STAGES = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING']
 
-// The (to, from) pairs whose row stays as history without moving the job. Every other pair moves it.
+// The (to, from) pairs whose row stays as history without moving the job.
 export const BACKFILL_LOG_PAIRS: Readonly<Record<string, readonly string[]>> = {
     'CODE-SCANNED': ['CODE-CHANGES-REQUESTED', 'CODE-APPROVED', ...STAGES, 'JOB-ERRORED', 'RUN-COMPLETE'],
     'JOB-ERRORED': ['CODE-CHANGES-REQUESTED'],
@@ -20,6 +20,14 @@ export const BACKFILL_LOG_PAIRS: Readonly<Record<string, readonly string[]>> = {
         STAGES.map((stage, index) => [stage, [...STAGES.slice(index + 1), 'JOB-ERRORED', 'RUN-COMPLETE']]),
     ),
     'RESULTS-VIEWED': ['FILES-APPROVED', 'FILES-REJECTED'],
+}
+
+const BACKFILL_DECISION_STATUSES = ['FILES-APPROVED', 'FILES-REJECTED']
+
+// A decided round only changes its decision: a late report after it stays history. Every other pair moves.
+export function backfillEffect(from: string, to: string): 'move' | 'log' {
+    if (BACKFILL_LOG_PAIRS[to]?.includes(from)) return 'log'
+    return BACKFILL_DECISION_STATUSES.includes(from) && !BACKFILL_DECISION_STATUSES.includes(to) ? 'log' : 'move'
 }
 
 // Orders rows that tie on created_at, which rows written in one transaction under now() do.
@@ -56,7 +64,7 @@ export function backfillReplay(rows: readonly BackfillRow[]): BackfillRow | null
     let current: BackfillRow | null = null
     for (const row of sorted) {
         if (current && row.status === current.status) continue
-        if (current && BACKFILL_LOG_PAIRS[row.status]?.includes(current.status)) continue
+        if (current && backfillEffect(current.status, row.status) === 'log') continue
         current = row
     }
     return current
@@ -133,8 +141,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('status_changed_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .execute()
 
-    // No table lock: older code may write during the backfill, and the status writer repairs any job
-    // it touches.
+    // The migrator runs this in one transaction, so the ADD COLUMN lock holds study_job, reads included,
+    // until the backfill commits. Older code waits rather than writing beside it.
     await backfillStudyJobState(db)
 }
 
