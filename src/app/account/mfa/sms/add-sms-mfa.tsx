@@ -15,8 +15,7 @@ export function AddSMSMFA() {
         isSendingSms,
         isVerifyingCode,
         phoneLastFour,
-        backupCodes,
-        hasExistingCodes,
+        enrolled,
         sendVerificationCode,
         resendCode,
         verifyCodeAndSetMfa,
@@ -42,11 +41,7 @@ export function AddSMSMFA() {
                         isVerifyingCode={isVerifyingCode}
                         phoneLastFour={phoneLastFour}
                     />
-                    <BackupCodes
-                        isVisible={step === 'backup'}
-                        codes={backupCodes}
-                        hasExistingCodes={hasExistingCodes}
-                    />
+                    <BackupCodes isVisible={step === 'backup'} enrolled={enrolled} />
                 </Stack>
             </Paper>
         </Container>

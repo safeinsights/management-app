@@ -7,6 +7,7 @@ import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import type { EnrolledCodes } from '../enrollment-codes'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -17,11 +18,10 @@ type ConfirmationModalProps = {
 
 type BackupCodesProps = {
     isVisible: boolean
-    codes?: string[] | null
-    hasExistingCodes?: boolean
+    enrolled: EnrolledCodes | null
 }
 
-function useBackupCodes(enrolledCodes?: string[] | null) {
+function useBackupCodes(enrolled: EnrolledCodes | null) {
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
@@ -35,7 +35,7 @@ function useBackupCodes(enrolledCodes?: string[] | null) {
         router.push(Routes.dashboard)
     }
 
-    const codes = enrolledCodes ?? []
+    const codes = enrolled?.codes ?? []
     const hasCodes = codes.length > 0
 
     // Leaving without copying gets a confirmation, since the codes are never shown again. With no codes
@@ -48,6 +48,7 @@ function useBackupCodes(enrolledCodes?: string[] | null) {
     return {
         codes,
         hasCodes,
+        hasExistingCodes: Boolean(enrolled?.hasExistingCodes),
         isSessionLoaded,
         modalOpened,
         isRedirecting,
@@ -142,11 +143,12 @@ const CopiedNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const BackupCodes = ({ isVisible, codes: enrolledCodes, hasExistingCodes = false }: BackupCodesProps) => {
+const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
     const { isLoaded } = useUser()
     const {
         codes,
         hasCodes,
+        hasExistingCodes,
         isSessionLoaded,
         modalOpened,
         isRedirecting,
@@ -154,7 +156,7 @@ const BackupCodes = ({ isVisible, codes: enrolledCodes, hasExistingCodes = false
         closeModal,
         leave,
         goToDashboard,
-    } = useBackupCodes(enrolledCodes)
+    } = useBackupCodes(enrolled)
 
     if (!isVisible || !isLoaded) return null
 

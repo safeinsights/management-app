@@ -8,7 +8,7 @@ import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { errorToString } from '@/lib/errors'
 import { sleep } from '@/lib/utils'
-import { codesFromEnrollment } from '../enrollment-codes'
+import { enrollAndReadCodes, type EnrolledCodes } from '../enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 import type { PhoneFormValues } from './add-sms-mfa-view'
 
@@ -21,8 +21,7 @@ export type AddSmsMfaStep = 'phone' | 'otp' | 'backup'
 export function useAddSmsMfa() {
     const { isLoaded, user } = useRequireUser()
     const [isVerifying, setIsVerifying] = useState(false)
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
-    const [hasExistingCodes, setHasExistingCodes] = useState(false)
+    const [enrolled, setEnrolled] = useState<EnrolledCodes | null>(null)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
@@ -123,10 +122,7 @@ export function useAddSmsMfa() {
             }
 
             try {
-                const hadCodes = Boolean(user?.backupCodeEnabled)
-                const reserved = await setReservedForSecondFactor(phoneObj)
-                setHasExistingCodes(hadCodes)
-                setBackupCodes(codesFromEnrollment(reserved?.backupCodes, hadCodes))
+                setEnrolled(await enrollAndReadCodes(user, () => setReservedForSecondFactor(phoneObj)))
                 showToast({ category: 'success', title: 'MFA enabled' })
             } catch (error) {
                 console.error(error)
@@ -144,7 +140,7 @@ export function useAddSmsMfa() {
         }
     }
 
-    const step: AddSmsMfaStep = backupCodes ? 'backup' : isVerifying ? 'otp' : 'phone'
+    const step: AddSmsMfaStep = enrolled ? 'backup' : isVerifying ? 'otp' : 'phone'
 
     return {
         isReady: isLoaded && Boolean(user),
@@ -154,8 +150,7 @@ export function useAddSmsMfa() {
         isSendingSms,
         isVerifyingCode,
         phoneLastFour: phoneObj?.phoneNumber?.slice(-4),
-        backupCodes,
-        hasExistingCodes,
+        enrolled,
         sendVerificationCode,
         resendCode,
         verifyCodeAndSetMfa,

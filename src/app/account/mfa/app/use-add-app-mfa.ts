@@ -6,7 +6,7 @@ import { useForm } from '@/common'
 import { reportError } from '@/components/errors'
 import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { codesFromEnrollment } from '../enrollment-codes'
+import { enrollAndReadCodes, type EnrolledCodes } from '../enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 
 const REGENERATE_COOLDOWN_MS = 30000
@@ -27,9 +27,7 @@ function secretFromUri(uri?: string) {
 
 export function useAddAppMfa() {
     const { isLoaded, user } = useRequireUser()
-    const [step, setStep] = useState<AddAppMfaStep>('add')
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
-    const [hasExistingCodes, setHasExistingCodes] = useState(false)
+    const [enrolled, setEnrolled] = useState<EnrolledCodes | null>(null)
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [isVerifying, setIsVerifying] = useState(false)
@@ -74,11 +72,7 @@ export function useAddAppMfa() {
         if (!user) return
         setIsVerifying(true)
         try {
-            const hadCodes = user.backupCodeEnabled
-            const verified = await user.verifyTOTP({ code: values.code })
-            setHasExistingCodes(hadCodes)
-            setBackupCodes(codesFromEnrollment(verified.backupCodes, hadCodes))
-            setStep('success')
+            setEnrolled(await enrollAndReadCodes(user, () => user.verifyTOTP({ code: values.code })))
         } catch (err) {
             if (!isIncorrectCode(err)) logger.error('Error verifying TOTP', err)
             form.setErrors({ code: 'Invalid verification code. Please try again.' })
@@ -87,11 +81,12 @@ export function useAddAppMfa() {
         }
     }
 
+    const step: AddAppMfaStep = enrolled ? 'success' : 'add'
+
     return {
         isReady: isLoaded && Boolean(user),
         step,
-        backupCodes,
-        hasExistingCodes,
+        enrolled,
         totpUri: totp?.uri,
         secret: secretFromUri(totp?.uri),
         canRegenerate,

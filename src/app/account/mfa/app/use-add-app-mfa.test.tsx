@@ -53,7 +53,7 @@ describe('useAddAppMfa', () => {
         expect(user.verifyTOTP).toHaveBeenCalledWith({ code: '123456' })
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('success')
-        expect(result.current.backupCodes).toEqual(['code-1', 'code-2'])
+        expect(result.current.enrolled).toEqual({ codes: ['code-1', 'code-2'], hasExistingCodes: false })
     })
 
     it('finishes with no codes when the user already has backup codes', async () => {
@@ -66,8 +66,7 @@ describe('useAddAppMfa', () => {
 
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('success')
-        expect(result.current.backupCodes).toEqual([])
-        expect(result.current.hasExistingCodes).toBe(true)
+        expect(result.current.enrolled).toEqual({ codes: [], hasExistingCodes: true })
         expect(logError).not.toHaveBeenCalled()
     })
 
@@ -80,8 +79,7 @@ describe('useAddAppMfa', () => {
         await act(() => result.current.verifyTotp({ code: '123456' }))
 
         expect(result.current.step).toBe('success')
-        expect(result.current.backupCodes).toEqual([])
-        expect(result.current.hasExistingCodes).toBe(false)
+        expect(result.current.enrolled).toEqual({ codes: [], hasExistingCodes: false })
         expect(logError).toHaveBeenCalled()
     })
 

@@ -12,6 +12,8 @@ import {
 } from '@/tests/unit.helpers'
 import BackupCodes from './backup-codes'
 
+const ISSUED_CODES = { codes: ['code-1', 'code-2'], hasExistingCodes: false }
+
 describe('BackupCodes', () => {
     beforeEach(() => {
         router.setCurrentUrl('/account/mfa/app')
@@ -20,7 +22,7 @@ describe('BackupCodes', () => {
     it('asks for confirmation before leaving when the codes were not copied', async () => {
         const user = userEvent.setup()
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible codes={['code-1', 'code-2']} />)
+        renderWithProviders(<BackupCodes isVisible enrolled={ISSUED_CODES} />)
 
         await user.click(screen.getByRole('button', { name: 'Go to SafeInsights' }))
 
@@ -36,7 +38,7 @@ describe('BackupCodes', () => {
     it('goes straight to the dashboard once the codes are copied', async () => {
         const user = userEvent.setup()
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible codes={['code-1', 'code-2']} />)
+        renderWithProviders(<BackupCodes isVisible enrolled={ISSUED_CODES} />)
 
         await user.click(screen.getByRole('button', { name: 'Copy codes' }))
         await user.click(screen.getByRole('button', { name: 'Go to SafeInsights' }))
@@ -48,7 +50,7 @@ describe('BackupCodes', () => {
     it('says the existing codes still work and leaves without confirmation when there are no new codes', async () => {
         const user = userEvent.setup()
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible codes={[]} hasExistingCodes />)
+        renderWithProviders(<BackupCodes isVisible enrolled={{ codes: [], hasExistingCodes: true }} />)
 
         expect(
             screen.getByText(
@@ -66,7 +68,7 @@ describe('BackupCodes', () => {
 
     it('does not claim existing codes when the user has none', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible codes={[]} />)
+        renderWithProviders(<BackupCodes isVisible enrolled={{ codes: [], hasExistingCodes: false }} />)
 
         expect(screen.getByText(/No recovery codes were created for your account/)).toBeDefined()
         expect(screen.queryByText(/Your existing recovery codes still work/)).toBeNull()
@@ -75,7 +77,7 @@ describe('BackupCodes', () => {
 
     it('renders nothing when not visible', async () => {
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible={false} codes={['code-1']} />)
+        renderWithProviders(<BackupCodes isVisible={false} enrolled={ISSUED_CODES} />)
 
         expect(screen.queryByText('code-1')).toBeNull()
     })

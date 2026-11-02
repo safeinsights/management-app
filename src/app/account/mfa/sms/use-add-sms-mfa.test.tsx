@@ -109,7 +109,7 @@ describe('useAddSmsMfa', () => {
         expect(phone.setReservedForSecondFactor).toHaveBeenCalledWith({ reserved: true })
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('backup')
-        expect(result.current.backupCodes).toEqual(['code-1', 'code-2'])
+        expect(result.current.enrolled).toEqual({ codes: ['code-1', 'code-2'], hasExistingCodes: false })
         expect(toastTitles()).toEqual(['MFA enabled'])
     })
 
@@ -124,8 +124,7 @@ describe('useAddSmsMfa', () => {
 
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('backup')
-        expect(result.current.backupCodes).toEqual([])
-        expect(result.current.hasExistingCodes).toBe(true)
+        expect(result.current.enrolled).toEqual({ codes: [], hasExistingCodes: true })
         expect(toastTitles()).toEqual(['MFA enabled'])
         expect(logError).not.toHaveBeenCalled()
     })
@@ -140,7 +139,7 @@ describe('useAddSmsMfa', () => {
         await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
 
         expect(result.current.step).toBe('backup')
-        expect(result.current.hasExistingCodes).toBe(false)
+        expect(result.current.enrolled).toEqual({ codes: [], hasExistingCodes: false })
         expect(logError).toHaveBeenCalled()
     })
 
