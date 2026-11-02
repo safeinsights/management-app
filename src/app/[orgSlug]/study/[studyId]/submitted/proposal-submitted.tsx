@@ -12,7 +12,6 @@ import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import type { PageHeaderStep } from '@/components/page-header'
 import type { StepNav } from '@/lib/study-screen'
-import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
@@ -70,8 +69,7 @@ export function ProposalSubmitted({
     feedbackError,
     nav,
 }: ProposalSubmittedProps) {
-    const proposalStatus = effectiveProposalStatus(study)
-    const bannerCopy = researcherProposalBanner(proposalStatus, {
+    const bannerCopy = researcherProposalBanner(study.status, {
         dataPartner: orgName,
         version: studyVersion,
     })
@@ -94,7 +92,7 @@ export function ProposalSubmitted({
                     banner={banner}
                     initialExpanded={false}
                 />
-                <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
+                <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
                 <FeedbackAndNotesSection entries={entries} />
                 <StepNavigation nav={nav} />
             </Stack>

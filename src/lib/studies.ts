@@ -3,7 +3,6 @@ import type { StudyJobStatus } from '@/database/types'
 import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { DraftStep2Fields } from '@/lib/study-screen/state.types'
-import { effectiveProposalStatus } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
 
 type StudyWithJobStatuses = {
@@ -44,7 +43,7 @@ export function draftHasStep2Progress(study: DraftStep2Fields): boolean {
 }
 
 export function decisionTimestampForProposalHeader(study: SelectedStudy, entries: ProposalFeedbackEntry[]): Date {
-    const status = effectiveProposalStatus(study)
+    const { status } = study
     if (status === 'APPROVED' && study.approvedAt) {
         return study.approvedAt
     }
