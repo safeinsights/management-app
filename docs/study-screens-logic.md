@@ -32,18 +32,23 @@ tie), v7 UUIDs aren't reliably monotonic inside a millisecond, and webhook statu
 (`CODE-SCANNED`, results, execution) can arrive late. **So `statusChanges[0]` is never safe.**
 
 Therefore the projection only asks **existence** (`some(status === X)`) and **count**
-(how many `X`) questions about a job's statuses — never "what is the newest one."
+(how many `X`) questions about a job's statuses — never "what is the newest one." The status writer
+is the one place that orders rows; it stores the result on the job as `studyJob.currentStatus`,
+`studyJob.round` and `studyJob.statusChangedAt` (see "Job status transitions").
 
 Two axes, resolved differently:
 
-| Axis                                     | Ordering matters? | Resolved by                                       |
-| ---------------------------------------- | ----------------- | ------------------------------------------------- |
-| **Across jobs** (which round is current) | Yes               | `max(studyJob.id)` — v7 ids match insertion order |
-| **Within the latest job** (which phase)  | No                | set-existence / counting                          |
+| Axis                                     | Ordering matters? | Resolved by                                         |
+| ---------------------------------------- | ----------------- | --------------------------------------------------- |
+| **Across jobs** (which round is current) | Yes               | `latestJobQuery`: highest `studyJob.round`, then id |
+| **Within the latest job** (which phase)  | No                | set-existence / counting on the log                 |
 
-A resubmission opens a **brand-new `studyJob`** (a closed round is never reopened). So a
-multi-round study has multiple jobs, and **only the latest job feeds the phase facts** — earlier
-rounds are history. The lone cross-job fact is `submissionRound` (a count of rounds).
+An outputs decision closes the round, so the next code opens a **new `studyJob`**; a change request
+keeps the same job (see "Job round semantics"). A multi-round study has multiple jobs, and **only the
+latest job feeds the phase facts**: earlier rounds are history. `latestJobQuery({ submitted: true })`
+and `latestJob` skip a job whose `currentStatus` is still `INITIATED`, so a round that has only just
+opened does not mask the code under review. The dashboard uses the plain form and tracks the current
+round. `studyJob.createdAt` is moved for file staleness only and never orders jobs.
 
 ---
 
@@ -113,7 +118,6 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `isExecuting` = latest job has a running status (`JOB-PROVISIONING/PACKAGING/READY/RUNNING`).
 - `hasResults` / `resultsApproved` / `resultsRejected` / `resultsErrored` — results statuses are
   terminal-and-permanent for their job (pure existence; no counting).
-- `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
 - `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
   document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
@@ -611,8 +615,13 @@ A repeat or a `log` row sends nothing, so a results delivery that follows the ru
 - A round **closes** only on `FILES-APPROVED` / `FILES-REJECTED`.
 - A `CODE-CHANGES-REQUESTED` resubmit **reuses the same job** (the round is still open).
 - `CODE-SUBMITTED` is **append-only per round**.
-- User-facing submission **version** = `CODE-CHANGES-REQUESTED` count + 1 (`codeSubmissionVersion`),
-  which is distinct from `submissionRound` (count of jobs that ever carried a submission).
+- `studyJob.round` is the code round the job carries: 1, plus the `CODE-CHANGES-REQUESTED`,
+  `FILES-APPROVED` and `FILES-REJECTED` rows on earlier jobs of the study, plus the job's own
+  resubmissions. The status writer stores it on every write.
+- The user-facing submission **version** is `nextCodeSubmissionVersion(job)` of the latest job:
+  `round`, plus 1 once a change request or an outputs decision has closed it (`studyCodeVersion`).
+  Review screens label the code with `round` instead, so a change request does not relabel the code
+  it was made on as the next version.
 
 ---
 
