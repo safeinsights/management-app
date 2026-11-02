@@ -265,9 +265,10 @@ export const SAMPLE_STUDIES: StudySpec[] = [
         daysAgo: 26,
         question: 'Do rainy days increase physics homework completion?',
         summary: 'We join homework completion with daily regional weather.',
-        job: { statuses: RUNNING },
+        // Not code-running: a JOB-RUNNING row with no end status puts the job in /api/studies/ready.
+        job: { statuses: [...APPROVED, 'JOB-PACKAGING', 'JOB-PROVISIONING'] },
         openedBy: ['researcher', 'reviewer'],
-        expectedPills: { researcher: 'code-processing', reviewer: 'code-running' },
+        expectedPills: { researcher: 'code-processing', reviewer: 'code-queued' },
     },
     {
         n: 16,

@@ -17,7 +17,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     }
 
     const uploader = createUploader()
-    if (!uploader) console.warn('sample-data: BUCKET_NAME is not set, so studies get rows but no files.')
+    if (!uploader) console.warn('sample-data: BUCKET_NAME is not set, so studies with files are skipped.')
     // Sample data is optional: a bug here must not fail the migration and block a deploy.
     try {
         await seedSampleData(db, { uploader })

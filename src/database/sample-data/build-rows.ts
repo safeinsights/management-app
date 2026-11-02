@@ -20,7 +20,7 @@ import { lexical } from './lexical'
 import { agreementPath, codeFilePath, resultsFilePath, type JobPathInfo } from './paths'
 import type { SampleRefs } from './refs'
 import type { Upload } from './s3'
-import type { StudySpec } from './spec'
+import type { CodeNote, JobSpec, StudySpec } from './spec'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -77,10 +77,24 @@ const NO_USER_STATUSES: readonly StudyJobStatus[] = [
 ]
 const REVIEWER_STATUSES: readonly StudyJobStatus[] = [...CODE_DECISION_JOB_STATUSES, ...ROUND_CLOSING_JOB_STATUSES]
 
-const statusActor = (status: StudyJobStatus, refs: SampleRefs) => {
-    if (REVIEWER_STATUSES.includes(status)) return refs.reviewerId
-    if (NO_USER_STATUSES.includes(status)) return null
-    return refs.researcherId
+const decisionStatus = (note: CodeNote) => (note.decision === 'REJECT' ? 'CODE-REJECTED' : 'CODE-CHANGES-REQUESTED')
+
+// The author of a decision note made that decision, so the dashboard names the same reviewer as the panel.
+function noteAuthor(job: JobSpec, status: StudyJobStatus, round: number): PersonKey | undefined {
+    if (status === 'FILES-APPROVED' || status === 'FILES-REJECTED') return job.resultsNote?.by
+    return job.codeNotes?.find((n) => n.kind === 'decision' && n.round === round && decisionStatus(n) === status)?.by
+}
+
+function statusActors(job: JobSpec, ctx: BuildContext) {
+    const seen = new Map<StudyJobStatus, number>()
+    return job.statuses.map((status) => {
+        const round = (seen.get(status) ?? 0) + 1
+        seen.set(status, round)
+        if (NO_USER_STATUSES.includes(status)) return null
+        if (!REVIEWER_STATUSES.includes(status)) return ctx.refs.researcherId
+        const author = noteAuthor(job, status, round)
+        return author ? ctx.people[author] : ctx.refs.reviewerId
+    })
 }
 
 const isApproved = (spec: StudySpec) =>
@@ -182,13 +196,14 @@ function buildJob(
     const { refs, people } = ctx
     const id = jobId(spec.n)
     const info: JobPathInfo = { orgSlug: refs.enclave.slug, studyId: studyId(spec.n), studyJobId: id }
+    const actors = statusActors(job, ctx)
     const rows: Omit<StudyRows, 'study' | 'agreement' | 'proposalComments' | 'lastOpened'> = {
         ...empty,
         jobs: [{ id, studyId: studyId(spec.n), createdAt: t.jobCreated }],
         statusChanges: job.statuses.map((status, i) => ({
             studyJobId: id,
             status,
-            userId: statusActor(status, refs),
+            userId: actors[i],
             createdAt: t.statusAt(i),
         })),
     }
@@ -256,7 +271,7 @@ function buildJob(
         const at =
             note.kind === 'resubmission'
                 ? t.atStatus('CODE-SUBMITTED', note.round)
-                : t.atStatus(note.decision === 'REJECT' ? 'CODE-REJECTED' : 'CODE-CHANGES-REQUESTED', note.round)
+                : t.atStatus(decisionStatus(note), note.round)
         rows.reviewComments.push({
             studyId: studyId(spec.n),
             studyJobId: id,
@@ -372,7 +387,7 @@ export function buildStudyRows(spec: StudySpec, ctx: BuildContext): StudyRows {
 
 // Every member of a side in openedBy has opened the study. A member of both orgs keeps the dot while
 // a side that lists the study (the reviewer does not list drafts) has not opened it.
-export function buildLastOpened(spec: StudySpec, ctx: BuildContext): Insertable<DB['studyLastOpened']>[] {
+function buildLastOpened(spec: StudySpec, ctx: BuildContext): Insertable<DB['studyLastOpened']>[] {
     const opened = new Set(spec.openedBy)
     const listing: Side[] = spec.expectedPills.reviewer ? ['researcher', 'reviewer'] : ['researcher']
     const users = new Set(listing.flatMap((side) => ctx.members[side]))

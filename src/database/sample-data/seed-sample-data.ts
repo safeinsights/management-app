@@ -1,12 +1,6 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from '@/database/types'
-import {
-    buildLastOpened,
-    buildStudyRows,
-    type BuildContext,
-    type EncryptedArtifact,
-    type StudyRows,
-} from './build-rows'
+import { buildStudyRows, type BuildContext, type EncryptedArtifact, type StudyRows } from './build-rows'
 import { encryptFiles, orgRecipients, type Recipient } from './encrypt'
 import { personIds, seedExtras } from './extras'
 import { studyId } from './ids'
@@ -15,7 +9,14 @@ import type { Upload, Uploader } from './s3'
 import type { StudySpec } from './spec'
 import { SAMPLE_STUDIES } from './studies'
 
-export type SeedOptions = { uploader: Uploader | null; now?: Date; specs?: StudySpec[]; log?: (line: string) => void }
+// rowsOnly: write studies that have files even with no uploader. Unit tests have no bucket.
+export type SeedOptions = {
+    uploader: Uploader | null
+    rowsOnly?: boolean
+    now?: Date
+    specs?: StudySpec[]
+    log?: (line: string) => void
+}
 export type SeedSummary = { written: number; skipped: number; failed: number; missing: string[] }
 
 type Recipients = { enclave: Recipient[]; lab: Recipient[] }
@@ -38,17 +39,13 @@ async function encryptArtifacts(
     artifacts: EncryptedArtifact[],
     recipients: Recipients,
     ctx: BuildContext,
-    log: (line: string) => void,
 ): Promise<EncryptedRows> {
     const out: EncryptedRows = { uploads: [], files: [], recipientKeys: [], fileActivity: [] }
     for (const artifact of artifacts) {
         const wrapFor = artifact.sharedWithLab ? [...recipients.enclave, ...recipients.lab] : recipients.enclave
         const unique = [...new Map(wrapFor.map((r) => [r.fingerprint, r])).values()]
         const archive = await encryptFiles(artifact.files, unique, artifact.jobId)
-        if (!archive) {
-            log(`sample-data: no enclave public keys, so ${artifact.name} is left out`)
-            continue
-        }
+        if (!archive) throw new Error(`no enclave public keys to encrypt ${artifact.name}`)
         out.uploads.push({ path: artifact.path, body: archive.zip, contentType: 'application/zip' })
         out.files.push({
             id: artifact.fileId,
@@ -72,15 +69,17 @@ async function encryptArtifacts(
             }
         }
         if (artifact.labActivityAt) {
-            for (const action of ['VIEWED', 'DOWNLOADED'] as const) {
-                out.fileActivity.push({
-                    studyJobFileId: artifact.fileId,
-                    filePath: 'results.csv',
-                    userId: ctx.refs.researcherId,
-                    orgId: ctx.refs.lab.id,
-                    action,
-                    createdAt: artifact.labActivityAt,
-                })
+            for (const filePath of Object.keys(archive.keys)) {
+                for (const action of ['VIEWED', 'DOWNLOADED'] as const) {
+                    out.fileActivity.push({
+                        studyJobFileId: artifact.fileId,
+                        filePath,
+                        userId: ctx.refs.researcherId,
+                        orgId: ctx.refs.lab.id,
+                        action,
+                        createdAt: artifact.labActivityAt,
+                    })
+                }
             }
         }
     }
@@ -166,20 +165,17 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
     for (const spec of options.specs ?? SAMPLE_STUDIES) {
         const exists = await db.selectFrom('study').select('id').where('id', '=', studyId(spec.n)).executeTakeFirst()
         if (exists) {
-            // Org members can change after the study was written, so add missing opened rows. Existing rows stay.
-            try {
-                await insertLastOpened(db, buildLastOpened(spec, ctx))
-            } catch (error) {
-                log(`sample-data: #${spec.n} opened rows not written: ${String(error)}`)
-            }
             summary.skipped++
             continue
         }
         try {
             const rows = buildStudyRows(spec, ctx)
-            const encrypted = await encryptArtifacts(rows.encrypted, recipients, ctx, log)
+            const encrypted = await encryptArtifacts(rows.encrypted, recipients, ctx)
+            const uploads = [...rows.uploads, ...encrypted.uploads]
             if (options.uploader) {
-                for (const upload of [...rows.uploads, ...encrypted.uploads]) await options.uploader.put(upload)
+                for (const upload of uploads) await options.uploader.put(upload)
+            } else if (uploads.length && !options.rowsOnly) {
+                throw new Error('it has files and BUCKET_NAME is not set')
             }
             // eslint-disable-next-line no-restricted-syntax -- runs in the migrator, outside any request context
             await db.transaction().execute((trx) => insertStudy(trx, rows, encrypted))

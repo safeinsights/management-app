@@ -44,9 +44,9 @@ const offeredToRunner = (statuses: string[]) =>
     !statuses.some((s) => ['JOB-ERRORED', 'RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED'].includes(s))
 
 describe('jobs an enclave runner can see', () => {
-    it('is only #15, whose code-running pill needs a JOB-RUNNING row', () => {
+    it('is none of them', () => {
         const offered = SAMPLE_STUDIES.filter((s) => s.status === 'APPROVED' && offeredToRunner(s.job?.statuses ?? []))
-        expect(offered.map((s) => s.n)).toEqual([15])
+        expect(offered.map((s) => s.n)).toEqual([])
     })
 })
 

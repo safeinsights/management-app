@@ -11,6 +11,9 @@ import { seedSampleData } from './seed-sample-data'
 
 const quiet = () => {}
 
+// Offset numbers: the DB can hold sample studies an older spec wrote, and the seed skips those.
+const SPECS = SAMPLE_STUDIES.map((s) => ({ ...s, n: s.n + 100 }))
+
 const testUserId = (key: string) => TEST_USERS.find((u) => u.key === key)!.id
 
 const dashboardRows = async (
@@ -32,14 +35,14 @@ const dashboardRows = async (
 
 describe('seedSampleData', () => {
     beforeAll(async () => {
-        await seedSampleData(db, { uploader: null, log: quiet })
+        await seedSampleData(db, { uploader: null, rowsOnly: true, specs: SPECS, log: quiet })
     })
 
     it.each(['researcher', 'reviewer'] as const)(
         'shows each study on the %s org dashboard with its expected pill',
         async (role) => {
             const rows = await dashboardRows(role)
-            for (const spec of SAMPLE_STUDIES) {
+            for (const spec of SPECS) {
                 const row = rows.find((r) => r.id === studyId(spec.n))
                 const expected = spec.expectedPills[role]
                 if (expected === null) {
@@ -58,39 +61,63 @@ describe('seedSampleData', () => {
         ['reviewer', 'qa-dp'],
     ] as const)('shows the %s side its unread dot only where it must act next (%s)', async (role, key) => {
         const rows = await dashboardRows(role, testUserId(key))
-        for (const spec of SAMPLE_STUDIES.filter((s) => s.expectedPills[role] !== null)) {
+        for (const spec of SPECS.filter((s) => s.expectedPills[role] !== null)) {
             const row = rows.find((r) => r.id === studyId(spec.n))!
             expect(isStudyUnread(row, role), `#${spec.n} ${spec.title}`).toBe(!spec.openedBy.includes(role))
         }
     })
 
-    it('adds missing opened rows for a study that already exists', async () => {
+    it('writes nothing on a second run, not even opened rows', async () => {
         const userId = testUserId('qa-dp')
-        await db.deleteFrom('studyLastOpened').where('studyId', '=', studyId(19)).where('userId', '=', userId).execute()
+        await db
+            .deleteFrom('studyLastOpened')
+            .where('studyId', '=', studyId(119))
+            .where('userId', '=', userId)
+            .execute()
 
-        await seedSampleData(db, { uploader: null, log: quiet })
+        const summary = await seedSampleData(db, { uploader: null, rowsOnly: true, specs: SPECS, log: quiet })
 
+        expect(summary).toMatchObject({ written: 0, skipped: SPECS.length, failed: 0 })
         const row = await db
             .selectFrom('studyLastOpened')
             .select('id')
-            .where('studyId', '=', studyId(19))
+            .where('studyId', '=', studyId(119))
             .where('userId', '=', userId)
             .executeTakeFirst()
-        expect(row).toBeDefined()
+        expect(row).toBeUndefined()
     })
 
-    it('writes nothing on a second run', async () => {
-        const summary = await seedSampleData(db, { uploader: null, log: quiet })
-        expect(summary).toMatchObject({ written: 0, skipped: SAMPLE_STUDIES.length, failed: 0 })
+    it('skips a study with files when there is no uploader', async () => {
+        const spec = { ...SAMPLE_STUDIES[11], n: 251, title: 'No bucket probe' }
+        const summary = await seedSampleData(db, { uploader: null, specs: [spec], log: quiet })
+
+        expect(summary).toMatchObject({ written: 0, failed: 1 })
+        expect(
+            await db.selectFrom('study').select('id').where('id', '=', studyId(251)).executeTakeFirst(),
+        ).toBeUndefined()
     })
 
     it('shares approved results with the lab through recipient keys', async () => {
         const keys = await db
             .selectFrom('studyJobFileRecipientKey')
             .select('filePath')
-            .where('studyJobFileId', '=', fileId(19, 3))
+            .where('studyJobFileId', '=', fileId(119, 3))
             .execute()
         expect(keys.map((k) => k.filePath).sort()).toEqual(['results.csv', 'summary.txt'])
+    })
+
+    it('records lab activity on each file in the result archive', async () => {
+        const activity = await db
+            .selectFrom('studyJobFileActivity')
+            .select(['filePath', 'action'])
+            .where('studyJobFileId', '=', fileId(119, 3))
+            .execute()
+        expect(activity.map((a) => `${a.filePath} ${a.action}`).sort()).toEqual([
+            'results.csv DOWNLOADED',
+            'results.csv VIEWED',
+            'summary.txt DOWNLOADED',
+            'summary.txt VIEWED',
+        ])
     })
 
     it('leaves a study unwritten when its upload fails, and carries on', async () => {

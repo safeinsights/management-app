@@ -29,10 +29,19 @@ describe('buildStudyRows', () => {
     })
 
     it('records who acted on each status the way the app does', () => {
-        const actors = Object.fromEntries(buildStudyRows(spec(15), ctx).statusChanges.map((c) => [c.status, c.userId]))
+        const actors = Object.fromEntries(buildStudyRows(spec(16), ctx).statusChanges.map((c) => [c.status, c.userId]))
         expect(actors['CODE-SUBMITTED']).toBe(refs.researcherId)
         expect(actors['CODE-APPROVED']).toBe(refs.reviewerId)
         expect(actors['JOB-RUNNING']).toBeNull()
+    })
+
+    it('records the author of the matching note as the reviewer who decided', () => {
+        const decidedBy = (n: number, status: string) =>
+            buildStudyRows(spec(n), ctx).statusChanges.find((c) => c.status === status)?.userId
+        expect(decidedBy(10, 'CODE-CHANGES-REQUESTED')).toBe(ctx.people.wanda)
+        expect(decidedBy(11, 'CODE-REJECTED')).toBe(ctx.people.barry)
+        expect(decidedBy(19, 'FILES-APPROVED')).toBe(ctx.people.wanda)
+        expect(decidedBy(9, 'CODE-CHANGES-REQUESTED')).toBe(refs.reviewerId)
     })
 
     it('keeps a draft unsubmitted, unassigned and half filled', () => {

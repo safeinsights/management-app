@@ -1,7 +1,7 @@
 import { db, describe, expect, insertTestOrg, it } from '@/tests/unit.helpers'
 import { resolveRefs } from './refs'
 import { FAKE_PEOPLE, PENDING_INVITES, seedExtras } from './extras'
-import { ORGS } from '../seeds/1743608138837_test_users'
+import { TEST_CODE_ENVS } from '../seeds/1743608138837_test_users'
 
 const refsOrThrow = async () => {
     const result = await resolveRefs(db)
@@ -45,13 +45,15 @@ describe('seedExtras', () => {
         expect(profile.educationDegree).toBe('Kept by QA')
     })
 
-    it('leaves code envs outside the fixed test orgs unscanned', async () => {
-        const org = await insertTestOrg()
+    it.each([
+        ['another org', async () => (await insertTestOrg()).id],
+        ['a test org, added by QA', async () => (await refsOrThrow()).enclave.id],
+    ])('leaves a code env in %s unscanned', async (_, orgIdFor) => {
         const codeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
-                orgId: org.id,
-                name: 'Real org env',
+                orgId: await orgIdFor(),
+                name: 'QA env',
                 language: 'PYTHON',
                 url: 'public.ecr.aws/docker/library/python:latest',
                 commandLines: { py: 'python main.py' },
@@ -65,15 +67,14 @@ describe('seedExtras', () => {
         expect(await db.selectFrom('codeScan').select('id').where('codeEnvId', '=', codeEnv.id).execute()).toEqual([])
     })
 
-    it('gives each code env of the fixed test orgs a completed scan', async () => {
+    it('gives each code env of the test-users seed a completed scan', async () => {
         await seedExtras(db, await refsOrThrow())
         const envs = await db
             .selectFrom('orgCodeEnv')
-            .select('id')
-            .where(
-                'orgId',
-                'in',
-                ORGS.map((o) => o.id),
+            .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
+            .select('orgCodeEnv.id')
+            .where((eb) =>
+                eb.or(TEST_CODE_ENVS.map((env) => eb.and({ 'org.slug': env.orgSlug, 'orgCodeEnv.name': env.name }))),
             )
             .execute()
         const scanned = await db

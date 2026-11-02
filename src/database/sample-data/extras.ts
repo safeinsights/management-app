@@ -2,7 +2,7 @@ import type { Kysely } from 'kysely'
 import type { DB } from '@/database/types'
 import { fakeUserId } from './ids'
 import type { SampleRefs } from './refs'
-import { ORGS } from '../seeds/1743608138837_test_users'
+import { TEST_CODE_ENVS } from '../seeds/1743608138837_test_users'
 
 export type PersonKey = 'researcher' | 'reviewer' | 'wanda' | 'ima' | 'barry'
 
@@ -132,15 +132,23 @@ async function seedResearcherProfile(db: Kysely<DB>, refs: SampleRefs) {
         .execute()
 }
 
-// Only the fixed test orgs: a made-up passing scan on a real org's code env would be false.
+// Only the test-users seed's code envs: a made-up passing scan on one QA added hides its pending scan.
 async function seedCodeEnvScans(db: Kysely<DB>) {
     const unscanned = await db
         .selectFrom('orgCodeEnv')
+        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
         .select('orgCodeEnv.id')
-        .where(
-            'orgCodeEnv.orgId',
-            'in',
-            ORGS.map((org) => org.id),
+        .where((eb) =>
+            eb.or(
+                TEST_CODE_ENVS.map((env) =>
+                    eb.and([
+                        eb('org.slug', '=', env.orgSlug),
+                        eb('orgCodeEnv.name', '=', env.name),
+                        eb('orgCodeEnv.identifier', '=', env.identifier),
+                        eb('orgCodeEnv.url', '=', env.url),
+                    ]),
+                ),
+            ),
         )
         .where(({ not, exists, selectFrom }) =>
             not(
