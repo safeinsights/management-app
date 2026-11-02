@@ -200,6 +200,21 @@ describe('LinkHoverCardPlugin', () => {
         expect(caretAt(editor)).toEqual({ inLink: true, offset: 3 })
     })
 
+    // OTTER-992: a caret committed later than Escape pulls the focus back from a field the user
+    // moved to in between, so it has to be in place before the keydown handler returns.
+    it('puts the caret back within the Escape keydown, before any later focus move', async () => {
+        const { anchor, editor } = await renderLinkedEditor('card-escape-sync')
+        clickWithCaret(anchor, 3)
+        await findCard()
+        await waitFor(() =>
+            expect(document.activeElement).toBe(screen.getByRole('button', { name: LINK_CARD_LABELS.copy })),
+        )
+
+        fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+
+        expect(caretAt(editor)).toEqual({ inLink: true, offset: 3 })
+    })
+
     it('puts a caret from the left edge back at the start of the link', async () => {
         const user = userEvent.setup()
         const { anchor, container, editor } = await renderLinkedEditor('card-escape-left')
@@ -426,6 +441,16 @@ describe('LinkHoverCardPlugin', () => {
         await waitFor(() => expect(container.querySelector('a')).toBeNull())
         expect(container.querySelector('[contenteditable="true"]')).toHaveTextContent(LINK_TEXT)
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+
+    it('removes the link within the Remove link click, before any later focus move', async () => {
+        const { anchor, container } = await renderLinkedEditor('card-remove-sync')
+        openCard(anchor)
+        await findCard()
+
+        fireEvent.click(screen.getByRole('button', { name: LINK_CARD_LABELS.remove }))
+
+        expect(container.querySelector('a')).toBeNull()
     })
 
     it('saves an edited URL and text, and brings a legacy link up to date', async () => {
