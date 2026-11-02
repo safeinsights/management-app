@@ -1,4 +1,13 @@
-import { describe, expect, it, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { CodeRunHistory } from './code-run-history'
 
 const run = (id: string, ranAt: string) => ({ id, ranAt: new Date(ranAt) })
@@ -10,6 +19,8 @@ const RUNS = [
 ]
 
 const viewButton = () => screen.getByRole('button', { name: /^(View|Hide)$/ })
+
+const firstRow = () => screen.getAllByTestId('code-run-history-row')[0]
 
 describe('CodeRunHistory', () => {
     it('renders nothing when there are no earlier runs', () => {
@@ -30,7 +41,7 @@ describe('CodeRunHistory', () => {
 
         expect(viewButton()).toHaveTextContent('View')
         expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
-        expect(screen.getByText('Code run • Mar 05, 2026')).not.toBeVisible()
+        expect(firstRow()).not.toBeVisible()
     })
 
     it('expands in place to list every earlier run, and Hide collapses it again', async () => {
@@ -41,7 +52,7 @@ describe('CodeRunHistory', () => {
         expect(viewButton()).toHaveTextContent('Hide')
         expect(viewButton()).toHaveAttribute('aria-expanded', 'true')
         expect(viewButton()).toHaveAttribute('type', 'button')
-        await waitFor(() => expect(screen.getByText('Code run • Mar 05, 2026')).toBeVisible())
+        await waitFor(() => expect(firstRow()).toBeVisible())
         expect(screen.getAllByTestId('code-run-history-row').map((row) => row.textContent)).toEqual([
             'Code run • Mar 05, 2026',
             'Code run • Feb 10, 2026',
@@ -51,7 +62,7 @@ describe('CodeRunHistory', () => {
         await userEvent.click(viewButton())
 
         expect(viewButton()).toHaveTextContent('View')
-        await waitFor(() => expect(screen.getByText('Code run • Mar 05, 2026')).not.toBeVisible())
+        await waitFor(() => expect(firstRow()).not.toBeVisible())
     })
 
     it('stays stable across repeated expand and collapse cycles', async () => {
@@ -64,5 +75,13 @@ describe('CodeRunHistory', () => {
             expect(viewButton()).toHaveTextContent('View')
         }
         expect(screen.getAllByTestId('code-run-history-row')).toHaveLength(3)
+    })
+
+    // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
+    it('hydrates without a mismatch when a run ended after UTC midnight', async () => {
+        const { recoverableErrors } = hydrateServerHtml(<CodeRunHistory runs={[run('late', '2026-09-24T01:30:00Z')]} />)
+
+        await waitFor(() => expect(firstRow()).toHaveTextContent('Code run • Sep 23, 2026'))
+        expect(recoverableErrors).toEqual([])
     })
 })

@@ -3,14 +3,15 @@
 import { Anchor, Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, useId } from 'react'
-import { formatInstant } from '@/lib/dates'
+import { LocalDateTime } from '@/components/local-date-time'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
 
 const CodeRunHistoryRow: FC<{ run: PriorCodeRun }> = ({ run }) => (
     <Paper withBorder p="lg" data-testid="code-run-history-row">
         <Text fz="lg" fw={fontWeight.semibold}>
-            Code run • {formatInstant(run.ranAt)}
+            Code run
+            <LocalDateTime value={run.ranAt} prefix=" • " />
         </Text>
     </Paper>
 )
