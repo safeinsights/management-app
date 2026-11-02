@@ -1,9 +1,14 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestProposalDecision, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    insertTestJobStatus,
+    insertTestJobStatuses,
+    insertTestProposalDecision,
+    insertTestStudyData,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
 import { db } from '@/database'
-import { sql } from 'kysely'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { deliver } from '@/server/mailgun'
 
@@ -68,14 +73,6 @@ test('records and announces a repeated JOB-ERRORED only once', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     await insertTestProposalDecision({ studyId, authorId: user.id })
-    // now() is frozen inside a test, and v7 ids within one millisecond sort randomly, so the fixture's
-    // rows are backdated to keep the first PUT's row the job's latest status.
-    await db
-        .updateTable('jobStatusChange')
-        .set({ createdAt: sql`now() - interval '1 minute'` })
-        .where('studyJobId', '=', jobIds[0])
-        .execute()
-
     expect((await putStatus(jobIds[0], 'JOB-ERRORED')).ok).toBe(true)
     expect((await putStatus(jobIds[0], 'JOB-ERRORED')).ok).toBe(true)
     await flushDeferred()
@@ -88,7 +85,7 @@ test('ignores a JOB-ERRORED reported after the outputs were decided', async () =
     const { org, user } = await mockSessionWithTestData()
     const { studyId, jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     await insertTestProposalDecision({ studyId, authorId: user.id })
-    await db.insertInto('jobStatusChange').values({ studyJobId: jobIds[0], status: 'FILES-REJECTED' }).execute()
+    await insertTestJobStatus(jobIds[0], 'FILES-REJECTED')
 
     expect((await putStatus(jobIds[0], 'JOB-ERRORED')).ok).toBe(true)
     await flushDeferred()
@@ -104,7 +101,7 @@ test("announces the next round's JOB-ERRORED after the code is resubmitted", asy
     await insertTestProposalDecision({ studyId, authorId: user.id })
 
     expect((await putStatus(jobIds[0], 'JOB-ERRORED')).ok).toBe(true)
-    await db.insertInto('jobStatusChange').values({ studyJobId: jobIds[0], status: 'FILES-REJECTED' }).execute()
+    await insertTestJobStatus(jobIds[0], 'FILES-REJECTED')
 
     const nextRound = await getOrCreateCurrentRoundJob(db, studyId)
     expect(nextRound.id).not.toBe(jobIds[0])
@@ -114,4 +111,30 @@ test("announces the next round's JOB-ERRORED after the code is resubmitted", asy
 
     expect(await erroredRows(nextRound.id)).toHaveLength(1)
     expect(deliver).toHaveBeenCalledTimes(2)
+})
+
+test('refuses a second outputs decision on an errored run with 409 and writes nothing', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-APPROVED'])
+
+    const resp = await putStatus(jobIds[0], 'FILES-REJECTED')
+
+    expect(resp.status).toBe(409)
+    expect(await resp.json()).toEqual({ error: 'transition-refused', from: 'FILES-APPROVED', to: 'FILES-REJECTED' })
+    const rejected = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobIds[0])
+        .where('status', '=', 'FILES-REJECTED')
+        .execute()
+    expect(rejected).toHaveLength(0)
+})
+
+test('answers 422 for any status once the run is complete, before the transition table runs', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])
+
+    expect((await putStatus(jobIds[0], 'FILES-REJECTED')).status).toBe(422)
 })

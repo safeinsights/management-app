@@ -32,6 +32,7 @@ import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { transitionJob } from '@/server/job-transitions'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -148,14 +149,11 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
-                studyJobId,
-            })
-            .executeTakeFirstOrThrow()
+        // Re-checked under the job lock: two identical decisions can both pass hasOutputsDecision above.
+        await transitionJob(db, studyJobId, shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED', {
+            actor: 'reviewer',
+            userId,
+        })
 
         await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
 
@@ -322,10 +320,6 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        // Two overlapping visits can both insert; accepted, see docs/study-screens-logic.md (OTTER-698).
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
-            .execute()
+        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id })
         await markStudyOpened(db, { studyId, userId: session.user.id })
     })

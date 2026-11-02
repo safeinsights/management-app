@@ -6,7 +6,7 @@ import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
-import { recordJobStatus } from '@/server/job-status'
+import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
 import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
@@ -85,9 +85,11 @@ export const POST = createWebhookHandler({
         // append-only submission log.
         if (body.status === 'CODE-SUBMITTED') return
 
-        await recordJobStatus(
-            { id: job.jobId, studyId: job.studyId },
-            { status: body.status, userId: job.researcherId },
-        )
+        try {
+            await transitionJob(currentDb(), job.jobId, body.status, { actor: 'service', userId: job.researcherId })
+        } catch (error) {
+            // Answered 200 for the same reason as a stale round: a retry would only be refused again.
+            if (!(error instanceof JobTransitionRefusedError)) throw error
+        }
     },
 })

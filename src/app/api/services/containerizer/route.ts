@@ -1,10 +1,11 @@
 import { throwNotFound } from '@/lib/errors'
-import { isKnownFailureReason, type JobFailureReason } from '@/lib/job-error-details'
+import { isKnownFailureReason, JOB_FAILURE_REASONS, type JobFailureReason } from '@/lib/job-error-details'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
-import { recordJobStatus } from '@/server/job-status'
+import { transitionJob } from '@/server/job-transitions'
+import { reclassifyJobFailure } from '@/database/job-status-writer'
 import { currentDb } from '@/server/request-context'
 
 const schema = z.object({
@@ -60,22 +61,16 @@ export const POST = createWebhookHandler({
 
         const failureReason = classifiedFailureReason(body)
 
-        const result = await recordJobStatus(
-            { id: job.jobId, studyId: job.studyId },
-            { status: body.status, userId: job.researcherId, message: failureReason },
-        )
-        if (result.recorded) return
-        const { last } = result
+        const result = await transitionJob(currentDb(), job.jobId, body.status, {
+            actor: 'service',
+            userId: job.researcherId,
+            message: failureReason,
+        })
 
         // Two deliveries report one failure and only one carries the code, so the second must still
-        // record it rather than lose it to the status dedup. A classification is never overwritten,
-        // but unclassified text — never displayed — is.
-        if (failureReason && !isKnownFailureReason(last.message)) {
-            await currentDb()
-                .updateTable('jobStatusChange')
-                .set({ message: failureReason })
-                .where('id', '=', last.id)
-                .execute()
+        // record it rather than lose it to the repeat check. Unclassified text, never displayed, is replaced.
+        if (result.outcome === 'repeat' && failureReason && result.existing) {
+            await reclassifyJobFailure(currentDb(), result.existing.id, failureReason, JOB_FAILURE_REASONS)
         }
     },
 })

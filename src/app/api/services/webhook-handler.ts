@@ -4,6 +4,7 @@ import { NotFoundError } from '@/lib/errors'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 import { getConfigValue } from '@/server/config'
+import { JobTransitionRefusedError } from '@/database/job-status-writer'
 
 function secretsMatch(a: string, b: string): boolean {
     const bufA = Buffer.from(a)
@@ -49,6 +50,13 @@ export function createWebhookHandler<T extends z.ZodType>({
             if (error instanceof ZodError) {
                 logger.error(`Error handling ${route} POST`, error, { route, body: rawBody ?? null })
                 return NextResponse.json({ error: 'invalid-payload', issues: error.issues }, { status: 400 })
+            }
+
+            if (error instanceof JobTransitionRefusedError) {
+                return NextResponse.json(
+                    { error: 'transition-refused', from: error.from, to: error.to },
+                    { status: 409 },
+                )
             }
 
             if (error instanceof NotFoundError) {

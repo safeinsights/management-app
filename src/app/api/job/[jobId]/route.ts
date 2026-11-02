@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
-import { recordJobStatus } from '@/server/job-status'
+import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
 import { roundIsClosed } from '@/server/storage'
 import logger from '@/lib/logger'
 import { apiRequestingOrg, currentDb } from '@/server/request-context'
@@ -52,7 +52,12 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         return new NextResponse('ok', { status: 200 })
     }
 
-    await recordJobStatus(job, { status: change.status, message: change.message })
+    try {
+        await transitionJob(currentDb(), job.id, change.status, { actor: 'enclave', message: change.message })
+    } catch (error) {
+        if (!(error instanceof JobTransitionRefusedError)) throw error
+        return NextResponse.json({ error: 'transition-refused', from: error.from, to: error.to }, { status: 409 })
+    }
 
     return new NextResponse('ok', { status: 200 })
 }

@@ -5,6 +5,7 @@ import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
 import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { openStudyJob } from '@/database/job-status-writer'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -84,17 +85,7 @@ export type RoundJob = {
 }
 
 async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date): Promise<RoundJob> {
-    const studyJob = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: studyJob.id, status: 'INITIATED' })
-        .executeTakeFirstOrThrow()
-
+    const studyJob = await openStudyJob(db, studyId, { actor: 'system', createdAt })
     return { id: studyJob.id, createdAt: studyJob.createdAt, hasSubmission: false, created: true }
 }
 
@@ -105,6 +96,8 @@ export async function getOrCreateCurrentRoundJob(
     studyId: string,
     { backdateMs = 0 }: { backdateMs?: number } = {},
 ): Promise<RoundJob> {
+    // Study first, as the status writer locks it, so two requests cannot both open the next round.
+    await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
     const latest = await db
         .selectFrom('studyJob')
         .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])

@@ -3,6 +3,7 @@ import { fetchCodeEnvForStudyId, getStudyJobFileOfType, type LatestJobForStudy }
 import { triggerBuildImageForJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { bareExtension } from '@/lib/paths'
+import { transitionJob } from '@/server/job-transitions'
 
 export async function approveJobCode({
     db,
@@ -19,16 +20,10 @@ export async function approveJobCode({
     studyId: string
     orgSlug: string
 }) {
-    await db
-        .insertInto('jobStatusChange')
-        .values({ userId, status: 'CODE-APPROVED', studyJobId: job.id })
-        .executeTakeFirstOrThrow()
+    await transitionJob(db, job.id, 'CODE-APPROVED', { actor: 'reviewer', userId })
 
     if (SIMULATE_CODE_BUILD) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ userId, status: 'JOB-READY', studyJobId: job.id })
-            .executeTakeFirstOrThrow()
+        await transitionJob(db, job.id, 'JOB-READY', { actor: 'system', userId })
     } else {
         // The study runs the code env frozen when its language was chosen.
         const image = await fetchCodeEnvForStudyId(studyId, db)

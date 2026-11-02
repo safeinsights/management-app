@@ -2,6 +2,7 @@ import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import {
+    insertTestJobStatus,
     insertTestProposalDecision,
     insertTestStudyData,
     mockSessionWithTestData,
@@ -247,17 +248,7 @@ test('containerizer records a reason against an errored row holding unclassified
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    // createdAt is set explicitly: each test runs in one transaction where now() is frozen, so
-    // every row would tie and the winner would fall to random v7uuid() ordering.
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: jobId,
-            status: 'JOB-ERRORED',
-            message: 'Task stopped: exit code 137',
-            createdAt: new Date(Date.now() + 1_000),
-        })
-        .execute()
+    await insertTestJobStatus(jobId, 'JOB-ERRORED', { message: 'Task stopped: exit code 137' })
 
     const resp = await apiHandler.POST(
         authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),

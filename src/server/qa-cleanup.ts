@@ -22,6 +22,7 @@ import { pathForStudy } from '@/lib/paths'
 import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
 import logger from '@/lib/logger'
 import { localStorageContext, withTransaction } from '@/server/request-context'
+import { detachJobStatusAuthor } from '@/database/job-status-writer'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -200,6 +201,7 @@ async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
     const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
     if (jobs.length > 0) {
         const jobIds = jobs.map((job) => job.id)
+        // eslint-disable-next-line custom/noJobStatusWrites -- the jobs themselves are deleted below
         await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
         await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
         await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
@@ -332,7 +334,7 @@ export async function deleteUserCompletely(
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
-        await trx.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
+        await detachJobStatusAuthor(trx, userId)
         // Written by the signup flow, one row per enforced published document, so every
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.

@@ -16,6 +16,7 @@ import { Action, z } from './action'
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
+import { transitionJob } from '@/server/job-transitions'
 
 // The delay must outlast Hocuspocus MAX_SAVE_INTERVAL_MS so the sweep runs after the worst-case
 // debounced store and disconnect-flush. Job-keyed names are never reused, so the delete is unconditional.
@@ -119,10 +120,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             })
             onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
-            await db
-                .insertInto('jobStatusChange')
-                .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
-                .executeTakeFirstOrThrow()
+            await transitionJob(db, claimedJob.id, 'CODE-CHANGES-REQUESTED', { actor: 'reviewer', userId })
             await markStudyUpdated(db, {
                 studyId,
                 userId,

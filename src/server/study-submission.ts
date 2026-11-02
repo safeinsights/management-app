@@ -11,13 +11,14 @@ import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { currentDb } from '@/server/request-context'
+import { transitionJob } from '@/server/job-transitions'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779).
     if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) return
-    await currentDb().insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
+    await transitionJob(currentDb(), studyJobId, 'CODE-SCANNED', { actor: 'system' })
 })
 
 // A Hocuspocus persist can commit after the in-tx delete; re-delete rows
@@ -116,5 +117,5 @@ export async function markCodeSubmitted(
     { studyJobId, userId }: { studyJobId: string; userId: string },
 ) {
     if (await roundIsAlreadySubmitted(db, studyJobId)) return
-    await db.insertInto('jobStatusChange').values({ studyJobId, userId, status: 'CODE-SUBMITTED' }).execute()
+    await transitionJob(db, studyJobId, 'CODE-SUBMITTED', { actor: 'researcher', userId })
 }
