@@ -149,7 +149,7 @@ export async function backfillStudyJobState(db: Kysely<unknown>, { jobIds }: { j
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`
 const literalList = (values: readonly string[]) => values.map(literal).join(', ')
 
-// The rule codeRoundForJob uses: closers on the jobs before this one, plus this job's resubmissions.
+// The code round: closers on the jobs before this one, plus this job's resubmissions.
 const ROUND_FUNCTION = `
     CREATE FUNCTION study_job_round(uuid) RETURNS integer LANGUAGE sql STABLE AS $$
         SELECT (1 + (

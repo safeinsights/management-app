@@ -3,7 +3,8 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sleep } from '@/lib/utils'
 import { deleteFolderContents, triggerScanForStudyJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
-import { codeRoundForJob, isCurrentCodeRound } from '@/server/db/code-round'
+import { resolveJobState } from '@/database/job-status-writer'
+import type { JobStatus } from '@/lib/job-status-rules'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { deferred } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -17,7 +18,7 @@ const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) return
+    if ((await resolveJobState(currentDb(), studyJobId)).round !== round) return
     await transitionJob(currentDb(), studyJobId, 'CODE-SCANNED', { actor: 'system' })
 })
 
@@ -69,9 +70,13 @@ export async function attachCodeToRoundJob(
         // goes, because a replacement the reviewer has not yet decided on opens no new round: its
         // summary would otherwise describe deleted code and short-circuit the regeneration that
         // follows (SHRMP-263, OTTER-779).
-        if (await roundIsAlreadySubmitted(db, studyJobId)) {
-            const round = await codeRoundForJob(studyJobId, db)
-            await db.deleteFrom('studyReview').where('studyJobId', '=', studyJobId).where('round', '=', round).execute()
+        const state = await resolveJobState(db, studyJobId)
+        if (!awaitsSubmission(state.status)) {
+            await db
+                .deleteFrom('studyReview')
+                .where('studyJobId', '=', studyJobId)
+                .where('round', '=', state.round)
+                .execute()
         }
         discardedScanLogPaths = await discardStaleScanLogRows(studyJobId, db)
     }
@@ -95,27 +100,14 @@ export async function attachCodeToRoundJob(
     return { studyJobId, discardedScanLogPaths }
 }
 
-// Once per submission round, not per job: a change-requested resubmit stays on the same job, and
-// submissions and change requests alternate on it, so the round this job is on has been submitted
-// iff submitted-count > change-requested-count. A further upload while that holds replaces the
-// round's code without opening a new round.
-async function roundIsAlreadySubmitted(db: Kysely<DB>, studyJobId: string) {
-    const counts = await db
-        .selectFrom('jobStatusChange')
-        .select((eb) => [
-            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-SUBMITTED').as('submitted'),
-            eb.fn.count<number>('id').filterWhere('status', '=', 'CODE-CHANGES-REQUESTED').as('requested'),
-        ])
-        .where('studyJobId', '=', studyJobId)
-        .executeTakeFirstOrThrow()
-
-    return Number(counts.submitted) > Number(counts.requested)
-}
+// Once per submission round, not per job: a change-requested resubmit stays on the same job. A further
+// upload while the round is submitted replaces the round's code without opening a new round.
+const awaitsSubmission = (status: JobStatus) => status === 'INITIATED' || status === 'CODE-CHANGES-REQUESTED'
 
 export async function markCodeSubmitted(
     db: Kysely<DB>,
     { studyJobId, userId }: { studyJobId: string; userId: string },
 ) {
-    if (await roundIsAlreadySubmitted(db, studyJobId)) return
+    if (!awaitsSubmission((await resolveJobState(db, studyJobId)).status)) return
     await transitionJob(db, studyJobId, 'CODE-SUBMITTED', { actor: 'researcher', userId })
 }

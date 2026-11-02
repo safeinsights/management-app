@@ -33,7 +33,7 @@ import {
     regenerateStudyReviewAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
-import { codeSubmissionVersion } from '@/server/db/queries'
+import { studyCodeVersion } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
@@ -601,12 +601,13 @@ describe('Study Job Actions', () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
             // The run completes after the resubmitted code is approved, so the job is ready for a decision.
             await insertTestJobStatuses(job.id, [
+                'CODE-SUBMITTED',
                 'CODE-CHANGES-REQUESTED',
                 'CODE-SUBMITTED',
                 'CODE-APPROVED',
                 'RUN-COMPLETE',
             ])
-            expect(await codeSubmissionVersion(study.id, db)).toBe(2)
+            expect(await studyCodeVersion(study.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({

@@ -1,9 +1,10 @@
-import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
+import { db, describe, expect, insertTestOrg, insertTestStudyOnly, insertTestUser, it } from '@/tests/unit.helpers'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
+import { markCodeSubmitted } from '@/server/study-submission'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
 import { JOB_STATUSES } from '@/lib/job-status-rules'
-import { openStudyJob } from '@/database/job-status-writer'
+import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
 import {
     JOB_WRITER_FLAG,
     backfillEffect,
@@ -326,6 +327,22 @@ describe('a job that older code touched after a rollback', () => {
         expect(await columnsOf(next)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 2 })
     })
 
+    it('still opens the next round once older code recorded the decision', async () => {
+        const { study } = await insertTestStudyOnly()
+        const job = await openStudyJob(db, study.id, { actor: 'qa' })
+        await writeJobStatus(db, job.id, 'RUN-COMPLETE', { actor: 'qa' })
+        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version writes without the columns
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'FILES-APPROVED', createdAt: sql<Date>`clock_timestamp()` })
+            .execute()
+
+        const next = await getOrCreateCurrentRoundJob(db, study.id)
+
+        expect(next).toMatchObject({ created: true })
+        expect(next.id).not.toBe(job.id)
+    })
+
     it('opens the next round when a late scan followed the outputs decision', async () => {
         const { study } = await insertTestStudyOnly()
         const jobId = await insertLegacyJob(study.id, [
@@ -340,6 +357,22 @@ describe('a job that older code touched after a rollback', () => {
 
         expect(next).toMatchObject({ created: true })
         expect((await columnsOf(jobId)).currentStatus).toBe('FILES-REJECTED')
+    })
+
+    it('still accepts a resubmit once older code recorded the change request', async () => {
+        const { study } = await insertTestStudyOnly()
+        const job = await openStudyJob(db, study.id, { actor: 'qa' })
+        await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
+        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version writes without the columns
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: sql<Date>`clock_timestamp()` })
+            .execute()
+        const { user } = await insertTestUser({ org: await insertTestOrg() })
+
+        await markCodeSubmitted(db, { studyJobId: job.id, userId: user.id })
+
+        expect(await columnsOf(job.id)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 2 })
     })
 
     it('still applies a row from older code after a writer call in the same transaction', async () => {

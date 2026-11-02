@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { codeSubmissionVersion, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy, studyCodeVersion } from '@/server/db/queries'
 import { getCodeReviewFeedbackAction } from '@/server/actions/review-feedback.actions'
 import { listWorkspaceFileActivityAction } from '@/server/actions/workspaces.actions'
 import { actionResult } from '@/lib/utils'
@@ -12,7 +12,7 @@ export async function CodeUnderReviewScreen({ study, nav }: ScreenComponentProps
     if (!job) notFound()
 
     const activityByName = actionResult(await listWorkspaceFileActivityAction({ studyId: study.id, jobId: job.id }))
-    const submissionVersion = await codeSubmissionVersion(study.id, currentDb())
+    const submissionVersion = await studyCodeVersion(study.id, currentDb())
     // Feedback is only meaningful on resubmissions, so skip the query on v1.
     const feedbackEntries =
         submissionVersion > 1 ? actionResult(await getCodeReviewFeedbackAction({ studyId: study.id })) : []

@@ -1,7 +1,7 @@
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { isCurrentCodeRound } from '@/server/db/code-round'
+import { resolveJobState } from '@/database/job-status-writer'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -51,7 +51,7 @@ export const POST = createWebhookHandler({
         // predating this change can still be current for. That keeps the guard closed against a
         // caller that omits the round, rather than leaving it permanently disabled for one.
         const round = body.round ?? 1
-        if (!(await isCurrentCodeRound(job.jobId, round, currentDb()))) {
+        if ((await resolveJobState(currentDb(), job.jobId)).round !== round) {
             logger.warn(
                 `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
             )

@@ -2078,12 +2078,13 @@ describe('Request Study Actions', () => {
 
         it('creates a new job, records the resubmission note, clears the draft, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
+            const { study, job } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
+                jobStatus: 'CODE-SUBMITTED',
             })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
             await db
                 .updateTable('study')
                 .set({ codeResubmissionNoteDraft: 'work in progress' })

@@ -21,9 +21,9 @@ import {
     getUserPublicKey,
     jobAnalysisForJob,
     fetchUserFullName,
+    jobRound,
     outputsDecisionVersion,
 } from '@/server/db/queries'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -188,7 +188,7 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
         // Only this round's row is touched; an earlier round's rows are that round's history.
-        const round = await codeRoundForJob(studyJobId, db)
+        const round = await jobRound(studyJobId, db)
         const existing = await db
             .selectFrom('studyReview')
             .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
