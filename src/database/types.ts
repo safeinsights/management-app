@@ -300,7 +300,10 @@ export interface Study {
 
 export interface StudyJob {
     createdAt: Generated<Timestamp>
+    currentStatus: Generated<StudyJobStatus>
     id: Generated<string>
+    round: Generated<number>
+    statusChangedAt: Generated<Timestamp>
     studyId: string
 }
 
