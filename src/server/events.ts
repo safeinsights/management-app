@@ -200,7 +200,8 @@ const recordStudyProposalSubmitted = deferred(
 export const onStudyProposalSubmitted = async (event: StudyEvent & { isResubmission: boolean }) => {
     recordStudyProposalSubmitted(event)
     await sendStudyEmail('sendStudyProposalEmails', event.studyId)
-    await sendStudyEmail('sendStudyAgreementPreparationEmail', event.studyId)
+    // The same proposal coming back is already on the admins' list.
+    if (!event.isResubmission) await sendStudyEmail('sendStudyAgreementPreparationEmail', event.studyId)
 }
 
 const recordStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {

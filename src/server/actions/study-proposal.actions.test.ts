@@ -468,6 +468,27 @@ describe('Request Study Actions', () => {
         expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
     })
 
+    // The worker reads the audit rows the app writes in after(), so the resubmission is decided here.
+    it('finalizeStudySubmissionAction queues no Study Agreement request on resubmission', async () => {
+        const studyId = await submitDraftProposal('sla-once-queued')
+        const queue = stubJobQueue()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const emails = queue
+            .commandCalls(SendMessageCommand)
+            .map((call) => JSON.parse(call.args[0].input.MessageBody!))
+            .filter((message) => message.job === 'study-email')
+            .map((message) => message.payload.email)
+        expect(emails).toEqual([
+            'sendStudyProposalEmails',
+            'sendStudyAgreementPreparationEmail',
+            'sendStudyProposalEmails',
+        ])
+    })
+
     it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
         const studyId = await submitDraftProposal('sla-already-drafted')
         await insertTestStudyAgreement({ studyId, published: false })
