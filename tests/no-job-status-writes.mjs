@@ -4,6 +4,8 @@ const WRITE_METHODS = new Set(['insertInto', 'updateTable', 'deleteFrom', 'repla
 const STATUS_TABLES = new Set(['jobStatusChange', 'job_status_change'])
 const JOB_TABLES = new Set(['studyJob', 'study_job'])
 const RAW_WRITE = /(insert\s+into|update|delete\s+from)\s+("?public"?\.)?"?job_status_change\b/i
+// The job state columns the writer keeps in step with the log.
+const STATE_COLUMNS = new Set(['currentStatus', 'current_status', 'round', 'statusChangedAt', 'status_changed_at'])
 
 const stringValue = (node) => {
     if (!node) return null
@@ -14,6 +16,38 @@ const stringValue = (node) => {
 
 // `'jobStatusChange as jsc'` names the same table.
 const tableName = (value) => value.replace(/\s+as\s+\w+$/i, '').trim()
+
+// The `updateTable('studyJob')` call somewhere below a `.set(...)` in the same chain.
+const updatesStudyJob = (node) => {
+    for (let current = node; current; ) {
+        if (current.type === 'CallExpression') {
+            const { callee } = current
+            if (
+                callee.type === 'MemberExpression' &&
+                !callee.computed &&
+                callee.property.name === 'updateTable' &&
+                JOB_TABLES.has(tableName(stringValue(current.arguments[0]) ?? ''))
+            ) {
+                return true
+            }
+            current = callee
+        } else if (current.type === 'MemberExpression') {
+            current = current.object
+        } else {
+            return false
+        }
+    }
+    return false
+}
+
+const setsStateColumn = (argument) =>
+    argument?.type === 'ObjectExpression' &&
+    argument.properties.some(
+        (property) =>
+            property.type === 'Property' &&
+            !property.computed &&
+            STATE_COLUMNS.has(property.key.type === 'Identifier' ? property.key.name : String(property.key.value)),
+    )
 
 const isSqlTag = (tag) => tag.type === 'Identifier' && tag.name === 'sql'
 
@@ -52,6 +86,10 @@ const noJobStatusWrites = {
                     return
                 }
                 const method = callee.property.name
+                if (method === 'set' && setsStateColumn(node.arguments[0]) && updatesStudyJob(callee.object)) {
+                    report(node)
+                    return
+                }
                 if (!WRITE_METHODS.has(method)) return
                 const value = stringValue(node.arguments[0])
                 if (!value) return

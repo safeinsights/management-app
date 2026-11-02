@@ -21,6 +21,8 @@ ruleTester.run('noJobStatusWrites', noJobStatusWrites, {
         "db.selectFrom('jobStatusChange').selectAll()",
         "db.insertInto('studyJobFile').values(row)",
         "db.updateTable('studyJob').set({ createdAt })",
+        "db.updateTable('study').set({ status: 'APPROVED' })",
+        "db.updateTable('studyReview').set({ round: 2 })",
         "db.deleteFrom('studyJob').where('id', '=', id)",
         'db.insertInto(table).values(row)',
         "transitionJob(db, jobId, 'CODE-SUBMITTED', { actor: 'researcher' })",
@@ -43,5 +45,8 @@ ruleTester.run('noJobStatusWrites', noJobStatusWrites, {
         { code: 'sql`UPDATE "public"."job_status_change" SET message = ${m}`', errors },
         { code: 'sql`delete from job_status_change where id = ${id}`', errors },
         { code: "sql.raw('INSERT INTO job_status_change (status) VALUES (1)')", errors },
+        { code: "db.updateTable('studyJob').set({ currentStatus: 'INITIATED' }).where('id', '=', id)", errors },
+        { code: "trx.updateTable('study_job').where('id', '=', id).set({ round: 2 })", errors },
+        { code: "db.updateTable('studyJob').set({ statusChangedAt: now, createdAt: now })", errors },
     ],
 })
