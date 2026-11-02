@@ -418,13 +418,11 @@ The pill cannot be keyed on a status value alone, which is why it has a table ra
 `markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
 `MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
 prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
-exists, and once per job for any visit that sees an earlier one. Two visits close enough to read
-before either writes both insert. That race is accepted rather than fixed: every reader asks the
-status set whether the row is there, so a duplicate moves no badge. The partial unique index that
-would settle it cannot be created, because its predicate has to name `RESULTS-VIEWED`, which the
+exists, and once per job: the status writer locks the job and skips `RESULTS-VIEWED` when the job
+already has one, so two visits that overlap still write one row (see "Job status transitions"). A
+partial unique index cannot do this, because its predicate has to name `RESULTS-VIEWED`, which the
 migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
-of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
-migrations together, so a later migration cannot escape it either. A job status rather than a study
+of a new value, and `status::text` as a non-IMMUTABLE index predicate. A job status rather than a study
 column because a resubmission opens a new job, so the fact resets per round without any clearing
 logic.
 
@@ -512,6 +510,87 @@ the row's Last updated value with the viewer's last visit, and the badge already
 
 ---
 
+## Job status transitions
+
+Every write to `jobStatusChange`, and every new `studyJob`, goes through
+`src/database/job-status-writer.ts` (OTTER-973). The app calls it through `transitionJob` in
+`src/server/job-transitions.ts`; seeds, `bin/` scripts and test fixtures call `writeJobStatus` and
+`openStudyJob` directly with the `qa` actor. The ESLint rule `custom/noJobStatusWrites`
+(`tests/no-job-status-writes.mjs`) fails the build for any other write.
+
+The writer locks the study row, then the job row, replays the job's log to find its current status
+(`replayJobStatus` in `src/lib/job-status-rules.ts`), checks the transition table, and writes the row
+with `clock_timestamp()`. `now()` is fixed for a whole transaction, so two writes in one transaction
+would tie; `clock_timestamp()` keeps rows in write order. Rows written before the writer existed can
+still tie, and the replay orders those by lifecycle rank, then id. Readers stay set-based, as
+described above; only the writer orders rows.
+
+**Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
+route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and
+`SIMULATE_CODE_BUILD`), and `qa` (the QA API, seeds, scripts and fixtures).
+
+**Effects.** A `move` row changes the job's current status. A `log` row is kept as history and leaves
+the status where it was, so a late or out-of-order report never moves a job backward. The effect
+depends only on the pair of statuses, never on the actor, so a replay of the log gives the same
+status as the writes did.
+
+Rules applied before the table, in this order:
+
+1. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every write except `RESULTS-VIEWED`
+   is refused (`qa` excepted).
+2. **Repeat.** A write of the current status is a no-op for `enclave`, `service` and `system`, which
+   re-send statuses. For `researcher` and `reviewer` it is refused, so the action rolls back the
+   comments and keys it wrote first.
+3. **Log no-op.** A `log` write is skipped when the job's newest row already has that status.
+   `RESULTS-VIEWED` is skipped when the job has one anywhere.
+4. **Table and actor.** A pair the table does not list, or a listed pair from an actor it does not
+   name, is refused.
+
+"Stage" means `JOB-PACKAGING`, `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, in that order.
+
+| To                                        | From                                                                              | Effect                       | Actors            |
+| ----------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------- | ----------------- |
+| `INITIATED`                               | none (new job, `openStudyJob`)                                                    | move                         | system, qa        |
+| `CODE-SUBMITTED`                          | `INITIATED`                                                                       | move                         | researcher        |
+| `CODE-SUBMITTED`                          | `CODE-CHANGES-REQUESTED` (next code round, same job)                              | move                         | researcher        |
+| `CODE-SCANNED`                            | `CODE-SUBMITTED`                                                                  | move                         | service, system   |
+| `CODE-SCANNED`                            | `CODE-CHANGES-REQUESTED`, `CODE-APPROVED`, a stage, `JOB-ERRORED`, `RUN-COMPLETE` | log                          | service, system   |
+| `JOB-ERRORED`                             | `CODE-SUBMITTED`, `CODE-SCANNED`                                                  | move                         | service           |
+| `JOB-ERRORED`                             | `CODE-CHANGES-REQUESTED`                                                          | log                          | service           |
+| `CODE-APPROVED`, `CODE-CHANGES-REQUESTED` | `CODE-SUBMITTED`, `CODE-SCANNED`, `JOB-ERRORED`                                   | move                         | reviewer          |
+| `JOB-PACKAGING`                           | `CODE-APPROVED`                                                                   | move                         | service           |
+| `JOB-READY`                               | `CODE-APPROVED`                                                                   | move                         | service, system   |
+| `JOB-READY`                               | `JOB-PACKAGING`                                                                   | move                         | service           |
+| `JOB-PROVISIONING`                        | `JOB-READY`                                                                       | move                         | enclave           |
+| `JOB-RUNNING`                             | `JOB-READY`, `JOB-PROVISIONING`                                                   | move                         | enclave           |
+| `JOB-ERRORED`                             | `CODE-APPROVED`, a stage                                                          | move                         | service, enclave  |
+| a stage                                   | a later stage, `JOB-ERRORED`, `RUN-COMPLETE`                                      | log                          | service, enclave  |
+| `RUN-COMPLETE`                            | `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, `JOB-ERRORED`                     | move                         | enclave           |
+| `FILES-APPROVED`, `FILES-REJECTED`        | `RUN-COMPLETE`                                                                    | move                         | reviewer          |
+| `FILES-APPROVED`, `FILES-REJECTED`        | `JOB-ERRORED`                                                                     | move                         | reviewer, enclave |
+| `RESULTS-VIEWED`                          | `FILES-APPROVED`, `FILES-REJECTED`                                                | log                          | researcher        |
+| any                                       | any                                                                               | the listed effect, else move | qa                |
+
+`qa` may write any pair, repeats included; `CODE-REJECTED` has no other writer. A replay treats an
+unlisted pair as a move, the same as a `qa` write, so the writes and the replay agree.
+
+**Refusals.** A refused write throws `JobTransitionRefusedError`, an `ActionFailure`, and writes
+nothing; the action's transaction rolls back. The enclave and containerizer routes answer 409. Their
+existing early answers come first: `PUT /api/job/[jobId]` still answers 422 once `RUN-COMPLETE`
+exists, and known-stale deliveries still answer 200. The scan webhook answers 200 to a refusal, as
+a retry would only be refused again.
+
+**Observe mode.** The enclave and the services deploy separately from this app. While
+`OBSERVE_MACHINE_ACTOR_PAIRS` is true, a pair the table refuses for `enclave` or `service` is logged
+as a warning and still written, with the effect a replay would give it. The round-closed rule still
+applies to them. Setting the flag to false enforces the table for them too.
+
+**Email.** A move into `JOB-ERRORED` by any actor but `qa` emails the Data Partner after the commit.
+A repeat or a `log` row sends nothing, so a results delivery that follows the runner's own
+`JOB-ERRORED` does not email twice.
+
+---
+
 ## Job round semantics
 
 - A round **closes** only on `FILES-APPROVED` / `FILES-REJECTED`.
@@ -579,6 +658,9 @@ re-architecting — exactly as the design intended.
 | `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                                |
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
+| `lib/job-status-rules.ts`              | statuses, actors, `JOB_TRANSITIONS`, `decideJobTransition`, `replayJobStatus` (no imports)                  |
+| `database/job-status-writer.ts`        | `writeJobStatus`, `openStudyJob`: the only writes to the status log                                         |
+| `server/job-transitions.ts`            | `transitionJob`, the app's entry to the writer (logging, `JOB-ERRORED` email)                               |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
 | `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837), `setupStepNav` (`/edit`, OTTER-673)                         |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
