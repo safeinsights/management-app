@@ -4,16 +4,17 @@ import { useEffect, useEffectEvent, useState } from 'react'
 import type { TOTPResource } from '@clerk/nextjs/types'
 import { useForm } from '@/common'
 import { reportError } from '@/components/errors'
-import { isClerkApiError } from '@/lib/errors'
+import { errorToString, isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { enrollAndReadCodes, type EnrolledCodes } from '../enrollment-codes'
+import { enrollAndReadCodes, type EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 
 const REGENERATE_COOLDOWN_MS = 30000
 
 export type AddAppMfaStep = 'add' | 'success'
 
-const isIncorrectCode = (err: unknown) => isClerkApiError(err) && err.errors[0].code === 'form_code_incorrect'
+const isIncorrectCode = (err: unknown) =>
+    isClerkApiError(err) && err.errors.some((e) => e.code === 'form_code_incorrect')
 
 function secretFromUri(uri?: string) {
     if (!uri) return null
@@ -75,7 +76,11 @@ export function useAddAppMfa() {
             setEnrolled(await enrollAndReadCodes(user, () => user.verifyTOTP({ code: values.code })))
         } catch (err) {
             if (!isIncorrectCode(err)) logger.error('Error verifying TOTP', err)
-            form.setErrors({ code: 'Invalid verification code. Please try again.' })
+            form.setErrors({
+                code: errorToString(err, {
+                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
+                }),
+            })
         } finally {
             setIsVerifying(false)
         }

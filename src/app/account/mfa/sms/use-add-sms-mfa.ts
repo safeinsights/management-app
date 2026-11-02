@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { useReverification } from '@clerk/nextjs'
+import { isReverificationCancelledError } from '@clerk/nextjs/errors'
 import type { PhoneNumberResource } from '@clerk/nextjs/types'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { errorToString } from '@/lib/errors'
+import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
-import { enrollAndReadCodes, type EnrolledCodes } from '../enrollment-codes'
+import { enrollAndReadCodes, type EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 import type { PhoneFormValues } from './add-sms-mfa-view'
 
@@ -106,6 +108,7 @@ export function useAddSmsMfa() {
     }
 
     const verifyCodeAndSetMfa = async (values: typeof otpForm.values) => {
+        if (!user) return
         if (!phoneObj) {
             showToast({ category: 'error', title: 'No phone number found' })
             return
@@ -125,7 +128,7 @@ export function useAddSmsMfa() {
                 setEnrolled(await enrollAndReadCodes(user, () => setReservedForSecondFactor(phoneObj)))
                 showToast({ category: 'success', title: 'MFA enabled' })
             } catch (error) {
-                console.error(error)
+                if (!isReverificationCancelledError(error)) logger.error('Error enabling SMS MFA', error)
                 otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
             }
         } catch (err) {

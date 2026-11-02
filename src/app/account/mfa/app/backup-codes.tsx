@@ -7,7 +7,7 @@ import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-import type { EnrolledCodes } from '../enrollment-codes'
+import type { EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -52,7 +52,10 @@ function useBackupCodes(enrolled: EnrolledCodes | null) {
         isSessionLoaded,
         modalOpened,
         isRedirecting,
-        markCopied: () => setHasCopied(true),
+        copyCodes: (copy: () => void) => {
+            copy()
+            setHasCopied(true)
+        },
         closeModal: () => setModalOpened(false),
         leave,
         goToDashboard,
@@ -106,21 +109,14 @@ const NoCodesNotice: FC<{ isVisible: boolean; hasExistingCodes: boolean }> = ({ 
     )
 }
 
-const CopyCodesButton: FC<CodesProps & { onCopied: () => void }> = ({ isVisible, codes, onCopied }) => {
+const CopyCodesButton: FC<CodesProps & { onCopy: (copy: () => void) => void }> = ({ isVisible, codes, onCopy }) => {
     if (!isVisible) return null
 
     return (
         <CopyButton value={codes.join('\n')} timeout={1000}>
             {({ copied, copy }) => (
                 <Stack gap="xxs">
-                    <Button
-                        fullWidth
-                        size="lg"
-                        onClick={() => {
-                            copy()
-                            onCopied()
-                        }}
-                    >
+                    <Button fullWidth size="lg" onClick={() => onCopy(copy)}>
                         Copy codes
                     </Button>
                     <CopiedNotice isVisible={copied} />
@@ -152,7 +148,7 @@ const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
         isSessionLoaded,
         modalOpened,
         isRedirecting,
-        markCopied,
+        copyCodes,
         closeModal,
         leave,
         goToDashboard,
@@ -170,7 +166,7 @@ const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
                 <NoCodesNotice isVisible={!hasCodes} hasExistingCodes={hasExistingCodes} />
 
                 <Stack gap="md" mt="xs">
-                    <CopyCodesButton isVisible={hasCodes} codes={codes} onCopied={markCopied} />
+                    <CopyCodesButton isVisible={hasCodes} codes={codes} onCopy={copyCodes} />
 
                     <Button
                         loading={isRedirecting}

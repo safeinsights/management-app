@@ -106,6 +106,7 @@ describe('useAddAppMfa', () => {
         await act(() => result.current.verifyTotp({ code: '000000' }))
 
         expect(result.current.step).toBe('add')
+        expect(result.current.form.errors.code).toBe('network down')
         expect(logError).toHaveBeenCalledWith('Error verifying TOTP', failure)
     })
 

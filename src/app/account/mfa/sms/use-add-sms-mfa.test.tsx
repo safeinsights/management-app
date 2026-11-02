@@ -1,4 +1,5 @@
 import { useReverification, useUser } from '@clerk/nextjs'
+import { ClerkRuntimeError } from '@clerk/nextjs/errors'
 import { notifications } from '@mantine/notifications'
 import {
     act,
@@ -153,5 +154,35 @@ describe('useAddSmsMfa', () => {
         expect(phone.setReservedForSecondFactor).not.toHaveBeenCalled()
         expect(result.current.step).toBe('otp')
         expect(result.current.otpForm.errors.code).toBeTruthy()
+    })
+
+    it('logs a failure to enable MFA for the phone and stays on the code step', async () => {
+        const { phone } = mockSmsUser()
+        const failure = new Error('clerk down')
+        phone.setReservedForSecondFactor.mockRejectedValue(failure)
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { result } = renderSmsMfa()
+        await sendCode(result)
+
+        await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
+
+        expect(result.current.step).toBe('otp')
+        expect(result.current.otpForm.errors.code).toBe('Failed to enable MFA for this phone number')
+        expect(logError).toHaveBeenCalledWith('Error enabling SMS MFA', failure)
+    })
+
+    it('does not log when the user cancels the Clerk reverification prompt', async () => {
+        const { phone } = mockSmsUser()
+        phone.setReservedForSecondFactor.mockRejectedValue(
+            new ClerkRuntimeError('User cancelled attempted verification', { code: 'reverification_cancelled' }),
+        )
+        const logError = vi.spyOn(logger, 'error')
+        const { result } = renderSmsMfa()
+        await sendCode(result)
+
+        await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
+
+        expect(result.current.step).toBe('otp')
+        expect(logError).not.toHaveBeenCalled()
     })
 })
