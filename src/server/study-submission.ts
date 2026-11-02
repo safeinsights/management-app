@@ -11,15 +11,17 @@ import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
 import { deleteDiscardedScanLogObjects, discardStaleScanLogRows } from '@/server/storage'
 import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
-import { currentDb } from '@/server/request-context'
+import { currentDb, withTransaction } from '@/server/request-context'
 import { transitionJob } from '@/server/job-transitions'
 
 const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     await sleep({ 1: 'seconds' })
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
-    // as it does in production (OTTER-779).
-    if ((await resolveJobState(currentDb(), studyJobId)).round !== round) return
-    await transitionJob(currentDb(), studyJobId, 'CODE-SCANNED', { actor: 'system' })
+    // as it does in production (OTTER-779). One transaction, so the job lock holds until the write.
+    await withTransaction(currentDb(), async () => {
+        if ((await resolveJobState(currentDb(), studyJobId)).round !== round) return
+        await transitionJob(currentDb(), studyJobId, 'CODE-SCANNED', { actor: 'system' })
+    })
 })
 
 // A Hocuspocus persist can commit after the in-tx delete; re-delete rows

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
 import { encryptAndStoreLog } from '../encrypt-and-store-log'
 import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
-import { currentDb } from '@/server/request-context'
+import { currentDb, withTransaction } from '@/server/request-context'
 
 const schema = z.object({
     jobId: z.string(),
@@ -51,45 +51,48 @@ export const POST = createWebhookHandler({
         // predating this change can still be current for. That keeps the guard closed against a
         // caller that omits the round, rather than leaving it permanently disabled for one.
         const round = body.round ?? 1
-        if ((await resolveJobState(currentDb(), job.jobId)).round !== round) {
-            logger.warn(
-                `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
-            )
-            return
-        }
-
-        const logFileTypes = LOG_FILE_TYPES[body.status]
-        if (logFileTypes && body.plaintextLog) {
-            const encrypted = await encryptAndStoreLog({
-                route: '/api/services/job-scan-results',
-                plaintextLog: body.plaintextLog,
-                fileType: logFileTypes.encrypted,
-                job,
-            })
-
-            // Both halves move together: replacing only the plaintext would show the reviewer
-            // findings from a log the researcher cannot open.
-            if (!encrypted || encrypted.stored) {
-                const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
-                    type: 'text/plain',
-                })
-                await storeStudyLogFile(
-                    { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                    file,
-                    logFileTypes.plaintext,
+        // One transaction, so the job lock taken for the round check holds until the status is written.
+        await withTransaction(currentDb(), async () => {
+            if ((await resolveJobState(currentDb(), job.jobId)).round !== round) {
+                logger.warn(
+                    `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
                 )
+                return
             }
-        }
 
-        // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
-        // append-only submission log.
-        if (body.status === 'CODE-SUBMITTED') return
+            const logFileTypes = LOG_FILE_TYPES[body.status]
+            if (logFileTypes && body.plaintextLog) {
+                const encrypted = await encryptAndStoreLog({
+                    route: '/api/services/job-scan-results',
+                    plaintextLog: body.plaintextLog,
+                    fileType: logFileTypes.encrypted,
+                    job,
+                })
 
-        try {
-            await transitionJob(currentDb(), job.jobId, body.status, { actor: 'service', userId: job.researcherId })
-        } catch (error) {
-            // Answered 200 for the same reason as a stale round: a retry would only be refused again.
-            if (!(error instanceof JobTransitionRefusedError)) throw error
-        }
+                // Both halves move together: replacing only the plaintext would show the reviewer
+                // findings from a log the researcher cannot open.
+                if (!encrypted || encrypted.stored) {
+                    const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
+                        type: 'text/plain',
+                    })
+                    await storeStudyLogFile(
+                        { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                        file,
+                        logFileTypes.plaintext,
+                    )
+                }
+            }
+
+            // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
+            // append-only submission log.
+            if (body.status === 'CODE-SUBMITTED') return
+
+            try {
+                await transitionJob(currentDb(), job.jobId, body.status, { actor: 'service', userId: job.researcherId })
+            } catch (error) {
+                // Answered 200 for the same reason as a stale round: a retry would only be refused again.
+                if (!(error instanceof JobTransitionRefusedError)) throw error
+            }
+        })
     },
 })
