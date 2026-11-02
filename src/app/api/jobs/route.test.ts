@@ -70,4 +70,18 @@ describe('POST /api/jobs', () => {
         expect(response.status).toBe(200)
         expect(await storedReport(job.id)).toMatchObject({ codeExplanation: 'Manual review required.' })
     })
+
+    // A lost email has no row a user could retry from, so the message must come back (OTTER-855).
+    it('answers 500 when a study email fails, so SQS delivers it again', async () => {
+        const { job } = await insertTestStudyJobData()
+        const email = JSON.stringify({
+            job: 'study-email',
+            payload: { email: 'sendStudyProposalApprovedEmail', studyId: randomUUID() },
+        })
+
+        const response = await POST(sqsEvent(email, studyReviewMessage(job.id)))
+
+        expect(response.status).toBe(500)
+        expect(await storedReport(job.id)).toMatchObject({ codeExplanation: 'Manual review required.' })
+    })
 })

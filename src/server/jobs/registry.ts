@@ -5,6 +5,8 @@ import * as mailer from '@/server/mailer'
 // Method syntax on purpose: it keeps `run` bivariant, so any job fits the general type runJob uses.
 type JobDefinition<S extends z.ZodType = z.ZodType> = {
     payload: S
+    // A failure answers the worker's SQS event with an error, so the message is delivered once more.
+    retry?: boolean
     run(payload: z.infer<S>): Promise<void>
 }
 
@@ -37,6 +39,8 @@ const jobs = {
     // Sent from the worker so a Lambda freeze after the response can neither stall nor drop them (OTTER-855).
     'study-email': defineJob({
         payload: z.object({ email: z.enum(studyEmails), studyId: z.string() }),
+        // Nothing records a lost email where a user could retry it, so SQS gets one more try.
+        retry: true,
         run: ({ email, studyId }) => mailer[email](studyId),
     }),
 }
@@ -49,6 +53,11 @@ const jobMessageSchema = z.object({
     job: z.enum(Object.keys(jobs) as [JobName, ...JobName[]]),
     payload: z.unknown(),
 })
+
+export const retriesOnFailure = (message: unknown) => {
+    const parsed = jobMessageSchema.safeParse(message)
+    return parsed.success && jobs[parsed.data.job].retry === true
+}
 
 export async function runJob(message: unknown): Promise<void> {
     const { job, payload } = jobMessageSchema.parse(message)
