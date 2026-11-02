@@ -17,6 +17,8 @@ export type StudiesTableProps = {
     paperWrapper?: boolean
 }
 
-export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+// The statuses no transition leaves. JOB-ERRORED is not one: the reviewer can still approve the code,
+// and the enclave can still complete the run.
+export const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const ACTIVE_PROPOSAL_STATUSES: StudyStatus[] = ['PENDING-REVIEW']
