@@ -1,0 +1,149 @@
+# Fully dockerized e2e stack, driven by ./bin/docker-e2e (always with -p mgmt-app-e2e-<hash>).
+# App server, Playwright and Chromium share the runner container, so localhost:4100 and the
+# localhost cookie domain of tests/.auth keep their defaults. No service publishes a host port
+# (except the UI port in a session) and none sets container_name, so the stack never collides
+# with the dev stack (docker-compose.yml) or ./bin/docker-test.
+services:
+    e2e-runner:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+            target: e2e-runner
+            args:
+                PNPM_PACKAGE_MANAGER: ${PNPM_PACKAGE_MANAGER:-}
+                PLAYWRIGHT_VERSION: ${PLAYWRIGHT_VERSION:-}
+        working_dir: /app
+        init: true
+        # Docker's 64 MB default /dev/shm crashes Chromium. ipc: host would share the VM's IPC
+        # namespace between parallel stacks, so a per-container size is used instead.
+        shm_size: 2gb
+        # No env_file. The values follow the CI e2e job (.github/workflows/checks.yml) and
+        # bin/ci-server, with container addresses for the infrastructure keys.
+        environment:
+            # Host `db`: tests/e2e.seed.ts only seeds legal documents into hosts it knows as disposable.
+            - DATABASE_URL=postgres://si:si@db:5432/si_e2e
+            - S3_ENDPOINT=http://seaweedfs-e2e:8333
+            - S3_BROWSER_ENDPOINT=http://seaweedfs-e2e:8333
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
+            - BUCKET_NAME=mgmt-app-local
+            - AWS_REGION=us-east-1
+            - SIMULATE_CODE_BUILD=t
+            - E2E_FAKE_CLERK=1
+            - SINGLE_USER_EDITING=t
+            - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk
+            - NEXT_PUBLIC_CI=true
+            - TURBOPACK_FS_CACHE=1
+            - PORT=4100
+            - ASSETS_PREFIX=/
+            - CODER_FILES=./coder-files
+            - NODE_OPTIONS=--max-old-space-size=4096
+            # Next's env loader and dotenv both skip a key that is already set, even to "", so
+            # these keep a host .env / .env.test (bind-mounted) from pointing the run at real
+            # services. Every reader of these keys treats "" like unset. Never blank a required
+            # key such as MAILGUN_DOMAIN or CODER_*: getConfigValue returns "" for it instead of
+            # behaving as in CI, where the key is unset.
+            - AWS_PROFILE=
+            - DB_SECRET_ARN=
+            - SECRETS_ARN=
+            - CLAUDE_API_KEY=
+            - MAILGUN_API_KEY=
+            - CLERK_SECRET_KEY=
+            - POSTHOG_PROJECT_TOKEN=
+            - NEXT_PUBLIC_SENTRY_DSN=
+            - SENTRY_DSN=
+            - SENTRY_AUTH_TOKEN=
+            # bin/seed-environment.ts imports dotenv/config; keep it off the host .env.
+            - DOTENV_CONFIG_PATH=/dev/null
+            # Same pnpm/corepack setup as docker-compose.testunit.yml: corepack cache inside
+            # the node_modules volume, which starts owned by node.
+            - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+            - COREPACK_HOME=/app/node_modules/.corepack
+            # Passed through from bin/docker-e2e.
+            - E2E_APP_FINGERPRINT
+            - E2E_REBUILD
+            - E2E_COVERAGE
+            - PLAYWRIGHT_WORKERS
+        volumes:
+            - ./:/app/
+            - node_modules_e2e:/app/node_modules
+            # Masks the host .next, so host-mode builds and this build never overwrite each other.
+            - next_e2e:/app/.next
+        entrypoint: ['bin/lib/e2e-runner.sh', '--deps', '--prepare', '--']
+        command: ['test']
+        depends_on:
+            db-e2e:
+                condition: service_healthy
+            seaweedfs-e2e:
+                condition: service_healthy
+            create-buckets-e2e:
+                condition: service_completed_successfully
+        networks:
+            - e2e-net
+        restart: 'no'
+
+    db-e2e:
+        image: 'postgres:16'
+        volumes:
+            - pgdata-e2e:/var/lib/postgresql/data
+        networks:
+            e2e-net:
+                aliases: [db]
+        environment:
+            - POSTGRES_USER=si
+            - POSTGRES_PASSWORD=si
+            - POSTGRES_DB=si_e2e
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U si -d si_e2e']
+            interval: 2s
+            retries: 10
+            start_period: 2s
+            timeout: 3s
+        restart: 'no'
+
+    seaweedfs-e2e:
+        image: chrislusf/seaweedfs
+        volumes:
+            - seaweedfs-data-e2e:/data
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        command: server -s3 -dir=/data
+        networks:
+            - e2e-net
+        healthcheck:
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 3s
+        restart: 'no'
+
+    create-buckets-e2e:
+        image: amazon/aws-cli
+        depends_on:
+            seaweedfs-e2e:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
+        # `mb` fails with BucketAlreadyExists after the first run, so fall back to head-bucket:
+        # the runner's service_completed_successfully gate then still means "the bucket exists".
+        entrypoint: >
+            /bin/sh -c "
+            aws --endpoint-url http://seaweedfs-e2e:8333 s3 mb s3://mgmt-app-local ||
+            aws --endpoint-url http://seaweedfs-e2e:8333 s3api head-bucket --bucket mgmt-app-local
+            "
+        networks:
+            - e2e-net
+        restart: 'no'
+
+networks:
+    e2e-net:
+
+volumes:
+    pgdata-e2e:
+    seaweedfs-data-e2e:
+    node_modules_e2e: # also holds the pnpm store (.pnpm-store) and corepack cache (.corepack)
+    next_e2e: # build output, Turbopack cache and the build fingerprint
