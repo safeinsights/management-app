@@ -6,7 +6,7 @@ import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
 import { isRoundClosing } from '@/lib/job-status-rules'
 import { openStudyJob } from '@/database/job-status-writer'
-import { latestJobQuery } from '@/server/db/queries'
+import { latestJobQuery } from '@/server/db/latest-job'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null

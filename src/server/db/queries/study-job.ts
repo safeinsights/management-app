@@ -5,6 +5,7 @@ import { throwNotFound } from '@/lib/errors'
 import { currentDb } from '@/server/request-context'
 import { FileType } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { latestJobQuery } from '@/server/db/latest-job'
 
 export async function getStudyJobInfo(studyJobId: string) {
     return await currentDb()
@@ -41,18 +42,7 @@ export async function getStudyJobInfo(studyJobId: string) {
 
 export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 
-// The one "latest job" rule (OTTER-973): highest code round, then newest id. `submitted` skips a job
-// still waiting for its first submission, so routing that anchors on the submitted code is not masked
-// by a round that has only just opened. Job createdAt is moved for file staleness and never orders jobs.
-export function latestJobQuery(executor: DBExecutor, studyId: string, { submitted = false } = {}) {
-    const query = executor
-        .selectFrom('studyJob')
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('studyJob.round', 'desc')
-        .orderBy('studyJob.id', 'desc')
-        .limit(1)
-    return submitted ? query.where('studyJob.currentStatus', '!=', 'INITIATED') : query
-}
+export { latestJobQuery }
 
 function latestJobForStudyQuery(studyId: string, options: { submitted?: boolean } = {}) {
     return latestJobQuery(currentDb(), studyId, options)
