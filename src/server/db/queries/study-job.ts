@@ -112,7 +112,16 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
                     .as('run'),
             (join) => join.onRef('run.studyJobId', '=', 'studyJob.id'),
         )
-        .select(['studyJob.id', 'run.ranAt'])
+        .select((eb) => [
+            'studyJob.id',
+            'run.ranAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+        ])
         .where('studyJob.studyId', '=', studyId)
         .where('studyJob.id', '!=', latestJobId)
         .orderBy('run.ranAt', 'desc')
