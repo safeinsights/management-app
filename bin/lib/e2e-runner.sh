@@ -4,8 +4,8 @@
 #
 # Usage: e2e-runner.sh [--deps] [--prepare] -- <command>
 #   --deps      install dependencies into the node_modules volume
-#   --prepare   migrate (and seed a fresh DB), build the app when its fingerprint changed, and make
-#               sure the standalone server answers on :4100
+#   --prepare   give the run a fresh copy of the seeded template DB, build the app when its
+#               fingerprint changed, and make sure the standalone server answers on :4100
 #   command     test [playwright args] | ui [playwright args] | session | any other command
 #
 # test and ui hold a lock for the whole prepare + run, because Playwright empties test-results/e2e
@@ -45,40 +45,49 @@ install_deps() {
 }
 
 psql_e2e() {
-    PGPASSWORD=si psql -h db -U si -v ON_ERROR_STOP=1 -qtA "$@"
+    PGPASSWORD=si PGOPTIONS="-c client_min_messages=warning" psql -h db -U si -v ON_ERROR_STOP=1 -qtA "$@"
 }
 
-# bin/migrate-dev-db without the type codegen, prettier and eslint: those would rewrite the tracked
-# src/database/types.ts through the bind mount.
+# Changes to these rebuild the template. Seed helpers imported from src/ are not covered: use --clean.
+db_inputs_hash() {
+    {
+        find src/database/migrations src/database/seeds -type f -name '*.ts' -print0 | sort -z | xargs -0 sha256sum
+        sha256sum bin/seed-environment.ts
+    } | sha256sum | cut -c1-16
+}
+
+# CREATE DATABASE ... TEMPLATE fails while a just-exited client's backend is still closing.
+clone_db() {
+    local i
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        psql_e2e -d postgres -c "CREATE DATABASE $1 TEMPLATE $2" 2>/dev/null && return 0
+        sleep 0.5
+    done
+    psql_e2e -d postgres -c "CREATE DATABASE $1 TEMPLATE $2"
+}
+
+# Every run starts from a copy of a migrated and seeded template, like a CI run on its empty
+# database. bin/migrate-dev-db without the type codegen, prettier and eslint: those would rewrite
+# the tracked src/database/types.ts through the bind mount.
 prepare_db() {
-    local fresh=false applied on_disk migration
-    if [ "$(psql_e2e -d si_e2e -c "SELECT to_regclass('public.kysely_migration') IS NOT NULL")" != t ]; then
-        fresh=true
-    else
-        applied=$(psql_e2e -d si_e2e -c 'SELECT name FROM kysely_migration')
-        on_disk=$(find src/database/migrations -maxdepth 1 -name '*.ts' -exec basename {} .ts \; 2>/dev/null || true)
-        if [ -z "$on_disk" ]; then
-            note "no migrations found in src/database/migrations; skipping the mismatch check"
-        else
-            for migration in $applied; do
-                if ! grep -qxF "$migration" <<<"$on_disk"; then
-                    note "migration '$migration' is applied but not in the codebase; recreating si_e2e"
-                    psql_e2e -d postgres -c 'DROP DATABASE si_e2e WITH (FORCE)' -c 'CREATE DATABASE si_e2e'
-                    fresh=true
-                    break
-                fi
-            done
-        fi
+    local want have
+    want=$(db_inputs_hash)
+    have=$(psql_e2e -d postgres -c "SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = 'si_e2e_template'")
+    psql_e2e -d postgres -c 'DROP DATABASE IF EXISTS si_e2e WITH (FORCE)'
+    if [ "$have" = "$want" ]; then
+        clone_db si_e2e si_e2e_template
+        note "fresh test database (copy of the seeded template)"
+        return 0
     fi
 
+    note "migrations or seeds changed; migrating and seeding a new template database"
+    psql_e2e -d postgres -c 'DROP DATABASE IF EXISTS si_e2e_template' -c 'CREATE DATABASE si_e2e'
     pnpm exec kysely migrate:latest
-
-    if [ "$fresh" = true ]; then
-        # Both seeds return early without ALLOW_TESTING_DATA, and the specs need their orgs.
-        note "seeding the fresh test database"
-        ALLOW_TESTING_DATA=TRUE pnpm exec kysely seed:run
-        ALLOW_TESTING_DATA=TRUE pnpm exec tsx bin/seed-environment.ts
-    fi
+    # Both seeds return early without ALLOW_TESTING_DATA, and the specs need their orgs.
+    ALLOW_TESTING_DATA=TRUE pnpm exec kysely seed:run
+    ALLOW_TESTING_DATA=TRUE pnpm exec tsx bin/seed-environment.ts
+    clone_db si_e2e_template si_e2e
+    psql_e2e -d postgres -c "COMMENT ON DATABASE si_e2e_template IS '$want'"
 }
 
 # A zombie still answers kill -0, so check the process state too.
@@ -93,7 +102,7 @@ stop_server() {
     server_running || return 0
     local pid
     pid=$(cat "$SERVER_PID_FILE")
-    note "stopping the app server for the rebuild"
+    note "stopping the app server for $1"
     kill "$pid" 2>/dev/null || true
     while server_running; do sleep 0.2; done
     rm -f "$SERVER_PID_FILE"
@@ -115,7 +124,7 @@ build_app_if_changed() {
         note "app sources unchanged since the last build; skipping next build"
         return 0
     fi
-    stop_server
+    stop_server "the rebuild"
     note "building the app (E2E_FAKE_CLERK=1)"
     rm -f "$FINGERPRINT_FILE"
     CI=true pnpm exec next build || {
@@ -219,6 +228,8 @@ case $command in
 esac
 
 if [ "$prepare" = true ]; then
+    # A session's server would keep connections and caches of the dropped database.
+    stop_server "the fresh database"
     prepare_db
     ensure_server
 fi

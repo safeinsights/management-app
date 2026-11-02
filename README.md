@@ -242,7 +242,7 @@ One-time: `pnpm install` and `pnpm exec playwright install`. With Postgres (`loc
 ./bin/docker-e2e --help                    # all options, e.g. --clean, sessions, --prune
 ```
 
-The first run takes a few minutes. Later runs are fast: the app is rebuilt only when app code changed.
+The first run takes a few minutes. Later runs are fast: the app is rebuilt only when app code changed. Every run starts on a fresh, seeded test database and uses CI's timeouts.
 
 #### Results
 
