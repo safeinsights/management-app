@@ -67,8 +67,10 @@ usage() {
     echo "      is rebuilt when src/database/migrations, src/database/seeds or bin/seed-environment.ts change."
     echo "      In a session this restarts the app server on each run. After changing seed helpers, --clean."
     echo ""
-    echo "      Workers: one per CPU that Docker reports (docker info). When other e2e or unit test runs are"
-    echo "      active at the start, this run takes an even share (at least 2). PLAYWRIGHT_WORKERS=<n> overrides it."
+    echo "      Workers: half of the CPUs that Docker reports (docker info), at least 2. The stack's single app"
+    echo "      server limits throughput, so more workers only slow each test. When other e2e or unit test runs"
+    echo "      are active at the start, this run takes an even share of that half (at least 2)."
+    echo "      PLAYWRIGHT_WORKERS=<n> overrides it."
     echo ""
     echo "      Timeouts are the CI ones (60s per test, 30s per action and expect), because the Docker"
     echo "      host's CPUs are shared with every other stack."
@@ -368,9 +370,9 @@ finish_stack_notice() {
 list_other_stacks >"$stack_log"
 print_stack_notice "when this run started"
 
-# Workers default to one per CPU of the Docker host. Other e2e and unit test runs (vitest also
-# takes every CPU) get an even share each. Counted right before the run starts, so runs started
-# shortly before are seen; runs that start later are not, and a run never shrinks once started.
+# Half the Docker CPUs, at least 2: one app server per stack caps throughput at about that, and
+# more workers only slow each test. Other e2e and unit test runs counted right before the start
+# split that half; runs that start later are not seen, and a run never shrinks once started.
 split_workers() {
     [ -z "${PLAYWRIGHT_WORKERS:-}" ] || return 0
     local current other_runs docker_cpus
@@ -378,11 +380,14 @@ split_workers() {
     printf '%s\n' "$current" >>"$stack_log"
     other_runs=$(grep -c '^WARNING' <<<"$current" || true)
     docker_cpus=$(docker info --format '{{.NCPU}}' 2>/dev/null || true)
-    if [ "${other_runs:-0}" -gt 0 ] && [ "${docker_cpus:-0}" -gt 0 ] 2>/dev/null; then
-        PLAYWRIGHT_WORKERS=$((docker_cpus / (other_runs + 1)))
-        if [ "$PLAYWRIGHT_WORKERS" -lt 2 ]; then PLAYWRIGHT_WORKERS=2; fi
-        export PLAYWRIGHT_WORKERS
-        echo "[docker-e2e] $other_runs other e2e or unit test run(s) active: using $PLAYWRIGHT_WORKERS of $docker_cpus CPUs as workers (set PLAYWRIGHT_WORKERS to override)"
+    [ "${docker_cpus:-0}" -gt 0 ] 2>/dev/null || return 0
+    PLAYWRIGHT_WORKERS=$((docker_cpus / 2 / (${other_runs:-0} + 1)))
+    if [ "$PLAYWRIGHT_WORKERS" -lt 2 ]; then PLAYWRIGHT_WORKERS=2; fi
+    export PLAYWRIGHT_WORKERS
+    if [ "${other_runs:-0}" -gt 0 ]; then
+        echo "[docker-e2e] $other_runs other e2e or unit test run(s) active: using $PLAYWRIGHT_WORKERS workers on $docker_cpus CPUs (set PLAYWRIGHT_WORKERS to override)"
+    else
+        echo "[docker-e2e] using $PLAYWRIGHT_WORKERS workers, half of the $docker_cpus CPUs Docker reports (set PLAYWRIGHT_WORKERS to override)"
     fi
 }
 
