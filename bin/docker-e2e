@@ -338,9 +338,9 @@ print_stack_notice() {
     echo "################################################################################"
     echo "[docker-e2e] NOTICE: other Docker stacks were running $1"
     LC_ALL=C sort -u "$stack_log" | sed 's/^/  /'
-    echo "  They share the Docker VM's CPU and memory. Before debugging a failure, rerun it"
-    echo "  alone: ./bin/docker-e2e -- <spec>. A test that then passes is still flaky and"
-    echo "  needs a root-cause fix (no retries, no longer timeouts)."
+    echo "  They share the Docker host's CPU and memory, so a timeout may come from load."
+    echo "  Before debugging one, rerun it alone: ./bin/docker-e2e -- <spec> --repeat-each 5"
+    echo "  (CLAUDE.md, \"Timeouts under Docker load\"). Failures other than timeouts are real."
     echo "################################################################################"
     echo ""
 }
