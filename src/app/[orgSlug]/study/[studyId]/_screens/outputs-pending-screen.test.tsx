@@ -2,6 +2,7 @@ import {
     actionResult,
     describe,
     expect,
+    insertTestJobStatus,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -13,7 +14,6 @@ import {
 import { Routes } from '@/lib/routes'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
-import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -34,7 +34,7 @@ const setupExecuting = async (jobStatus: StudyJobStatus, { approved = true }: { 
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     const { study: dbStudy, job } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
     if (approved) {
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED')
     }
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -85,10 +85,7 @@ describe('OutputsPendingScreen', () => {
     it('dates the banner from the CODE-APPROVED row', async () => {
         const approvedDate = new Date('2026-06-15T12:00:00Z')
         const { org, study, job } = await setupExecuting('JOB-READY', { approved: false })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', createdAt: approvedDate })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: approvedDate })
         await renderScreen(study, org.slug)
         expect(screen.getByTestId('status-alert')).toHaveTextContent(dayjs(approvedDate).format('MMM DD, YYYY'))
     })
@@ -105,7 +102,7 @@ describe('OutputsPendingScreen', () => {
     // undisclosed (OTTER-598), but the copy must not claim the code is still running.
     it('says the run is awaiting review, not still running, for an undecided JOB-ERRORED', async () => {
         const { org, study, job } = await setupExecuting('CODE-SUBMITTED')
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED')
         await renderScreen(study, org.slug)
 
         const alert = screen.getByTestId('status-alert')
@@ -121,10 +118,7 @@ describe('OutputsPendingScreen', () => {
     it('renders the processing banner dated from CODE-APPROVED when no execution stage exists yet', async () => {
         const approvedDate = new Date('2026-06-15T12:00:00Z')
         const { org, study, job } = await setupExecuting('CODE-SUBMITTED', { approved: false })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', createdAt: approvedDate })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: approvedDate })
         await renderScreen(study, org.slug)
 
         const alert = screen.getByTestId('status-alert')

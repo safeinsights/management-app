@@ -28,6 +28,7 @@ describe('getStudyStatusAction', () => {
 
         expect(result.latestJobStatus).toBe('CODE-SCANNED')
         expect(result.jobStatuses).toEqual([
+            'INITIATED',
             'CODE-SUBMITTED',
             'CODE-APPROVED',
             'RUN-COMPLETE',

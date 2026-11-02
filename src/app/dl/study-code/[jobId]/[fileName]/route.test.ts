@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { urlForStudyJobCodeFile } from '@/server/storage'
-import { BLANK_UUID, createTestProposalDraft, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
+import {
+    BLANK_UUID,
+    createTestProposalDraft,
+    insertTestJob,
+    mockSessionWithTestData,
+    setTestStudyStatus,
+} from '@/tests/unit.helpers'
 
 // The route only reads the DB row for auth + path; stub the signed-URL helper so no S3 is needed.
 vi.mock('@/server/storage', async () => {
@@ -15,7 +21,7 @@ function request() {
 }
 
 async function seedCodeJob(studyId: string) {
-    const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+    const job = await insertTestJob(studyId)
     await db
         .insertInto('studyJobFile')
         .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })

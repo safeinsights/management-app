@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
     BLANK_UUID,
     insertTestDataSource,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyJobUsers,
@@ -380,13 +383,7 @@ describe('getStudyReviewForJob', () => {
             .insertInto('studyReview')
             .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-            ])
-            .execute()
+        await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
 
         expect(await getStudyReviewForJob(await latestJobForStudy(study.id))).toBeNull()
 
@@ -407,10 +404,7 @@ describe('getStudyReviewForJob', () => {
             .insertInto('studyReview')
             .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
 
         const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
         expect(result?.report?.codeExplanation).toBe('first round')
@@ -483,10 +477,7 @@ describe('codeSubmissionVersion', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         expect(await codeSubmissionVersion(study.id, db)).toBe(1)
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
         expect(await codeSubmissionVersion(study.id, db)).toBe(2)
     })
 
@@ -495,15 +486,12 @@ describe('codeSubmissionVersion', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-            ])
-            .execute()
+        await insertTestJobStatuses(job.id, [
+            'CODE-CHANGES-REQUESTED',
+            'CODE-SUBMITTED',
+            'CODE-CHANGES-REQUESTED',
+            'CODE-SUBMITTED',
+        ])
         expect(await codeSubmissionVersion(study.id, db)).toBe(3)
     })
 
@@ -512,7 +500,7 @@ describe('codeSubmissionVersion', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-SUBMITTED' }).execute()
+        await insertTestJobStatus(job.id, 'CODE-SUBMITTED')
         expect(await codeSubmissionVersion(study.id, db)).toBe(1)
     })
 
@@ -522,21 +510,14 @@ describe('codeSubmissionVersion', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: firstJob.id, status: 'FILES-REJECTED' }).execute()
+        await insertTestJobStatus(firstJob.id, 'FILES-REJECTED')
         expect(await codeSubmissionVersion(study.id, db)).toBe(2)
 
-        const newJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
+        const newJob = await insertTestJob(study.id)
+        await insertTestJobStatus(newJob.id, 'CODE-SUBMITTED')
 
         expect(await codeSubmissionVersion(study.id, db)).toBe(2)
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
+        await insertTestJobStatus(newJob.id, 'CODE-CHANGES-REQUESTED')
         expect(await codeSubmissionVersion(study.id, db)).toBe(3)
     })
 })
@@ -560,14 +541,7 @@ describe('outputsDecisionVersion', () => {
     // The reported bug: the code round had climbed to 2, so the first outputs decision read v2.0.
     it('is v1 for a first outputs decision however far the code rounds have climbed', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                { studyJobId: job.id, status: 'CODE-APPROVED' },
-            ])
-            .execute()
+        await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
 
         expect(await codeSubmissionVersion(study.id, db)).toBe(2)
         expect(await outputsDecisionVersion(study.id, db)).toBe(1)
@@ -584,7 +558,7 @@ describe('outputsDecisionVersion', () => {
     // entry labeled v2.0 with no v1.0 anywhere.
     it('ignores a FILES-REJECTED written without a decision comment', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-REJECTED')
 
         expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })

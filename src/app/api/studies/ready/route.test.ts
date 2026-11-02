@@ -1,7 +1,13 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, insertTestOrg, readTestSupportFile, insertTestUser } from '@/tests/unit.helpers'
+import {
+    insertTestJobStatus,
+    insertTestStudyData,
+    insertTestOrg,
+    readTestSupportFile,
+    insertTestUser,
+} from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -77,14 +83,7 @@ test('studies are not included once finished', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: jobIds[1],
-            status: 'RUN-COMPLETE',
-            message: 'A OK',
-        })
-        .execute()
+    await insertTestJobStatus(jobIds[1], 'RUN-COMPLETE', { message: 'A OK' })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()

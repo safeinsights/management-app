@@ -79,6 +79,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         const provider = createStubProvider()
 
@@ -134,6 +135,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         const provider = createStubProvider()
         const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
@@ -180,6 +182,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
 
         // No provider in the share context, simulating the editor not having mounted yet.
@@ -209,6 +212,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         // Promoting out of PENDING-REVIEW forces the action's editable-status guard to reject.
         await setTestStudyStatus(study.id, 'APPROVED')
@@ -248,6 +252,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         await setTestStudyStatus(study.id, 'APPROVED')
         const provider = createStubProvider()

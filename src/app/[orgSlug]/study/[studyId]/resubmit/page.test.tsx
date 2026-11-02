@@ -2,9 +2,10 @@
 // would 404 a resubmittable study. The page gates on canResearcherResubmitCode instead.
 import { describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
-import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
+    insertTestJob,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
@@ -15,8 +16,7 @@ import {
 import { Routes } from '@/lib/routes'
 import ResubmitStudyCodePage from './page'
 
-const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
+const insertStatus = (studyJobId: string, status: StudyJobStatus) => insertTestJobStatus(studyJobId, status)
 
 describe('ResubmitStudyCodePage', () => {
     it('renders when CODE-CHANGES-REQUESTED is present even if a later CODE-SCANNED row sorts first', async () => {
@@ -129,11 +129,7 @@ describe('ResubmitStudyCodePage', () => {
             researcherId: user.id,
             jobStatus: 'CODE-SUBMITTED',
         })
-        const second = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const second = await insertTestJob(study.id)
         await insertStatus(second.id, 'CODE-SUBMITTED')
 
         // The projection reads the round with the highest id. Two inserts can share a v7

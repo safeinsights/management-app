@@ -1,4 +1,12 @@
-import { db, describe, expect, insertTestStudyJobData, it } from '@/tests/unit.helpers'
+import {
+    db,
+    describe,
+    expect,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestStudyJobData,
+    it,
+} from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { codeRoundForJob, isCurrentCodeRound } from './code-round'
 import { codeSubmissionVersion } from './queries'
@@ -8,7 +16,7 @@ import { codeSubmissionVersion } from './queries'
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 
 const addStatus = (studyJobId: string, status: StudyJobStatus, createdAt: Date) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status, createdAt }).execute()
+    insertTestJobStatus(studyJobId, status, { at: createdAt })
 
 describe('codeRoundForJob', () => {
     it('is round 1 for a first submission', async () => {
@@ -60,11 +68,7 @@ describe('codeRoundForJob', () => {
         await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(30))
         await addStatus(firstJob.id, 'FILES-REJECTED', minutesAgo(20))
 
-        const secondJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const secondJob = await insertTestJob(study.id)
         await addStatus(secondJob.id, 'CODE-SUBMITTED', minutesAgo(10))
 
         expect(await codeRoundForJob(firstJob.id, db)).toBe(1)
@@ -82,11 +86,7 @@ describe('codeRoundForJob', () => {
         await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(30))
         await addStatus(firstJob.id, 'FILES-APPROVED', minutesAgo(25))
 
-        const secondJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const secondJob = await insertTestJob(study.id)
         await addStatus(secondJob.id, 'CODE-SUBMITTED', minutesAgo(20))
         await addStatus(secondJob.id, 'CODE-CHANGES-REQUESTED', minutesAgo(10))
 
@@ -99,11 +99,7 @@ describe('codeRoundForJob', () => {
         await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(30))
         await addStatus(firstJob.id, 'FILES-APPROVED', minutesAgo(20))
 
-        const openedJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const openedJob = await insertTestJob(study.id)
 
         expect(await codeRoundForJob(openedJob.id, db)).toBe(2)
         expect(await codeRoundForJob(openedJob.id, db)).toBe(await codeSubmissionVersion(study.id, db))

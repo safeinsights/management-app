@@ -8,6 +8,7 @@ import {
     fakeTimeouts,
     fireEvent,
     insertTestDataSource,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -306,17 +307,10 @@ describe('SubmittedCodeSection — AI summary', () => {
             .set({ createdAt: oldJobCreatedAt })
             .where('id', '=', resubmissionFixture.job.id)
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                {
-                    studyJobId: resubmissionFixture.job.id,
-                    status: 'CODE-CHANGES-REQUESTED',
-                    createdAt: new Date(resubmittedAt.getTime() - 1_000),
-                },
-                { studyJobId: resubmissionFixture.job.id, status: 'CODE-SUBMITTED', createdAt: resubmittedAt },
-            ])
-            .execute()
+        await insertTestJobStatus(resubmissionFixture.job.id, 'CODE-CHANGES-REQUESTED', {
+            at: new Date(resubmittedAt.getTime() - 1_000),
+        })
+        await insertTestJobStatus(resubmissionFixture.job.id, 'CODE-SUBMITTED', { at: resubmittedAt })
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
@@ -340,10 +334,9 @@ describe('SubmittedCodeSection — AI summary', () => {
             { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 2 * day) },
             { status: 'CODE-SUBMITTED', createdAt: new Date() },
         ]
-        await db
-            .insertInto('jobStatusChange')
-            .values(statuses.map((change) => ({ ...change, studyJobId: resubmissionFixture.job.id })))
-            .execute()
+        for (const { status, createdAt } of statuses) {
+            await insertTestJobStatus(resubmissionFixture.job.id, status, { at: createdAt })
+        }
 
         const job = await latestJobForStudy(resubmissionFixture.study.id)
         expect(new Date(latestCodeSubmittedAt(job)).getTime()).toBe(statuses[3].createdAt.getTime())

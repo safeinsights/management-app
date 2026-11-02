@@ -8,6 +8,7 @@ import {
     describe,
     expect,
     faker,
+    insertTestJobStatus,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
@@ -146,10 +147,7 @@ describe('useCodeReviewMutation', () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         // Eligibility keys on job status alone (OTTER-552), so recording a decision makes the
         // latest code change a decision rather than a submission, which the claim rejects.
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
