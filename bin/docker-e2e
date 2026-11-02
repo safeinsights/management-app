@@ -302,21 +302,29 @@ session_busy() {
     awk '!/docker-init/ && /e2e-runner\.sh|@playwright\/test\/cli\.js test/ { busy = 1 } END { exit !busy }' <<<"$procs"
 }
 
+# One line per other e2e project, by its session container if it has one. A one-shot run starts its
+# database first, so it shows up here about a second after its launcher started.
 list_other_stacks() {
-    local rows id proj service dir
+    local rows proj dir session service
     rows=$(docker ps --format '{{.ID}}|{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)
-    while IFS='|' read -r id proj service dir; do
+    while IFS='|' read -r proj dir session; do
+        [ -n "$proj" ] || continue
+        if [ -z "$session" ]; then
+            echo "WARNING  another e2e run: $dir ($proj)"
+        elif session_busy "$session"; then
+            echo "WARNING  another e2e run (in a session): $dir ($proj)"
+        else
+            echo "info     an e2e session, idle: $dir ($proj)"
+        fi
+    done < <(awk -F'|' -v self="$project" '
+        $2 ~ /^mgmt-app-e2e-/ && $2 != self {
+            if (!($2 in dir)) { dir[$2] = $4; order[++n] = $2 }
+            if ($3 == "e2e-session") session[$2] = $1
+        }
+        END { for (i = 1; i <= n; i++) print order[i] "|" dir[order[i]] "|" session[order[i]] }
+    ' <<<"$rows")
+    while IFS='|' read -r _ proj service dir; do
         case "$proj|$service" in
-            "$project|"*) ;;
-            mgmt-app-e2e-*"|e2e-runner")
-                echo "WARNING  another e2e run: $dir ($proj)" ;;
-            mgmt-app-e2e-*"|e2e-session")
-                if session_busy "$id"; then
-                    echo "WARNING  another e2e run (in a session): $dir ($proj)"
-                else
-                    echo "info     an e2e session, idle: $dir ($proj)"
-                fi
-                ;;
             mgmt-app-test-*"|test-runner")
                 echo "WARNING  unit tests (./bin/docker-test): $dir ($proj)" ;;
         esac
@@ -361,10 +369,14 @@ list_other_stacks >"$stack_log"
 print_stack_notice "when this run started"
 
 # Workers default to one per CPU of the Docker host. Other e2e and unit test runs (vitest also
-# takes every CPU) at the start get an even share each; runs that start later are not seen, and a
-# run never shrinks once started.
-if [ -z "${PLAYWRIGHT_WORKERS:-}" ] && [ "$action" != up ]; then
-    other_runs=$(grep -c '^WARNING' "$stack_log" || true)
+# takes every CPU) get an even share each. Counted right before the run starts, so runs started
+# shortly before are seen; runs that start later are not, and a run never shrinks once started.
+split_workers() {
+    [ -z "${PLAYWRIGHT_WORKERS:-}" ] || return 0
+    local current other_runs docker_cpus
+    current=$(list_other_stacks)
+    printf '%s\n' "$current" >>"$stack_log"
+    other_runs=$(grep -c '^WARNING' <<<"$current" || true)
     docker_cpus=$(docker info --format '{{.NCPU}}' 2>/dev/null || true)
     if [ "${other_runs:-0}" -gt 0 ] && [ "${docker_cpus:-0}" -gt 0 ] 2>/dev/null; then
         PLAYWRIGHT_WORKERS=$((docker_cpus / (other_runs + 1)))
@@ -372,7 +384,7 @@ if [ -z "${PLAYWRIGHT_WORKERS:-}" ] && [ "$action" != up ]; then
         export PLAYWRIGHT_WORKERS
         echo "[docker-e2e] $other_runs other e2e or unit test run(s) active: using $PLAYWRIGHT_WORKERS of $docker_cpus CPUs as workers (set PLAYWRIGHT_WORKERS to override)"
     fi
-fi
+}
 
 ui_url_printer=
 stop_ui_url_printer() {
@@ -404,6 +416,7 @@ if [ -n "$session" ]; then
         ui_url_printer=$!
     fi
     echo "Running in the session of this checkout (project $project)..."
+    split_workers
     status=0
     compose exec ${tty_flag[@]+"${tty_flag[@]}"} \
         -e E2E_APP_FINGERPRINT="$E2E_APP_FINGERPRINT" -e E2E_REBUILD="$E2E_REBUILD" -e E2E_RUN_ID="$run_id" \
@@ -426,6 +439,19 @@ if [ -z "$PNPM_PACKAGE_MANAGER" ] || [ -z "$PLAYWRIGHT_VERSION" ] || [ -z "$PLAY
     exit 1
 fi
 export PNPM_PACKAGE_MANAGER PLAYWRIGHT_VERSION PLAYWRIGHT_CLI_CORE_VERSION
+
+teardown() {
+    stop_ui_url_printer
+    compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
+    finish_stack_notice
+}
+
+# Starting the database and storage first makes this run visible to other launchers within a
+# second, and they start up while the image builds. --clean removes their volumes first.
+if [ "$clean" = false ] && [ "$action" != up ]; then
+    trap teardown EXIT
+    compose up -d --quiet-pull db-e2e seaweedfs-e2e >/dev/null 2>&1 || true
+fi
 
 echo "Building the e2e-runner image..."
 compose build --quiet e2e-runner
@@ -469,16 +495,12 @@ if [ "$action" = up ]; then
     exit 0
 fi
 
-teardown() {
-    stop_ui_url_printer
-    compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
-    finish_stack_notice
-}
 trap teardown EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 watch_other_stacks
 
+split_workers
 status=0
 if [ "$action" = ui ]; then
     echo "Starting Playwright UI mode in Docker (project $project)..."
