@@ -282,32 +282,35 @@ print_ui_url() {
 }
 
 # All stacks share the Docker VM's CPU and memory, so a failure next to another busy stack may be
-# timing-related. Listed at the start and again as the last lines, because long command output is
-# often cut in the middle. It never blocks a run or changes the exit code.
-stack_notice=()
-collect_other_stacks() {
+# timing-related. Listed at the start, and as the last lines with every stack seen during the run:
+# a stack started after this run did is caught only by polling. Never blocks a run or changes the exit code.
+stack_log=$(mktemp "${TMPDIR:-/tmp}/docker-e2e-stacks.XXXXXX")
+stack_watcher=
+trap 'rm -f "$stack_log"' EXIT
+
+list_other_stacks() {
     local rows proj service dir
     rows=$(docker ps --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.service"}}|{{.Label "com.docker.compose.project.working_dir"}}' 2>/dev/null | sort -u || true)
     while IFS='|' read -r proj service dir; do
         case "$proj|$service" in
             "$project|"*) ;;
             mgmt-app-e2e-*"|e2e-runner")
-                stack_notice+=("WARNING  another e2e run: $dir ($proj)") ;;
+                echo "WARNING  another e2e run: $dir ($proj)" ;;
             mgmt-app-e2e-*"|e2e-session")
-                stack_notice+=("info     an e2e session, maybe idle: $dir ($proj)") ;;
+                echo "info     an e2e session, maybe idle: $dir ($proj)" ;;
             mgmt-app-test-*"|test-runner")
-                stack_notice+=("info     unit tests (./bin/docker-test): $dir ($proj)") ;;
+                echo "info     unit tests (./bin/docker-test): $dir ($proj)" ;;
         esac
-        if [ "$service" = mgmnt-app ]; then stack_notice+=("info     dev stack (docker compose up): $dir"); fi
+        if [ "$service" = mgmnt-app ]; then echo "info     dev stack (docker compose up): $dir"; fi
     done <<<"$rows"
 }
 
 print_stack_notice() {
-    [ ${#stack_notice[@]} -gt 0 ] || return 0
+    [ -s "$stack_log" ] || return 0
     echo ""
     echo "################################################################################"
-    echo "[docker-e2e] NOTICE: other Docker stacks were running when this run started"
-    printf '  %s\n' "${stack_notice[@]}"
+    echo "[docker-e2e] NOTICE: other Docker stacks were running $1"
+    LC_ALL=C sort -u "$stack_log" | sed 's/^/  /'
     echo "  They share the Docker VM's CPU and memory. Before debugging a failure, rerun it"
     echo "  alone: ./bin/docker-e2e -- <spec>. A test that then passes is still flaky and"
     echo "  needs a root-cause fix (no retries, no longer timeouts)."
@@ -315,8 +318,28 @@ print_stack_notice() {
     echo ""
 }
 
-collect_other_stacks
-print_stack_notice
+watch_other_stacks() {
+    (while :; do
+        list_other_stacks >>"$stack_log"
+        sleep 10
+    done) &
+    stack_watcher=$!
+}
+
+finish_stack_notice() {
+    if [ -n "$stack_watcher" ]; then
+        pkill -P "$stack_watcher" 2>/dev/null || true
+        kill "$stack_watcher" 2>/dev/null || true
+        wait "$stack_watcher" 2>/dev/null || true
+        stack_watcher=
+    fi
+    list_other_stacks >>"$stack_log"
+    print_stack_notice "during this run"
+    rm -f "$stack_log"
+}
+
+list_other_stacks >"$stack_log"
+print_stack_notice "when this run started"
 
 ui_url_printer=
 stop_ui_url_printer() {
@@ -338,7 +361,8 @@ if [ -n "$session" ]; then
     }
     trap 'stop_session_run; exit 130' INT
     trap 'stop_session_run; exit 143' TERM
-    trap 'stop_ui_url_printer; print_stack_notice' EXIT
+    trap 'stop_ui_url_printer; finish_stack_notice' EXIT
+    watch_other_stacks
 
     command=test
     if [ "$action" = ui ]; then
@@ -414,11 +438,12 @@ fi
 teardown() {
     stop_ui_url_printer
     compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
-    print_stack_notice
+    finish_stack_notice
 }
 trap teardown EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+watch_other_stacks
 
 status=0
 if [ "$action" = ui ]; then
