@@ -41,7 +41,6 @@ export function buildFakeUser(fixture: FakeFixture) {
             uri: 'otpauth://totp/e2e?secret=JBSWY3DPEHPK3PXP',
         }),
         verifyTOTP: async () => ({ verified: true, backupCodes: BACKUP_CODES }),
-        createBackupCode: async () => ({ codes: BACKUP_CODES }),
         createEmailAddress: async ({ email }: { email: string }) => ({
             id: `fake-email-${email}`,
             emailAddress: email,

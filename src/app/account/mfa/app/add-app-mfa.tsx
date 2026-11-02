@@ -129,8 +129,19 @@ const AddTotpStep: FC<AddTotpStepProps> = ({ isVisible, form, isVerifying, onVer
 }
 
 export function AddAppMFA() {
-    const { isReady, step, backupCodes, totpUri, secret, canRegenerate, isVerifying, form, regenerate, verifyTotp } =
-        useAddAppMfa()
+    const {
+        isReady,
+        step,
+        backupCodes,
+        hasExistingCodes,
+        totpUri,
+        secret,
+        canRegenerate,
+        isVerifying,
+        form,
+        regenerate,
+        verifyTotp,
+    } = useAddAppMfa()
 
     if (!isReady) return null
 
@@ -146,7 +157,7 @@ export function AddAppMFA() {
                 isVerifying={isVerifying}
                 onVerify={verifyTotp}
             />
-            <BackupCodes isVisible={step === 'success'} codes={backupCodes} />
+            <BackupCodes isVisible={step === 'success'} codes={backupCodes} hasExistingCodes={hasExistingCodes} />
         </Paper>
     )
 }

@@ -8,6 +8,7 @@ import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { errorToString } from '@/lib/errors'
 import { sleep } from '@/lib/utils'
+import { codesFromEnrollment } from '../enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 import type { PhoneFormValues } from './add-sms-mfa-view'
 
@@ -21,6 +22,7 @@ export function useAddSmsMfa() {
     const { isLoaded, user } = useRequireUser()
     const [isVerifying, setIsVerifying] = useState(false)
     const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+    const [hasExistingCodes, setHasExistingCodes] = useState(false)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
@@ -121,9 +123,10 @@ export function useAddSmsMfa() {
             }
 
             try {
-                // Clerk returns first-time codes here; createBackupCode would need a fresh second factor.
+                const hadCodes = Boolean(user?.backupCodeEnabled)
                 const reserved = await setReservedForSecondFactor(phoneObj)
-                setBackupCodes(reserved?.backupCodes ?? [])
+                setHasExistingCodes(hadCodes)
+                setBackupCodes(codesFromEnrollment(reserved?.backupCodes, hadCodes))
                 showToast({ category: 'success', title: 'MFA enabled' })
             } catch (error) {
                 console.error(error)
@@ -152,6 +155,7 @@ export function useAddSmsMfa() {
         isVerifyingCode,
         phoneLastFour: phoneObj?.phoneNumber?.slice(-4),
         backupCodes,
+        hasExistingCodes,
         sendVerificationCode,
         resendCode,
         verifyCodeAndSetMfa,

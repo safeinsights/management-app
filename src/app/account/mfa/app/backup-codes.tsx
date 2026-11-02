@@ -18,9 +18,10 @@ type ConfirmationModalProps = {
 type BackupCodesProps = {
     isVisible: boolean
     codes?: string[] | null
+    hasExistingCodes?: boolean
 }
 
-function useBackupCodes(codes?: string[] | null) {
+function useBackupCodes(enrolledCodes?: string[] | null) {
     const { isLoaded: isSessionLoaded, session } = useSession()
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
@@ -34,16 +35,18 @@ function useBackupCodes(codes?: string[] | null) {
         router.push(Routes.dashboard)
     }
 
-    const hasCodes = Boolean(codes?.length)
+    const codes = enrolledCodes ?? []
+    const hasCodes = codes.length > 0
 
-    // Leaving without copying gets a confirmation, since the codes are never shown again. Clerk returns
-    // no codes when the user already has some, so then there is nothing to lose.
+    // Leaving without copying gets a confirmation, since the codes are never shown again. With no codes
+    // on screen there is nothing to lose.
     const leave = () => {
         if (hasCopied || !hasCodes) goToDashboard()
         else setModalOpened(true)
     }
 
     return {
+        codes,
         hasCodes,
         isSessionLoaded,
         modalOpened,
@@ -57,10 +60,10 @@ function useBackupCodes(codes?: string[] | null) {
 
 type CodesProps = {
     isVisible: boolean
-    codes?: string[] | null
+    codes: string[]
 }
 
-const NewCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
+const RecoveryCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
     if (!isVisible) return null
 
     return (
@@ -79,7 +82,7 @@ const NewCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
                 bd={`1px solid ${semanticColor('border.dark')}`}
             >
                 <Stack gap="xxs">
-                    {codes?.map((code, index) => (
+                    {codes.map((code, index) => (
                         <Text key={index} size="sm">
                             {code}
                         </Text>
@@ -90,12 +93,14 @@ const NewCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
     )
 }
 
-const ExistingCodesNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+const NoCodesNotice: FC<{ isVisible: boolean; hasExistingCodes: boolean }> = ({ isVisible, hasExistingCodes }) => {
     if (!isVisible) return null
 
     return (
         <Text mb="xs" size="md">
-            Your existing recovery codes still work. Use one of them if you lose access to your authentication device.
+            {hasExistingCodes
+                ? 'Your existing recovery codes still work. Use one of them if you lose access to your authentication device.'
+                : 'No recovery codes were created for your account. Keep your authentication device safe, because you will need it to sign in.'}
         </Text>
     )
 }
@@ -104,7 +109,7 @@ const CopyCodesButton: FC<CodesProps & { onCopied: () => void }> = ({ isVisible,
     if (!isVisible) return null
 
     return (
-        <CopyButton value={codes?.join('\n') ?? ''} timeout={1000}>
+        <CopyButton value={codes.join('\n')} timeout={1000}>
             {({ copied, copy }) => (
                 <Stack gap="xxs">
                     <Button
@@ -137,10 +142,19 @@ const CopiedNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const BackupCodes = ({ isVisible, codes }: BackupCodesProps) => {
+const BackupCodes = ({ isVisible, codes: enrolledCodes, hasExistingCodes = false }: BackupCodesProps) => {
     const { isLoaded } = useUser()
-    const { hasCodes, isSessionLoaded, modalOpened, isRedirecting, markCopied, closeModal, leave, goToDashboard } =
-        useBackupCodes(codes)
+    const {
+        codes,
+        hasCodes,
+        isSessionLoaded,
+        modalOpened,
+        isRedirecting,
+        markCopied,
+        closeModal,
+        leave,
+        goToDashboard,
+    } = useBackupCodes(enrolledCodes)
 
     if (!isVisible || !isLoaded) return null
 
@@ -150,8 +164,8 @@ const BackupCodes = ({ isVisible, codes }: BackupCodesProps) => {
                 <Title mb="xs" ta="center" order={3}>
                     Multi-factor authentication is set up successfully!
                 </Title>
-                <NewCodesList isVisible={hasCodes} codes={codes} />
-                <ExistingCodesNotice isVisible={!hasCodes} />
+                <RecoveryCodesList isVisible={hasCodes} codes={codes} />
+                <NoCodesNotice isVisible={!hasCodes} hasExistingCodes={hasExistingCodes} />
 
                 <Stack gap="md" mt="xs">
                     <CopyCodesButton isVisible={hasCodes} codes={codes} onCopied={markCopied} />

@@ -12,11 +12,12 @@ import {
     vi,
     type Mock,
 } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 import { useAddSmsMfa } from './use-add-sms-mfa'
 
 const PHONE = '+12015550123'
 
-const mockSmsUser = ({ verified = true } = {}) => {
+const mockSmsUser = ({ verified = true, backupCodeEnabled = false } = {}) => {
     const phone = {
         id: 'phone-1',
         phoneNumber: PHONE,
@@ -29,6 +30,7 @@ const mockSmsUser = ({ verified = true } = {}) => {
     const user = {
         id: 'user-1',
         phoneNumbers: [] as (typeof phone)[],
+        backupCodeEnabled,
         createPhoneNumber: vi.fn(async () => {
             user.phoneNumbers.push(phone)
             return phone
@@ -112,8 +114,9 @@ describe('useAddSmsMfa', () => {
     })
 
     it('finishes on the backup step with no codes when the user already has backup codes', async () => {
-        const { user, phone } = mockSmsUser()
+        const { user, phone } = mockSmsUser({ backupCodeEnabled: true })
         phone.setReservedForSecondFactor.mockResolvedValue({})
+        const logError = vi.spyOn(logger, 'error')
         const { result } = renderSmsMfa()
         await sendCode(result)
 
@@ -122,6 +125,23 @@ describe('useAddSmsMfa', () => {
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('backup')
         expect(result.current.backupCodes).toEqual([])
+        expect(result.current.hasExistingCodes).toBe(true)
+        expect(toastTitles()).toEqual(['MFA enabled'])
+        expect(logError).not.toHaveBeenCalled()
+    })
+
+    it('reports a first enrollment that returns no codes', async () => {
+        const { phone } = mockSmsUser()
+        phone.setReservedForSecondFactor.mockResolvedValue({})
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { result } = renderSmsMfa()
+        await sendCode(result)
+
+        await act(() => result.current.verifyCodeAndSetMfa({ code: '123456' }))
+
+        expect(result.current.step).toBe('backup')
+        expect(result.current.hasExistingCodes).toBe(false)
+        expect(logError).toHaveBeenCalled()
     })
 
     it('keeps the code step and does not enable MFA when the code is not verified', async () => {

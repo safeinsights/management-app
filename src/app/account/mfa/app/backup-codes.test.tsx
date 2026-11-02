@@ -48,7 +48,7 @@ describe('BackupCodes', () => {
     it('says the existing codes still work and leaves without confirmation when there are no new codes', async () => {
         const user = userEvent.setup()
         await mockSessionWithTestData({ orgType: 'lab' })
-        renderWithProviders(<BackupCodes isVisible codes={[]} />)
+        renderWithProviders(<BackupCodes isVisible codes={[]} hasExistingCodes />)
 
         expect(
             screen.getByText(
@@ -62,6 +62,15 @@ describe('BackupCodes', () => {
 
         await waitFor(() => expect(router.asPath).toBe('/dashboard'))
         expect(screen.queryByText('Have you stored your MFA recovery codes?')).toBeNull()
+    })
+
+    it('does not claim existing codes when the user has none', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+        renderWithProviders(<BackupCodes isVisible codes={[]} />)
+
+        expect(screen.getByText(/No recovery codes were created for your account/)).toBeDefined()
+        expect(screen.queryByText(/Your existing recovery codes still work/)).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Copy codes' })).toBeNull()
     })
 
     it('renders nothing when not visible', async () => {

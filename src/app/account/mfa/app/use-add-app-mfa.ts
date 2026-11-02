@@ -4,12 +4,16 @@ import { useEffect, useEffectEvent, useState } from 'react'
 import type { TOTPResource } from '@clerk/nextjs/types'
 import { useForm } from '@/common'
 import { reportError } from '@/components/errors'
+import { isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
+import { codesFromEnrollment } from '../enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 
 const REGENERATE_COOLDOWN_MS = 30000
 
 export type AddAppMfaStep = 'add' | 'success'
+
+const isIncorrectCode = (err: unknown) => isClerkApiError(err) && err.errors[0].code === 'form_code_incorrect'
 
 function secretFromUri(uri?: string) {
     if (!uri) return null
@@ -25,6 +29,7 @@ export function useAddAppMfa() {
     const { isLoaded, user } = useRequireUser()
     const [step, setStep] = useState<AddAppMfaStep>('add')
     const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+    const [hasExistingCodes, setHasExistingCodes] = useState(false)
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [isVerifying, setIsVerifying] = useState(false)
@@ -69,11 +74,13 @@ export function useAddAppMfa() {
         if (!user) return
         setIsVerifying(true)
         try {
-            // Clerk returns first-time codes here; createBackupCode would need a fresh second factor.
+            const hadCodes = user.backupCodeEnabled
             const verified = await user.verifyTOTP({ code: values.code })
-            setBackupCodes(verified.backupCodes ?? [])
+            setHasExistingCodes(hadCodes)
+            setBackupCodes(codesFromEnrollment(verified.backupCodes, hadCodes))
             setStep('success')
-        } catch {
+        } catch (err) {
+            if (!isIncorrectCode(err)) logger.error('Error verifying TOTP', err)
             form.setErrors({ code: 'Invalid verification code. Please try again.' })
         } finally {
             setIsVerifying(false)
@@ -84,6 +91,7 @@ export function useAddAppMfa() {
         isReady: isLoaded && Boolean(user),
         step,
         backupCodes,
+        hasExistingCodes,
         totpUri: totp?.uri,
         secret: secretFromUri(totp?.uri),
         canRegenerate,

@@ -11,13 +11,15 @@ import {
     waitFor,
     type Mock,
 } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
 import { useAddAppMfa } from './use-add-app-mfa'
 
 const TOTP_URI = 'otpauth://totp/SafeInsights:me?secret=JBSWY3DPEHPK3PXP&issuer=SafeInsights'
 
-const mockTotpUser = () => {
+const mockTotpUser = ({ backupCodeEnabled = false } = {}) => {
     const user = {
         id: 'user-1',
+        backupCodeEnabled,
         createTOTP: vi.fn().mockResolvedValue({ uri: TOTP_URI }),
         verifyTOTP: vi.fn().mockResolvedValue({ verified: true, backupCodes: ['code-1', 'code-2'] }),
         createBackupCode: vi.fn(),
@@ -55,8 +57,9 @@ describe('useAddAppMfa', () => {
     })
 
     it('finishes with no codes when the user already has backup codes', async () => {
-        const user = mockTotpUser()
+        const user = mockTotpUser({ backupCodeEnabled: true })
         user.verifyTOTP.mockResolvedValue({ verified: true })
+        const logError = vi.spyOn(logger, 'error')
         const { result } = renderAppMfa()
 
         await act(() => result.current.verifyTotp({ code: '123456' }))
@@ -64,17 +67,48 @@ describe('useAddAppMfa', () => {
         expect(user.createBackupCode).not.toHaveBeenCalled()
         expect(result.current.step).toBe('success')
         expect(result.current.backupCodes).toEqual([])
+        expect(result.current.hasExistingCodes).toBe(true)
+        expect(logError).not.toHaveBeenCalled()
+    })
+
+    it('reports a first enrollment that returns no codes', async () => {
+        const user = mockTotpUser()
+        user.verifyTOTP.mockResolvedValue({ verified: true })
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { result } = renderAppMfa()
+
+        await act(() => result.current.verifyTotp({ code: '123456' }))
+
+        expect(result.current.step).toBe('success')
+        expect(result.current.backupCodes).toEqual([])
+        expect(result.current.hasExistingCodes).toBe(false)
+        expect(logError).toHaveBeenCalled()
     })
 
     it('stays on the add step with an error for a rejected code', async () => {
         const user = mockTotpUser()
-        user.verifyTOTP.mockRejectedValue(new Error('bad code'))
+        user.verifyTOTP.mockRejectedValue({ errors: [{ code: 'form_code_incorrect', message: 'Incorrect code' }] })
+        const logError = vi.spyOn(logger, 'error')
         const { result } = renderAppMfa()
 
         await act(() => result.current.verifyTotp({ code: '000000' }))
 
         expect(result.current.step).toBe('add')
         expect(result.current.form.errors.code).toBe('Invalid verification code. Please try again.')
+        expect(logError).not.toHaveBeenCalled()
+    })
+
+    it('logs a verification failure that is not a wrong code', async () => {
+        const user = mockTotpUser()
+        const failure = new Error('network down')
+        user.verifyTOTP.mockRejectedValue(failure)
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { result } = renderAppMfa()
+
+        await act(() => result.current.verifyTotp({ code: '000000' }))
+
+        expect(result.current.step).toBe('add')
+        expect(logError).toHaveBeenCalledWith('Error verifying TOTP', failure)
     })
 
     it('blocks regenerating the QR code for 30 seconds', async () => {
