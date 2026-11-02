@@ -320,6 +320,34 @@ describe('Action Builder', () => {
             }
         })
 
+        it('logs only top-level, non-sensitive id keys that hold a UUID', async () => {
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            await mockSessionWithTestData()
+            const studyId = faker.string.uuid()
+            const nestedId = faker.string.uuid()
+            const arrayId = faker.string.uuid()
+            const untypedUuid = faker.string.uuid()
+            const inviteId = faker.string.uuid()
+            const action = new Action('denied-filter')
+                .params(z.object({ studyId: z.string(), inviteId: z.string() }))
+                .middleware(async () => ({
+                    study: { id: nestedId },
+                    jobIds: [arrayId],
+                    owner: untypedUuid,
+                    submittedByOrgId: null,
+                }))
+                .requireAbilityTo('manage', 'all')
+                .handler(async () => 'ok')
+
+            await action({ studyId, inviteId })
+
+            const warning = String(warnSpy.mock.calls[0][0])
+            expect(warning).toContain(`ids: ${JSON.stringify({ studyId })}`)
+            for (const dropped of [nestedId, arrayId, untypedUuid, inviteId]) {
+                expect(warning).not.toContain(dropped)
+            }
+        })
+
         it('flushes Sentry before returning a failure, so the warning leaves the Lambda', async () => {
             vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
             vi.mocked(Sentry.flush).mockClear()

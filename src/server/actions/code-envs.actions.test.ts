@@ -1393,6 +1393,37 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
         }
     }
 
+    it('createOrgCodeEnvAction', async () => {
+        const { otherOrg, warnSpy } = await seedOtherOrgEnv()
+        const result = await createOrgCodeEnvAction({
+            orgSlug: otherOrg.slug,
+            name: 'Attempted Create',
+            identifier: 'attempted_ident',
+            commandLines: { r: 'test command' },
+            language: 'R',
+            url: testImageRef('example.com/attempted-create'),
+            starterCodeFileNames: ['attempted.R'],
+            isTesting: true,
+            settings: { environment: [{ name: 'X', value: 'caller-sent-secret' }] },
+            dataSourceIds: [],
+        })
+
+        expect(result).toEqual({
+            error: { permission_denied: 'in createOrgCodeEnvAction action; cannot update Org.' },
+        })
+        const warning = String(warnSpy.mock.calls[0][0])
+        expect(warning).toContain(otherOrg.id)
+        for (const content of ['caller-sent-secret', 'attempted_ident', 'attempted.R']) {
+            expect(warning).not.toContain(content)
+        }
+        const created = await db
+            .selectFrom('orgCodeEnv')
+            .select('id')
+            .where('identifier', '=', 'attempted_ident')
+            .execute()
+        expect(created).toHaveLength(0)
+    })
+
     it('updateOrgCodeEnvAction', async () => {
         const seeded = await seedOtherOrgEnv()
         const result = await updateOrgCodeEnvAction({
