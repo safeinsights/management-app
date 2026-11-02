@@ -24,7 +24,7 @@ project="mgmt-app-e2e-${project_hash}"
 
 usage() {
     echo "Usage: $0 [--rebuild] [--clean] [--ui] [-- <playwright-args>]"
-    echo "       $0 --down | --prune | --print-project-name | --help"
+    echo "       $0 --up | --exec -- <command...> | --down | --prune | --print-project-name | --help"
     echo ""
     echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
     echo "and Chromium. Nothing is published on host ports. Containers are removed when the run ends;"
@@ -34,9 +34,14 @@ usage() {
     echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
     echo "  --clean               Fresh test database, storage, node_modules and build, but KEEP the pnpm"
     echo "                        store & corepack cache (fast offline reinstall). Combines with a run."
+    echo "                        Refused while a session is up."
     echo "  --ui                  Open Playwright UI mode, served from the container. Prints a"
     echo "                        http://127.0.0.1:<port> URL to open in any browser; Ctrl-C stops it."
-    echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Then exits."
+    echo "  --up                  Start an interactive session (stack + app server) and keep it running."
+    echo "                        On a running session, print its status. Runs and --ui then use it."
+    echo "  --exec -- <cmd...>    Run a command in the session, e.g. pnpm exec playwright-cli ..."
+    echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
+    echo "                        session. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
     echo "                        pnpm store & corepack cache. The runner image is kept. Then exits."
     echo "  --print-project-name  Print this checkout's Compose project name and exit"
@@ -48,6 +53,9 @@ usage() {
     echo "  $0 -- -g 'creates a study' --trace on     # Filter by title, keep traces of passing tests"
     echo "  $0 --clean -- tests/signin.spec.ts        # Fresh state, then one spec"
     echo "  $0 --ui -- tests/study-flow.spec.ts       # UI mode, filtered to one spec"
+    echo "  $0 --up                                   # Start a session"
+    echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
+    echo "  $0 --down                                 # End the session"
     echo ""
     echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, the"
     echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
@@ -57,14 +65,17 @@ usage() {
     echo "      migration is missing from the codebase (e.g. after a branch switch)."
     echo ""
     echo "      Each run rebuilds the e2e-runner image from Dockerfile.dev first (about a second when"
-    echo "      nothing changed). Chromium lives in an image layer keyed on the locked Playwright version."
+    echo "      nothing changed). Chromium lives in image layers keyed on the locked Playwright versions."
+    echo ""
+    echo "      A session stops by itself after E2E_TTL seconds (default 7200 = 2 h). After a host"
+    echo "      'pnpm install' or a Dockerfile.dev change, restart it: --down, then --up."
     exit "${1:-0}"
 }
 
 rebuild=false
 clean=false
 action=run
-playwright_args=()
+extra_args=()
 
 set_action() {
     if [ "$action" != run ]; then
@@ -78,9 +89,11 @@ while [ $# -gt 0 ]; do
     case $1 in
         --rebuild) rebuild=true ;;
         --clean) clean=true ;;
+        --ui) set_action ui ;;
+        --up) set_action up ;;
+        --exec) set_action exec ;;
         --down) set_action down ;;
         --prune) set_action prune ;;
-        --ui) set_action ui ;;
         --print-project-name)
             echo "$project"
             exit 0
@@ -89,7 +102,7 @@ while [ $# -gt 0 ]; do
         --)
             shift
             # An array keeps spaced arguments such as -g 'two words' intact.
-            playwright_args=("$@")
+            extra_args=("$@")
             break
             ;;
         *)
@@ -99,6 +112,11 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+if [ "$action" = exec ] && [ ${#extra_args[@]} -eq 0 ]; then
+    echo "Error: --exec needs a command after --." >&2
+    usage 1
+fi
 
 # Without an explicit project name Compose falls back to the folder name, which is the dev stack's
 # project; a teardown with --remove-orphans would then remove the running dev containers.
@@ -110,16 +128,17 @@ case $project in
         ;;
 esac
 
+export E2E_RUNNER_IMAGE="${project}-e2e-runner"
+
 # --env-file /dev/null keeps a host .env (COMPOSE_* or anything else) out of the interpolation.
 compose() {
     docker compose -p "$project" -f "$repo_root/docker-compose.e2e.yml" --env-file /dev/null "$@"
 }
 
-runner_containers() {
+running_container() {
     docker ps -q \
         --filter "label=com.docker.compose.project=$project" \
-        --filter "label=com.docker.compose.service=e2e-runner" \
-        --filter "label=com.docker.compose.oneoff=$1" 2>/dev/null || true
+        --filter "label=com.docker.compose.service=$1" 2>/dev/null || true
 }
 
 if [ "$action" = down ]; then
@@ -142,12 +161,58 @@ if [ "$action" = prune ]; then
     exit 0
 fi
 
-# One run per checkout: a running one-shot runner container is the lock. Checked after argument
-# parsing so --help and --print-project-name work with Docker stopped.
-if [ -n "$(runner_containers True)" ]; then
+# One one-shot run per checkout: its running runner container is the lock. Checked after argument
+# parsing so --help and --print-project-name work with Docker stopped. A running session is not a
+# lock: runs go through it and are serialized inside the container.
+if [ -n "$(running_container e2e-runner)" ]; then
     echo "Error: a ./bin/docker-e2e run is already active for this checkout." >&2
     echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
     exit 1
+fi
+session=$(running_container e2e-session)
+
+if [ "$action" = exec ] && [ -z "$session" ]; then
+    echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up." >&2
+    exit 1
+fi
+# A run during the session's own install and build would race it.
+if [ -n "$session" ] && [ "$action" != exec ] &&
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "$session" 2>/dev/null)" != healthy ]; then
+    echo "The session of this checkout is still starting (installing, migrating or building)." >&2
+    echo "Wait for its ./bin/docker-e2e --up to finish, then retry." >&2
+    exit 1
+fi
+if [ "$clean" = true ] && [ -n "$session" ]; then
+    echo "Error: --clean would delete volumes under the running session. Run ./bin/docker-e2e --down first." >&2
+    exit 1
+fi
+
+tty_flag=(-T)
+if [ -t 0 ] && [ -t 1 ]; then tty_flag=(); fi
+
+if [ "$action" = exec ]; then
+    exec docker compose -p "$project" -f "$repo_root/docker-compose.e2e.yml" --env-file /dev/null \
+        exec ${tty_flag[@]+"${tty_flag[@]}"} e2e-session "${extra_args[@]}"
+fi
+
+ui_port() {
+    docker port "$1" 9323/tcp 2>/dev/null | head -n 1 | sed 's/.*://'
+}
+
+session_status() {
+    local deadline minutes_left
+    deadline=$(compose exec -T e2e-session cat /tmp/e2e-session.deadline 2>/dev/null || echo 0)
+    minutes_left=$(((deadline - $(date +%s)) / 60))
+    echo "Session is up for this checkout (project $project); it stops by itself in ${minutes_left} min."
+    echo "  Run specs:   ./bin/docker-e2e -- <playwright-args>"
+    echo "  Commands:    ./bin/docker-e2e --exec -- <cmd...>"
+    echo "  UI mode:     ./bin/docker-e2e --ui   (then open http://127.0.0.1:$(ui_port "$session"))"
+    echo "  End it:      ./bin/docker-e2e --down"
+}
+
+if [ "$action" = up ] && [ -n "$session" ]; then
+    session_status
+    exit 0
 fi
 
 # Read from the lockfile, so no host node_modules is needed.
@@ -158,13 +223,20 @@ importer_version() {
     ' pnpm-lock.yaml
 }
 
-PNPM_PACKAGE_MANAGER=$(sed -nE 's/^ *"packageManager": *"([^"]+)".*/\1/p' package.json)
-PLAYWRIGHT_VERSION=$(importer_version '@playwright/test')
-if [ -z "$PNPM_PACKAGE_MANAGER" ] || [ -z "$PLAYWRIGHT_VERSION" ]; then
-    echo "Error: could not read packageManager from package.json or @playwright/test from pnpm-lock.yaml." >&2
-    exit 1
-fi
-export PNPM_PACKAGE_MANAGER PLAYWRIGHT_VERSION
+# The package appears twice: in `packages:` (no dependencies) and in `snapshots:`.
+snapshot_dependency_version() {
+    awk -v key="  '$1':" -v dep="$2:" '
+        $0 == key { found = 1; next }
+        found && /^  [^ ]/ { found = 0 }
+        found && $1 == dep { print $2; exit }
+    ' pnpm-lock.yaml
+}
+
+# Layers + config, not the image ID: with the containerd image store the ID changes on every
+# fully cached build, which would rebuild the app on every run.
+image_key() {
+    docker image inspect -f '{{json .RootFS.Layers}}{{json .Config}}' "$1" | sha256_hex
+}
 
 # Computed on the host, because git inside the container breaks for worktrees (their .git file
 # points at a host path). Covers committed, staged, unstaged and untracked app inputs.
@@ -183,40 +255,17 @@ app_fingerprint() {
     } | sha256_hex
 }
 
-echo "Building the e2e-runner image..."
-compose build --quiet e2e-runner
-# Layers + config, not the image ID: with the containerd image store the ID changes on every
-# fully cached build, which would rebuild the app on every run.
-image_key() {
-    docker image inspect -f '{{json .RootFS.Layers}}{{json .Config}}' "$1" | sha256_hex
-}
-image_id=$(image_key "${project}-e2e-runner")
-
-if [ "$clean" = true ]; then
-    echo "Cleaning the test database, storage, build and node_modules (pnpm store + corepack cache kept)..."
-    compose down -t 1 --remove-orphans
-    docker volume rm "${project}_pgdata-e2e" "${project}_seaweedfs-data-e2e" "${project}_next_e2e" >/dev/null 2>&1 || true
-    compose run -T --rm --no-deps --entrypoint sh e2e-runner \
-        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' || true
-fi
-
-E2E_APP_FINGERPRINT=$(app_fingerprint "$image_id")
 E2E_REBUILD=
 if [ "$rebuild" = true ]; then E2E_REBUILD=1; fi
-export E2E_APP_FINGERPRINT E2E_REBUILD
-
-tty_flag=(-T)
-if [ -t 0 ] && [ -t 1 ]; then tty_flag=(); fi
+export E2E_REBUILD
 
 # Waits until the UI answers on the published loopback port, then prints its URL.
 print_ui_url() {
-    local container port i
+    local service=$1 container port i
     for i in $(seq 1 1800); do
-        container=$(runner_containers True)
+        container=$(running_container "$service")
         port=
-        if [ -n "$container" ]; then
-            port=$(docker port "$container" 9323/tcp 2>/dev/null | head -n 1 | sed 's/.*://')
-        fi
+        if [ -n "$container" ]; then port=$(ui_port "$container"); fi
         if [ -n "$port" ] && curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$port"; then
             echo ""
             echo "[docker-e2e] Playwright UI: open http://127.0.0.1:$port  (Ctrl-C stops it)"
@@ -228,8 +277,97 @@ print_ui_url() {
 }
 
 ui_url_printer=
-teardown() {
+stop_ui_url_printer() {
     if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
+}
+
+if [ -n "$session" ]; then
+    # Runs inside the session. The image is not rebuilt here; the fingerprint uses the image the
+    # session runs, so app edits during the session still trigger a rebuild + server restart.
+    E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$(docker inspect -f '{{.Image}}' "$session")")")
+    run_id="$(date +%s)-$$"
+    # `docker compose exec` without a TTY does not pass Ctrl-C on, so stop this run's own
+    # processes inside the container. Other runs waiting for the lock are left alone.
+    stop_session_run() {
+        stop_ui_url_printer
+        compose exec -T e2e-session sh -c \
+            'f=/tmp/e2e-run-$1.pid; [ -f "$f" ] || exit 0; p=$(cat "$f"); pkill -INT -P "$p"; kill -INT "$p"; rm -f "$f"' \
+            _ "$run_id" >/dev/null 2>&1 || true
+    }
+    trap 'stop_session_run; exit 130' INT
+    trap 'stop_session_run; exit 143' TERM
+    trap stop_ui_url_printer EXIT
+
+    command=test
+    if [ "$action" = ui ]; then
+        command=ui
+        print_ui_url e2e-session &
+        ui_url_printer=$!
+    fi
+    echo "Running in the session of this checkout (project $project)..."
+    status=0
+    compose exec ${tty_flag[@]+"${tty_flag[@]}"} \
+        -e E2E_APP_FINGERPRINT="$E2E_APP_FINGERPRINT" -e E2E_REBUILD="$E2E_REBUILD" -e E2E_RUN_ID="$run_id" \
+        e2e-session bin/lib/e2e-runner.sh --prepare -- "$command" ${extra_args[@]+"${extra_args[@]}"} || status=$?
+    compose exec -T e2e-session rm -f "/tmp/e2e-run-${run_id}.pid" >/dev/null 2>&1 || true
+    exit "$status"
+fi
+
+PNPM_PACKAGE_MANAGER=$(sed -nE 's/^ *"packageManager": *"([^"]+)".*/\1/p' package.json)
+PLAYWRIGHT_VERSION=$(importer_version '@playwright/test')
+playwright_cli_version=$(importer_version '@playwright/cli')
+PLAYWRIGHT_CLI_CORE_VERSION=
+if [ -n "$playwright_cli_version" ]; then
+    PLAYWRIGHT_CLI_CORE_VERSION=$(snapshot_dependency_version "@playwright/cli@${playwright_cli_version}" playwright-core)
+fi
+if [ -z "$PNPM_PACKAGE_MANAGER" ] || [ -z "$PLAYWRIGHT_VERSION" ] || [ -z "$PLAYWRIGHT_CLI_CORE_VERSION" ]; then
+    echo "Error: could not read packageManager from package.json, or @playwright/test and" >&2
+    echo "       @playwright/cli's playwright-core from pnpm-lock.yaml." >&2
+    exit 1
+fi
+export PNPM_PACKAGE_MANAGER PLAYWRIGHT_VERSION PLAYWRIGHT_CLI_CORE_VERSION
+
+echo "Building the e2e-runner image..."
+compose build --quiet e2e-runner
+
+if [ "$clean" = true ]; then
+    echo "Cleaning the test database, storage, build and node_modules (pnpm store + corepack cache kept)..."
+    compose down -t 1 --remove-orphans
+    docker volume rm "${project}_pgdata-e2e" "${project}_seaweedfs-data-e2e" "${project}_next_e2e" >/dev/null 2>&1 || true
+    compose run -T --rm --no-deps --entrypoint sh e2e-runner \
+        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' || true
+fi
+
+E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$E2E_RUNNER_IMAGE")")
+export E2E_APP_FINGERPRINT
+
+if [ "$action" = up ]; then
+    echo "Starting an e2e session for this checkout (project $project)..."
+    compose up -d e2e-session
+    session=$(compose ps -a -q e2e-session)
+    compose logs -f --no-log-prefix e2e-session &
+    log_follower=$!
+    # Healthy once the runner wrote its ready file (deps, DB, build and server done).
+    state=
+    while :; do
+        state=$(docker inspect -f '{{.State.Status}} {{.State.Health.Status}}' "$session" 2>/dev/null || echo gone)
+        case $state in
+            "running starting") sleep 2 ;;
+            *) break ;;
+        esac
+    done
+    kill "$log_follower" 2>/dev/null || true
+    if [ "$state" != "running healthy" ]; then
+        echo "Error: the session did not become ready ($state); see the output above. Clean up with --down." >&2
+        exit 1
+    fi
+    echo ""
+    session_status
+    exit 0
+fi
+
+teardown() {
+    stop_ui_url_printer
     compose down -t 1 --remove-orphans >/dev/null 2>&1 || true
 }
 trap teardown EXIT
@@ -239,14 +377,14 @@ trap 'exit 143' TERM
 status=0
 if [ "$action" = ui ]; then
     echo "Starting Playwright UI mode in Docker (project $project)..."
-    print_ui_url &
+    print_ui_url e2e-runner &
     ui_url_printer=$!
     # Plain `run` publishes no ports; --service-ports publishes the loopback-only UI port.
     compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm --service-ports e2e-runner \
-        ui ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+        ui ${extra_args[@]+"${extra_args[@]}"} || status=$?
 else
     echo "Running e2e tests in Docker (project $project)..."
     compose run ${tty_flag[@]+"${tty_flag[@]}"} --rm e2e-runner \
-        test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+        test ${extra_args[@]+"${extra_args[@]}"} || status=$?
 fi
 exit "$status"

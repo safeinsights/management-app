@@ -21,6 +21,7 @@ LOCK_FILE=/tmp/e2e-playwright.lock
 UI_PID_FILE=/tmp/e2e-ui.pid
 FINGERPRINT_FILE=.next/.e2e-fingerprint
 SESSION_READY_FILE=/tmp/e2e-session.ready
+SESSION_DEADLINE_FILE=/tmp/e2e-session.deadline
 
 note() { echo "[docker-e2e] $*"; }
 
@@ -72,8 +73,12 @@ prepare_db() {
     fi
 }
 
+# A zombie still answers kill -0, so check the process state too.
 server_running() {
-    [ -f "$SERVER_PID_FILE" ] && kill -0 "$(cat "$SERVER_PID_FILE")" 2>/dev/null
+    [ -f "$SERVER_PID_FILE" ] || return 1
+    local state
+    state=$(ps -o stat= -p "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true)
+    [ -n "$state" ] && [ "${state#Z}" = "$state" ]
 }
 
 stop_server() {
@@ -82,7 +87,7 @@ stop_server() {
     pid=$(cat "$SERVER_PID_FILE")
     note "stopping the app server for the rebuild"
     kill "$pid" 2>/dev/null || true
-    while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+    while server_running; do sleep 0.2; done
     rm -f "$SERVER_PID_FILE"
 }
 
@@ -116,9 +121,13 @@ start_server() {
     echo "=== app server start $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >>"$SERVER_LOG"
     note "starting the app server on :4100 (log: $SERVER_LOG)"
     # Docker sets HOSTNAME to the container ID, and the standalone server binds to it, not to
-    # localhost. setsid and 9>&- keep the server out of the caller's signals and lock.
-    CI=true HOSTNAME=0.0.0.0 setsid node .next/standalone/server.js >>"$SERVER_LOG" 2>&1 9>&- &
-    echo $! >"$SERVER_PID_FILE"
+    # localhost. The subshell orphans the server to the container's init, which reaps it when it
+    # stops; a session's runner execs into `timeout`, which would leave it a zombie. setsid and
+    # 9>&- keep it out of the caller's signals and lock.
+    (
+        CI=true HOSTNAME=0.0.0.0 setsid node .next/standalone/server.js >>"$SERVER_LOG" 2>&1 9>&- &
+        echo $! >"$SERVER_PID_FILE"
+    )
 
     local i
     for i in $(seq 1 60); do
@@ -213,9 +222,12 @@ case $command in
         exec pnpm exec playwright test --ui-host=0.0.0.0 --ui-port=9323 "$@"
         ;;
     session)
+        # The TTL counts from container start, like the timeout around Postgres and SeaweedFS.
+        ttl_left=$((${E2E_TTL:-7200} - SECONDS))
+        echo $(($(date +%s) + ttl_left)) >"$SESSION_DEADLINE_FILE"
         touch "$SESSION_READY_FILE"
-        note "session ready"
-        exec sleep infinity
+        note "session ready; it stops by itself in $((ttl_left / 60)) min"
+        exec timeout -s INT "$ttl_left" sleep infinity
         ;;
     *)
         exec "$@"
