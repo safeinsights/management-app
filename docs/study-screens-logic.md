@@ -536,14 +536,16 @@ status as the writes did.
 
 Rules applied before the table, in this order:
 
-1. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every write except `RESULTS-VIEWED`
-   is refused (`qa` excepted).
-2. **Repeat.** A write of the current status is a no-op for `enclave`, `service` and `system`, which
-   re-send statuses. For `researcher` and `reviewer` it is refused, so the action rolls back the
-   comments and keys it wrote first.
-3. **Log no-op.** A `log` write is skipped when the job's newest row already has that status.
+1. **Machine repeat.** A write of the current status is a no-op for `enclave`, `service` and
+   `system`, which re-send statuses, also after the round closed: the enclave re-delivers its own
+   outputs decision.
+2. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every other write except
+   `RESULTS-VIEWED` is refused (`qa` excepted).
+3. **Person repeat.** A write of the current status from `researcher` or `reviewer` is refused, so
+   the action rolls back the comments and keys it wrote first.
+4. **Log no-op.** A `log` write is skipped when the job's newest row already has that status.
    `RESULTS-VIEWED` is skipped when the job has one anywhere.
-4. **Table and actor.** A pair the table does not list, or a listed pair from an actor it does not
+5. **Table and actor.** A pair the table does not list, or a listed pair from an actor it does not
    name, is refused.
 
 "Stage" means `JOB-PACKAGING`, `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, in that order.
@@ -572,7 +574,9 @@ Rules applied before the table, in this order:
 | any                                       | any                                                                               | the listed effect, else move | qa                |
 
 `qa` may write any pair, repeats included; `CODE-REJECTED` has no other writer. A replay treats an
-unlisted pair as a move, the same as a `qa` write, so the writes and the replay agree.
+unlisted pair as a move, the same as a `qa` write, so the writes and the replay agree. One exception
+(`replayEffect`): after `FILES-APPROVED` or `FILES-REJECTED`, an unlisted pair is a log unless it
+writes the other decision, so a late report that older app versions appended cannot reopen the round.
 
 **Refusals.** A refused write throws `JobTransitionRefusedError`, an `ActionFailure`, and writes
 nothing; the action's transaction rolls back. The enclave and containerizer routes answer 409. Their

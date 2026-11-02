@@ -99,6 +99,12 @@ describe('decideJobTransition', () => {
         expect(decide('JOB-READY', 'JOB-READY', 'system')).toEqual({ kind: 'repeat' })
     })
 
+    it('treats a repeated outputs decision from the enclave as a no-op, though the round is closed', () => {
+        expect(decide('FILES-APPROVED', 'FILES-APPROVED', 'enclave')).toEqual({ kind: 'repeat' })
+        expect(decide('FILES-REJECTED', 'FILES-REJECTED', 'enclave')).toEqual({ kind: 'repeat' })
+        expect(decide('FILES-APPROVED', 'FILES-APPROVED', 'reviewer')).toEqual(refused('round-closed'))
+    })
+
     it('refuses a repeat from a person, so the action rolls back', () => {
         expect(decide('CODE-SUBMITTED', 'CODE-SUBMITTED', 'researcher')).toEqual(refused('repeat'))
         expect(decide('CODE-APPROVED', 'CODE-APPROVED', 'reviewer')).toEqual(refused('repeat'))
@@ -137,6 +143,8 @@ describe('decideJobTransition', () => {
         expect(decide('CODE-SUBMITTED', 'CODE-REJECTED', 'qa')).toEqual(write('move'))
         expect(decide('JOB-RUNNING', 'JOB-PROVISIONING', 'qa')).toEqual(write('log'))
         expect(decide('JOB-RUNNING', 'JOB-RUNNING', 'qa')).toEqual(write('log'))
+        expect(decide('FILES-REJECTED', 'CODE-SCANNED', 'qa')).toEqual(write('log'))
+        expect(decide('FILES-APPROVED', 'FILES-REJECTED', 'qa')).toEqual(write('move'))
     })
 })
 
@@ -197,6 +205,18 @@ describe('replayJobStatus', () => {
         expect(replayJobStatus([row('JOB-READY', '2026-01-01T00:00:00Z')]).status).toBe('JOB-READY')
         expect(replayJobStatus([])).toEqual({ status: null, changedAt: null })
     })
+
+    it.each(['CODE-SCANNED', 'JOB-RUNNING', 'JOB-ERRORED', 'CODE-SUBMITTED'] as const)(
+        'stays on the decision after a late %s',
+        (late) => {
+            const rows = [
+                row('RUN-COMPLETE', '2026-01-01T00:00:00Z'),
+                row('FILES-REJECTED', '2026-01-01T00:00:01Z'),
+                row(late, '2026-01-01T00:00:02Z'),
+            ]
+            expect(replayJobStatus(rows).status).toBe('FILES-REJECTED')
+        },
+    )
 
     it('moves on an unlisted pair, as a qa write does', () => {
         const rows = [row('INITIATED', '2026-01-01T00:00:00Z'), row('RUN-COMPLETE', '2026-01-01T00:00:01Z')]

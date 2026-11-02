@@ -131,6 +131,23 @@ test('refuses a second outputs decision on an errored run with 409 and writes no
     expect(rejected).toHaveLength(0)
 })
 
+test('answers 200 to a repeated outputs decision on an errored run and writes nothing', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-APPROVED'])
+
+    const resp = await putStatus(jobIds[0], 'FILES-APPROVED')
+
+    expect(resp.status).toBe(200)
+    const approved = await db
+        .selectFrom('jobStatusChange')
+        .select('id')
+        .where('studyJobId', '=', jobIds[0])
+        .where('status', '=', 'FILES-APPROVED')
+        .execute()
+    expect(approved).toHaveLength(1)
+})
+
 test('answers 422 for any status once the run is complete, before the transition table runs', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })

@@ -156,18 +156,28 @@ type DecisionInput = {
 const isRoundClosing = (status: JobStatus | null) =>
     status !== null && (ROUND_CLOSING_JOB_STATUSES as readonly JobStatus[]).includes(status)
 
+// The effect of a pair, listed or not. A decided round only changes its decision: any other late report
+// stays history, so a replay of legacy rows cannot reopen the round.
+export function replayEffect(from: JobStatus | null, to: JobStatus): TransitionEffect {
+    if (from === null) return 'move'
+    const transition = findTransition(from, to)
+    if (transition) return transition.effect
+    return isRoundClosing(from) && !isRoundClosing(to) ? 'log' : 'move'
+}
+
 export function decideJobTransition({ from, to, actor, newestStatus, hasStatus }: DecisionInput): TransitionDecision {
     const transition = findTransition(from, to)
 
     // QA drives jobs to arbitrary states; it still writes through here so the log replays the same way.
-    if (actor === 'qa')
-        return { kind: 'write', effect: from === to ? 'log' : (transition?.effect ?? 'move'), observed: false }
+    if (actor === 'qa') return { kind: 'write', effect: from === to ? 'log' : replayEffect(from, to), observed: false }
+
+    // Before the round check: the enclave re-delivers its own outputs decision.
+    if (from === to && REPEATING_ACTORS.includes(actor)) return { kind: 'repeat' }
 
     if (isRoundClosing(from) && to !== 'RESULTS-VIEWED') return { kind: 'refused', reason: 'round-closed' }
 
     // Actions write comments and keys before the status, so a repeat from a person must roll them back.
-    if (from === to)
-        return REPEATING_ACTORS.includes(actor) ? { kind: 'repeat' } : { kind: 'refused', reason: 'repeat' }
+    if (from === to) return { kind: 'refused', reason: 'repeat' }
 
     if (transition?.effect === 'log') {
         const alreadyLogged = to === 'RESULTS-VIEWED' ? hasStatus(to) : newestStatus === to
@@ -177,7 +187,7 @@ export function decideJobTransition({ from, to, actor, newestStatus, hasStatus }
     if (transition?.actors.includes(actor)) return { kind: 'write', effect: transition.effect, observed: false }
 
     if (OBSERVE_MACHINE_ACTOR_PAIRS && MACHINE_ACTORS.includes(actor)) {
-        return { kind: 'write', effect: transition?.effect ?? 'move', observed: true }
+        return { kind: 'write', effect: replayEffect(from, to), observed: true }
     }
     return { kind: 'refused', reason: 'not-permitted' }
 }
@@ -235,8 +245,7 @@ export function replayJobStatus(rows: readonly ReplayRow[]): {
     let changedAt: Date | string | null = null
     for (const row of sortJobStatusRows(rows)) {
         if (row.status === status) continue
-        const effect = status === null ? 'move' : (findTransition(status, row.status)?.effect ?? 'move')
-        if (effect === 'move') {
+        if (replayEffect(status, row.status) === 'move') {
             status = row.status
             changedAt = row.createdAt
         }
