@@ -22,6 +22,7 @@ x-runner: &runner
         - AWS_REGION=us-east-1
         - SIMULATE_CODE_BUILD=t
         - E2E_FAKE_CLERK=1
+        - E2E_CI_TIMEOUTS=1
         - SINGLE_USER_EDITING=t
         - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk
         - NEXT_PUBLIC_CI=true
