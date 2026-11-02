@@ -225,16 +225,30 @@ To have Claude Code use docker unit tests, see the "Claude Code integration" sec
 
 ### E2E Testing with Playwright 🎭
 
-To run playwright tests locally, you'll need to install playwright:
+E2E tests live in `tests/*.spec.ts`. They run against a production build of the app with faked Clerk sign-in, on a separate test database, so your dev database is never touched.
 
-- `pnpm install`
-- `pnpm exec playwright install`
+#### On your host
 
-And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
+One-time: `pnpm install` and `pnpm exec playwright install`. With Postgres (`localhost:5432`) and SeaweedFS (`:8333`) running, `pnpm run test:e2e:up` creates and migrates the `si_mgmnt_test` database, builds the app on port 4100 and runs the suite. Later runs: `pnpm exec playwright test --ui` to view status, or `pnpm exec playwright test --headed` to watch the browser.
 
-If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
+#### In Docker 🐳
 
-If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
+`./bin/docker-e2e` runs everything in containers (Postgres, SeaweedFS, the app, Playwright and Chromium), so it needs only Docker. Each checkout gets its own containers and volumes, nothing is published on host ports, and the containers are removed when the run ends.
+
+```bash
+./bin/docker-e2e                           # run the whole suite
+./bin/docker-e2e -- tests/signin.spec.ts   # Playwright arguments go after --
+./bin/docker-e2e --ui                      # Playwright UI mode; open the printed http://127.0.0.1:<port>
+./bin/docker-e2e --help                    # all options, e.g. --clean, sessions, --prune
+```
+
+The first run takes a few minutes. Later runs are fast: the app is rebuilt only when app code changed.
+
+#### Results
+
+Failures leave a screenshot, `error-context.md` and `trace.zip` under `test-results/e2e/<test>/`. Open a trace with `pnpm exec playwright show-trace <path>`. In Docker mode the app server's output is in `test-results/e2e-server.log`.
+
+If there are Playwright failures on GitHub Actions, the trace file is stored under the "Artifacts" section of the run. Download the trace.zip and open it with `pnpm exec playwright show-trace <path to download>`.
 
 #### Accessibility checks
 
