@@ -1,5 +1,6 @@
 import { db, describe, expect, insertTestOrg, insertTestStudyOnly, insertTestUser, it } from '@/tests/unit.helpers'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
+import { latestJobQuery } from '@/server/db/queries'
 import { markCodeSubmitted } from '@/server/study-submission'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
@@ -341,6 +342,35 @@ describe('a job that older code touched after a rollback', () => {
 
         expect(next).toMatchObject({ created: true })
         expect(next.id).not.toBe(job.id)
+    })
+
+    it('finds the job older code opened with the latest-job query at once', async () => {
+        const { study } = await insertTestStudyOnly()
+        const decided = await openStudyJob(db, study.id, { actor: 'qa' })
+        const history = [
+            'CODE-SUBMITTED',
+            'CODE-CHANGES-REQUESTED',
+            'CODE-SUBMITTED',
+            'CODE-APPROVED',
+            'RUN-COMPLETE',
+            'FILES-APPROVED',
+        ] as const
+        for (const status of history) await writeJobStatus(db, decided.id, status, { actor: 'qa' })
+        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version opens the next job without the columns
+        const next = await db
+            .insertInto('studyJob')
+            .values({ studyId: study.id, createdAt: sql<Date>`clock_timestamp()` })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        // eslint-disable-next-line custom/noJobStatusWrites -- and records its submission the same way
+        await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: next.id, status: 'CODE-SUBMITTED', createdAt: sql<Date>`clock_timestamp()` })
+            .execute()
+        const latest = await latestJobQuery(db, study.id).select('studyJob.id').executeTakeFirstOrThrow()
+
+        expect(latest.id).toBe(next.id)
+        expect(await columnsOf(next.id)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 3 })
     })
 
     it('opens the next round when a late scan followed the outputs decision', async () => {
