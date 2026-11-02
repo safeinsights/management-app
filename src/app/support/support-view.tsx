@@ -25,7 +25,7 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
     <Text>
         Have a question or running into a blocker? Please don’t hesitate to email SafeInsights at{' '}
         <Group component="span" display="inline-flex" gap={0} wrap="nowrap" align="center">
-            <Text component="span" fw={fontWeight.semibold}>
+            <Text component="span" fw={fontWeight.semibold} className="nowrap">
                 {SUPPORT_EMAIL}
             </Text>
             <ActionIcon
@@ -39,10 +39,10 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
                 {copied ? <CheckIcon size={ICON_SIZE} /> : <CopyIcon size={ICON_SIZE} />}
             </ActionIcon>
             .
-            <span role="status">
-                <CopiedLabel isVisible={copied} />
-            </span>
         </Group>
+        <span role="status">
+            <CopiedLabel isVisible={copied} />
+        </span>
     </Text>
 )
 
