@@ -12,32 +12,35 @@ import { after } from 'next/server'
 import { enqueueJob, isJobQueueConfigured } from './jobs/queue'
 import { runJob, type JobMessage, type JobPayload } from './jobs/registry'
 import { getOrgInfoForUserId, siUser } from './db/queries'
-import * as email from './mailer'
 
 // These run after the calling action has completed, and inside a performsMutations action only once
 // its transaction commits; the caller's success must not depend on them.
 
+// captureException only enqueues; without an awaited flush the instance can freeze first.
+const reported = async (work: () => Promise<unknown>) => {
+    try {
+        await work()
+    } catch (error: unknown) {
+        logger.error(error)
+        await Sentry.flush(2_000)
+    }
+}
+
+// Inside a transaction, waits for the commit of the action or withTransaction() that opened it; a
+// rollback drops afterCommit hooks (OTTER-841). Anywhere else runs at once.
+const onCommit = async (work: () => Promise<unknown>) => {
+    const ctx = localStorageContext.getStore()
+    if (ctx?.afterCommit && ctx.db?.isTransaction) {
+        ctx.afterCommit(work)
+    } else {
+        await work()
+    }
+}
+
 export function deferred<Args extends unknown[], R>(handler: (...args: Args) => Promise<R>): (...args: Args) => void {
     return (...args: Args) => {
-        const schedule = () =>
-            // captureException only enqueues; without an awaited flush the instance can freeze first.
-            after(async () => {
-                try {
-                    await handler(...args)
-                } catch (error: unknown) {
-                    logger.error(error)
-                    await Sentry.flush(2_000)
-                }
-            })
-
-        // after() cannot be unscheduled, so inside a transaction wait for the commit of the action or
-        // withTransaction() that opened it; a rollback drops afterCommit hooks (OTTER-841).
-        const ctx = localStorageContext.getStore()
-        if (ctx?.afterCommit && ctx.db?.isTransaction) {
-            ctx.afterCommit(async () => schedule())
-        } else {
-            schedule()
-        }
+        // after() cannot be unscheduled, so it is only entered once the commit is in.
+        onCommit(async () => after(() => reported(() => handler(...args))))
     }
 }
 
@@ -165,26 +168,6 @@ export const onStudyDraftCreated = deferred(async ({ studyId, userId }: StudyEve
     })
 })
 
-export const onStudyProposalSubmitted = deferred(
-    async ({ studyId, userId, isResubmission }: StudyEvent & { isResubmission: boolean }) => {
-        await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId }, currentDb())
-        captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
-        await email.sendStudyProposalEmails(studyId)
-        await email.sendStudyAgreementPreparationEmail(studyId)
-    },
-)
-
-// Its own handler: the CREATED/STUDY row and the agreement request are for the first submission only.
-export const onStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
-    await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
-    captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
-    await email.sendStudyProposalEmails(studyId)
-})
-
-export const onStudyAgreementPublished = deferred(async ({ studyId }: { studyId: string }) => {
-    await email.sendStudyAgreementReadyEmail(studyId)
-})
-
 const runJobInProcess = deferred(runJob)
 
 // Awaited from afterCommit, so the message is sent before the response and names committed rows.
@@ -201,15 +184,52 @@ const startJob = async (message: JobMessage) => {
 export const onStudyReviewRequested = (payload: JobPayload<'study-review'>) =>
     startJob({ job: 'study-review', payload })
 
-export const onStudyCodeSubmitted = deferred(
-    async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
-        await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
-        captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
-        await email.sendStudyCodeSubmittedEmail(studyId)
+// Queued on the commit path, never from after(): once the response is sent a Lambda freezes, so a
+// send scheduled there waits for the instance's next request or is lost (OTTER-855). Outside a
+// transaction the caller awaits it, so the message is out before the route answers.
+const sendStudyEmail = (email: JobPayload<'study-email'>['email'], studyId: string) =>
+    onCommit(() => reported(() => startJob({ job: 'study-email', payload: { email, studyId } })))
+
+const recordStudyProposalSubmitted = deferred(
+    async ({ studyId, userId, isResubmission }: StudyEvent & { isResubmission: boolean }) => {
+        await audit({ userId, eventType: 'CREATED', recordType: 'STUDY', recordId: studyId }, currentDb())
+        captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission })
     },
 )
 
-export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
+export const onStudyProposalSubmitted = async (event: StudyEvent & { isResubmission: boolean }) => {
+    recordStudyProposalSubmitted(event)
+    await sendStudyEmail('sendStudyProposalEmails', event.studyId)
+    await sendStudyEmail('sendStudyAgreementPreparationEmail', event.studyId)
+}
+
+const recordStudyProposalResubmitted = deferred(async ({ studyId, userId }: StudyEvent) => {
+    await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
+    captureStudyEvent('study_proposal_submitted', { studyId, userId, side: 'lab', isResubmission: true })
+})
+
+// Its own handler: the CREATED/STUDY row and the agreement request are for the first submission only.
+export const onStudyProposalResubmitted = (event: StudyEvent) => {
+    recordStudyProposalResubmitted(event)
+    return sendStudyEmail('sendStudyProposalEmails', event.studyId)
+}
+
+export const onStudyAgreementPublished = ({ studyId }: { studyId: string }) =>
+    sendStudyEmail('sendStudyAgreementReadyEmail', studyId)
+
+const recordStudyCodeSubmitted = deferred(
+    async ({ studyId, userId, studyJobId, isResubmission }: StudyJobEvent & { isResubmission: boolean }) => {
+        await audit({ userId, eventType: 'UPDATED', recordType: 'STUDY', recordId: studyId }, currentDb())
+        captureStudyEvent('study_code_submitted', { studyId, userId, side: 'lab', studyJobId, isResubmission })
+    },
+)
+
+export const onStudyCodeSubmitted = (event: StudyJobEvent & { isResubmission: boolean }) => {
+    recordStudyCodeSubmitted(event)
+    return sendStudyEmail('sendStudyCodeSubmittedEmail', event.studyId)
+}
+
+const recordStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_approved', {
         studyId,
@@ -235,68 +255,85 @@ export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) 
             }
         },
     })
-    await email.sendStudyProposalApprovedEmail(studyId)
 })
 
-export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
+export const onStudyApproved = (event: StudyEvent) => {
+    recordStudyApproved(event)
+    return sendStudyEmail('sendStudyProposalApprovedEmail', event.studyId)
+}
+
+const recordStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_declined', { studyId, userId, side: 'data-partner' })
-    await email.sendStudyProposalRejectedEmail(studyId)
 })
 
-export const onStudyNeedsClarification = deferred(async ({ studyId, userId }: StudyEvent) => {
+export const onStudyRejected = (event: StudyEvent) => {
+    recordStudyRejected(event)
+    return sendStudyEmail('sendStudyProposalRejectedEmail', event.studyId)
+}
+
+const recordStudyNeedsClarification = deferred(async ({ studyId, userId }: StudyEvent) => {
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_proposal_clarification_requested', { studyId, userId, side: 'data-partner' })
-    await email.sendStudyProposalNeedsRevisionEmail(studyId)
 })
 
-export const onStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
+export const onStudyNeedsClarification = (event: StudyEvent) => {
+    recordStudyNeedsClarification(event)
+    return sendStudyEmail('sendStudyProposalNeedsRevisionEmail', event.studyId)
+}
+
+const recordStudyCodeApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_approved', { studyId, userId, side: 'data-partner', studyJobId })
-    await email.sendStudyCodeApprovedEmail(studyId)
 })
 
-export const onStudyCodeChangesRequested = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
+export const onStudyCodeApproved = (event: StudyJobEvent) => {
+    recordStudyCodeApproved(event)
+    return sendStudyEmail('sendStudyCodeApprovedEmail', event.studyId)
+}
+
+const recordStudyCodeChangesRequested = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
     await audit({ userId, eventType: 'CLARIFICATION_REQUESTED', recordType: 'STUDY', recordId: studyId }, currentDb())
     captureStudyEvent('study_code_clarification_requested', { studyId, userId, side: 'data-partner', studyJobId })
-    await email.sendStudyCodeNeedsRevisionEmail(studyId)
 })
 
-export const onJobErrored = deferred(async ({ studyId }: { studyId: string }) => {
-    await email.sendDataPartnerCodeErroredEmail(studyId)
-})
+export const onStudyCodeChangesRequested = (event: StudyJobEvent) => {
+    recordStudyCodeChangesRequested(event)
+    return sendStudyEmail('sendStudyCodeNeedsRevisionEmail', event.studyId)
+}
 
-export const onRunCompleted = deferred(async ({ studyId }: { studyId: string }) => {
-    await email.sendDataPartnerOutputsNeedReviewEmail(studyId)
-})
+export const onJobErrored = ({ studyId }: { studyId: string }) =>
+    sendStudyEmail('sendDataPartnerCodeErroredEmail', studyId)
+
+export const onRunCompleted = ({ studyId }: { studyId: string }) =>
+    sendStudyEmail('sendDataPartnerOutputsNeedReviewEmail', studyId)
 
 type OutputsDecisionEvent = StudyJobEvent & { errored?: boolean }
 
 // The lab gets the same email whether the Data Partner shared the outputs or only feedback: code errored
 // when the run errored, otherwise outputs need review.
 const emailLabOutputsDecision = (studyId: string, errored = false) =>
-    errored ? email.sendLabCodeErroredEmail(studyId) : email.sendLabOutputsNeedReviewEmail(studyId)
+    sendStudyEmail(errored ? 'sendLabCodeErroredEmail' : 'sendLabOutputsNeedReviewEmail', studyId)
 
-export const onStudyResultsApproved = deferred(
-    async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
-        await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
-        captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
-        await emailLabOutputsDecision(studyId, errored)
-    },
-)
+const recordStudyResultsApproved = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
+    await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId }, currentDb())
+    captureStudyEvent('study_results_outputs_shared', { studyId, userId, side: 'data-partner', studyJobId })
+})
 
-export const onStudyResultsRejected = deferred(
-    async ({ studyId, userId, studyJobId, errored }: OutputsDecisionEvent) => {
-        await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
-        captureStudyEvent('study_results_outputs_not_shared', {
-            studyId,
-            userId,
-            side: 'data-partner',
-            studyJobId,
-        })
-        await emailLabOutputsDecision(studyId, errored)
-    },
-)
+export const onStudyResultsApproved = (event: OutputsDecisionEvent) => {
+    recordStudyResultsApproved(event)
+    return emailLabOutputsDecision(event.studyId, event.errored)
+}
+
+const recordStudyResultsRejected = deferred(async ({ studyId, userId, studyJobId }: StudyJobEvent) => {
+    await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId }, currentDb())
+    captureStudyEvent('study_results_outputs_not_shared', { studyId, userId, side: 'data-partner', studyJobId })
+})
+
+export const onStudyResultsRejected = (event: OutputsDecisionEvent) => {
+    recordStudyResultsRejected(event)
+    return emailLabOutputsDecision(event.studyId, event.errored)
+}
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
     await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId }, currentDb())

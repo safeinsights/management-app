@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { generateAndStoreStudyReview } from '@/server/agents/review-agent/runner'
+import * as mailer from '@/server/mailer'
 
 // Method syntax on purpose: it keeps `run` bivariant, so any job fits the general type runJob uses.
 type JobDefinition<S extends z.ZodType = z.ZodType> = {
@@ -9,12 +10,34 @@ type JobDefinition<S extends z.ZodType = z.ZodType> = {
 
 const defineJob = <S extends z.ZodType>(definition: JobDefinition<S>) => definition
 
+// The study emails take only the study id, so the worker needs no more than the name of the send.
+const studyEmails = [
+    'sendStudyProposalEmails',
+    'sendStudyAgreementPreparationEmail',
+    'sendStudyAgreementReadyEmail',
+    'sendStudyCodeSubmittedEmail',
+    'sendStudyProposalApprovedEmail',
+    'sendStudyProposalRejectedEmail',
+    'sendStudyProposalNeedsRevisionEmail',
+    'sendStudyCodeApprovedEmail',
+    'sendStudyCodeNeedsRevisionEmail',
+    'sendDataPartnerCodeErroredEmail',
+    'sendDataPartnerOutputsNeedReviewEmail',
+    'sendLabCodeErroredEmail',
+    'sendLabOutputsNeedReviewEmail',
+] as const
+
 // Every job the queue carries is sent as { job, payload } and run by name, so the next background
 // job is an entry here rather than another queue and worker.
 const jobs = {
     'study-review': defineJob({
         payload: z.object({ studyJobId: z.string(), round: z.number().int().positive() }),
         run: ({ studyJobId, round }) => generateAndStoreStudyReview(studyJobId, round),
+    }),
+    // Sent from the worker so a Lambda freeze after the response can neither stall nor drop them (OTTER-855).
+    'study-email': defineJob({
+        payload: z.object({ email: z.enum(studyEmails), studyId: z.string() }),
+        run: ({ email, studyId }) => mailer[email](studyId),
     }),
 }
 

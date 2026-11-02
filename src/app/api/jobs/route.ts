@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import logger from '@/lib/logger'
 import { runJob } from '@/server/jobs/registry'
+import * as Sentry from '@sentry/nextjs'
 
 // The job worker Lambda runs this same app behind the Lambda Web Adapter, which POSTs each SQS
 // event here (AWS_LWA_PASS_THROUGH_PATH). Only the worker sets JOB_WORKER: the app Lambda serves
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
             await runJob(JSON.parse(record.body))
         } catch (error: unknown) {
             logger.error(error, { messageId: record.messageId })
+            // The worker freezes once it answers; captureException only enqueues.
+            await Sentry.flush(2_000)
         }
     }
     return new Response(null, { status: 200 })

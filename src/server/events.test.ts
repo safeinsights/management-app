@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import { Action } from '@/server/actions/action'
 import { deliver } from '@/server/mailgun'
 import {
@@ -12,6 +13,7 @@ import {
     mockSessionWithTestData,
     postHogCaptures,
 } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import logger from '@/lib/logger'
 
 vi.mock('@sentry/nextjs', () => ({
@@ -219,6 +221,21 @@ describe('deferred inside an action', () => {
         expect(captures).toHaveLength(1)
         expect(captures[0]).toMatchObject({ distinctId: user.id })
         expect(emails).toHaveLength(1)
+    })
+
+    // A send scheduled in after() waits for the frozen Lambda's next request, or is lost (OTTER-855).
+    it('queues the email before the action returns and sends nothing in process', async () => {
+        const queue = stubJobQueue()
+        const { user, study } = await setupPendingStudy()
+
+        await approvalAction({ studyId: study.id, userId: user.id, failAfter: false })()
+
+        const sent = queue.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
+        expect(sent).toEqual([
+            { job: 'study-email', payload: { email: 'sendStudyProposalApprovedEmail', studyId: study.id } },
+        ])
+        await flushDeferred()
+        expect((await approvalSideEffects(study.id, user.email)).emails).toEqual([])
     })
 
     it('does not start the handler before the action commits', async () => {
