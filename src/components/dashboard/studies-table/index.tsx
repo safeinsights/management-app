@@ -47,13 +47,18 @@ function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?:
     return audience === 'researcher' ? [keys.user] : [keys.user, userId || '']
 }
 
+// A job keeps its earlier rows (INITIATED, CODE-SUBMITTED) once it reaches a final status, so the
+// question is whether any final row exists, not whether every row is final.
+const jobAwaitsFinalStatus = (study: StudyRowType) =>
+    study.jobStatusChanges.length > 0 && !study.jobStatusChanges.some((change) => FINAL_STATUS.includes(change.status))
+
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     // PENDING-REVIEW usually has no job yet, so the job check alone misses a researcher awaiting
     // a decision; reviewers are excluded because it is their own next action.
     return studies.some(
         (study) =>
             (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
-            study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+            jobAwaitsFinalStatus(study),
     )
 }
 
