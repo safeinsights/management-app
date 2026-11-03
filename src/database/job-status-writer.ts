@@ -25,8 +25,15 @@ export class JobTransitionRefusedError extends ActionFailure {
         readonly actor: JobActor,
         readonly reason: TransitionRefusal,
     ) {
-        super({ study: `cannot move from ${from ?? 'no status'} to ${to}. Refresh to see the updated status.` })
+        super({ study: `${REFUSAL_MESSAGES[reason]}. Refresh to see the updated status.` })
     }
+}
+
+// Shown to the person whose action was refused; the log line keeps the raw statuses.
+const REFUSAL_MESSAGES: Record<TransitionRefusal, string> = {
+    repeat: 'already has this status',
+    'round-closed': 'has already been decided',
+    'not-permitted': 'has changed since this page loaded',
 }
 
 export type JobStatusWriteOptions = {

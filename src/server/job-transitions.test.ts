@@ -40,15 +40,16 @@ describe('transitionJob', () => {
         expect(await statusesOf(jobId)).toEqual(before)
     })
 
-    it('names both statuses in the refusal the action returns', async () => {
-        const { jobId } = await jobAt(['RUN-COMPLETE', 'FILES-APPROVED'])
+    it('tells the person in plain words why the action was refused', async () => {
+        const approved = await jobAt(['CODE-SUBMITTED', 'CODE-APPROVED'])
+        const decided = await jobAt(['RUN-COMPLETE', 'FILES-APPROVED'])
 
-        const error = await transitionJob(db, jobId, 'FILES-APPROVED', { actor: 'reviewer' }).catch((e) => e)
+        const repeat = await transitionJob(db, approved.jobId, 'CODE-APPROVED', { actor: 'reviewer' }).catch((e) => e)
+        const other = await transitionJob(db, decided.jobId, 'FILES-REJECTED', { actor: 'reviewer' }).catch((e) => e)
 
-        expect(error).toBeInstanceOf(JobTransitionRefusedError)
-        expect(error.error).toEqual({
-            study: 'cannot move from FILES-APPROVED to FILES-APPROVED. Refresh to see the updated status.',
-        })
+        expect(repeat).toBeInstanceOf(JobTransitionRefusedError)
+        expect(repeat.error).toEqual({ study: 'already has this status. Refresh to see the updated status.' })
+        expect(other.error).toEqual({ study: 'has already been decided. Refresh to see the updated status.' })
     })
 
     it('rolls back the work its caller did in the same transaction when it refuses', async () => {
