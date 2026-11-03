@@ -5,11 +5,12 @@ import { type Kysely, sql } from 'kysely'
 // from now on; this backfills every existing job from its log.
 
 // The defaults only serve app versions older than this change, which still insert jobs during the
-// deploy; the status writer always writes explicit values and repairs a job those versions touch.
+// deploy; the status writer always writes explicit values, and bin/recompute-job-state.ts runs this
+// backfill again for a job those versions touched.
 
 // Pinned rather than imported from src/lib/job-status-rules.ts: this records the rule that ran against
 // production, so a later change to the table must not make a fresh database disagree with a migrated
-// one. study_job_current_status.test.ts compares both with the runtime rule.
+// one. study_job_current_status.test.ts compares the effects with the runtime table.
 const STAGES = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING']
 
 // The (to, from) pairs whose row stays as history without moving the job.
@@ -53,6 +54,38 @@ export const BACKFILL_ROUND_CLOSING_STATUSES = ['CODE-CHANGES-REQUESTED', 'FILES
 
 export type BackfillRow = { id: string; status: string; micros: string }
 
+const isCodeReviewRow = (row: BackfillRow) => row.status === 'CODE-SUBMITTED' || row.status === 'CODE-CHANGES-REQUESTED'
+
+// Submissions and change requests alternate on a job, so where they tie, the job's history so far says
+// which came first: a change request ties with the resubmission it caused, a submission with its review.
+function alternateTiedCodeReviews(sorted: BackfillRow[]): BackfillRow[] {
+    const ordered: BackfillRow[] = []
+    let submissions = 0
+    let requests = 0
+    for (let start = 0; start < sorted.length; ) {
+        let end = start
+        while (end < sorted.length && sorted[end].micros === sorted[start].micros) end++
+        let group = sorted.slice(start, end)
+        const subs = group.filter((row) => row.status === 'CODE-SUBMITTED')
+        const reqs = group.filter((row) => row.status === 'CODE-CHANGES-REQUESTED')
+        if (subs.length && reqs.length) {
+            const alternated: BackfillRow[] = []
+            let requestNext = submissions > requests
+            while (subs.length || reqs.length) {
+                const row = (requestNext && reqs.length) || !subs.length ? reqs.shift()! : subs.shift()!
+                alternated.push(row)
+                requestNext = row.status === 'CODE-SUBMITTED'
+            }
+            group = group.map((row) => (isCodeReviewRow(row) ? alternated.shift()! : row))
+        }
+        submissions += group.filter((row) => row.status === 'CODE-SUBMITTED').length
+        requests += group.filter((row) => row.status === 'CODE-CHANGES-REQUESTED').length
+        ordered.push(...group)
+        start = end
+    }
+    return ordered
+}
+
 // The row whose status the job is in, or null for a job with no rows.
 export function backfillReplay(rows: readonly BackfillRow[]): BackfillRow | null {
     const sorted = [...rows].sort((a, b) => {
@@ -62,7 +95,7 @@ export function backfillReplay(rows: readonly BackfillRow[]): BackfillRow | null
         return rank || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     })
     let current: BackfillRow | null = null
-    for (const row of sorted) {
+    for (const row of alternateTiedCodeReviews(sorted)) {
         if (current && row.status === current.status) continue
         if (current && backfillEffect(current.status, row.status) === 'log') continue
         current = row

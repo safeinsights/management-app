@@ -1,18 +1,17 @@
 // The only module that writes job_status_change or opens a study_job (OTTER-973). It imports only kysely,
-// the generated types and src/lib leaf modules, by relative path, so a seed in the migrator bundle can call
-// it: `@/database` would pull in `@/server/config`, which that bundle cannot load.
+// the generated types, src/lib leaf modules and its own migration, by relative path, so a seed in the
+// migrator bundle can call it: `@/database` would pull in `@/server/config`, which that bundle cannot load.
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
 import {
     CODE_ROUND_CLOSING_JOB_STATUSES,
     decideJobTransition,
-    replayJobStatus,
-    sortJobStatusRows,
     type JobActor,
     type JobStatus,
     type TransitionRefusal,
 } from '../lib/job-status-rules'
+import { backfillStudyJobState } from './migrations/1787900000000_study_job_current_status'
 
 type Executor = Kysely<DB> | Transaction<DB>
 
@@ -76,18 +75,29 @@ export async function lockJobForTransition(trx: Transaction<DB>, jobId: string):
 // Postgres keeps microseconds and a JS Date only milliseconds, so times are compared as text.
 const micros = (column: string) => sql<string>`(extract(epoch from ${sql.ref(column)}) * 1000000)::bigint::text`
 
-async function jobStatusRows(trx: Transaction<DB>, jobId: string) {
-    const rows = await trx
-        .selectFrom('jobStatusChange')
-        .select(['id', 'status', 'message', 'createdAt'])
-        .select(micros('jobStatusChange.createdAt').as('createdAtMicros'))
-        .where('studyJobId', '=', jobId)
-        .execute()
-    return sortJobStatusRows(rows)
+export type JobState = { status: JobStatus; round: number; statusChangedAt: Date }
+
+async function readLockedJobState(trx: Transaction<DB>, jobId: string) {
+    return trx
+        .selectFrom('studyJob')
+        .select(['currentStatus as status', 'round', 'statusChangedAt'])
+        .select(micros('studyJob.statusChangedAt').as('statusChangedAtMicros'))
+        .where('id', '=', jobId)
+        .forUpdate()
+        .executeTakeFirstOrThrow()
 }
 
-// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions.
-// Submissions and change requests alternate on a job, so its Nth submission is round N of its own.
+// For a write path that decides before it writes: the job's stored state, under the same locks as the writer.
+export async function lockJobState(executor: Executor, jobId: string): Promise<JobState & { studyId: string }> {
+    return inTransaction(executor, async (trx) => {
+        const { studyId } = await lockJobForTransition(trx, jobId)
+        const { status, round, statusChangedAt } = await readLockedJobState(trx, jobId)
+        return { studyId, status, round, statusChangedAt }
+    })
+}
+
+// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions. The same
+// rule as the migration's backfill, so the recompute script finds nothing to change on a job the writer kept.
 function jobRoundSql(jobId: string) {
     return sql<number>`(
         1 + (
@@ -107,64 +117,13 @@ function jobRoundSql(jobId: string) {
     )::int`
 }
 
-export type JobState = { status: JobStatus; round: number; statusChangedAt: Date }
+// The time of a status row, copied in SQL so the stored time keeps its microseconds.
+const statusRowTime = (statusChangeId: string) =>
+    sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${statusChangeId}::uuid)`
 
-// Rewrites the job's columns from its log when they differ. Older app versions write log rows without
-// the columns during a deploy, so the log, read under the job lock, is what decides.
-async function repairJobState(
-    trx: Transaction<DB>,
-    jobId: string,
-    rows: Awaited<ReturnType<typeof jobStatusRows>>,
-): Promise<JobState & { repaired: boolean }> {
-    const { status, changedRow } = replayJobStatus(rows)
-    const stored = await trx
-        .selectFrom('studyJob')
-        .select(['currentStatus', 'round', 'statusChangedAt', 'createdAt'])
-        .select(micros('studyJob.statusChangedAt').as('statusChangedAtMicros'))
-        .select(micros('studyJob.createdAt').as('createdAtMicros'))
-        .select(jobRoundSql(jobId).as('computedRound'))
-        .where('id', '=', jobId)
-        .executeTakeFirstOrThrow()
-
-    const state = {
-        status: status ?? 'INITIATED',
-        round: stored.computedRound,
-        statusChangedAt: changedRow ? new Date(changedRow.createdAt) : stored.createdAt,
-    }
-    const changedMicros = changedRow?.createdAtMicros ?? stored.createdAtMicros
-    const repaired =
-        stored.currentStatus !== state.status ||
-        stored.round !== state.round ||
-        stored.statusChangedAtMicros !== changedMicros
-    if (repaired) {
-        await trx
-            .updateTable('studyJob')
-            .set({
-                currentStatus: state.status,
-                round: state.round,
-                // Copied in SQL so the stored time keeps the row's microseconds.
-                statusChangedAt: changedRow
-                    ? sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${changedRow.id}::uuid)`
-                    : sql<Date>`created_at`,
-            })
-            .where('id', '=', jobId)
-            .execute()
-    }
-    return { ...state, repaired }
-}
-
-// For a write path that decides before it writes: the job's state from its log, with the columns repaired.
-export async function resolveJobState(
-    executor: Executor,
-    jobId: string,
-): Promise<JobState & { studyId: string; repaired: boolean }> {
-    return inTransaction(executor, async (trx) => {
-        const { studyId } = await lockJobForTransition(trx, jobId)
-        return { studyId, ...(await repairJobState(trx, jobId, await jobStatusRows(trx, jobId))) }
-    })
-}
-
-// Repairs every job (or one study's), one transaction per job so a live writer waits on one lock at most.
+// Rewrites every job (or one study's) from its log with the migration's backfill, one transaction per job
+// so a live writer waits on one lock at most. For a job that older code touched between the migration
+// and the code swap.
 export async function recomputeJobStates(
     db: Kysely<DB>,
     { studyId, dryRun = false }: { studyId?: string; dryRun?: boolean } = {},
@@ -173,30 +132,32 @@ export async function recomputeJobStates(
     if (studyId) query = query.where('studyId', '=', studyId)
     const changed: Array<{ jobId: string } & JobState> = []
     for (const { id } of await query.execute()) {
-        const state = await db
+        const result = await db
             .transaction()
             .execute(async (trx) => {
-                const result = await resolveJobState(trx, id)
-                if (dryRun && result.repaired) throw new DryRunRollback(result)
-                return result
+                await lockJobForTransition(trx, id)
+                const before = await readLockedJobState(trx, id)
+                await backfillStudyJobState(trx as unknown as Kysely<unknown>, { jobIds: [id] })
+                const after = await readLockedJobState(trx, id)
+                const repaired =
+                    before.status !== after.status ||
+                    before.round !== after.round ||
+                    before.statusChangedAtMicros !== after.statusChangedAtMicros
+                const state = { status: after.status, round: after.round, statusChangedAt: after.statusChangedAt }
+                if (dryRun && repaired) throw new DryRunRollback(state)
+                return { state, repaired }
             })
             .catch((error: unknown) => {
-                if (error instanceof DryRunRollback) return error.state
+                if (error instanceof DryRunRollback) return { state: error.state, repaired: true }
                 throw error
             })
-        if (state.repaired)
-            changed.push({
-                jobId: id,
-                status: state.status,
-                round: state.round,
-                statusChangedAt: state.statusChangedAt,
-            })
+        if (result.repaired) changed.push({ jobId: id, ...result.state })
     }
     return changed
 }
 
 class DryRunRollback extends Error {
-    constructor(readonly state: JobState & { repaired: boolean }) {
+    constructor(readonly state: JobState) {
         super('dry run')
     }
 }
@@ -211,8 +172,14 @@ export async function writeJobStatus(
 
     return inTransaction(executor, async (trx) => {
         const { studyId } = await lockJobForTransition(trx, jobId)
-        const rows = await jobStatusRows(trx, jobId)
-        const from = replayJobStatus(rows).status
+        const { status: from } = await readLockedJobState(trx, jobId)
+        const rows = await trx
+            .selectFrom('jobStatusChange')
+            .select(['id', 'status', 'message'])
+            .where('studyJobId', '=', jobId)
+            .orderBy('createdAt')
+            .orderBy('id')
+            .execute()
         const decision = decideJobTransition({
             from,
             to,
@@ -224,7 +191,6 @@ export async function writeJobStatus(
         if (decision.kind === 'refused') throw new JobTransitionRefusedError(jobId, from, to, actor, decision.reason)
 
         if (decision.kind === 'repeat') {
-            await repairJobState(trx, jobId, rows)
             const existing = rows.findLast((row) => row.status === to)
             return {
                 outcome: 'repeat',
@@ -234,22 +200,31 @@ export async function writeJobStatus(
                 existing: existing && { id: existing.id, message: existing.message },
             }
         }
-        if (decision.kind === 'noop') {
-            await repairJobState(trx, jobId, rows)
-            return { outcome: 'noop', studyId, from, observed: false }
-        }
+        if (decision.kind === 'noop') return { outcome: 'noop', studyId, from, observed: false }
 
         // clock_timestamp(), not the now() default: now() is fixed for the whole transaction, so two
-        // writes in one transaction would tie and the replay could not tell which came first.
+        // writes in one transaction would tie.
         const inserted = await trx
             .insertInto('jobStatusChange')
             .values({ studyJobId: jobId, status: to, userId, message, createdAt: at ?? sql<Date>`clock_timestamp()` })
             .returning('id')
             .executeTakeFirstOrThrow()
-        await repairJobState(trx, jobId, await jobStatusRows(trx, jobId))
+
+        const moved = decision.effect === 'move'
+        // Only a submission changes the job's own round; the rule counts every submission row.
+        if (moved || to === 'CODE-SUBMITTED') {
+            await trx
+                .updateTable('studyJob')
+                .set({
+                    ...(moved ? { currentStatus: to, statusChangedAt: statusRowTime(inserted.id) } : {}),
+                    ...(to === 'CODE-SUBMITTED' ? { round: jobRoundSql(jobId) } : {}),
+                })
+                .where('id', '=', jobId)
+                .execute()
+        }
 
         return {
-            outcome: decision.effect === 'move' ? 'moved' : 'logged',
+            outcome: moved ? 'moved' : 'logged',
             studyId,
             from,
             observed: decision.observed,
@@ -285,8 +260,17 @@ export async function openStudyJob(
             .values({ studyJobId: job.id, status: 'INITIATED', createdAt: at ?? sql<Date>`clock_timestamp()` })
             .returning('id')
             .executeTakeFirstOrThrow()
-        const state = await repairJobState(trx, job.id, await jobStatusRows(trx, job.id))
-        return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round: state.round }
+        const { round } = await trx
+            .updateTable('studyJob')
+            .set({
+                currentStatus: 'INITIATED',
+                round: jobRoundSql(job.id),
+                statusChangedAt: statusRowTime(initiated.id),
+            })
+            .where('id', '=', job.id)
+            .returning('round')
+            .executeTakeFirstOrThrow()
+        return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round }
     })
 }
 

@@ -5,7 +5,7 @@ import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
 import { isRoundClosing } from '@/lib/job-status-rules'
-import { openStudyJob, resolveJobState } from '@/database/job-status-writer'
+import { openStudyJob } from '@/database/job-status-writer'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -100,7 +100,7 @@ export async function getOrCreateCurrentRoundJob(
     await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
     const latest = await db
         .selectFrom('studyJob')
-        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
+        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt', 'studyJob.currentStatus as currentStatus'])
         .select((eb) =>
             eb
                 .exists(
@@ -119,8 +119,8 @@ export async function getOrCreateCurrentRoundJob(
         .limit(1)
         .executeTakeFirst()
 
-    // From the log under the job lock, not the stored column, which an older app version may have left behind.
-    const roundClosed = latest && isRoundClosing((await resolveJobState(db, latest.id)).status)
+    // Read under the study lock, which every status write takes first.
+    const roundClosed = latest && isRoundClosing(latest.currentStatus)
 
     if (!latest || roundClosed) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))

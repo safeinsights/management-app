@@ -5,7 +5,6 @@ import {
     JOB_ACTORS,
     JOB_STATUSES,
     JOB_TRANSITIONS,
-    replayJobStatus,
     type JobActor,
     type JobStatus,
 } from './job-status-rules'
@@ -146,84 +145,5 @@ describe('decideJobTransition', () => {
         expect(decide('JOB-RUNNING', 'JOB-RUNNING', 'qa')).toEqual(write('log'))
         expect(decide('FILES-REJECTED', 'CODE-SCANNED', 'qa')).toEqual(write('log'))
         expect(decide('FILES-APPROVED', 'FILES-REJECTED', 'qa')).toEqual(write('move'))
-    })
-})
-
-describe('replayJobStatus', () => {
-    const row = (status: JobStatus, at: string, id: string = status) => ({ id, status, createdAt: new Date(at) })
-
-    it('follows every move and ignores log rows', () => {
-        const rows = [
-            row('INITIATED', '2026-01-01T00:00:00Z'),
-            row('CODE-SUBMITTED', '2026-01-01T00:00:01Z'),
-            row('CODE-APPROVED', '2026-01-01T00:00:02Z'),
-            row('CODE-SCANNED', '2026-01-01T00:00:03Z'),
-            row('JOB-READY', '2026-01-01T00:00:04Z'),
-            row('JOB-RUNNING', '2026-01-01T00:00:05Z'),
-            row('JOB-PROVISIONING', '2026-01-01T00:00:06Z'),
-        ]
-        expect(replayJobStatus(rows)).toMatchObject({
-            status: 'JOB-RUNNING',
-            changedAt: new Date('2026-01-01T00:00:05Z'),
-        })
-    })
-
-    it('stays on the decision after RESULTS-VIEWED', () => {
-        const rows = [
-            row('RUN-COMPLETE', '2026-01-01T00:00:00Z'),
-            row('FILES-APPROVED', '2026-01-01T00:00:01Z'),
-            row('RESULTS-VIEWED', '2026-01-01T00:00:02Z'),
-        ]
-        expect(replayJobStatus(rows).status).toBe('FILES-APPROVED')
-    })
-
-    it('ends on the later decision when qa wrote two', () => {
-        const rows = [
-            row('RUN-COMPLETE', '2026-01-01T00:00:00Z'),
-            row('FILES-APPROVED', '2026-01-01T00:00:01Z'),
-            row('FILES-REJECTED', '2026-01-01T00:00:02Z'),
-        ]
-        expect(replayJobStatus(rows).status).toBe('FILES-REJECTED')
-    })
-
-    it('orders rows that tie on createdAt by lifecycle, whatever order they arrive in', () => {
-        const at = '2026-01-01T00:00:00Z'
-        const tied = [row('JOB-READY', at, 'a'), row('CODE-APPROVED', at, 'b'), row('CODE-SUBMITTED', at, 'c')]
-        for (const rows of [tied, [...tied].reverse(), [tied[1], tied[0], tied[2]]]) {
-            expect(replayJobStatus(rows).status).toBe('JOB-READY')
-        }
-    })
-
-    it('orders by microseconds when both rows carry them', () => {
-        const at = new Date('2026-01-01T00:00:00Z')
-        const rows = [
-            { id: 'a', status: 'CODE-SUBMITTED' as const, createdAt: at, createdAtMicros: '1767225600000003' },
-            { id: 'b', status: 'CODE-CHANGES-REQUESTED' as const, createdAt: at, createdAtMicros: '1767225600000002' },
-            { id: 'c', status: 'CODE-SUBMITTED' as const, createdAt: at, createdAtMicros: '1767225600000001' },
-        ]
-        // The tie rank alone would put the change request last.
-        expect(replayJobStatus(rows).status).toBe('CODE-SUBMITTED')
-    })
-
-    it('starts from a legacy first row that is not INITIATED, and from nothing at all', () => {
-        expect(replayJobStatus([row('JOB-READY', '2026-01-01T00:00:00Z')]).status).toBe('JOB-READY')
-        expect(replayJobStatus([])).toEqual({ status: null, changedAt: null, changedRow: null })
-    })
-
-    it.each(['CODE-SCANNED', 'JOB-RUNNING', 'JOB-ERRORED', 'CODE-SUBMITTED'] as const)(
-        'stays on the decision after a late %s',
-        (late) => {
-            const rows = [
-                row('RUN-COMPLETE', '2026-01-01T00:00:00Z'),
-                row('FILES-REJECTED', '2026-01-01T00:00:01Z'),
-                row(late, '2026-01-01T00:00:02Z'),
-            ]
-            expect(replayJobStatus(rows).status).toBe('FILES-REJECTED')
-        },
-    )
-
-    it('moves on an unlisted pair, as a qa write does', () => {
-        const rows = [row('INITIATED', '2026-01-01T00:00:00Z'), row('RUN-COMPLETE', '2026-01-01T00:00:01Z')]
-        expect(replayJobStatus(rows).status).toBe('RUN-COMPLETE')
     })
 })

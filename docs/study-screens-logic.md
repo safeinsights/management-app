@@ -518,12 +518,16 @@ Every write to `jobStatusChange`, and every new `studyJob`, goes through
 `openStudyJob` directly with the `qa` actor. The ESLint rule `custom/noJobStatusWrites`
 (`tests/no-job-status-writes.mjs`) fails the build for any other write.
 
-The writer locks the study row, then the job row, replays the job's log to find its current status
-(`replayJobStatus` in `src/lib/job-status-rules.ts`), checks the transition table, and writes the row
-with `clock_timestamp()`. `now()` is fixed for a whole transaction, so two writes in one transaction
-would tie; `clock_timestamp()` keeps rows in write order. Rows written before the writer existed can
-still tie, and the replay orders those by lifecycle rank, then id. Readers stay set-based, as
-described above; only the writer orders rows.
+The writer locks the study row, then the job row, reads the job's current status from
+`studyJob.currentStatus`, checks the transition table, and writes the row with `clock_timestamp()`.
+On a `move` it stores the new status and the row's time on the job in the same transaction; a
+`CODE-SUBMITTED` row also updates `studyJob.round`. `now()` is fixed for a whole transaction, so two
+writes in one transaction would tie; `clock_timestamp()` keeps rows in write order.
+
+Migration `1787900000000` filled the columns by replaying each job's log (`backfillReplay`, which
+orders rows that tie by lifecycle rank and alternates tied submissions and change requests).
+`bin/recompute-job-state.ts` runs the same backfill again for jobs that older app code touched
+between the migration and the code swap. Readers stay set-based, as described above.
 
 **Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
 route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and
@@ -531,8 +535,8 @@ route), `service` (the scanner and containerizer webhooks), `system` (the job op
 
 **Effects.** A `move` row changes the job's current status. A `log` row is kept as history and leaves
 the status where it was, so a late or out-of-order report never moves a job backward. The effect
-depends only on the pair of statuses, never on the actor, so a replay of the log gives the same
-status as the writes did.
+depends only on the pair of statuses, never on the actor, so the backfill's replay of the log gives
+the same status as the writes did.
 
 Rules applied before the table, in this order:
 
@@ -660,7 +664,7 @@ re-architecting — exactly as the design intended.
 | `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                                |
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
-| `lib/job-status-rules.ts`              | statuses, actors, `JOB_TRANSITIONS`, `decideJobTransition`, `replayJobStatus` (no imports)                  |
+| `lib/job-status-rules.ts`              | statuses, actors, `JOB_TRANSITIONS`, `decideJobTransition`, `replayEffect` (no imports)                     |
 | `database/job-status-writer.ts`        | `writeJobStatus`, `openStudyJob`: the only writes to the status log                                         |
 | `server/job-transitions.ts`            | `transitionJob`, the app's entry to the writer (logging, `JOB-ERRORED` email)                               |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |

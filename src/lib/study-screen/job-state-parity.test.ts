@@ -2,6 +2,8 @@ import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.help
 import { JOB_HISTORIES } from '@/tests/unit/job-histories'
 import { legacyProjectStudyState } from '@/tests/unit/legacy-study-state'
 import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
+import { backfillStudyJobState } from '@/database/migrations/1787900000000_study_job_current_status'
+import type { Kysely } from 'kysely'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { projectStudyState } from './state'
 import { resolveScreen } from './resolve'
@@ -24,14 +26,22 @@ const seedHistory = async (jobs: (typeof JOB_HISTORIES)[number]['jobs']) => {
     }
     const raw = await rawStudyStateForStudy(study.id, db)
     if (!raw) throw new Error('no raw state')
-    return raw
+    return { raw, studyId: study.id }
 }
+
+const jobColumns = (studyId: string) =>
+    db
+        .selectFrom('studyJob')
+        .select(['id', 'currentStatus', 'round', 'statusChangedAt'])
+        .where('studyId', '=', studyId)
+        .orderBy('id')
+        .execute()
 
 // The projection before OTTER-973 is the oracle: moving job state onto stored columns must not change
 // a single fact or the screen either role is routed to.
 describe('job state parity with the projection before OTTER-973', () => {
     it.each(JOB_HISTORIES)('agrees for $name', async ({ jobs }) => {
-        const raw = await seedHistory(jobs)
+        const { raw } = await seedHistory(jobs)
         const legacy = legacyProjectStudyState(raw)
         const current = projectStudyState(raw)
 
@@ -39,5 +49,17 @@ describe('job state parity with the projection before OTTER-973', () => {
         for (const role of ['researcher', 'reviewer'] as const) {
             expect(resolveScreen(role, current)).toEqual(resolveScreen(role, legacy as StudyState))
         }
+    })
+})
+
+// The writer keeps the columns as it goes; the migration and the recompute script rebuild them from the log.
+describe('the status writer and the backfill', () => {
+    it.each(JOB_HISTORIES)('store the same job state for $name', async ({ jobs }) => {
+        const { studyId } = await seedHistory(jobs)
+        const written = await jobColumns(studyId)
+
+        await backfillStudyJobState(db as unknown as Kysely<unknown>, { jobIds: written.map((job) => job.id) })
+
+        expect(await jobColumns(studyId)).toEqual(written)
     })
 })

@@ -2,15 +2,16 @@ import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.help
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
-import { JOB_STATUSES, REPLAY_TIE_RANK, findTransition, replayEffect } from '@/lib/job-status-rules'
+import { JOB_STATUSES, findTransition, replayEffect } from '@/lib/job-status-rules'
 import { codeRoundForJob } from '@/server/db/code-round'
-import { openStudyJob, recomputeJobStates, resolveJobState, writeJobStatus } from '@/database/job-status-writer'
+import { openStudyJob, recomputeJobStates, writeJobStatus } from '@/database/job-status-writer'
 import {
     BACKFILL_LOG_PAIRS,
     BACKFILL_ROUND_CLOSING_STATUSES,
-    BACKFILL_TIE_RANK,
     backfillEffect,
+    backfillReplay,
     backfillStudyJobState,
+    type BackfillRow,
 } from './migrations/1787900000000_study_job_current_status'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
@@ -254,9 +255,66 @@ describe('pinned backfill rule', () => {
         }
     })
 
-    it('breaks ties and counts rounds as the runtime does', () => {
-        expect(BACKFILL_TIE_RANK).toEqual(REPLAY_TIE_RANK)
+    it('counts rounds as the runtime does', () => {
         expect(BACKFILL_ROUND_CLOSING_STATUSES).toEqual(CODE_ROUND_CLOSING_JOB_STATUSES)
+    })
+})
+
+describe('backfillReplay', () => {
+    const row = (status: StudyJobStatus, second: number, id: string = status): BackfillRow => ({
+        id,
+        status,
+        micros: String(BigInt(at(second).getTime()) * BigInt(1000)),
+    })
+    const statusOf = (rows: BackfillRow[]) => backfillReplay(rows)?.status
+
+    it('follows every move and ignores log rows', () => {
+        const rows = (
+            ['INITIATED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'CODE-SCANNED', 'JOB-READY', 'JOB-RUNNING'] as const
+        ).map((status, second) => row(status, second))
+        expect(statusOf([...rows, row('JOB-PROVISIONING', 6)])).toBe('JOB-RUNNING')
+    })
+
+    it.each(['CODE-SCANNED', 'JOB-RUNNING', 'JOB-ERRORED', 'CODE-SUBMITTED', 'RESULTS-VIEWED'] as const)(
+        'stays on the decision after a late %s',
+        (late) => {
+            expect(statusOf([row('RUN-COMPLETE', 0), row('FILES-REJECTED', 1), row(late, 2)])).toBe('FILES-REJECTED')
+        },
+    )
+
+    it('ends on the later decision when qa wrote two', () => {
+        expect(statusOf([row('RUN-COMPLETE', 0), row('FILES-APPROVED', 1), row('FILES-REJECTED', 2)])).toBe(
+            'FILES-REJECTED',
+        )
+    })
+
+    it('orders rows that tie by lifecycle, whatever order they arrive in', () => {
+        const tied = [row('JOB-READY', 1, 'a'), row('CODE-APPROVED', 1, 'b'), row('CODE-SUBMITTED', 1, 'c')]
+        for (const rows of [tied, [...tied].reverse(), [tied[1], tied[0], tied[2]]]) {
+            expect(statusOf(rows)).toBe('JOB-READY')
+        }
+    })
+
+    it('puts a resubmission after the change request it ties with', () => {
+        expect(
+            statusOf([row('CODE-SUBMITTED', 0), row('CODE-CHANGES-REQUESTED', 1), row('CODE-SUBMITTED', 1, 'second')]),
+        ).toBe('CODE-SUBMITTED')
+        expect(
+            statusOf([
+                row('CODE-SUBMITTED', 1, 'first'),
+                row('CODE-CHANGES-REQUESTED', 1),
+                row('CODE-SUBMITTED', 1, 'second'),
+            ]),
+        ).toBe('CODE-SUBMITTED')
+    })
+
+    it('puts a change request after the submission it ties with', () => {
+        expect(statusOf([row('CODE-SUBMITTED', 1), row('CODE-CHANGES-REQUESTED', 1)])).toBe('CODE-CHANGES-REQUESTED')
+    })
+
+    it('starts from a legacy first row that is not INITIATED, and from nothing at all', () => {
+        expect(statusOf([row('JOB-READY', 0)])).toBe('JOB-READY')
+        expect(backfillReplay([])).toBeNull()
     })
 })
 
@@ -292,7 +350,7 @@ describe('the status writer keeps the columns', () => {
 })
 
 // Migrations run before the code swap, so an older app version serves against these columns for a while.
-describe('a job that older code touched during a deploy', () => {
+describe('a job that older code touched between the migration and the code swap', () => {
     const staleJob = async () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
@@ -306,23 +364,6 @@ describe('a job that older code touched during a deploy', () => {
         const jobId = await insertLegacyJob(study.id, ['CODE-SUBMITTED'])
 
         expect(await columnsOf(jobId)).toMatchObject({ currentStatus: 'INITIATED', round: 1 })
-    })
-
-    it('leaves the columns stale until the next writer call, which repairs them even on a repeat', async () => {
-        const { jobId } = await staleJob()
-        expect((await columnsOf(jobId)).currentStatus).toBe('CODE-SUBMITTED')
-
-        const result = await writeJobStatus(db, jobId, 'CODE-APPROVED', { actor: 'system' })
-
-        expect(result.outcome).toBe('repeat')
-        expect((await columnsOf(jobId)).currentStatus).toBe('CODE-APPROVED')
-    })
-
-    it('is repaired by resolveJobState', async () => {
-        const { jobId } = await staleJob()
-
-        expect(await resolveJobState(db, jobId)).toMatchObject({ status: 'CODE-APPROVED', repaired: true })
-        expect((await columnsOf(jobId)).currentStatus).toBe('CODE-APPROVED')
     })
 
     it('is reported by a dry run of the recompute script and repaired by a real one', async () => {
@@ -346,6 +387,7 @@ describe('a job that older code touched during a deploy', () => {
             'RUN-COMPLETE',
             'FILES-REJECTED',
         ])
+        await backfill([jobId])
         await insertLegacyStatus(jobId, 'CODE-SCANNED')
 
         const next = await getOrCreateCurrentRoundJob(db, study.id)
