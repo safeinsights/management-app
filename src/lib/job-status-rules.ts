@@ -152,7 +152,7 @@ type DecisionInput = {
     hasStatus: (status: JobStatus) => boolean
 }
 
-const isRoundClosing = (status: JobStatus | null) =>
+export const isRoundClosing = (status: JobStatus | null) =>
     status !== null && (ROUND_CLOSING_JOB_STATUSES as readonly JobStatus[]).includes(status)
 
 // The effect of a pair, listed or not. A decided round only changes its decision: any other late report

@@ -4,10 +4,8 @@ import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { isRoundClosing } from '@/lib/job-status-rules'
 import { openStudyJob, resolveJobState } from '@/database/job-status-writer'
-
-type RoundClosingStatus = (typeof ROUND_CLOSING_JOB_STATUSES)[number]
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -122,9 +120,7 @@ export async function getOrCreateCurrentRoundJob(
         .executeTakeFirst()
 
     // From the log under the job lock, not the stored column, which an older app version may have left behind.
-    const roundClosed =
-        latest &&
-        ROUND_CLOSING_JOB_STATUSES.includes((await resolveJobState(db, latest.id)).status as RoundClosingStatus)
+    const roundClosed = latest && isRoundClosing((await resolveJobState(db, latest.id)).status)
 
     if (!latest || roundClosed) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
