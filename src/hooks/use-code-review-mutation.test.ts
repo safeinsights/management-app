@@ -123,13 +123,8 @@ describe('useCodeReviewMutation', () => {
                 criteria: validCriteria,
             })
         })
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select('status')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('APPROVED')
+        await waitFor(() => {
+            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
             expect(result.current.isSubmitting).toBe(true)
         })
 
@@ -140,7 +135,12 @@ describe('useCodeReviewMutation', () => {
             .where('status', '=', 'CODE-CHANGES-REQUESTED')
             .executeTakeFirst()
         expect(jobChangesRequested).toBeTruthy()
-        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+        const updated = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('APPROVED')
     })
 
     it('action error: no navigation, no broadcast', async () => {
