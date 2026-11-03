@@ -1,10 +1,8 @@
 import { sql, type Kysely } from 'kysely'
 
-// OTTER-973: study.status alone now holds the proposal decision. The app used to read a study with no
-// decision status but an approved_at or rejected_at as approved or rejected; this stores that reading,
-// so no study changes how it shows. Current app code writes no such row; this catches older ones. The
-// status is compared as text: a fresh database runs all migrations in one transaction, where Postgres
-// refuses CHANGE-REQUESTED, which an earlier migration in it added.
+// OTTER-973: study.status alone holds the proposal decision. This stores what the removed approved_at /
+// rejected_at fallback read. Compared as text: Postgres refuses CHANGE-REQUESTED when an earlier
+// migration in the same transaction added it.
 export async function up(db: Kysely<unknown>): Promise<void> {
     await sql`
         UPDATE study
