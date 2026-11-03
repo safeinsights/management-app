@@ -332,11 +332,7 @@ describe('a job that older code touched after a rollback', () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
         await writeJobStatus(db, job.id, 'RUN-COMPLETE', { actor: 'qa' })
-        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version writes without the columns
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'FILES-APPROVED', createdAt: sql<Date>`clock_timestamp()` })
-            .execute()
+        await insertLegacyStatus(job.id, 'FILES-APPROVED')
 
         const next = await getOrCreateCurrentRoundJob(db, study.id)
 
@@ -362,11 +358,7 @@ describe('a job that older code touched after a rollback', () => {
             .values({ studyId: study.id, createdAt: sql<Date>`clock_timestamp()` })
             .returning('id')
             .executeTakeFirstOrThrow()
-        // eslint-disable-next-line custom/noJobStatusWrites -- and records its submission the same way
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: next.id, status: 'CODE-SUBMITTED', createdAt: sql<Date>`clock_timestamp()` })
-            .execute()
+        await insertLegacyStatus(next.id, 'CODE-SUBMITTED')
         const latest = await latestJobQuery(db, study.id).select('studyJob.id').executeTakeFirstOrThrow()
 
         expect(latest.id).toBe(next.id)
@@ -393,11 +385,7 @@ describe('a job that older code touched after a rollback', () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
         await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
-        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version writes without the columns
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: sql<Date>`clock_timestamp()` })
-            .execute()
+        await insertLegacyStatus(job.id, 'CODE-CHANGES-REQUESTED')
         const { user } = await insertTestUser({ org: await insertTestOrg() })
 
         await markCodeSubmitted(db, { studyJobId: job.id, userId: user.id })
