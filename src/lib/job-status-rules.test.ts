@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@/tests/unit.helpers'
 import {
     decideJobTransition,
     findTransition,

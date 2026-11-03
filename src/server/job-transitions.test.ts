@@ -1,8 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { vi } from 'vitest'
 import { db } from '@/database'
 import { sql } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
-import { insertTestJobStatuses, insertTestStudyJobData, insertTestUser } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    insertTestJobStatuses,
+    insertTestStudyJobData,
+    insertTestUser,
+    it,
+} from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
 import logger from '@/lib/logger'
 import { sendDataPartnerCodeErroredEmail } from '@/server/mailer'
