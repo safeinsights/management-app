@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef } from 'react'
-import { Anchor, Group, type MantineColor, type MantineSpacing } from '@mantine/core'
+import { Anchor, Group, type MantineColor, type MantineSize, type MantineSpacing } from '@mantine/core'
 import { ToggleChevron } from '@/components/icons'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -16,10 +16,25 @@ type CollapseToggleLinkProps = {
      * the body; the toggle in the other state claims it instead. */
     autoFocus?: boolean
     c?: MantineColor
+    controls?: string
+    withChevron?: boolean
+    size?: MantineSize
 }
 
 export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLinkProps>(function CollapseToggleLink(
-    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = semanticColor('brand.default') },
+    {
+        label,
+        isExpanded,
+        onClick,
+        isVisible = true,
+        testId,
+        mt,
+        autoFocus,
+        c = semanticColor('brand.default'),
+        controls,
+        withChevron = true,
+        size = 'sm',
+    },
     ref,
 ) {
     if (!isVisible) return null
@@ -30,7 +45,7 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             // Anchor renders a real <button>, which would default to type="submit" and submit
             // the reviewer decision form when the proposal is collapsed.
             type="button"
-            size="sm"
+            size={size}
             fw={fontWeight.bold}
             c={c}
             mt={mt}
@@ -39,12 +54,13 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             display="inline-flex"
             w="fit-content"
             aria-expanded={isExpanded}
+            aria-controls={controls}
             data-testid={testId}
             ref={ref}
         >
             <Group component="span" gap="xxs" wrap="nowrap">
                 {label}
-                <ToggleChevron isExpanded={isExpanded} />
+                {withChevron && <ToggleChevron isExpanded={isExpanded} />}
             </Group>
         </Anchor>
     )

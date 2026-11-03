@@ -1,11 +1,14 @@
 'use client'
 
-import { ActionIcon, Anchor, Badge, Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { ActionIcon, Badge, Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { ToggleChevron } from '@/components/icons'
 import { LocalDateTime } from '@/components/local-date-time'
+import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 import type { StudyJobStatus } from '@/database/types'
+import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
+import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
 
@@ -16,7 +19,7 @@ const DECISION_LABELS: Partial<Record<StudyJobStatus, string>> = {
     'FILES-REJECTED': 'Feedback only',
 }
 
-const latestOf = (statusChanges: PriorCodeRun['statusChanges'], statuses: StudyJobStatus[]) =>
+const latestOf = (statusChanges: PriorCodeRun['statusChanges'], statuses: readonly StudyJobStatus[]) =>
     statusChanges
         .filter((change) => statuses.includes(change.status))
         .reduce<
@@ -26,8 +29,8 @@ const latestOf = (statusChanges: PriorCodeRun['statusChanges'], statuses: StudyJ
 
 // An errored run can be rerun in the same job before review, so the label follows its last outcome.
 const codeRunBadges = (statusChanges: PriorCodeRun['statusChanges']): string[] => {
-    const outcome = latestOf(statusChanges, ['JOB-ERRORED', 'RUN-COMPLETE'])
-    const decision = latestOf(statusChanges, ['FILES-APPROVED', 'FILES-REJECTED'])
+    const outcome = latestOf(statusChanges, OUTPUTS_REVIEWABLE_JOB_STATUSES)
+    const decision = latestOf(statusChanges, ROUND_CLOSING_JOB_STATUSES)
     const badges = outcome === 'JOB-ERRORED' ? ['Code errored'] : []
     return decision ? [...badges, DECISION_LABELS[decision]!] : badges
 }
@@ -127,9 +130,14 @@ const ShowAllRuns: FC<ShowAllRunsProps> = ({ isVisible, showAll, total, onToggle
             <Text fz="sm" c={semanticColor('text.secondary')}>
                 Showing {showAll ? total : VISIBLE_RUNS} of {total} previous runs
             </Text>
-            <Anchor component="button" type="button" ref={buttonRef} fw={fontWeight.bold} onClick={onToggle}>
-                {showAll ? 'View less' : 'View all runs'}
-            </Anchor>
+            <CollapseToggleLink
+                ref={buttonRef}
+                label={showAll ? 'View less' : 'View all runs'}
+                isExpanded={showAll}
+                onClick={onToggle}
+                withChevron={false}
+                size="md"
+            />
         </Stack>
     )
 }
@@ -148,16 +156,14 @@ export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
                 <Title order={3} fz="md" fw={fontWeight.regular} c={semanticColor('text.secondary')}>
                     Code run history ({runs.length})
                 </Title>
-                <Anchor
-                    component="button"
-                    type="button"
-                    fw={fontWeight.bold}
+                <CollapseToggleLink
+                    label={history.isOpen ? 'Hide' : 'View'}
+                    isExpanded={history.isOpen}
                     onClick={history.toggle}
-                    aria-expanded={history.isOpen}
-                    aria-controls={listId}
-                >
-                    {history.isOpen ? 'Hide' : 'View'}
-                </Anchor>
+                    controls={listId}
+                    withChevron={false}
+                    size="md"
+                />
             </Group>
             <Collapse in={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
