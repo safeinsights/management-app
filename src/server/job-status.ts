@@ -25,7 +25,7 @@ export async function recordJobStatus(
         .insertInto('jobStatusChange')
         .values({ studyJobId: job.id, ...values })
         .execute()
-    if (values.status === 'JOB-ERRORED') onJobErrored({ studyId: job.studyId })
+    if (values.status === 'JOB-ERRORED') await onJobErrored({ studyId: job.studyId })
 
     return { recorded: true }
 }
