@@ -10,27 +10,21 @@ import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchUserGlobalDocumentAction } from '@/server/actions/user-legal.actions'
-import { Divider, Stack, Text } from '@mantine/core'
+import { Divider, Text } from '@mantine/core'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>
 
 type Props = { type: GlobalLegalDocumentType }
 
-// Both dates are UTC because both are real instants: on mixed bases an ack can read as a day
-// earlier than the effective date. Acknowledged on is a left join, so it dashes for a user who
-// reached the page owing this version.
+// The effective date lives in the document text (SHRMP-367). Acknowledged on is a left join, so it
+// dashes for a user who reached the page owing this version.
 const DocumentDates: FC<{ document?: GlobalDocument | null }> = ({ document }) => {
     if (!document) return null
 
     return (
-        <Stack gap="xxs" align="flex-end">
-            <Text fz="sm" c="dimmed">
-                Effective on: {formatInstantAsUtcDay(document.publishedAt)}
-            </Text>
-            <Text fz="sm" c="dimmed">
-                Acknowledged on: {formatInstantAsUtcDay(document.ackedAt)}
-            </Text>
-        </Stack>
+        <Text fz="sm" c="dimmed">
+            Acknowledged on: {formatInstantAsUtcDay(document.ackedAt)}
+        </Text>
     )
 }
 
