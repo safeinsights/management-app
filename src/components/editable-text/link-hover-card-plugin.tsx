@@ -79,9 +79,10 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         close()
         if (!nodeKey) return
         // The field is focused directly because Lexical's own focus() only marks the selection
-        // dirty, which moves the caret but not DOM focus.
+        // dirty, which moves the caret but not DOM focus. Discrete, because a caret committed later
+        // pulls focus back from a field the user moved to in between (OTTER-992).
         editor.getRootElement()?.focus()
-        editor.update(() => $restoreLinkCaret(nodeKey, caretRef.current))
+        editor.update(() => $restoreLinkCaret(nodeKey, caretRef.current), { discrete: true })
     }, [close, editor, link])
 
     const { rememberPress, movedSincePress } = useClickWithoutDrag()
@@ -181,7 +182,7 @@ function useEditorLinkCard(editor: LexicalEditor, dropdownId: string) {
         const { nodeKey } = link
         close()
         editor.getRootElement()?.focus()
-        editor.update(() => $unwrapLink(nodeKey))
+        editor.update(() => $unwrapLink(nodeKey), { discrete: true })
     }, [close, editor, link])
 
     // From the edit form, Escape discards it and returns to the card; from the card it closes.
