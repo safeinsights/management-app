@@ -205,11 +205,7 @@ describe('useCodeReviewMutation', () => {
 
     it('a failed submit lets the reviewer try again', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
-        const decided = await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
@@ -223,7 +219,8 @@ describe('useCodeReviewMutation', () => {
         expect(notifications.show).toHaveBeenCalledWith(
             expect.objectContaining({ title: 'Decision could not be submitted' }),
         )
-        await db.deleteFrom('jobStatusChange').where('id', '=', decided.id).execute()
+        // Reopens the code for review, so the same decision now goes through.
+        await insertTestJobStatus(job.id, 'CODE-SUBMITTED')
 
         await act(async () => {
             result.current.submitReview(approval)

@@ -27,9 +27,9 @@ export async function transitionJob(
             if (result.observed) {
                 logger.warn(`job ${jobId}: ${actor} wrote ${result.from} -> ${to}, which the transition table refuses`)
             }
-            // Deferred to the commit, so a rollback sends nothing.
+            // Queued on commit, so a rollback sends nothing.
             if (result.outcome === 'moved' && to === 'JOB-ERRORED' && actor !== 'qa') {
-                onJobErrored({ studyId: result.studyId })
+                await onJobErrored({ studyId: result.studyId })
             }
             return result
         })
