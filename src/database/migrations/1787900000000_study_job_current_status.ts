@@ -1,9 +1,8 @@
 import { type Kysely, sql } from 'kysely'
 
-// OTTER-973: the job keeps its current status, its code round and the time it reached that status,
-// so readers stop re-deriving them from the log. This backfills every existing job from its log, then
-// installs triggers that keep the three columns right for every row inserted after it, whichever app
-// version inserts it: older code still serves between this migration and the code swap.
+// OTTER-973: stores each job's current status, code round and status time, backfilled from its log.
+// Triggers keep the columns right for every later insert, also from older app code, which still serves
+// until the code swap.
 
 // Pinned rather than imported from src/lib/job-status-rules.ts: this records the rule that ran against
 // production, so a later change to the table must not make a fresh database disagree with a migrated
