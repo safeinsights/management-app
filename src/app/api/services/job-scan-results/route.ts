@@ -1,7 +1,7 @@
 import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { resolveJobState } from '@/database/job-status-writer'
+import { lockJobState } from '@/database/job-status-writer'
 import { storeStudyLogFile } from '@/server/storage'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -36,6 +36,7 @@ export const POST = createWebhookHandler({
             .where('studyJob.id', '=', body.jobId)
             .select([
                 'studyJob.id as jobId',
+                'studyJob.round',
                 'study.researcherId',
                 'study.id as studyId',
                 'study.orgId',
@@ -51,42 +52,46 @@ export const POST = createWebhookHandler({
         // predating this change can still be current for. That keeps the guard closed against a
         // caller that omits the round, rather than leaving it permanently disabled for one.
         const round = body.round ?? 1
+        const isStale = (stored: number) => {
+            if (stored === round) return false
+            logger.warn(
+                `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
+            )
+            return true
+        }
+        if (isStale(job.round)) return
+
+        // Stored before the lock: encryption and S3 uploads would otherwise hold every action on the study.
+        const logFileTypes = LOG_FILE_TYPES[body.status]
+        if (logFileTypes && body.plaintextLog) {
+            const encrypted = await encryptAndStoreLog({
+                route: '/api/services/job-scan-results',
+                plaintextLog: body.plaintextLog,
+                fileType: logFileTypes.encrypted,
+                job,
+            })
+
+            // Both halves move together: replacing only the plaintext would show the reviewer
+            // findings from a log the researcher cannot open.
+            if (!encrypted || encrypted.stored) {
+                const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
+                    type: 'text/plain',
+                })
+                await storeStudyLogFile(
+                    { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                    file,
+                    logFileTypes.plaintext,
+                )
+            }
+        }
+
+        // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
+        // append-only submission log.
+        if (body.status === 'CODE-SUBMITTED') return
+
         // One transaction, so the job lock taken for the round check holds until the status is written.
         await withTransaction(currentDb(), async () => {
-            if ((await resolveJobState(currentDb(), job.jobId)).round !== round) {
-                logger.warn(
-                    `ignoring ${body.status} for job ${job.jobId}: round ${round} is no longer the round on the job`,
-                )
-                return
-            }
-
-            const logFileTypes = LOG_FILE_TYPES[body.status]
-            if (logFileTypes && body.plaintextLog) {
-                const encrypted = await encryptAndStoreLog({
-                    route: '/api/services/job-scan-results',
-                    plaintextLog: body.plaintextLog,
-                    fileType: logFileTypes.encrypted,
-                    job,
-                })
-
-                // Both halves move together: replacing only the plaintext would show the reviewer
-                // findings from a log the researcher cannot open.
-                if (!encrypted || encrypted.stored) {
-                    const file = new File([body.plaintextLog], `${logFileTypes.plaintext.toLowerCase()}.txt`, {
-                        type: 'text/plain',
-                    })
-                    await storeStudyLogFile(
-                        { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                        file,
-                        logFileTypes.plaintext,
-                    )
-                }
-            }
-
-            // CODE-SUBMITTED is owned by markCodeSubmitted; a stray scanner echo would corrupt the
-            // append-only submission log.
-            if (body.status === 'CODE-SUBMITTED') return
-
+            if (isStale((await lockJobState(currentDb(), job.jobId)).round)) return
             try {
                 await transitionJob(currentDb(), job.jobId, body.status, { actor: 'service', userId: job.researcherId })
             } catch (error) {
