@@ -1,6 +1,6 @@
 import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
-import { sql, type Kysely } from 'kysely'
+import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
 import { JOB_STATUSES, REPLAY_TIE_RANK, findTransition, replayEffect } from '@/lib/job-status-rules'
 import { codeRoundForJob } from '@/server/db/code-round'
@@ -19,16 +19,22 @@ const at = (second: number) => new Date(BASE + second * 1000)
 
 type History = StudyJobStatus[]
 
-// Rows as an app version older than the status writer wrote them, one second apart.
+// Rows as an app version older than the status writer wrote them, without the job columns.
+const insertLegacyStatus = async (
+    studyJobId: string,
+    status: StudyJobStatus,
+    createdAt: Date | RawBuilder<Date> = sql<Date>`clock_timestamp()`,
+) => {
+    // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration rows directly
+    await db.insertInto('jobStatusChange').values({ studyJobId, status, createdAt }).execute()
+}
+
+// A whole job as older code wrote it, its rows one second apart.
 const insertLegacyJob = async (studyId: string, history: History, { createdAt = at(0) } = {}) => {
     // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration rows directly
     const job = await db.insertInto('studyJob').values({ studyId, createdAt }).returning('id').executeTakeFirstOrThrow()
     for (const [index, status] of history.entries()) {
-        // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration rows directly
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status, createdAt: at(index + 1) })
-            .execute()
+        await insertLegacyStatus(job.id, status, at(index + 1))
     }
     return job.id
 }
@@ -291,11 +297,7 @@ describe('a job that older code touched during a deploy', () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
         await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
-        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version writes without the columns
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', createdAt: sql<Date>`clock_timestamp()` })
-            .execute()
+        await insertLegacyStatus(job.id, 'CODE-APPROVED')
         return { studyId: study.id, jobId: job.id }
     }
 
@@ -344,11 +346,7 @@ describe('a job that older code touched during a deploy', () => {
             'RUN-COMPLETE',
             'FILES-REJECTED',
         ])
-        // eslint-disable-next-line custom/noJobStatusWrites -- an older scanner callback appended it
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: jobId, status: 'CODE-SCANNED', createdAt: sql<Date>`clock_timestamp()` })
-            .execute()
+        await insertLegacyStatus(jobId, 'CODE-SCANNED')
 
         const next = await getOrCreateCurrentRoundJob(db, study.id)
 
