@@ -10,7 +10,7 @@ import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchUserGlobalDocumentAction } from '@/server/actions/user-legal.actions'
-import { Stack, Text } from '@mantine/core'
+import { Divider, Stack, Text } from '@mantine/core'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>
 
@@ -60,6 +60,7 @@ export const UserGlobalDocument: FC<Props> = ({ type }) => {
 
     return (
         <LegalPanel title={label} aside={<DocumentDates document={data} />}>
+            <Divider mb="lg" />
             <DocumentBody isLoading={isLoading} document={data} label={label} />
         </LegalPanel>
     )

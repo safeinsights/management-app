@@ -63,6 +63,7 @@ describe('UserGlobalDocument', () => {
         await waitFor(() => expect(screen.getByText('These are the terms')).toBeDefined())
         expect(screen.getByText('Effective on: May 03, 2026')).toBeDefined()
         expect(screen.getByText('Acknowledged on: May 10, 2026')).toBeDefined()
+        expect(screen.getByRole('separator')).toBeDefined()
     })
 
     it('dashes the acknowledgement date when the user owes the current version', async () => {
