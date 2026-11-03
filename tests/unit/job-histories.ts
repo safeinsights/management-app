@@ -1,5 +1,5 @@
 import type { StudyJobStatus } from '@/database/types'
-import { backfillReplay } from '@/database/migrations/1787900000000_study_job_current_status'
+import { backfillReplay } from '@/database/migrations/1793742916584_study_job_current_status'
 import type { RawJob } from '@/lib/study-screen'
 
 // A RawJob for pure projection tests. Its current status is the backfill's replay of `statuses` in
