@@ -14,7 +14,7 @@ export type StudyHeaderStudy = {
 export function StudyPageHeader({ study, step }: { study: StudyHeaderStudy; step?: PageHeaderStep }) {
     const title = (
         <Group gap="sm" align="center">
-            <Stack gap="md" align="flex-start">
+            <Stack gap="xs" align="flex-start">
                 {study.title ?? UNTITLED_STUDY_TITLE}
                 <TestStudyLabel isVisible={study.isTestStudy} />
             </Stack>

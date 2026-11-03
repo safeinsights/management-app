@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import logger from '@/lib/logger'
+import { env } from '@/server/config'
 import { retriesOnFailure, runJob } from '@/server/jobs/registry'
 import * as Sentry from '@sentry/nextjs'
 
@@ -23,7 +24,7 @@ const parseMessage = (body: string): unknown => {
 // visibility timeout later (OTTER-799). A job marked `retry` answers 500 instead, which the adapter
 // reports as an error (AWS_LWA_ERROR_STATUS_CODES) so SQS delivers the message once more (OTTER-855).
 export async function POST(request: Request) {
-    if (process.env.JOB_WORKER !== 't') return new Response(null, { status: 404 })
+    if (env.JOB_WORKER !== 't') return new Response(null, { status: 404 })
 
     let redeliver = false
     const { Records } = sqsEventSchema.parse(await request.json())
