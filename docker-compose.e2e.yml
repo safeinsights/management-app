@@ -28,6 +28,8 @@ x-runner: &runner
         - NEXT_PUBLIC_CI=true
         - TURBOPACK_FS_CACHE=1
         - PORT=4100
+        # Set, so a bind-mounted .env.test cannot point Playwright at an app other than this one.
+        - E2E_BASE_URL=http://localhost:4100
         - ASSETS_PREFIX=/
         - CODER_FILES=./coder-files
         - NODE_OPTIONS=--max-old-space-size=4096
@@ -114,9 +116,9 @@ services:
 
     db-e2e:
         image: 'postgres:16'
-        # Ends on its own after the session TTL. SIGINT is Postgres' fast shutdown; SIGTERM would
-        # wait for every client to disconnect.
-        entrypoint: ['timeout', '-s', 'INT', '${E2E_TTL:-7200}', 'docker-entrypoint.sh']
+        # Ends on its own after the TTL that bin/docker-e2e sets. SIGINT is Postgres' fast shutdown;
+        # SIGTERM would wait for every client to disconnect.
+        entrypoint: ['timeout', '-s', 'INT', '${E2E_INFRA_TTL:-7200}', 'docker-entrypoint.sh']
         command: ['postgres']
         volumes:
             - pgdata-e2e:/var/lib/postgresql/data
@@ -142,7 +144,7 @@ services:
         environment:
             AWS_ACCESS_KEY_ID: si-local-s3
             AWS_SECRET_ACCESS_KEY: si-local-s3
-        entrypoint: ['timeout', '-s', 'INT', '${E2E_TTL:-7200}', '/entrypoint.sh']
+        entrypoint: ['timeout', '-s', 'INT', '${E2E_INFRA_TTL:-7200}', '/entrypoint.sh']
         command: ['server', '-s3', '-dir=/data']
         networks:
             - e2e-net

@@ -233,7 +233,7 @@ One-time: `pnpm install` and `pnpm exec playwright install`. With Postgres (`loc
 
 #### In Docker 🐳
 
-`./bin/docker-e2e` runs everything in containers (Postgres, SeaweedFS, the app, Playwright and Chromium), so it needs only Docker. Each checkout gets its own containers and volumes, nothing is published on host ports, and the containers are removed when the run ends.
+`./bin/docker-e2e` runs everything in containers (Postgres, SeaweedFS, the app, Playwright and Chromium), so it needs only Docker. Each checkout gets its own containers and volumes, only the UI port of a session or `--ui` run is published (on 127.0.0.1, at a free port), and the containers are removed when the run ends.
 
 ```bash
 ./bin/docker-e2e                           # run the whole suite

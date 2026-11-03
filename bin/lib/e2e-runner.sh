@@ -158,13 +158,16 @@ start_server() {
             server_log_tail
             exit 1
         fi
-        if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:4100/account/signin || true)" != 000 ]; then
-            note "app server is up (${i}s)"
-            return 0
-        fi
+        # An error status is not up: Playwright would not accept it either and start its own server.
+        case $(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:4100/account/signin || true) in
+            2?? | 3??)
+                note "app server is up (${i}s)"
+                return 0
+                ;;
+        esac
         sleep 1
     done
-    echo "docker-e2e: the app server did not answer on :4100 within 60s." >&2
+    echo "docker-e2e: the app server did not answer on :4100 with a 2xx or 3xx status within 60s." >&2
     server_log_tail
     exit 1
 }

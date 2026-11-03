@@ -27,8 +27,9 @@ usage() {
     echo "       $0 --up | --exec -- <command...> | --down | --prune | --print-project-name | --help"
     echo ""
     echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
-    echo "and Chromium. Nothing is published on host ports. Containers are removed when the run ends;"
-    echo "volumes are kept, so the next run is warm. Results land in test-results/e2e/."
+    echo "and Chromium. Only the UI port of a session or --ui run is published, on 127.0.0.1 at a free"
+    echo "port. Containers are removed when the run ends; volumes are kept, so the next run is warm."
+    echo "Results land in test-results/e2e/."
     echo ""
     echo "Options:"
     echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
@@ -61,8 +62,9 @@ usage() {
     echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
     echo "  $0 --down                                 # End the session"
     echo ""
-    echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, the"
-    echo "      Next/TS configs, the lockfile and the runner image). Editing only specs never rebuilds."
+    echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, types/,"
+    echo "      the Next/Sentry/TS configs, the lockfile and the runner image). Editing only specs never"
+    echo "      rebuilds."
     echo "      Values in host .env files are not part of the fingerprint: use --rebuild after changing them."
     echo ""
     echo "      Every run starts on a fresh test database: a copy of a migrated and seeded template, which"
@@ -81,7 +83,8 @@ usage() {
     echo "      nothing changed). Chromium lives in image layers keyed on the locked Playwright versions."
     echo ""
     echo "      A session stops by itself after E2E_TTL seconds (default 7200 = 2 h). After a host"
-    echo "      'pnpm install' or a Dockerfile.dev change, restart it: --down, then --up."
+    echo "      'pnpm install' or a Dockerfile.dev change, restart it: --down, then --up. A one-shot"
+    echo "      --ui run has no TTL: its stack ends with Ctrl-C."
     exit "${1:-0}"
 }
 
@@ -200,6 +203,12 @@ if [ "$clean" = true ] && [ -n "$session" ]; then
     exit 1
 fi
 
+# The TTL stops a forgotten stack. A one-shot UI run can stay open for longer and ends its stack at
+# Ctrl-C, so its database and storage get none (timeout 0 is no limit).
+E2E_INFRA_TTL=${E2E_TTL:-7200}
+if [ "$action" = ui ] && [ -z "$session" ]; then E2E_INFRA_TTL=0; fi
+export E2E_INFRA_TTL
+
 tty_flag=(-T)
 if [ -t 0 ] && [ -t 1 ]; then tty_flag=(); fi
 
@@ -255,7 +264,8 @@ image_key() {
 # points at a host path). Covers committed, staged, unstaged and untracked app inputs.
 app_fingerprint() {
     local image_id=$1
-    local inputs=(src public next.config.ts package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json postcss.config.mjs)
+    local inputs=(src public types next.config.ts sentry.server.config.ts sentry.edge.config.ts package.json
+        pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json postcss.config.mjs)
     local exclude=':(exclude)*.test.*'
     {
         git ls-files -s -- "${inputs[@]}" "$exclude"
@@ -476,6 +486,9 @@ export E2E_APP_FINGERPRINT
 
 if [ "$action" = up ]; then
     echo "Starting an e2e session for this checkout (project $project)..."
+    # A session that ended by its TTL leaves a stopped container whose /tmp still has the old ready
+    # file; restarting it would report ready before the new setup is done.
+    compose rm -f -s e2e-session >/dev/null 2>&1 || true
     compose up -d e2e-session
     session=$(compose ps -a -q e2e-session)
     # Not through compose(): `$!` of a backgrounded function is its subshell, and killing that
