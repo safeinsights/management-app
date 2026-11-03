@@ -1,5 +1,5 @@
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import type { JobStatus, StudyStatusValue } from '@/lib/job-status-rules'
+import { ROUND_CLOSING_JOB_STATUSES, type JobStatus, type StudyStatusValue } from '@/lib/job-status-rules'
 
 export { CODE_ROUND_CLOSING_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/job-status-rules'
 
@@ -12,7 +12,7 @@ export type StudyStatusMatchesDb = Assert<Equals<StudyStatusValue, StudyStatus>>
 
 // The statuses no transition leaves. JOB-ERRORED is not one: the reviewer can still approve the code,
 // and the enclave can still complete the run.
-export const JOB_FINAL_STATUSES: readonly StudyJobStatus[] = ['CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
+export const JOB_FINAL_STATUSES: readonly StudyJobStatus[] = ['CODE-REJECTED', ...ROUND_CLOSING_JOB_STATUSES]
 
 export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
     'RUN-COMPLETE',
