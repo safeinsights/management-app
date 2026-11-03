@@ -260,6 +260,7 @@ describe('fetchJobFileActivityAction', () => {
 describe('a refused caller gets no job content (MA-6)', () => {
     const permissionDenied = (result: unknown) =>
         (result as { error: { permission_denied: string } }).error.permission_denied
+    const warning = () => String(vi.mocked(logger.warn).mock.calls[0][0])
 
     const setupRefused = async () => {
         const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
@@ -286,9 +287,12 @@ describe('a refused caller gets no job content (MA-6)', () => {
             }),
         )
 
-        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(job.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain('results/confidential-logs.zip')
+        expect(warning()).toContain(job.id)
+        expect(warning()).not.toContain(study.title)
+        expect(warning()).not.toContain('results/confidential-logs.zip')
     })
 
     test('fetchJobFileActivityAction leaves out the title and the file path', async () => {
@@ -296,8 +300,11 @@ describe('a refused caller gets no job content (MA-6)', () => {
 
         const denied = permissionDenied(await fetchJobFileActivityAction({ jobId: job.id, orgSlug }))
 
-        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(job.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain('results/confidential-logs.zip')
+        expect(warning()).toContain(job.id)
+        expect(warning()).not.toContain(study.title)
+        expect(warning()).not.toContain('results/confidential-logs.zip')
     })
 })
