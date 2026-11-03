@@ -9,7 +9,7 @@ import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/stu
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
 import { latestJobForStudyOrNull, fetchUserFullName } from '@/server/db/queries'
-import { resolveJobState } from '@/database/job-status-writer'
+import { lockJobState } from '@/database/job-status-writer'
 import { nextCodeSubmissionVersion } from '@/lib/job-status-rules'
 import { markStudyUpdated } from '@/server/db/mutations'
 import { purgeCodeReviewFeedbackYjsDoc } from '@/server/db/yjs-cleanup'
@@ -81,7 +81,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         // Round = study-wide submission version, so each round gets its own row under the
         // (studyJobId, reviewKind, round) unique index (OTTER-316/638).
-        const state = await resolveJobState(db, claimedJob.id)
+        const state = await lockJobState(db, claimedJob.id)
         const round = nextCodeSubmissionVersion({ round: state.round, currentStatus: state.status })
 
         try {

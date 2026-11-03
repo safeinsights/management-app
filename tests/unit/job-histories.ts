@@ -1,20 +1,15 @@
 import type { StudyJobStatus } from '@/database/types'
-import { replayJobStatus } from '@/lib/job-status-rules'
+import { backfillReplay } from '@/database/migrations/1787900000000_study_job_current_status'
 import type { RawJob } from '@/lib/study-screen'
 
-// A RawJob for pure projection tests. Its current status is the replay of `statuses` in order, as the
-// status writer would have stored it.
+// A RawJob for pure projection tests. Its current status is the backfill's replay of `statuses` in
+// order, which is what the status writer stores for the same writes.
 export const rawJob = (id: string, statuses: readonly string[], round = 1): RawJob => ({
     id,
     round,
-    currentStatus:
-        replayJobStatus(
-            statuses.map((status, index) => ({
-                id: String(index),
-                status: status as StudyJobStatus,
-                createdAt: new Date(index * 1000),
-            })),
-        ).status ?? 'INITIATED',
+    currentStatus: (backfillReplay(
+        statuses.map((status, index) => ({ id: String(index), status, micros: String(index * 1_000_000) })),
+    )?.status ?? 'INITIATED') as StudyJobStatus,
     statusChanges: statuses.map((status) => ({ status: status as StudyJobStatus })),
 })
 

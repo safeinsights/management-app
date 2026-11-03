@@ -3,7 +3,7 @@ import { pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { sleep } from '@/lib/utils'
 import { deleteFolderContents, triggerScanForStudyJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
-import { resolveJobState } from '@/database/job-status-writer'
+import { lockJobState } from '@/database/job-status-writer'
 import type { JobStatus } from '@/lib/job-status-rules'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { deferred } from '@/server/events'
@@ -19,7 +19,7 @@ const simulateJobScan = deferred(async (studyJobId: string, round: number) => {
     // Mirrors the webhook's own rule, so a resubmit during the simulated scan behaves in dev and QA
     // as it does in production (OTTER-779). One transaction, so the job lock holds until the write.
     await withTransaction(currentDb(), async () => {
-        if ((await resolveJobState(currentDb(), studyJobId)).round !== round) return
+        if ((await lockJobState(currentDb(), studyJobId)).round !== round) return
         await transitionJob(currentDb(), studyJobId, 'CODE-SCANNED', { actor: 'system' })
     })
 })
@@ -72,7 +72,7 @@ export async function attachCodeToRoundJob(
         // goes, because a replacement the reviewer has not yet decided on opens no new round: its
         // summary would otherwise describe deleted code and short-circuit the regeneration that
         // follows (SHRMP-263, OTTER-779).
-        const state = await resolveJobState(db, studyJobId)
+        const state = await lockJobState(db, studyJobId)
         if (!awaitsSubmission(state.status)) {
             await db
                 .deleteFrom('studyReview')
@@ -110,6 +110,6 @@ export async function markCodeSubmitted(
     db: Kysely<DB>,
     { studyJobId, userId }: { studyJobId: string; userId: string },
 ) {
-    if (!awaitsSubmission((await resolveJobState(db, studyJobId)).status)) return
+    if (!awaitsSubmission((await lockJobState(db, studyJobId)).status)) return
     await transitionJob(db, studyJobId, 'CODE-SUBMITTED', { actor: 'researcher', userId })
 }
