@@ -1,9 +1,8 @@
 /* eslint-disable no-console */
 /**
  * Rewrites study_job.current_status, round and status_changed_at from each job's status log with the
- * backfill of migration 1787900000000 (OTTER-973). Run it once in each environment right after the
- * release that adds the columns: app code older than that release wrote log rows without the columns
- * between the migration and the code swap. Idempotent.
+ * backfill of migration 1787900000000 (OTTER-973). Idempotent. Not part of a deploy: the migration's
+ * triggers keep the columns right for every inserted row. This repairs a job someone changed by hand.
  *
  *   pnpm exec tsx bin/recompute-job-state.ts [--study <studyId>] [--dry-run]
  *

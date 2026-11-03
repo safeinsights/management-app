@@ -520,14 +520,18 @@ Every write to `jobStatusChange`, and every new `studyJob`, goes through
 
 The writer locks the study row, then the job row, reads the job's current status from
 `studyJob.currentStatus`, checks the transition table, and writes the row with `clock_timestamp()`.
-On a `move` it stores the new status and the row's time on the job in the same transaction; a
-`CODE-SUBMITTED` row also updates `studyJob.round`. `now()` is fixed for a whole transaction, so two
-writes in one transaction would tie; `clock_timestamp()` keeps rows in write order.
+`now()` is fixed for a whole transaction, so two writes in one transaction would tie;
+`clock_timestamp()` keeps rows in write order.
 
-Migration `1787900000000` filled the columns by replaying each job's log (`backfillReplay`, which
-orders rows that tie by lifecycle rank and alternates tied submissions and change requests).
-`bin/recompute-job-state.ts` runs the same backfill again for jobs that older app code touched
-between the migration and the code swap. Readers stay set-based, as described above.
+The database keeps the job columns. Migration `1787900000000` filled them by replaying each job's log
+(`backfillReplay`, which orders rows that tie by lifecycle rank and alternates tied submissions and
+change requests). It then installed two triggers. `keep_study_job_state` applies each new
+`jobStatusChange` row to its job as the replay would: the first row of a job and every `move` set
+`currentStatus` and `statusChangedAt`, and a `CODE-SUBMITTED` row renumbers `round`.
+`number_study_job_round` numbers a new `studyJob`. The triggers run for every insert, so app code older
+than the columns, which still serves between the migration and the code swap, cannot leave a job
+stale. `bin/recompute-job-state.ts` runs the backfill again, for a job that someone changed by hand.
+Readers stay set-based, as described above.
 
 **Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
 route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and
