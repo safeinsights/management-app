@@ -144,7 +144,7 @@ export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
                     Code run history ({runs.length})
                 </Title>
                 <CollapseToggleLink
-                    label={history.isOpen ? 'Hide' : 'View'}
+                    label={history.isOpen ? 'Hide code run history' : 'View code run history'}
                     isExpanded={history.isOpen}
                     onClick={history.toggle}
                     controls={listId}

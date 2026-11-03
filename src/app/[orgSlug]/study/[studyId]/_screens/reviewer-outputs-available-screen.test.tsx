@@ -289,7 +289,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         const history = screen.getByTestId('code-run-history')
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
         expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
-        fireEvent.click(within(history).getByRole('button', { name: 'View' }))
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
 
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
@@ -297,7 +297,10 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
 
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
-        expect(within(history).getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-expanded', 'true')
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
+            'aria-expanded',
+            'true',
+        )
         expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
         expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
     })

@@ -32,7 +32,7 @@ const RUNS = [
     run('run-1', '2026-01-20T12:00:00Z'),
 ]
 
-const viewButton = () => screen.getByRole('button', { name: /^(View|Hide)$/ })
+const viewButton = () => screen.getByRole('button', { name: /^(View|Hide) code run history$/ })
 const rows = () => screen.getAllByTestId('code-run-history-row')
 const firstRow = () => rows()[0]
 const caret = (date: string) => screen.getByRole('button', { name: `Code run • ${date}` })
@@ -55,10 +55,10 @@ describe('CodeRunHistory', () => {
         expect(screen.getByRole('heading', { name: `Code run history (${count})` })).toBeInTheDocument()
     })
 
-    it('starts collapsed with a View button', () => {
+    it('starts collapsed with a View code run history button', () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
 
-        expect(viewButton()).toHaveTextContent('View')
+        expect(viewButton()).toHaveTextContent('View code run history')
         expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
         expect(firstRow()).not.toBeVisible()
     })
@@ -68,7 +68,7 @@ describe('CodeRunHistory', () => {
 
         await openHistory()
 
-        expect(viewButton()).toHaveTextContent('Hide')
+        expect(viewButton()).toHaveTextContent('Hide code run history')
         expect(viewButton()).toHaveAttribute('aria-expanded', 'true')
         expect(viewButton()).toHaveAttribute('type', 'button')
         expect(rows().map((row) => within(row).getByRole('heading').textContent)).toEqual([
@@ -82,7 +82,7 @@ describe('CodeRunHistory', () => {
 
         await userEvent.click(viewButton())
 
-        expect(viewButton()).toHaveTextContent('View')
+        expect(viewButton()).toHaveTextContent('View code run history')
         await waitFor(() => expect(firstRow()).not.toBeVisible())
     })
 
@@ -91,9 +91,9 @@ describe('CodeRunHistory', () => {
 
         for (let i = 0; i < 3; i++) {
             await userEvent.click(viewButton())
-            expect(viewButton()).toHaveTextContent('Hide')
+            expect(viewButton()).toHaveTextContent('Hide code run history')
             await userEvent.click(viewButton())
-            expect(viewButton()).toHaveTextContent('View')
+            expect(viewButton()).toHaveTextContent('View code run history')
         }
         expect(rows()).toHaveLength(3)
     })
