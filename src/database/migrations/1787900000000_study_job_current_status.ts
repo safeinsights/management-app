@@ -1,12 +1,9 @@
 import { type Kysely, sql } from 'kysely'
 
 // OTTER-973: the job keeps its current status, its code round and the time it reached that status,
-// so readers stop re-deriving them from the log. The status writer keeps the three columns right
-// from now on; this backfills every existing job from its log.
-
-// The defaults only serve app versions older than this change, which still insert jobs during the
-// deploy; the status writer always writes explicit values, and bin/recompute-job-state.ts runs this
-// backfill again for a job those versions touched.
+// so readers stop re-deriving them from the log. This backfills every existing job from its log, then
+// installs triggers that keep the three columns right for every row inserted after it, whichever app
+// version inserts it: older code still serves between this migration and the code swap.
 
 // Pinned rather than imported from src/lib/job-status-rules.ts: this records the rule that ran against
 // production, so a later change to the table must not make a fresh database disagree with a migrated
@@ -145,26 +142,82 @@ export async function backfillStudyJobState(db: Kysely<unknown>, { jobIds }: { j
         `.execute(db)
     }
 
-    // The rule codeRoundForJob uses: closers on the jobs before this one, plus this job's resubmissions.
-    const closers = sql.join(BACKFILL_ROUND_CLOSING_STATUSES.map((status) => sql`${status}`))
-    await sql`
-        UPDATE study_job AS job
-        SET round = 1 + (
+    await sql`UPDATE study_job SET round = study_job_round(id) WHERE true ${scope}`.execute(db)
+}
+
+// The statuses are fixed constants, so they are written into the function bodies as literals, and every
+// comparison is on text: a fresh database runs all migrations in one transaction, where Postgres refuses
+// enum values that an earlier migration in it added.
+const literal = (value: string) => `'${value.replace(/'/g, "''")}'`
+const literalList = (values: readonly string[]) => values.map(literal).join(', ')
+
+// The rule codeRoundForJob uses: closers on the jobs before this one, plus this job's resubmissions.
+const ROUND_FUNCTION = `
+    CREATE FUNCTION study_job_round(uuid) RETURNS integer LANGUAGE sql STABLE AS $$
+        SELECT (1 + (
             SELECT count(*)
             FROM job_status_change closer
             JOIN study_job sibling ON sibling.id = closer.study_job_id
+            JOIN study_job job ON job.id = $1
             WHERE sibling.study_id = job.study_id
               AND (sibling.created_at, sibling.id) < (job.created_at, job.id)
-              AND closer.status::text IN (${closers})
+              AND closer.status::text IN (${literalList(BACKFILL_ROUND_CLOSING_STATUSES)})
         ) + greatest(0, (
             SELECT count(*)
             FROM job_status_change submission
-            WHERE submission.study_job_id = job.id
+            WHERE submission.study_job_id = $1
               AND submission.status::text = 'CODE-SUBMITTED'
-        ) - 1)
-        WHERE true ${scope}
-    `.execute(db)
-}
+        ) - 1))::integer
+    $$
+`
+
+// backfillEffect in SQL, for the trigger.
+const EFFECT_FUNCTION = `
+    CREATE FUNCTION job_status_effect(text, text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+        SELECT CASE
+            WHEN ($2, $1) IN (VALUES ${Object.entries(BACKFILL_LOG_PAIRS)
+                .flatMap(([to, froms]) => froms.map((from) => `(${literal(to)}, ${literal(from)})`))
+                .join(', ')}) THEN 'log'
+            WHEN $1 IN (${literalList(BACKFILL_DECISION_STATUSES)})
+                AND $2 NOT IN (${literalList(BACKFILL_DECISION_STATUSES)}) THEN 'log'
+            ELSE 'move'
+        END
+    $$
+`
+
+// The replay of the backfill, one row at a time: the first row of a job and every move set the status
+// and its time, and a submission renumbers the job's round. Rows apply in the order they are inserted.
+const STATUS_TRIGGER = `
+    CREATE FUNCTION keep_study_job_state() RETURNS trigger LANGUAGE plpgsql AS $$
+    DECLARE
+        stored study_job_status;
+    BEGIN
+        SELECT current_status INTO stored FROM study_job WHERE id = NEW.study_job_id FOR UPDATE;
+        IF NOT EXISTS (SELECT 1 FROM job_status_change WHERE study_job_id = NEW.study_job_id AND id <> NEW.id)
+            OR (NEW.status <> stored AND job_status_effect(stored::text, NEW.status::text) = 'move') THEN
+            UPDATE study_job SET current_status = NEW.status, status_changed_at = NEW.created_at
+            WHERE id = NEW.study_job_id;
+        END IF;
+        IF NEW.status::text = 'CODE-SUBMITTED' THEN
+            UPDATE study_job SET round = study_job_round(NEW.study_job_id) WHERE id = NEW.study_job_id;
+        END IF;
+        RETURN NULL;
+    END
+    $$;
+    CREATE TRIGGER keep_study_job_state AFTER INSERT ON job_status_change
+        FOR EACH ROW EXECUTE FUNCTION keep_study_job_state();
+`
+
+const ROUND_TRIGGER = `
+    CREATE FUNCTION number_study_job_round() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        UPDATE study_job SET round = study_job_round(NEW.id) WHERE id = NEW.id;
+        RETURN NULL;
+    END
+    $$;
+    CREATE TRIGGER number_study_job_round AFTER INSERT ON study_job
+        FOR EACH ROW EXECUTE FUNCTION number_study_job_round();
+`
 
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
@@ -174,12 +227,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('status_changed_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
         .execute()
 
+    await sql.raw(ROUND_FUNCTION).execute(db)
+    await sql.raw(EFFECT_FUNCTION).execute(db)
+
     // The migrator runs this in one transaction, so the ADD COLUMN lock holds study_job, reads included,
-    // until the backfill commits. Older code waits rather than writing beside it.
+    // until the backfill and the triggers commit. Older code waits rather than writing beside it.
     await backfillStudyJobState(db)
+    await sql.raw(STATUS_TRIGGER).execute(db)
+    await sql.raw(ROUND_TRIGGER).execute(db)
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+    await sql`DROP TRIGGER number_study_job_round ON study_job`.execute(db)
+    await sql`DROP TRIGGER keep_study_job_state ON job_status_change`.execute(db)
+    await sql`DROP FUNCTION number_study_job_round(), keep_study_job_state(), job_status_effect(text, text), study_job_round(uuid)`.execute(
+        db,
+    )
     await db.schema
         .alterTable('study_job')
         .dropColumn('current_status')

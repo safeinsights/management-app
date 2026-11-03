@@ -4,13 +4,7 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
-import {
-    CODE_ROUND_CLOSING_JOB_STATUSES,
-    decideJobTransition,
-    type JobActor,
-    type JobStatus,
-    type TransitionRefusal,
-} from '../lib/job-status-rules'
+import { decideJobTransition, type JobActor, type JobStatus, type TransitionRefusal } from '../lib/job-status-rules'
 import { backfillStudyJobState } from './migrations/1787900000000_study_job_current_status'
 
 type Executor = Kysely<DB> | Transaction<DB>
@@ -96,34 +90,9 @@ export async function lockJobState(executor: Executor, jobId: string): Promise<J
     })
 }
 
-// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions. The same
-// rule as the migration's backfill, so the recompute script finds nothing to change on a job the writer kept.
-function jobRoundSql(jobId: string) {
-    return sql<number>`(
-        1 + (
-            SELECT count(*)
-            FROM job_status_change closer
-            JOIN study_job sibling ON sibling.id = closer.study_job_id
-            JOIN study_job job ON job.id = ${jobId}::uuid
-            WHERE sibling.study_id = job.study_id
-              AND (sibling.created_at, sibling.id) < (job.created_at, job.id)
-              AND closer.status = ANY(${CODE_ROUND_CLOSING_JOB_STATUSES}::study_job_status[])
-        ) + greatest(0, (
-            SELECT count(*)
-            FROM job_status_change submission
-            WHERE submission.study_job_id = ${jobId}::uuid
-              AND submission.status = 'CODE-SUBMITTED'
-        ) - 1)
-    )::int`
-}
-
-// The time of a status row, copied in SQL so the stored time keeps its microseconds.
-const statusRowTime = (statusChangeId: string) =>
-    sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${statusChangeId}::uuid)`
-
 // Rewrites every job (or one study's) from its log with the migration's backfill, one transaction per job
-// so a live writer waits on one lock at most. For a job that older code touched between the migration
-// and the code swap.
+// so a live writer waits on one lock at most. A repair tool: the migration's triggers keep the columns
+// right for every inserted row, so it only finds a job that someone changed by hand.
 export async function recomputeJobStates(
     db: Kysely<DB>,
     { studyId, dryRun = false }: { studyId?: string; dryRun?: boolean } = {},
@@ -210,21 +179,9 @@ export async function writeJobStatus(
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const moved = decision.effect === 'move'
-        // Only a submission changes the job's own round; the rule counts every submission row.
-        if (moved || to === 'CODE-SUBMITTED') {
-            await trx
-                .updateTable('studyJob')
-                .set({
-                    ...(moved ? { currentStatus: to, statusChangedAt: statusRowTime(inserted.id) } : {}),
-                    ...(to === 'CODE-SUBMITTED' ? { round: jobRoundSql(jobId) } : {}),
-                })
-                .where('id', '=', jobId)
-                .execute()
-        }
-
+        // The keep_study_job_state trigger stores the status, its time and the round from the row.
         return {
-            outcome: moved ? 'moved' : 'logged',
+            outcome: decision.effect === 'move' ? 'moved' : 'logged',
             studyId,
             from,
             observed: decision.observed,
@@ -261,14 +218,9 @@ export async function openStudyJob(
             .returning('id')
             .executeTakeFirstOrThrow()
         const { round } = await trx
-            .updateTable('studyJob')
-            .set({
-                currentStatus: 'INITIATED',
-                round: jobRoundSql(job.id),
-                statusChangedAt: statusRowTime(initiated.id),
-            })
+            .selectFrom('studyJob')
+            .select('round')
             .where('id', '=', job.id)
-            .returning('round')
             .executeTakeFirstOrThrow()
         return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round }
     })
