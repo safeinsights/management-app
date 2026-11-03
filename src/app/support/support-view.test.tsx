@@ -9,9 +9,8 @@ describe('SupportView', () => {
 
         expect(screen.getByRole('heading', { level: 1, name: 'Support' })).toBeInTheDocument()
         expect(screen.getByText(/Please don’t hesitate to email SafeInsights at/)).toBeInTheDocument()
-        // The address is split at the @ for wrapping, so match the whole span, not a text node.
-        const address = screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === SUPPORT_EMAIL)
-        expect(address.closest('a')).toBeNull()
+        expect(screen.getByText(/Please don’t hesitate to email SafeInsights at/).textContent).toContain(SUPPORT_EMAIL)
+        expect(screen.queryByRole('link')).toBeNull()
         expect(screen.queryByText('Copied')).toBeNull()
 
         await userEvent.click(screen.getByRole('button', { name: 'Copy email address' }))
