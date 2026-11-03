@@ -505,7 +505,7 @@ describe('ReviewerOutputsErroredScreen code run history', () => {
     it('is absent when the latest run is the only one', async () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
-        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
@@ -516,7 +516,7 @@ describe('ReviewerOutputsErroredScreen code run history', () => {
             await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(days, 'day').toDate() })
         }
         await renderScreen({ study, raw }, org.slug)
-        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
         expect(screen.getByRole('heading', { name: 'Code run history (3)' })).toBeInTheDocument()
         expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
