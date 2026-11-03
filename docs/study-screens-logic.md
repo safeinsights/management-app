@@ -618,7 +618,7 @@ rounds live on the job: `studyJob.currentStatus` and `studyJob.round`, with the 
 decision or a resubmission does not touch `study.status`, so the screens read the proposal decision
 from `study.status` alone (`proposalReviewDecision`). Older app versions flipped the status back to
 `PENDING-REVIEW` on a code resubmit; migration `1780300000000` moved those rows to `APPROVED`
-(OTTER-621). Migration `1788000000000` stores the decision for any other row that still had only
+(OTTER-621). Migration `1793742918582` stores the decision for any other row that still had only
 `approvedAt` or `rejectedAt` (OTTER-973).
 
 ---

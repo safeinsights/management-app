@@ -1,7 +1,7 @@
 import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
 import type { Kysely } from 'kysely'
 import type { StudyStatus } from '@/database/types'
-import { up } from './migrations/1788000000000_study_status_from_decision_dates'
+import { up } from './migrations/1793742918582_study_status_from_decision_dates'
 
 const studyWith = async (status: StudyStatus, dates: { approvedAt?: Date; rejectedAt?: Date }) => {
     const { study } = await insertTestStudyOnly()
