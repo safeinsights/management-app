@@ -27,9 +27,9 @@ note() { echo "[docker-e2e] $*"; }
 
 install_deps() {
     # Same install as docker-compose.testunit.yml, except --config.trustLockfile: without it pnpm
-    # applies the minimumReleaseAge of pnpm-workspace.yaml here exactly as on the host.
-    pnpm install --config.store-dir=/app/node_modules/.pnpm-store --ignore-scripts --frozen-lockfile \
-        --prefer-offline --config.confirmModulesPurge=false || {
+    # applies the minimumReleaseAge of pnpm-workspace.yaml exactly as on the host. The registry
+    # metadata it reads is cached in the volume (docker-compose.e2e.yml), so the check stays fast.
+    pnpm install --ignore-scripts --frozen-lockfile --prefer-offline --config.confirmModulesPurge=false || {
         echo "docker-e2e: pnpm install failed. On ERR_PNPM_OUTDATED_LOCKFILE, run  pnpm install  on the host;" >&2
         echo "docker-e2e: otherwise reset this checkout's dependencies with  ./bin/docker-e2e --clean" >&2
         exit 1

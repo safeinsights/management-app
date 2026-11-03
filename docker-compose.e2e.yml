@@ -50,6 +50,11 @@ x-runner: &runner
         # the node_modules volume, which starts owned by node.
         - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
         - COREPACK_HOME=/app/node_modules/.corepack
+        # For every pnpm call, not only the runner's install: otherwise `CI=true pnpm exec` runs a
+        # second install first, with scripts, its store in the checkout and an empty metadata cache.
+        - pnpm_config_store_dir=/app/node_modules/.pnpm-store
+        - pnpm_config_cache_dir=/app/node_modules/.pnpm-cache
+        - pnpm_config_verify_deps_before_run=false
         # Passed through from bin/docker-e2e.
         - E2E_APP_FINGERPRINT
         - E2E_REBUILD
@@ -175,5 +180,5 @@ networks:
 volumes:
     pgdata-e2e:
     seaweedfs-data-e2e:
-    node_modules_e2e: # also holds the pnpm store (.pnpm-store) and corepack cache (.corepack)
+    node_modules_e2e: # also holds the pnpm store (.pnpm-store), pnpm metadata (.pnpm-cache) and corepack cache (.corepack)
     next_e2e: # build output, Turbopack cache and the build fingerprint

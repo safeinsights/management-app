@@ -33,8 +33,9 @@ usage() {
     echo "Options:"
     echo "  --rebuild             Force a fresh 'next build' even when the app sources are unchanged"
     echo "  --clean               Fresh test database, storage, node_modules and build, but KEEP the pnpm"
-    echo "                        store & corepack cache (fast offline reinstall). Combines with a run or"
-    echo "                        --up. Refused while a session is up. Also the fix for a broken install."
+    echo "                        store, pnpm metadata & corepack cache (fast offline reinstall). Combines"
+    echo "                        with a run or --up. Refused while a session is up. Also the fix for a"
+    echo "                        broken install."
     echo "  --ui                  Open Playwright UI mode, served from the container. Prints a"
     echo "                        http://127.0.0.1:<port> URL to open in any browser; Ctrl-C stops it."
     echo "  --up                  Start an interactive session (stack + app server) and keep it running."
@@ -45,7 +46,8 @@ usage() {
     echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
     echo "                        session. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
-    echo "                        pnpm store & corepack cache. The runner image is kept. Then exits."
+    echo "                        pnpm store, pnpm metadata & corepack cache. The runner image is kept."
+    echo "                        Then exits."
     echo "  --print-project-name  Print this checkout's Compose project name and exit"
     echo "  --help                Show this help message"
     echo ""
@@ -462,11 +464,11 @@ echo "Building the e2e-runner image..."
 compose build --quiet e2e-runner
 
 if [ "$clean" = true ]; then
-    echo "Cleaning the test database, storage, build and node_modules (pnpm store + corepack cache kept)..."
+    echo "Cleaning the test database, storage, build and node_modules (pnpm store, pnpm metadata + corepack cache kept)..."
     compose down -t 1 --remove-orphans
     docker volume rm "${project}_pgdata-e2e" "${project}_seaweedfs-data-e2e" "${project}_next_e2e" >/dev/null 2>&1 || true
     compose run -T --rm --no-deps --entrypoint sh e2e-runner \
-        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .corepack -exec find {} -depth -delete \;' || true
+        -c 'find /app/node_modules -mindepth 1 -maxdepth 1 ! -name .pnpm-store ! -name .pnpm-cache ! -name .corepack -exec find {} -depth -delete \;' || true
 fi
 
 E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$E2E_RUNNER_IMAGE")")
