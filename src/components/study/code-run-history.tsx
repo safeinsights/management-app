@@ -6,33 +6,20 @@ import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { ToggleChevron } from '@/components/icons'
 import { LocalDateTime } from '@/components/local-date-time'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
-import type { StudyJobStatus } from '@/database/types'
-import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
 
 const VISIBLE_RUNS = 3
 
-const DECISION_LABELS: Partial<Record<StudyJobStatus, string>> = {
-    'FILES-APPROVED': 'Outputs and feedback',
-    'FILES-REJECTED': 'Feedback only',
-}
-
-const latestOf = (statusChanges: PriorCodeRun['statusChanges'], statuses: readonly StudyJobStatus[]) =>
-    statusChanges
-        .filter((change) => statuses.includes(change.status))
-        .reduce<
-            PriorCodeRun['statusChanges'][number] | null
-        >((latest, change) => (latest && new Date(latest.createdAt) >= new Date(change.createdAt) ? latest : change), null)
-        ?.status
-
-// An errored run can be rerun in the same job before review, so the label follows its last outcome.
+// Matches the decided banner and decision email, which call a job errored if it ever errored, even
+// when a rerun in the same job then completed.
 const codeRunBadges = (statusChanges: PriorCodeRun['statusChanges']): string[] => {
-    const outcome = latestOf(statusChanges, OUTPUTS_REVIEWABLE_JOB_STATUSES)
-    const decision = latestOf(statusChanges, ROUND_CLOSING_JOB_STATUSES)
-    const badges = outcome === 'JOB-ERRORED' ? ['Code errored'] : []
-    return decision ? [...badges, DECISION_LABELS[decision]!] : badges
+    const statuses = new Set(statusChanges.map((change) => change.status))
+    return [
+        statuses.has('JOB-ERRORED') && 'Code errored',
+        statuses.has('FILES-APPROVED') && 'Outputs and feedback',
+        statuses.has('FILES-REJECTED') && 'Feedback only',
+    ].filter((label): label is string => !!label)
 }
 
 // Hide and View less only change what is shown; what the reviewer opened lives here so it comes

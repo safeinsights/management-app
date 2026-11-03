@@ -19,10 +19,7 @@ const run = (
 ) => ({
     id,
     ranAt: new Date(ranAt),
-    statusChanges: statuses.map((status, i) => ({
-        status,
-        createdAt: new Date(new Date(ranAt).getTime() + (i - statuses.length) * 60_000).toISOString(),
-    })),
+    statusChanges: statuses.map((status) => ({ status })),
 })
 
 // Newest first, as priorCodeRunsForStudy returns them.
@@ -117,7 +114,7 @@ describe('CodeRunHistory', () => {
         expect(firstRow().textContent?.replace(heading, '')).toBe(badges.join(''))
     })
 
-    it('labels a run by its last outcome when an errored run was rerun in the same job', async () => {
+    it('still labels a run errored when a rerun in the same job completed', async () => {
         renderWithProviders(
             <CodeRunHistory
                 runs={[run('run', '2026-03-05T12:00:00Z', ['JOB-ERRORED', 'RUN-COMPLETE', 'FILES-APPROVED'])]}
@@ -126,7 +123,7 @@ describe('CodeRunHistory', () => {
 
         await openHistory()
 
-        expect(firstRow()).not.toHaveTextContent('Code errored')
+        expect(firstRow()).toHaveTextContent('Code errored')
         expect(firstRow()).toHaveTextContent('Outputs and feedback')
     })
 

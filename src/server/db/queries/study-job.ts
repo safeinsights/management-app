@@ -110,7 +110,7 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange as statusChange')
-                    .select(['statusChange.status', 'statusChange.createdAt'])
+                    .select('statusChange.status')
                     .whereRef('statusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),
         ])
