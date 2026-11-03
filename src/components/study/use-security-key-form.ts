@@ -26,9 +26,12 @@ type UseSecurityKeyFormOptions = {
      * files carry raw AES keys (see JobFileInfo) and must stay in memory, never persisted.
      */
     onDecrypted: (files: JobFileInfo[]) => void
+    /** Handed the key that opened this job, so earlier runs can be tried with it while it is in
+     * hand. Callers must not keep it. */
+    onKeyAccepted?: (privateKey: string) => void
 }
 
-export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFormOptions) {
+export function useSecurityKeyForm({ job, type, onDecrypted, onKeyAccepted }: UseSecurityKeyFormOptions) {
     const [value, setValue] = useState('')
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -60,7 +63,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
         jobId: job.id,
-        onSuccess: (files) => {
+        onSuccess: (files, privateKey) => {
             // A key is only proven by ciphertext it actually opened. useDecryptFiles resolves with
             // [] rather than throwing when it extracts nothing, and its parse step accepts any
             // syntactically valid PEM, so treating that as success would hand the caller an empty
@@ -71,6 +74,7 @@ export function useSecurityKeyForm({ job, type, onDecrypted }: UseSecurityKeyFor
             }
             setError(undefined)
             onDecrypted(files)
+            onKeyAccepted?.(privateKey)
         },
         onError: failDecrypt,
     })

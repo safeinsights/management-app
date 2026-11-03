@@ -47,6 +47,8 @@ type OutputsFilesSectionProps = {
     onView: (row: OutputFileRowData) => void
     onDownload: (row: OutputFileRowData) => void
     onDownloadAll: () => void
+    /** Embedded sits inside a code run history row, which already draws the card and divider. */
+    variant?: 'card' | 'embedded'
 }
 
 export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
@@ -55,16 +57,18 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
     onView,
     onDownload,
     onDownloadAll,
+    variant = 'card',
 }) => {
+    const isEmbedded = variant === 'embedded'
     const fileRows = rows.map((row) => (
         <OutputsFileRow key={row.key} row={row} onView={onView} onDownload={onDownload} />
     ))
 
     return (
-        <Paper p="xxl" data-testid="outputs-files-section">
+        <Paper p={isEmbedded ? 0 : 'xxl'} data-testid={isEmbedded ? 'code-run-outputs' : 'outputs-files-section'}>
             <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                    <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text fz={isEmbedded ? 'lg' : 'xl'} fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Output files
                     </Text>
                     <DownloadAllButton
@@ -73,7 +77,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                         onClick={onDownloadAll}
                     />
                 </Group>
-                <Divider />
+                {isEmbedded ? undefined : <Divider />}
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={TABLE_MIN_WIDTH}>

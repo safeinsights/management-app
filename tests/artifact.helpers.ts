@@ -66,6 +66,8 @@ type SeedEncryptedArtifactOptions = {
     sharedWith?: string
     // Alters the archive after encryption, the way a hostile store would.
     tamperWith?: TamperOpts
+    // Another key than the one tests type in, as for a run encrypted before the reviewer's key changed.
+    encryptedFor?: { publicKey: ArrayBuffer; fingerprint: string }
 }
 
 /**
@@ -74,9 +76,17 @@ type SeedEncryptedArtifactOptions = {
  */
 export async function seedEncryptedArtifact(
     jobId: string,
-    { fileType, files, name = `${fileType.toLowerCase()}.zip`, sharedWith, tamperWith }: SeedEncryptedArtifactOptions,
+    {
+        fileType,
+        files,
+        name = `${fileType.toLowerCase()}.zip`,
+        sharedWith,
+        tamperWith,
+        encryptedFor,
+    }: SeedEncryptedArtifactOptions,
 ) {
-    const recipient = sharedWith ? await enclaveKeyPair() : await testKeyPair()
+    const enclaveKey = sharedWith ? await enclaveKeyPair() : undefined
+    const recipient = enclaveKey ?? encryptedFor ?? (await testKeyPair())
     const writer = new ResultsWriter([{ publicKey: recipient.publicKey, fingerprint: recipient.fingerprint }], {
         jobId,
     })
@@ -86,7 +96,7 @@ export async function seedEncryptedArtifact(
 
     const row = await seedJobFileRow(jobId, fileType, name)
     await storeS3File({ orgSlug: 'test-org' }, stored.stream(), artifactPath(jobId, name))
-    if (sharedWith) await shareWithResearcher(sharedWith, row.id, zip, recipient)
+    if (sharedWith && enclaveKey) await shareWithResearcher(sharedWith, row.id, zip, enclaveKey)
 }
 
 // What a reviewer's approval does: each file's key is wrapped for the researcher's registered key,

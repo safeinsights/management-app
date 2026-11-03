@@ -113,6 +113,21 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
                     .select('statusChange.status')
                     .whereRef('statusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyReviewComment')
+                    .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+                    .select([
+                        'studyReviewComment.id',
+                        'studyReviewComment.body',
+                        'studyReviewComment.createdAt',
+                        'author.fullName as authorName',
+                    ])
+                    .whereRef('studyReviewComment.studyJobId', '=', 'studyJob.id')
+                    .where('studyReviewComment.reviewKind', '=', 'RESULTS')
+                    .where('studyReviewComment.entryType', '=', 'DECISION')
+                    .orderBy('studyReviewComment.createdAt', 'desc'),
+            ).as('feedback'),
         ])
         .where('studyJob.studyId', '=', studyId)
         .where('studyJob.id', '!=', latestJobId)

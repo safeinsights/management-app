@@ -7,7 +7,6 @@ import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/prop
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
-import { CodeRunHistory } from '@/components/study/code-run-history'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
@@ -80,8 +79,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                     }
                 />
                 <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
-                <CodeRunHistory runs={priorRuns} />
+                <DecryptAndViewOutputs job={job} priorRuns={priorRuns} isVisible={hasDecryptableOutputs} />
                 <StepNavigation nav={nav} />
             </Stack>
         </Box>

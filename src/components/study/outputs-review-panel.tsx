@@ -4,7 +4,7 @@ import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
-import { CodeRunHistory } from '@/components/study/code-run-history'
+import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
@@ -60,6 +60,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+    const priorOutputs = usePriorRunOutputs(priorRuns)
     // Identifies this tab to the peers, so the same reviewer's other tabs are still closed out.
     const [tabSessionId] = useState(() => crypto.randomUUID())
     const isRoundOpen = !hasOutputsDecision((job.statusChanges ?? []).map((change) => change.status))
@@ -112,13 +113,18 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                         />
                         {/* The history sits between the phases rather than inside either, so decrypting
                             does not remount it and drop what the reviewer had opened. */}
-                        <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
+                        <LockedPhase
+                            isVisible={isLocked}
+                            job={job}
+                            onDecrypted={onDecrypted}
+                            onKeyAccepted={priorOutputs.decryptWith}
+                        />
                         <OutputsSection
                             isVisible={canShareOutputs && !isLocked}
                             jobId={job.id}
                             decryptedFiles={reviewableFiles ?? NO_FILES}
                         />
-                        <CodeRunHistory runs={priorRuns} />
+                        <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
                         <LockedNav isVisible={isLocked} nav={nav.locked} />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}
@@ -141,15 +147,17 @@ type LockedPhaseProps = {
     isVisible: boolean
     job: NonNullable<LatestJobForStudy>
     onDecrypted: (files: JobFileInfo[]) => void
+    onKeyAccepted: (privateKey: string) => void
 }
 
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
+const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted, onKeyAccepted }) => {
     if (!isVisible) return null
     return (
         <CodeRunKeyForm
             job={job}
             description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
             onDecrypted={onDecrypted}
+            onKeyAccepted={onKeyAccepted}
         />
     )
 }

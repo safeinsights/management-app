@@ -30,7 +30,7 @@ describe('DecryptAndViewOutputs', () => {
     })
 
     it('renders the code run key form with the view-again copy', async () => {
-        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} priorRuns={[]} isVisible />)
 
         await screen.findByRole('button', { name: 'View files' })
 
@@ -44,7 +44,7 @@ describe('DecryptAndViewOutputs', () => {
     // Otherwise a run with nothing to decrypt asks for a key that could never open anything
     // (OTTER-524).
     it('renders nothing when the job holds no artifact a key could open', async () => {
-        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible={false} />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} priorRuns={[]} isVisible={false} />)
 
         expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
@@ -52,7 +52,7 @@ describe('DecryptAndViewOutputs', () => {
 
     it('replaces the form with the output files table after a successful decrypt', async () => {
         const privateKeyPem = await readTestSupportFile('private_key.pem')
-        renderWithProviders(<DecryptAndViewOutputs job={job} isVisible />)
+        renderWithProviders(<DecryptAndViewOutputs job={job} priorRuns={[]} isVisible />)
 
         await screen.findByRole('button', { name: 'View files' })
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })

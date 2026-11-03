@@ -497,13 +497,14 @@ type PriorCodeRunOptions = {
     ranAt: Date
     outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
     decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+    feedback?: { authorId: string; text: string }
 }
 
 // An earlier, already-reviewed code run. Its id and dates sit before `ranAt`, so neither the
 // createdAt nor the v7-id ordering of "latest job" picks it over the study's current run.
 export const insertTestPriorCodeRun = async (
     studyId: string,
-    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED' }: PriorCodeRunOptions,
+    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED', feedback }: PriorCodeRunOptions,
 ) => {
     const submittedAt = new Date(ranAt.getTime() - 60_000)
     const job = await db
@@ -519,5 +520,21 @@ export const insertTestPriorCodeRun = async (
             { studyJobId: job.id, status: decision, createdAt: new Date(ranAt.getTime() + 60_000) },
         ])
         .execute()
+    if (feedback) {
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId,
+                studyJobId: job.id,
+                authorId: feedback.authorId,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: decision === 'FILES-APPROVED' ? 'APPROVE' : 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson(feedback.text)),
+                round: 1,
+                createdAt: new Date(ranAt.getTime() + 60_000),
+            })
+            .execute()
+    }
     return job
 }

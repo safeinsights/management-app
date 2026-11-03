@@ -64,6 +64,44 @@ describe('SecurityKeyFields', () => {
         expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
     })
 
+    it('hands over the accepted key only after this job decrypts', async () => {
+        const onKeyAccepted = vi.fn()
+        const privateKey = await readTestSupportFile('private_key.pem')
+        renderWithProviders(
+            <SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} onKeyAccepted={onKeyAccepted} />,
+        )
+        await screen.findByRole('button', { name: 'View' })
+
+        enterKey('not-a-real-key')
+        clickView()
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(onKeyAccepted).not.toHaveBeenCalled()
+
+        enterKey(privateKey)
+        clickView()
+
+        await waitFor(() => expect(onKeyAccepted).toHaveBeenCalledWith(privateKey.trim()))
+        expect(onDecrypted).toHaveBeenCalled()
+    })
+
+    // A code run history row sits among others, so it neither grabs focus nor repeats the help.
+    it('can leave focus alone and drop the lost-key help', async () => {
+        renderWithProviders(
+            <SecurityKeyFields
+                job={job}
+                type="reviewer"
+                onDecrypted={onDecrypted}
+                autoFocus={false}
+                withLostKeyHelp={false}
+            />,
+        )
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('textbox')).not.toHaveFocus()
+        expect(screen.queryByRole('button', { name: /lost your key/i })).toBeNull()
+    })
+
     it('labels the button as the caller asks and still decrypts', async () => {
         renderWithProviders(
             <SecurityKeyFields job={job} type="reviewer" buttonLabel="View files" onDecrypted={onDecrypted} />,
