@@ -263,8 +263,8 @@ describe('pinned backfill rule', () => {
         const pairs = JOB_STATUSES.flatMap((from) => JOB_STATUSES.map((to) => ({ from, to })))
         const { rows } = await sql<{ effect: string }>`
             SELECT job_status_effect(pair.from_status, pair.to_status) AS effect
-            FROM jsonb_to_recordset(${JSON.stringify(pairs.map(({ from, to }) => ({ from_status: from, to_status: to })))}::jsonb)
-                WITH ORDINALITY AS pair(from_status text, to_status text, position bigint)
+            FROM unnest(${pairs.map(({ from }) => from)}::text[], ${pairs.map(({ to }) => to)}::text[])
+                WITH ORDINALITY AS pair(from_status, to_status, position)
             ORDER BY pair.position
         `.execute(db)
 
