@@ -47,38 +47,23 @@ export const studyProposalFormSchema = step1FieldsObject.extend({
     description: z.string().optional(),
 })
 
-export const codeFilesSchema = z
-    .object({
-        mainCodeFile: z.union([z.instanceof(File, { error: 'Main code file is required' }), z.null()]).refine(
-            (file) => {
-                if (file === null) return false
-                return /\.(R|r|rmd|py|ipynb)$/i.test(file.name)
-            },
-            {
-                error: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
-            },
-        ),
-        additionalCodeFiles: z
-            .array(z.instanceof(File))
-            .max(10, { error: 'No more than 10 code files are allowed.' })
-            .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
-                error: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
-            }),
-    })
-    .superRefine((data, ctx) => {
-        const totalSize = [data.mainCodeFile, ...data.additionalCodeFiles].reduce(
-            (sum, file) => sum + (file ? file.size : 0),
-            0,
-        )
-
-        if (totalSize > 10 * 1024 * 1024) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'The total size of all documents must not exceed 10 MB, please adjust your files accordingly.',
-                path: ['totalFileSize'],
-            })
-        }
-    })
+export const codeFilesSchema = z.object({
+    mainCodeFile: z.union([z.instanceof(File, { error: 'Main code file is required' }), z.null()]).refine(
+        (file) => {
+            if (file === null) return false
+            return /\.(R|r|rmd|py|ipynb)$/i.test(file.name)
+        },
+        {
+            error: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
+        },
+    ),
+    additionalCodeFiles: z
+        .array(z.instanceof(File))
+        .max(10, { error: 'No more than 10 code files are allowed.' })
+        .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
+            error: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
+        }),
+})
 
 export const ideFilesSchema = z.object({
     stepIndex: z.number(),

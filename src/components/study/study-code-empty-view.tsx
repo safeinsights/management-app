@@ -151,9 +151,6 @@ export function StudyCodeEmptyView({
                                 <Text size="xs" c="dimmed">
                                     {ACCEPTED_FILE_FORMATS_TEXT}
                                 </Text>
-                                <Text size="xs" c="dimmed">
-                                    10MB max
-                                </Text>
                                 <UploadFilesButton openRef={openRef} disabled={isUploadDisabled} />
                             </Stack>
                         </Box>
