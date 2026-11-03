@@ -22,6 +22,7 @@ const envSchema = z.object({
     TEST_DATA_BUCKET_NAME: z.string().optional(),
     ATHENA_RESULTS_BUCKET_NAME: z.string().optional(),
     JOB_QUEUE_URL: z.string().optional(),
+    JOB_WORKER: z.string().optional(),
     CODE_BUILD_REPOSITORY_DOMAIN: z.string().optional(),
     CONTAINERIZER_PROJECT_NAME: z.string().optional(),
     SCANNER_PROJECT_NAME: z.string().optional(),
