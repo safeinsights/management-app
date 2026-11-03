@@ -1,9 +1,10 @@
 'use client'
 
-import { Anchor, Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { FC, useId } from 'react'
 import { LocalDateTime } from '@/components/local-date-time'
+import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
 
@@ -30,16 +31,14 @@ export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
                 <Title order={3} fz="md" fw={fontWeight.regular} c={semanticColor('text.secondary')}>
                     Code run history ({runs.length})
                 </Title>
-                <Anchor
-                    component="button"
-                    type="button"
-                    fw={fontWeight.bold}
+                <CollapseToggleLink
+                    label={isOpen ? 'Hide' : 'View'}
+                    isExpanded={isOpen}
                     onClick={toggle}
-                    aria-expanded={isOpen}
-                    aria-controls={listId}
-                >
-                    {isOpen ? 'Hide' : 'View'}
-                </Anchor>
+                    controls={listId}
+                    withChevron={false}
+                    size="md"
+                />
             </Group>
             <Collapse in={isOpen} id={listId}>
                 <Stack gap="md" pt="lg">

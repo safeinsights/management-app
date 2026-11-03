@@ -5,6 +5,7 @@ import { throwNotFound } from '@/lib/errors'
 import { currentDb } from '@/server/request-context'
 import { FileType } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
 
 export async function getStudyJobInfo(studyJobId: string) {
     return await currentDb()
@@ -102,20 +103,13 @@ export type PriorCodeRun = Awaited<ReturnType<typeof priorCodeRunsForStudy>>[num
 export async function priorCodeRunsForStudy(studyId: string, latestJobId: string) {
     return await currentDb()
         .selectFrom('studyJob')
-        .innerJoin(
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select((eb) => ['jobStatusChange.studyJobId', eb.fn.max('jobStatusChange.createdAt').as('ranAt')])
-                    .where('jobStatusChange.status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE'])
-                    .groupBy('jobStatusChange.studyJobId')
-                    .as('run'),
-            (join) => join.onRef('run.studyJobId', '=', 'studyJob.id'),
-        )
-        .select(['studyJob.id', 'run.ranAt'])
+        .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+        .select((eb) => ['studyJob.id', eb.fn.max('jobStatusChange.createdAt').as('ranAt')])
         .where('studyJob.studyId', '=', studyId)
         .where('studyJob.id', '!=', latestJobId)
-        .orderBy('run.ranAt', 'desc')
+        .where('jobStatusChange.status', 'in', OUTPUTS_REVIEWABLE_JOB_STATUSES)
+        .groupBy('studyJob.id')
+        .orderBy('ranAt', 'desc')
         .orderBy('studyJob.id', 'desc')
         .execute()
 }
