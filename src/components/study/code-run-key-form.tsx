@@ -5,7 +5,7 @@ import { FC } from 'react'
 import { LocalDateTime } from '@/components/local-date-time'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { StudyJobStatus } from '@/database/types'
-import { codeRunEndedAt } from '@/lib/study-job-status'
+import { codeRunEndedAt } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
