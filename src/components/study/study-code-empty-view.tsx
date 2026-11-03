@@ -2,7 +2,7 @@ import { useRef, type FC } from 'react'
 import { Anchor, Box, Divider, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'
-import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { ACCEPTED_FILE_FORMATS_TEXT, MAX_UPLOAD_FILE_TEXT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeControl } from './launch-ide-control'
 import { LaunchProgress } from './launch-progress'
@@ -150,6 +150,9 @@ export function StudyCodeEmptyView({
                                 <Text fw={fontWeight.semibold}>Drop your files</Text>
                                 <Text size="xs" c="dimmed">
                                     {ACCEPTED_FILE_FORMATS_TEXT}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {MAX_UPLOAD_FILE_TEXT}
                                 </Text>
                                 <UploadFilesButton openRef={openRef} disabled={isUploadDisabled} />
                             </Stack>
