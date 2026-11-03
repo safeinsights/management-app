@@ -387,7 +387,8 @@ describe('Request Study Actions', () => {
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 
-        expect(visibleWhenSent).toEqual([true])
+        // The review and the two proposal emails (OTTER-855) all leave after the commit.
+        expect(visibleWhenSent).toEqual([true, true, true])
     })
 
     it('submission flow works with Python language', async () => {
@@ -465,6 +466,27 @@ describe('Request Study Actions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
         expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    // The worker reads the audit rows the app writes in after(), so the resubmission is decided here.
+    it('finalizeStudySubmissionAction queues no Study Agreement request on resubmission', async () => {
+        const studyId = await submitDraftProposal('sla-once-queued')
+        const queue = stubJobQueue()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const emails = queue
+            .commandCalls(SendMessageCommand)
+            .map((call) => JSON.parse(call.args[0].input.MessageBody!))
+            .filter((message) => message.job === 'study-email')
+            .map((message) => message.payload.email)
+        expect(emails).toEqual([
+            'sendStudyProposalEmails',
+            'sendStudyAgreementPreparationEmail',
+            'sendStudyProposalEmails',
+        ])
     })
 
     it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
@@ -1208,8 +1230,7 @@ describe('Request Study Actions', () => {
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             const result = await getDraftStudyAction({ studyId })
             const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
-            expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
-            expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
+            expect(permissionDenied).toBe('in getDraftStudyAction action; cannot view Study.')
         })
 
         // The page header eyebrow reads submittingLabName. Before OTTER-619 this select carried the
@@ -2542,8 +2563,13 @@ describe('getDraftStudyAction subject (MA-6)', () => {
         const result = await getDraftStudyAction({ studyId })
         const denied = (result as { error: { permission_denied: string } }).error.permission_denied
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
         expect(denied).not.toContain('Confidential research question')
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(studyId)
+        expect(warning).not.toContain('Confidential draft title')
+        expect(warning).not.toContain('Confidential research question')
     })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { MultiSelect, Select, TextInput } from '@mantine/core'
+import { Checkbox, MultiSelect, Select, TextInput } from '@mantine/core'
 import { z } from 'zod'
-import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { describedError, findFieldErrorShownOnce, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { useForm, zodResolver } from '@/common'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 
@@ -197,6 +197,7 @@ describe('server-set errors survive a blur', () => {
         await user.tab()
 
         expect(screen.getByText('Incorrect password.')).toBeInTheDocument()
+        expect(describedError(screen.getByLabelText('Password'))).toHaveTextContent('Incorrect password.')
     })
 
     it('drops the server error once the user edits the value', async () => {
@@ -209,5 +210,127 @@ describe('server-set errors survive a blur', () => {
         await user.type(screen.getByLabelText('Password'), 'x')
 
         expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument()
+    })
+})
+
+describe('error icon from the shared useForm', () => {
+    const titleSchema = z.object({ title: z.string().trim().min(1, { error: 'Enter a title.' }) })
+
+    type Options = { withError?: boolean; withFocus?: boolean }
+
+    type HarnessProps = { options?: Options; override?: boolean; enhance?: boolean }
+
+    function IconHarness({ options, override, enhance }: HarnessProps) {
+        const form = useForm({
+            initialValues: { title: '' },
+            validate: zodResolver(titleSchema),
+            enhanceGetInputProps: ({ inputProps }) =>
+                enhance && inputProps.error ? { error: 'Enhancer says no.' } : {},
+        })
+        // Plain text, so a test can tell the caller's error from the shared wrap's.
+        const ownError = override && form.errors.title ? 'Caller says no.' : undefined
+
+        return (
+            <>
+                <TextInput
+                    label="Title"
+                    {...form.getInputProps('title', options)}
+                    {...(override ? { error: ownError } : {})}
+                />
+                <button type="button" onClick={() => form.setFieldError('title', 'Server says no.')}>
+                    reject
+                </button>
+                <button type="button" onClick={() => form.setFieldError('title', true)}>
+                    flag
+                </button>
+            </>
+        )
+    }
+
+    it('wraps a blur error in the icon and keeps the aria wiring', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness />)
+
+        await user.click(screen.getByLabelText('Title'))
+        await user.tab()
+        await screen.findByText('Enter a title.')
+
+        const input = screen.getByLabelText('Title')
+        expect(input).toHaveAttribute('aria-invalid', 'true')
+        expect(describedError(input)).toHaveTextContent('Enter a title.')
+    })
+
+    it('shows no error for a field read with withError false', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness options={{ withError: false }} />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        expect(screen.queryByText('Server says no.')).not.toBeInTheDocument()
+        expect(screen.getByLabelText('Title')).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('wraps the error on a field that has no blur handler', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness options={{ withFocus: false }} />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        expect(describedError(screen.getByLabelText('Title'))).toHaveTextContent('Server says no.')
+    })
+
+    it('lets an error set after the spread win, so it shows one time', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness override />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        expect(screen.getByText('Caller says no.')).toBeInTheDocument()
+        expect(screen.queryByText('Server says no.')).not.toBeInTheDocument()
+        expect(describedError(screen.getByLabelText('Title'))).toBeUndefined()
+    })
+
+    it("keeps the error the caller's own enhancer returns", async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness enhance />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        expect(screen.getByText('Enhancer says no.')).toBeInTheDocument()
+        expect(screen.queryByText('Server says no.')).not.toBeInTheDocument()
+        expect(describedError(screen.getByLabelText('Title'))).toBeUndefined()
+    })
+
+    it('passes a boolean error through as invalid with no message', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<IconHarness />)
+
+        await user.click(screen.getByRole('button', { name: 'flag' }))
+
+        const input = screen.getByLabelText('Title')
+        expect(input).toHaveAttribute('aria-invalid', 'true')
+        expect(input).not.toHaveAttribute('aria-describedby')
+    })
+
+    it('wraps a checkbox error in the icon', async () => {
+        function CheckboxHarness() {
+            const form = useForm({ initialValues: { accept: false } })
+
+            return (
+                <>
+                    <Checkbox label="Accept" {...form.getInputProps('accept', { type: 'checkbox' })} />
+                    <button type="button" onClick={() => form.setFieldError('accept', 'Accept to continue.')}>
+                        reject
+                    </button>
+                </>
+            )
+        }
+
+        const user = userEvent.setup()
+        renderWithProviders(<CheckboxHarness />)
+
+        await user.click(screen.getByRole('button', { name: 'reject' }))
+
+        await findFieldErrorShownOnce('Accept to continue.')
     })
 })

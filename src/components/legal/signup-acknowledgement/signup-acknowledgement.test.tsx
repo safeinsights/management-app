@@ -1,4 +1,4 @@
-import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
+import { describedError, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import {
     AcknowledgementCheckbox,
@@ -62,6 +62,16 @@ describe('AcknowledgementCheckbox', () => {
         const root = screen.getByRole('checkbox').closest<HTMLElement>('.mantine-Checkbox-root')
         expect(root?.style.getPropertyValue('--checkbox-color')).toBe('var(--si-color-surface-selected)')
         expect(root?.style.getPropertyValue('--checkbox-radius')).toBe('var(--mantine-radius-xs)')
+    })
+
+    it('shows its error with the error icon and points the checkbox at it', () => {
+        renderWithProviders(
+            <AcknowledgementCheckbox label="I agree" checked={false} onChange={vi.fn()} error="Agree to continue." />,
+        )
+
+        const checkbox = screen.getByRole('checkbox')
+        expect(checkbox).toHaveAttribute('aria-invalid', 'true')
+        expect(describedError(checkbox)).toHaveTextContent('Agree to continue.')
     })
 
     // No label means there is nothing to agree to — an org with no participation agreement, say — so

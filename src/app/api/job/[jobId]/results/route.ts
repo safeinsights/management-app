@@ -120,9 +120,9 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
 
     if (announcement === 'announced') {
         if (outcome === 'JOB-ERRORED') {
-            onJobErrored({ studyId: info.studyId })
+            await onJobErrored({ studyId: info.studyId })
         } else {
-            onRunCompleted({ studyId: info.studyId })
+            await onRunCompleted({ studyId: info.studyId })
         }
     }
 

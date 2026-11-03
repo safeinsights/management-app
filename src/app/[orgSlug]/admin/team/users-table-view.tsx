@@ -5,6 +5,7 @@ import { Flex, Text } from '@mantine/core'
 import { DataTable } from 'mantine-datatable'
 import { InfoIcon } from '@phosphor-icons/react'
 import dayjs from 'dayjs'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import { InfoTooltip } from '@/components/tooltip'
 import { UserAvatar } from '@/components/user-avatar'
 import type { OrgUserReturn } from '@/server/actions/org.actions'
@@ -67,6 +68,7 @@ export function UsersTableView({ users, sort, onSortChange, fetching, renderPerm
             minHeight={100}
             rowBackgroundColor={() => 'white'}
             onSortStatusChange={onSortChange}
+            sortIcons={SORT_ICONS}
             columns={[
                 {
                     title: 'Full Name',

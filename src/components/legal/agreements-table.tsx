@@ -8,7 +8,9 @@ import { formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Link } from '@/components/links'
 import { studyAgreementDisplayTitle } from '@/schema/legal-document'
-import { Stack, Text, Tooltip } from '@mantine/core'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
+import { Group, Stack, Text, Tooltip } from '@mantine/core'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import type { Route } from 'next'
 import { useState, type ReactNode } from 'react'
@@ -34,6 +36,7 @@ export const signedAtColumn = <T extends Pick<AgreementRow, 'signedAt'>>(
 ): DataTableColumn<T> => ({
     accessor: 'signedAt',
     title: 'Effective on',
+    width: 136,
     render: (row) => <>{exemptionFor?.(row) ?? formatDayString(row.signedAt)}</>,
 })
 
@@ -42,13 +45,30 @@ export const ackedAtColumn = <T extends Pick<AgreementRow, 'ackedAt'>>(
 ): DataTableColumn<T> => ({
     accessor: 'ackedAt',
     title: 'Acknowledged on',
+    // Over the design's width: with our cell padding the header truncates below this.
+    width: 156,
     render: (row) => <>{exemptionFor?.(row) ?? formatInstantAsUtcDay(row.ackedAt)}</>,
 })
 
+const ViewHeader: FC = () => (
+    <Group component="span" gap="xxs" wrap="nowrap">
+        View
+        <ArrowSquareOutIcon size={14} aria-hidden />
+    </Group>
+)
+
+// The header carries the new-tab icon, so each cell's link drops its own.
+const VersionCell: FC<{ versionId: string | null }> = ({ versionId }) => (
+    <Tooltip label="View PDF in a new tab" events={{ hover: true, focus: true, touch: true }} disabled={!versionId}>
+        <LegalDocumentPdfLink versionId={versionId} withIcon={false} aria-label="View PDF in a new tab" />
+    </Tooltip>
+)
+
 export const versionColumn = <T extends Pick<AgreementRow, 'versionId'>>(): DataTableColumn<T> => ({
     accessor: 'versionId',
-    title: 'View',
-    render: (row) => <LegalDocumentPdfLink versionId={row.versionId} />,
+    title: <ViewHeader />,
+    width: 96,
+    render: (row) => <VersionCell versionId={row.versionId} />,
 })
 
 export const agreementDateColumns = <T extends AgreementRow>(exemptionFor?: Exemption<T>): DataTableColumn<T>[] => [
@@ -79,22 +99,27 @@ export const TruncatedNameCell: FC<{ name: string }> = ({ name }) => (
 export const clampedColumn = <T,>(
     width: string,
     column: DataTableColumn<T> & { noWrap?: never },
+    { minWidth }: { minWidth?: number } = {},
 ): DataTableColumn<T> => ({
     ...column,
     ellipsis: true,
     width,
-    cellsStyle: () => ({ maxWidth: 0 }),
+    cellsStyle: () => ({ maxWidth: 0, minWidth }),
 })
 
 type StudyTitleRow = { studyTitle: string | null; studyId: string }
 
 export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => Route): DataTableColumn<T> =>
-    clampedColumn('35%', {
-        accessor: 'studyTitle',
-        title: 'Study title',
-        sortable: true,
-        render: (row) => <StudyTitleCell title={studyAgreementDisplayTitle(row)} href={hrefFor(row)} />,
-    })
+    clampedColumn(
+        '35%',
+        {
+            accessor: 'studyTitle',
+            title: 'Study title',
+            sortable: true,
+            render: (row) => <StudyTitleCell title={studyAgreementDisplayTitle(row)} href={hrefFor(row)} />,
+        },
+        { minWidth: 220 },
+    )
 
 type BaseProps<T> = {
     label: string
@@ -171,7 +196,6 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
 
     return (
         <DataTable
-            withTableBorder
             highlightOnHover
             horizontalSpacing="md"
             verticalSpacing="sm"
@@ -182,6 +206,7 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
             emptyState={emptyState}
             records={records}
             columns={props.columns}
+            sortIcons={SORT_ICONS}
             {...sortProps}
         />
     )

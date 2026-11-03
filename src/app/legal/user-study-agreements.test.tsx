@@ -262,6 +262,24 @@ describe('UserStudyAgreements', () => {
         await waitFor(() => expect(rowTitles()[0]).toContain(older))
     })
 
+    it('marks the sortable columns with dark caret icons', async () => {
+        await seedAcknowledgedAgreement(`Signed ${faker.string.alpha(6)}`, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+        await waitFor(() => expect(rowTitles()).toHaveLength(1))
+
+        const icons = [
+            within(tableHeader('Study ID')).getByRole('img', { name: 'Sorted descending' }),
+            within(tableHeader('Study title')).getByRole('img', { name: 'Not sorted' }),
+        ]
+        for (const icon of icons) {
+            const svg = icon.querySelector('svg')
+            // Phosphor's viewBox, so these are the dashboard's carets, not the library's default arrows.
+            expect(svg).toHaveAttribute('viewBox', '0 0 256 256')
+            expect(svg).toHaveStyle({ color: '#0d0d0d' })
+        }
+    })
+
     it('sorts by Study ID and Study title only', async () => {
         await seedAcknowledgedAgreement(`Signed ${faker.string.alpha(6)}`, '2026-06-17')
 

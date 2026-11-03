@@ -54,6 +54,43 @@ describe('UserParticipationAgreements', () => {
         expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
+    it('heads the name column "Organization name"', async () => {
+        await seedAcknowledgedAgreement('DOPA', '2026-04-04')
+
+        renderWithProviders(<UserParticipationAgreements type="DOPA" />)
+
+        await waitFor(() => expect(screen.getByRole('columnheader', { name: 'Organization name' })).toBeDefined())
+    })
+
+    it("puts the new-tab icon on the View header and says so in each PDF link's name", async () => {
+        const { org } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
+
+        renderWithProviders(<UserParticipationAgreements type="DOPA" />)
+
+        await waitFor(() => expect(screen.getByText(org.name)).toBeDefined())
+        const header = screen.getByRole('columnheader', { name: 'View' })
+        expect(header.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+
+        const link = screen.getByRole('link', { name: 'View PDF in a new tab' })
+        expect(link).toHaveTextContent(/^PDF$/)
+        expect(link.querySelector('svg')).toBeNull()
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link).toHaveAttribute('rel', 'noreferrer')
+    })
+
+    it.each([
+        ['hovered', (link: HTMLElement) => fireEvent.mouseEnter(link)],
+        ['focused', (link: HTMLElement) => link.focus()],
+    ])('says the PDF opens in a new tab when its link is %s', async (_, reach) => {
+        const { org } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
+
+        renderWithProviders(<UserParticipationAgreements type="DOPA" />)
+
+        await waitFor(() => expect(screen.getByText(org.name)).toBeDefined())
+        reach(screen.getByRole('link', { name: 'View PDF in a new tab' }))
+        await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('View PDF in a new tab'))
+    })
+
     it('shows a long organization name in full in a tooltip, without linking it', async () => {
         const { org } = await seedAcknowledgedAgreement('DOPA', '2026-04-04')
         const name = `${org.name} ${faker.lorem.words(30)}`
@@ -66,7 +103,7 @@ describe('UserParticipationAgreements', () => {
         expect(nameText.closest('a')).toBeNull()
         const cell = nameText.closest('td')
         expect(cell).toHaveClass('mantine-datatable-ellipsis')
-        expect(cell).toHaveStyle({ width: '40%', maxWidth: '0' })
+        expect(cell).toHaveStyle({ width: '100%', maxWidth: '0' })
 
         fireEvent.mouseEnter(nameText)
         await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent(name))
@@ -78,7 +115,7 @@ describe('UserParticipationAgreements', () => {
         renderWithProviders(<UserParticipationAgreements type="DOPA" />)
 
         await waitFor(() => expect(screen.getByText(org.name)).toBeDefined())
-        expect(isSortableHeader('Organization')).toBe(false)
+        expect(isSortableHeader('Organization name')).toBe(false)
         expect(isSortableHeader('Effective on')).toBe(false)
         expect(isSortableHeader('Acknowledged on')).toBe(false)
     })

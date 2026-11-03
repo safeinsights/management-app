@@ -224,8 +224,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             }
         }
 
-        // Kept out of the middleware: that output is serialized into permission_denied and would
-        // leak the title to anyone who guessed a study id (OTTER-724 / MA-6).
+        // Read here, after the check, rather than widening the shared study subject.
         const submittedTitle =
             'title' in snapshotFields
                 ? (snapshotFields.title as string | null)
