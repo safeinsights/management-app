@@ -47,24 +47,6 @@ export const studyProposalFormSchema = step1FieldsObject.extend({
     description: z.string().optional(),
 })
 
-export const codeFilesSchema = z.object({
-    mainCodeFile: z.union([z.instanceof(File, { error: 'Main code file is required' }), z.null()]).refine(
-        (file) => {
-            if (file === null) return false
-            return /\.(R|r|rmd|py|ipynb)$/i.test(file.name)
-        },
-        {
-            error: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
-        },
-    ),
-    additionalCodeFiles: z
-        .array(z.instanceof(File))
-        .max(10, { error: 'No more than 10 code files are allowed.' })
-        .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
-            error: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
-        }),
-})
-
 export const ideFilesSchema = z.object({
     stepIndex: z.number(),
     createdStudyId: z.string().nullable(),
@@ -72,12 +54,8 @@ export const ideFilesSchema = z.object({
     ideFiles: z.array(z.string()),
 })
 
-export const StudyProposalActionSchema = z.intersection(
-    z.intersection(studyProposalFormSchema, codeFilesSchema),
-    ideFilesSchema,
-)
+export const StudyProposalActionSchema = z.intersection(studyProposalFormSchema, ideFilesSchema)
 
-export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,
