@@ -2,7 +2,7 @@ import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.help
 import { JOB_HISTORIES } from '@/tests/unit/job-histories'
 import { legacyProjectStudyState } from '@/tests/unit/legacy-study-state'
 import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
-import { backfillStudyJobState } from '@/database/migrations/1787900000000_study_job_current_status'
+import { backfillStudyJobState } from '@/database/migrations/1793742916584_study_job_current_status'
 import type { Kysely } from 'kysely'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { projectStudyState } from './state'

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 // Repairs current_status, round and status_changed_at of hand-edited jobs with the backfill of migration
-// 1787900000000 (OTTER-973). Idempotent, not a deploy step: the migration's triggers keep inserted rows right.
+// 1793742916584 (OTTER-973). Idempotent, not a deploy step: the migration's triggers keep inserted rows right.
 // Usage: pnpm exec tsx bin/recompute-job-state.ts [--study <studyId>] [--dry-run], where --dry-run only prints.
 import { db } from '@/database'
 import { recomputeJobStates } from '@/database/job-status-writer'

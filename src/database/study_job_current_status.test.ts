@@ -12,7 +12,7 @@ import {
     backfillReplay,
     backfillStudyJobState,
     type BackfillRow,
-} from './migrations/1787900000000_study_job_current_status'
+} from './migrations/1793742916584_study_job_current_status'
 import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 const BASE = new Date('2026-01-01T00:00:00Z').getTime()

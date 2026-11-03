@@ -5,7 +5,7 @@ import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
 import { decideJobTransition, type JobActor, type JobStatus, type TransitionRefusal } from '../lib/job-status-rules'
-import { backfillStudyJobState } from './migrations/1787900000000_study_job_current_status'
+import { backfillStudyJobState } from './migrations/1793742916584_study_job_current_status'
 
 type Executor = Kysely<DB> | Transaction<DB>
 

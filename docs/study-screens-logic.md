@@ -523,7 +523,7 @@ The writer locks the study row, then the job row, reads the job's current status
 `now()` is fixed for a whole transaction, so two writes in one transaction would tie;
 `clock_timestamp()` keeps rows in write order.
 
-The database keeps the job columns. Migration `1787900000000` filled them by replaying each job's log
+The database keeps the job columns. Migration `1793742916584` filled them by replaying each job's log
 (`backfillReplay`, which orders rows that tie by lifecycle rank and alternates tied submissions and
 change requests). It then installed two triggers. `keep_study_job_state` applies each new
 `jobStatusChange` row to its job as the replay would: the first row of a job and every `move` set
