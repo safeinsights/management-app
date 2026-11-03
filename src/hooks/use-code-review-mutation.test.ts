@@ -13,13 +13,14 @@ import {
     mockSessionWithTestData,
     renderHook,
     waitFor,
+    waitForPendingMutations,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
 import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
-import { useCodeReviewMutation } from './use-code-review-mutation'
+import { useCodeReviewMutation, type SubmitCodeReviewArgs } from './use-code-review-mutation'
 import type { CodeReviewCriteria } from './use-code-review-evaluation-map'
 
 vi.mock('@hocuspocus/provider', async () => {
@@ -37,6 +38,8 @@ const validCriteria: CodeReviewCriteria = {
     agreementCompliance: 'yes',
     privacyProtection: 'yes',
 }
+
+const approval: SubmitCodeReviewArgs = { decision: 'approve', feedback: validFeedback, criteria: validCriteria }
 
 const setApprovedStudyAndCodeSubmitted = async () => {
     const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -74,7 +77,7 @@ describe('useCodeReviewMutation', () => {
         expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
+            result.current.submitReview(approval)
         })
         // Status lands only once the action has resolved. isSubmitting is also true while the
         // request is in flight, so the lock has to still be on after that write.
@@ -157,7 +160,7 @@ describe('useCodeReviewMutation', () => {
         const handle = constructed[0]
 
         await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
+            result.current.submitReview(approval)
         })
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
@@ -169,5 +172,66 @@ describe('useCodeReviewMutation', () => {
         expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
         expect(handle.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    it('a double submit records one decision and shows no failure toast', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const { result } = renderHook(
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await waitFor(() => expect(constructed).toHaveLength(1))
+        const handle = constructed[0]
+
+        // No render between the two calls, as with both clicks of a double-click.
+        await act(async () => {
+            result.current.submitReview(approval)
+            result.current.submitReview(approval)
+        })
+        await waitForPendingMutations()
+
+        const decisions = await db
+            .selectFrom('studyReviewComment')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'DECISION')
+            .execute()
+        expect(decisions).toHaveLength(1)
+        expect(notifications.show).not.toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+    })
+
+    it('a failed submit lets the reviewer try again', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        const decided = await db
+            .insertInto('jobStatusChange')
+            .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const { result } = renderHook(
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitReview(approval)
+        })
+        await waitForPendingMutations()
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        await db.deleteFrom('jobStatusChange').where('id', '=', decided.id).execute()
+
+        await act(async () => {
+            result.current.submitReview(approval)
+        })
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' })),
+        )
     })
 })
