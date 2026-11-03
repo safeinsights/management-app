@@ -244,6 +244,9 @@ One-time: `pnpm install` and `pnpm exec playwright install`. With Postgres (`loc
 
 The first run takes a few minutes. Later runs are fast: the app is rebuilt only when app code changed. Every run starts on a fresh, seeded test database and uses CI's timeouts.
 
+To have Claude Code use docker e2e tests, see the "Claude Code integration" section of
+[PR #1281](https://github.com/safeinsights/management-app/pull/1281).
+
 #### Results
 
 Failures leave a screenshot, `error-context.md` and `trace.zip` under `test-results/e2e/<test>/`. Open a trace with `pnpm exec playwright show-trace <path>`. In Docker mode the app server's output is in `test-results/e2e-server.log`.
