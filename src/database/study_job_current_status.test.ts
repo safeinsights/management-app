@@ -328,13 +328,12 @@ describe('a job that older code touched after a rollback', () => {
         expect(await columnsOf(next)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 2 })
     })
 
-    it('opens the next round once the recompute script stored a decision older code recorded', async () => {
+    it('opens the next round after older code recorded the decision', async () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
         await writeJobStatus(db, job.id, 'RUN-COMPLETE', { actor: 'qa' })
         await insertLegacyStatus(job.id, 'FILES-APPROVED')
 
-        await recomputeJobStates(db, { studyId: study.id })
         const next = await getOrCreateCurrentRoundJob(db, study.id)
 
         expect(next).toMatchObject({ created: true })
@@ -382,14 +381,12 @@ describe('a job that older code touched after a rollback', () => {
         expect((await columnsOf(jobId)).currentStatus).toBe('FILES-REJECTED')
     })
 
-    it('accepts a resubmit once the recompute script stored a change request older code recorded', async () => {
+    it('accepts a resubmit after older code recorded the change request', async () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
         await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
         await insertLegacyStatus(job.id, 'CODE-CHANGES-REQUESTED')
         const { user } = await insertTestUser({ org: await insertTestOrg() })
-
-        await recomputeJobStates(db, { studyId: study.id })
 
         await markCodeSubmitted(db, { studyJobId: job.id, userId: user.id })
 
