@@ -32,7 +32,7 @@ export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
                     Code run history ({runs.length})
                 </Title>
                 <CollapseToggleLink
-                    label={isOpen ? 'Hide' : 'View'}
+                    label={isOpen ? 'Hide code run history' : 'View code run history'}
                     isExpanded={isOpen}
                     onClick={toggle}
                     controls={listId}
