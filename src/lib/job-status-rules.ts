@@ -147,7 +147,7 @@ type DecisionInput = {
     from: JobStatus | null
     to: JobStatus
     actor: JobActor
-    // The job's newest row, in replay order.
+    // The job's newest row, by createdAt, then id.
     newestStatus: JobStatus | null
     hasStatus: (status: JobStatus) => boolean
 }

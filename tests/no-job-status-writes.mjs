@@ -70,7 +70,8 @@ const noJobStatusWrites = {
     meta: {
         type: 'problem',
         docs: {
-            description: 'Write job statuses and open study jobs only through the job status writer',
+            description:
+                'Write job statuses, open or delete study jobs and set job state columns only through the job status writer',
             recommended: false,
         },
         schema: [],
