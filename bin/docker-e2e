@@ -235,6 +235,14 @@ published_port() {
 host_session=false
 if [ -n "$session" ] && [ -n "$(published_port "$session" 4100)" ]; then host_session=true; fi
 
+# --up --host starts Postgres and SeaweedFS with host ports before the session container. Another
+# run in that window would recreate them without the ports and break the starting session.
+if [ -z "$session" ] && [ -n "$(published_port "$(running_container db-e2e)" 5432)" ]; then
+    echo "Error: a host-browser session is starting for this checkout." >&2
+    echo "       Wait for it, or run ./bin/docker-e2e --down if it was killed." >&2
+    exit 1
+fi
+
 if [ "$action" = exec ] && [ -z "$session" ]; then
     echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up." >&2
     exit 1
