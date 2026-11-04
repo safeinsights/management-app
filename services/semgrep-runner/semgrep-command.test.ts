@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { describe, expect, it } from '../../tests/unit.helpers'
-import { spawnCommand } from './semgrep-command.ts'
+import { semgrepEnv, spawnCommand } from './semgrep-command.ts'
 
 const node = (script: string) => ({ file: process.execPath, args: ['-e', script] })
 const run = (script: string, signal = new AbortController().signal) =>
@@ -101,5 +101,15 @@ describe('spawnCommand', () => {
         } finally {
             fs.rmSync(dir, { recursive: true, force: true })
         }
+    })
+})
+
+describe('semgrepEnv', () => {
+    it("drops Node's library dir from the library path and keeps the rest", () => {
+        expect(semgrepEnv({ HOME: '/tmp', LD_LIBRARY_PATH: '/var/lang/lib:/lib64:/usr/lib64' })).toEqual({
+            HOME: '/tmp',
+            LD_LIBRARY_PATH: '/lib64:/usr/lib64',
+        })
+        expect(semgrepEnv({ HOME: '/tmp' })).toEqual({ HOME: '/tmp' })
     })
 })
