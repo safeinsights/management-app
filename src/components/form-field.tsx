@@ -170,7 +170,7 @@ const FieldFooterRow: FC<{
             justify={error ? 'space-between' : 'flex-end'}
             align="flex-start"
             gap="xs"
-            mt="xxs"
+            mt="xs"
             wrap="nowrap"
             mih={ERROR_LINE_MIN_HEIGHT}
         >
