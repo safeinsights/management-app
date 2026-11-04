@@ -80,9 +80,9 @@ export default function UserStudiesDashboard() {
 
     if (!session) {
         return (
-            <Stack p="xxl" gap="xxl">
+            <Stack px="md" py="xxl" gap="xxl">
                 <DashboardHeaderSkeleton />
-                <Paper shadow="xs" p="xxl">
+                <Paper shadow="xs" px="lg" py="xxl">
                     <TableSkeleton paperWrapper={false} />
                 </Paper>
             </Stack>
@@ -91,13 +91,15 @@ export default function UserStudiesDashboard() {
 
     const isReviewer = audience === 'reviewer'
 
+    // Narrower page and card gutters than other pages give the studies table its 928px at a
+    // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack p="xxl" gap="xxl">
+        <Stack px="md" py="xxl" gap="xxl">
             <PageHeader title="My studies" />
             <JoinedOrgBanner />
             <Stack gap="md">
                 <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
-                <Paper shadow="xs" p="xxl">
+                <Paper shadow="xs" px="lg" py="xxl">
                     <StudiesTable
                         key={audience}
                         audience={audience}

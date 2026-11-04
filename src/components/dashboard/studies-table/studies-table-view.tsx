@@ -104,7 +104,7 @@ export function StudiesTableView({
 
     if (paperWrapper) {
         return (
-            <Paper shadow="xs" p="xxl">
+            <Paper shadow="xs" px="lg" py="xxl">
                 {content}
             </Paper>
         )
