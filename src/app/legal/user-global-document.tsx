@@ -16,7 +16,7 @@ type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocume
 
 type Props = { type: GlobalLegalDocumentType }
 
-// The effective date lives in the document text (SHRMP-367). Acknowledged on is a left join, so it
+// The effective date lives in the document text. Acknowledged on is a left join, so it
 // dashes for a user who reached the page owing this version.
 const DocumentDates: FC<{ document?: GlobalDocument | null }> = ({ document }) => {
     if (!document) return null
@@ -43,7 +43,7 @@ const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; l
     return <LegalMarkdownContent content={document.content} unbounded />
 }
 
-// A markdown document opens with its own title, so the panel would repeat it (SHRMP-367).
+// A markdown document opens with its own title, so the panel would repeat it.
 const panelTitle = (isLoading: boolean, document: GlobalDocument | null | undefined, label: string) =>
     isLoading || document?.format === 'markdown' ? undefined : label
 
