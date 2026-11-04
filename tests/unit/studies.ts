@@ -237,6 +237,35 @@ export const appendCodeResubmission = async (studyJobId: string, after: Date = n
         .execute()
 }
 
+// A lab researcher's submitted code. The code resubmit actions accept it once the reviewer has asked
+// for changes.
+export const insertTestSubmittedCode = async ({
+    lab,
+    researcherId,
+    changesRequested = false,
+}: {
+    lab: MinimalTestOrg
+    researcherId: string
+    changesRequested?: boolean
+}) => {
+    const { study, job } = await insertTestStudyJobData({
+        submittedByOrg: lab,
+        researcherId,
+        jobStatus: 'CODE-SUBMITTED',
+    })
+    if (changesRequested) await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED'])
+    return { study, job }
+}
+
+export const codeResubmissionNoteDraftOf = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .select('codeResubmissionNoteDraft')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+    return study.codeResubmissionNoteDraft
+}
+
 // Explicit timestamps: rows written in one tick tie on createdAt, and v7 ids are not monotonic
 // inside a millisecond, so the order under test would otherwise be luck.
 export const insertTestJobStatuses = async (studyJobId: string, statuses: StudyJobStatus[]) => {

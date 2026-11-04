@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs'
-import { mockClient } from 'aws-sdk-client-mock'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
@@ -19,6 +18,7 @@ import {
     stampStudyOpened,
     studyOpenedAt,
 } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
@@ -966,18 +966,12 @@ describe('Study Job Actions', () => {
 
     describe('regenerateStudyReviewAction', () => {
         // With a queue configured, generation is requested rather than run in-process against the model.
-        const sqsMock = mockClient(SQSClient)
+        let queue: ReturnType<typeof stubJobQueue>
         const enqueuedJobs = () =>
-            sqsMock.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
+            queue.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
 
         beforeEach(() => {
-            sqsMock.reset()
-            sqsMock.on(SendMessageCommand).resolves({})
-            vi.stubEnv('JOB_QUEUE_URL', 'https://sqs.test/jobs')
-        })
-
-        afterEach(() => {
-            vi.unstubAllEnvs()
+            queue = stubJobQueue()
         })
 
         test('clears a failed review row and re-fires generation', async () => {
@@ -1161,9 +1155,14 @@ describe('job subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
 
-        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(job.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(path)
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(job.id)
+        expect(warning).not.toContain(study.title)
+        expect(warning).not.toContain(path)
     })
 
     test('an SI admin outside both orgs can still fetch a code file', async () => {

@@ -2,7 +2,6 @@
 
 import type { FC, ReactNode } from 'react'
 import { semanticColor } from '@/theme/tokens'
-import { InputError } from '@/components/errors'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
 import {
     AcknowledgementCheckbox,
@@ -75,7 +74,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                             {...form.getInputProps('firstName')}
                             label="First name"
                             placeholder="Enter your first name"
-                            error={form.errors.firstName && <InputError error={form.errors.firstName} />}
                         />
 
                         <TextInput
@@ -85,7 +83,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                             {...form.getInputProps('lastName')}
                             label="Last name"
                             placeholder="Enter your last name"
-                            error={form.errors.lastName && <InputError error={form.errors.lastName} />}
                         />
                     </Flex>
                     <PasswordInput
@@ -114,7 +111,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                         key={form.key('confirmPassword')}
                         placeholder="********"
                         {...form.getInputProps('confirmPassword')}
-                        error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
                         // PasswordInput's inner <input> has withAria disabled, so `error` alone
                         // never marks it invalid to assistive tech (OTTER-647).
                         aria-invalid={!!form.errors.confirmPassword || undefined}

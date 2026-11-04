@@ -1,10 +1,5 @@
-import { describe, expect, it } from '@/tests/unit.helpers'
+import { describe, expect, FAMILY_EMOJI, it, NFC_E_ACUTE, NFD_E_ACUTE } from '@/tests/unit.helpers'
 import { countCharacters, overCharacterLimitError } from '@/lib/field-limits'
-
-// Escapes rather than literals, so no assertion depends on how this file is normalized on disk.
-const NFD_E_ACUTE = 'e\u0301'
-const NFC_E_ACUTE = '\u00e9'
-const FAMILY_EMOJI = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}'
 
 describe('countCharacters', () => {
     it('excludes surrounding whitespace and keeps interior whitespace', () => {

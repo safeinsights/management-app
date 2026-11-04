@@ -16,7 +16,7 @@ const MARKDOWN_LIST_COMPONENTS: Components = {
 type Props = {
     content: string
     maxHeight?: number
-    // Skips the scroll area entirely. A full-page reader wants the page to scroll, and a
+    // Skips the box and the scroll area. A full-page reader wants the page to scroll, and a
     // never-scrolling ScrollArea still leaves a focusable dead tab stop.
     unbounded?: boolean
     label?: string
@@ -51,15 +51,11 @@ export const LegalMarkdownContent: FC<Props> = memo(function LegalMarkdownConten
     unbounded,
     label,
 }) {
-    const body = unbounded ? (
-        <DocumentMarkdown content={content} />
-    ) : (
-        <BoundedMarkdown content={content} maxHeight={maxHeight} label={label} />
-    )
+    if (unbounded) return <DocumentMarkdown content={content} />
 
     return (
         <Paper withBorder p="md">
-            {body}
+            <BoundedMarkdown content={content} maxHeight={maxHeight} label={label} />
         </Paper>
     )
 })

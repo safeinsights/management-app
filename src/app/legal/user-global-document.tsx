@@ -10,27 +10,21 @@ import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
 import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchUserGlobalDocumentAction } from '@/server/actions/user-legal.actions'
-import { Stack, Text } from '@mantine/core'
+import { Divider, Text } from '@mantine/core'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>
 
 type Props = { type: GlobalLegalDocumentType }
 
-// Both dates are UTC because both are real instants: on mixed bases an ack can read as a day
-// earlier than the effective date. Acknowledged on is a left join, so it dashes for a user who
-// reached the page owing this version.
+// The effective date lives in the document text. Acknowledged on is a left join, so it
+// dashes for a user who reached the page owing this version.
 const DocumentDates: FC<{ document?: GlobalDocument | null }> = ({ document }) => {
     if (!document) return null
 
     return (
-        <Stack gap="xxs" align="flex-end">
-            <Text fz="sm" c="dimmed">
-                Effective on: {formatInstantAsUtcDay(document.publishedAt)}
-            </Text>
-            <Text fz="sm" c="dimmed">
-                Acknowledged on: {formatInstantAsUtcDay(document.ackedAt)}
-            </Text>
-        </Stack>
+        <Text fz="sm" c="dimmed">
+            Acknowledged on: {formatInstantAsUtcDay(document.ackedAt)}
+        </Text>
     )
 }
 
@@ -45,9 +39,13 @@ const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; l
     if (!document) return <Text c="dimmed">Not available</Text>
     if (document.format === 'pdf') return <PdfLink url={document.url} label={label} />
 
-    // No label: LegalPanel's heading already names it, and unbounded has no scroll region to name.
+    // No label: the document's own title names it, and unbounded has no scroll region to name.
     return <LegalMarkdownContent content={document.content} unbounded />
 }
+
+// A markdown document opens with its own title, so the panel would repeat it.
+const panelTitle = (isLoading: boolean, document: GlobalDocument | null | undefined, label: string) =>
+    isLoading || document?.format === 'markdown' ? undefined : label
 
 export const UserGlobalDocument: FC<Props> = ({ type }) => {
     const label = legalDocumentTypeLabels[type]
@@ -59,7 +57,8 @@ export const UserGlobalDocument: FC<Props> = ({ type }) => {
     if (isError) return <ErrorAlert error={error} />
 
     return (
-        <LegalPanel title={label} aside={<DocumentDates document={data} />}>
+        <LegalPanel title={panelTitle(isLoading, data, label)} aside={<DocumentDates document={data} />}>
+            <Divider mb="lg" />
             <DocumentBody isLoading={isLoading} document={data} label={label} />
         </LegalPanel>
     )

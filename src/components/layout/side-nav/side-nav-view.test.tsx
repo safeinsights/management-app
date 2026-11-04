@@ -81,7 +81,17 @@ describe('SideNavView', () => {
         expect(catalog).toHaveAttribute('target', '_blank')
         expect(catalog).toHaveTextContent('(opens in a new tab)')
         expect(screen.queryByRole('link', { name: /Resource center/ })).toBeNull()
-        expect(screen.getByRole('link', { name: /Support/ })).toHaveAttribute('href', ExternalLinks.support)
+        const support = screen.getByRole('link', { name: 'Support' })
+        expect(support).toHaveAttribute('href', Routes.support)
+        expect(support).not.toHaveAttribute('target')
+    })
+
+    it('marks Support current on the Support page', () => {
+        renderWithProviders(
+            <SideNavView orgs={[]} focusedOrgSlug={null} pathname={Routes.support} unread={NOTHING_UNREAD} />,
+        )
+
+        expect(screen.getByRole('link', { name: 'Support' })).toHaveAttribute('aria-current', 'page')
     })
 
     it('sends the logo to My studies', () => {

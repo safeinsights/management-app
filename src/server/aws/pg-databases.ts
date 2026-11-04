@@ -1,7 +1,7 @@
 import { Signer } from '@aws-sdk/rds-signer'
 import PG from 'pg'
 import { getConfigValue } from '@/server/config'
-import { fromIni } from '@aws-sdk/credential-providers'
+import { awsCredentials } from './clients'
 
 async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {
     const hostPort = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
@@ -13,7 +13,7 @@ async function connectToPgAdmin(database = 'postgres'): Promise<PG.Client> {
         hostname,
         port,
         username,
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+        credentials: awsCredentials(),
     })
 
     const token = await signer.getAuthToken()

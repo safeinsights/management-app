@@ -68,6 +68,11 @@ describe('OutputsFilesSection', () => {
             expect(screen.getByRole('button', { name: 'Download all' })).toBeInTheDocument()
         })
 
+        it('uses the subtle variant', () => {
+            renderSection([buildRow('run.log'), buildRow('results.csv')])
+            expect(screen.getByRole('button', { name: 'Download all' })).toHaveAttribute('data-variant', 'subtle')
+        })
+
         // A CSS-hidden control still takes tab focus, stranding keyboard users.
         it('is absent from the DOM for a single file', () => {
             renderSection([buildRow('run.log')])
