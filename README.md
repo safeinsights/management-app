@@ -247,6 +247,22 @@ The first run takes a few minutes. Later runs are fast: the app is rebuilt only 
 To have Claude Code use docker e2e tests, see the "Claude Code integration" section of
 [PR #1281](https://github.com/safeinsights/management-app/pull/1281).
 
+##### Browsers on your host
+
+To test in WebKit, Firefox, Chrome or Edge, or to watch the browser, keep the app, Postgres and SeaweedFS in Docker and run Playwright on your host. The session publishes them on 127.0.0.1 at free ports, so several checkouts can do this at the same time, and the dev stack, unit tests and the host setup above are not touched.
+
+```bash
+pnpm exec playwright install chromium webkit firefox   # once; global setup always uses Chromium
+./bin/docker-e2e --up --host                           # start the session; prints the app URL
+./bin/docker-e2e --host-run -- tests/signin.spec.ts    # fresh database, then Playwright on your host (Chromium)
+./bin/docker-e2e --host-run -- --project=webkit --headed tests/signin.spec.ts
+./bin/docker-e2e --host-run -- --ui                    # Playwright UI with every host browser
+./bin/docker-e2e --host-exec -- pnpm exec playwright-cli open --browser webkit --headed <app url>
+./bin/docker-e2e --down                                # end the session
+```
+
+`chrome` and `msedge` use the installed Google Chrome and Microsoft Edge. You can also open the printed app URL in any browser and sign in with the test users of the fake sign-in. In this mode the browser in the container cannot load uploads or downloads, so plain runs and `--ui` are refused until `--down`.
+
 #### Results
 
 Failures leave a screenshot, `error-context.md` and `trace.zip` under `test-results/e2e/<test>/`. Open a trace with `pnpm exec playwright show-trace <path>`. In Docker mode the app server's output is in `test-results/e2e-server.log`.
