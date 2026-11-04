@@ -9,8 +9,8 @@ import { RULESET_ENVS } from './protocol.ts'
 // loads the handler with plain Node. Only a real Node process shows that the image will start.
 it('loads the Lambda entry point in plain Node', () => {
     const entry = path.join(path.dirname(fileURLToPath(import.meta.url)), 'index.mjs')
-    const script = `const m = await import(${JSON.stringify(entry)}); process.exit(typeof m.handler === 'function' ? 0 : 1)`
-    const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf-8' })
+    const script = "const m = await import(process.argv[1]); process.exit(typeof m.handler === 'function' ? 0 : 1)"
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', script, entry], { encoding: 'utf-8' })
 
     expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: '' })
 })
