@@ -52,11 +52,9 @@ export function createWebhookHandler<T extends z.ZodType>({
                 return NextResponse.json({ error: 'invalid-payload', issues: error.issues }, { status: 400 })
             }
 
+            // A retry would only be refused again, and transitionJob has already logged the refusal.
             if (error instanceof JobTransitionRefusedError) {
-                return NextResponse.json(
-                    { error: 'transition-refused', from: error.from, to: error.to },
-                    { status: 409 },
-                )
+                return new NextResponse('ok', { status: 200 })
             }
 
             if (error instanceof NotFoundError) {

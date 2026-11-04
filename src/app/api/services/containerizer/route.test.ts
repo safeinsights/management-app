@@ -3,6 +3,7 @@ import * as apiHandler from './route'
 import { db } from '@/database'
 import {
     insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestProposalDecision,
     insertTestStudyData,
     mockSessionWithTestData,
@@ -121,6 +122,20 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     rows = await getStatusRows(jobId)
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
+})
+
+// Like the scan webhook: a retry would only be refused again, so the containerizer gets no 4xx to retry on.
+test('containerizer answers 200 to a report after the outputs decision and writes nothing', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+    await insertTestJobStatuses(jobId, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-REJECTED'])
+    const before = await getStatusRows(jobId)
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-READY' }))
+
+    expect(resp.status).toBe(200)
+    expect(await getStatusRows(jobId)).toHaveLength(before.length)
 })
 
 test('containerizer tells the Data Partner when packaging errors', async () => {
