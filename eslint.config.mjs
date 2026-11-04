@@ -207,7 +207,7 @@ const eslintConfig = [
     },
     {
         files: ['src/**/*.{ts,tsx}'],
-        // The status writer runs in the migrator bundle, which cannot load request-context.
+        // The status writer must stay loadable by the migrator bundle, which cannot load request-context.
         ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/database/job-status-writer.ts'],
         rules: {
             'no-restricted-syntax': [

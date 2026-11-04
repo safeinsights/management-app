@@ -1,6 +1,6 @@
-// The only module that writes job_status_change or opens a study_job (OTTER-973). Seeds, bin scripts and
-// the migrator bundle call it directly, so it imports only kysely, the generated types and src/lib leaf
-// modules, by relative path: `@/database` would pull in `@/server/config`, which that bundle cannot load.
+// The only module that writes job_status_change or opens a study_job (OTTER-973). It imports only kysely,
+// the generated types and src/lib leaf modules, by relative path, so a seed in the migrator bundle can call
+// it: `@/database` would pull in `@/server/config`, which that bundle cannot load.
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'

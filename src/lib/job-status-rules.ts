@@ -1,4 +1,4 @@
-// No imports: the editor service runs this file directly under Node, and the migrator bundle loads it.
+// No imports: the editor service runs this file directly under Node.
 
 export const JOB_STATUSES = [
     'CODE-APPROVED',
