@@ -31,11 +31,21 @@ async function waitForFile(file: string): Promise<string> {
     return fs.readFileSync(file, 'utf-8')
 }
 
-// A grandchild that shares the parent's stdout, as semgrep-core does, and writes its pid once it runs.
-function withGrandchild(marker: string, parentTail: string) {
-    const grandchild = `require('fs').writeFileSync(${JSON.stringify(marker)}, String(process.pid)); setInterval(() => {}, 1000)`
-    return `require('child_process').spawn(process.execPath, ['-e', ${JSON.stringify(grandchild)}], { stdio: 'inherit' }); ${parentTail}`
-}
+// A grandchild that shares the parent's stdout, as semgrep-core does, and writes its pid to argv[1] once
+// it runs. The scripts are constants and the marker path arrives as an argument, so no code is built from data.
+const GRANDCHILD = "require('fs').writeFileSync(process.argv[1], String(process.pid)); setInterval(() => {}, 1000)"
+const PARENT = `
+const [grandchild, marker, then] = process.argv.slice(1)
+require('child_process').spawn(process.execPath, ['-e', grandchild, marker], { stdio: 'inherit' })
+const exitOnceRunning = () => (require('fs').existsSync(marker) ? process.exit(0) : setTimeout(exitOnceRunning, 10))
+if (then === 'exit') exitOnceRunning()
+else setInterval(() => {}, 1000)
+`
+
+const withGrandchild = (marker: string, then: 'exit' | 'stay') => ({
+    file: process.execPath,
+    args: ['-e', PARENT, GRANDCHILD, marker, then],
+})
 
 describe('spawnCommand', () => {
     it('returns the exit code and stdout', async () => {
@@ -72,12 +82,10 @@ describe('spawnCommand', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-'))
         const marker = path.join(dir, 'pid')
         try {
-            const result = await run(
-                withGrandchild(
-                    marker,
-                    `const wait = () => require('fs').existsSync(${JSON.stringify(marker)}) ? process.exit(0) : setTimeout(wait, 10); wait()`,
-                ),
-            )
+            const result = await spawnCommand(withGrandchild(marker, 'exit'), {
+                cwd: os.tmpdir(),
+                signal: new AbortController().signal,
+            })
 
             expect(result).toMatchObject({ code: 0, aborted: false })
             const pid = Number(await waitForFile(marker))
@@ -92,7 +100,10 @@ describe('spawnCommand', () => {
         const marker = path.join(dir, 'pid')
         const controller = new AbortController()
         try {
-            const pending = run(withGrandchild(marker, 'setInterval(() => {}, 1000)'), controller.signal)
+            const pending = spawnCommand(withGrandchild(marker, 'stay'), {
+                cwd: os.tmpdir(),
+                signal: controller.signal,
+            })
             const pid = Number(await waitForFile(marker))
             controller.abort()
 
