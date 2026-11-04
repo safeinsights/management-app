@@ -522,7 +522,7 @@ export async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: 
     await viewStudyDetails(page, studyTitle)
 
     await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
-    await expect(page.getByText(/Decrypt outputs to view code error/i)).toBeVisible()
+    await expect(page.getByText(/Code run errored\. Decrypt to view your outputs and feedback/i)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Security key' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
@@ -540,7 +540,7 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     await viewStudyDetails(page, studyTitle)
 
     await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
-    await expect(page.getByText(/Decrypt to view your outputs/i)).toBeVisible()
+    await expect(page.getByText(/Decrypt to view your outputs and feedback/i)).toBeVisible()
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
     // Pre-decryption: the terminal actions are not in the DOM yet.
