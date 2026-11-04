@@ -253,7 +253,9 @@ To test in WebKit, Firefox, Chrome or Edge, or to watch the browser, keep the ap
 
 ```bash
 pnpm exec playwright install chromium webkit firefox   # once; global setup always uses Chromium
-./bin/docker-e2e --up --host                           # start the session; prints the app URL
+./bin/docker-e2e --host-run                            # whole suite in one command: starts and ends its own session
+./bin/docker-e2e --host-run -- --project='*'           # whole suite in every host browser
+./bin/docker-e2e --up --host                           # or keep a session; prints the app URL
 ./bin/docker-e2e --host-run -- tests/signin.spec.ts    # fresh database, then Playwright on your host (Chromium)
 ./bin/docker-e2e --host-run -- --project=webkit --headed tests/signin.spec.ts
 ./bin/docker-e2e --host-run -- --ui                    # Playwright UI with every host browser

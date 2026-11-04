@@ -28,7 +28,7 @@ HOST_ENV_FILE=test-results/e2e-host.env
 usage() {
     echo "Usage: $0 [--rebuild] [--clean] [--ui] [-- <playwright-args>]"
     echo "       $0 --up [--host] | --exec -- <command...> | --down | --prune | --print-project-name | --help"
-    echo "       $0 --host-run [--rebuild] [-- <playwright-args>] | --host-exec -- <command...>"
+    echo "       $0 --host-run [--rebuild] [--clean] [-- <playwright-args>] | --host-exec -- <command...>"
     echo ""
     echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
     echo "and Chromium. Only the UI port of a session or --ui run is published, on 127.0.0.1 at a free"
@@ -53,10 +53,11 @@ usage() {
     echo "                        The session publishes the app, Postgres and SeaweedFS on 127.0.0.1 at free"
     echo "                        ports and writes them to $HOST_ENV_FILE. The in-container browser"
     echo "                        cannot reach SeaweedFS then, so plain runs and --ui are refused in it."
-    echo "  --host-run            In a --host session: fresh database and app server, then 'playwright test' on"
-    echo "                        this machine. Adds --project=chromium unless the arguments name a --project or"
-    echo "                        --ui. Host-only projects: webkit, firefox, chrome, msedge. One host run per"
-    echo "                        checkout at a time."
+    echo "  --host-run            Fresh database and app server, then 'playwright test' on this machine. Uses"
+    echo "                        the --host session; without a session it starts one and ends it afterwards."
+    echo "                        Adds --project=chromium unless the arguments name a --project or --ui."
+    echo "                        Host-only projects: webkit, firefox, chrome, msedge; --project='*' runs all."
+    echo "                        One host run per checkout at a time."
     echo "  --host-exec -- <cmd>  In a --host session: run a command on this machine with $HOST_ENV_FILE"
     echo "                        loaded, e.g. pnpm exec playwright-cli (its session is named after the project)."
     echo "  --down              Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
@@ -76,6 +77,8 @@ usage() {
     echo "  $0 --up                                   # Start a session"
     echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
     echo "  $0 --down                                 # End the session"
+    echo "  $0 --host-run                             # Whole suite, Playwright + Chromium on this machine"
+    echo "  $0 --host-run -- --project='*'            # Whole suite in every host browser"
     echo "  $0 --up --host                            # Start a session for browsers on this machine"
     echo "  $0 --host-run -- --project=webkit --headed tests/signin.spec.ts"
     echo "  $0 --host-run -- --ui                     # Playwright UI on this machine, every host browser"
@@ -236,6 +239,21 @@ if [ "$action" = exec ] && [ -z "$session" ]; then
 fi
 case $action in
     host-run | host-exec)
+        # Like a plain run without a session: a one-shot --host-run brings its own session and ends it.
+        if [ -z "$session" ] && [ "$action" = host-run ]; then
+            echo "No session is running for this checkout; starting a host-browser session for this run."
+            self="$repo_root/bin/docker-e2e"
+            trap '"$self" --down >/dev/null 2>&1 || true' EXIT
+            trap 'exit 130' INT
+            trap 'exit 143' TERM
+            up_flags=()
+            if [ "$clean" = true ]; then up_flags+=(--clean); fi
+            if [ "$rebuild" = true ]; then up_flags+=(--rebuild); fi
+            "$self" --up --host ${up_flags[@]+"${up_flags[@]}"}
+            status=0
+            "$self" --host-run -- ${extra_args[@]+"${extra_args[@]}"} || status=$?
+            exit "$status"
+        fi
         if [ -z "$session" ]; then
             echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up --host." >&2
             exit 1
