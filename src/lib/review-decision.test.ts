@@ -15,7 +15,6 @@ describe('proposalReviewDecision', () => {
         expect(proposalReviewDecision(study('CHANGE-REQUESTED'))).toBe('NEEDS-CLARIFICATION')
     })
 
-    // Migration 1780300000000 moved the last legacy PENDING-REVIEW rows to APPROVED (OTTER-621, OTTER-973).
     it('reads the decision from the status alone, whatever the timestamps say', () => {
         expect(proposalReviewDecision(study('PENDING-REVIEW', { approvedAt: new Date() }))).toBeUndefined()
         expect(proposalReviewDecision(study('CHANGE-REQUESTED', { approvedAt: new Date() }))).toBe(
