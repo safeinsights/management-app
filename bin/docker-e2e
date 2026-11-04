@@ -22,13 +22,18 @@ sha256_hex() {
 project_hash=$(printf '%s' "$repo_root" | sha256_hex | cut -c1-8)
 project="mgmt-app-e2e-${project_hash}"
 
+# Host-browser mode (--up --host): the published ports for Playwright on the host. Gitignored.
+HOST_ENV_FILE=test-results/e2e-host.env
+
 usage() {
     echo "Usage: $0 [--rebuild] [--clean] [--ui] [-- <playwright-args>]"
-    echo "       $0 --up | --exec -- <command...> | --down | --prune | --print-project-name | --help"
+    echo "       $0 --up [--host] | --exec -- <command...> | --down | --prune | --print-project-name | --help"
+    echo "       $0 --host-run [--rebuild] [-- <playwright-args>] | --host-exec -- <command...>"
     echo ""
     echo "Run the Playwright e2e suite fully in Docker: Postgres, SeaweedFS, the app server, Playwright"
     echo "and Chromium. Only the UI port of a session or --ui run is published, on 127.0.0.1 at a free"
-    echo "port. Containers are removed when the run ends; volumes are kept, so the next run is warm."
+    echo "port (--up --host also publishes the app, Postgres and SeaweedFS for Playwright on this machine)."
+    echo "Containers are removed when the run ends; volumes are kept, so the next run is warm."
     echo "Results land in test-results/e2e/."
     echo ""
     echo "Options:"
@@ -44,7 +49,17 @@ usage() {
     echo "  --exec -- <cmd...>    Run a command in the session, e.g. pnpm exec playwright-cli ... Commands run"
     echo "                        in the checkout root; playwright-cli writes to test-results/cli/ unless a"
     echo "                        --filename path says otherwise (relative paths start at the checkout root)."
-    echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
+    echo "  --host                With --up: host-browser mode. Playwright and the browsers run on this machine."
+    echo "                        The session publishes the app, Postgres and SeaweedFS on 127.0.0.1 at free"
+    echo "                        ports and writes them to $HOST_ENV_FILE. The in-container browser"
+    echo "                        cannot reach SeaweedFS then, so plain runs and --ui are refused in it."
+    echo "  --host-run            In a --host session: fresh database and app server, then 'playwright test' on"
+    echo "                        this machine. Adds --project=chromium unless the arguments name a --project or"
+    echo "                        --ui. Host-only projects: webkit, firefox, chrome, msedge. One host run per"
+    echo "                        checkout at a time."
+    echo "  --host-exec -- <cmd>  In a --host session: run a command on this machine with $HOST_ENV_FILE"
+    echo "                        loaded, e.g. pnpm exec playwright-cli (its session is named after the project)."
+    echo "  --down              Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
     echo "                        session. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
     echo "                        pnpm store, pnpm metadata & corepack cache. The runner image is kept."
@@ -61,6 +76,15 @@ usage() {
     echo "  $0 --up                                   # Start a session"
     echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
     echo "  $0 --down                                 # End the session"
+    echo "  $0 --up --host                            # Start a session for browsers on this machine"
+    echo "  $0 --host-run -- --project=webkit --headed tests/signin.spec.ts"
+    echo "  $0 --host-run -- --ui                     # Playwright UI on this machine, every host browser"
+    echo "  $0 --host-exec -- pnpm exec playwright-cli open --browser webkit --headed <app url>"
+    echo ""
+    echo "Host-browser mode needs, once on this machine: pnpm install, then"
+    echo "      pnpm exec playwright install chromium webkit firefox (global setup always uses Chromium)"
+    echo "      pnpm exec playwright-cli install-browser webkit (for playwright-cli; any other browser too)"
+    echo "      chrome and msedge use the installed Google Chrome and Microsoft Edge."
     echo ""
     echo "Note: the app is rebuilt only when its sources changed (a fingerprint over src/, public/, types/,"
     echo "      the Next/Sentry/TS configs, the lockfile and the runner image). Editing only specs never"
@@ -90,6 +114,7 @@ usage() {
 
 rebuild=false
 clean=false
+host=false
 action=run
 extra_args=()
 
@@ -107,6 +132,9 @@ while [ $# -gt 0 ]; do
         --clean) clean=true ;;
         --ui) set_action ui ;;
         --up) set_action up ;;
+        --host) host=true ;;
+        --host-run) set_action host-run ;;
+        --host-exec) set_action host-exec ;;
         --exec) set_action exec ;;
         --down) set_action down ;;
         --prune) set_action prune ;;
@@ -129,8 +157,12 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ "$action" = exec ] && [ ${#extra_args[@]} -eq 0 ]; then
-    echo "Error: --exec needs a command after --." >&2
+if { [ "$action" = exec ] || [ "$action" = host-exec ]; } && [ ${#extra_args[@]} -eq 0 ]; then
+    echo "Error: --$action needs a command after --." >&2
+    usage 1
+fi
+if [ "$host" = true ] && [ "$action" != up ]; then
+    echo "Error: --host only combines with --up." >&2
     usage 1
 fi
 
@@ -146,9 +178,12 @@ esac
 
 export E2E_RUNNER_IMAGE="${project}-e2e-runner"
 
+compose_files=(-f "$repo_root/docker-compose.e2e.yml")
+if [ "$host" = true ]; then compose_files+=(-f "$repo_root/docker-compose.e2e-host.yml"); fi
+
 # --env-file /dev/null keeps a host .env (COMPOSE_* or anything else) out of the interpolation.
 compose() {
-    docker compose -p "$project" -f "$repo_root/docker-compose.e2e.yml" --env-file /dev/null "$@"
+    docker compose -p "$project" "${compose_files[@]}" --env-file /dev/null "$@"
 }
 
 running_container() {
@@ -187,10 +222,31 @@ if [ -n "$(running_container e2e-runner)" ]; then
 fi
 session=$(running_container e2e-session)
 
+published_port() {
+    docker port "$1" "$2/tcp" 2>/dev/null | head -n 1 | sed 's/.*://'
+}
+
+# Only a session started with --up --host publishes the app port.
+host_session=false
+if [ -n "$session" ] && [ -n "$(published_port "$session" 4100)" ]; then host_session=true; fi
+
 if [ "$action" = exec ] && [ -z "$session" ]; then
     echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up." >&2
     exit 1
 fi
+case $action in
+    host-run | host-exec)
+        if [ -z "$session" ]; then
+            echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up --host." >&2
+            exit 1
+        fi
+        if [ "$host_session" = false ]; then
+            echo "Error: the session of this checkout is not in host-browser mode." >&2
+            echo "       End it with ./bin/docker-e2e --down, then start one with ./bin/docker-e2e --up --host." >&2
+            exit 1
+        fi
+        ;;
+esac
 # A run during the session's own install and build would race it.
 if [ -n "$session" ] && [ "$action" != exec ] &&
     [ "$(docker inspect -f '{{.State.Health.Status}}' "$session" 2>/dev/null)" != healthy ]; then
@@ -201,6 +257,31 @@ fi
 if [ "$clean" = true ] && [ -n "$session" ]; then
     echo "Error: --clean would delete volumes under the running session. Run ./bin/docker-e2e --down first." >&2
     exit 1
+fi
+# The session's presigned S3 URLs point at a host port, which a browser in the container cannot reach.
+if [ "$host_session" = true ]; then
+    case $action in
+        run)
+            echo "Error: the session of this checkout is in host-browser mode, so the container's browser" >&2
+            echo "       cannot reach its S3 storage. Use ./bin/docker-e2e --host-run -- <playwright-args>," >&2
+            echo "       or end the session with ./bin/docker-e2e --down and run again." >&2
+            exit 1
+            ;;
+        ui)
+            echo "Error: the session of this checkout is in host-browser mode, so the container's browser" >&2
+            echo "       cannot reach its S3 storage. Use ./bin/docker-e2e --host-run -- --ui for Playwright UI" >&2
+            echo "       mode on this machine, or end the session with ./bin/docker-e2e --down." >&2
+            exit 1
+            ;;
+        exec)
+            case " ${extra_args[*]} " in
+                *playwright*)
+                    echo "Warning: this session is in host-browser mode; a browser in the container cannot load" >&2
+                    echo "         uploads or downloads. Use ./bin/docker-e2e --host-exec -- <cmd> for browsers." >&2
+                    ;;
+            esac
+            ;;
+    esac
 fi
 
 # The TTL stops a forgotten stack. A one-shot UI run can stay open for longer and ends its stack at
@@ -218,21 +299,86 @@ if [ "$action" = exec ]; then
 fi
 
 ui_port() {
-    docker port "$1" 9323/tcp 2>/dev/null | head -n 1 | sed 's/.*://'
+    published_port "$1" 9323
 }
 
 session_status() {
-    local deadline minutes_left
+    local deadline minutes_left app_port
     deadline=$(compose exec -T e2e-session cat /tmp/e2e-session.deadline 2>/dev/null || echo 0)
     minutes_left=$(((deadline - $(date +%s)) / 60))
+    app_port=$(published_port "$session" 4100)
     echo "Session is up for this checkout (project $project); it stops by itself in ${minutes_left} min."
-    echo "  Run specs:   ./bin/docker-e2e -- <playwright-args>"
-    echo "  Commands:    ./bin/docker-e2e --exec -- <cmd...>"
-    echo "  UI mode:     ./bin/docker-e2e --ui   (then open http://127.0.0.1:$(ui_port "$session"))"
+    if [ -n "$app_port" ]; then
+        echo "  Mode:        host browsers (Playwright and the browsers run on this machine)"
+        echo "  App:         http://localhost:$app_port/account/signin"
+        echo "  Run specs:   ./bin/docker-e2e --host-run -- [--project=webkit] [--headed] <playwright-args>"
+        echo "  UI mode:     ./bin/docker-e2e --host-run -- --ui"
+        echo "  Commands:    ./bin/docker-e2e --host-exec -- pnpm exec playwright-cli open --browser webkit --headed http://localhost:$app_port/account/signin"
+        echo "  Host env:    $HOST_ENV_FILE"
+        echo "  In session:  ./bin/docker-e2e --exec -- <cmd...>"
+    else
+        echo "  Run specs:   ./bin/docker-e2e -- <playwright-args>"
+        echo "  Commands:    ./bin/docker-e2e --exec -- <cmd...>"
+        echo "  UI mode:     ./bin/docker-e2e --ui   (then open http://127.0.0.1:$(ui_port "$session"))"
+    fi
     echo "  End it:      ./bin/docker-e2e --down"
 }
 
+# Rewritten before every host command, so it always has the ports of the running session.
+write_host_env() {
+    local app_port db_port s3_port
+    app_port=$(published_port "$session" 4100)
+    db_port=$(published_port "$(running_container db-e2e)" 5432)
+    s3_port=$(published_port "$(running_container seaweedfs-e2e)" 8333)
+    if [ -z "$app_port" ] || [ -z "$db_port" ] || [ -z "$s3_port" ]; then
+        echo "Error: the host-browser session is missing a published port (app '$app_port', Postgres '$db_port'," >&2
+        echo "       SeaweedFS '$s3_port'). Restart it: ./bin/docker-e2e --down, then ./bin/docker-e2e --up --host." >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$HOST_ENV_FILE")"
+    {
+        echo "# Written by ./bin/docker-e2e for the host-browser session of $project."
+        echo "E2E_BASE_URL=http://localhost:$app_port"
+        echo "E2E_EXTERNAL_SERVER=1"
+        echo "DATABASE_URL=postgres://si:si@localhost:$db_port/si_e2e"
+        echo "S3_ENDPOINT=http://localhost:$s3_port"
+        echo "S3_BROWSER_ENDPOINT=http://localhost:$s3_port"
+        echo "AWS_ACCESS_KEY_ID=si-local-s3"
+        echo "AWS_SECRET_ACCESS_KEY=si-local-s3"
+        echo "BUCKET_NAME=mgmt-app-local"
+        echo "AWS_REGION=us-east-1"
+        echo "E2E_FAKE_CLERK=1"
+        echo "E2E_CI_TIMEOUTS=1"
+        echo "PLAYWRIGHT_CLI_SESSION=$project"
+        grep -v '^#' bin/lib/e2e-blank.env
+    } >"$HOST_ENV_FILE"
+}
+
+# In a subshell, so the env file never leaks into this script's own docker calls.
+run_with_host_env() {
+    (
+        set -a
+        # shellcheck source=/dev/null
+        . "./$HOST_ENV_FILE"
+        set +a
+        exec "$@"
+    )
+}
+
+if [ "$action" = host-exec ]; then
+    write_host_env
+    status=0
+    run_with_host_env "${extra_args[@]}" || status=$?
+    exit "$status"
+fi
+
 if [ "$action" = up ] && [ -n "$session" ]; then
+    if [ "$host" = true ] && [ "$host_session" = false ]; then
+        echo "Error: the session of this checkout is not in host-browser mode." >&2
+        echo "       End it with ./bin/docker-e2e --down, then start one with ./bin/docker-e2e --up --host." >&2
+        exit 1
+    fi
+    if [ "$host_session" = true ]; then write_host_env; fi
     session_status
     exit 0
 fi
@@ -408,6 +554,36 @@ stop_ui_url_printer() {
     if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
 }
 
+# Without a --project, Playwright would run every host browser project. UI mode lists them instead.
+names_project_or_ui() {
+    local arg
+    for arg in ${extra_args[@]+"${extra_args[@]}"}; do
+        case $arg in
+            --project | --project=* | --ui | --ui=* | --ui-*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+if [ "$action" = host-run ]; then
+    write_host_env
+    trap 'finish_stack_notice' EXIT
+    watch_other_stacks
+    # The same preparation as a run in the session: fresh database, a build when the app changed,
+    # a restarted server. Only Playwright moves to the host.
+    E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$(docker inspect -f '{{.Image}}' "$session")")")
+    echo "Preparing the session of this checkout (project $project)..."
+    compose exec -T -e E2E_APP_FINGERPRINT="$E2E_APP_FINGERPRINT" -e E2E_REBUILD="$E2E_REBUILD" \
+        e2e-session bin/lib/e2e-runner.sh --prepare -- true
+    split_workers
+    playwright_args=(${extra_args[@]+"${extra_args[@]}"})
+    if ! names_project_or_ui; then playwright_args=(--project=chromium ${playwright_args[@]+"${playwright_args[@]}"}); fi
+    echo "Running Playwright on this machine against the session (project $project)..."
+    status=0
+    run_with_host_env pnpm exec playwright test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
+    exit "$status"
+fi
+
 if [ -n "$session" ]; then
     # Runs inside the session. The image is not rebuilt here; the fingerprint uses the image the
     # session runs, so app edits during the session still trigger a rebuild + server restart.
@@ -489,6 +665,18 @@ if [ "$action" = up ]; then
     # A session that ended by its TTL leaves a stopped container whose /tmp still has the old ready
     # file; restarting it would report ready before the new setup is done.
     compose rm -f -s e2e-session >/dev/null 2>&1 || true
+    if [ "$host" = true ]; then
+        # The session's server signs S3 URLs for the host browser, so it needs SeaweedFS's host port
+        # before it starts.
+        echo "Host-browser mode: publishing the app, Postgres and SeaweedFS on 127.0.0.1..."
+        compose up -d db-e2e seaweedfs-e2e
+        s3_port=$(published_port "$(running_container seaweedfs-e2e)" 8333)
+        if [ -z "$s3_port" ]; then
+            echo "Error: SeaweedFS has no published port. Clean up with --down and retry." >&2
+            exit 1
+        fi
+        export E2E_HOST_S3_URL="http://localhost:$s3_port"
+    fi
     compose up -d e2e-session
     session=$(compose ps -a -q e2e-session)
     # Not through compose(): `$!` of a backgrounded function is its subshell, and killing that
@@ -510,6 +698,7 @@ if [ "$action" = up ]; then
         echo "Error: the session did not become ready ($state); see the output above. Clean up with --down." >&2
         exit 1
     fi
+    if [ "$host" = true ]; then write_host_env; fi
     echo ""
     session_status
     exit 0

@@ -1,0 +1,21 @@
+# Host-browser mode of ./bin/docker-e2e (--up --host): Playwright and the browsers run on the host,
+# against this checkout's e2e stack. Loaded on top of docker-compose.e2e.yml only by --up --host.
+# Loopback only and random host ports, so it never collides with other checkouts, the dev stack or
+# host mode. bin/docker-e2e reads the ports with `docker port`.
+services:
+    e2e-session:
+        ports:
+            - '127.0.0.1::4100'
+        environment:
+            # The host browser loads the presigned S3 URLs, and it cannot resolve seaweedfs-e2e.
+            # bin/docker-e2e sets it to SeaweedFS's host port before it starts the session.
+            - S3_BROWSER_ENDPOINT=${E2E_HOST_S3_URL:-}
+
+    # The host test process writes fixtures directly (tests/e2e.seed.ts, tests/artifact.helpers.ts).
+    db-e2e:
+        ports:
+            - '127.0.0.1::5432'
+
+    seaweedfs-e2e:
+        ports:
+            - '127.0.0.1::8333'
