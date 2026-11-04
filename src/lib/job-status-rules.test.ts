@@ -99,10 +99,11 @@ describe('decideJobTransition', () => {
         expect(decide('JOB-READY', 'JOB-READY', 'system')).toEqual({ kind: 'repeat' })
     })
 
-    it('treats a repeated outputs decision from the enclave as a no-op, though the round is closed', () => {
-        expect(decide('FILES-APPROVED', 'FILES-APPROVED', 'enclave')).toEqual({ kind: 'repeat' })
-        expect(decide('FILES-REJECTED', 'FILES-REJECTED', 'enclave')).toEqual({ kind: 'repeat' })
-        expect(decide('FILES-APPROVED', 'FILES-APPROVED', 'reviewer')).toEqual(refused('round-closed'))
+    it('refuses a repeated outputs decision from any sender, because the round is closed', () => {
+        for (const actor of ['reviewer', 'enclave', 'service', 'system'] as const) {
+            expect(decide('FILES-APPROVED', 'FILES-APPROVED', actor)).toEqual(refused('round-closed'))
+            expect(decide('FILES-REJECTED', 'FILES-REJECTED', actor)).toEqual(refused('round-closed'))
+        }
     })
 
     it('refuses a repeat from a person, so the action rolls back', () => {

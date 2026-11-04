@@ -7,14 +7,7 @@ import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 const schema = z.object({
     message: z.string().optional(),
-    status: z.enum([
-        'JOB-PROVISIONING',
-        'JOB-RUNNING',
-        'JOB-ERRORED',
-        'FILES-REJECTED',
-        'FILES-APPROVED',
-        'RUN-COMPLETE',
-    ]),
+    status: z.enum(['JOB-PROVISIONING', 'JOB-RUNNING', 'JOB-ERRORED', 'RUN-COMPLETE']),
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {

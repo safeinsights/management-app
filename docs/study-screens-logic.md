@@ -536,11 +536,10 @@ status as the writes did.
 
 Rules applied before the table, in this order:
 
-1. **Machine repeat.** A write of the current status is a no-op for `enclave`, `service` and
-   `system`, which re-send statuses, also after the round closed: the enclave re-delivers its own
-   outputs decision.
-2. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every other write except
-   `RESULTS-VIEWED` is refused (`qa` excepted).
+1. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every write except
+   `RESULTS-VIEWED` is refused (`qa` excepted), a repeat of the decision included.
+2. **Machine repeat.** A write of the current status is a no-op for `enclave`, `service` and
+   `system`, which re-send statuses.
 3. **Person repeat.** A write of the current status from `researcher` or `reviewer` is refused, so
    the action rolls back the comments and keys it wrote first.
 4. **Log no-op.** A `log` write is skipped when the job's newest row already has that status.
@@ -550,28 +549,27 @@ Rules applied before the table, in this order:
 
 "Stage" means `JOB-PACKAGING`, `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, in that order.
 
-| To                                        | From                                                                              | Effect                       | Actors            |
-| ----------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------- | ----------------- |
-| `INITIATED`                               | none (new job, `openStudyJob`)                                                    | move                         | system, qa        |
-| `CODE-SUBMITTED`                          | `INITIATED`                                                                       | move                         | researcher        |
-| `CODE-SUBMITTED`                          | `CODE-CHANGES-REQUESTED` (next code round, same job)                              | move                         | researcher        |
-| `CODE-SCANNED`                            | `CODE-SUBMITTED`                                                                  | move                         | service, system   |
-| `CODE-SCANNED`                            | `CODE-CHANGES-REQUESTED`, `CODE-APPROVED`, a stage, `JOB-ERRORED`, `RUN-COMPLETE` | log                          | service, system   |
-| `JOB-ERRORED`                             | `CODE-SUBMITTED`, `CODE-SCANNED`                                                  | move                         | service           |
-| `JOB-ERRORED`                             | `CODE-CHANGES-REQUESTED`                                                          | log                          | service           |
-| `CODE-APPROVED`, `CODE-CHANGES-REQUESTED` | `CODE-SUBMITTED`, `CODE-SCANNED`, `JOB-ERRORED`                                   | move                         | reviewer          |
-| `JOB-PACKAGING`                           | `CODE-APPROVED`                                                                   | move                         | service           |
-| `JOB-READY`                               | `CODE-APPROVED`                                                                   | move                         | service, system   |
-| `JOB-READY`                               | `JOB-PACKAGING`                                                                   | move                         | service           |
-| `JOB-PROVISIONING`                        | `JOB-READY`                                                                       | move                         | enclave           |
-| `JOB-RUNNING`                             | `JOB-READY`, `JOB-PROVISIONING`                                                   | move                         | enclave           |
-| `JOB-ERRORED`                             | `CODE-APPROVED`, a stage                                                          | move                         | service, enclave  |
-| a stage                                   | a later stage, `JOB-ERRORED`, `RUN-COMPLETE`                                      | log                          | service, enclave  |
-| `RUN-COMPLETE`                            | `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, `JOB-ERRORED`                     | move                         | enclave           |
-| `FILES-APPROVED`, `FILES-REJECTED`        | `RUN-COMPLETE`                                                                    | move                         | reviewer          |
-| `FILES-APPROVED`, `FILES-REJECTED`        | `JOB-ERRORED`                                                                     | move                         | reviewer, enclave |
-| `RESULTS-VIEWED`                          | `FILES-APPROVED`, `FILES-REJECTED`                                                | log                          | researcher        |
-| any                                       | any                                                                               | the listed effect, else move | qa                |
+| To                                        | From                                                                              | Effect                       | Actors           |
+| ----------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------- | ---------------- |
+| `INITIATED`                               | none (new job, `openStudyJob`)                                                    | move                         | system, qa       |
+| `CODE-SUBMITTED`                          | `INITIATED`                                                                       | move                         | researcher       |
+| `CODE-SUBMITTED`                          | `CODE-CHANGES-REQUESTED` (next code round, same job)                              | move                         | researcher       |
+| `CODE-SCANNED`                            | `CODE-SUBMITTED`                                                                  | move                         | service, system  |
+| `CODE-SCANNED`                            | `CODE-CHANGES-REQUESTED`, `CODE-APPROVED`, a stage, `JOB-ERRORED`, `RUN-COMPLETE` | log                          | service, system  |
+| `JOB-ERRORED`                             | `CODE-SUBMITTED`, `CODE-SCANNED`                                                  | move                         | service          |
+| `JOB-ERRORED`                             | `CODE-CHANGES-REQUESTED`                                                          | log                          | service          |
+| `CODE-APPROVED`, `CODE-CHANGES-REQUESTED` | `CODE-SUBMITTED`, `CODE-SCANNED`, `JOB-ERRORED`                                   | move                         | reviewer         |
+| `JOB-PACKAGING`                           | `CODE-APPROVED`                                                                   | move                         | service          |
+| `JOB-READY`                               | `CODE-APPROVED`                                                                   | move                         | service, system  |
+| `JOB-READY`                               | `JOB-PACKAGING`                                                                   | move                         | service          |
+| `JOB-PROVISIONING`                        | `JOB-READY`                                                                       | move                         | enclave          |
+| `JOB-RUNNING`                             | `JOB-READY`, `JOB-PROVISIONING`                                                   | move                         | enclave          |
+| `JOB-ERRORED`                             | `CODE-APPROVED`, a stage                                                          | move                         | service, enclave |
+| a stage                                   | a later stage, `JOB-ERRORED`, `RUN-COMPLETE`                                      | log                          | service, enclave |
+| `RUN-COMPLETE`                            | `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, `JOB-ERRORED`                     | move                         | enclave          |
+| `FILES-APPROVED`, `FILES-REJECTED`        | `RUN-COMPLETE`, `JOB-ERRORED`                                                     | move                         | reviewer         |
+| `RESULTS-VIEWED`                          | `FILES-APPROVED`, `FILES-REJECTED`                                                | log                          | researcher       |
+| any                                       | any                                                                               | the listed effect, else move | qa               |
 
 `qa` may write any pair, repeats included; `CODE-REJECTED` has no other writer. A replay treats an
 unlisted pair as a move, the same as a `qa` write, so the writes and the replay agree. One exception
@@ -579,10 +577,10 @@ unlisted pair as a move, the same as a `qa` write, so the writes and the replay 
 writes the other decision, so a late report that older app versions appended cannot reopen the round.
 
 **Refusals.** A refused write throws `JobTransitionRefusedError`, an `ActionFailure`, and writes
-nothing; the action's transaction rolls back. The enclave and containerizer routes answer 409. Their
-existing early answers come first: `PUT /api/job/[jobId]` still answers 422 once `RUN-COMPLETE`
-exists, and known-stale deliveries still answer 200. The scan webhook answers 200 to a refusal, as
-a retry would only be refused again.
+nothing; the action's transaction rolls back. The enclave routes answer 409. Their existing early
+answers come first: `PUT /api/job/[jobId]` still answers 422 once `RUN-COMPLETE` exists, and
+known-stale deliveries still answer 200. The scan and containerizer webhooks answer 200 to a
+refusal, as a retry would only be refused again.
 
 **Observe mode.** The enclave and the services deploy separately from this app. While
 `OBSERVE_MACHINE_ACTOR_PAIRS` is true, a pair the table refuses for `enclave` or `service` is logged

@@ -118,12 +118,11 @@ export const JOB_TRANSITIONS: readonly TransitionRow[] = [
         effect: 'move',
         actors: ['enclave'],
     },
-    { to: ['FILES-APPROVED', 'FILES-REJECTED'], from: ['RUN-COMPLETE'], effect: 'move', actors: ['reviewer'] },
     {
         to: ['FILES-APPROVED', 'FILES-REJECTED'],
-        from: ['JOB-ERRORED'],
+        from: ['RUN-COMPLETE', 'JOB-ERRORED'],
         effect: 'move',
-        actors: ['reviewer', 'enclave'],
+        actors: ['reviewer'],
     },
     { to: ['RESULTS-VIEWED'], from: ['FILES-APPROVED', 'FILES-REJECTED'], effect: 'log', actors: ['researcher'] },
 ]
@@ -171,13 +170,11 @@ export function decideJobTransition({ from, to, actor, newestStatus, hasStatus }
     // QA drives jobs to arbitrary states; it still writes through here so the log replays the same way.
     if (actor === 'qa') return { kind: 'write', effect: from === to ? 'log' : replayEffect(from, to), observed: false }
 
-    // Before the round check: the enclave re-delivers its own outputs decision.
-    if (from === to && REPEATING_ACTORS.includes(actor)) return { kind: 'repeat' }
-
     if (isRoundClosing(from) && to !== 'RESULTS-VIEWED') return { kind: 'refused', reason: 'round-closed' }
 
     // Actions write comments and keys before the status, so a repeat from a person must roll them back.
-    if (from === to) return { kind: 'refused', reason: 'repeat' }
+    if (from === to)
+        return REPEATING_ACTORS.includes(actor) ? { kind: 'repeat' } : { kind: 'refused', reason: 'repeat' }
 
     if (transition?.effect === 'log') {
         const alreadyLogged = to === 'RESULTS-VIEWED' ? hasStatus(to) : newestStatus === to

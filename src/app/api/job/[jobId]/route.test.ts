@@ -113,39 +113,22 @@ test("announces the next round's JOB-ERRORED after the code is resubmitted", asy
     expect(deliver).toHaveBeenCalledTimes(2)
 })
 
-test('refuses a second outputs decision on an errored run with 409 and writes nothing', async () => {
+test('refuses a stage report after the outputs decision with 409 and writes nothing', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-APPROVED'])
+    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-REJECTED'])
 
-    const resp = await putStatus(jobIds[0], 'FILES-REJECTED')
+    const resp = await putStatus(jobIds[0], 'JOB-RUNNING')
 
     expect(resp.status).toBe(409)
-    expect(await resp.json()).toEqual({ error: 'transition-refused', from: 'FILES-APPROVED', to: 'FILES-REJECTED' })
-    const rejected = await db
+    expect(await resp.json()).toEqual({ error: 'transition-refused', from: 'FILES-REJECTED', to: 'JOB-RUNNING' })
+    const running = await db
         .selectFrom('jobStatusChange')
         .select('id')
         .where('studyJobId', '=', jobIds[0])
-        .where('status', '=', 'FILES-REJECTED')
+        .where('status', '=', 'JOB-RUNNING')
         .execute()
-    expect(rejected).toHaveLength(0)
-})
-
-test('answers 200 to a repeated outputs decision on an errored run and writes nothing', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-APPROVED'])
-
-    const resp = await putStatus(jobIds[0], 'FILES-APPROVED')
-
-    expect(resp.status).toBe(200)
-    const approved = await db
-        .selectFrom('jobStatusChange')
-        .select('id')
-        .where('studyJobId', '=', jobIds[0])
-        .where('status', '=', 'FILES-APPROVED')
-        .execute()
-    expect(approved).toHaveLength(1)
+    expect(running).toHaveLength(0)
 })
 
 test('answers 422 for any status once the run is complete, before the transition table runs', async () => {
@@ -153,5 +136,5 @@ test('answers 422 for any status once the run is complete, before the transition
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     await insertTestJobStatuses(jobIds[0], ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])
 
-    expect((await putStatus(jobIds[0], 'FILES-REJECTED')).status).toBe(422)
+    expect((await putStatus(jobIds[0], 'JOB-ERRORED')).status).toBe(422)
 })
