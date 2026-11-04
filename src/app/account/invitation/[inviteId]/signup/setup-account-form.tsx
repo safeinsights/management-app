@@ -2,7 +2,8 @@
 
 import type { FC, ReactNode } from 'react'
 import { semanticColor } from '@/theme/tokens'
-import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
+import { Alert, Button, Flex, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
 import {
     AcknowledgementCheckbox,
     globalDocAgreementLabel,
@@ -55,7 +56,7 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
     } = useSetupAccountForm(invite)
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <form onSubmit={form.onSubmit((values) => createAccount(values))}>
                 <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                     <Title mb="lg" order={3} ta="center">
@@ -66,7 +67,7 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                     </Text>
                     <TextInput label="Email" radius="sm" value={email} disabled c={semanticColor('text.primary')} />
 
-                    <Flex direction="row" gap="xl">
+                    <Flex direction={{ base: 'column', xs: 'row' }} gap="xl">
                         <TextInput
                             radius="sm"
                             flex="1"
@@ -145,6 +146,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                     </Flex>
                 </Flex>
             </form>
-        </Paper>
+        </FocusedCard>
     )
 }
