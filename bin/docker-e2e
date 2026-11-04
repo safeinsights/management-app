@@ -57,7 +57,7 @@ usage() {
     echo "                        the --host session; without a session it starts one and ends it afterwards."
     echo "                        Runs chromium + a11y (as in Docker) unless the arguments name a --project or --ui."
     echo "                        Host-only projects: webkit, firefox, chrome, msedge; --project='*' runs all."
-    echo "                        One host run per checkout at a time."
+    echo "                        A second host run in this checkout waits for the first."
     echo "  --host-exec -- <cmd>  In a --host session: run a command on this machine with $HOST_ENV_FILE"
     echo "                        loaded, e.g. pnpm exec playwright-cli (its session is named after the project)."
     echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
@@ -584,16 +584,54 @@ names_project_or_ui() {
     return 1
 }
 
+holder=
+hold_dir=
+release_host_lock() {
+    if [ -n "$holder" ]; then
+        exec 7>&-
+        wait "$holder" 2>/dev/null || true
+        holder=
+    fi
+    if [ -n "$hold_dir" ]; then
+        rm -rf "$hold_dir"
+        hold_dir=
+    fi
+}
+
 if [ "$action" = host-run ]; then
     write_host_env
-    trap 'finish_stack_notice' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'release_host_lock; finish_stack_notice' EXIT
     watch_other_stacks
     # The same preparation as a run in the session: fresh database, a build when the app changed,
-    # a restarted server. Only Playwright moves to the host.
+    # a restarted server. Only Playwright moves to the host. The runner keeps the session's Playwright
+    # lock until its stdin (fd 7) closes: at the end, on Ctrl-C, and when this script is killed. A
+    # second run waits, as in a Docker session.
     E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$(docker inspect -f '{{.Image}}' "$session")")")
     echo "Preparing the session of this checkout (project $project)..."
+    hold_dir=$(mktemp -d "${TMPDIR:-/tmp}/docker-e2e-hold.XXXXXX")
+    mkfifo "$hold_dir/in" "$hold_dir/out"
     compose exec -T -e E2E_APP_FINGERPRINT="$E2E_APP_FINGERPRINT" -e E2E_REBUILD="$E2E_REBUILD" \
-        e2e-session bin/lib/e2e-runner.sh --prepare -- true
+        e2e-session bin/lib/e2e-runner.sh --prepare -- hold \
+        <"$hold_dir/in" >"$hold_dir/out" &
+    holder=$!
+    exec 7>"$hold_dir/in"
+    locked=false
+    while IFS= read -r line; do
+        if [ "$line" = '[docker-e2e] lock held for the host run' ]; then
+            locked=true
+            break
+        fi
+        printf '%s\n' "$line"
+    done <"$hold_dir/out"
+    if [ "$locked" = false ]; then
+        status=0
+        wait "$holder" || status=$?
+        holder=
+        if [ "$status" -eq 0 ]; then status=1; fi
+        exit "$status"
+    fi
     split_workers
     playwright_args=(${extra_args[@]+"${extra_args[@]}"})
     if ! names_project_or_ui; then
