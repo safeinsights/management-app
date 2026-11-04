@@ -1,16 +1,15 @@
 import { type Kysely, sql } from 'kysely'
 
 // OTTER-973: stores each job's current status, code round and status time, backfilled from its log.
-// Triggers keep the columns right for every later insert, also from older app code, which still serves
-// until the code swap.
+// The status writer keeps the columns from then on. Triggers keep them for rows that older app code
+// inserts while it still serves, until the code swap.
 
-// Pinned rather than imported from src/lib/job-status-rules.ts: this records the rule that ran against
-// production, so a later change to the table must not make a fresh database disagree with a migrated
-// one. study_job_current_status.test.ts compares the effects with the runtime table.
+// Pinned rather than imported from src/lib/job-status-rules.ts: this is the rule older code ran under,
+// so it stays as it is when the runtime table changes. Never edit it after the migration has run.
 const STAGES = ['JOB-PACKAGING', 'JOB-READY', 'JOB-PROVISIONING', 'JOB-RUNNING']
 
 // The (to, from) pairs whose row stays as history without moving the job.
-export const BACKFILL_LOG_PAIRS: Readonly<Record<string, readonly string[]>> = {
+const BACKFILL_LOG_PAIRS: Readonly<Record<string, readonly string[]>> = {
     'CODE-SCANNED': ['CODE-CHANGES-REQUESTED', 'CODE-APPROVED', ...STAGES, 'JOB-ERRORED', 'RUN-COMPLETE'],
     'JOB-ERRORED': ['CODE-CHANGES-REQUESTED'],
     ...Object.fromEntries(
@@ -28,7 +27,7 @@ export function backfillEffect(from: string, to: string): 'move' | 'log' {
 }
 
 // Orders rows that tie on created_at, which rows written in one transaction under now() do.
-export const BACKFILL_TIE_RANK = [
+const BACKFILL_TIE_RANK = [
     'INITIATED',
     'CODE-SUBMITTED',
     'CODE-SCANNED',
@@ -46,7 +45,7 @@ export const BACKFILL_TIE_RANK = [
     'RESULTS-VIEWED',
 ]
 
-export const BACKFILL_ROUND_CLOSING_STATUSES = ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED']
+const BACKFILL_ROUND_CLOSING_STATUSES = ['CODE-CHANGES-REQUESTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export type BackfillRow = { id: string; status: string; micros: string }
 
@@ -170,7 +169,7 @@ const ROUND_FUNCTION = `
     $$
 `
 
-// backfillEffect in SQL, for the trigger.
+// backfillEffect in SQL, for the triggers.
 const EFFECT_FUNCTION = `
     CREATE FUNCTION job_status_effect(text, text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
         SELECT CASE
@@ -184,6 +183,11 @@ const EFFECT_FUNCTION = `
     $$
 `
 
+// The status writer sets this flag around its inserts and keeps the columns itself, so the triggers
+// act only on rows from older code.
+export const JOB_WRITER_FLAG = 'app.job_writer'
+const writerSkip = `IF current_setting('${JOB_WRITER_FLAG}', true) = 'on' THEN RETURN NULL; END IF;`
+
 // The replay of the backfill, one row at a time: the first row of a job and every move set the status
 // and its time, and a submission renumbers the job's round. Rows apply in the order they are inserted.
 const STATUS_TRIGGER = `
@@ -191,6 +195,7 @@ const STATUS_TRIGGER = `
     DECLARE
         stored study_job_status;
     BEGIN
+        ${writerSkip}
         SELECT current_status INTO stored FROM study_job WHERE id = NEW.study_job_id FOR UPDATE;
         IF NOT EXISTS (SELECT 1 FROM job_status_change WHERE study_job_id = NEW.study_job_id AND id <> NEW.id)
             OR (NEW.status <> stored AND job_status_effect(stored::text, NEW.status::text) = 'move') THEN
@@ -210,6 +215,7 @@ const STATUS_TRIGGER = `
 const ROUND_TRIGGER = `
     CREATE FUNCTION number_study_job_round() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN
+        ${writerSkip}
         UPDATE study_job SET round = study_job_round(NEW.id) WHERE id = NEW.id;
         RETURN NULL;
     END

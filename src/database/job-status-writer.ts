@@ -4,8 +4,14 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
-import { decideJobTransition, type JobActor, type JobStatus, type TransitionRefusal } from '../lib/job-status-rules'
-import { backfillStudyJobState } from './migrations/1793742916584_study_job_current_status'
+import {
+    CODE_ROUND_CLOSING_JOB_STATUSES,
+    decideJobTransition,
+    type JobActor,
+    type JobStatus,
+    type TransitionRefusal,
+} from '../lib/job-status-rules'
+import { JOB_WRITER_FLAG } from './migrations/1793742916584_study_job_current_status'
 
 type Executor = Kysely<DB> | Transaction<DB>
 
@@ -66,16 +72,12 @@ export async function lockJobForTransition(trx: Transaction<DB>, jobId: string):
     return { studyId: job.studyId }
 }
 
-// Postgres keeps microseconds and a JS Date only milliseconds, so times are compared as text.
-const micros = (column: string) => sql<string>`(extract(epoch from ${sql.ref(column)}) * 1000000)::bigint::text`
-
 export type JobState = { status: JobStatus; round: number; statusChangedAt: Date }
 
 async function readLockedJobState(trx: Transaction<DB>, jobId: string) {
     return trx
         .selectFrom('studyJob')
         .select(['currentStatus as status', 'round', 'statusChangedAt'])
-        .select(micros('studyJob.statusChangedAt').as('statusChangedAtMicros'))
         .where('id', '=', jobId)
         .forUpdate()
         .executeTakeFirstOrThrow()
@@ -90,45 +92,37 @@ export async function lockJobState(executor: Executor, jobId: string): Promise<J
     })
 }
 
-// Rewrites every job (or one study's) from its log with the migration's backfill, one transaction per job
-// so a live writer waits on one lock at most. A repair tool: the migration's triggers keep the columns
-// right for every inserted row, so it only finds a job that someone changed by hand.
-export async function recomputeJobStates(
-    db: Kysely<DB>,
-    { studyId, dryRun = false }: { studyId?: string; dryRun?: boolean } = {},
-): Promise<Array<{ jobId: string } & JobState>> {
-    let query = db.selectFrom('studyJob').select('id').orderBy('id')
-    if (studyId) query = query.where('studyId', '=', studyId)
-    const changed: Array<{ jobId: string } & JobState> = []
-    for (const { id } of await query.execute()) {
-        const result = await db
-            .transaction()
-            .execute(async (trx) => {
-                await lockJobForTransition(trx, id)
-                const before = await readLockedJobState(trx, id)
-                await backfillStudyJobState(trx as unknown as Kysely<unknown>, { jobIds: [id] })
-                const after = await readLockedJobState(trx, id)
-                const repaired =
-                    before.status !== after.status ||
-                    before.round !== after.round ||
-                    before.statusChangedAtMicros !== after.statusChangedAtMicros
-                const state = { status: after.status, round: after.round, statusChangedAt: after.statusChangedAt }
-                if (dryRun && repaired) throw new DryRunRollback(state)
-                return { state, repaired }
-            })
-            .catch((error: unknown) => {
-                if (error instanceof DryRunRollback) return { state: error.state, repaired: true }
-                throw error
-            })
-        if (result.repaired) changed.push({ jobId: id, ...result.state })
-    }
-    return changed
+// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions.
+function jobRoundSql(jobId: string) {
+    return sql<number>`(
+        1 + (
+            SELECT count(*)
+            FROM job_status_change closer
+            JOIN study_job sibling ON sibling.id = closer.study_job_id
+            JOIN study_job job ON job.id = ${jobId}::uuid
+            WHERE sibling.study_id = job.study_id
+              AND (sibling.created_at, sibling.id) < (job.created_at, job.id)
+              AND closer.status::text = ANY(${CODE_ROUND_CLOSING_JOB_STATUSES}::text[])
+        ) + greatest(0, (
+            SELECT count(*)
+            FROM job_status_change submission
+            WHERE submission.study_job_id = ${jobId}::uuid
+              AND submission.status = 'CODE-SUBMITTED'
+        ) - 1)
+    )::int`
 }
 
-class DryRunRollback extends Error {
-    constructor(readonly state: JobState) {
-        super('dry run')
-    }
+// The time of a status row, copied in SQL so the stored time keeps its microseconds.
+const statusRowTime = (statusChangeId: string) =>
+    sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${statusChangeId}::uuid)`
+
+// The migration's triggers skip inserts made under this flag, so the writer alone decides the columns.
+// Switched off again after the insert, because the app's transaction may go on after the writer returns.
+async function insertAsWriter<T>(trx: Transaction<DB>, insert: () => Promise<T>): Promise<T> {
+    await sql`SELECT set_config(${JOB_WRITER_FLAG}, 'on', true)`.execute(trx)
+    const result = await insert()
+    await sql`SELECT set_config(${JOB_WRITER_FLAG}, 'off', true)`.execute(trx)
+    return result
 }
 
 export async function writeJobStatus(
@@ -173,15 +167,35 @@ export async function writeJobStatus(
 
         // clock_timestamp(), not the now() default: now() is fixed for the whole transaction, so two
         // writes in one transaction would tie.
-        const inserted = await trx
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: jobId, status: to, userId, message, createdAt: at ?? sql<Date>`clock_timestamp()` })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const inserted = await insertAsWriter(trx, () =>
+            trx
+                .insertInto('jobStatusChange')
+                .values({
+                    studyJobId: jobId,
+                    status: to,
+                    userId,
+                    message,
+                    createdAt: at ?? sql<Date>`clock_timestamp()`,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow(),
+        )
 
-        // The keep_study_job_state trigger stores the status, its time and the round from the row.
+        const moved = decision.effect === 'move'
+        // Only a submission changes the job's own round; the rule counts every submission row.
+        if (moved || to === 'CODE-SUBMITTED') {
+            await trx
+                .updateTable('studyJob')
+                .set({
+                    ...(moved ? { currentStatus: to, statusChangedAt: statusRowTime(inserted.id) } : {}),
+                    ...(to === 'CODE-SUBMITTED' ? { round: jobRoundSql(jobId) } : {}),
+                })
+                .where('id', '=', jobId)
+                .execute()
+        }
+
         return {
-            outcome: decision.effect === 'move' ? 'moved' : 'logged',
+            outcome: moved ? 'moved' : 'logged',
             studyId,
             from,
             observed: decision.observed,
@@ -207,20 +221,28 @@ export async function openStudyJob(
     return inTransaction(executor, async (trx) => {
         // Serializes job opens on one study, so two requests cannot both open the next round.
         await trx.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
-        const job = await trx
-            .insertInto('studyJob')
-            .values(createdAt ? { studyId, createdAt } : { studyId })
-            .returning(['id', 'createdAt'])
-            .executeTakeFirstOrThrow()
-        const initiated = await trx
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'INITIATED', createdAt: at ?? sql<Date>`clock_timestamp()` })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const { job, initiated } = await insertAsWriter(trx, async () => {
+            const job = await trx
+                .insertInto('studyJob')
+                .values(createdAt ? { studyId, createdAt } : { studyId })
+                .returning(['id', 'createdAt'])
+                .executeTakeFirstOrThrow()
+            const initiated = await trx
+                .insertInto('jobStatusChange')
+                .values({ studyJobId: job.id, status: 'INITIATED', createdAt: at ?? sql<Date>`clock_timestamp()` })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            return { job, initiated }
+        })
         const { round } = await trx
-            .selectFrom('studyJob')
-            .select('round')
+            .updateTable('studyJob')
+            .set({
+                currentStatus: 'INITIATED',
+                round: jobRoundSql(job.id),
+                statusChangedAt: statusRowTime(initiated.id),
+            })
             .where('id', '=', job.id)
+            .returning('round')
             .executeTakeFirstOrThrow()
         return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round }
     })

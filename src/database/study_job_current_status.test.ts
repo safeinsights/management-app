@@ -2,18 +2,16 @@ import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.help
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
-import { JOB_STATUSES, findTransition, replayEffect } from '@/lib/job-status-rules'
+import { JOB_STATUSES } from '@/lib/job-status-rules'
 import { codeRoundForJob } from '@/server/db/code-round'
-import { openStudyJob, recomputeJobStates, writeJobStatus } from '@/database/job-status-writer'
+import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
 import {
-    BACKFILL_LOG_PAIRS,
-    BACKFILL_ROUND_CLOSING_STATUSES,
+    JOB_WRITER_FLAG,
     backfillEffect,
     backfillReplay,
     backfillStudyJobState,
     type BackfillRow,
 } from './migrations/1793742916584_study_job_current_status'
-import { CODE_ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 const BASE = new Date('2026-01-01T00:00:00Z').getTime()
 const at = (second: number) => new Date(BASE + second * 1000)
@@ -237,29 +235,8 @@ describe('backfillStudyJobState', () => {
     })
 })
 
-describe('pinned backfill rule', () => {
-    it('logs exactly the pairs the runtime table logs', () => {
-        for (const to of JOB_STATUSES) {
-            for (const from of JOB_STATUSES) {
-                const runtime = findTransition(from, to)?.effect === 'log'
-                expect(BACKFILL_LOG_PAIRS[to]?.includes(from) ?? false, `${from} -> ${to}`).toBe(runtime)
-            }
-        }
-    })
-
-    it('gives every pair the effect the runtime replay gives it', () => {
-        for (const to of JOB_STATUSES) {
-            for (const from of JOB_STATUSES) {
-                expect(backfillEffect(from, to), `${from} -> ${to}`).toBe(replayEffect(from, to))
-            }
-        }
-    })
-
-    it('counts rounds as the runtime does', () => {
-        expect(BACKFILL_ROUND_CLOSING_STATUSES).toEqual(CODE_ROUND_CLOSING_JOB_STATUSES)
-    })
-
-    it('gives every pair the same effect in the trigger', async () => {
+describe('job_status_effect', () => {
+    it('gives every pair the effect backfillEffect gives it', async () => {
         const pairs = JOB_STATUSES.flatMap((from) => JOB_STATUSES.map((to) => ({ from, to })))
         const { rows } = await sql<{ effect: string }>`
             SELECT job_status_effect(pair.from_status, pair.to_status) AS effect
@@ -268,7 +245,7 @@ describe('pinned backfill rule', () => {
             ORDER BY pair.position
         `.execute(db)
 
-        expect(rows.map((row) => row.effect)).toEqual(pairs.map(({ from, to }) => replayEffect(from, to)))
+        expect(rows.map((row) => row.effect)).toEqual(pairs.map(({ from, to }) => backfillEffect(from, to)))
     })
 })
 
@@ -331,23 +308,24 @@ describe('backfillReplay', () => {
 })
 
 describe('the status writer keeps the columns', () => {
+    // Each status lands at the time of its 1-based position, as in insertLegacyJob.
     const writeHistory = async (studyId: string, history: History) => {
-        const job = await openStudyJob(db, studyId, { actor: 'qa', at: at(0) })
+        const opensWithInitiated = history[0] === 'INITIATED'
+        const job = await openStudyJob(db, studyId, { actor: 'qa', at: at(opensWithInitiated ? 1 : 0) })
         for (const [index, status] of history.entries()) {
-            await writeJobStatus(db, job.id, status, { actor: 'qa', at: at(index + 1) })
+            if (index > 0 || !opensWithInitiated) {
+                await writeJobStatus(db, job.id, status, { actor: 'qa', at: at(index + 1) })
+            }
         }
         return job.id
     }
 
-    it.each(CASES)('agrees with the backfill and codeRoundForJob for $name', async ({ history }) => {
+    it.each(CASES)('stores the state of $name', async ({ history, status, changedAtRow, round }) => {
         const { study } = await insertTestStudyOnly()
         const jobId = await writeHistory(study.id, history)
-        const written = await columnsOf(jobId)
 
-        await backfill([jobId])
-
-        expect(await columnsOf(jobId)).toEqual(written)
-        expect(written.round).toBe(await codeRoundForJob(jobId, db))
+        expect(await columnsOf(jobId)).toEqual({ currentStatus: status, round, statusChangedAt: at(changedAtRow) })
+        expect(round).toBe(await codeRoundForJob(jobId, db))
     })
 
     it('stores the round of a job opened after a decision', async () => {
@@ -396,23 +374,21 @@ describe('a job that older code touched between the migration and the code swap'
         expect(next).toMatchObject({ created: true })
         expect((await columnsOf(jobId)).currentStatus).toBe('FILES-REJECTED')
     })
-})
 
-describe('the recompute script', () => {
-    it('finds a job whose columns were changed by hand in a dry run, and repairs it in a real run', async () => {
+    it('still applies a row from older code after a writer call in the same transaction', async () => {
         const { study } = await insertTestStudyOnly()
         const job = await openStudyJob(db, study.id, { actor: 'qa' })
-        await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
-        // eslint-disable-next-line custom/noJobStatusWrites -- the damage the script repairs
-        await db.updateTable('studyJob').set({ currentStatus: 'INITIATED' }).where('id', '=', job.id).execute()
+        await insertLegacyStatus(job.id, 'CODE-SUBMITTED')
 
-        expect(await recomputeJobStates(db, { studyId: study.id, dryRun: true })).toMatchObject([
-            { jobId: job.id, status: 'CODE-SUBMITTED' },
-        ])
-        expect((await columnsOf(job.id)).currentStatus).toBe('INITIATED')
-
-        await recomputeJobStates(db, { studyId: study.id })
         expect((await columnsOf(job.id)).currentStatus).toBe('CODE-SUBMITTED')
-        expect(await recomputeJobStates(db, { studyId: study.id })).toEqual([])
+    })
+
+    it('leaves a row inserted under the writer flag to the writer', async () => {
+        const { study } = await insertTestStudyOnly()
+        const job = await openStudyJob(db, study.id, { actor: 'qa' })
+        await sql`SELECT set_config(${JOB_WRITER_FLAG}, 'on', true)`.execute(db)
+        await insertLegacyStatus(job.id, 'CODE-SUBMITTED')
+
+        expect((await columnsOf(job.id)).currentStatus).toBe('INITIATED')
     })
 })

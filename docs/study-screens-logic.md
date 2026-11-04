@@ -521,17 +521,18 @@ Every write to `jobStatusChange`, and every new `studyJob`, goes through
 The writer locks the study row, then the job row, reads the job's current status from
 `studyJob.currentStatus`, checks the transition table, and writes the row with `clock_timestamp()`.
 `now()` is fixed for a whole transaction, so two writes in one transaction would tie;
-`clock_timestamp()` keeps rows in write order.
+`clock_timestamp()` keeps rows in write order. In the same transaction it sets the job columns from
+the table's effect: a `move` sets `currentStatus` and `statusChangedAt`, and a `CODE-SUBMITTED` row
+renumbers `round`. The transition table is the only rule for the columns of every job the app writes.
 
-The database keeps the job columns. Migration `1793742916584` filled them by replaying each job's log
-(`backfillReplay`, which orders rows that tie by lifecycle rank and alternates tied submissions and
-change requests). It then installed two triggers. `keep_study_job_state` applies each new
-`jobStatusChange` row to its job as the replay would: the first row of a job and every `move` set
-`currentStatus` and `statusChangedAt`, and a `CODE-SUBMITTED` row renumbers `round`.
-`number_study_job_round` numbers a new `studyJob`. The triggers run for every insert, so app code older
-than the columns, which still serves between the migration and the code swap, cannot leave a job
-stale. `bin/recompute-job-state.ts` runs the backfill again, for a job that someone changed by hand.
-Readers stay set-based, as described above.
+Migration `1793742916584` filled the columns by replaying each job's log (`backfillReplay`, which
+orders rows that tie by lifecycle rank and alternates tied submissions and change requests). It keeps
+its own copy of the rule, as the rule stood when the migration ran, and that copy is never edited.
+The migration also installed two triggers with the same copy: `keep_study_job_state` applies a new
+`jobStatusChange` row to its job, and `number_study_job_round` numbers a new `studyJob`. They exist for
+app code older than the columns, which still serves between the migration and the code swap. The
+writer sets the `app.job_writer` flag around its inserts, and both triggers skip a row inserted under
+it. Readers stay set-based, as described above.
 
 **Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
 route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and

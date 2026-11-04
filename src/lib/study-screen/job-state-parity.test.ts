@@ -52,7 +52,8 @@ describe('job state parity with the projection before OTTER-973', () => {
     })
 })
 
-// The writer keeps the columns as it goes; the migration and the recompute script rebuild them from the log.
+// The backfill must give an existing job the state the writer gives it. This pins the rule as of the
+// migration: if a later rule change breaks it, delete the test, never edit the migration.
 describe('the status writer and the backfill', () => {
     it.each(JOB_HISTORIES)('store the same job state for $name', async ({ jobs }) => {
         const { studyId } = await seedHistory(jobs)
