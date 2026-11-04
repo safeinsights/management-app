@@ -155,13 +155,7 @@ export async function ensureRoundJobForUpload(db: Kysely<DB>, studyId: string): 
 // The baseline starter-file copies backdate mtimes against; a wall-clock backdate is unsafe when
 // provisioning exceeds the backdate window (OTTER-547).
 export async function latestStudyJobCreatedAt(db: Kysely<DB>, studyId: string): Promise<Date | null> {
-    const row = await db
-        .selectFrom('studyJob')
-        .select('createdAt')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
+    const row = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
     return row?.createdAt ?? null
 }
 
