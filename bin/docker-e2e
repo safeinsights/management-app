@@ -55,7 +55,7 @@ usage() {
     echo "                        cannot reach SeaweedFS then, so plain runs and --ui are refused in it."
     echo "  --host-run            Fresh database and app server, then 'playwright test' on this machine. Uses"
     echo "                        the --host session; without a session it starts one and ends it afterwards."
-    echo "                        Adds --project=chromium unless the arguments name a --project or --ui."
+    echo "                        Runs chromium + a11y (as in Docker) unless the arguments name a --project or --ui."
     echo "                        Host-only projects: webkit, firefox, chrome, msedge; --project='*' runs all."
     echo "                        One host run per checkout at a time."
     echo "  --host-exec -- <cmd>  In a --host session: run a command on this machine with $HOST_ENV_FILE"
@@ -77,7 +77,7 @@ usage() {
     echo "  $0 --up                                   # Start a session"
     echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
     echo "  $0 --down                                 # End the session"
-    echo "  $0 --host-run                             # Whole suite, Playwright + Chromium on this machine"
+    echo "  $0 --host-run                             # Whole suite (chromium + a11y) on this machine"
     echo "  $0 --host-run -- --project='*'            # Whole suite in every host browser"
     echo "  $0 --up --host                            # Start a session for browsers on this machine"
     echo "  $0 --host-run -- --project=webkit --headed tests/signin.spec.ts"
@@ -572,7 +572,8 @@ stop_ui_url_printer() {
     if [ -n "$ui_url_printer" ]; then kill "$ui_url_printer" 2>/dev/null || true; fi
 }
 
-# Without a --project, Playwright would run every host browser project. UI mode lists them instead.
+# Without a --project, Playwright would run every host browser project, so default to the projects of
+# a Docker run. UI mode lists them all instead.
 names_project_or_ui() {
     local arg
     for arg in ${extra_args[@]+"${extra_args[@]}"}; do
@@ -595,7 +596,9 @@ if [ "$action" = host-run ]; then
         e2e-session bin/lib/e2e-runner.sh --prepare -- true
     split_workers
     playwright_args=(${extra_args[@]+"${extra_args[@]}"})
-    if ! names_project_or_ui; then playwright_args=(--project=chromium ${playwright_args[@]+"${playwright_args[@]}"}); fi
+    if ! names_project_or_ui; then
+        playwright_args=(--project=chromium --project=a11y ${playwright_args[@]+"${playwright_args[@]}"})
+    fi
     echo "Running Playwright on this machine against the session (project $project)..."
     status=0
     run_with_host_env pnpm exec playwright test ${playwright_args[@]+"${playwright_args[@]}"} || status=$?
