@@ -15,6 +15,7 @@
     "scripts": {
         "build:app": "./bin/build-app",
         "build:editor": "./services/editor/build",
+        "build:semgrep-runner": "./services/semgrep-runner/build",
         "ci:server": "./bin/ci-server",
         "dev": "env -u AWS_PROFILE next dev -p 4000",
         "dev:local": "concurrently --kill-others-on-fail --kill-signal SIGKILL pnpm:dev pnpm:s3:local pnpm:editor:local",
