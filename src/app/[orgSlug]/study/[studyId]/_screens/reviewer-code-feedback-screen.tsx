@@ -21,8 +21,6 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
         // (OTTER-613).
         job ? jobAnalysisForJob(job) : null,
         getCodeReviewFeedbackAction({ studyId: study.id }),
-        // The round of the code on the job, not studyCodeVersion: that counts the CODE-CHANGES-REQUESTED
-        // just written and would label this page as the next iteration.
         job?.round ?? 1,
     ])
     const safeEntries = isActionError(entries) ? [] : entries

@@ -8,7 +8,7 @@ import {
     it,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { jobRound, studyCodeVersion } from './queries'
+import { jobRound } from './queries'
 
 // Explicit timestamps, so the order of the rows under test is never left to the clock.
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -18,32 +18,27 @@ const addStatus = (studyJobId: string, status: StudyJobStatus, createdAt: Date) 
 
 describe('the stored job round', () => {
     it('is round 1 for a first submission', async () => {
-        const { study, job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
+        const { job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
 
         expect(await jobRound(job.id, db)).toBe(1)
-        expect(await jobRound(job.id, db)).toBe(await studyCodeVersion(study.id, db))
     })
 
-    // The distinction from studyCodeVersion: that version moves on at the reviewer's decision,
-    // while the code on the job is still the round the reviewer was looking at.
     it('stays on the submitted round while a change request waits for the resubmit', async () => {
-        const { study, job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
+        const { job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
 
         expect(await jobRound(job.id, db)).toBe(1)
-        expect(await studyCodeVersion(study.id, db)).toBe(2)
     })
 
     it('advances to round 2 once the resubmit lands', async () => {
-        const { study, job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
+        const { job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
         await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
         await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(1))
 
         expect(await jobRound(job.id, db)).toBe(2)
-        expect(await jobRound(job.id, db)).toBe(await studyCodeVersion(study.id, db))
     })
 
     // createdAt defaults to now(), which is fixed for a whole transaction, so a change request ties
@@ -70,7 +65,6 @@ describe('the stored job round', () => {
 
         expect(await jobRound(firstJob.id, db)).toBe(1)
         expect(await jobRound(secondJob.id, db)).toBe(2)
-        expect(await jobRound(secondJob.id, db)).toBe(await studyCodeVersion(study.id, db))
     })
 
     // The mirror of the boundary above: a decision on a job opened later belongs to a later round,
@@ -91,7 +85,7 @@ describe('the stored job round', () => {
         expect(await jobRound(secondJob.id, db)).toBe(3)
     })
 
-    it('falls back to the study-wide version for a job with no submission yet', async () => {
+    it('opens a job with no submission yet on the next round', async () => {
         const { study, job: firstJob } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
         await addStatus(firstJob.id, 'CODE-SUBMITTED', minutesAgo(30))
         await addStatus(firstJob.id, 'FILES-APPROVED', minutesAgo(20))
@@ -99,7 +93,6 @@ describe('the stored job round', () => {
         const openedJob = await insertTestJob(study.id)
 
         expect(await jobRound(openedJob.id, db)).toBe(2)
-        expect(await jobRound(openedJob.id, db)).toBe(await studyCodeVersion(study.id, db))
     })
 })
 

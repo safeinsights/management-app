@@ -48,8 +48,6 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     const analysis = await jobAnalysisForJob(job)
     const latestJobStatus = job.currentStatus
 
-    // The round of the code on this job, not studyCodeVersion: that counts a change request from the
-    // moment it is written, which would label this page as the next iteration.
     const reviewVersion = job.round
     const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName

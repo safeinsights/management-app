@@ -33,7 +33,7 @@ import {
     regenerateStudyReviewAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
-import { studyCodeVersion } from '@/server/db/queries'
+import { jobRound } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
@@ -607,7 +607,7 @@ describe('Study Job Actions', () => {
                 'CODE-APPROVED',
                 'RUN-COMPLETE',
             ])
-            expect(await studyCodeVersion(study.id, db)).toBe(2)
+            expect(await jobRound(job.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({

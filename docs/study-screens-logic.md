@@ -618,10 +618,8 @@ A repeat or a `log` row sends nothing, so a results delivery that follows the ru
 - `studyJob.round` is the code round the job carries: 1, plus the `CODE-CHANGES-REQUESTED`,
   `FILES-APPROVED` and `FILES-REJECTED` rows on earlier jobs of the study, plus the job's own
   resubmissions. The status writer stores it on every write.
-- The user-facing submission **version** is `nextCodeSubmissionVersion(job)` of the latest job:
-  `round`, plus 1 once a change request or an outputs decision has closed it (`studyCodeVersion`).
-  Review screens label the code with `round` instead, so a change request does not relabel the code
-  it was made on as the next version.
+- The user-facing submission **version** is the `round` of the job that carries the code, so a
+  change request does not relabel the code it was made on as the next version.
 
 ---
 

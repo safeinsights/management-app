@@ -5,20 +5,9 @@ import { currentDb } from '@/server/request-context'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { StudyJobStatus } from '@/database/types'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
-import { nextCodeSubmissionVersion } from '@/lib/job-status-rules'
-import { latestJobQuery } from './study-job'
 
 // A study id, or a reference to the outer query's study.id for a correlated subquery.
 type StudyIdOperand = string | Expression<string>
-
-// The version the next code decision and resubmission note are filed under, across ALL jobs of the
-// study, so it keeps climbing after a results decision opens a fresh job (OTTER-556/558, OTTER-638).
-export const studyCodeVersion = async (studyId: string, db: DBExecutor): Promise<number> => {
-    const job = await latestJobQuery(db, studyId)
-        .select(['studyJob.round', 'studyJob.currentStatus'])
-        .executeTakeFirst()
-    return job ? nextCodeSubmissionVersion(job) : 1
-}
 
 // Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
 // first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions

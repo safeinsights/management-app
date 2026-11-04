@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
     BLANK_UUID,
     insertTestDataSource,
-    insertTestJob,
     insertTestJobStatus,
     insertTestJobStatuses,
     insertTestOrg,
@@ -17,7 +16,6 @@ import {
 import { db } from '@/database'
 import { faker } from '@faker-js/faker'
 import {
-    studyCodeVersion,
     outputsDecisionVersion,
     currentReviewVersion,
     fetchCodeEnvForStudyIdOrNull,
@@ -33,6 +31,7 @@ import {
     findOrgIdBySlug,
     getDataSourcesForOrg,
     getIdeOwnerForStudy,
+    jobRound,
     siUser,
 } from '.'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
@@ -470,49 +469,6 @@ describe('getDataSourcesForOrg', () => {
     })
 })
 
-describe('studyCodeVersion', () => {
-    it('v1 for first submission, v2 after a change request on the same job', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        expect(await studyCodeVersion(study.id, db)).toBe(1)
-        await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
-        expect(await studyCodeVersion(study.id, db)).toBe(2)
-    })
-
-    it('v3 after two change-request rounds on the same job', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await insertTestJobStatuses(job.id, [
-            'CODE-CHANGES-REQUESTED',
-            'CODE-SUBMITTED',
-            'CODE-CHANGES-REQUESTED',
-            'CODE-SUBMITTED',
-        ])
-        expect(await studyCodeVersion(study.id, db)).toBe(3)
-    })
-
-    // Must not reset to v1 across a job boundary, or prior feedback is hidden (OTTER-556/558).
-    it('keeps climbing across a results-decision round boundary', async () => {
-        const { study, job: firstJob } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await insertTestJobStatus(firstJob.id, 'FILES-REJECTED')
-        expect(await studyCodeVersion(study.id, db)).toBe(2)
-
-        const newJob = await insertTestJob(study.id)
-        await insertTestJobStatus(newJob.id, 'CODE-SUBMITTED')
-
-        expect(await studyCodeVersion(study.id, db)).toBe(2)
-        await insertTestJobStatus(newJob.id, 'CODE-CHANGES-REQUESTED')
-        expect(await studyCodeVersion(study.id, db)).toBe(3)
-    })
-})
-
 describe('outputsDecisionVersion', () => {
     const givenOutputsDecision = async (studyId: string, studyJobId: string, authorId: string, round: number) =>
         await db
@@ -534,7 +490,7 @@ describe('outputsDecisionVersion', () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
         await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
 
-        expect(await studyCodeVersion(study.id, db)).toBe(2)
+        expect(await jobRound(job.id, db)).toBe(2)
         expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })
 
