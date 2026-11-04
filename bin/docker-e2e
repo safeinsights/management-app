@@ -225,8 +225,10 @@ if [ -n "$(running_container e2e-runner)" ]; then
 fi
 session=$(running_container e2e-session)
 
+# Empty when the port is not published. Never fails: under pipefail, a failed `docker port` in an
+# assignment would end the script.
 published_port() {
-    docker port "$1" "$2/tcp" 2>/dev/null | head -n 1 | sed 's/.*://'
+    { docker port "$1" "$2/tcp" 2>/dev/null || true; } | head -n 1 | sed 's/.*://'
 }
 
 # Only a session started with --up --host publishes the app port.
