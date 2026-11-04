@@ -61,7 +61,7 @@ const MAX_STDERR_CHARS = 64 * 1024
 // Python that runs Semgrep cannot load its ssl module against that build.
 const NODE_LIBRARY_DIR = '/var/lang/lib'
 
-export function semgrepEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+export function semgrepEnv<T extends Record<string, string | undefined>>(env: T): T {
     if (env.LD_LIBRARY_PATH === undefined) return env
     const dirs = env.LD_LIBRARY_PATH.split(':').filter((dir) => dir !== NODE_LIBRARY_DIR)
     return { ...env, LD_LIBRARY_PATH: dirs.join(':') }
