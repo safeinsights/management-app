@@ -1,4 +1,12 @@
-import { db, describe, expect, insertTestJob, insertTestJobStatus, insertTestStudyJobData, it } from '@/tests/unit.helpers'
+import {
+    db,
+    describe,
+    expect,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestStudyJobData,
+    it,
+} from '@/tests/unit.helpers'
 import { latestJobQuery } from './latest-job'
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -32,6 +40,7 @@ describe('latestJobQuery', () => {
 
     it('selects the higher round before the newer id', async () => {
         const { study, submittedJob, openedJob } = await givenClosedRoundAndOpenedJob()
+        // eslint-disable-next-line custom/noJobStatusWrites -- no real history puts a higher round on an older job
         await db.updateTable('studyJob').set({ round: 3 }).where('id', '=', submittedJob.id).execute()
 
         expect(openedJob.id > submittedJob.id).toBe(true)
