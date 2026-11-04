@@ -48,7 +48,7 @@ keeps the same job (see "Job round semantics"). A multi-round study has multiple
 latest job feeds the phase facts**: earlier rounds are history. `latestJobQuery({ submitted: true })`
 and `latestJob` skip a job whose `currentStatus` is still `INITIATED`, so a round that has only just
 opened does not mask the code under review. The dashboard uses the plain form and tracks the current
-round. `studyJob.createdAt` is moved for file staleness only and never orders jobs.
+round. `studyJob.createdAt` is moved for file staleness only and never selects the latest job.
 
 ---
 

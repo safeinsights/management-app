@@ -31,7 +31,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     ...overrides,
 })
 
-// v7 ids are insertion-ordered, so lexically-increasing ids make max(id) the latest round.
+// Ids break ties between jobs on the same round.
 const ID1 = '019000000000-0000-0000-0000-000000000001'
 const ID2 = '019000000000-0000-0000-0000-000000000002'
 

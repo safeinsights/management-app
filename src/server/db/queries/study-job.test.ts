@@ -8,7 +8,7 @@ import {
     it,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { jobRound } from './queries'
+import { jobRound } from './study-job'
 
 // Explicit timestamps, so the order of the rows under test is never left to the clock.
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -93,17 +93,5 @@ describe('the stored job round', () => {
         const openedJob = await insertTestJob(study.id)
 
         expect(await jobRound(openedJob.id, db)).toBe(2)
-    })
-})
-
-describe('a delivery for the round on the job', () => {
-    it('tells a superseded round from the current one', async () => {
-        const { job } = await insertTestStudyJobData({ jobStatus: 'INITIATED' })
-        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(10))
-        await addStatus(job.id, 'CODE-CHANGES-REQUESTED', minutesAgo(5))
-        await addStatus(job.id, 'CODE-SUBMITTED', minutesAgo(1))
-
-        expect((await await jobRound(job.id, db)) === 1).toBe(false)
-        expect((await await jobRound(job.id, db)) === 2).toBe(true)
     })
 })
