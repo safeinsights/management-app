@@ -250,7 +250,7 @@ case $command in
     hold)
         # ./bin/docker-e2e --host-run: Playwright runs on the host, so keep the lock until stdin closes.
         echo '[docker-e2e] lock held for the host run'
-        exec cat >/dev/null
+        cat >/dev/null
         ;;
     session)
         # The TTL counts from container start, like the timeout around Postgres and SeaweedFS.

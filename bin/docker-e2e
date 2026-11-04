@@ -238,7 +238,7 @@ if [ -n "$session" ] && [ -n "$(published_port "$session" 4100)" ]; then host_se
 # --up --host starts Postgres and SeaweedFS with host ports before the session container. Another
 # run in that window would recreate them without the ports and break the starting session.
 if [ -z "$session" ] && [ -n "$(published_port "$(running_container db-e2e)" 5432)" ]; then
-    echo "Error: a host-browser session is starting for this checkout." >&2
+    echo "Error: a host-browser session is starting for this checkout, or its session container stopped." >&2
     echo "       Wait for it, or run ./bin/docker-e2e --down if it was killed." >&2
     exit 1
 fi
@@ -253,6 +253,7 @@ case $action in
         if [ -z "$session" ] && [ "$action" = host-run ]; then
             echo "No session is running for this checkout; starting a host-browser session for this run."
             self="$repo_root/bin/docker-e2e"
+            export E2E_ONESHOT=1
             trap '"$self" --down >/dev/null 2>&1 || true' EXIT
             trap 'exit 130' INT
             trap 'exit 143' TERM
@@ -271,6 +272,12 @@ case $action in
         if [ "$host_session" = false ]; then
             echo "Error: the session of this checkout is not in host-browser mode." >&2
             echo "       End it with ./bin/docker-e2e --down, then start one with ./bin/docker-e2e --up --host." >&2
+            exit 1
+        fi
+        if [ "${E2E_ONESHOT:-}" != 1 ] &&
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$session" | grep -x 'E2E_ONESHOT=1' >/dev/null; then
+            echo "Error: a one-shot ./bin/docker-e2e --host-run is active for this checkout; its session ends with it." >&2
+            echo "       Wait for it to finish, or use ./bin/docker-e2e --up --host for several runs." >&2
             exit 1
         fi
         ;;
@@ -614,10 +621,8 @@ if [ "$action" = host-run ]; then
     trap 'exit 143' TERM
     trap 'release_host_lock; finish_stack_notice' EXIT
     watch_other_stacks
-    # The same preparation as a run in the session: fresh database, a build when the app changed,
-    # a restarted server. Only Playwright moves to the host. The runner keeps the session's Playwright
-    # lock until its stdin (fd 7) closes: at the end, on Ctrl-C, and when this script is killed. A
-    # second run waits, as in a Docker session.
+    # The same preparation as a session run; only Playwright moves to the host. The runner holds the
+    # session's Playwright lock until its stdin (fd 7) closes, so a second run waits.
     E2E_APP_FINGERPRINT=$(app_fingerprint "$(image_key "$(docker inspect -f '{{.Image}}' "$session")")")
     echo "Preparing the session of this checkout (project $project)..."
     hold_dir=$(mktemp -d "${TMPDIR:-/tmp}/docker-e2e-hold.XXXXXX")
