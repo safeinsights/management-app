@@ -134,9 +134,10 @@ export function hasAcceptedExtension(fileName: string) {
 }
 
 /** Per file, not per upload: OTTER-693 sets no cap on how many files a researcher may add. */
-export const MAX_UPLOAD_FILE_BYTES = 3 * 1024 * 1024
-export const MAX_UPLOAD_FILE_TEXT = 'Maximum file size is 3 MB.'
-export const MAX_UPLOAD_FILE_HINT = 'File size: 3 MB max.'
+const MAX_UPLOAD_FILE_MB = 3
+export const MAX_UPLOAD_FILE_BYTES = MAX_UPLOAD_FILE_MB * 1024 * 1024
+export const MAX_UPLOAD_FILE_TEXT = `Maximum file size is ${MAX_UPLOAD_FILE_MB} MB.`
+export const MAX_UPLOAD_FILE_HINT = `File size: ${MAX_UPLOAD_FILE_MB} MB max.`
 
 export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
