@@ -60,7 +60,7 @@ usage() {
     echo "                        One host run per checkout at a time."
     echo "  --host-exec -- <cmd>  In a --host session: run a command on this machine with $HOST_ENV_FILE"
     echo "                        loaded, e.g. pnpm exec playwright-cli (its session is named after the project)."
-    echo "  --down              Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
+    echo "  --down                Remove this checkout's e2e containers + network, KEEP all volumes. Ends a"
     echo "                        session. Then exits."
     echo "  --prune               Remove containers, networks and ALL volumes of this checkout, including the"
     echo "                        pnpm store, pnpm metadata & corepack cache. The runner image is kept."
