@@ -39,9 +39,13 @@ const DocumentBody: FC<{ isLoading: boolean; document?: GlobalDocument | null; l
     if (!document) return <Text c="dimmed">Not available</Text>
     if (document.format === 'pdf') return <PdfLink url={document.url} label={label} />
 
-    // No label: LegalPanel's heading already names it, and unbounded has no scroll region to name.
+    // No label: the document's own title names it, and unbounded has no scroll region to name.
     return <LegalMarkdownContent content={document.content} unbounded />
 }
+
+// A markdown document opens with its own title, so the panel would repeat it (SHRMP-367).
+const panelTitle = (isLoading: boolean, document: GlobalDocument | null | undefined, label: string) =>
+    isLoading || document?.format === 'markdown' ? undefined : label
 
 export const UserGlobalDocument: FC<Props> = ({ type }) => {
     const label = legalDocumentTypeLabels[type]
@@ -53,7 +57,7 @@ export const UserGlobalDocument: FC<Props> = ({ type }) => {
     if (isError) return <ErrorAlert error={error} />
 
     return (
-        <LegalPanel title={label} aside={<DocumentDates document={data} />}>
+        <LegalPanel title={panelTitle(isLoading, data, label)} aside={<DocumentDates document={data} />}>
             <Divider mb="lg" />
             <DocumentBody isLoading={isLoading} document={data} label={label} />
         </LegalPanel>

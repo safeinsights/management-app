@@ -41,7 +41,7 @@ const publishTos = async () => {
 }
 
 describe('UserGlobalDocument', () => {
-    it('renders the markdown with only the acknowledged date in the header', async () => {
+    it('renders the markdown with only the acknowledged date and no panel title', async () => {
         const { restoreSession } = await mockSessionWithTestData({ orgType: 'enclave' })
         const version = await publishTos()
         // A fixed publish date, so the assertion is not on today.
@@ -64,6 +64,8 @@ describe('UserGlobalDocument', () => {
         expect(screen.queryByText(/Effective on/)).toBeNull()
         expect(screen.getByText('Acknowledged on: May 10, 2026')).toBeDefined()
         expect(screen.getByRole('separator')).toBeDefined()
+        expect(screen.queryByRole('heading', { name: 'Terms of Service' })).toBeNull()
+        expect(screen.getByRole('heading', { name: 'These are the terms' })).toBeDefined()
     })
 
     it('dashes the acknowledgement date when the user owes the current version', async () => {
