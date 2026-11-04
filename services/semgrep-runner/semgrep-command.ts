@@ -57,6 +57,16 @@ export function testInvocation(work: Workspace): CommandInvocation {
 
 const MAX_STDERR_CHARS = 64 * 1024
 
+// The Lambda Node image puts /var/lang/lib, Node's own OpenSSL build, first on LD_LIBRARY_PATH. The system
+// Python that runs Semgrep cannot load its ssl module against that build.
+const NODE_LIBRARY_DIR = '/var/lang/lib'
+
+export function semgrepEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+    if (env.LD_LIBRARY_PATH === undefined) return env
+    const dirs = env.LD_LIBRARY_PATH.split(':').filter((dir) => dir !== NODE_LIBRARY_DIR)
+    return { ...env, LD_LIBRARY_PATH: dirs.join(':') }
+}
+
 /**
  * Runs the command in its own process group. Semgrep starts semgrep-core as a child, which survives a
  * kill of its parent and keeps the output pipes open, so the whole group is killed on abort and as
@@ -69,7 +79,12 @@ export function spawnCommand(
     if (signal.aborted) return Promise.resolve({ code: null, stdout: '', stderr: '', aborted: true })
 
     return new Promise((resolve) => {
-        const child = spawn(file, args, { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+        const child = spawn(file, args, {
+            cwd,
+            env: semgrepEnv(process.env),
+            detached: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        })
         let stdout = ''
         let stderr = ''
         let aborted = false
