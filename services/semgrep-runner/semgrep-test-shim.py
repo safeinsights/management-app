@@ -1,5 +1,5 @@
 # Lambda has no /dev/shm, so the multiprocessing.Pool that Semgrep's fixture test builds fails there.
-# Run the same test with a serial pool. Tied to the Semgrep version pinned in requirements.txt.
+# Run the same test with a serial pool. Tied to the Semgrep version in requirements.in.
 import itertools
 import multiprocessing
 import sys
