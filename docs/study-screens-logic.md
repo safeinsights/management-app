@@ -615,9 +615,11 @@ A repeat or a `log` row sends nothing, so a results delivery that follows the ru
 - A round **closes** only on `FILES-APPROVED` / `FILES-REJECTED`.
 - A `CODE-CHANGES-REQUESTED` resubmit **reuses the same job** (the round is still open).
 - `CODE-SUBMITTED` is **append-only per round**.
-- `studyJob.round` is the code round the job carries: 1, plus the `CODE-CHANGES-REQUESTED`,
-  `FILES-APPROVED` and `FILES-REJECTED` rows on earlier jobs of the study, plus the job's own
-  resubmissions. The status writer stores it on every write.
+- `studyJob.round` is the code round the job carries. `openStudyJob` gives a new job the round of the
+  study's latest job, plus 1 after an outputs decision, and a resubmission after a change request
+  adds 1 (`roundIncrement` in the transition table). The migration backfilled existing jobs with the
+  same numbers by counting the `CODE-CHANGES-REQUESTED`, `FILES-APPROVED` and `FILES-REJECTED` rows
+  on earlier jobs plus the job's own resubmissions.
 - The user-facing submission **version** is the `round` of the job that carries the code, so a
   change request does not relabel the code it was made on as the next version.
 
