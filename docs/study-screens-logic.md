@@ -522,8 +522,11 @@ The writer locks the study row, then the job row, reads the job's current status
 `studyJob.currentStatus`, checks the transition table, and writes the row with `clock_timestamp()`.
 `now()` is fixed for a whole transaction, so two writes in one transaction would tie;
 `clock_timestamp()` keeps rows in write order. In the same transaction it sets the job columns from
-the table's effect: a `move` sets `currentStatus` and `statusChangedAt`, and a `CODE-SUBMITTED` row
-renumbers `round`. The transition table is the only rule for the columns of every job the app writes.
+the table's row: a `move` sets `currentStatus` and `statusChangedAt`, and a `move` on a row marked
+`roundIncrement` (a resubmission after a change request) adds 1 to `round`. `openStudyJob` numbers a
+new job from the stored round of the study's latest job (highest `round`, then id), plus 1 when that
+job is decided (`FILES-APPROVED` or `FILES-REJECTED`). The transition table is the only rule for the
+columns of every job the app writes.
 
 Migration `1793742916584` filled the columns by replaying each job's log (`backfillReplay`, which
 orders rows that tie by lifecycle rank and alternates tied submissions and change requests). It keeps

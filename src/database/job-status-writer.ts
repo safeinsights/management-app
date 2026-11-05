@@ -5,8 +5,8 @@ import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from './types'
 import { ActionFailure, NotFoundError } from '../lib/errors'
 import {
-    CODE_ROUND_CLOSING_JOB_STATUSES,
     decideJobTransition,
+    isRoundClosing,
     type JobActor,
     type JobStatus,
     type TransitionRefusal,
@@ -92,26 +92,6 @@ export async function lockJobState(executor: Executor, jobId: string): Promise<J
     })
 }
 
-// The code round of a job: round-closing rows on the jobs before it, plus its own resubmissions.
-function jobRoundSql(jobId: string) {
-    return sql<number>`(
-        1 + (
-            SELECT count(*)
-            FROM job_status_change closer
-            JOIN study_job sibling ON sibling.id = closer.study_job_id
-            JOIN study_job job ON job.id = ${jobId}::uuid
-            WHERE sibling.study_id = job.study_id
-              AND (sibling.created_at, sibling.id) < (job.created_at, job.id)
-              AND closer.status::text = ANY(${CODE_ROUND_CLOSING_JOB_STATUSES}::text[])
-        ) + greatest(0, (
-            SELECT count(*)
-            FROM job_status_change submission
-            WHERE submission.study_job_id = ${jobId}::uuid
-              AND submission.status = 'CODE-SUBMITTED'
-        ) - 1)
-    )::int`
-}
-
 // The time of a status row, copied in SQL so the stored time keeps its microseconds.
 const statusRowTime = (statusChangeId: string) =>
     sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${statusChangeId}::uuid)`
@@ -182,13 +162,13 @@ export async function writeJobStatus(
         )
 
         const moved = decision.effect === 'move'
-        // Only a submission changes the job's own round; the rule counts every submission row.
-        if (moved || to === 'CODE-SUBMITTED') {
+        if (moved) {
             await trx
                 .updateTable('studyJob')
                 .set({
-                    ...(moved ? { currentStatus: to, statusChangedAt: statusRowTime(inserted.id) } : {}),
-                    ...(to === 'CODE-SUBMITTED' ? { round: jobRoundSql(jobId) } : {}),
+                    currentStatus: to,
+                    statusChangedAt: statusRowTime(inserted.id),
+                    ...(decision.roundIncrement ? { round: sql<number>`round + 1` } : {}),
                 })
                 .where('id', '=', jobId)
                 .execute()
@@ -221,10 +201,20 @@ export async function openStudyJob(
     return inTransaction(executor, async (trx) => {
         // Serializes job opens on one study, so two requests cannot both open the next round.
         await trx.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
+        const latest = await trx
+            .selectFrom('studyJob')
+            .select(['round', 'currentStatus'])
+            .where('studyId', '=', studyId)
+            .orderBy('round', 'desc')
+            .orderBy('id', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+        // From the stored rounds rather than the log, so a new job never numbers below the jobs before it.
+        const round = latest ? latest.round + (isRoundClosing(latest.currentStatus) ? 1 : 0) : 1
         const { job, initiated } = await insertAsWriter(trx, async () => {
             const job = await trx
                 .insertInto('studyJob')
-                .values(createdAt ? { studyId, createdAt } : { studyId })
+                .values({ studyId, round, ...(createdAt ? { createdAt } : {}) })
                 .returning(['id', 'createdAt'])
                 .executeTakeFirstOrThrow()
             const initiated = await trx
@@ -234,16 +224,11 @@ export async function openStudyJob(
                 .executeTakeFirstOrThrow()
             return { job, initiated }
         })
-        const { round } = await trx
+        await trx
             .updateTable('studyJob')
-            .set({
-                currentStatus: 'INITIATED',
-                round: jobRoundSql(job.id),
-                statusChangedAt: statusRowTime(initiated.id),
-            })
+            .set({ currentStatus: 'INITIATED', statusChangedAt: statusRowTime(initiated.id) })
             .where('id', '=', job.id)
-            .returning('round')
-            .executeTakeFirstOrThrow()
+            .execute()
         return { id: job.id, createdAt: job.createdAt, statusChangeId: initiated.id, round }
     })
 }

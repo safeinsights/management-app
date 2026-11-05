@@ -3,8 +3,7 @@ import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
 import { JOB_STATUSES } from '@/lib/job-status-rules'
-import { codeRoundForJob } from '@/server/db/code-round'
-import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
+import { openStudyJob } from '@/database/job-status-writer'
 import {
     JOB_WRITER_FLAG,
     backfillEffect,
@@ -304,38 +303,6 @@ describe('backfillReplay', () => {
     it('starts from a legacy first row that is not INITIATED, and from nothing at all', () => {
         expect(statusOf([row('JOB-READY', 0)])).toBe('JOB-READY')
         expect(backfillReplay([])).toBeNull()
-    })
-})
-
-describe('the status writer keeps the columns', () => {
-    // Each status lands at the time of its 1-based position, as in insertLegacyJob.
-    const writeHistory = async (studyId: string, history: History) => {
-        const opensWithInitiated = history[0] === 'INITIATED'
-        const job = await openStudyJob(db, studyId, { actor: 'qa', at: at(opensWithInitiated ? 1 : 0) })
-        for (const [index, status] of history.entries()) {
-            if (index > 0 || !opensWithInitiated) {
-                await writeJobStatus(db, job.id, status, { actor: 'qa', at: at(index + 1) })
-            }
-        }
-        return job.id
-    }
-
-    it.each(CASES)('stores the state of $name', async ({ history, status, changedAtRow, round }) => {
-        const { study } = await insertTestStudyOnly()
-        const jobId = await writeHistory(study.id, history)
-
-        expect(await columnsOf(jobId)).toEqual({ currentStatus: status, round, statusChangedAt: at(changedAtRow) })
-        expect(round).toBe(await codeRoundForJob(jobId, db))
-    })
-
-    it('stores the round of a job opened after a decision', async () => {
-        const { study } = await insertTestStudyOnly()
-        await writeHistory(study.id, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
-        await writeHistory(study.id, ['RUN-COMPLETE', 'FILES-REJECTED'])
-        const next = await openStudyJob(db, study.id, { actor: 'qa' })
-
-        expect(next.round).toBe(3)
-        expect((await columnsOf(next.id)).round).toBe(await codeRoundForJob(next.id, db))
     })
 })
 

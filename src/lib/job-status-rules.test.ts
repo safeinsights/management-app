@@ -23,7 +23,12 @@ const decide = (
         hasStatus: (status) => (history.has ?? []).includes(status),
     })
 
-const write = (effect: 'move' | 'log', observed = false) => ({ kind: 'write', effect, observed })
+const write = (effect: 'move' | 'log', observed = false, roundIncrement = false) => ({
+    kind: 'write',
+    effect,
+    roundIncrement,
+    observed,
+})
 const refused = (reason: string) => ({ kind: 'refused', reason })
 
 describe('transition table', () => {
@@ -48,9 +53,13 @@ describe('transition table', () => {
                     for (const actor of JOB_ACTORS) {
                         const decision = decide(from, to, actor, { newestStatus: from })
                         if (row.actors.includes(actor) || actor === 'qa') {
-                            expect(decision, `${actor}: ${from} -> ${to}`).toEqual(write(row.effect))
+                            expect(decision, `${actor}: ${from} -> ${to}`).toEqual(
+                                write(row.effect, false, Boolean(row.roundIncrement)),
+                            )
                         } else if (actor === 'enclave' || actor === 'service') {
-                            expect(decision, `${actor}: ${from} -> ${to}`).toEqual(write(row.effect, true))
+                            expect(decision, `${actor}: ${from} -> ${to}`).toEqual(
+                                write(row.effect, true, Boolean(row.roundIncrement)),
+                            )
                         } else {
                             expect(decision, `${actor}: ${from} -> ${to}`).toEqual(refused('not-permitted'))
                         }
@@ -63,6 +72,8 @@ describe('transition table', () => {
     it('marks only a resubmission after a change request as the next code round', () => {
         expect(findTransition('CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED')?.roundIncrement).toBe(true)
         expect(findTransition('INITIATED', 'CODE-SUBMITTED')?.roundIncrement).toBe(false)
+        expect(decide('CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'researcher')).toEqual(write('move', false, true))
+        expect(decide('FILES-APPROVED', 'CODE-SUBMITTED', 'qa')).toEqual(write('log'))
     })
 
     it.each([

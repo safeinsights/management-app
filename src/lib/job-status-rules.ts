@@ -141,7 +141,7 @@ export type TransitionDecision =
     | { kind: 'refused'; reason: TransitionRefusal }
     | { kind: 'repeat' }
     | { kind: 'noop' }
-    | { kind: 'write'; effect: TransitionEffect; observed: boolean }
+    | { kind: 'write'; effect: TransitionEffect; roundIncrement: boolean; observed: boolean }
 
 type DecisionInput = {
     from: JobStatus | null
@@ -166,9 +166,12 @@ export function replayEffect(from: JobStatus | null, to: JobStatus): TransitionE
 
 export function decideJobTransition({ from, to, actor, newestStatus, hasStatus }: DecisionInput): TransitionDecision {
     const transition = findTransition(from, to)
+    const roundIncrement = transition?.roundIncrement ?? false
 
     // QA drives jobs to arbitrary states; it still writes through here so the log replays the same way.
-    if (actor === 'qa') return { kind: 'write', effect: from === to ? 'log' : replayEffect(from, to), observed: false }
+    if (actor === 'qa') {
+        return { kind: 'write', effect: from === to ? 'log' : replayEffect(from, to), roundIncrement, observed: false }
+    }
 
     if (isRoundClosing(from) && to !== 'RESULTS-VIEWED') return { kind: 'refused', reason: 'round-closed' }
 
@@ -181,10 +184,12 @@ export function decideJobTransition({ from, to, actor, newestStatus, hasStatus }
         if (alreadyLogged) return { kind: 'noop' }
     }
 
-    if (transition?.actors.includes(actor)) return { kind: 'write', effect: transition.effect, observed: false }
+    if (transition?.actors.includes(actor)) {
+        return { kind: 'write', effect: transition.effect, roundIncrement, observed: false }
+    }
 
     if (OBSERVE_MACHINE_ACTOR_PAIRS && MACHINE_ACTORS.includes(actor)) {
-        return { kind: 'write', effect: replayEffect(from, to), observed: true }
+        return { kind: 'write', effect: replayEffect(from, to), roundIncrement, observed: true }
     }
     return { kind: 'refused', reason: 'not-permitted' }
 }
