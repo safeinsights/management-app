@@ -172,6 +172,20 @@ describe('SetupAccountForm legal documents', () => {
     })
 })
 
+describe('SetupAccountForm fields', () => {
+    it('leaves the name and password fields without placeholders', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        for (const label of ['First name', 'Last name', 'Enter password', 'Confirm password']) {
+            expect(screen.getByLabelText(label)).not.toHaveAttribute('placeholder')
+        }
+    })
+})
+
 describe('SetupAccountForm field errors', () => {
     it('shows each field error one time, with the error icon', async () => {
         fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))

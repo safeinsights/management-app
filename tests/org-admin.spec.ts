@@ -73,7 +73,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
         await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
-        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice' }).check()
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice.' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })
         await expect(submitBtn).toBeEnabled()

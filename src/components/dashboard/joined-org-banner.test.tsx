@@ -50,6 +50,16 @@ describe('JoinedOrgBanner', () => {
         expect(sessionStorage.getItem(JOINED_ORG_STORAGE_KEY)).toBeNull()
     })
 
+    it('uses the solid blue info style', async () => {
+        markOrgJoined('ASU Research Lab')
+        const { getByTestId } = renderWithProviders(<JoinedOrgBanner />)
+
+        await waitFor(() => expect(getByTestId('joined-org-banner')).toBeInTheDocument())
+        expect(getByTestId('joined-org-banner').style.getPropertyValue('--alert-bg')).toBe(
+            'var(--si-color-info-bg-dark)',
+        )
+    })
+
     it('dismisses when the close button is clicked', async () => {
         sessionStorage.setItem(JOINED_ORG_STORAGE_KEY, 'ASU Research Lab')
         const { getByTestId, queryByTestId } = renderWithProviders(<JoinedOrgBanner />)

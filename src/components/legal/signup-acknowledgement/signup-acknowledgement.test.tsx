@@ -99,6 +99,27 @@ describe('AcknowledgementCheckbox', () => {
             expect(link).toHaveAttribute('href', 'https://example.com/agreement.pdf')
         })
 
+        it('ends the label with a full stop and shows the link underlined, without the new-tab icon', () => {
+            renderWithProviders(
+                <AcknowledgementCheckbox
+                    label={participationAgreementLabel({
+                        versionId: 'dopa-v1',
+                        type: 'DOPA',
+                        url: 'https://example.com/agreement.pdf',
+                    })}
+                    checked={false}
+                    onChange={vi.fn()}
+                />,
+            )
+
+            expect(
+                screen.getByLabelText('I agree to the Data Organization Participation Agreement.'),
+            ).toBeInTheDocument()
+            const link = screen.getByRole('link', { name: 'Data Organization Participation Agreement' })
+            expect(link).toHaveAttribute('data-underline', 'always')
+            expect(link.querySelector('svg')).toBeNull()
+        })
+
         // Nothing published yet: no agreement to link or agree to, so the checkbox drops out.
         it('renders no checkbox when there is no agreement', () => {
             renderWithProviders(
@@ -144,7 +165,7 @@ describe('AcknowledgementCheckbox', () => {
                 />,
             )
 
-            expect(screen.getByLabelText('I agree to the Terms of Service and Privacy Notice')).toBeInTheDocument()
+            expect(screen.getByLabelText('I agree to the Terms of Service and Privacy Notice.')).toBeInTheDocument()
         })
     })
 })

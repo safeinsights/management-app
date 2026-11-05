@@ -22,7 +22,7 @@ const PopoverLink: FC<{ label: string; content: string }> = ({ label, content })
                     type="button"
                     onClick={toggle}
                     c={semanticColor('link.default')}
-                    fw={fontWeight.semibold}
+                    fw={fontWeight.bold}
                     underline="always"
                     fz="sm"
                 >
@@ -39,6 +39,6 @@ const PopoverLink: FC<{ label: string; content: string }> = ({ label, content })
 export const PlaceholderLabel: FC = () => (
     <Text component="span" fz="sm">
         I agree to the <PopoverLink label="Terms of Service" content={TOS_TEXT} /> and{' '}
-        <PopoverLink label="Privacy Notice" content={PRIVACY_TEXT} />
+        <PopoverLink label="Privacy Notice" content={PRIVACY_TEXT} />.
     </Text>
 )

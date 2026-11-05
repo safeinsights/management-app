@@ -2,12 +2,13 @@
 
 import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { InputError } from '@/components/errors'
-import { Checkbox, Stack } from '@mantine/core'
+import { Checkbox, Stack, Text } from '@mantine/core'
 import { FC, ReactNode, useId } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
 import { ParticipationData } from '@/server/actions/participation-agreement.actions'
 import { PlaceholderLabel } from './placeholder-tos-pn'
+import { fontWeight } from '@/theme/tokens'
 
 type AcknowledgeProps = {
     label: string | ReactNode
@@ -28,14 +29,22 @@ export const globalDocAgreementLabel = (documents: GlobalLegalDocument[]) => {
     if (documents.length === 0) {
         return <PlaceholderLabel />
     }
-    return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
+    return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}.`
 }
 
 export const participationAgreementLabel = (document: ParticipationData | null) => {
     if (!document) return null
     return (
         <>
-            I agree to the <PdfLink url={document.url} label={legalDocumentTypeLabels[document.type]} />
+            I agree to the{' '}
+            <PdfLink
+                url={document.url}
+                label={legalDocumentTypeLabels[document.type]}
+                withIcon={false}
+                underline="always"
+                fw={fontWeight.bold}
+            />
+            .
         </>
     )
 }
@@ -49,7 +58,11 @@ export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, 
             checked={checked}
             onChange={(event) => onChange(event.currentTarget.checked)}
             onBlur={onBlur}
-            label={label}
+            label={
+                <Text span fz="sm" fw={fontWeight.bold}>
+                    {label}
+                </Text>
+            }
             error={
                 error ? (
                     <span id={errorId}>

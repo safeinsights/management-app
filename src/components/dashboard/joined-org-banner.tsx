@@ -2,7 +2,7 @@
 
 import { JOINED_ORG_STORAGE_KEY, readJoinedOrg, type JoinedOrg } from '@/lib/joined-org'
 import { Alert, Text } from '@mantine/core'
-import { CheckCircleIcon } from '@phosphor-icons/react'
+import { InfoIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -27,13 +27,14 @@ export function JoinedOrgBanner() {
 
     return (
         <Alert
-            color="green"
+            variant="filled"
+            color={semanticColor('info.bg.dark')}
             withCloseButton
             onClose={() => setJoinedOrg(null)}
-            icon={<CheckCircleIcon weight="fill" size={20} color={semanticColor('success.text')} />}
+            icon={<InfoIcon weight="fill" size={20} color={semanticColor('text.white')} />}
             data-testid="joined-org-banner"
         >
-            <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.bold}>
+            <Text size="sm" c={semanticColor('text.white')} fw={fontWeight.semibold}>
                 {bannerMessage(joinedOrg)}
             </Text>
         </Alert>
