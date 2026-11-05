@@ -96,8 +96,8 @@ export async function lockJobState(executor: Executor, jobId: string): Promise<J
 const statusRowTime = (statusChangeId: string) =>
     sql<Date>`(SELECT created_at FROM job_status_change WHERE id = ${statusChangeId}::uuid)`
 
-// The migration's triggers skip inserts made under this flag, so the writer alone decides the columns.
-// Switched off again after the insert, because the app's transaction may go on after the writer returns.
+// Migration 1793904779051 drops the triggers, but a deploy swaps the code before it migrates, so they skip
+// inserts under this flag until then. Switched off after the insert, as the app's transaction may go on.
 async function insertAsWriter<T>(trx: Transaction<DB>, insert: () => Promise<T>): Promise<T> {
     await sql`SELECT set_config(${JOB_WRITER_FLAG}, 'on', true)`.execute(trx)
     const result = await insert()

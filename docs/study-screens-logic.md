@@ -535,12 +535,12 @@ columns of every job the app writes.
 Migration `1793742916584` filled the columns by replaying each job's log (`backfillReplay`, which
 orders rows that tie by lifecycle rank and alternates tied submissions and change requests). It keeps
 its own copy of the rule, as the rule stood when the migration ran, and that copy is never edited.
-The migration also installed two triggers with the same copy: `keep_study_job_state` applies a new
-`jobStatusChange` row to its job, and `number_study_job_round` numbers a new `studyJob`. They exist for
-app code older than the columns. A deploy swaps the code before it migrates, so that code serves again
-only after a rollback to an older release. The
-writer sets the `app.job_writer` flag around its inserts, and both triggers skip a row inserted under
-it. Readers stay set-based, as described above.
+The migration also installed two triggers with the same copy for app code older than the columns.
+Migration `1793904779051` dropped them: a deploy swaps the code before it migrates, so no older code
+writes against the columns, and the writer is their only owner. A rollback across these migrations is
+not supported; `backfillStudyJobState` rebuilds the columns from the log if one happens anyway. The
+writer still sets the `app.job_writer` flag around its inserts, so the triggers skip its rows in the
+deploy window before `1793904779051` runs. Readers stay set-based, as described above.
 
 **Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
 route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and

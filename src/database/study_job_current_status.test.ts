@@ -1,14 +1,7 @@
-import { db, describe, expect, insertTestOrg, insertTestStudyOnly, insertTestUser, it } from '@/tests/unit.helpers'
-import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
-import { latestJobQuery } from '@/server/db/queries'
-import { markCodeSubmitted } from '@/server/study-submission'
+import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
 import { sql, type Kysely, type RawBuilder } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
-import { JOB_STATUSES } from '@/lib/job-status-rules'
-import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
 import {
-    JOB_WRITER_FLAG,
-    backfillEffect,
     backfillReplay,
     backfillStudyJobState,
     type BackfillRow,
@@ -236,20 +229,6 @@ describe('backfillStudyJobState', () => {
     })
 })
 
-describe('job_status_effect', () => {
-    it('gives every pair the effect backfillEffect gives it', async () => {
-        const pairs = JOB_STATUSES.flatMap((from) => JOB_STATUSES.map((to) => ({ from, to })))
-        const { rows } = await sql<{ effect: string }>`
-            SELECT job_status_effect(pair.from_status, pair.to_status) AS effect
-            FROM unnest(${pairs.map(({ from }) => from)}::text[], ${pairs.map(({ to }) => to)}::text[])
-                WITH ORDINALITY AS pair(from_status, to_status, position)
-            ORDER BY pair.position
-        `.execute(db)
-
-        expect(rows.map((row) => row.effect)).toEqual(pairs.map(({ from, to }) => backfillEffect(from, to)))
-    })
-})
-
 describe('backfillReplay', () => {
     const row = (status: StudyJobStatus, second: number, id: string = status): BackfillRow => ({
         id,
@@ -305,108 +284,5 @@ describe('backfillReplay', () => {
     it('starts from a legacy first row that is not INITIATED, and from nothing at all', () => {
         expect(statusOf([row('JOB-READY', 0)])).toBe('JOB-READY')
         expect(backfillReplay([])).toBeNull()
-    })
-})
-
-// After a rollback to an older release, app code that does not know these columns serves against them.
-describe('a job that older code touched after a rollback', () => {
-    it.each(CASES)(
-        'keeps the columns as the backfill would for $name',
-        async ({ history, status, changedAtRow, round }) => {
-            const { study } = await insertTestStudyOnly()
-            const jobId = await insertLegacyJob(study.id, history)
-
-            expect(await columnsOf(jobId)).toEqual({ currentStatus: status, round, statusChangedAt: at(changedAtRow) })
-        },
-    )
-
-    it('numbers a job older code opens after a decided round', async () => {
-        const { study } = await insertTestStudyOnly()
-        await insertLegacyJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])
-        const next = await insertLegacyJob(study.id, ['INITIATED', 'CODE-SUBMITTED'], { createdAt: at(10) })
-
-        expect(await columnsOf(next)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 2 })
-    })
-
-    it('opens the next round after older code recorded the decision', async () => {
-        const { study } = await insertTestStudyOnly()
-        const job = await openStudyJob(db, study.id, { actor: 'qa' })
-        await writeJobStatus(db, job.id, 'RUN-COMPLETE', { actor: 'qa' })
-        await insertLegacyStatus(job.id, 'FILES-APPROVED')
-
-        const next = await getOrCreateCurrentRoundJob(db, study.id)
-
-        expect(next).toMatchObject({ created: true })
-        expect(next.id).not.toBe(job.id)
-    })
-
-    it('finds the job older code opened with the latest-job query at once', async () => {
-        const { study } = await insertTestStudyOnly()
-        const decided = await openStudyJob(db, study.id, { actor: 'qa' })
-        const history = [
-            'CODE-SUBMITTED',
-            'CODE-CHANGES-REQUESTED',
-            'CODE-SUBMITTED',
-            'CODE-APPROVED',
-            'RUN-COMPLETE',
-            'FILES-APPROVED',
-        ] as const
-        for (const status of history) await writeJobStatus(db, decided.id, status, { actor: 'qa' })
-        // eslint-disable-next-line custom/noJobStatusWrites -- an older app version opens the next job without the columns
-        const next = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id, createdAt: sql<Date>`clock_timestamp()` })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await insertLegacyStatus(next.id, 'CODE-SUBMITTED')
-        const latest = await latestJobQuery(db, study.id).select('studyJob.id').executeTakeFirstOrThrow()
-
-        expect(latest.id).toBe(next.id)
-        expect(await columnsOf(next.id)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 3 })
-    })
-
-    it('opens the next round when a late scan followed the outputs decision', async () => {
-        const { study } = await insertTestStudyOnly()
-        const jobId = await insertLegacyJob(study.id, [
-            'CODE-SUBMITTED',
-            'CODE-APPROVED',
-            'RUN-COMPLETE',
-            'FILES-REJECTED',
-        ])
-        await insertLegacyStatus(jobId, 'CODE-SCANNED')
-
-        const next = await getOrCreateCurrentRoundJob(db, study.id)
-
-        expect(next).toMatchObject({ created: true })
-        expect((await columnsOf(jobId)).currentStatus).toBe('FILES-REJECTED')
-    })
-
-    it('accepts a resubmit after older code recorded the change request', async () => {
-        const { study } = await insertTestStudyOnly()
-        const job = await openStudyJob(db, study.id, { actor: 'qa' })
-        await writeJobStatus(db, job.id, 'CODE-SUBMITTED', { actor: 'qa' })
-        await insertLegacyStatus(job.id, 'CODE-CHANGES-REQUESTED')
-        const { user } = await insertTestUser({ org: await insertTestOrg() })
-
-        await markCodeSubmitted(db, { studyJobId: job.id, userId: user.id })
-
-        expect(await columnsOf(job.id)).toMatchObject({ currentStatus: 'CODE-SUBMITTED', round: 2 })
-    })
-
-    it('still applies a row from older code after a writer call in the same transaction', async () => {
-        const { study } = await insertTestStudyOnly()
-        const job = await openStudyJob(db, study.id, { actor: 'qa' })
-        await insertLegacyStatus(job.id, 'CODE-SUBMITTED')
-
-        expect((await columnsOf(job.id)).currentStatus).toBe('CODE-SUBMITTED')
-    })
-
-    it('leaves a row inserted under the writer flag to the writer', async () => {
-        const { study } = await insertTestStudyOnly()
-        const job = await openStudyJob(db, study.id, { actor: 'qa' })
-        await sql`SELECT set_config(${JOB_WRITER_FLAG}, 'on', true)`.execute(db)
-        await insertLegacyStatus(job.id, 'CODE-SUBMITTED')
-
-        expect((await columnsOf(job.id)).currentStatus).toBe('INITIATED')
     })
 })
