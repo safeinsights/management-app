@@ -6,6 +6,7 @@ import {
     isErroredOutputsSharedOutcome,
     isFeedbackOnlyOutcome,
     isOutputsSharedOutcome,
+    latestJob,
     projectStudyState,
 } from './state'
 import { resolveResearcherCodeScreen, resolveScreen } from './resolve'
@@ -216,6 +217,26 @@ describe('projectStudyState', () => {
             expect(projectStudyState(raw({ status, piUserId: 'pi-1' })).hasStep2Progress).toBe(false)
             expect(projectStudyState(raw({ status, hasStep2CollabDoc: true })).hasStep2Progress).toBe(false)
         }
+    })
+})
+
+// The rule of latestJobQuery; real histories never order rounds and ids differently, so pin it here.
+describe('latestJob', () => {
+    it('selects the higher round before the newer id', () => {
+        const older = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], 2)
+        const newer = job(ID2, ['CODE-SUBMITTED'], 1)
+        expect(latestJob([older, newer])).toBe(older)
+    })
+
+    it('skips a newer job that is still INITIATED', () => {
+        const decided = job(ID1, ['INITIATED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])
+        const opened = job(ID2, ['INITIATED'], 2)
+        expect(latestJob([decided, opened])).toBe(decided)
+    })
+
+    it('selects the INITIATED job when no job is submitted', () => {
+        const opened = job(ID1, ['INITIATED'])
+        expect(latestJob([opened])).toBe(opened)
     })
 })
 

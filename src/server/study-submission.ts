@@ -4,7 +4,7 @@ import { sleep } from '@/lib/utils'
 import { deleteFolderContents, triggerScanForStudyJob } from '@/server/aws'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
 import { lockJobState } from '@/database/job-status-writer'
-import type { JobStatus } from '@/lib/job-status-rules'
+import { findTransition, type JobStatus } from '@/lib/job-status-rules'
 import { getOrCreateCurrentRoundJob } from '@/server/db/mutations'
 import { deferred } from '@/server/events'
 import { purgeProposalYjsDocsBeforeAt } from '@/server/db/yjs-cleanup'
@@ -104,7 +104,8 @@ export async function attachCodeToRoundJob(
 
 // Once per submission round, not per job: a change-requested resubmit stays on the same job. A further
 // upload while the round is submitted replaces the round's code without opening a new round.
-const awaitsSubmission = (status: JobStatus) => status === 'INITIATED' || status === 'CODE-CHANGES-REQUESTED'
+const awaitsSubmission = (status: JobStatus) =>
+    findTransition(status, 'CODE-SUBMITTED')?.actors.includes('researcher') ?? false
 
 export async function markCodeSubmitted(
     db: Kysely<DB>,
