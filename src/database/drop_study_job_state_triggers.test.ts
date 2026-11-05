@@ -1,8 +1,5 @@
 import { db, describe, expect, it } from '@/tests/unit.helpers'
-import { sql, type Kysely } from 'kysely'
-import { down, up } from './migrations/1793904779051_drop_study_job_state_triggers'
-
-const migration = db as unknown as Kysely<unknown>
+import { sql } from 'kysely'
 
 const installed = async () => {
     const { rows } = await sql<{ name: string }>`
@@ -14,23 +11,10 @@ const installed = async () => {
     return rows.map((row) => row.name).sort()
 }
 
+// Reads the catalog only. Running down() and up() here would lock job_status_change and study_job inside
+// the test transaction, in the opposite order to other workers' fixtures, and could deadlock them.
 describe('drop_study_job_state_triggers migration', () => {
     it('leaves only the round function that the backfill uses', async () => {
-        expect(await installed()).toEqual(['study_job_round'])
-    })
-
-    it('puts the triggers back in down, so the earlier migration can still roll back', async () => {
-        await down(migration)
-        expect(await installed()).toEqual([
-            'job_status_effect',
-            'keep_study_job_state',
-            'keep_study_job_state',
-            'number_study_job_round',
-            'number_study_job_round',
-            'study_job_round',
-        ])
-
-        await up(migration)
         expect(await installed()).toEqual(['study_job_round'])
     })
 })
