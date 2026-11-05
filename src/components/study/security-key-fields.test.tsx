@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
+    createTestQueryClient,
     fireEvent,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -82,6 +83,42 @@ describe('SecurityKeyFields', () => {
 
         await waitFor(() => expect(onKeyAccepted).toHaveBeenCalledWith(privateKey.trim()))
         expect(onDecrypted).toHaveBeenCalled()
+    })
+
+    it('lets the caller hold the typed key', async () => {
+        const onValueChange = vi.fn()
+        renderWithProviders(
+            <SecurityKeyFields
+                job={job}
+                type="reviewer"
+                onDecrypted={onDecrypted}
+                value="held by the caller"
+                onValueChange={onValueChange}
+            />,
+        )
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('textbox')).toHaveValue('held by the caller')
+        enterKey('typed')
+        expect(onValueChange).toHaveBeenCalledWith('typed')
+    })
+
+    // The decrypt mutation's variables are the private key, so they must not outlive the form.
+    it('leaves no private key in the query client once the form unmounts', async () => {
+        const queryClient = createTestQueryClient()
+        const privateKey = await readTestSupportFile('private_key.pem')
+        const { unmount } = renderWithProviders(
+            <SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} />,
+            { queryClient },
+        )
+        await screen.findByRole('button', { name: 'View' })
+        enterKey(privateKey)
+        clickView()
+        await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
+
+        unmount()
+
+        await waitFor(() => expect(queryClient.getMutationCache().getAll()).toEqual([]))
     })
 
     // A code run history row sits among others, so it neither grabs focus nor repeats the help.

@@ -25,7 +25,20 @@
       "WebFetch(domain:github.com)",
       "WebSearch",
       "mcp__claude_ai_Atlassian__getJiraIssue",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(python3 -)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm run *)",
+      "Bash(./bin/docker-test -- --run src/components/study/code-run-history.test.tsx)",
+      "Bash(./bin/docker-test -- --run src/components/study/security-key-fields.test.tsx)",
+      "Bash(sed -i '' '/^        gcTime: 0,$/d' src/hooks/use-decrypt-files.ts)",
+      "Bash(./bin/docker-test -- --run src/components/study/security-key-fields.test.tsx -t \"leaves no private key\")",
+      "Bash(./bin/docker-test)"
     ],
     "deny": [
       "Read(.env)",

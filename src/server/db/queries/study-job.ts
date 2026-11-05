@@ -121,12 +121,15 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
                         'studyReviewComment.id',
                         'studyReviewComment.body',
                         'studyReviewComment.createdAt',
+                        'studyReviewComment.round',
                         'author.fullName as authorName',
                     ])
                     .whereRef('studyReviewComment.studyJobId', '=', 'studyJob.id')
                     .where('studyReviewComment.reviewKind', '=', 'RESULTS')
                     .where('studyReviewComment.entryType', '=', 'DECISION')
-                    .orderBy('studyReviewComment.createdAt', 'desc'),
+                    // Matches getOutputsDecisionFeedbackAction, so same-millisecond decisions keep one order.
+                    .orderBy('studyReviewComment.createdAt', 'desc')
+                    .orderBy('studyReviewComment.id', 'desc'),
             ).as('feedback'),
         ])
         .where('studyJob.studyId', '=', studyId)

@@ -15,10 +15,12 @@ import {
     waitFor,
     within,
 } from '@/tests/unit.helpers'
-import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
+import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
+import { lexicalJson } from '@/lib/lexical'
 import { latestJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
 import { CodeRunHistory } from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
@@ -45,8 +47,7 @@ const RUNS = [
 ]
 
 const viewButton = () => screen.getByRole('button', { name: /^(View|Hide) code run history$/ })
-// Rows beyond the first three stay mounted but hidden, so their unsubmitted key text survives View less.
-const rows = () => screen.getAllByTestId('code-run-history-row').filter((row) => !row.hidden)
+const rows = () => screen.getAllByTestId('code-run-history-row')
 const firstRow = () => rows()[0]
 const caret = (date: string) => screen.getByRole('button', { name: `Code run • ${date}` })
 
@@ -255,9 +256,19 @@ const WRONG_KEY_ALERT =
     'This run’s outputs were encrypted with your previous security key. Enter that key to view them.'
 const LOCKED_MESSAGE = 'Enter security key above to decrypt and review output files.'
 
-// Newest first: a run the reviewer's current key opens, two encrypted with an older key, and one
-// that produced nothing, placed so the oldest old-key run sits beyond the first three.
-const setupRuns = async () => {
+// Theme transitions respect reduced motion, and Mantine's Collapse then unmounts what it hides.
+const stubReducedMotion = (isOn: boolean) =>
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query) =>
+            ({
+                matches: isOn && query.includes('prefers-reduced-motion'),
+                media: query,
+                addEventListener: () => {},
+                removeEventListener: () => {},
+            }) as unknown as MediaQueryList,
+    )
+
+const setupLatest = async () => {
     const { org, user } = await mockSessionWithTestData()
     const { study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
     const latest = await latestJobForStudy(study.id)
@@ -265,6 +276,19 @@ const setupRuns = async () => {
         fileType: 'ENCRYPTED-RESULT',
         files: [{ name: 'latest.csv', content: 'a\n1' }],
     })
+    return { study, user, latest }
+}
+
+const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<typeof latestJobForStudy>>) => {
+    const priorRuns = await priorCodeRunsForStudy(studyId, latest.id)
+    renderWithProviders(<DecryptAndViewOutputs job={latest} priorRuns={priorRuns} isVisible />)
+    await screen.findByRole('button', { name: 'View files' })
+}
+
+// Newest first: a run the reviewer's current key opens, two encrypted with an older key, and one
+// that produced nothing, placed so the oldest old-key run sits beyond the first three.
+const setupRuns = async () => {
+    const { study, user, latest } = await setupLatest()
     const oldKey = await generateKeyPair()
     const encryptedFor = { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint }
 
@@ -286,9 +310,7 @@ const setupRuns = async () => {
     await seedRun(9, null)
     await seedRun(12, 'old-b.csv', encryptedFor)
 
-    const priorRuns = await priorCodeRunsForStudy(study.id, latest.id)
-    renderWithProviders(<DecryptAndViewOutputs job={latest} priorRuns={priorRuns} isVisible />)
-    await screen.findByRole('button', { name: 'View files' })
+    await renderHistoryFor(study.id, latest)
     return { oldKey }
 }
 
@@ -342,11 +364,11 @@ describe('CodeRunHistory expanded row', () => {
 
         expect(await within(matching).findByText('matching.csv')).toBeVisible()
         expect(within(matching).queryByText('latest.csv')).toBeNull()
-        expect(within(oldA).getByText(WRONG_KEY_ALERT)).toBeVisible()
+        expect(await within(oldA).findByText(WRONG_KEY_ALERT)).toBeVisible()
         expect(within(oldA).getByPlaceholderText('Enter your security key')).toBeVisible()
         expect(within(oldA).queryByText('old-a.csv')).toBeNull()
         expect(within(oldA).getByText('feedback for old-a.csv')).toBeVisible()
-        expect(within(empty).getByText('This run produced no output files.')).toBeVisible()
+        expect(await within(empty).findByText('This run produced no output files.')).toBeVisible()
     })
 
     it('unlocks only the row its old key was entered in, with errors kept to that row', async () => {
@@ -372,28 +394,88 @@ describe('CodeRunHistory expanded row', () => {
         expect(keyInput(oldB)).toHaveValue('draft for b')
     })
 
-    it('keeps unsubmitted key text through View less and Hide, in memory only', async () => {
-        await setupRuns()
+    it.each([false, true])(
+        'keeps unsubmitted key text through View less and Hide, in memory only (reduced motion: %s)',
+        async (reducedMotion) => {
+            stubReducedMotion(reducedMotion)
+            await setupRuns()
+            await openHistory()
+            await unlockLatest()
+            await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+            await expandRow(rows()[3])
+            const typed = 'unsubmitted-key-draft'
+            fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: 'Security key' }), {
+                target: { value: typed },
+            })
+
+            await userEvent.click(screen.getByRole('button', { name: 'View less' }))
+            await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+            await userEvent.click(viewButton())
+            await openHistory()
+
+            expect(keyInput(rows()[3])).toHaveValue(typed)
+            const stored = [localStorage, sessionStorage].flatMap((storage) =>
+                Object.keys(storage).map((key) => storage.getItem(key)),
+            )
+            expect(stored.join()).not.toContain(typed)
+            expect(document.cookie).not.toContain(typed)
+        },
+    )
+
+    it('reports a tampered run, and says when a run’s outputs could not be loaded', async () => {
+        const { study, latest } = await setupLatest()
+        const tampered = await insertTestPriorCodeRun(study.id, { ranAt: daysAgo(3) })
+        await seedEncryptedArtifact(tampered.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'tampered.csv', content: 'c\n3' }],
+            tamperWith: { drop: ['tampered.csv'] },
+        })
+        // A file row whose archive was never stored, so fetching it fails.
+        const missing = await insertTestPriorCodeRun(study.id, { ranAt: daysAgo(6) })
+        await seedJobFileRow(missing.id, 'ENCRYPTED-RESULT', 'missing.zip')
+        await renderHistoryFor(study.id, latest)
         await openHistory()
         await unlockLatest()
-        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await expandRow(rows()[3])
-        const typed = 'unsubmitted-key-draft'
-        fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: 'Security key' }), {
-            target: { value: typed },
-        })
 
-        await userEvent.click(screen.getByRole('button', { name: 'View less' }))
-        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(viewButton())
+        const [tamperedRow, missingRow] = rows()
+        await expandRow(tamperedRow)
+        await expandRow(missingRow)
+
+        expect(await within(tamperedRow).findByText(ARCHIVE_INTEGRITY_MESSAGE)).toBeVisible()
+        expect(within(tamperedRow).queryByText(WRONG_KEY_ALERT)).toBeNull()
+        expect(await within(missingRow).findByText(/could not be loaded/)).toBeVisible()
+        expect(within(missingRow).queryByText(WRONG_KEY_ALERT)).toBeNull()
+    })
+
+    it('always shows a Reviewer feedback section, saying when a run has none', async () => {
+        renderWithProviders(<CodeRunHistory runs={[run('quiet', '2026-03-05T12:00:00Z')]} />)
         await openHistory()
 
-        expect(keyInput(rows()[3])).toHaveValue(typed)
-        const stored = [localStorage, sessionStorage].flatMap((storage) =>
-            Object.keys(storage).map((key) => storage.getItem(key)),
-        )
-        expect(stored.join()).not.toContain(typed)
-        expect(document.cookie).not.toContain(typed)
+        await expandRow(firstRow())
+
+        expect(within(firstRow()).getByText('Reviewer feedback')).toBeVisible()
+        expect(within(firstRow()).getByText('No feedback was shared for this run.')).toBeVisible()
+    })
+
+    it('labels a decision with its version, as the decided page does', async () => {
+        const decided = {
+            ...run('decided', '2026-03-05T12:00:00Z'),
+            feedback: [
+                {
+                    id: 'decision-2',
+                    body: JSON.parse(lexicalJson('second look is fine')),
+                    createdAt: '2026-03-06T12:00:00Z',
+                    round: 2,
+                    authorName: 'Ada Reviewer',
+                },
+            ],
+        }
+        renderWithProviders(<CodeRunHistory runs={[decided]} />)
+        await openHistory()
+
+        await expandRow(firstRow())
+
+        expect(within(firstRow()).getByText('Reviewer feedback (v2.0)')).toBeVisible()
     })
 })
 
@@ -403,16 +485,9 @@ describe('CodeRunHistory row scrolling', () => {
         header.getBoundingClientRect = () => ({ top, bottom: top + height }) as DOMRect
     }
 
+    // The window scrolls under the 64px app header, so a row is only in view below it.
     const setup = async ({ reducedMotion = false } = {}) => {
-        vi.spyOn(window, 'matchMedia').mockImplementation(
-            (query) =>
-                ({
-                    matches: reducedMotion && query.includes('prefers-reduced-motion'),
-                    media: query,
-                    addEventListener: () => {},
-                    removeEventListener: () => {},
-                }) as unknown as MediaQueryList,
-        )
+        stubReducedMotion(reducedMotion)
         const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
         window.innerHeight = 800
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
@@ -438,13 +513,22 @@ describe('CodeRunHistory row scrolling', () => {
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'smooth' })
     })
 
-    it('never scrolls the header out of view to show more content', async () => {
+    it('never scrolls the header under the app header to show more content', async () => {
         const scrollBy = await setup()
-        placeHeader(50, 740)
+        placeHeader(100, 690)
 
         await userEvent.click(caret('Mar 05, 2026'))
 
-        expect(scrollBy).toHaveBeenCalledWith({ top: 50, behavior: 'smooth' })
+        expect(scrollBy).toHaveBeenCalledWith({ top: 36, behavior: 'smooth' })
+    })
+
+    it('brings a header hidden behind the app header back into view when it opens', async () => {
+        const scrollBy = await setup()
+        placeHeader(30)
+
+        await userEvent.click(caret('Mar 05, 2026'))
+
+        expect(scrollBy).toHaveBeenCalledWith({ top: -34, behavior: 'smooth' })
     })
 
     it('scrolls back to a header above the viewport when the row collapses', async () => {
@@ -455,7 +539,7 @@ describe('CodeRunHistory row scrolling', () => {
 
         await userEvent.click(caret('Mar 05, 2026'))
 
-        expect(scrollBy).toHaveBeenCalledWith({ top: -60, behavior: 'smooth' })
+        expect(scrollBy).toHaveBeenCalledWith({ top: -124, behavior: 'smooth' })
     })
 
     it('jumps instead of animating when reduced motion is preferred', async () => {

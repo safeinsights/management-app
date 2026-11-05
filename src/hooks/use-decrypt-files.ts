@@ -163,6 +163,9 @@ export function useDecryptFiles(options: {
     }
 
     const { mutate, isPending } = useMutation({
+        // The mutation's variables hold the private key; the default 5-minute gcTime would keep it
+        // in the page after the form has gone.
+        gcTime: 0,
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
             if (!encryptedFiles) return []
             return decryptJobFiles(encryptedFiles, privateKey, jobId)
