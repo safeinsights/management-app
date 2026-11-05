@@ -1,5 +1,5 @@
 import { describe, expect, it } from '../../tests/unit.helpers'
-import { rulesetRulesPrefix, runnerRequestSchema } from './protocol.ts'
+import { isRuleFile, rulesetRulesPrefix, runnerRequestSchema } from './protocol.ts'
 
 const rule = { path: 'secrets.yaml', content: 'rules: []' }
 const file = { path: 'secrets.r', content: 'x <- 1' }
@@ -13,7 +13,7 @@ describe('runnerRequestSchema', () => {
         expect(
             runnerRequestSchema.safeParse(
                 testRequest({
-                    files: [file, { path: 'a/b/c.py', content: '' }],
+                    files: [file, { path: 'a/b/c.py', content: '' }, { path: 'dir\\analysis.R', content: '' }],
                     rules: [rule, { ...rule, path: 'x/y.yml' }],
                 }),
             ).success,
@@ -27,17 +27,14 @@ describe('runnerRequestSchema', () => {
         ).toBe(true)
     })
 
-    it.each(['../x.r', '/etc/x', 'a\\b', 'a//b.r', './a.r', 'a/../b.r', 'a\0b'])(
-        'rejects the unsafe path %j',
-        (path) => {
-            expect(runnerRequestSchema.safeParse(testRequest({ files: [{ path, content: '' }] })).success).toBe(false)
-        },
-    )
+    it.each(['../x.r', '/etc/x', 'a//b.r', './a.r', 'a/../b.r', 'a\0b'])('rejects the unsafe path %j', (path) => {
+        expect(runnerRequestSchema.safeParse(testRequest({ files: [{ path, content: '' }] })).success).toBe(false)
+    })
 
-    it('rejects rule files that are not YAML and empty lists', () => {
-        expect(runnerRequestSchema.safeParse(testRequest({ rules: [{ ...rule, path: 'rules.json' }] })).success).toBe(
-            false,
-        )
+    it('rejects rule files Semgrep would not load, and empty lists', () => {
+        for (const path of ['rules.json', 'secrets.YAML', 'secrets.test.yaml']) {
+            expect(runnerRequestSchema.safeParse(testRequest({ rules: [{ ...rule, path }] })).success).toBe(false)
+        }
         expect(runnerRequestSchema.safeParse(testRequest({ rules: [] })).success).toBe(false)
         expect(runnerRequestSchema.safeParse(testRequest({ files: [] })).success).toBe(false)
     })
@@ -71,6 +68,19 @@ describe('runnerRequestSchema', () => {
             }).success,
         ).toBe(false)
     })
+})
+
+describe('isRuleFile', () => {
+    it.each(['a.yaml', 'a.yml', 'x/my.rule.yaml', '.hidden.yaml', 'a.tests.yaml'])('accepts %j', (file) => {
+        expect(isRuleFile(file)).toBe(true)
+    })
+
+    it.each(['a.YAML', 'a.Yml', 'a.test.yaml', 'a.test.yml', 'a.fixed.yaml', 'a.fixed.test.yaml', 'a.yaml.', 'yaml'])(
+        'rejects %j, as Semgrep does',
+        (file) => {
+            expect(isRuleFile(file)).toBe(false)
+        },
+    )
 })
 
 describe('rulesetRulesPrefix', () => {

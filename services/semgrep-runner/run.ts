@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import type { S3Client } from '@aws-sdk/client-s3'
 import { readJsonReport } from './json-report.ts'
 import {
-    RULE_FILE,
+    isRuleFile,
     rulesetRulesPrefix,
     semgrepTestsResultSchema,
     type RulesetEnv,
@@ -78,6 +78,8 @@ async function scanWorkspace(work: Workspace, { semgrep, signal }: RunnerDeps): 
 
     // As in CodeBuild, a report is used whatever Semgrep's exit code was.
     const data = readJsonReport<SemgrepOutput>(work.report)
+    // The exit code only: stderr can quote submitted code.
+    if (!data) console.warn(JSON.stringify({ semgrepExitCode: result.code }))
     return { data, rawReport: data ? fs.readFileSync(work.report, 'utf-8') : null, aborted: false }
 }
 
@@ -110,13 +112,15 @@ async function runScanMode(request: ScanRequest, deps: RunnerDeps): Promise<Scan
             const prefix = request.submission.prefix.endsWith('/')
                 ? request.submission.prefix
                 : `${request.submission.prefix}/`
-            await downloadPrefix(storage.s3, {
+            const files = await downloadPrefix(storage.s3, {
                 bucket: request.submission.bucket,
                 prefix,
                 dir: work.src,
                 signal,
                 failure: 'submission-download-failed',
             })
+            // Every submission has code, so no files means a wrong bucket or prefix, not an empty scan.
+            if (files === 0) return scanFailure(request, 'submission-empty')
             signal.throwIfAborted()
             const rules = await downloadPrefix(storage.s3, {
                 bucket: storage.rulesBucket,
@@ -125,7 +129,7 @@ async function runScanMode(request: ScanRequest, deps: RunnerDeps): Promise<Scan
                 signal,
                 failure: 'ruleset-download-failed',
                 expectedBucketOwner: storage.rulesBucketOwner,
-                include: RULE_FILE,
+                include: isRuleFile,
             })
             if (rules === 0) return scanFailure(request, 'ruleset-empty')
 
@@ -206,25 +210,62 @@ function mapErrorPath(error: SemgrepError): SemgrepError {
 
 export const responseBytes = (response: RunnerResponse) => Buffer.byteLength(JSON.stringify(response))
 
+const fits = (response: RunnerResponse) => responseBytes(response) <= MAX_RESPONSE_BYTES
+
+// The longest leading part of a list that lets the response fit; none when even an empty list does not.
+function keepLeading<T, R extends RunnerResponse>(items: T[], build: (kept: T[]) => R): R {
+    let fitting = 0
+    let tooLarge = items.length
+    while (tooLarge - fitting > 1) {
+        const middle = Math.floor((fitting + tooLarge) / 2)
+        if (fits(build(items.slice(0, middle)))) fitting = middle
+        else tooLarge = middle
+    }
+    return build(items.slice(0, fitting))
+}
+
+// The status line stays: the management app reads the outcome from it.
+function truncateLog<R extends RunnerResponse>(response: R): R {
+    const [status, ...rest] = response.log.split('\n')
+    return keepLeading(rest, (kept) => ({
+        ...response,
+        log: [status, ...kept, '(log truncated to fit the response limit)'].join('\n'),
+        logTruncated: true,
+    }))
+}
+
+// Each step leaves out more until the response fits; the status line alone always does.
+function fitResponse<R extends RunnerResponse>(response: R, steps: ((response: R) => R)[]): R {
+    let fitted = response
+    for (const step of steps) {
+        if (fits(fitted)) return fitted
+        fitted = step(fitted)
+    }
+    return fitted
+}
+
 // The outcome and log are computed from the full report before anything is left out.
 export function fitScanResponse(response: ScanResponse): ScanResponse {
-    if (responseBytes(response) <= MAX_RESPONSE_BYTES) return response
-    return { ...response, semgrepJson: null, semgrepJsonOmitted: 'too-large' }
+    return fitResponse(response, [(r) => ({ ...r, semgrepJson: null, semgrepJsonOmitted: 'too-large' }), truncateLog])
+}
+
+// The fixture test results go last: nothing else in the response repeats them.
+function shortenLogOrDropTests(response: TestResponse): TestResponse {
+    const shorterLog = truncateLog(response)
+    if (fits(shorterLog)) return shorterLog
+    const withoutTests: TestResponse = { ...response, tests: null, testsError: 'too-large' }
+    return fits(withoutTests) ? withoutTests : truncateLog(withoutTests)
 }
 
 export function fitTestResponse(response: TestResponse): TestResponse {
-    if (responseBytes(response) <= MAX_RESPONSE_BYTES) return response
-    const withFirst = (count: number): TestResponse => ({
-        ...response,
-        findings: response.findings.slice(0, count),
-        findingsOmitted: response.findings.length - count,
-    })
-    let fits = 0
-    let tooLarge = response.findings.length
-    while (tooLarge - fits > 1) {
-        const middle = Math.floor((fits + tooLarge) / 2)
-        if (responseBytes(withFirst(middle)) <= MAX_RESPONSE_BYTES) fits = middle
-        else tooLarge = middle
-    }
-    return withFirst(fits)
+    return fitResponse(response, [
+        (r) =>
+            keepLeading(r.findings, (kept) => ({
+                ...r,
+                findings: kept,
+                findingsOmitted: r.findings.length - kept.length,
+            })),
+        (r) => keepLeading(r.errors, (kept) => ({ ...r, errors: kept, errorsOmitted: r.errors.length - kept.length })),
+        shortenLogOrDropTests,
+    ])
 }

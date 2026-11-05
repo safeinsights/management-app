@@ -49,4 +49,10 @@ describe('parseRunnerConfig', () => {
             parseRunnerConfig({ ...env, SEMGREP_RULES_BUCKET_OWNER: undefined, S3_ENDPOINT: 'http://seaweedfs:8333' }),
         ).toMatchObject({ rulesBucketOwner: undefined, s3Endpoint: 'http://seaweedfs:8333' })
     })
+
+    it('keeps the owner check when an endpoint is set as well', () => {
+        expect(parseRunnerConfig({ ...env, S3_ENDPOINT: 'https://s3-fips.us-east-1.amazonaws.com' })).toMatchObject({
+            rulesBucketOwner: '432772479668',
+        })
+    })
 })

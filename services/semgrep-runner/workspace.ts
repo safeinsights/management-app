@@ -12,6 +12,8 @@ export type Workspace = {
     notebooks: string
     rules: string
     report: string
+    // TMPDIR of the Semgrep processes, so their temp files go when the workspace does, also after a kill.
+    tmp: string
 }
 
 export class RunnerFailure extends Error {
@@ -23,8 +25,15 @@ export class RunnerFailure extends Error {
     }
 }
 
-export async function createWorkspace(): Promise<Workspace> {
+// Semgrep writes settings, a log and a version cache, and Lambda starts with an empty /tmp.
+const semgrepHomeDirs = (env: Record<string, string | undefined>) =>
+    [env.SEMGREP_SETTINGS_FILE, env.SEMGREP_LOG_FILE, env.SEMGREP_VERSION_CACHE_PATH].flatMap((file) =>
+        file ? [path.dirname(file)] : [],
+    )
+
+export async function createWorkspace(env: Record<string, string | undefined> = process.env): Promise<Workspace> {
     try {
+        await Promise.all(semgrepHomeDirs(env).map((dir) => fs.mkdir(dir, { recursive: true })))
         const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'semgrep-run-')))
         const work = {
             root,
@@ -32,8 +41,9 @@ export async function createWorkspace(): Promise<Workspace> {
             notebooks: path.join(root, NOTEBOOK_ROOT),
             rules: path.join(root, 'rules'),
             report: path.join(root, 'reports', 'semgrep.json'),
+            tmp: path.join(root, 'tmp'),
         }
-        await Promise.all([work.src, work.notebooks, work.rules].map((dir) => fs.mkdir(dir)))
+        await Promise.all([work.src, work.notebooks, work.rules, work.tmp].map((dir) => fs.mkdir(dir)))
         return work
     } catch (error) {
         throw new RunnerFailure('workspace-failed', { cause: error })
@@ -90,7 +100,7 @@ export type PrefixDownload = {
     signal: AbortSignal
     failure: RunnerError
     expectedBucketOwner?: string
-    include?: RegExp
+    include?: (relative: string) => boolean
 }
 
 async function listKeys(s3: S3Client, download: PrefixDownload): Promise<string[]> {
@@ -131,6 +141,14 @@ async function downloadKey(s3: S3Client, download: PrefixDownload, key: string, 
     }
 }
 
+// The app keeps empty and "." segments in uploaded names (sanitizeFileName); a file path ignores them.
+export const keyPath = (key: string, prefix: string) =>
+    key
+        .slice(prefix.length)
+        .split('/')
+        .filter((segment) => segment !== '' && segment !== '.')
+        .join('/')
+
 /** Writes every object under the prefix into dir, keyed by its path below the prefix. Returns the count. */
 export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Promise<number> {
     let keys: string[]
@@ -141,8 +159,8 @@ export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Pr
     }
     const files = keys
         .filter((key) => !key.endsWith('/'))
-        .map((key) => ({ key, relative: key.slice(download.prefix.length) }))
-        .filter(({ relative }) => !download.include || download.include.test(relative))
+        .map((key) => ({ key, relative: keyPath(key, download.prefix) }))
+        .filter(({ relative }) => !download.include || download.include(relative))
     for (const { relative } of files) safeJoin(download.dir, relative)
     if (!distinctPaths(files.map(({ relative }) => ({ path: relative })))) throw new RunnerFailure('workspace-failed')
 

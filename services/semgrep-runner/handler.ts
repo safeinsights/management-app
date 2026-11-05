@@ -1,5 +1,3 @@
-import { mkdir } from 'node:fs/promises'
-import * as path from 'node:path'
 import { S3Client } from '@aws-sdk/client-s3'
 import { z } from 'zod'
 import { RULESET_ENVS, runnerRequestSchema, type RunnerResponse } from './protocol.ts'
@@ -32,7 +30,7 @@ export function parseRunnerConfig(env: Record<string, string | undefined>): Runn
     return {
         rulesBucket: config.SEMGREP_RULES_BUCKET,
         rulesetEnv: config.SEMGREP_RULESET_ENV,
-        rulesBucketOwner: config.S3_ENDPOINT ? undefined : config.SEMGREP_RULES_BUCKET_OWNER,
+        rulesBucketOwner: config.SEMGREP_RULES_BUCKET_OWNER,
         s3Endpoint: config.S3_ENDPOINT,
     }
 }
@@ -44,20 +42,6 @@ function rulesetStorage(): RulesetStorage {
         storage = { ...config, s3: new S3Client({ forcePathStyle: true, endpoint: s3Endpoint }) }
     }
     return storage
-}
-
-// Semgrep writes settings, a log and a version cache; only /tmp is writable in Lambda.
-let semgrepHomeReady: Promise<unknown> | undefined
-function prepareSemgrepHome() {
-    const files = [
-        process.env.SEMGREP_SETTINGS_FILE,
-        process.env.SEMGREP_LOG_FILE,
-        process.env.SEMGREP_VERSION_CACHE_PATH,
-    ]
-    semgrepHomeReady ??= Promise.all(
-        files.flatMap((file) => (file ? [mkdir(path.dirname(file), { recursive: true })] : [])),
-    )
-    return semgrepHomeReady
 }
 
 type LambdaContext = { getRemainingTimeInMillis(): number }
@@ -78,7 +62,6 @@ function logRun(response: RunnerResponse, startedAt: number) {
 export async function handler(event: unknown, context: LambdaContext): Promise<RunnerResponse> {
     const startedAt = Date.now()
     const request = runnerRequestSchema.parse(event)
-    await prepareSemgrepHome()
     const response = await runRequest(request, {
         semgrep: spawnCommand,
         signal: AbortSignal.timeout(Math.max(0, context.getRemainingTimeInMillis() - DEADLINE_MARGIN_MS)),

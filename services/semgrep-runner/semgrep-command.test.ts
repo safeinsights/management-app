@@ -57,6 +57,17 @@ describe('spawnCommand', () => {
         })
     })
 
+    it("adds the invocation's variables to the process environment", async () => {
+        const result = await spawnCommand(
+            {
+                ...node("process.stdout.write(process.env.TMPDIR + ' ' + Boolean(process.env.PATH))"),
+                env: { TMPDIR: '/w/tmp' },
+            },
+            { cwd: os.tmpdir(), signal: new AbortController().signal },
+        )
+        expect(result.stdout).toBe('/w/tmp true')
+    })
+
     it('resolves on a non-zero exit', async () => {
         expect(await run("process.stderr.write('bad'); process.exit(3)")).toMatchObject({ code: 3, stderr: 'bad' })
     })
