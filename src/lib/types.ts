@@ -1,7 +1,7 @@
 import type { ActionResponse } from '@/lib/errors'
 import { FileEntry } from 'si-encryption/job-results/types'
 import { z } from 'zod'
-import type { FileType, Language, OrgType, StudyJobStatus } from '../database/types'
+import type { FileType, Language, OrgType } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -172,8 +172,6 @@ export const DATA_SOURCE_TYPES = {
 } as const
 
 export type DataSourceType = keyof typeof DATA_SOURCE_TYPES
-
-export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 

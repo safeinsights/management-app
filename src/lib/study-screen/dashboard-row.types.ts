@@ -16,6 +16,9 @@ export type StudyRow = {
     createdBy: string | null // researcher.fullName
     // createdAt arrives as an ISO string: the history is built with jsonArrayFrom.
     jobStatusChanges: Array<{ status: StudyJobStatus; userId?: string | null; createdAt?: Date | string }>
+    // The stored state of the job jobStatusChanges belongs to; null for a study with no job.
+    latestStudyJobRound: number | null
+    latestStudyJobCurrentStatus: StudyJobStatus | null
     researcherAgreementsAckedAt: Date | null
     // Used to resume a reopened DRAFT on the step it was last left (OTTER-572).
     piUserId: string | null

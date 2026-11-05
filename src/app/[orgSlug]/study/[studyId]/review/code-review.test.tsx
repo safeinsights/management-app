@@ -166,7 +166,7 @@ describe('CodeReview', () => {
         })
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
-        // Round comes from the job via codeRoundForJob — seed a real change-request + resubmit.
+        // Round comes from the job's stored round; seed a real change-request + resubmit.
         beforeEach(async () => {
             const job = await db
                 .selectFrom('studyJob')

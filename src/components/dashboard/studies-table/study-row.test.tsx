@@ -30,6 +30,8 @@ const baseStudy: StudyRowType = {
     impact: null,
     additionalNotes: null,
     hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
     orgName: 'Test Org',
     orgSlug: 'test-org',
 }

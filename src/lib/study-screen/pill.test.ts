@@ -9,7 +9,6 @@ const state = (overrides: Partial<StudyState>): StudyState =>
         isDraft: false,
         hasAnyJob: true,
         hasSubmittedCode: true,
-        submissionRound: 1,
         ...overrides,
     })
 

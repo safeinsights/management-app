@@ -1,7 +1,7 @@
 import { jsonArrayFrom } from '@/database'
 import { currentDb } from '@/server/request-context'
 import { FileType } from '@/database/types'
-import { codeRoundForJob } from '@/server/db/code-round'
+import { jobRound } from './study-job'
 import { isStudyReviewStale } from '@/lib/study-review'
 import { fetchFileContents } from '@/server/storage'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
@@ -95,7 +95,7 @@ export async function getStudyReviewForJob(job: JobForRound): Promise<StudyRevie
     const studyJobId = jobRowId(job)
     // A resubmit reuses the job, so the id alone matches every round it has been through. Only the
     // summary written for the code now on the job is current (OTTER-779).
-    const round = await codeRoundForJob(studyJobId, currentDb())
+    const round = await jobRound(studyJobId, currentDb())
     const row = await currentDb()
         .selectFrom('studyReview')
         .select((eb) => [

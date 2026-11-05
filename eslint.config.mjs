@@ -11,6 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
+import noJobStatusWrites from './tests/no-job-status-writes.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -163,6 +164,7 @@ const eslintConfig = [
                     noBareRouteStrings,
                     noInvalidButtonVariant,
                     noRawStyleValues,
+                    noJobStatusWrites,
                 },
             },
         },
@@ -205,7 +207,8 @@ const eslintConfig = [
     },
     {
         files: ['src/**/*.{ts,tsx}'],
-        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts'],
+        // The status writer must stay loadable by the migrator bundle, which cannot load request-context.
+        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/database/job-status-writer.ts'],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -238,6 +241,14 @@ const eslintConfig = [
                     message: 'Read config through `env` from @/server/config, not process.env.',
                 },
             ],
+        },
+    },
+    // Job statuses change only through the transition table (OTTER-973).
+    {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'bin/**/*.ts'],
+        ignores: ['src/database/job-status-writer.ts', 'src/database/migrations/**'],
+        rules: {
+            'custom/noJobStatusWrites': 'error',
         },
     },
     // Theme tokens over ad-hoc styling.

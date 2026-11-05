@@ -8,7 +8,8 @@ import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { isCodeUnderReviewStatus, latestCodeChangeIsSubmission } from '@/lib/study-job-status'
 import { MAX_SAVE_INTERVAL_MS } from '../../../services/editor/constants'
 import { sleep } from '@/lib/utils'
-import { codeSubmissionVersion, latestJobForStudyOrNull, fetchUserFullName } from '@/server/db/queries'
+import { latestJobForStudyOrNull, fetchUserFullName } from '@/server/db/queries'
+import { lockJobState } from '@/database/job-status-writer'
 import { markStudyUpdated } from '@/server/db/mutations'
 import { purgeCodeReviewFeedbackYjsDoc } from '@/server/db/yjs-cleanup'
 import { deferred, onStudyCodeApproved, onStudyCodeChangesRequested } from '@/server/events'
@@ -16,6 +17,7 @@ import { Action, z } from './action'
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
+import { transitionJob } from '@/server/job-transitions'
 
 // The delay must outlast Hocuspocus MAX_SAVE_INTERVAL_MS so the sweep runs after the worst-case
 // debounced store and disconnect-flush. Job-keyed names are never reused, so the delete is unconditional.
@@ -76,9 +78,9 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         const claimedJob = await claimInitialCodeReviewJob({ studyId })
 
-        // Round = study-wide submission version, so each round gets its own row under the
+        // The round of the code under review, so each round gets its own row under the
         // (studyJobId, reviewKind, round) unique index (OTTER-316/638).
-        const round = await codeSubmissionVersion(studyId, db)
+        const { round } = await lockJobState(db, claimedJob.id)
 
         try {
             await db
@@ -109,25 +111,13 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         await db.deleteFrom('yjsDocument').where('name', '=', codeReviewFeedbackDocName(claimedJob.id)).execute()
 
-        // Re-asserts APPROVED to self-heal legacy rows still at PENDING-REVIEW with approvedAt set.
         if (decision === 'approve') {
             await approveJobCode({ db, job: claimedJob, study, userId, studyId, orgSlug })
-            await markStudyUpdated(db, {
-                studyId,
-                userId,
-                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
-            })
+            await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
-            await db
-                .insertInto('jobStatusChange')
-                .values({ userId, status: 'CODE-CHANGES-REQUESTED', studyJobId: claimedJob.id })
-                .executeTakeFirstOrThrow()
-            await markStudyUpdated(db, {
-                studyId,
-                userId,
-                set: { status: 'APPROVED', rejectedAt: null, reviewerId: userId },
-            })
+            await transitionJob(db, claimedJob.id, 'CODE-CHANGES-REQUESTED', { actor: 'reviewer', userId })
+            await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
 

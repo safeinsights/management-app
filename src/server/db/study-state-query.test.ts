@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { db } from '@/database'
-import { insertTestStudyJobData, insertTestStudyOnly, setTestStudyStatus } from '@/tests/unit.helpers'
+import {
+    insertTestJobStatus,
+    insertTestStudyJobData,
+    insertTestStudyOnly,
+    setTestStudyStatus,
+} from '@/tests/unit.helpers'
 import {
     proposalFieldsDocName,
     proposalResubmissionNoteDocNameForVersion,
@@ -11,7 +16,7 @@ import { rawStudyStateForStudy } from './study-state-query'
 describe('rawStudyStateForStudy', () => {
     it('returns the study with its jobs, statuses, and files', async () => {
         const { study, job } = await insertTestStudyJobData({ studyStatus: 'APPROVED', jobStatus: 'CODE-SUBMITTED' })
-        await db.insertInto('jobStatusChange').values({ status: 'CODE-APPROVED', studyJobId: job.id }).execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED')
 
         const raw = await rawStudyStateForStudy(study.id, db)
         expect(raw).not.toBeNull()

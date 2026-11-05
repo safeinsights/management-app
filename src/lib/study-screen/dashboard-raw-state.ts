@@ -7,7 +7,16 @@ import type { RawStudyState, StudyRole, StudyState } from './state.types'
 // Diverging from /view's latest-*submitted*-job projection is deliberate: the dashboard tracks
 // the current round. Do not "fix" it to mirror /view.
 export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
-    const hasActivity = study.jobStatusChanges.length > 0
+    const { latestStudyJobRound: round, latestStudyJobCurrentStatus: currentStatus } = study
+    const job =
+        study.jobStatusChanges.length > 0 && round !== null && currentStatus !== null
+            ? {
+                  id: '0',
+                  round,
+                  currentStatus,
+                  statusChanges: study.jobStatusChanges.map((c) => ({ status: c.status })),
+              }
+            : null
     return {
         status: study.status,
         approvedAt: null,
@@ -24,9 +33,7 @@ export function dashboardRawStateFromRow(study: StudyRow): RawStudyState {
         impact: study.impact,
         additionalNotes: study.additionalNotes,
         hasStep2CollabDoc: !!study.hasStep2CollabDoc,
-        jobs: hasActivity
-            ? [{ id: '0', statusChanges: study.jobStatusChanges.map((c) => ({ status: c.status })) }]
-            : [],
+        jobs: job ? [job] : [],
     }
 }
 
