@@ -5,7 +5,7 @@ import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
 import { LocalDateTime } from '@/components/local-date-time'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
@@ -51,8 +51,9 @@ async function decryptPriorRun(
         return files.length ? { status: 'unlocked', files } : { status: 'wrong-key' }
     } catch (err) {
         if (err instanceof ArchiveIntegrityError) {
-            // Reported like the key form's own decrypt: a tampered archive is a security signal.
-            reportMutationError('results failed integrity verification')(err)
+            // Sent to Sentry with no toast: the row shows its own message, and this runs for every
+            // earlier run when the latest one unlocks.
+            captureError(err)
             return { status: 'integrity' }
         }
         return { status: 'wrong-key' }
