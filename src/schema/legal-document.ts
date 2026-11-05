@@ -33,6 +33,9 @@ export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[numb
 export const globalLegalDocumentTypes = ['TOS', 'PN'] as const
 export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
 
+export const isGlobalLegalDocumentType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
+    (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+
 // How a resolved document renders: markdown is inlined, a pdf is a signed-url link. A tagged union,
 // not two optional fields, so exactly one payload is representable.
 export type LegalDocumentBody = { format: 'markdown'; content: string } | { format: 'pdf'; url: string }
@@ -55,6 +58,16 @@ export type PendingLegalDocument = ResolvedLegalDocument & {
     /** The org an org-scoped ropa/dopa binds, for the copy to name; null for global tos/pn. */
     orgName: string | null
 }
+
+// tos/pn at the app-wide gate link to /legal instead of being shown, so no body is read for them.
+export type PendingGlobalAcknowledgement = {
+    type: GlobalLegalDocumentType
+    versionId: string
+    isUpdate: boolean
+}
+
+// One gate prompt's worth: outstanding tos/pn together, or a single ropa/dopa with its body.
+export type PendingAcknowledgement = PendingGlobalAcknowledgement | PendingLegalDocument
 
 const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
 
