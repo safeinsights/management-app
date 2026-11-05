@@ -173,7 +173,7 @@ describe('SetupAccountForm legal documents', () => {
 })
 
 describe('SetupAccountForm fields', () => {
-    it('leaves the name and password fields without placeholders', async () => {
+    it('leaves the fields without placeholders and keeps the invited email read-only', async () => {
         fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
         await publishTos()
         const inviteId = await inviteWithoutParticipationAgreement()
@@ -183,6 +183,9 @@ describe('SetupAccountForm fields', () => {
         for (const label of ['First name', 'Last name', 'Enter password', 'Confirm password']) {
             expect(screen.getByLabelText(label)).not.toHaveAttribute('placeholder')
         }
+        // Read-only rather than disabled, so the invited address keeps primary text.
+        expect(screen.getByLabelText('Email')).toHaveAttribute('readonly')
+        expect(screen.getByLabelText('Email')).toBeEnabled()
     })
 })
 

@@ -1,11 +1,7 @@
 import { describedError, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import {
-    AcknowledgementCheckbox,
-    globalDocAgreementLabel,
-    participationAgreementLabel,
-    TosPnPreview,
-} from './acknowledgement-checkbox'
+import { AcknowledgementCheckbox } from '../acknowledgement-checkbox'
+import { globalDocAgreementLabel, participationAgreementLabel, TosPnPreview } from './acknowledgement-checkbox'
 
 describe('Placeholders', () => {
     it('shows Terms of Service popover when clicked', async () => {

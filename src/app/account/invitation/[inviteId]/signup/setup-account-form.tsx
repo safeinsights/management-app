@@ -3,8 +3,8 @@
 import type { FC, ReactNode } from 'react'
 import { semanticColor } from '@/theme/tokens'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
+import { AcknowledgementCheckbox } from '@/components/legal/acknowledgement-checkbox'
 import {
-    AcknowledgementCheckbox,
     globalDocAgreementLabel,
     participationAgreementLabel,
     TosPnPreview,
@@ -64,7 +64,7 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                     <Text size="md">
                         You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
-                    <TextInput label="Email" radius="sm" value={email} disabled c={semanticColor('text.primary')} />
+                    <TextInput label="Email" radius="sm" value={email} readOnly />
 
                     <Flex direction="row" gap="xl">
                         <TextInput

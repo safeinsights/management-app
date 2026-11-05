@@ -4,7 +4,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
 import { AcknowledgementError, BlockingModal } from '../blocking-modal'
 import { LegalMarkdownSection } from '../markdown-sections'
-import { AcknowledgementCheckbox } from '../signup-acknowledgement/acknowledgement-checkbox'
+import { AcknowledgementCheckbox } from '../acknowledgement-checkbox'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,

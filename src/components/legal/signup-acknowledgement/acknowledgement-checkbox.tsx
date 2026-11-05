@@ -1,23 +1,13 @@
 'use client'
 
 import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
-import { InputError } from '@/components/errors'
-import { Checkbox, Stack, Text } from '@mantine/core'
-import { FC, ReactNode, useId } from 'react'
+import { Stack } from '@mantine/core'
+import { FC } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
 import { ParticipationData } from '@/server/actions/participation-agreement.actions'
 import { PlaceholderLabel } from './placeholder-tos-pn'
 import { fontWeight } from '@/theme/tokens'
-
-type AcknowledgeProps = {
-    label: string | ReactNode
-    checked: boolean
-    onChange: (checked: boolean) => void
-    /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
-    onBlur?: () => void
-    error?: ReactNode
-}
 
 export const TosPnPreview: FC<{ documents: GlobalLegalDocument[] }> = ({ documents }) => (
     <Stack gap="sm" mt="md">
@@ -46,33 +36,5 @@ export const participationAgreementLabel = (document: ParticipationData | null) 
             />
             .
         </>
-    )
-}
-
-export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, onChange, onBlur, error }) => {
-    const errorId = useId()
-    if (!label) return null
-
-    return (
-        <Checkbox
-            checked={checked}
-            onChange={(event) => onChange(event.currentTarget.checked)}
-            onBlur={onBlur}
-            label={
-                <Text span fz="sm" fw={fontWeight.bold}>
-                    {label}
-                </Text>
-            }
-            error={
-                error ? (
-                    <span id={errorId}>
-                        <InputError error={error} />
-                    </span>
-                ) : undefined
-            }
-            // Hand-wire `aria-invalid` and `aria-describedby` errors for accessibility
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
-        />
     )
 }
