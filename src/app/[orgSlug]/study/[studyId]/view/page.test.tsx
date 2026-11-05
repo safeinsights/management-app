@@ -653,10 +653,10 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Decrypt to view your outputs/)).toBeInTheDocument()
+            expect(screen.getByText(/^Decrypt to view your outputs and feedback/)).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             // Not the errored sibling, which shares this panel and differs only in copy.
-            expect(screen.queryByText(/Decrypt outputs to view code error/)).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Code run errored/)).not.toBeInTheDocument()
         })
 
         it('renders the outputs-feedback screen when the reviewer shared feedback only (FILES-REJECTED)', async () => {
@@ -676,7 +676,7 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Feedback on outputs available/)).toBeInTheDocument()
+            expect(screen.getByText(/^Feedback available/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
                 'href',
@@ -707,7 +707,7 @@ describe('StudyViewPage', () => {
             await waitForPendingMutations()
             expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
-            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Feedback available/)).not.toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
                 'href',
                 Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
@@ -735,7 +735,9 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
+            expect(
+                screen.getByText(/^Code run errored\. Decrypt to view your outputs and feedback/),
+            ).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })

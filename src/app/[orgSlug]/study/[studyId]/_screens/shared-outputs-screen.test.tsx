@@ -247,8 +247,10 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, raw, org.slug)
 
         const sibling = copyFor(siblingOf(variant).screen, org.name)
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
+        const alert = screen.getByTestId('status-alert')
+        // A prefix check, because the errored locked title ends with the clean one.
+        expect(alert.textContent?.startsWith(sibling.locked.title)).toBe(false)
+        expect(alert).not.toHaveTextContent(sibling.unlocked.title)
     })
 
     it('renders the post-decryption banner with this screen’s copy and variant', async () => {
