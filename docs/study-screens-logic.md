@@ -32,7 +32,7 @@ tie), v7 UUIDs aren't reliably monotonic inside a millisecond, and webhook statu
 (`CODE-SCANNED`, results, execution) can arrive late. **So `statusChanges[0]` is never safe.**
 
 Therefore the projection only asks **existence** (`some(status === X)`) and **count**
-(how many `X`) questions about a job's statuses — never "what is the newest one." The status writer
+(how many `X`) questions about a job's statuses, never "what is the newest one." The status writer
 is the one place that orders rows; it stores the result on the job as `studyJob.currentStatus`,
 `studyJob.round` and `studyJob.statusChangedAt` (see "Job status transitions").
 
