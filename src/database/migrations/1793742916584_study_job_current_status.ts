@@ -1,8 +1,8 @@
 import { type Kysely, sql } from 'kysely'
 
 // OTTER-973: stores each job's current status, code round and status time, backfilled from its log.
-// The status writer keeps the columns from then on. Triggers keep them for rows that older app code
-// inserts while it still serves, until the code swap.
+// The status writer keeps the columns from then on. Triggers keep them for rows from app code older
+// than the columns, which serves again only after a rollback: deploys swap the code before migrating.
 
 // Pinned rather than imported from src/lib/job-status-rules.ts: this is the rule older code ran under,
 // so it stays as it is when the runtime table changes. Never edit it after the migration has run.
@@ -196,7 +196,7 @@ const STATUS_TRIGGER = `
         stored study_job_status;
     BEGIN
         ${writerSkip}
-        SELECT current_status INTO stored FROM study_job WHERE id = NEW.study_job_id FOR UPDATE;
+        SELECT current_status INTO stored FROM study_job WHERE id = NEW.study_job_id FOR NO KEY UPDATE;
         IF NOT EXISTS (SELECT 1 FROM job_status_change WHERE study_job_id = NEW.study_job_id AND id <> NEW.id)
             OR (NEW.status <> stored AND job_status_effect(stored::text, NEW.status::text) = 'move') THEN
             UPDATE study_job SET current_status = NEW.status, status_changed_at = NEW.created_at
@@ -236,7 +236,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await sql.raw(EFFECT_FUNCTION).execute(db)
 
     // The migrator runs this in one transaction, so the ADD COLUMN lock holds study_job, reads included,
-    // until the backfill and the triggers commit. Older code waits rather than writing beside it.
+    // until the backfill and the triggers commit. The app waits rather than writing beside it.
     await backfillStudyJobState(db)
     await sql.raw(STATUS_TRIGGER).execute(db)
     await sql.raw(ROUND_TRIGGER).execute(db)

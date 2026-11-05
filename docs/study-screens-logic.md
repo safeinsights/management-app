@@ -533,7 +533,8 @@ orders rows that tie by lifecycle rank and alternates tied submissions and chang
 its own copy of the rule, as the rule stood when the migration ran, and that copy is never edited.
 The migration also installed two triggers with the same copy: `keep_study_job_state` applies a new
 `jobStatusChange` row to its job, and `number_study_job_round` numbers a new `studyJob`. They exist for
-app code older than the columns, which still serves between the migration and the code swap. The
+app code older than the columns. A deploy swaps the code before it migrates, so that code serves again
+only after a rollback to an older release. The
 writer sets the `app.job_writer` flag around its inserts, and both triggers skip a row inserted under
 it. Readers stay set-based, as described above.
 

@@ -306,8 +306,8 @@ describe('backfillReplay', () => {
     })
 })
 
-// Migrations run before the code swap, so an older app version serves against these columns for a while.
-describe('a job that older code touched between the migration and the code swap', () => {
+// After a rollback to an older release, app code that does not know these columns serves against them.
+describe('a job that older code touched after a rollback', () => {
     it.each(CASES)(
         'keeps the columns as the backfill would for $name',
         async ({ history, status, changedAtRow, round }) => {
