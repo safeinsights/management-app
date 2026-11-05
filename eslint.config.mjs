@@ -62,7 +62,6 @@ const eslintConfig = [
             'CHANGELOG.md',
             'test-results/**',
             'tests/coverage/**',
-            'services/**',
         ],
     },
     // Base JavaScript recommended rules
@@ -203,9 +202,21 @@ const eslintConfig = [
             ],
         },
     },
+    // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
+    // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
+    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seed's
+    // fail-closed checks.
     {
-        files: ['src/**/*.{ts,tsx}'],
-        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts'],
+        files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
+        ignores: [
+            '**/*.test.{ts,tsx}',
+            'src/server/request-context.ts',
+            'src/server/config.ts',
+            'src/lib/config.ts',
+            'src/instrumentation.ts',
+            'src/instrumentation-client.ts',
+            'src/database/seeds/1743608138837_test_users.ts',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -215,24 +226,6 @@ const eslintConfig = [
                         'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
                     message: 'Open transactions with withTransaction() from @/server/request-context.',
                 },
-            ],
-        },
-    },
-    // Server config is read through the env schema, so every variable is declared once and typed
-    // (OTTER-848). The schema itself, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts, and
-    // the proxy/client helpers that take env as a parameter are the exceptions.
-    {
-        files: ['src/server/**/*.ts', 'src/lib/**/*.ts'],
-        ignores: [
-            'src/**/*.test.ts',
-            'src/server/config.ts',
-            'src/lib/config.ts',
-            'src/lib/csp.ts',
-            'src/lib/sentry-deploy.ts',
-        ],
-        rules: {
-            'no-restricted-syntax': [
-                'error',
                 {
                     selector: "MemberExpression[object.name='process'][property.name='env']",
                     message: 'Read config through `env` from @/server/config, not process.env.',

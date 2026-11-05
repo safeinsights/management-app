@@ -150,8 +150,8 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
             return snap.status === 'CHANGE-REQUESTED'
         case 'code-review-feedback':
         case 'outputs-review-feedback':
-        // The code actions gate submission (requireResubmittableCode); this doc only carries presence.
         case 'code-submission':
+            // The code actions gate submission (requireResubmittableCode); code-submission only carries presence.
             return true
     }
 }

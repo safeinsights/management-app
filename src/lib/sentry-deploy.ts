@@ -7,13 +7,13 @@ export function sentryDeployOptions(environment?: string | null, release?: strin
     return { environment: environment || 'development', release: release || 'unknown' }
 }
 
-export function sentryDeployOptionsFromEnv(env: DeployEnv = process.env) {
+export function sentryDeployOptionsFromEnv(env: DeployEnv) {
     return sentryDeployOptions(env.ENVIRONMENT_ID, env.RELEASE_TAG)
 }
 
 // One build serves every environment, so the browser bundle cannot inline these. The root layout
 // renders the server's runtime values onto <html> instead (OTTER-879).
-export function sentryDeployAttributes(env: DeployEnv = process.env) {
+export function sentryDeployAttributes(env: DeployEnv) {
     return { [ENVIRONMENT_ATTRIBUTE]: env.ENVIRONMENT_ID, [RELEASE_ATTRIBUTE]: env.RELEASE_TAG }
 }
 
