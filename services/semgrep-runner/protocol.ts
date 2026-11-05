@@ -12,10 +12,28 @@ export const RULESET_TESTS_DIR = 'tests'
 export const rulesetRulesPrefix = (env: RulesetEnv, version: string) =>
     `rulesets/${env}/${version}/${RULESET_RULES_DIR}/`
 
-export const RULE_FILE = /\.ya?ml$/i
+// Python's Path.suffixes, which Semgrep's rule file test uses.
+function pathSuffixes(file: string): string[] {
+    const name = file.slice(file.lastIndexOf('/') + 1)
+    if (name.endsWith('.')) return []
+    return name
+        .replace(/^\.+/, '')
+        .split('.')
+        .slice(1)
+        .map((suffix) => `.${suffix}`)
+}
 
+// Semgrep's is_config_suffix: a rule file ends in .yaml or .yml (case sensitive), and *.test.yaml or any
+// .fixed suffix is a fixture. Semgrep never loads anything else from a rules folder.
+export function isRuleFile(file: string): boolean {
+    const suffixes = pathSuffixes(file)
+    const last = suffixes.at(-1)
+    return (last === '.yaml' || last === '.yml') && suffixes.at(-2) !== '.test' && !suffixes.includes('.fixed')
+}
+
+// A backslash is an ordinary file name character on Linux, and the app keeps it in uploaded names.
 export function isSafeRelativePath(value: string): boolean {
-    if (!value || value.includes('\0') || value.includes('\\') || value.startsWith('/')) return false
+    if (!value || value.includes('\0') || value.startsWith('/')) return false
     return value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
 }
 
@@ -41,7 +59,7 @@ const fileList = <T extends z.ZodType<{ path: string }>>(item: T) =>
 export const runnerRequestSchema = z.discriminatedUnion('mode', [
     z.object({
         mode: z.literal('test'),
-        rules: fileList(z.object({ path: relativePath.regex(RULE_FILE), content: z.string() })),
+        rules: fileList(z.object({ path: relativePath.refine(isRuleFile, 'not a rule file'), content: z.string() })),
         files: fileList(testFileSchema),
     }),
     z.object({
@@ -85,6 +103,7 @@ export type SemgrepTestsResult = z.infer<typeof semgrepTestsResultSchema>
 
 export type RunnerError =
     | 'submission-download-failed'
+    | 'submission-empty'
     | 'ruleset-download-failed'
     | 'ruleset-empty'
     | 'unsafe-key'
@@ -101,6 +120,8 @@ export type ScanResponse = {
     // The raw report; null when Semgrep wrote none, or when it is left out to fit the response limit.
     semgrepJson: string | null
     semgrepJsonOmitted?: 'too-large'
+    // Only the first lines of the log are kept, to fit the response limit.
+    logTruncated?: true
     error?: RunnerError
 }
 
@@ -108,12 +129,14 @@ export type TestResponse = {
     mode: 'test'
     outcome: SemgrepOutcome
     log: string
+    logTruncated?: true
     findings: SemgrepFinding[]
-    // Findings dropped from the end of the list to fit the response limit.
+    // Entries dropped from the end of the list to fit the response limit.
     findingsOmitted?: number
     errors: SemgrepError[]
+    errorsOmitted?: number
     tests: SemgrepTestsResult | null
-    testsError?: 'unparseable-output'
+    testsError?: 'unparseable-output' | 'too-large'
     error?: RunnerError
 }
 
