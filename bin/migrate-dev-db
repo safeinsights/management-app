@@ -2,6 +2,10 @@
 
 set -e
 
+# Seeds upload to the local SeaweedFS, which needs no AWS login. An SSO profile in the shell makes
+# the AWS SDK fail on an expired token instead. Same reason `pnpm dev` runs with env -u AWS_PROFILE.
+unset AWS_PROFILE
+
 TYPES=src/database/types.ts
 
 pnpm exec kysely migrate:latest

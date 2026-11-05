@@ -529,7 +529,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
 
     const existing = await db
         .selectFrom('legalDocumentVersion')
-        .select(['id', 'versionNumber', 'fileName'])
+        .select(['id', 'versionNumber', 'fileName', 'filePath'])
         .where('legalDocumentId', '=', legalDocumentId)
         .where('publishedAt', 'is not', null)
         .orderBy('versionNumber')
@@ -544,6 +544,12 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
                 `(${unseeded.map((version) => version.fileName).join(', ')}). ` +
                 'Reset the database and re-run `pnpm run db:migrate` before the e2e suite.',
         )
+    }
+
+    // The test DB can outlive the bucket (a reset local SeaweedFS). A version whose object is gone
+    // stays on "Loading" forever, so restore each body; PutObject is safe to repeat.
+    for (const [index, version] of existing.entries()) {
+        await uploadSeedObject(version.filePath, contents[index])
     }
 
     const versionIds = existing.map((version) => version.id)
