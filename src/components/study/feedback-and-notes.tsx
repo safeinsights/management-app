@@ -130,6 +130,30 @@ function useExpandedEntries(entries: FeedbackEntryShape[], alwaysExpandLatest: b
     return { isExpanded, toggle }
 }
 
+// Shared with the code run history, whose rows each show one run's outputs feedback.
+export function FeedbackEntries({
+    entries,
+    alwaysExpandLatest = false,
+    testId = 'feedback-entries',
+}: {
+    entries: FeedbackEntryShape[]
+    alwaysExpandLatest?: boolean
+    testId?: string
+}) {
+    const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)
+
+    return (
+        <Stack gap="md" data-testid={testId}>
+            {entries.map((entry, idx) => (
+                <Stack key={entry.id} gap="md">
+                    <FeedbackEntry entry={entry} isExpanded={isExpanded(entry.id)} onToggle={() => toggle(entry.id)} />
+                    {idx < entries.length - 1 && <Divider data-testid="entry-divider" />}
+                </Stack>
+            ))}
+        </Stack>
+    )
+}
+
 export function FeedbackAndNotesSection({
     entries,
     alwaysExpandLatest = false,
@@ -142,8 +166,6 @@ export function FeedbackAndNotesSection({
     loadError?: boolean
     isVisible?: boolean
 }) {
-    const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest)
-
     if (!isVisible) return null
     if (loadError) return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
     if (entries.length === 0) return null
@@ -155,18 +177,7 @@ export function FeedbackAndNotesSection({
                     Feedback and notes
                 </Title>
                 <Divider />
-                <Stack gap="md" data-testid="feedback-entries">
-                    {entries.map((entry, idx) => (
-                        <Stack key={entry.id} gap="md">
-                            <FeedbackEntry
-                                entry={entry}
-                                isExpanded={isExpanded(entry.id)}
-                                onToggle={() => toggle(entry.id)}
-                            />
-                            {idx < entries.length - 1 && <Divider data-testid="entry-divider" />}
-                        </Stack>
-                    ))}
-                </Stack>
+                <FeedbackEntries entries={entries} alwaysExpandLatest={alwaysExpandLatest} />
             </Stack>
         </Paper>
     )

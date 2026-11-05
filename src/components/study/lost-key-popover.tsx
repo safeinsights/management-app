@@ -99,9 +99,11 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     }
 }
 
-export const LostKeyPopover = () => {
+export const LostKeyPopover = ({ isVisible = true }: { isVisible?: boolean }) => {
     const triggerRef = useRef<HTMLButtonElement>(null)
     const popover = useLostKeyPopover(triggerRef)
+
+    if (!isVisible) return null
 
     return (
         <Group gap="xxs" align="center" onBlur={popover.onGroupBlur}>
