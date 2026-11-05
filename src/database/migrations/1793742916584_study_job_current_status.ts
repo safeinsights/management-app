@@ -170,7 +170,7 @@ const ROUND_FUNCTION = `
 `
 
 // backfillEffect in SQL, for the triggers.
-const EFFECT_FUNCTION = `
+export const EFFECT_FUNCTION = `
     CREATE FUNCTION job_status_effect(text, text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
         SELECT CASE
             WHEN ($2, $1) IN (VALUES ${Object.entries(BACKFILL_LOG_PAIRS)
@@ -190,7 +190,7 @@ const writerSkip = `IF current_setting('${JOB_WRITER_FLAG}', true) = 'on' THEN R
 
 // The replay of the backfill, one row at a time: the first row of a job and every move set the status
 // and its time, and a submission renumbers the job's round. Rows apply in the order they are inserted.
-const STATUS_TRIGGER = `
+export const STATUS_TRIGGER = `
     CREATE FUNCTION keep_study_job_state() RETURNS trigger LANGUAGE plpgsql AS $$
     DECLARE
         stored study_job_status;
@@ -212,7 +212,7 @@ const STATUS_TRIGGER = `
         FOR EACH ROW EXECUTE FUNCTION keep_study_job_state();
 `
 
-const ROUND_TRIGGER = `
+export const ROUND_TRIGGER = `
     CREATE FUNCTION number_study_job_round() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN
         ${writerSkip}
