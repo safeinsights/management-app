@@ -5,6 +5,7 @@ import {
     actionResult,
     db,
     insertTestCodeResubmissionNote,
+    insertTestPriorCodeRun,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -326,5 +327,36 @@ describe('ReviewerOutputsDecided', () => {
         const link = screen.getByRole('link', { name: /back to my studies/i })
         expect(link).toHaveAttribute('data-variant', 'filled')
         expect(link).not.toHaveAttribute('data-disabled')
+    })
+})
+
+describe('ReviewerOutputsDecided code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('counts the earlier runs below the View outputs again card', async () => {
+        const { org, study, job, raw } = await setupDecided()
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(5, 'day').toDate() })
+        await renderView(study, raw, org.slug)
+
+        const history = screen.getByTestId('code-run-history')
+        expect(history).toHaveTextContent('Code run history (1)')
+        const keyForm = screen.getByTestId('security-key-form')
+        expect(keyForm.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    // A run closed out with nothing to decrypt still has a history worth showing.
+    it('shows the history even when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided()
+        await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(5, 'day').toDate() })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('security-key-form')).toBeNull()
+        expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
     })
 })

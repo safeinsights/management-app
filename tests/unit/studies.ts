@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid'
 import { db } from '@/database'
 import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -490,4 +491,33 @@ export const isUnreadOnMyStudies = async (studyId: string) => {
     )
     if (!row) throw new Error(`study ${studyId} is not on My studies`)
     return isStudyUnread(row, 'researcher')
+}
+
+type PriorCodeRunOptions = {
+    ranAt: Date
+    outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
+    decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+}
+
+// An earlier, already-reviewed code run. Its id and dates sit before `ranAt`, so neither the
+// createdAt nor the v7-id ordering of "latest job" picks it over the study's current run.
+export const insertTestPriorCodeRun = async (
+    studyId: string,
+    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED' }: PriorCodeRunOptions,
+) => {
+    const submittedAt = new Date(ranAt.getTime() - 60_000)
+    const job = await db
+        .insertInto('studyJob')
+        .values({ id: uuidv7({ msecs: submittedAt.getTime() }), studyId, createdAt: submittedAt })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    await db
+        .insertInto('jobStatusChange')
+        .values([
+            { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt },
+            { studyJobId: job.id, status: outcome, createdAt: ranAt },
+            { studyJobId: job.id, status: decision, createdAt: new Date(ranAt.getTime() + 60_000) },
+        ])
+        .execute()
+    return job
 }

@@ -9,6 +9,7 @@ import {
     createTestQueryClient,
     db,
     fireEvent,
+    insertTestPriorCodeRun,
     insertTestStudyJobData,
     mockSessionWithTestData,
     QueryClientProvider,
@@ -19,6 +20,7 @@ import {
     screen,
     type ScreenInputs,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { theme } from '@/theme'
@@ -259,3 +261,50 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         )
     })
 })
+
+describe('ReviewerOutputsAvailableScreen code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('sits below the key card, then stays open below the outputs once they are decrypted', async () => {
+        const { org, study, job, raw } = await setupAvailable()
+        await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(3, 'day').toDate() })
+        await insertTestPriorCodeRun(study.id, {
+            ranAt: dayjs().subtract(6, 'day').toDate(),
+            outcome: 'JOB-ERRORED',
+            decision: 'FILES-REJECTED',
+        })
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View' })
+
+        const history = screen.getByTestId('code-run-history')
+        expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
+        expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
+
+        // The same node, still open: decrypting must not remount the history.
+        expect(screen.getByTestId('code-run-history')).toBe(history)
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
+            'aria-expanded',
+            'true',
+        )
+        expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
+        expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
+    })
+})
+
+const isBefore = (first: Element, second: Element) =>
+    !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
