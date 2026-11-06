@@ -39,6 +39,12 @@ describe('DisplayStudyStatus', () => {
         expect(textEl.textContent?.trim()).toBe(expectedText)
     })
 
+    it('uses the 12px label/sm text size from Figma', () => {
+        renderWithProviders(<DisplayStudyStatus status={label('proposal-draft')} />)
+        const badge = screen.getByText('Proposal draft').closest('.mantine-Badge-root')
+        expect(badge?.getAttribute('style')).toContain('font-size: var(--mantine-font-size-xs)')
+    })
+
     it('shows the tooltip on hover, with the organization name filled in', async () => {
         const user = userEvent.setup()
         renderWithProviders(<DisplayStudyStatus status={label('code-submitted')} />)
