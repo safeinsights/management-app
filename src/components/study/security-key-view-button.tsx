@@ -7,12 +7,19 @@ import { semanticColor } from '@/theme/tokens'
 interface SecurityKeyViewButtonProps {
     isDecrypting: boolean
     isLoading?: boolean
+    idleLabel?: string
     onClick: () => void
 }
 
-export const SecurityKeyViewButton: FC<SecurityKeyViewButtonProps> = ({ isDecrypting, isLoading, onClick }) => {
-    const label = isDecrypting ? 'Decrypting' : isLoading ? 'Loading' : 'View'
+export const SecurityKeyViewButton: FC<SecurityKeyViewButtonProps> = ({
+    isDecrypting,
+    isLoading,
+    idleLabel = 'View',
+    onClick,
+}) => {
     const disabled = isDecrypting || isLoading
+    const busyLabel = isDecrypting ? 'Decrypting' : 'Loading'
+    const label = disabled ? busyLabel : idleLabel
 
     return (
         <div>
@@ -25,7 +32,7 @@ export const SecurityKeyViewButton: FC<SecurityKeyViewButtonProps> = ({ isDecryp
                 {label}
             </Button>
             <VisuallyHidden role="status" aria-live="polite">
-                {label + ' outputs'}
+                {disabled ? busyLabel + ' outputs' : undefined}
             </VisuallyHidden>
         </div>
     )
