@@ -5,7 +5,7 @@ import { type DeployEnv, sentryDeployOptionsFromEnv } from './sentry-deploy'
 // 'unsafe-eval' (OTTER-721).
 export const CSP_NONCE_HEADER = 'x-csp-nonce'
 
-export const isCspEnabled = () => process.env.NODE_ENV === 'production'
+export const isCspEnabled = (nodeEnv: string | undefined) => nodeEnv === 'production'
 
 export const CSP_HEADER = 'Content-Security-Policy'
 
@@ -28,10 +28,7 @@ export function generateNonce(): string {
     return btoa(String.fromCharCode(...bytes))
 }
 
-export function cspReportUrl(
-    dsn: string | undefined = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN,
-    env: DeployEnv = process.env,
-): string | undefined {
+export function cspReportUrl(dsn: string | undefined, env: DeployEnv = {}): string | undefined {
     if (!dsn) return undefined
     try {
         const { username, host, pathname } = new URL(dsn)

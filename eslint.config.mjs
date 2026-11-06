@@ -44,6 +44,11 @@ const indexOnlyZone = (folder) => ({
 const awsIndexZone = indexOnlyZone('aws')
 const queriesIndexZone = indexOnlyZone('db/queries')
 
+const noProcessEnv = {
+    selector: "MemberExpression[object.name='process'][property.name='env']",
+    message: 'Read config through `env` from @/server/config, not process.env.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -63,7 +68,6 @@ const eslintConfig = [
             'CHANGELOG.md',
             'test-results/**',
             'tests/coverage/**',
-            'services/**',
         ],
     },
     // Base JavaScript recommended rules
@@ -205,10 +209,21 @@ const eslintConfig = [
             ],
         },
     },
+    // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
+    // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
+    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seed's
+    // fail-closed checks.
     {
-        files: ['src/**/*.{ts,tsx}'],
-        // The status writer must stay loadable by the migrator bundle, which cannot load request-context.
-        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/database/job-status-writer.ts'],
+        files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
+        ignores: [
+            '**/*.test.{ts,tsx}',
+            'src/server/request-context.ts',
+            'src/server/config.ts',
+            'src/lib/config.ts',
+            'src/instrumentation.ts',
+            'src/instrumentation-client.ts',
+            'src/database/seeds/1743608138837_test_users.ts',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -218,30 +233,15 @@ const eslintConfig = [
                         'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
                     message: 'Open transactions with withTransaction() from @/server/request-context.',
                 },
+                noProcessEnv,
             ],
         },
     },
-    // Server config is read through the env schema, so every variable is declared once and typed
-    // (OTTER-848). The schema itself, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts, and
-    // the proxy/client helpers that take env as a parameter are the exceptions.
+    // The status writer must stay loadable by the migrator bundle, which cannot load request-context,
+    // so it skips the transaction rule only.
     {
-        files: ['src/server/**/*.ts', 'src/lib/**/*.ts'],
-        ignores: [
-            'src/**/*.test.ts',
-            'src/server/config.ts',
-            'src/lib/config.ts',
-            'src/lib/csp.ts',
-            'src/lib/sentry-deploy.ts',
-        ],
-        rules: {
-            'no-restricted-syntax': [
-                'error',
-                {
-                    selector: "MemberExpression[object.name='process'][property.name='env']",
-                    message: 'Read config through `env` from @/server/config, not process.env.',
-                },
-            ],
-        },
+        files: ['src/database/job-status-writer.ts'],
+        rules: { 'no-restricted-syntax': ['error', noProcessEnv] },
     },
     // Job statuses change only through the transition table (OTTER-973).
     {
