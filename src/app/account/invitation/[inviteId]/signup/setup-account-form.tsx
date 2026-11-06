@@ -3,8 +3,8 @@
 import type { FC, ReactNode } from 'react'
 import { semanticColor } from '@/theme/tokens'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, Stack } from '@mantine/core'
+import { AcknowledgementCheckbox } from '@/components/legal/acknowledgement-checkbox'
 import {
-    AcknowledgementCheckbox,
     globalDocAgreementLabel,
     participationAgreementLabel,
     TosPnPreview,
@@ -64,7 +64,7 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                     <Text size="md">
                         You’ve been invited to join {orgName}. Please fill out the details below to create your account.
                     </Text>
-                    <TextInput label="Email" radius="sm" value={email} disabled c={semanticColor('text.primary')} />
+                    <TextInput label="Email" radius="sm" value={email} readOnly />
 
                     <Flex direction="row" gap="xl">
                         <TextInput
@@ -73,7 +73,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                             key={form.key('firstName')}
                             {...form.getInputProps('firstName')}
                             label="First name"
-                            placeholder="Enter your first name"
                         />
 
                         <TextInput
@@ -82,14 +81,12 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                             key={form.key('lastName')}
                             {...form.getInputProps('lastName')}
                             label="Last name"
-                            placeholder="Enter your last name"
                         />
                     </Flex>
                     <PasswordInput
                         radius="sm"
                         label="Enter password"
                         key={form.key('password')}
-                        placeholder="********"
                         {...form.getInputProps('password')}
                         onBlur={(event) => {
                             form.getInputProps('password').onBlur?.(event)
@@ -109,7 +106,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
                         radius="sm"
                         label="Confirm password"
                         key={form.key('confirmPassword')}
-                        placeholder="********"
                         {...form.getInputProps('confirmPassword')}
                         // PasswordInput's inner <input> has withAria disabled, so `error` alone
                         // never marks it invalid to assistive tech (OTTER-647).
