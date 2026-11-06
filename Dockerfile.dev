@@ -15,6 +15,36 @@ FROM base AS test-runner
 RUN mkdir -p /app/node_modules && chown -R node:node /app
 USER node
 
+# Playwright e2e runner (docker-compose.e2e.yml, bin/docker-e2e). Only this stage carries Chromium,
+# so the dev and unit-test images never grow or rebuild because of e2e.
+FROM base AS e2e-runner
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
+# Outside the repo pnpm sees neither the pinned packageManager nor pnpm-workspace.yaml, so it would
+# install with another pnpm and without minimumReleaseAge. The browser installs run here instead.
+WORKDIR /opt/pnpm-rules
+COPY pnpm-workspace.yaml ./
+ARG PNPM_PACKAGE_MANAGER
+RUN test -n "$PNPM_PACKAGE_MANAGER" \
+    && printf '{"private":true,"packageManager":"%s"}\n' "$PNPM_PACKAGE_MANAGER" > package.json \
+    && echo "pnpm $(pnpm --version), minimumReleaseAge $(pnpm config get minimumReleaseAge)"
+# Keyed on the locked version, so every run and every checkout reuses this layer.
+ARG PLAYWRIGHT_VERSION
+RUN test -n "$PLAYWRIGHT_VERSION" \
+    && pnpm dlx "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
+    && rm -rf /root/.cache/pnpm /root/.local/share/pnpm
+# @playwright/cli depends on an alpha playwright-core that never matches the tests' release, so it
+# gets its own Chromium, keyed on the core version it resolves to in pnpm-lock.yaml. Without
+# SKIP_BROWSER_GC this install deletes the tests' Chromium, whose dlx package is gone.
+ARG PLAYWRIGHT_CLI_CORE_VERSION
+RUN test -n "$PLAYWRIGHT_CLI_CORE_VERSION" \
+    && PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm dlx "playwright-core@${PLAYWRIGHT_CLI_CORE_VERSION}" install chromium \
+    && rm -rf /root/.cache/pnpm /root/.local/share/pnpm
+WORKDIR /app
+RUN mkdir -p /app/node_modules /app/.next && chown -R node:node /app
+USER node
+
 FROM base AS dev
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

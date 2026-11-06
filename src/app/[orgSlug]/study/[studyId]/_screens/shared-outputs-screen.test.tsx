@@ -4,6 +4,8 @@ import {
     expect,
     fireEvent,
     insertTestCodeResubmissionNote,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -126,29 +128,14 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        jobStatus: 'CODE-SUBMITTED',
+        jobStatus: 'INITIATED',
     })
 
-    // Pin timestamps: rows written in one test transaction tie on now(), which would make the
-    // banner date and entry order non-deterministic.
-    await db
-        .updateTable('jobStatusChange')
-        .set({ createdAt: SUBMITTED_AT })
-        .where('studyJobId', '=', job.id)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: variant.runStatus, createdAt: RUN_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'FILES-APPROVED', userId: user.id, createdAt: DECIDED_AT })
-        .execute()
+    // Pin timestamps so the banner date and entry order are deterministic.
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: APPROVED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, variant.runStatus, { at: RUN_AT })
+    await insertTestJobStatus(job.id, 'FILES-APPROVED', { at: DECIDED_AT, userId: user.id })
     await db
         .insertInto('studyReviewComment')
         .values({
@@ -247,8 +234,10 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         await renderScreen(variant, study, raw, org.slug)
 
         const sibling = copyFor(siblingOf(variant).screen, org.name)
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.locked.title)
-        expect(screen.getByTestId('status-alert')).not.toHaveTextContent(sibling.unlocked.title)
+        const alert = screen.getByTestId('status-alert')
+        // A prefix check, because the errored locked title ends with the clean one.
+        expect(alert.textContent?.startsWith(sibling.locked.title)).toBe(false)
+        expect(alert).not.toHaveTextContent(sibling.unlocked.title)
     })
 
     it('renders the post-decryption banner with this screen’s copy and variant', async () => {
@@ -402,8 +391,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             studyStatus: 'DRAFT',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: variant.runStatus }).execute()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatuses(job.id, [variant.runStatus, 'FILES-APPROVED'])
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -422,9 +410,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             researcherId: user.id,
             jobStatus: 'CODE-SUBMITTED',
         })
-        for (const status of statuses) {
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
-        }
+        await insertTestJobStatuses(job.id, statuses)
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

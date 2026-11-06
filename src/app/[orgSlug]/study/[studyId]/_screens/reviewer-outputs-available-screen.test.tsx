@@ -7,8 +7,8 @@ import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     actionResult,
     createTestQueryClient,
-    db,
     fireEvent,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     QueryClientProvider,
@@ -161,7 +161,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
 
     it('shows a not-found alert when the run already has a files decision', async () => {
         const { org, study, job } = await setupAvailable()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()

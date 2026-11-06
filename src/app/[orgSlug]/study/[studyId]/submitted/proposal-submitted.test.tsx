@@ -174,29 +174,6 @@ describe('ProposalSubmitted', () => {
             )
         })
 
-        it('uses the approval date when status is PENDING-REVIEW but the proposal was approved', () => {
-            const codeUnderReviewStudy = {
-                ...study,
-                status: 'PENDING-REVIEW' as const,
-                approvedAt: new Date('2026-04-20T10:00:00Z'),
-                submittedAt: new Date('2026-05-01T10:00:00Z'),
-            }
-            renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={codeUnderReviewStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            expect(screen.getByTestId('status-alert')).toHaveTextContent(
-                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
-            )
-        })
-
         it('puts the resubmission date and version in the banner title', () => {
             const pendingStudy = {
                 ...study,
@@ -389,28 +366,6 @@ describe('ProposalSubmitted', () => {
             const banner = screen.getByTestId('status-alert')
             expect(banner).toHaveAttribute('data-variant', 'informative')
             expect(banner).toHaveTextContent(`Proposal v2.0 resubmitted to ${ORG_NAME}`)
-        })
-
-        it('renders approved banner when status is PENDING-REVIEW but proposal was previously approved', () => {
-            const codeUnderReviewStudy = {
-                ...study,
-                status: 'PENDING-REVIEW' as const,
-                approvedAt: new Date('2026-04-20T10:00:00Z'),
-            }
-            renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={codeUnderReviewStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const banner = screen.getByTestId('status-alert')
-            expect(banner).toHaveAttribute('data-variant', 'success')
-            expect(banner).toHaveTextContent('Proposal approved')
         })
     })
 

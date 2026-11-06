@@ -1,11 +1,12 @@
 'use server'
 
 import {
+    isGlobalLegalDocumentType,
     legalDocumentVersionParams,
     studyAgreementStatusSchema,
     type StudyAgreementStatus,
     type GlobalLegalDocument,
-    type PendingLegalDocument,
+    type PendingAcknowledgement,
 } from '@/schema/legal-document'
 import { bodyForVersion } from '@/server/legal-document'
 import { studyAgreementStatusFor } from '@/server/study-agreement'
@@ -39,15 +40,15 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
         return { acknowledged: true }
     })
 
-// The next document the signed-in user still owes. Superseded versions are not backfilled: the
-// obligation is to the terms in force, matching what the SI-admin audit reports. One at a time, the
-// next arriving on the refetch that acknowledging triggers.
+// The next group the signed-in user still owes, against the versions in force (as the SI-admin audit
+// reports). Outstanding tos and pn come together; a ropa/dopa comes alone, the next arriving on the
+// refetch that acknowledging triggers.
 export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
-    .handler(async ({ db, session }): Promise<PendingLegalDocument | null> => {
+    .handler(async ({ db, session }): Promise<PendingAcknowledgement[]> => {
         const owed = await latestOwedVersions(db, session)
-        if (!owed) return null
+        if (!owed) return []
 
         const acknowledged = await db
             .selectFrom('legalDocumentAcknowledgement')
@@ -68,25 +69,36 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
         const acknowledgedVersionIds = new Set(acknowledged.map((ack) => ack.versionId))
         // Separates "has been updated" from "is now available" for the modal copy.
         const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
+        const isUpdate = (version: { legalDocumentId: string }) => acknowledgedDocumentIds.has(version.legalDocumentId)
 
-        // owed is ordered, so the first outstanding one is also the one to ask about.
-        const next = owed.find((version) => !acknowledgedVersionIds.has(version.versionId))
-        if (!next) return null
+        // owed is ordered, so the first outstanding one decides which group to ask about.
+        const outstanding = owed.filter((version) => !acknowledgedVersionIds.has(version.versionId))
+        const [next] = outstanding
+        if (!next) return []
 
-        // Only ropa/dopa carry an org. Looked up for the returned document alone, not joined onto
-        // every owed row.
+        if (isGlobalLegalDocumentType(next.type)) {
+            return outstanding.flatMap((version) =>
+                isGlobalLegalDocumentType(version.type)
+                    ? [{ type: version.type, versionId: version.versionId, isUpdate: isUpdate(version) }]
+                    : [],
+            )
+        }
+
+        // Only ropa/dopa carry an org. Looked up for the returned document alone.
         const orgName = next.orgId
             ? ((await db.selectFrom('org').select('name').where('id', '=', next.orgId).executeTakeFirst())?.name ??
               null)
             : null
 
-        return {
-            type: next.type,
-            versionId: next.versionId,
-            isUpdate: acknowledgedDocumentIds.has(next.legalDocumentId),
-            orgName,
-            ...(await bodyForVersion({ type: next.type, filePath: next.filePath, fileName: next.fileName })),
-        }
+        return [
+            {
+                type: next.type,
+                versionId: next.versionId,
+                isUpdate: isUpdate(next),
+                orgName,
+                ...(await bodyForVersion({ type: next.type, filePath: next.filePath, fileName: next.fileName })),
+            },
+        ]
     })
 
 // Readable without a session: the invitation signup form renders these before an account exists.

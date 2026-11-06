@@ -8,10 +8,14 @@ import { ENCLAVE_SLUG } from './e2e.seed'
 const WITH_EYEBROW = Routes.orgDashboard({ orgSlug: ENCLAVE_SLUG })
 const WITHOUT_EYEBROW = Routes.dashboard
 
+// Scoped to the main landmark: while React streams a page, a hidden copy of its header can sit in a
+// segment under <body> for a moment, and an unscoped lookup then finds two eyebrows.
+const pageEyebrow = (page: Page) => page.getByRole('main').getByTestId('page-header-eyebrow')
+
 const eyebrowHeight = async (page: Page, url: string) => {
     await goto(page, url)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    const box = await page.getByTestId('page-header-eyebrow').boundingBox()
+    const box = await pageEyebrow(page).boundingBox()
     return box?.height ?? 0
 }
 
@@ -41,6 +45,6 @@ test.describe('page header eyebrow', () => {
 
         // The capitals are presentational, so the accessibility tree must still carry a lowercase
         // letter. Matched by shape, because the seed derives the org name from its slug.
-        await expect(page.getByTestId('page-header-eyebrow')).toMatchAriaSnapshot(`- paragraph: /[a-z]/`)
+        await expect(pageEyebrow(page)).toMatchAriaSnapshot(`- paragraph: /[a-z]/`)
     })
 })

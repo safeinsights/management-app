@@ -58,8 +58,6 @@ export const initialFormValues: StudyProposalFormValues = {
     piName: '',
     orgSlug: '',
     language: null,
-    mainCodeFile: null,
-    additionalCodeFiles: [],
     stepIndex: 0,
     createdStudyId: null,
     ideMainFile: '',

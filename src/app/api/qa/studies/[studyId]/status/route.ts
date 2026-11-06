@@ -6,25 +6,7 @@ import { setQaStudyState, QA_FILE_KEYS, type QaFileKey } from '@/server/qa-study
 import { qaErrorResponse, qaRefusedResponse } from '../../../responses'
 import { auditQaOperation } from '../../../audit'
 import { currentDb } from '@/server/request-context'
-
-const STUDY_STATUSES = ['APPROVED', 'ARCHIVED', 'CHANGE-REQUESTED', 'DRAFT', 'PENDING-REVIEW', 'REJECTED'] as const
-
-const JOB_STATUSES = [
-    'CODE-APPROVED',
-    'CODE-CHANGES-REQUESTED',
-    'CODE-SCANNED',
-    'CODE-SUBMITTED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-    'INITIATED',
-    'JOB-ERRORED',
-    'JOB-PACKAGING',
-    'JOB-PROVISIONING',
-    'JOB-READY',
-    'JOB-RUNNING',
-    'RESULTS-VIEWED',
-    'RUN-COMPLETE',
-] as const
+import { JOB_STATUSES, STUDY_STATUSES } from '@/lib/job-status-rules'
 
 const statusSchema = z.object({
     studyStatus: z.enum(STUDY_STATUSES).optional(),

@@ -6,16 +6,21 @@ export type FakeUser = ReturnType<typeof buildFakeUser>
 // this a verified address would vanish on the next reload() and the linking flow could never settle.
 const linkedEmails = new Map<string, string[]>()
 
+const BACKUP_CODES = ['11111111', '22222222', '33333333']
+
 export function buildFakeUser(fixture: FakeFixture) {
     const emailAddress = fixture.email
     const currentOrgSlug = defaultOrgSlug(fixture)
     const linked = linkedEmails.get(fixture.clerkId) ?? []
+    const backupCodeEnabled = fixture.backupCodeEnabled ?? false
+    // Like Clerk, an enrollment issues codes only to a user who has none yet.
+    const enrollmentCodes = () => (backupCodeEnabled ? {} : { backupCodes: BACKUP_CODES })
 
     return {
         id: fixture.clerkId,
         banned: false,
         twoFactorEnabled: true,
-        backupCodeEnabled: false,
+        backupCodeEnabled,
         firstName: fixture.firstName,
         lastName: fixture.lastName,
         fullName: `${fixture.firstName} ${fixture.lastName}`,
@@ -38,8 +43,7 @@ export function buildFakeUser(fixture: FakeFixture) {
             secret: 'JBSWY3DPEHPK3PXP',
             uri: 'otpauth://totp/e2e?secret=JBSWY3DPEHPK3PXP',
         }),
-        verifyTOTP: async () => ({ verified: true }),
-        createBackupCode: async () => ({ codes: ['11111111', '22222222', '33333333'] }),
+        verifyTOTP: async () => ({ verified: true, ...enrollmentCodes() }),
         createEmailAddress: async ({ email }: { email: string }) => ({
             id: `fake-email-${email}`,
             emailAddress: email,
@@ -59,8 +63,7 @@ export function buildFakeUser(fixture: FakeFixture) {
             phoneNumber,
             prepareVerification: async () => {},
             attemptVerification: async () => ({ verification: { status: 'verified' } }),
-            setReservedForSecondFactor: async () => {},
-            makeDefaultSecondFactor: async () => {},
+            setReservedForSecondFactor: async () => enrollmentCodes(),
         }),
         reload: async () => {},
     }

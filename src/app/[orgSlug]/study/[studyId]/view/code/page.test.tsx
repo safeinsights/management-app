@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import logger from '@/lib/logger'
 import {
     faker,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
@@ -29,10 +30,7 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
     const base = last?.createdAt ? new Date(last.createdAt).getTime() : Date.now()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
-        .execute()
+    await insertTestJobStatus(job.id, status, { at: new Date(base + 1000) })
 }
 
 const seedCodeStudy = async (statuses: StudyJobStatus[]) => {

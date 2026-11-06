@@ -4,6 +4,7 @@ import {
     actionResult,
     db,
     fireEvent,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -157,7 +158,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
     it('shows a not-found alert when the errored run already has a files decision', async () => {
         const { org, study, job } = await setupErrored()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -169,7 +170,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 // still let the reviewer record a decision.
 describe('ReviewerOutputsErroredScreen with no error log', () => {
     const addStatus = async (jobId: string, status: StudyJobStatus) => {
-        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
+        await insertTestJobStatus(jobId, status)
     }
 
     it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
@@ -238,10 +239,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
 
     it('explains a recorded failure class in place of the stage sentence', async () => {
         const { org, study, job } = await setupErrored()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -255,10 +253,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
         const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: raw })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: raw })
         const rawState = await requireRawState(study.id)
         await renderScreen({ study, raw: rawState }, org.slug)
 
@@ -273,14 +268,8 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     it('surfaces the classified reason even when a later errored row overwrites the order', async () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: null })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: null })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
