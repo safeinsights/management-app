@@ -1,10 +1,11 @@
 // error boundaries are class components @link https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 'use client'
 
-import { Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Box, Button, Group, Stack, Text, Title } from '@mantine/core'
 import * as Sentry from '@sentry/nextjs'
 import { Component, ErrorInfo, ReactNode, useEffect, useState } from 'react'
 import { AppErrorImage } from '../../public/svg/app-error-image'
+import { FocusedCard } from './layout/focused-card'
 import { FocusedLayoutShellView } from './layout/focused-layout-shell-view'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import { APP_TITLE, MAIN_CONTENT_ID } from '@/lib/constants'
@@ -39,9 +40,9 @@ export function ErrorScreen({ eventId }: { eventId?: string }) {
 
     return (
         <FocusedLayoutShellView>
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} m="auto">
+            <FocusedCard m="auto">
                 <Stack mb="xxl" ta="center" align="center" gap="0">
-                    <AppErrorImage />
+                    <Box component={AppErrorImage} maw="100%" h="auto" />
                     <Title order={1} mt="sm">
                         Something Went Wrong
                     </Title>
@@ -58,7 +59,7 @@ export function ErrorScreen({ eventId }: { eventId?: string }) {
                         </Button>
                     </Group>
                 </Stack>
-            </Paper>
+            </FocusedCard>
         </FocusedLayoutShellView>
     )
 }

@@ -3,10 +3,10 @@
 import { InputError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import OtpInput from '@/components/otp-input'
-import { Box, Button, Center, Flex, Paper, Stack, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Box, Button, Center, Flex, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
-import { semanticColor } from '@/theme/tokens'
 import { LinkInviteEmailStatus } from './use-link-invite-email'
 
 type CodeForm = UseFormReturnType<{ code: string }>
@@ -120,7 +120,7 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
     const isAwaitingCode = status === 'awaiting-code' || status === 'verifying'
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <PreparingPanel isVisible={status === 'loading'} />
                 <CodePanel
@@ -143,6 +143,6 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
                     onSkip={onSkip}
                 />
             </Flex>
-        </Paper>
+        </FocusedCard>
     )
 }
