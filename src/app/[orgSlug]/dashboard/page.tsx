@@ -23,8 +23,10 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
 
     const isEnclave = isEnclaveOrg(org)
 
+    // Narrower page and card gutters than other pages give the studies table its 928px at a
+    // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack p="xxl" gap="xxl">
+        <Stack px="md" py="xxl" gap="xxl">
             <PageHeader eyebrow={org.name} title="Dashboard" />
             <JoinedOrgBanner />
             <StudiesTable
