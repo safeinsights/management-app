@@ -9,8 +9,10 @@ x-runner: &runner
     # Docker's 64 MB default /dev/shm crashes Chromium. ipc: host would share the VM's IPC
     # namespace between parallel stacks, so a per-container size is used instead.
     shm_size: 2gb
-    # No env_file. The values follow the CI e2e job (.github/workflows/checks.yml) and
+    # No host .env. The values follow the CI e2e job (.github/workflows/checks.yml) and
     # bin/ci-server, with container addresses for the infrastructure keys.
+    env_file:
+        - bin/lib/e2e-blank.env
     environment:
         # Host `db`: tests/e2e.seed.ts only seeds legal documents into hosts it knows as disposable.
         - DATABASE_URL=postgres://si:si@db:5432/si_e2e
@@ -33,19 +35,6 @@ x-runner: &runner
         - ASSETS_PREFIX=/
         - CODER_FILES=./coder-files
         - NODE_OPTIONS=--max-old-space-size=4096
-        # Next's env loader and dotenv skip keys that are already set, even to "", so these keep a
-        # bind-mounted .env / .env.test away from real services. Every reader treats "" as unset;
-        # never blank a required key (MAILGUN_DOMAIN, CODER_*), getConfigValue would return "".
-        - AWS_PROFILE=
-        - DB_SECRET_ARN=
-        - SECRETS_ARN=
-        - CLAUDE_API_KEY=
-        - MAILGUN_API_KEY=
-        - CLERK_SECRET_KEY=
-        - POSTHOG_PROJECT_TOKEN=
-        - NEXT_PUBLIC_SENTRY_DSN=
-        - SENTRY_DSN=
-        - SENTRY_AUTH_TOKEN=
         # bin/seed-environment.ts imports dotenv/config; keep it off the host .env.
         - DOTENV_CONFIG_PATH=/dev/null
         # Same pnpm/corepack setup as docker-compose.testunit.yml: corepack cache inside
