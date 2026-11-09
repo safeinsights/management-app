@@ -15,6 +15,7 @@ import {
     type DbQuery,
     type StatelessSubmissionEvent,
 } from './auth'
+import { ROUND_CLOSING_JOB_STATUSES } from '../../src/lib/job-status-rules.ts'
 
 const STUDY_ID = '019ddb2a-5f38-74ea-b401-94fd79839071'
 const JOB_ID = '019ddb2a-5f38-74ea-b401-94fd798390ff'
@@ -900,6 +901,15 @@ describe('hasFilesDecision', () => {
 
     it('is true once a closing status row exists', async () => {
         await expect(hasFilesDecision(JOB_ID, fakeDb([{ status: 'FILES-APPROVED' }]))).resolves.toBe(true)
+    })
+
+    it('asks for the shared round-closing statuses', async () => {
+        const query = vi.fn(async () => ({ rows: [], rowCount: 0 }))
+        await hasFilesDecision(JOB_ID, { query } as unknown as DbQuery)
+        expect(query).toHaveBeenCalledWith(expect.stringContaining('ANY($2)'), [
+            JOB_ID,
+            [...ROUND_CLOSING_JOB_STATUSES],
+        ])
     })
 })
 

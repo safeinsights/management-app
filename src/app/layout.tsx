@@ -15,7 +15,7 @@ import '@mantine/dropzone/styles.layer.css'
 import '@mantine/notifications/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
-import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
+import { env, getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
 import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
@@ -52,7 +52,7 @@ export default async function RootLayout({
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
-        <html lang="en" translate="no" className={globalFont.className} {...sentryDeployAttributes()}>
+        <html lang="en" translate="no" className={globalFont.className} {...sentryDeployAttributes(env)}>
             <body>
                 <Providers
                     singleUserEditing={SINGLE_USER_EDITING}

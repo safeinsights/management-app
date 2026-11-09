@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import {
     actionResult,
     db,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -69,10 +70,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         title,
     })
     // The header dates the decision from this status-change row, not the feedback entry.
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
-        .execute()
+    await insertTestJobStatus(job.id, decisionStatus, { at: DECISION_DATE, userId: user.id })
 
     await db
         .insertInto('studyJobFile')

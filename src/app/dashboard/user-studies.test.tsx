@@ -1,5 +1,7 @@
 import {
     db,
+    insertTestJob,
+    insertTestJobStatus,
     insertTestUser,
     mockDualRoleSessionWithTestData,
     mockPathname,
@@ -66,15 +68,8 @@ describe('UserStudiesDashboard', () => {
             researcherId,
             title: 'Reviewer Study',
         })
-        const job = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: reviewerId, status: 'CODE-APPROVED' })
-            .execute()
+        const job = await insertTestJob(study.id)
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: reviewerId })
     }
 
     it('opens on the Reviewer tab for a dual-role user, with the switcher outside the card', async () => {

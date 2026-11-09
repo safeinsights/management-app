@@ -1,21 +1,13 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
-import { recordJobStatus } from '@/server/job-status'
-import { roundIsClosed } from '@/server/storage'
+import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
 import logger from '@/lib/logger'
 import { apiRequestingOrg, currentDb } from '@/server/request-context'
 
 const schema = z.object({
     message: z.string().optional(),
-    status: z.enum([
-        'JOB-PROVISIONING',
-        'JOB-RUNNING',
-        'JOB-ERRORED',
-        'FILES-REJECTED',
-        'FILES-APPROVED',
-        'RUN-COMPLETE',
-    ]),
+    status: z.enum(['JOB-PROVISIONING', 'JOB-RUNNING', 'JOB-ERRORED', 'RUN-COMPLETE']),
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
@@ -46,13 +38,17 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     const json = await req.json()
     const change = schema.parse(json)
 
-    // A failure reported after the Data Partner has decided the outputs would reopen a closed round.
-    if (change.status === 'JOB-ERRORED' && (await roundIsClosed(job.id, currentDb()))) {
-        logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
-        return new NextResponse('ok', { status: 200 })
+    try {
+        await transitionJob(currentDb(), job.id, change.status, { actor: 'enclave', message: change.message })
+    } catch (error) {
+        if (!(error instanceof JobTransitionRefusedError)) throw error
+        // A late failure report after the outputs decision: a retry would only be refused again.
+        if (error.reason === 'round-closed' && change.status === 'JOB-ERRORED') {
+            logger.warn(`not recording JOB-ERRORED for job ${job.id}: the round is already decided`)
+            return new NextResponse('ok', { status: 200 })
+        }
+        return NextResponse.json({ error: 'transition-refused', from: error.from, to: error.to }, { status: 409 })
     }
-
-    await recordJobStatus(job, { status: change.status, message: change.message })
 
     return new NextResponse('ok', { status: 200 })
 }

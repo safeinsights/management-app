@@ -1,4 +1,13 @@
-import { describe, expect, it, renderWithProviders, vi } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    insertTestDataSource,
+    it,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    vi,
+} from '@/tests/unit.helpers'
 import { DatasetMultiSelect } from './dataset-multi-select'
 
 describe('DatasetMultiSelect', () => {
@@ -27,5 +36,20 @@ describe('DatasetMultiSelect', () => {
         const field = container.querySelector('input#datasets')
         expect(field).toHaveAttribute('placeholder', 'Select dataset(s) of interest')
         expect(field).not.toHaveAttribute('data-type', 'hidden')
+    })
+
+    it('shows the dataset name, never its raw ID, for a saved value', async () => {
+        const { org } = await mockSessionWithTestData()
+        const dataSource = await insertTestDataSource({ orgId: org.id, name: 'Classroom Engagement Metrics' })
+
+        renderWithProviders(
+            <DatasetMultiSelect id="datasets" value={[dataSource.id]} onChange={vi.fn()} orgSlug={org.slug} />,
+        )
+
+        expect(screen.queryByText(dataSource.id)).toBeNull()
+        expect(
+            await screen.findByText('Classroom Engagement Metrics', { selector: '.mantine-Pill-label' }),
+        ).toBeInTheDocument()
+        expect(screen.queryByText(dataSource.id)).toBeNull()
     })
 })

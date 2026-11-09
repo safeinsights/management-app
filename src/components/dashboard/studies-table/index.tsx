@@ -8,6 +8,7 @@ import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
 import { NAV_UNREAD_QUERY_KEY, withScopeUnread, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
+import { JOB_FINAL_STATUSES } from '@/lib/study-job-status'
 import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
 import { getLabOrg, type UserSession } from '@/lib/types'
 import { enclaveOrgIds, labOrgIds } from '@/lib/utils'
@@ -21,14 +22,7 @@ import { DeleteDraftButton } from './delete-draft-button'
 import { buildRowModel } from './row-model'
 import { useStudiesTableSort } from './sort'
 import { StudiesTableView } from './studies-table-view'
-import {
-    ACTIVE_PROPOSAL_STATUSES,
-    Audience,
-    FINAL_STATUS,
-    Scope,
-    StudiesTableProps,
-    StudyRow as StudyRowType,
-} from './types'
+import { ACTIVE_PROPOSAL_STATUSES, Audience, Scope, StudiesTableProps, StudyRow as StudyRowType } from './types'
 
 // Key prefixes of the two researcher tables, for writes that change what a researcher row shows.
 export const RESEARCHER_STUDIES_QUERY_KEYS = { user: 'user-researcher-studies', org: 'researcher-studies' } as const
@@ -47,13 +41,19 @@ function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?:
     return audience === 'researcher' ? [keys.user] : [keys.user, userId || '']
 }
 
+// A job keeps its earlier rows (INITIATED, CODE-SUBMITTED) once it reaches a final status, so the
+// question is whether any final row exists, not whether every row is final.
+const jobAwaitsFinalStatus = (study: StudyRowType) =>
+    study.jobStatusChanges.length > 0 &&
+    !study.jobStatusChanges.some((change) => JOB_FINAL_STATUSES.includes(change.status))
+
 function needsRefresh(studies: StudyRowType[], audience: Audience): boolean {
     // PENDING-REVIEW usually has no job yet, so the job check alone misses a researcher awaiting
     // a decision; reviewers are excluded because it is their own next action.
     return studies.some(
         (study) =>
             (audience === 'researcher' && ACTIVE_PROPOSAL_STATUSES.includes(study.status)) ||
-            study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+            jobAwaitsFinalStatus(study),
     )
 }
 

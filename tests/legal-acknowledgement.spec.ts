@@ -11,20 +11,25 @@ test.describe('Terms of Service acknowledgement', () => {
     test('a user owing an updated Terms of Service must acknowledge it before continuing', async ({ page }) => {
         await visitAsRole(page, Routes.dashboard)
 
-        const modal = page.getByRole('dialog').filter({ hasText: 'The Terms of Service has been updated' })
+        const modal = page.getByRole('dialog', { name: 'Welcome to SafeInsights!' })
         await expect(modal).toBeVisible()
+        await expect(modal.getByText(/We have updated our Terms of Service/)).toBeVisible()
 
-        await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
         // Scoped to the modal: nothing waits for the page behind it, which the a11y spec covers.
         await expectNoA11yViolations(page, 'Terms of Service update modal', { include: '[role="dialog"]' })
+
+        // Linked, not embedded: the document opens on its own /legal tab.
+        await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeHidden()
+        const link = modal.getByRole('link', { name: /^Terms of Service/ })
+        await expect(link).toHaveAttribute('href', `${Routes.legal}?tab=TOS`)
+        await expect(link).toHaveAttribute('target', '_blank')
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
         await expect(modal.getByText('Privacy Notice')).toBeHidden()
 
         const continueButton = modal.getByRole('button', { name: 'Continue' })
         await expect(continueButton).toBeDisabled()
-        // The modal covers the nav, so signing out is the only way to decline.
-        await expect(modal.getByRole('button', { name: 'Sign out' })).toBeVisible()
+        await expect(modal.getByRole('button', { name: 'Sign out' })).toBeHidden()
 
         await modal.getByRole('checkbox').check()
         await expect(continueButton).toBeEnabled()

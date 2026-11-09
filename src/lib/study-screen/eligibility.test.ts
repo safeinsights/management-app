@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { rawJob } from '@/tests/unit/job-histories'
 import type { RawJob, RawStudyState } from './state.types'
 import { projectStudyState } from './state'
 import {
@@ -7,10 +8,7 @@ import {
     canResearcherSubmitCodeForReview,
 } from './eligibility'
 
-const job = (id: string, statuses: string[]): RawJob => ({
-    id,
-    statusChanges: statuses.map((status) => ({ status: status as RawJob['statusChanges'][number]['status'] })),
-})
+const job = rawJob
 
 const stateFor = (jobs: RawJob[]): RawStudyState => ({
     status: 'APPROVED',

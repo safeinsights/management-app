@@ -1,9 +1,15 @@
 import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
+import {
+    insertTestJob,
+    insertTestJobInfo,
+    insertTestJobStatus,
+    insertTestJobStatuses,
+    testUploadFile,
+} from '@/tests/unit.helpers'
+import type { StudyJobStatus } from '@/database/types'
 import { s3Available } from '@/tests/s3.helpers'
 import { db } from '@/database'
-import { sql } from 'kysely'
 import { pathForStudyJob } from '@/lib/paths'
 import { sendDataPartnerCodeErroredEmail, sendDataPartnerOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchFileContents } from '@/server/storage'
@@ -21,6 +27,18 @@ vi.mock('@/server/aws', () => ({
     }),
     signedUrlForFile: vi.fn(),
 }))
+
+// Stored artifacts take now(), which a test transaction holds at its start, so a history that must
+// predate the delivery is dated an hour back, its INITIATED row included.
+const insertJobWithPastStatuses = async (statuses: StudyJobStatus[]) => {
+    const { jobInfo } = await insertTestJobInfo()
+    const start = Date.now() - 60 * 60 * 1000
+    const job = await insertTestJob(jobInfo.studyId, { at: new Date(start) })
+    for (const [index, status] of statuses.entries()) {
+        await insertTestJobStatus(job.id, status, { at: new Date(start + (index + 1) * 1000) })
+    }
+    return { ...jobInfo, studyJobId: job.id }
+}
 
 // Real S3 round-trip, so skipped without SeaweedFS locally; on CI s3.helpers throws instead.
 test.skipIf(!s3Available)('uploading results', async () => {
@@ -146,7 +164,7 @@ test.skipIf(!s3Available)('a prior scan/packaging JOB-ERRORED does not block a r
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
 
-    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
+    await insertTestJobStatus(jobId, 'JOB-ERRORED')
 
     const formData = new FormData()
     formData.append('result', testUploadFile('r.txt', 'text/plain'))
@@ -242,15 +260,8 @@ test.skipIf(!s3Available)('records a missing outcome when the retry carries noth
 // JOB-ERRORED is shared with the scanner and the containerizer, so a bare status lookup would read
 // one of theirs as proof this callback already finished.
 test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORED would have masked", async () => {
-    const { jobInfo } = await insertTestJobInfo()
+    const jobInfo = await insertJobWithPastStatuses(['CODE-SUBMITTED', 'JOB-ERRORED', 'CODE-APPROVED', 'JOB-READY'])
     const jobId = jobInfo.studyJobId
-
-    // Dated explicitly: a test runs inside one transaction, where now() is frozen and fixture rows
-    // would otherwise tie.
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 hour'` })
-        .execute()
 
     const jobPath = pathForStudyJob(jobInfo)
     await db
@@ -277,16 +288,14 @@ test.skipIf(!s3Available)("records a run failure that a prior stage's JOB-ERRORE
         .where('status', '=', 'JOB-ERRORED')
         .execute()
     expect(errored).toHaveLength(2)
+    await flushDeferred()
+    expect(sendDataPartnerCodeErroredEmail).toHaveBeenCalledTimes(1)
 })
 
 // setup-app sends PUT JOB-ERRORED and then this log, and the PUT has already emailed the Data Partner.
 test.skipIf(!s3Available)("does not email again for a log that follows the runner's own JOB-ERRORED", async () => {
-    const { jobInfo } = await insertTestJobInfo()
+    const jobInfo = await insertJobWithPastStatuses(['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'JOB-ERRORED'])
     const jobId = jobInfo.studyJobId
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: jobId, status: 'JOB-ERRORED', createdAt: sql`now() - interval '1 minute'` })
-        .execute()
 
     const formData = new FormData()
     formData.append('log', testUploadFile('log.txt', 'text/plain'))
@@ -309,8 +318,7 @@ test.skipIf(!s3Available)('does not record an outcome once the round has been de
     const { jobInfo } = await insertTestJobInfo()
     const jobId = jobInfo.studyJobId
 
-    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'JOB-ERRORED' }).execute()
-    await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'FILES-APPROVED' }).execute()
+    await insertTestJobStatuses(jobId, ['JOB-ERRORED', 'FILES-APPROVED'])
 
     const formData = new FormData()
     formData.append('log', testUploadFile('log.txt', 'text/plain'))

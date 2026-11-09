@@ -6,7 +6,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestSubmittedJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
 const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string | null; labName: string }) => {
@@ -45,12 +45,14 @@ export async function ReviewerOutputsAvailableScreen({
 
     const labName = study.submittingLabName
     const availableAt = latestStatusAt(job.statusChanges, 'RUN-COMPLETE')
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
 
     return (
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
             job={job}
+            priorRuns={priorRuns}
             labName={labName}
             header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             lockedBanner={<AvailableBanner availableAt={availableAt} labName={labName} />}

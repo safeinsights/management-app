@@ -4,7 +4,11 @@ import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     db,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
+    insertTestLaterJob,
     insertTestStudyJobData,
     insertTestUser,
     isUnreadOnOrgDashboard,
@@ -30,7 +34,7 @@ import {
     regenerateStudyReviewAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
-import { codeSubmissionVersion } from '@/server/db/queries'
+import { jobRound } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
 import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
@@ -116,6 +120,36 @@ describe('Study Job Actions', () => {
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
         expect(result[0].studyJobFileId).toBe(file.id)
         expect(result[0].recipientKeys).toEqual({})
+    })
+
+    // OTTER-882: the code run card decrypts the latest run alone; earlier runs belong to the history.
+    test('fetchEncryptedJobFilesAction returns only the requested run when the study has earlier runs', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job: earlierJob } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'earlier/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: earlierJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+        const latestJob = await insertTestLaterJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
+        const latestFile = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'latest/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: latestJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: latestJob.id, type: 'reviewer' }))
+
+        expect(result.map((file) => file.studyJobFileId)).toEqual([latestFile.id])
     })
 
     test('fetchEncryptedJobFilesAction returns researcher keys for shared files', async () => {
@@ -596,15 +630,15 @@ describe('Study Job Actions', () => {
         // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.
         test('the first outputs decision is round 1 however far the code rounds have climbed', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: job.id, status: 'CODE-APPROVED' },
-                ])
-                .execute()
-            expect(await codeSubmissionVersion(study.id, db)).toBe(2)
+            // The run completes after the resubmitted code is approved, so the job is ready for a decision.
+            await insertTestJobStatuses(job.id, [
+                'CODE-SUBMITTED',
+                'CODE-CHANGES-REQUESTED',
+                'CODE-SUBMITTED',
+                'CODE-APPROVED',
+                'RUN-COMPLETE',
+            ])
+            expect(await jobRound(job.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -631,19 +665,8 @@ describe('Study Job Actions', () => {
                 }),
             )
 
-            const secondJob = await db
-                .insertInto('studyJob')
-                .values({ studyId: study.id })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: secondJob.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: secondJob.id, status: 'CODE-APPROVED' },
-                    { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
-                ])
-                .execute()
+            const secondJob = await insertTestJob(study.id)
+            await insertTestJobStatuses(secondJob.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -903,13 +926,7 @@ describe('Study Job Actions', () => {
         // Submitted, changes requested, submitted again: the job now carries round 2's code, with
         // round 1's summary still beside it.
         const resubmit = async (studyJobId: string) =>
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId, status: 'CODE-SUBMITTED' },
-                ])
-                .execute()
+            await insertTestJobStatuses(studyJobId, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
 
         test('returns the scan alongside the review', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -998,13 +1015,8 @@ describe('Study Job Actions', () => {
         test('clears only the current round and re-fires generation for it', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() + 1000) },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 2000) },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED', { at: new Date(Date.now() + 1000) })
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: new Date(Date.now() + 2000) })
             await db
                 .insertInto('studyReview')
                 .values([
@@ -1095,7 +1107,7 @@ describe('Study Job Actions', () => {
 
 describe('draft code files are private to the Research Lab (OTTER-596)', () => {
     const seedCodeFile = async (studyId: string) => {
-        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        const job = await insertTestJob(studyId)
         await db
             .insertInto('studyJobFile')
             .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })

@@ -40,7 +40,7 @@ const usePendingStudyAgreement = (studyId: string) => {
 
     const versionId = status?.state === 'pending' ? status.versionId : undefined
     const consent = useAcknowledgementConsent({
-        versionId,
+        versionIds: versionId ? [versionId] : [],
         invalidateKey: legalDocumentQueryKeys.studyAgreement(studyId),
     })
 
