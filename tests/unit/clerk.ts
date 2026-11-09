@@ -161,6 +161,7 @@ export const mockClerkSession = (values: MockSession | null) => {
             unsafeMetadata,
             userMetadata: publicMetadata,
         },
+        factorVerificationAge,
         userId: values.clerkUserId,
     }))
 
