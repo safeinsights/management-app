@@ -1,17 +1,21 @@
+import dayjs from 'dayjs'
 import {
     db,
     describe,
     expect,
+    insertTestBaselineJob,
     insertTestJob,
     insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestLaterJob,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
+    type PriorCodeRunOptions,
 } from '@/tests/unit.helpers'
 import { seedJobFileRow } from '@/tests/artifact.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { jobRound, latestSubmittedJobForStudy } from './study-job'
+import { jobRound, latestSubmittedJobForStudy, priorCodeRunsForStudy } from './study-job'
 
 // Explicit timestamps, so the order of the rows under test is never left to the clock.
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -112,5 +116,77 @@ describe('latestSubmittedJobForStudy', () => {
 
         expect(job?.id).toBe(latestJob.id)
         expect(job?.files.map((file) => file.id)).toEqual([latestFile.id])
+    })
+})
+
+const daysAgo = (days: number) => dayjs().subtract(days, 'day').toDate()
+
+const setupStudy = async (priorRuns: PriorCodeRunOptions[] = []) => {
+    const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const {
+        study,
+        job: latestJob,
+        priorJobs,
+    } = await insertTestStudyJobData({
+        org,
+        jobStatus: 'RUN-COMPLETE',
+        priorRuns,
+    })
+    return { study, latestJob, priorJobs }
+}
+
+describe('priorCodeRunsForStudy', () => {
+    it('returns nothing when the latest run is the only one', async () => {
+        const { study, latestJob } = await setupStudy()
+
+        expect(await priorCodeRunsForStudy(study.id, latestJob.id)).toEqual([])
+    })
+
+    it('returns every earlier run except the latest, newest run first', async () => {
+        // Inserted out of date order, so the result order has to come from the run dates.
+        const {
+            study,
+            latestJob,
+            priorJobs: [middle, oldest, newest],
+        } = await setupStudy([
+            { ranAt: daysAgo(5), outcome: 'JOB-ERRORED' },
+            { ranAt: daysAgo(9), decision: 'FILES-REJECTED' },
+            { ranAt: daysAgo(2) },
+        ])
+
+        const runs = await priorCodeRunsForStudy(study.id, latestJob.id)
+
+        expect(runs.map((run) => run.id)).toEqual([newest.id, middle.id, oldest.id])
+    })
+
+    it('dates a run by when it ended, not by its later outputs decision', async () => {
+        const ranAt = daysAgo(3)
+        const { study, latestJob } = await setupStudy([{ ranAt }])
+
+        const [run] = await priorCodeRunsForStudy(study.id, latestJob.id)
+
+        expect(run.ranAt).toEqual(ranAt)
+    })
+
+    it('leaves out jobs that never ran', async () => {
+        const {
+            study,
+            latestJob,
+            priorJobs: [ran],
+        } = await setupStudy([{ ranAt: daysAgo(4) }])
+        const rejected = await insertTestBaselineJob(study.id)
+        await insertTestJobStatuses(rejected.id, ['CODE-SUBMITTED', 'CODE-REJECTED'])
+        await insertTestBaselineJob(study.id)
+
+        const runs = await priorCodeRunsForStudy(study.id, latestJob.id)
+
+        expect(runs.map((run) => run.id)).toEqual([ran.id])
+    })
+
+    it('leaves out runs from other studies', async () => {
+        const { study, latestJob } = await setupStudy()
+        await setupStudy([{ ranAt: daysAgo(1) }])
+
+        expect(await priorCodeRunsForStudy(study.id, latestJob.id)).toEqual([])
     })
 })

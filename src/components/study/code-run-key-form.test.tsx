@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
-    db,
+    insertTestJobStatus,
     fireEvent,
     hydrateServerHtml,
     insertTestStudyJobData,
@@ -23,13 +23,8 @@ describe('CodeRunKeyForm', () => {
 
     beforeEach(async () => {
         const { org } = await mockSessionWithTestData()
-        const { study, job: dbJob } = await insertTestStudyJobData({ org, jobStatus: 'JOB-ERRORED' })
-        await db
-            .updateTable('jobStatusChange')
-            .set({ createdAt: new Date('2026-03-05T12:00:00Z') })
-            .where('studyJobId', '=', dbJob.id)
-            .where('status', '=', 'JOB-ERRORED')
-            .execute()
+        const { study, job: dbJob } = await insertTestStudyJobData({ org, jobStatus: 'INITIATED' })
+        await insertTestJobStatus(dbJob.id, 'JOB-ERRORED', { at: new Date('2026-03-05T12:00:00Z') })
         job = (await latestJobForStudy(study.id))!
         onDecrypted = vi.fn()
 

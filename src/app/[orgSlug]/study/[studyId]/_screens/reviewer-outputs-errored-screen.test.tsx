@@ -1,20 +1,23 @@
 import { describe, expect, it, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
+import dayjs from 'dayjs'
 import {
     actionResult,
     db,
     fireEvent,
+    insertTestJobStatus,
     insertTestJobStatuses,
     insertTestLaterJob,
-    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
     renderWithProviders,
+    type PriorCodeRunOptions,
     requireRawState,
     screen,
     type ScreenInputs,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
@@ -25,9 +28,9 @@ import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-scr
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
-const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
+const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED', priorRuns: PriorCodeRunOptions[] = []) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus, priorRuns })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
     const raw = await requireRawState(dbStudy.id)
@@ -53,8 +56,8 @@ const unlock = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 }
 
-const setupWithArtifact = async () => {
-    const ctx = await setupErrored()
+const setupWithArtifact = async (priorRuns: PriorCodeRunOptions[] = []) => {
+    const ctx = await setupErrored('JOB-ERRORED', priorRuns)
     await seedEncryptedArtifact(ctx.job.id, {
         fileType: 'ENCRYPTED-CODE-RUN-LOG',
         files: [{ name: 'run.log', content: 'boom' }],
@@ -489,6 +492,27 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 })
 
+describe('ReviewerOutputsErroredScreen code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupWithArtifact()
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('counts the earlier runs before the outputs are decrypted', async () => {
+        const { org, study, raw } = await setupWithArtifact(
+            [2, 4, 6].map((days) => ({ ranAt: dayjs().subtract(days, 'day').toDate() })),
+        )
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        expect(screen.getByRole('heading', { name: 'Code run history (3)' })).toBeInTheDocument()
+        expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
+    })
+})
+
 // OTTER-882: the code run card shows the latest run alone. An earlier run's files, even one with the
 // same name, belong to the code run history.
 describe('ReviewerOutputsErroredScreen with an earlier run', () => {
@@ -519,7 +543,7 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))

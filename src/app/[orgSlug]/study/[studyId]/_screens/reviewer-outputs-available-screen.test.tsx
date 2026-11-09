@@ -19,8 +19,10 @@ import {
     renderWithProviders,
     requireRawState,
     screen,
+    type PriorCodeRunOptions,
     type ScreenInputs,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { theme } from '@/theme'
@@ -32,9 +34,9 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 
-const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
+const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE', priorRuns: PriorCodeRunOptions[] = []) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus, priorRuns })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
     const raw = await requireRawState(dbStudy.id)
@@ -268,6 +270,50 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     })
 })
 
+describe('ReviewerOutputsAvailableScreen code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('sits below the key card, then stays open below the outputs once they are decrypted', async () => {
+        const { org, study, job, raw } = await setupAvailable('RUN-COMPLETE', [
+            { ranAt: dayjs().subtract(3, 'day').toDate() },
+            { ranAt: dayjs().subtract(6, 'day').toDate(), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
+        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        const history = screen.getByTestId('code-run-history')
+        expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
+        expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
+
+        // The same node, still open: decrypting must not remount the history.
+        expect(screen.getByTestId('code-run-history')).toBe(history)
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
+            'aria-expanded',
+            'true',
+        )
+        expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
+        expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
+    })
+})
+
+const isBefore = (first: Element, second: Element) =>
+    !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
 // OTTER-882: the code run card shows the latest run alone. An earlier run's files, even one with the
 // same name, belong to the code run history.
 describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
@@ -298,7 +344,7 @@ describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))

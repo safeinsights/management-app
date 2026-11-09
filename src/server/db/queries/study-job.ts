@@ -5,6 +5,7 @@ import { throwNotFound } from '@/lib/errors'
 import { currentDb } from '@/server/request-context'
 import { FileType } from '@/database/types'
 import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
 import { latestJobQuery } from '@/server/db/latest-job'
 
 export async function getStudyJobInfo(studyJobId: string) {
@@ -87,6 +88,24 @@ export async function jobRound(studyJobId: string, executor: DBExecutor): Promis
         .where('id', '=', studyJobId)
         .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
     return job.round
+}
+
+export type PriorCodeRun = Awaited<ReturnType<typeof priorCodeRunsForStudy>>[number]
+
+// A job counts as a code run only once the enclave finished it, errored or not; rounds closed
+// before running never produced outputs to review (OTTER-882).
+export async function priorCodeRunsForStudy(studyId: string, latestJobId: string) {
+    return await currentDb()
+        .selectFrom('studyJob')
+        .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+        .select((eb) => ['studyJob.id', eb.fn.max('jobStatusChange.createdAt').as('ranAt')])
+        .where('studyJob.studyId', '=', studyId)
+        .where('studyJob.id', '!=', latestJobId)
+        .where('jobStatusChange.status', 'in', OUTPUTS_REVIEWABLE_JOB_STATUSES)
+        .groupBy('studyJob.id')
+        .orderBy('ranAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .execute()
 }
 
 // jobStatusChange.message can hold raw service/AWS text, so it must not be selected in queries the

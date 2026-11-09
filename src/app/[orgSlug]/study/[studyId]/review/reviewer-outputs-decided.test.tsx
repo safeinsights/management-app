@@ -8,6 +8,7 @@ import {
     insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
+    type PriorCodeRunOptions,
     renderWithProviders,
     requireRawState,
     screen,
@@ -26,16 +27,18 @@ import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 const setupDecided = async ({
     jobStatus = 'RUN-COMPLETE' as StudyJobStatus,
     filesDecision = 'FILES-APPROVED' as StudyJobStatus,
+    ranAt = undefined as Date | undefined,
+    priorRuns = [] as PriorCodeRunOptions[],
 } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy, job } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        jobStatus: 'INITIATED',
+        priorRuns,
+    })
+    await insertTestJobStatus(job.id, jobStatus, { userId: user.id, at: ranAt })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-
-    const job = await db
-        .selectFrom('studyJob')
-        .where('studyId', '=', dbStudy.id)
-        .selectAll('studyJob')
-        .executeTakeFirstOrThrow()
 
     await insertTestJobStatus(job.id, filesDecision)
 
@@ -296,14 +299,8 @@ describe('ReviewerOutputsDecided', () => {
 
     // The decision lands later than the run, and must not move the date the run is known by.
     it('dates the code run by when it finished, not by the outputs decision', async () => {
-        const { org, study, job } = await setupDecided()
+        const { org, study, job } = await setupDecided({ ranAt: new Date('2026-03-05T12:00:00Z') })
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
-        await db
-            .updateTable('jobStatusChange')
-            .set({ createdAt: new Date('2026-03-05T12:00:00Z') })
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'RUN-COMPLETE')
-            .execute()
         await renderView(study, await requireRawState(study.id), org.slug)
 
         expect(screen.getByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
@@ -343,5 +340,36 @@ describe('ReviewerOutputsDecided', () => {
         const link = screen.getByRole('link', { name: /back to my studies/i })
         expect(link).toHaveAttribute('data-variant', 'filled')
         expect(link).not.toHaveAttribute('data-disabled')
+    })
+})
+
+describe('ReviewerOutputsDecided code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('counts the earlier runs below the View outputs again card', async () => {
+        const { org, study, job, raw } = await setupDecided({
+            priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }],
+        })
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        await renderView(study, raw, org.slug)
+
+        const history = screen.getByTestId('code-run-history')
+        expect(history).toHaveTextContent('Code run history (1)')
+        const keyForm = screen.getByTestId('security-key-form')
+        expect(keyForm.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    // A run closed out with nothing to decrypt still has a history worth showing.
+    it('shows the history even when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided({ priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }] })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('security-key-form')).toBeNull()
+        expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
     })
 })
