@@ -2,7 +2,8 @@
 
 import { FocusedLayoutShellView } from '@/components/layout/focused-layout-shell-view'
 import { Routes } from '@/lib/routes'
-import { Button, Paper, Stack, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Box, Button, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { NotFoundImage } from '../../public/svg/404-image'
@@ -19,9 +20,9 @@ export function NotFoundView() {
 
     return (
         <FocusedLayoutShellView>
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={600} m="auto">
+            <FocusedCard w="auto" m="auto">
                 <Stack mb="xxl" ta="center" align="center" gap="0">
-                    <NotFoundImage />
+                    <Box component={NotFoundImage} maw="100%" h="auto" />
                     <Title order={1} mt="sm">
                         Page Not Found
                     </Title>
@@ -33,7 +34,7 @@ export function NotFoundView() {
                         Take me back
                     </Button>
                 </Stack>
-            </Paper>
+            </FocusedCard>
         </FocusedLayoutShellView>
     )
 }
