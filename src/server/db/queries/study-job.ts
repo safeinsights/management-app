@@ -98,7 +98,16 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
     return await currentDb()
         .selectFrom('studyJob')
         .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
-        .select((eb) => ['studyJob.id', eb.fn.max('jobStatusChange.createdAt').as('ranAt')])
+        .select((eb) => [
+            'studyJob.id',
+            eb.fn.max('jobStatusChange.createdAt').as('ranAt'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange as statusChange')
+                    .select('statusChange.status')
+                    .whereRef('statusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+        ])
         .where('studyJob.studyId', '=', studyId)
         .where('studyJob.id', '!=', latestJobId)
         .where('jobStatusChange.status', 'in', OUTPUTS_REVIEWABLE_JOB_STATUSES)

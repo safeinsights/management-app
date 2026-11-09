@@ -168,6 +168,21 @@ describe('priorCodeRunsForStudy', () => {
         expect(run.ranAt).toEqual(ranAt)
     })
 
+    it("returns each run's statuses, for its outcome and decision labels", async () => {
+        const { study, latestJob } = await setupStudy([
+            { ranAt: daysAgo(3), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
+        ])
+
+        const [run] = await priorCodeRunsForStudy(study.id, latestJob.id)
+
+        expect(run.statusChanges.map((change) => change.status).sort()).toEqual([
+            'CODE-SUBMITTED',
+            'FILES-REJECTED',
+            'INITIATED',
+            'JOB-ERRORED',
+        ])
+    })
+
     it('leaves out jobs that never ran', async () => {
         const {
             study,
