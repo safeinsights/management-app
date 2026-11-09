@@ -160,6 +160,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         sessionClaims: {
             unsafeMetadata,
             userMetadata: publicMetadata,
+            fva: factorVerificationAge ?? undefined,
         },
         factorVerificationAge,
         userId: values.clerkUserId,

@@ -57,10 +57,14 @@ export async function currentUser(): Promise<User | null> {
 
 // Used by the QA-cleanup routes under /api/*, which clerkMiddleware skips so auth() has no
 // context. Returns the admin fixture's claims so a manual call still authorizes.
-export async function verifyToken(_token: string, _options: unknown): Promise<{ sub: string } & SessionClaims> {
+export async function verifyToken(
+    _token: string,
+    _options: unknown,
+): Promise<{ sub: string; fva: [number, number] } & SessionClaims> {
     const fixture = fixtureForRole('admin')!
     return {
         sub: await resolveClerkId(fixture),
+        fva: VERIFIED_FVA,
         userMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
     }
