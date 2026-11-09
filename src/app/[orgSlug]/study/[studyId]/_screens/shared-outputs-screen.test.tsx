@@ -52,6 +52,8 @@ type Variant = {
     guardedAgainst: [string, StudyJobStatus[]][]
     /** The post-decryption nav the rule table gives this screen. */
     nav: { editCodeVariant: 'outline' | 'filled'; backToMyStudies: boolean }
+    /** Decrypting marks the outputs reviewed, except on an errored run (OTTER-999). */
+    reviewedOnDecrypt: boolean
 }
 
 const VARIANTS: Variant[] = [
@@ -69,6 +71,7 @@ const VARIANTS: Variant[] = [
             ['a job carrying both files decisions', ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']],
         ],
         nav: { editCodeVariant: 'outline', backToMyStudies: true },
+        reviewedOnDecrypt: true,
     },
     {
         screen: 'outputs-errored-shared',
@@ -82,6 +85,7 @@ const VARIANTS: Variant[] = [
         ],
         // The errored share is not a conclusion: Edit code is the forward action, so no exit is offered.
         nav: { editCodeVariant: 'filled', backToMyStudies: false },
+        reviewedOnDecrypt: false,
     },
 ]
 
@@ -107,8 +111,6 @@ const renderScreen = async (
             }),
         }),
     )
-    // Opening the page records the decision as viewed, a write that has to land before the test ends.
-    await waitForPendingMutations()
     return rendered
 }
 
@@ -120,7 +122,17 @@ const decrypt = async () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
     await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+    // Decrypting records the outputs reviewed, a write that has to land before the test ends.
+    await waitForPendingMutations()
 }
+
+const reviewedRows = (jobId: string) =>
+    db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RESULTS-VIEWED')
+        .execute()
 
 // The run status plus FILES-APPROVED and a RESULTS decision comment — the state that routes here.
 const setupShared = async (variant: Variant, { withNote = false }: { withNote?: boolean } = {}) => {
@@ -227,6 +239,17 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         expect(alert).toHaveAttribute('data-variant', locked.variant)
         expect(alert).toHaveTextContent(locked.title)
         expect(alert).toHaveTextContent(locked.body)
+    })
+
+    it('marks the outputs reviewed only once they are decrypted, never for an errored run', async () => {
+        const { org, study, raw, job } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await waitForPendingMutations()
+        expect(await reviewedRows(job.id)).toHaveLength(0)
+
+        await decrypt()
+
+        expect(await reviewedRows(job.id)).toHaveLength(variant.reviewedOnDecrypt ? 1 : 0)
     })
 
     it('does not render the sibling screen’s banner title', async () => {

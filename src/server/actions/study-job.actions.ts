@@ -301,15 +301,15 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
     })
 
-// Recorded from the client once the outputs decision page is on screen, not during its render: a
-// render-time write would fire on link prefetch and mark the decision viewed before anyone read it.
+// Recorded from the client, not during render: a render-time write would fire on link prefetch.
+// Feedback-only counts as read once on screen; shared outputs only once decrypted (OTTER-999).
 export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionViewedAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), decrypted: z.boolean().optional() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
+    .handler(async ({ params: { studyId, decrypted }, session, db, submittedByOrgId }) => {
         // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
         if (!isSessionOrgMember(session, submittedByOrgId)) return
 
@@ -317,6 +317,9 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
         if (!raw) return
         const state = projectStudyState(raw)
         if (!isOutputsDecided(state) || state.resultsViewed) return
+        // An errored run stays Code errored however it is read.
+        if (state.resultsErrored) return
+        if (state.resultsApproved && !decrypted) return
 
         const job = latestJob(raw.jobs)
         if (!job) return

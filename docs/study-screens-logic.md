@@ -414,18 +414,22 @@ The pill cannot be keyed on a status value alone, which is why it has a table ra
 - one researcher label, **Code processing**, spans `JOB-PACKAGING`, `JOB-READY` and `JOB-RUNNING`;
 - `JOB-ERRORED` reads **Awaiting outputs** to a researcher until a reviewer records a `FILES-*`
   decision, then **Code errored** (OTTER-598);
-- a `FILES-*` decision reads **Outputs need review** to a researcher until they open it, then
-  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records;
+- a `FILES-*` decision reads **Outputs need review** to a researcher until the lab reads it, then
+  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records. Reading means
+  decrypting for `FILES-APPROVED` and opening the page for `FILES-REJECTED`; an errored run never
+  gets there (OTTER-999);
 - a reviewer sees **Outputs reviewed** as soon as they submit the decision, because they made it.
 
 `RESULTS-VIEWED` is the one status a user's reading writes, appended to the latest job by
-`markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
-`MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
-prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
-exists, and once per job: the status writer locks the job and skips `RESULTS-VIEWED` when the job
-already has one, so two visits that overlap still write one row (see "Job status transitions"). A
-partial unique index cannot do this, because its predicate has to name `RESULTS-VIEWED`, which the
-migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
+`markOutputsDecisionViewedAction`. For feedback-only, a client leaf (`MarkOutputsDecisionViewed`)
+fires it when the page mounts; a render-time write would also fire on link prefetch. For shared
+outputs, `SharedOutputsPanel` fires it with `decrypted: true` once a key opens the files, because a
+visit to still-encrypted outputs is not a review (OTTER-999). The action writes only for a member of
+the submitting org, only once a `FILES-*` decision exists, never for a `FILES-APPROVED` call without
+`decrypted`, never on a `JOB-ERRORED` job, and once per job: the status writer locks the job and
+skips `RESULTS-VIEWED` when the job already has one, so two reads that overlap still write one row
+(see "Job status transitions"). A partial unique index cannot do this, because its predicate has to
+name `RESULTS-VIEWED`, which the migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
 of a new value, and `status::text` as a non-IMMUTABLE index predicate. A job status rather than a study
 column because a resubmission opens a new job, so the fact resets per round without any clearing
 logic.

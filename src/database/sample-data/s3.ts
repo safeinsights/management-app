@@ -11,7 +11,7 @@ export function prefixedKey(path: string, rawPrefix: string | undefined): string
     return `${prefix}${path}`
 }
 
-export function createUploader(env: Record<string, string | undefined> = process.env): Uploader | null {
+export function createUploader(env: Record<string, string | undefined>): Uploader | null {
     const bucket = env.BUCKET_NAME
     if (!bucket) return null
 
