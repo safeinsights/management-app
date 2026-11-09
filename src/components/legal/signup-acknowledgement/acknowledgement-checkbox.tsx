@@ -1,22 +1,13 @@
 'use client'
 
 import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
-import { InputError } from '@/components/errors'
-import { Checkbox, Stack } from '@mantine/core'
-import { FC, ReactNode, useId } from 'react'
+import { Stack } from '@mantine/core'
+import { FC } from 'react'
 import { LegalMarkdownSections } from '../markdown-sections'
 import { PdfLink } from '../pdf-link'
 import { ParticipationData } from '@/server/actions/participation-agreement.actions'
 import { PlaceholderLabel } from './placeholder-tos-pn'
-
-type AcknowledgeProps = {
-    label: string | ReactNode
-    checked: boolean
-    onChange: (checked: boolean) => void
-    /** Fires when the box loses focus, so leaving it unchecked can be flagged (OTTER-647). */
-    onBlur?: () => void
-    error?: ReactNode
-}
+import { fontWeight } from '@/theme/tokens'
 
 export const TosPnPreview: FC<{ documents: GlobalLegalDocument[] }> = ({ documents }) => (
     <Stack gap="sm" mt="md">
@@ -28,38 +19,22 @@ export const globalDocAgreementLabel = (documents: GlobalLegalDocument[]) => {
     if (documents.length === 0) {
         return <PlaceholderLabel />
     }
-    return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}`
+    return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}.`
 }
 
 export const participationAgreementLabel = (document: ParticipationData | null) => {
     if (!document) return null
     return (
         <>
-            I agree to the <PdfLink url={document.url} label={legalDocumentTypeLabels[document.type]} />
+            I agree to the{' '}
+            <PdfLink
+                url={document.url}
+                label={legalDocumentTypeLabels[document.type]}
+                withIcon={false}
+                underline="always"
+                fw={fontWeight.bold}
+            />
+            .
         </>
-    )
-}
-
-export const AcknowledgementCheckbox: FC<AcknowledgeProps> = ({ label, checked, onChange, onBlur, error }) => {
-    const errorId = useId()
-    if (!label) return null
-
-    return (
-        <Checkbox
-            checked={checked}
-            onChange={(event) => onChange(event.currentTarget.checked)}
-            onBlur={onBlur}
-            label={label}
-            error={
-                error ? (
-                    <span id={errorId}>
-                        <InputError error={error} />
-                    </span>
-                ) : undefined
-            }
-            // Hand-wire `aria-invalid` and `aria-describedby` errors for accessibility
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
-        />
     )
 }
