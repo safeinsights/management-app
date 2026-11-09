@@ -17,6 +17,7 @@ type MockSessionWithTestDataOptions = {
     isSiAdmin?: boolean
     clerkId?: string
     twoFactorEnabled?: boolean
+    factorVerificationAge?: [number, number] | null
     useRealKeys?: boolean
 }
 
@@ -47,6 +48,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         orgType: options.orgType ?? 'enclave',
         isSiAdmin: options.isSiAdmin,
         twoFactorEnabled: options.twoFactorEnabled,
+        factorVerificationAge: options.factorVerificationAge,
     })
 
     const session = { user, org: { id: org.id, slug: org.slug } }

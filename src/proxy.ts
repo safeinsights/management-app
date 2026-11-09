@@ -61,6 +61,7 @@ const SIGNIN_PARAM_VALIDATORS: Record<string, (value: string) => boolean> = {
     invite_not_found: (v) => v === '1',
     error: (v) => v === 'session',
     invite_id: (v) => UUID_RE.test(v),
+    mfa: (v) => v === 'verify',
 }
 
 // Next serializes every query param into the page's RSC payload, so DAST scanners report any value

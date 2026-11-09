@@ -134,6 +134,7 @@ describe('proxy signin param sanitization', () => {
         ['invite_not_found', '<svg onload=alert(1)>'],
         ['error', 'session<script>'],
         ['invite_id', 'not-a-uuid<b>'],
+        ['mfa', 'verify<b>'],
     ])('drops an invalid %s value', async (param, value) => {
         const { res } = await runProxy(`https://app.test/account/signin?${param}=${encodeURIComponent(value)}&keep=1`)
 
@@ -149,7 +150,7 @@ describe('proxy signin param sanitization', () => {
 
     it('lets the values the app itself writes through', async () => {
         const { res, auth } = await runProxy(
-            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b`,
+            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b&mfa=verify`,
         )
 
         expect(res.headers.get('location')).toBeNull()
