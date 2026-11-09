@@ -9,6 +9,7 @@ import {
     renderWithProviders,
     screen,
     waitFor,
+    waitForPendingMutations,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
@@ -76,10 +77,12 @@ const FeedbackProbe = () => {
 describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
+    let studyId: string
 
     const renderPanel = (banner = BANNER) =>
         renderWithProviders(
             <SharedOutputsPanel
+                studyId={studyId}
                 decidedAt={DECIDED_AT}
                 banner={banner}
                 job={job}
@@ -94,6 +97,8 @@ describe('SharedOutputsPanel', () => {
         fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        // Decrypting fires the reviewed write; let it settle before the test ends.
+        await waitForPendingMutations()
     }
 
     beforeEach(async () => {
@@ -104,6 +109,7 @@ describe('SharedOutputsPanel', () => {
         })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         job = (await latestJobForStudy(study.id))!
+        studyId = study.id
 
         await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
@@ -132,6 +138,7 @@ describe('SharedOutputsPanel', () => {
         it('degrades to an undated banner when no decision timestamp is available', () => {
             renderWithProviders(
                 <SharedOutputsPanel
+                    studyId={studyId}
                     decidedAt={null}
                     banner={BANNER}
                     job={job}
