@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
     BLANK_UUID,
     insertTestDataSource,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyJobUsers,
@@ -14,9 +16,9 @@ import {
 import { db } from '@/database'
 import { faker } from '@faker-js/faker'
 import {
-    codeSubmissionVersion,
     outputsDecisionVersion,
     currentReviewVersion,
+    fetchCodeEnvForStudyIdOrNull,
     getStudyReviewForJob,
     latestJobForStudy,
     getOrgIdForJobId,
@@ -29,6 +31,7 @@ import {
     findOrgIdBySlug,
     getDataSourcesForOrg,
     getIdeOwnerForStudy,
+    jobRound,
     siUser,
 } from '.'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
@@ -64,6 +67,13 @@ async function insertRecords() {
         org2User2,
     }
 }
+
+describe('fetchCodeEnvForStudyIdOrNull', () => {
+    it('returns null for an unknown study but rethrows other database errors', async () => {
+        await expect(fetchCodeEnvForStudyIdOrNull(BLANK_UUID, db)).resolves.toBeNull()
+        await expect(fetchCodeEnvForStudyIdOrNull('not-a-uuid', db)).rejects.toThrow()
+    })
+})
 
 describe('getUserPublicKey', () => {
     it('returns public key when userId is valid', async () => {
@@ -372,13 +382,7 @@ describe('getStudyReviewForJob', () => {
             .insertInto('studyReview')
             .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-            ])
-            .execute()
+        await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
 
         expect(await getStudyReviewForJob(await latestJobForStudy(study.id))).toBeNull()
 
@@ -399,10 +403,7 @@ describe('getStudyReviewForJob', () => {
             .insertInto('studyReview')
             .values({ studyJobId: job.id, round: 1, report: JSON.stringify({ codeExplanation: 'first round' }) })
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
 
         const result = await getStudyReviewForJob(await latestJobForStudy(study.id))
         expect(result?.report?.codeExplanation).toBe('first round')
@@ -468,71 +469,6 @@ describe('getDataSourcesForOrg', () => {
     })
 })
 
-describe('codeSubmissionVersion', () => {
-    it('v1 for first submission, v2 after a change request on the same job', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        expect(await codeSubmissionVersion(study.id, db)).toBe(1)
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
-        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
-    })
-
-    it('v3 after two change-request rounds on the same job', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-            ])
-            .execute()
-        expect(await codeSubmissionVersion(study.id, db)).toBe(3)
-    })
-
-    it('is unaffected by extra CODE-SUBMITTED rows with no new round', async () => {
-        const { study, job } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-SUBMITTED' }).execute()
-        expect(await codeSubmissionVersion(study.id, db)).toBe(1)
-    })
-
-    // Must not reset to v1 across a job boundary, or prior feedback is hidden (OTTER-556/558).
-    it('keeps climbing across a results-decision round boundary', async () => {
-        const { study, job: firstJob } = await insertTestStudyJobData({
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-        await db.insertInto('jobStatusChange').values({ studyJobId: firstJob.id, status: 'FILES-REJECTED' }).execute()
-        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
-
-        const newJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db.insertInto('jobStatusChange').values({ studyJobId: newJob.id, status: 'CODE-SUBMITTED' }).execute()
-
-        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: newJob.id, status: 'CODE-CHANGES-REQUESTED' })
-            .execute()
-        expect(await codeSubmissionVersion(study.id, db)).toBe(3)
-    })
-})
-
 describe('outputsDecisionVersion', () => {
     const givenOutputsDecision = async (studyId: string, studyJobId: string, authorId: string, round: number) =>
         await db
@@ -552,16 +488,9 @@ describe('outputsDecisionVersion', () => {
     // The reported bug: the code round had climbed to 2, so the first outputs decision read v2.0.
     it('is v1 for a first outputs decision however far the code rounds have climbed', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                { studyJobId: job.id, status: 'CODE-APPROVED' },
-            ])
-            .execute()
+        await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED', 'CODE-APPROVED'])
 
-        expect(await codeSubmissionVersion(study.id, db)).toBe(2)
+        expect(await jobRound(job.id, db)).toBe(2)
         expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })
 
@@ -576,7 +505,7 @@ describe('outputsDecisionVersion', () => {
     // entry labeled v2.0 with no v1.0 anywhere.
     it('ignores a FILES-REJECTED written without a decision comment', async () => {
         const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-REJECTED')
 
         expect(await outputsDecisionVersion(study.id, db)).toBe(1)
     })

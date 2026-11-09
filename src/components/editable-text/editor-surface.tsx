@@ -14,7 +14,7 @@ export const DEFAULT_EDITOR_CONTENT_HEIGHT = 200
 
 // Shared by the editable surface and its placeholder so the two sit exactly on top of each other.
 // Physical pl/pr, not px: Lexical clears the root's padding-inline-start whenever it reconciles indent.
-const TEXT_METRICS = { pl: 'md', pr: 'md', py: 'xs', lh: 1.6 } as const
+const TEXT_METRICS = { pl: 'md', pr: 'md', py: 'xs', lh: 'var(--si-line-height-normal)' } as const
 
 // A drag may not shrink the field below its content (OTTER-691). Applied as `min-height` so it
 // coexists with the inline `height` a native drag writes; measuring the scroll container instead

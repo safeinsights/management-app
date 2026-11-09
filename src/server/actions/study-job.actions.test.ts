@@ -1,12 +1,17 @@
-import { describe, expect, test, vi, type Mock } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     db,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestLaterJob,
     insertTestStudyJobData,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
@@ -14,7 +19,10 @@ import {
     flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
@@ -26,9 +34,8 @@ import {
     regenerateStudyReviewAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
-import { codeSubmissionVersion } from '@/server/db/queries'
+import { jobRound } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
-import { onStudyReviewRequested } from '@/server/events'
 import { fetchStudiesForOrgAction } from './study-dashboard.actions'
 import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
@@ -43,12 +50,6 @@ vi.mock('@/server/storage', () => ({
 vi.mock('@/server/mailer', () => ({
     sendLabOutputsNeedReviewEmail: vi.fn(),
     sendLabCodeErroredEmail: vi.fn(),
-}))
-
-// Spy on the generation trigger only; the study submission actions depend on the rest of the module.
-vi.mock('@/server/events', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/events')>()),
-    onStudyReviewRequested: vi.fn(),
 }))
 
 async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJobStatus } = {}) {
@@ -368,6 +369,21 @@ describe('Study Job Actions', () => {
             ])
         })
 
+        // OTTER-937: viewing moves the researcher's badge, so the view itself must count as the visit.
+        test('leaves the study read for the researcher who viewed it, not for a co-author', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            const { user: coAuthor } = await insertTestUser({ org: fixture.lab })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(fixture.study.id, [fixture.researcher.id, coAuthor.id], earlier)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await isUnreadOnOrgDashboard(fixture.lab.slug, fixture.study.id, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(fixture.study.id, coAuthor.id)).toEqual(earlier)
+        })
+
         test('writes nothing while the reviewer has not decided', async () => {
             const fixture = await setupResultApprovalFixture()
             signInAsResearcher(fixture)
@@ -400,6 +416,30 @@ describe('Study Job Actions', () => {
                 .where('studyId', '=', studyId)
                 .where('reviewKind', '=', 'RESULTS')
                 .executeTakeFirst()
+
+        // OTTER-937: no leave stamp follows a reload, so the decision itself must count as the visit.
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            '%s leaves the study read for the deciding reviewer, not for another reviewer',
+            async (decision) => {
+                const { enclave, job, reviewer, sharedFiles, study } = await setupResultApprovalFixture()
+                const { user: otherReviewer } = await insertTestUser({ org: enclave })
+                const earlier = new Date(Date.now() - 60 * 60 * 1000)
+                await stampStudyOpened(study.id, [reviewer.id, otherReviewer.id], earlier)
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The outputs look clean and contain no PII.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+
+                expect(await isUnreadOnOrgDashboard(enclave.slug, study.id, 'reviewer')).toBe(false)
+                expect(await studyOpenedAt(study.id, otherReviewer.id)).toEqual(earlier)
+            },
+        )
 
         // The name reaches the other reviewers' tabs, so it has to come from the server rather
         // than from the submitting client (OTTER-726).
@@ -590,15 +630,15 @@ describe('Study Job Actions', () => {
         // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.
         test('the first outputs decision is round 1 however far the code rounds have climbed', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: job.id, status: 'CODE-APPROVED' },
-                ])
-                .execute()
-            expect(await codeSubmissionVersion(study.id, db)).toBe(2)
+            // The run completes after the resubmitted code is approved, so the job is ready for a decision.
+            await insertTestJobStatuses(job.id, [
+                'CODE-SUBMITTED',
+                'CODE-CHANGES-REQUESTED',
+                'CODE-SUBMITTED',
+                'CODE-APPROVED',
+                'RUN-COMPLETE',
+            ])
+            expect(await jobRound(job.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -625,19 +665,8 @@ describe('Study Job Actions', () => {
                 }),
             )
 
-            const secondJob = await db
-                .insertInto('studyJob')
-                .values({ studyId: study.id })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: secondJob.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: secondJob.id, status: 'CODE-APPROVED' },
-                    { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
-                ])
-                .execute()
+            const secondJob = await insertTestJob(study.id)
+            await insertTestJobStatuses(secondJob.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -897,13 +926,7 @@ describe('Study Job Actions', () => {
         // Submitted, changes requested, submitted again: the job now carries round 2's code, with
         // round 1's summary still beside it.
         const resubmit = async (studyJobId: string) =>
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId, status: 'CODE-SUBMITTED' },
-                ])
-                .execute()
+            await insertTestJobStatuses(studyJobId, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
 
         test('returns the scan alongside the review', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -959,6 +982,15 @@ describe('Study Job Actions', () => {
     })
 
     describe('regenerateStudyReviewAction', () => {
+        // With a queue configured, generation is requested rather than run in-process against the model.
+        let queue: ReturnType<typeof stubJobQueue>
+        const enqueuedJobs = () =>
+            queue.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
+
+        beforeEach(() => {
+            queue = stubJobQueue()
+        })
+
         test('clears a failed review row and re-fires generation', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
@@ -975,7 +1007,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeUndefined()
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
         })
 
         // An earlier round's failure is that round's own history, so regenerating this round must
@@ -983,13 +1015,8 @@ describe('Study Job Actions', () => {
         test('clears only the current round and re-fires generation for it', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() + 1000) },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 2000) },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED', { at: new Date(Date.now() + 1000) })
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: new Date(Date.now() + 2000) })
             await db
                 .insertInto('studyReview')
                 .values([
@@ -1006,7 +1033,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .execute()
             expect(remaining.map((row) => row.round)).toEqual([1])
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 2 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 2 } }])
         })
 
         test('leaves a successful review row untouched and starts nothing', async () => {
@@ -1026,7 +1053,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
         })
 
         // Retry used to start a run whatever was happening, which is how one reviewer could pay
@@ -1043,7 +1070,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('in-progress')
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('summaryStartedAt')
@@ -1067,7 +1094,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('restarted')
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('id')
@@ -1080,7 +1107,7 @@ describe('Study Job Actions', () => {
 
 describe('draft code files are private to the Research Lab (OTTER-596)', () => {
     const seedCodeFile = async (studyId: string) => {
-        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        const job = await insertTestJob(studyId)
         await db
             .insertInto('studyJobFile')
             .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })
@@ -1140,9 +1167,14 @@ describe('job subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
 
-        expect(denied).toContain(job.id)
+        expect(denied).not.toContain(job.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(path)
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(job.id)
+        expect(warning).not.toContain(study.title)
+        expect(warning).not.toContain(path)
     })
 
     test('an SI admin outside both orgs can still fetch a code file', async () => {

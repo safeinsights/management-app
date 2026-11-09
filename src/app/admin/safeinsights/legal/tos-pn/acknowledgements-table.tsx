@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useState, type FC } from '@/common'
+import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
@@ -11,7 +12,7 @@ import {
 import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal-document.actions'
 import { Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
-import { formatInstant } from '@/lib/dates'
+import { formatInstant, formatInstantAsUtcDay } from '@/lib/dates'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 
@@ -41,7 +42,7 @@ const ACKNOWLEDGEMENT_COLUMNS: DataTableColumn<AcknowledgementRow>[] = [
         accessor: 'ackedAt',
         title: 'Agreed on',
         sortable: true,
-        render: (row) => formatInstant(row.ackedAt),
+        render: (row) => formatInstantAsUtcDay(row.ackedAt),
     },
     {
         accessor: 'lastLoginAt',
@@ -94,7 +95,6 @@ export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ t
         <Stack>
             <Title order={4}>{legalDocumentTypeLabels[type]} acknowledgements</Title>
             <DataTable
-                withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 fetching={isLoading}
@@ -104,6 +104,7 @@ export const AcknowledgementsTable: FC<{ type: GlobalLegalDocumentType }> = ({ t
                 columns={ACKNOWLEDGEMENT_COLUMNS}
                 sortStatus={sort}
                 onSortStatusChange={onSortStatusChange}
+                sortIcons={SORT_ICONS}
                 totalRecords={totalRecords}
                 recordsPerPage={ACKNOWLEDGEMENTS_PAGE_SIZE}
                 page={page}

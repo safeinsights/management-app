@@ -1,10 +1,11 @@
 'use client'
 
-import { Alert, Modal } from '@mantine/core'
+import { Alert, Modal, type ModalProps } from '@mantine/core'
 import type { FC, ReactNode } from 'react'
 
 type Props = {
-    title: string
+    title: ReactNode
+    size?: ModalProps['size']
     children: ReactNode
 }
 
@@ -15,13 +16,13 @@ export const AcknowledgementError: FC<{ error: string | null }> = ({ error }) =>
 }
 
 // Shared so the three props that make dismissal impossible cannot drift apart between the gates.
-// Each gate supplies its own way out: the alternative to agreeing must not be closing the tab.
-export const BlockingModal: FC<Props> = ({ title, children }) => (
+// The study and ropa/dopa gates supply their own way out; the tos/pn gate has none, per the UX review.
+export const BlockingModal: FC<Props> = ({ title, size = 'lg', children }) => (
     <Modal
         opened
         onClose={() => {}}
         title={title}
-        size="lg"
+        size={size}
         centered
         withCloseButton={false}
         closeOnEscape={false}

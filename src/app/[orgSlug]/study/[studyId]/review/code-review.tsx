@@ -8,7 +8,6 @@ import { codeReviewHeading } from '@/lib/code-review'
 import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { StepNav } from '@/lib/study-screen'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
 import { Box, Stack } from '@mantine/core'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
@@ -16,7 +15,6 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
-import { currentDb } from '@/server/request-context'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -48,11 +46,9 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
     }
 
     const analysis = await jobAnalysisForJob(job)
-    const latestJobStatus = job.statusChanges.at(0)?.status ?? null
+    const latestJobStatus = job.currentStatus
 
-    // The round of the code on this job, not codeSubmissionVersion: that counts a change request
-    // from the moment it is written, which would label this page as the next iteration.
-    const reviewVersion = await codeRoundForJob(job.id, currentDb())
+    const reviewVersion = job.round
     const isResubmission = reviewVersion > 1
     const labName = study.submittingLabName
     const step: PageHeaderStep = { label: 'Step 2', heading: codeReviewHeading(reviewVersion) }

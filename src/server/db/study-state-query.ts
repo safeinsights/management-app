@@ -27,9 +27,9 @@ export async function rawStudyStateForStudy(studyId: string, executor: DBExecuto
                 eb
                     .selectFrom('studyJob')
                     .whereRef('studyJob.studyId', '=', 'study.id')
-                    // Ordered for stable output only; projectStudyState re-selects by max(id).
+                    // Ordered for stable output only; projectStudyState re-selects by round, then id.
                     .orderBy('studyJob.id', 'desc')
-                    .select(['studyJob.id'])
+                    .select(['studyJob.id', 'studyJob.round', 'studyJob.currentStatus'])
                     .select((j) => [
                         jsonArrayFrom(
                             j

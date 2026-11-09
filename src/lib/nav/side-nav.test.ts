@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import { ExternalLinks, Routes } from '@/lib/routes'
 import {
-    externalNavLinks,
+    helpNavLinks,
     NOTHING_UNREAD,
     orderNavOrgs,
     orgSubnav,
@@ -60,16 +60,13 @@ describe('orgSubnav', () => {
     })
 })
 
-describe('externalNavLinks', () => {
+describe('helpNavLinks', () => {
     it('offers the catalog to lab members, the resource center to partner members, support to all', () => {
-        expect(externalNavLinks([]).map((l) => l.label)).toEqual(['Support'])
-        expect(externalNavLinks([org('Lab', 'lab')]).map((l) => l.url)).toEqual([
-            ExternalLinks.dataCatalog,
-            ExternalLinks.support,
-        ])
-        expect(externalNavLinks([org('Partner', 'enclave')]).map((l) => l.url)).toEqual([
+        expect(helpNavLinks([]).map((l) => l.label)).toEqual(['Support'])
+        expect(helpNavLinks([org('Lab', 'lab')]).map((l) => l.url)).toEqual([ExternalLinks.dataCatalog, Routes.support])
+        expect(helpNavLinks([org('Partner', 'enclave')]).map((l) => l.url)).toEqual([
             ExternalLinks.resourceCenter,
-            ExternalLinks.support,
+            Routes.support,
         ])
     })
 })

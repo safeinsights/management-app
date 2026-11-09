@@ -10,10 +10,9 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     }
 
     const status = await currentDb()
-        .selectFrom('jobStatusChange')
-        .where('studyJobId', '=', jobId)
-        .orderBy('createdAt', 'desc')
-        .select(['status'])
+        .selectFrom('studyJob')
+        .where('id', '=', jobId)
+        .select('currentStatus as status')
         .executeTakeFirst()
 
     if (!status) {

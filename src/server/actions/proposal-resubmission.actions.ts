@@ -113,6 +113,8 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             .where('name', 'like', `proposal-${studyId}-%`)
             .execute()
 
+        await markStudyOpened(db, { studyId, userId, seenAt: resubmittedAt })
+
         // Feeds the `proposal-submitted` broadcast; clerkId lets a client skip its own session.
         const submitter = await db
             .selectFrom('user')

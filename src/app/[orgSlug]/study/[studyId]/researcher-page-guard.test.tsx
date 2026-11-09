@@ -27,6 +27,11 @@ beforeEach(() => {
 const guardFor = (study: { id: string; orgId: string; submittedByOrgId: string }, orgSlug: string) =>
     researcherPageGuard({ orgId: study.orgId, orgSlug, submittedByOrgId: study.submittedByOrgId }, study.id)
 
+const passed = (study: { orgId: string; submittedByOrgId: string }) => ({
+    ok: true,
+    study: expect.objectContaining({ orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }),
+})
+
 describe('researcherPageGuard', () => {
     // Separate orgs and a different researcher, so a guard that checked orgId or researcherId
     // instead of the submitting lab would fail here.
@@ -41,7 +46,7 @@ describe('researcherPageGuard', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        await expect(guardFor(study, enclave.slug)).resolves.toEqual({ ok: true })
+        await expect(guardFor(study, enclave.slug)).resolves.toEqual(passed(study))
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
@@ -61,7 +66,7 @@ describe('researcherPageGuard', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        await expect(guardFor(study, enclaveOrg.slug)).resolves.toEqual({ ok: true })
+        await expect(guardFor(study, enclaveOrg.slug)).resolves.toEqual(passed(study))
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
@@ -75,7 +80,7 @@ describe('researcherPageGuard', () => {
             studyStatus: 'PENDING-REVIEW',
         })
 
-        await expect(guardFor(study, enclave.slug)).resolves.toEqual({ ok: true })
+        await expect(guardFor(study, enclave.slug)).resolves.toEqual(passed(study))
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 
@@ -90,6 +95,17 @@ describe('researcherPageGuard', () => {
         })
 
         const result = await guardFor(study, enclave.slug)
+
+        expect(result.ok).toBe(false)
+        expect(mockRedirect).not.toHaveBeenCalled()
+        if (!result.ok) renderWithProviders(<>{result.render}</>)
+        expect(screen.getByText('No such study exists')).toBeInTheDocument()
+    })
+
+    it('shows not found for an action error, so each page need not check it first', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        const result = await researcherPageGuard({ error: { permission_denied: 'denied' } }, faker.string.uuid())
 
         expect(result.ok).toBe(false)
         expect(mockRedirect).not.toHaveBeenCalled()

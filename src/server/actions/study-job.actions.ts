@@ -21,9 +21,10 @@ import {
     getUserPublicKey,
     jobAnalysisForJob,
     fetchUserFullName,
+    jobRound,
     outputsDecisionVersion,
 } from '@/server/db/queries'
-import { codeRoundForJob } from '@/server/db/code-round'
+import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
@@ -31,6 +32,7 @@ import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { transitionJob } from '@/server/job-transitions'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -147,20 +149,13 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
-                studyJobId,
-            })
-            .executeTakeFirstOrThrow()
+        // Re-checked under the job lock: two identical decisions can both pass hasOutputsDecision above.
+        await transitionJob(db, studyJobId, shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED', {
+            actor: 'reviewer',
+            userId,
+        })
 
-        await db
-            .updateTable('study')
-            .set({ reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
+        await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
 
         // The editor's persist gate refuses writes to a decided job, which is what stops a
         // connected tab recreating the row.
@@ -193,7 +188,7 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
         // Only this round's row is touched; an earlier round's rows are that round's history.
-        const round = await codeRoundForJob(studyJobId, db)
+        const round = await jobRound(studyJobId, db)
         const existing = await db
             .selectFrom('studyReview')
             .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
@@ -325,9 +320,6 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        // Two overlapping visits can both insert; accepted, see docs/study-screens-logic.md (OTTER-698).
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
-            .execute()
+        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id })
+        await markStudyOpened(db, { studyId, userId: session.user.id })
     })

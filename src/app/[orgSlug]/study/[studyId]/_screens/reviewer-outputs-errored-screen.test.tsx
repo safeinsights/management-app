@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { describe, expect, it, type Mock } from 'vitest'
 import { useParams } from 'next/navigation'
 import {
     actionResult,
@@ -6,6 +6,7 @@ import {
     fireEvent,
     insertTestJobStatuses,
     insertTestLaterJob,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
@@ -19,18 +20,10 @@ import type { StudyJobStatus } from '@/database/types'
 import { NO_ERROR_LOG_TEXT } from '@/lib/job-error-details'
 import { seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
-
-vi.mock('@/server/actions/study-job.actions', async () => {
-    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
-        '@/server/actions/study-job.actions',
-    )
-    return { ...actual, fetchEncryptedJobFilesAction: vi.fn(async () => []) }
-})
 
 const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
@@ -39,7 +32,7 @@ const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
     const job = await latestJobForStudy(dbStudy.id)
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
-    return { org, study, job, raw }
+    return { org, user, study, job, raw }
 }
 
 const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
@@ -62,20 +55,14 @@ const unlock = async () => {
 
 const setupWithArtifact = async () => {
     const ctx = await setupErrored()
-    vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-        await seedEncryptedArtifact(ctx.job.id, {
-            fileType: 'ENCRYPTED-CODE-RUN-LOG',
-            files: [{ name: 'run.log', content: 'boom' }],
-        }),
-    ])
+    await seedEncryptedArtifact(ctx.job.id, {
+        fileType: 'ENCRYPTED-CODE-RUN-LOG',
+        files: [{ name: 'run.log', content: 'boom' }],
+    })
     return { ...ctx, job: await latestJobForStudy(ctx.study.id) }
 }
 
 describe('ReviewerOutputsErroredScreen before decryption', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     it('renders the shared page and section headers', async () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)
@@ -119,14 +106,12 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
     it('keeps the outputs hidden when the key is wrong', async () => {
         const { org, study, job, raw } = await setupErrored()
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, {
-                fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                files: [{ name: 'run.log', content: 'boom' }],
-            }),
-        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [{ name: 'run.log', content: 'boom' }],
+        })
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
         fireEvent.click(screen.getByRole('button', { name: 'View' }))
@@ -140,14 +125,14 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
     // OTTER-675: an artifact exists but the fetch returns nothing (no registered public key). A
     // well-formed key must not unlock the review view, nor fall through to the no-artifacts path.
     it('does not unlock the review view when the artifacts cannot be fetched', async () => {
-        const { org, study, job, raw } = await setupErrored()
+        const { org, user, study, job, raw } = await setupErrored()
         await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
             files: [{ name: 'run.log', content: 'boom' }],
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
+        await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
 
         await unlock()
 
@@ -175,7 +160,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
     it('shows a not-found alert when the errored run already has a files decision', async () => {
         const { org, study, job } = await setupErrored()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -186,12 +171,8 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 // OTTER-524: the banner must match what the job actually holds, and a run with no artifact must
 // still let the reviewer record a decision.
 describe('ReviewerOutputsErroredScreen with no error log', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     const addStatus = async (jobId: string, status: StudyJobStatus) => {
-        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
+        await insertTestJobStatus(jobId, status)
     }
 
     it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
@@ -260,10 +241,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
 
     it('explains a recorded failure class in place of the stage sentence', async () => {
         const { org, study, job } = await setupErrored()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -277,10 +255,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
         const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: raw })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: raw })
         const rawState = await requireRawState(study.id)
         await renderScreen({ study, raw: rawState }, org.slug)
 
@@ -295,14 +270,8 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     it('surfaces the classified reason even when a later errored row overwrites the order', async () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: null })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: null })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -405,17 +374,11 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
 })
 
 describe('ReviewerOutputsErroredScreen after decryption', () => {
-    beforeEach(() => {
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([])
-    })
-
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
         const { org, study, job, raw } = await setupErrored()
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([
-            await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files }),
-        ])
+        await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files })
         await renderScreen({ study, raw }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         return { org, study, job }
@@ -533,34 +496,25 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         })
         await insertTestJobStatuses(earlierJob.id, ['FILES-REJECTED'])
         const latestJob = await insertTestLaterJob(dbStudy.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'])
-        const artifacts = new Map([
-            [
-                earlierJob.id,
-                await seedEncryptedArtifact(earlierJob.id, {
-                    fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                    files: [
-                        { name: 'earlier.log', content: 'earlier' },
-                        { name: 'run.log', content: 'earlier' },
-                    ],
-                }),
+        await seedEncryptedArtifact(earlierJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'earlier.log', content: 'earlier' },
+                { name: 'run.log', content: 'earlier' },
             ],
-            [
-                latestJob.id,
-                await seedEncryptedArtifact(latestJob.id, {
-                    fileType: 'ENCRYPTED-CODE-RUN-LOG',
-                    files: [
-                        { name: 'latest.log', content: 'latest' },
-                        { name: 'run.log', content: 'latest' },
-                    ],
-                }),
+        })
+        await seedEncryptedArtifact(latestJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'latest.log', content: 'latest' },
+                { name: 'run.log', content: 'latest' },
             ],
-        ])
-        vi.mocked(fetchEncryptedJobFilesAction).mockImplementation(async ({ jobId }) => [artifacts.get(jobId)!])
+        })
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
         await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
-        await waitFor(() => expect(vi.mocked(fetchEncryptedJobFilesAction)).toHaveBeenCalled())
+        await screen.findByRole('button', { name: 'View' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
@@ -568,7 +522,5 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         expect(screen.getByRole('button', { name: 'latest.log' })).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: 'run.log' })).toHaveLength(1)
         expect(screen.queryByRole('button', { name: 'earlier.log' })).toBeNull()
-        const requestedJobIds = vi.mocked(fetchEncryptedJobFilesAction).mock.calls.map(([params]) => params.jobId)
-        expect(requestedJobIds).not.toContain(earlierJob.id)
     })
 })

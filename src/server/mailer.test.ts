@@ -4,6 +4,7 @@ import * as mailgun from '@/server/mailer'
 import { audit } from '@/server/events'
 import {
     faker,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestOrgStudyJobUsers,
     insertTestProposalDecision,
@@ -113,7 +114,21 @@ describe('mailgun email functions', () => {
         await mailgun.sendStudyProposalEmails(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
-        expect(message.vars.submittedOn).toBe('03/10/2026')
+        expect(message.vars.submittedOn).toBe('Mar 10, 2026 (UTC)')
+    })
+
+    it('sendStudyProposalEmails names the UTC day for a submission after UTC midnight', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        await db
+            .updateTable('study')
+            .set({ submittedAt: new Date('2026-03-11T01:30:00Z') })
+            .where('id', '=', study.id)
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
+        expect(message.vars.submittedOn).toBe('Mar 11, 2026 (UTC)')
     })
 
     it('sendStudyAgreementReadyEmail reaches the researcher, greeted by name', async () => {
@@ -320,10 +335,7 @@ describe('mailgun email functions', () => {
             const { study, org, job, user1: researcher, user2: proposalDecider } = await insertTestOrgStudyJobUsers()
             const { user: codeDecider } = await insertTestUser({ org })
             await insertTestProposalDecision({ studyId: study.id, authorId: proposalDecider.id })
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, userId: codeDecider.id, status: 'CODE-APPROVED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: codeDecider.id })
 
             await mailgun[send](study.id)
 
@@ -410,10 +422,7 @@ describe('mailgun email functions', () => {
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
         const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { userId: codeSubmitter.id })
 
         await mailgun[send](study.id)
 

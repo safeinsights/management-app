@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
+import logger from '@/lib/logger'
 import {
     insertTestBaselineJob,
+    insertTestJobStatus,
+    insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    insertTestUser,
     mockDualRoleSessionWithTestData,
     mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
@@ -93,14 +97,18 @@ describe('StudyViewPage', () => {
         expect(screen.getByText('No code has been uploaded yet.')).toBeInTheDocument()
     })
 
-    it('throws when study does not exist', async () => {
-        await mockSessionWithTestData({ orgType: 'lab' })
+    it('shows the not-found message when the study does not exist', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'error')
 
-        await expect(
-            StudyReviewPage({
-                params: Promise.resolve({ orgSlug: 'test-org', studyId: faker.string.uuid() }),
-            }),
-        ).rejects.toThrow()
+        const page = await StudyReviewPage({
+            params: Promise.resolve({ orgSlug: org.slug, studyId: faker.string.uuid() }),
+        })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(screen.getByText('No such study exists')).toBeInTheDocument()
+        expect(logger.error).not.toHaveBeenCalled()
     })
 
     const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
@@ -117,10 +125,7 @@ describe('StudyViewPage', () => {
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
         const base = last?.createdAt ? new Date(last.createdAt).getTime() : Date.now()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
-            .execute()
+        await insertTestJobStatus(job.id, status, { at: new Date(base + 1000) })
     }
 
     const addMainCodeFile = async (studyId: string) => {
@@ -646,10 +651,10 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Decrypt to view your outputs/)).toBeInTheDocument()
+            expect(screen.getByText(/^Decrypt to view your outputs and feedback/)).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             // Not the errored sibling, which shares this panel and differs only in copy.
-            expect(screen.queryByText(/Decrypt outputs to view code error/)).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Code run errored/)).not.toBeInTheDocument()
         })
 
         it('renders the outputs-feedback screen when the reviewer shared feedback only (FILES-REJECTED)', async () => {
@@ -669,7 +674,7 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Feedback on outputs available/)).toBeInTheDocument()
+            expect(screen.getByText(/^Feedback available/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
                 'href',
@@ -700,7 +705,7 @@ describe('StudyViewPage', () => {
             await waitForPendingMutations()
             expect(screen.getByText(/Resolve the code error to proceed/)).toBeInTheDocument()
             expect(screen.getByText('Verify outputs')).toBeInTheDocument()
-            expect(screen.queryByText(/Feedback on outputs available/)).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Feedback available/)).not.toBeInTheDocument()
             expect(screen.getByRole('link', { name: /previous step/i })).toHaveAttribute(
                 'href',
                 Routes.studyViewCode({ orgSlug: org.slug, studyId: study.id }),
@@ -728,7 +733,9 @@ describe('StudyViewPage', () => {
 
             renderWithProviders(page!)
             await waitForPendingMutations()
-            expect(screen.getByText(/Decrypt outputs to view code error/)).toBeInTheDocument()
+            expect(
+                screen.getByText(/^Code run errored\. Decrypt to view your outputs and feedback/),
+            ).toBeInTheDocument()
             expect(screen.queryByText('Study Details')).not.toBeInTheDocument()
             expect(screen.queryByText(/Resolve the code error to proceed/)).not.toBeInTheDocument()
         })
@@ -814,6 +821,68 @@ describe('/view for a Data Partner member (OTTER-768)', () => {
         })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: labOrg.slug, studyId: study.id }) })
+
+        expect(page?.type).toBe(CodePostSubmissionView)
+        expect(redirect).not.toHaveBeenCalled()
+    })
+})
+
+// OTTER-878: a refused getStudyAction is an ordinary not-found, not a thrown page error.
+describe('/view for a user who cannot see the study (OTTER-878)', () => {
+    // The refusal is the expected result, so keep its permission warning out of the run output.
+    beforeEach(() => {
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        vi.spyOn(logger, 'error')
+    })
+
+    it('shows the not-found message to a member of another lab', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const otherLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: otherLab,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+            title: 'A study belonging to another lab',
+        })
+
+        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(screen.getByText('No such study exists')).toBeInTheDocument()
+        expect(screen.queryByText('A study belonging to another lab')).not.toBeInTheDocument()
+        expect(redirect).not.toHaveBeenCalled()
+        expect(logger.warn).toHaveBeenCalledOnce()
+        expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    it('shows the not-found message to a Data Partner member for an unsubmitted draft', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'DRAFT' })
+
+        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: enclave.slug, studyId: study.id }) })
+        renderWithProviders(page!)
+
+        expect(screen.getByText('Study was not found')).toBeInTheDocument()
+        expect(redirect).not.toHaveBeenCalled()
+        expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    it('renders the researcher screen for an SI admin who is not a member of the submitting lab', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const enclave = await insertTestOrg({ slug: faker.string.alpha(10), type: 'enclave' })
+        const lab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user: researcher } = await insertTestUser({ org: lab })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            researcherId: researcher.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+
+        const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: lab.slug, studyId: study.id }) })
 
         expect(page?.type).toBe(CodePostSubmissionView)
         expect(redirect).not.toHaveBeenCalled()

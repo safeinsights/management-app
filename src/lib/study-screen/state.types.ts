@@ -3,10 +3,12 @@ import type { CodeDecisionStatus, ExecutionStage } from '@/lib/study-job-status'
 
 export type StudyRole = 'researcher' | 'reviewer'
 
-// statusChanges/jobs order is NOT significant: the projection selects the latest job by max(id)
-// and treats each job's statuses as a set. createdAt is display-only.
+// statusChanges/jobs order is NOT significant: the projection selects the latest job by its stored
+// round, then id, and treats each job's statuses as a set. createdAt is display-only.
 export type RawJob = {
     id: string
+    round: number
+    currentStatus: StudyJobStatus
     statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt?: Date | string }>
 }
 
@@ -34,7 +36,7 @@ export type RawStudyState = {
     jobs: ReadonlyArray<RawJob>
 } & DraftStep2Fields
 
-// Job-phase facts describe the LATEST job only (max id); submissionRound is the one cross-job count.
+// Job-phase facts describe the LATEST job only (highest round, then id).
 export type StudyState = {
     status: StudyStatus
     isDraft: boolean
@@ -63,9 +65,8 @@ export type StudyState = {
     // Furthest enclave stage the latest job reached, or null before packaging starts. Set-based like
     // every other fact: the status log is append-only, so the furthest stage present is the current one.
     executionStage: ExecutionStage | null
-    submissionRound: number
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean
 }
 
-export type DashboardState = Omit<StudyState, 'submissionRound' | 'hasSavedEdits' | 'hasSavedCodeEdits'>
+export type DashboardState = Omit<StudyState, 'hasSavedEdits' | 'hasSavedCodeEdits'>

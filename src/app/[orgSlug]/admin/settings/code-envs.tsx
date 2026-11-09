@@ -195,8 +195,9 @@ const CodeEnvRow: React.FC<{
         queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
     }
 
+    const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
+
     const handleViewCode = async (fileName?: string) => {
-        const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
         const targetFileName = fileName || starterCodeFileNames[0]
         if (!targetFileName) return
 
@@ -230,7 +231,7 @@ const CodeEnvRow: React.FC<{
                 latestScanStatus={image.latestScanStatus}
                 detailOpened={detailOpened}
                 onToggleDetail={toggleDetail}
-                onLanguageBadgeClick={() => handleViewCode()}
+                onLanguageBadgeClick={starterCodeFileNames.length ? () => handleViewCode() : undefined}
                 onScanBadgeClick={openScanResults}
                 actions={
                     <>
@@ -272,7 +273,7 @@ const CodeEnvRow: React.FC<{
             />
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment" size="xl">
-                <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
+                <CodeEnvForm image={image} isLastUsable={!canDelete} onCompleteAction={handleEditComplete} />
             </AppModal>
             <AppModal
                 isOpen={codeViewerOpened}
@@ -315,6 +316,7 @@ const hasPassedScan = (env: CodeEnv) => env.latestScanStatus === SCAN_PASSED_STA
 
 // OTTER-527: deleting the last non-testing or last passing env for a language would leave it
 // without a usable default image. The server action enforces the same rules.
+// The same rule locks the edit form's testing checkbox and language select.
 const canDeleteCodeEnv = (env: CodeEnv, allEnvs: CodeEnv[]): boolean => {
     if (env.isTesting) return true
     const siblings = allEnvs.filter(

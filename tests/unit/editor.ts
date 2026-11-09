@@ -1,6 +1,6 @@
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { act } from '@testing-library/react'
-import { getNearestEditorFromDOMNode } from 'lexical'
+import { $createParagraphNode, $createTextNode, $getRoot, getNearestEditorFromDOMNode } from 'lexical'
 
 const lexicalTextNode = (text: string) => ({
     detail: 0,
@@ -94,4 +94,17 @@ export const lexicalEditorFor = (surface: HTMLElement) => {
     const editor = getNearestEditorFromDOMNode(surface)
     if (!editor) throw new Error('that element is not a mounted Lexical surface')
     return editor
+}
+
+export const setEditorText = async (surface: HTMLElement, text: string) => {
+    const editor = lexicalEditorFor(surface)
+    // Awaited: Lexical commits on a microtask, so a synchronous act() returns before the change
+    // has reached the form.
+    await act(async () => {
+        editor.update(() => {
+            const paragraph = $createParagraphNode()
+            if (text) paragraph.append($createTextNode(text))
+            $getRoot().clear().append(paragraph)
+        })
+    })
 }

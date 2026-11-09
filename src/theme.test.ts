@@ -182,6 +182,16 @@ describe('inputs', () => {
         })
     })
 
+    it('puts the error row an xs gap below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: true }).wrapper['--input-margin-bottom']).toBe(
+            'var(--mantine-spacing-xs)',
+        )
+    })
+
+    it('adds no gap when nothing sits below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: false }).wrapper).not.toHaveProperty('--input-margin-bottom')
+    })
+
     it('keeps disabled inputs at full opacity', () => {
         const styles = theme.components?.Input?.styles as { input?: { opacity?: number } } | undefined
 
@@ -216,7 +226,8 @@ describe('required asterisk color', () => {
     it('paints every Mantine-rendered asterisk from it', () => {
         const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
 
-        expect(styles?.required?.color).toBe('#7e241e')
+        expect(styles?.required?.color).toBe(semanticColor('error.text'))
+        expect(semanticShades['error.text']).toBe('red.7')
     })
 })
 

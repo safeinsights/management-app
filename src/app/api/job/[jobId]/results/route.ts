@@ -1,4 +1,6 @@
-import { onJobErrored, onRunCompleted } from '@/server/events'
+import { onRunCompleted } from '@/server/events'
+import { lockJobForTransition } from '@/database/job-status-writer'
+import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
 
 import { NextResponse } from 'next/server'
 import { wrapApiOrgAction } from '@/server/api-wrappers'
@@ -68,7 +70,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     // email. Serialized on the job row; the lock is taken after the uploads and released before the
     // email, so no S3 or SMTP call runs inside the transaction.
     const announcement = await withTransaction(currentDb(), async (trx) => {
-        await trx.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
+        await lockJobForTransition(trx, info.studyJobId)
 
         // JOB-ERRORED is shared with the scanner, the containerizer and PUT /api/job/[jobId], so a
         // bare lookup would read one of theirs as proof this callback finished. Ordering is a
@@ -87,19 +89,29 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         // first one. Recording the outcome would append RUN-COMPLETE after FILES-APPROVED.
         if (await roundIsClosed(info.studyJobId, trx)) return 'round-decided' as const
 
-        // Any earlier JOB-ERRORED on the job has already emailed the Data Partner, and its outputs are
-        // reviewed as errored. setup-app always sends PUT /api/job/[jobId] before an error log.
-        const erroredEarlier = await trx
-            .selectFrom('jobStatusChange')
-            .select('id')
-            .where('studyJobId', '=', info.studyJobId)
-            .where('status', '=', 'JOB-ERRORED')
-            .executeTakeFirst()
+        // Outputs of a job that errored at any point are reviewed as errored, and that error already
+        // emailed the Data Partner, so its results ask for no second review email.
+        const erroredEarlier =
+            outcome === 'RUN-COMPLETE' &&
+            (await trx
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', info.studyJobId)
+                .where('status', '=', 'JOB-ERRORED')
+                .executeTakeFirst())
 
-        await trx.insertInto('jobStatusChange').values({ status: outcome, studyJobId: info.studyJobId }).execute()
-
-        return erroredEarlier ? ('announced-earlier' as const) : ('announced' as const)
+        // setup-app always sends PUT /api/job/[jobId] before an error log, so an errored delivery is
+        // usually a repeat, and transitionJob emailed the Data Partner for the first one.
+        const result = await transitionJob(trx, info.studyJobId, outcome, { actor: 'enclave' })
+        return result.outcome === 'moved' && !erroredEarlier ? ('announced' as const) : ('announced-earlier' as const)
+    }).catch((error: unknown) => {
+        if (error instanceof JobTransitionRefusedError) return 'refused' as const
+        throw error
     })
+
+    if (announcement === 'refused') {
+        return NextResponse.json({ status: 'fail', error: 'transition-refused' }, { status: 409 })
+    }
 
     if (announcement === 'round-decided') {
         logger.warn(
@@ -118,12 +130,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'success', detail }, { status: 200 })
     }
 
-    if (announcement === 'announced') {
-        if (outcome === 'JOB-ERRORED') {
-            onJobErrored({ studyId: info.studyId })
-        } else {
-            onRunCompleted({ studyId: info.studyId })
-        }
+    if (announcement === 'announced' && outcome === 'RUN-COMPLETE') {
+        await onRunCompleted({ studyId: info.studyId })
     }
 
     return NextResponse.json({ status: 'success' }, { status: 200 })

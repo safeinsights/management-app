@@ -4,28 +4,10 @@ import { throwNotFound } from '@/lib/errors'
 import { currentDb } from '@/server/request-context'
 import { hasStep2CollabDocSql } from '@/server/db/step2-collab-doc'
 import { StudyJobStatus } from '@/database/types'
-import {
-    CODE_DECISION_JOB_STATUSES,
-    CODE_ROUND_CLOSING_JOB_STATUSES,
-    ROUND_CLOSING_JOB_STATUSES,
-} from '@/lib/study-job-status'
+import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 // A study id, or a reference to the outer query's study.id for a correlated subquery.
 type StudyIdOperand = string | Expression<string>
-
-// Counted across ALL jobs: a per-job count would reset to v1 after a results decision opens a fresh
-// job, hiding prior rounds' feedback (OTTER-556/558). CODE-REJECTED is omitted because reject is
-// terminal; if it becomes resubmittable, count it here and in canResearcherResubmitCode (OTTER-638).
-export const codeSubmissionVersion = async (studyId: string, db: DBExecutor): Promise<number> => {
-    const row = await db
-        .selectFrom('jobStatusChange')
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .where('studyJob.studyId', '=', studyId)
-        .where('jobStatusChange.status', 'in', CODE_ROUND_CLOSING_JOB_STATUSES)
-        .select((eb) => eb.fn.countAll().as('count'))
-        .executeTakeFirst()
-    return Number(row?.count ?? 0) + 1
-}
 
 // Outputs reviews run on their own sequence: a study can be on code round 3 and still be on its
 // first outputs decision, which used to label that decision v3.0 (OTTER-766). Counts the decisions
@@ -212,8 +194,7 @@ const studyInfoQuery = (studyId: string) =>
             'study.researcherId',
             'study.status',
             'study.submittedByOrgId',
-            // This output becomes the ability subject, which requireAbilityTo serializes into
-            // permission_denied, so a title selected here would leak to a guessed study id (MA-6).
+            // This output is the ability subject: a column added here becomes a CASL condition input (MA-6).
         ])
         .where('study.id', '=', studyId)
 
@@ -239,10 +220,11 @@ export function fetchStudyQuery(db: DBExecutor) {
                 eb
                     .selectFrom('studyJob')
                     .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
+                    .select(['studyJob.round as jobRound', 'studyJob.currentStatus as jobCurrentStatus'])
                     .distinctOn('studyId')
                     .orderBy('studyId')
-                    .orderBy('createdAt', 'desc')
-                    // v7 id breaks createdAt ties so the job picked here is deterministic.
+                    // The same rule as latestJobQuery: highest round, then newest id.
+                    .orderBy('studyJob.round', 'desc')
                     .orderBy('studyJob.id', 'desc')
                     .as('latestStudyJob'),
             (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
@@ -298,6 +280,8 @@ export function fetchStudyQuery(db: DBExecutor) {
             'researcher.fullName as createdBy',
             'reviewer.fullName as reviewerName',
             'latestStudyJob.jobId as latestStudyJobId',
+            'latestStudyJob.jobRound as latestStudyJobRound',
+            'latestStudyJob.jobCurrentStatus as latestStudyJobCurrentStatus',
         ])
         .select(hasStep2CollabDocSql.as('hasStep2CollabDoc'))
         .orderBy('study.lastUpdatedAt', 'desc')

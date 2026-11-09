@@ -28,9 +28,13 @@ import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
 import { useCodeEnvForm } from './use-code-env-form'
 import { useOrgDataSources } from '@/hooks/use-org-data-sources'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { semanticColor } from '@/theme/tokens'
+import { InputError } from '@/components/errors'
+import { languageLabels } from '@/lib/languages'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
+
+// Row errors never pass through the shared useForm, so they carry the design's error icon themselves.
+const requiredError = (value: string, message: string) => (value.trim() ? null : <InputError error={message} />)
 
 interface EnvVarLineProps {
     envVar: EnvVar
@@ -50,7 +54,7 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 flex={1}
                 placeholder="Variable name"
                 aria-label="Variable name"
-                error={!envVar.name.trim() ? 'Variable name is required' : null}
+                error={requiredError(envVar.name, 'Variable name is required')}
             />
             <TextInput
                 value={envVar.value}
@@ -58,12 +62,22 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
                 flex={1}
                 placeholder="Value"
                 aria-label="Variable value"
-                error={!envVar.value.trim() ? 'Value is required' : null}
+                error={requiredError(envVar.value, 'Value is required')}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs" aria-label="Remove variable">
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>
+    )
+}
+
+function StarterCodeError({ isVisible, error }: { isVisible: boolean; error?: string }) {
+    if (!isVisible) return null
+
+    return (
+        <Box mt="xs">
+            <InputError error={error ?? 'At least one starter code file is required.'} />
+        </Box>
     )
 }
 
@@ -124,11 +138,7 @@ function StarterCodeSection({
                     </Text>
                 </Group>
             </Dropzone>
-            {(error || isMissing) && (
-                <Text size="sm" c={semanticColor('error.text')} mt="xs">
-                    {error ?? 'At least one starter code file is required.'}
-                </Text>
-            )}
+            <StarterCodeError isVisible={!!error || isMissing} error={error} />
             {starterCodes.length > 0 && (
                 <Stack gap="xs" mt="sm">
                     {starterCodes.map((file) => (
@@ -174,7 +184,7 @@ function CommandLineRow({ ext, cmd, onCmdChange, onRemove }: CommandLineRowProps
                 flex={2}
                 placeholder={ext === 'r' ? 'Rscript %f' : ext === 'py' ? 'python %f' : 'command %f'}
                 aria-label={`Command for .${ext} files`}
-                error={!cmd.trim() ? 'Command is required' : null}
+                error={requiredError(cmd, 'Command is required')}
             />
             <ActionIcon
                 color="red"
@@ -265,10 +275,28 @@ function FormErrorSummary({ isVisible, errors }: { isVisible: boolean; errors: s
 
 interface CodeEnvFormProps {
     image?: CodeEnv
+    isLastUsable?: boolean
     onCompleteAction: () => void
 }
 
-export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
+// The server refuses these edits regardless (OTTER-527); this explains it before the admin tries.
+const lastUsableLockFor = (image: CodeEnv | undefined, isLastUsable: boolean) => {
+    if (!image || !isLastUsable) {
+        return {
+            isLocked: false,
+            isTestingDescription: 'Only admins can use testing images',
+            languageDescription: undefined,
+        }
+    }
+    const language = languageLabels[image.language]
+    return {
+        isLocked: true,
+        isTestingDescription: `This is the last usable ${language} environment, so it can't be made a testing image`,
+        languageDescription: `This is the last usable ${language} environment, so its language can't change`,
+    }
+}
+
+export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: CodeEnvFormProps) {
     const {
         form,
         formErrors,
@@ -286,6 +314,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const { setStarterCodes, removeStarterCode } = starterCodeActions
     const { addCommandLine, updateCommandLine, removeCommandLine } = commandLineActions
     const starterCodes = (form.values.starterCodes as File[] | undefined) || []
+    const lastUsableLock = lastUsableLockFor(image, isLastUsable)
 
     return (
         <form onSubmit={onSubmit}>
@@ -301,7 +330,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     />
                     <Checkbox
                         label="Is testing image"
-                        description="Only admins can use testing images"
+                        description={lastUsableLock.isTestingDescription}
+                        disabled={lastUsableLock.isLocked}
                         {...form.getInputProps('isTesting', { type: 'checkbox' })}
                         mb="xxs"
                     />
@@ -317,6 +347,8 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     label="Language"
                     withAsterisk
                     placeholder="Select language"
+                    description={lastUsableLock.languageDescription}
+                    disabled={lastUsableLock.isLocked}
                     data={[
                         { value: 'R', label: 'R' },
                         { value: 'PYTHON', label: 'Python' },
@@ -424,7 +456,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             onChange={setSampleDataFiles}
                         />
                         <Radio.Group label="Data Source Type" {...form.getInputProps('dataSourceType')}>
-                            <Flex gap="md" mt="xs">
+                            <Flex gap="md">
                                 {Object.entries(DATA_SOURCE_TYPES).map(([value, label]) => (
                                     <Radio key={value} value={value} label={label} />
                                 ))}

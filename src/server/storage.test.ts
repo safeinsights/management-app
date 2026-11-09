@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { db } from '@/database'
-import { insertTestJobInfo, testUploadFile } from '@/tests/unit.helpers'
+import { insertTestJobInfo, insertTestJobStatus, testUploadFile } from '@/tests/unit.helpers'
 import { pathForStudyJob } from '@/lib/paths'
 import {
     deleteDiscardedScanLogObjects,
@@ -51,7 +51,7 @@ test('storing the same artifact twice updates the row instead of adding a duplic
 test('ignores a repeat delivery once the round has been decided', async () => {
     const info = await setupJob()
     await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
-    await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'FILES-APPROVED' }).execute()
+    await insertTestJobStatus(info.studyJobId, 'FILES-APPROVED')
 
     const delivery = await storeStudyEncryptedLogFile(info, logFile('late-redelivery.zip'), 'ENCRYPTED-CODE-RUN-LOG')
 
@@ -64,7 +64,7 @@ test('ignores a repeat delivery once the round has been decided', async () => {
 test('refuses to replace an artifact whose keys are already shared on an open round', async () => {
     const info = await setupJob()
     const stored = await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-SECURITY-SCAN-LOG')
-    await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'CODE-APPROVED' }).execute()
+    await insertTestJobStatus(info.studyJobId, 'CODE-APPROVED')
     await db
         .insertInto('studyJobFileRecipientKey')
         .values({
@@ -86,7 +86,7 @@ test('refuses to replace an artifact whose keys are already shared on an open ro
 
 test('still stores a first-time artifact after the round has been decided', async () => {
     const info = await setupJob()
-    await db.insertInto('jobStatusChange').values({ studyJobId: info.studyJobId, status: 'FILES-APPROVED' }).execute()
+    await insertTestJobStatus(info.studyJobId, 'FILES-APPROVED')
 
     await storeStudyEncryptedLogFile(info, logFile(), 'ENCRYPTED-CODE-RUN-LOG')
 

@@ -12,8 +12,10 @@
         "@lexical/link": "^0.41.0",
         "@lexical/list": "^0.41.0",
         "@lexical/yjs": "^0.41.0",
+        "aws-ssl-profiles": "^1.1.2",
         "lexical": "^0.41.0",
         "pg": "^8.21.0",
-        "yjs": "^13.6.30"
+        "yjs": "^13.6.30",
+        "zod": "^4.6.7"
     }
 }

@@ -222,6 +222,48 @@ describe('Data Source Actions', () => {
         expect(deletedUrl2).toHaveLength(0)
     })
 
+    it.each([
+        ['another org', async () => (await insertTestOrg({ slug: 'other-org-data-source-urls' })).id],
+        ['another data source in the same org', async (orgId: string) => orgId],
+    ])('refuses a url row from %s and rolls back the whole update', async (_, otherOrgId) => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const otherDs = await insertTestDataSource({
+            orgId: await otherOrgId(org.id),
+            urls: [{ url: 'https://example.com/theirs', description: 'Theirs' }],
+        })
+        const ownDs = await insertTestDataSource({
+            orgId: org.id,
+            name: 'Own',
+            urls: [{ url: 'https://example.com/own', description: 'Own url' }],
+        })
+        const foreignUrlId = otherDs.urls[0].id
+
+        const result = await updateOrgDataSourceAction({
+            orgSlug: org.slug,
+            dataSourceId: ownDs.id,
+            name: 'Renamed',
+            urls: [
+                { id: ownDs.urls[0].id, url: 'https://example.com/own-changed', description: 'Changed' },
+                { id: foreignUrlId, url: 'https://example.com/hijacked', description: 'Hijacked' },
+            ],
+        })
+
+        expect(JSON.stringify(result)).toContain(`Data source url with id ${foreignUrlId} was not found`)
+        const own = await db
+            .selectFrom('orgDataSource')
+            .innerJoin('orgDataSourceUrl', 'orgDataSourceUrl.orgDataSourceId', 'orgDataSource.id')
+            .select(['orgDataSource.name', 'orgDataSourceUrl.url', 'orgDataSourceUrl.description'])
+            .where('orgDataSource.id', '=', ownDs.id)
+            .execute()
+        expect(own).toEqual([{ name: 'Own', url: 'https://example.com/own', description: 'Own url' }])
+        const otherUrl = await db
+            .selectFrom('orgDataSourceUrl')
+            .select(['url', 'description'])
+            .where('id', '=', otherDs.urls[0].id)
+            .executeTakeFirstOrThrow()
+        expect(otherUrl).toEqual({ url: 'https://example.com/theirs', description: 'Theirs' })
+    })
+
     it('deletes a data source and cascades join rows', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await insertTestCodeEnv({ orgId: org.id, language: 'R' })

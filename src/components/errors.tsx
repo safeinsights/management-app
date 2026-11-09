@@ -147,6 +147,9 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
     )
 }
 
+// One InputError line: reserving it up front keeps the layout still when a message arrives.
+export const ERROR_LINE_MIN_HEIGHT = 'calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))'
+
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 
@@ -155,7 +158,8 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     return (
         <Group component="span" gap="xs" wrap="nowrap" align="flex-start">
             <WarningCircleIcon size={14} color="var(--mantine-color-error)" weight="fill" />
-            <Text c="var(--mantine-color-error)" size="sm" component="span">
+            {/* The text takes the free width, so a wrapping message cannot squeeze the icon below 14px. */}
+            <Text c="var(--mantine-color-error)" size="sm" component="span" flex={1}>
                 {error}
             </Text>
         </Group>

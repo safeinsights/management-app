@@ -120,7 +120,7 @@ export const LinkEmailView: FC<LinkEmailViewProps> = ({
     const isAwaitingCode = status === 'awaiting-code' || status === 'verifying'
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <PreparingPanel isVisible={status === 'loading'} />
                 <CodePanel

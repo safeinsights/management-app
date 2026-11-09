@@ -5,6 +5,7 @@ import {
     actionResult,
     db,
     insertTestCodeResubmissionNote,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -36,7 +37,7 @@ const setupDecided = async ({
         .selectAll('studyJob')
         .executeTakeFirstOrThrow()
 
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: filesDecision }).execute()
+    await insertTestJobStatus(job.id, filesDecision)
 
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

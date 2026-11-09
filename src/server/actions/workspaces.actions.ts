@@ -13,8 +13,13 @@ import {
     type WorkspaceLaunchStatus,
 } from '../coder'
 import { CODER_DISABLED } from '@/server/config'
-import { latestActivityPerWorkspaceFile, latestCodeSubmissionAt, latestSubmittedJobForStudy } from '@/server/db/queries'
-import { ensureRoundJobForLaunch } from '@/server/db/mutations'
+import {
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestJobQuery,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
+import { ensureRoundJobForLaunch, markStudyOpened } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
@@ -169,7 +174,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
         await requireIdeOwner(db, studyId, session.user.id)
 
         const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
-        await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+        const roundJob = await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+        // Only opening a round moves the badges; a relaunch from the table pencil must not clear what others changed.
+        if (roundJob.created) await markStudyOpened(db, { studyId, userId: session.user.id })
         if (CODER_DISABLED) {
             return {
                 success: true,
@@ -303,12 +310,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             }
         }
 
-        const studyJob = await db
-            .selectFrom('studyJob')
-            .select(['createdAt'])
-            .where('studyId', '=', studyId)
-            .orderBy('id', 'desc')
-            .executeTakeFirst()
+        const studyJob = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
 
         if (!studyJob) return null
 

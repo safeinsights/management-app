@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { renderToServerHtml, renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import StudyApprovalStatus from './study-approval-status'
 import dayjs from 'dayjs'
@@ -19,6 +19,14 @@ describe('StudyApprovalStatus', () => {
 
         expect(screen.getByText(/Rejected/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(date).format('MMM DD, YYYY')))).toBeDefined()
+    })
+
+    it('leaves " on" out of the server HTML along with the date', () => {
+        const html = renderToServerHtml(
+            <StudyApprovalStatus status="APPROVED" date={new Date('2026-09-24T01:30:00Z')} />,
+        )
+
+        expect(html).toMatch(/Approved<time datetime="2026-09-24T01:30:00.000Z"/i)
     })
 
     it('renders nothing for other statuses or missing date', () => {

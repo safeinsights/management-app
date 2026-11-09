@@ -2,6 +2,7 @@ import { ListNode, ListItemNode } from '@lexical/list'
 import { LinkNode } from '@lexical/link'
 import type { LinkAttributes } from '@lexical/link'
 import type { Klass, LexicalNode } from 'lexical'
+import { CURSOR_COLORS } from '@/theme/cursor-colors'
 
 export function isValidUrl(url: string): boolean {
     try {
@@ -37,8 +38,6 @@ export const lexicalTheme = {
 }
 
 export const lexicalNodes: Klass<LexicalNode>[] = [ListNode, ListItemNode, LinkNode]
-
-const CURSOR_COLORS = ['#e06c75', '#61afef', '#98c379', '#d19a66', '#c678dd', '#56b6c2', '#e5c07b']
 
 export function pickCursorColor(name: string): string {
     let hash = 0

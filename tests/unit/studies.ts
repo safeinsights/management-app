@@ -1,8 +1,16 @@
 import { db } from '@/database'
+import { openStudyJob, writeJobStatus, type JobStatusWriteOptions } from '@/database/job-status-writer'
 import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { lexicalJson } from '@/lib/lexical'
+import { actionResult } from '@/lib/utils'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRole } from '@/lib/study-screen/state.types'
+import {
+    fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForOrgAction,
+} from '@/server/actions/study-dashboard.actions'
 import type { StudyRow } from '@/components/dashboard/studies-table/types'
 import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
 import { expect } from 'vitest'
@@ -50,41 +58,11 @@ export const insertTestStudyData = async ({
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const job0 = await db
-        .insertInto('studyJob')
-        .values({
-            studyId: study.id,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ status: 'INITIATED', studyJobId: job0.id, userId: researcherId })
-        .execute()
-
-    const job1 = await db
-        .insertInto('studyJob')
-        .values({
-            studyId: study.id,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ status: 'JOB-RUNNING', studyJobId: job1.id, userId: researcherId })
-        .execute()
-
-    const job2 = await db
-        .insertInto('studyJob')
-        .values({
-            studyId: study.id,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ status: 'JOB-READY', studyJobId: job2.id, userId: researcherId })
-        .execute()
+    const job0 = await insertTestJob(study.id)
+    const job1 = await insertTestJob(study.id)
+    await insertTestJobStatus(job1.id, 'JOB-RUNNING', { userId: researcherId })
+    const job2 = await insertTestJob(study.id)
+    await insertTestJobStatus(job2.id, 'JOB-READY', { userId: researcherId })
 
     return {
         orgId: org.id,
@@ -166,23 +144,11 @@ export const insertTestStudyJobData = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    const job = await db
-        .insertInto('studyJob')
-        .values({
-            studyId: study.id,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    const studyJobStatus = await db
-        .insertInto('jobStatusChange')
-        .values({
-            status: jobStatus,
-            studyJobId: job.id,
-            userId: researcherId,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+    const job = await insertTestJob(study.id)
+    const studyJobStatus =
+        jobStatus === 'INITIATED'
+            ? { id: job.statusChangeId }
+            : await insertTestJobStatus(job.id, jobStatus, { userId: researcherId })
 
     if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
 
@@ -200,45 +166,70 @@ export const insertTestStudyJobData = async ({
 // A baseline job is the file-less INITIATED row minted when a workspace is opened, before any
 // code is submitted.
 export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
-    const job = await db
-        .insertInto('studyJob')
-        .values(createdAt ? { studyId, createdAt } : { studyId })
-        .returning(['id', 'createdAt'])
+    const job = await insertTestJob(studyId, { createdAt })
+    return { id: job.id, createdAt: job.createdAt }
+}
+
+// Fixtures often date later statuses in the past, and a status dated before INITIATED would replay as
+// the job moving back to INITIATED. So the INITIATED row predates any date a test picks.
+const FIXTURE_INITIATED_AT = new Date('2000-01-01T00:00:00Z')
+
+// A study job with only its INITIATED row. `createdAt` sets the job's own timestamp, which file
+// staleness compares against; `at` dates the INITIATED row.
+export const insertTestJob = (studyId: string, { createdAt, at }: { createdAt?: Date; at?: Date } = {}) =>
+    openStudyJob(db, studyId, { actor: 'qa', createdAt, at: at ?? FIXTURE_INITIATED_AT })
+
+// Through the status writer, as the app writes, with the qa actor so a fixture can place any status.
+// Without `at` the row takes the database clock, so it sorts after every row written before it.
+export const insertTestJobStatus = async (
+    studyJobId: string,
+    status: StudyJobStatus,
+    options: Omit<JobStatusWriteOptions, 'actor'> = {},
+) => {
+    const result = await writeJobStatus(db, studyJobId, status, { actor: 'qa', ...options })
+    return { id: result.statusChangeId! }
+}
+
+// Advances a job that already has CODE-SUBMITTED to round 2 (change request + resubmit). Pass `after`
+// only to place the rows at a given time: they then land 1 s and 2 s after it.
+export const appendCodeResubmission = async (studyJobId: string, after?: Date) => {
+    const at = (offsetMs: number) => (after ? new Date(after.getTime() + offsetMs) : undefined)
+    await insertTestJobStatus(studyJobId, 'CODE-CHANGES-REQUESTED', { at: at(1000) })
+    await insertTestJobStatus(studyJobId, 'CODE-SUBMITTED', { at: at(2000) })
+}
+
+// A lab researcher's submitted code. The code resubmit actions accept it once the reviewer has asked
+// for changes.
+export const insertTestSubmittedCode = async ({
+    lab,
+    researcherId,
+    changesRequested = false,
+}: {
+    lab: MinimalTestOrg
+    researcherId: string
+    changesRequested?: boolean
+}) => {
+    const { study, job } = await insertTestStudyJobData({
+        submittedByOrg: lab,
+        researcherId,
+        jobStatus: 'CODE-SUBMITTED',
+    })
+    if (changesRequested) await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED'])
+    return { study, job }
+}
+
+export const codeResubmissionNoteDraftOf = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .select('codeResubmissionNoteDraft')
+        .where('id', '=', studyId)
         .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'INITIATED' }).executeTakeFirstOrThrow()
-    return job
+    return study.codeResubmissionNoteDraft
 }
 
-// Advances a job that already has CODE-SUBMITTED to round 2 (change request + resubmit). Timestamps
-// are staggered after `after` so they sort after the original submission.
-export const appendCodeResubmission = async (studyJobId: string, after: Date = new Date()) => {
-    const base = after.getTime()
-    await db
-        .insertInto('jobStatusChange')
-        .values([
-            {
-                studyJobId,
-                status: 'CODE-CHANGES-REQUESTED',
-                createdAt: new Date(base + 1000),
-            },
-            {
-                studyJobId,
-                status: 'CODE-SUBMITTED',
-                createdAt: new Date(base + 2000),
-            },
-        ])
-        .execute()
-}
-
-// Explicit timestamps: rows written in one tick tie on createdAt, and v7 ids are not monotonic
-// inside a millisecond, so the order under test would otherwise be luck.
 export const insertTestJobStatuses = async (studyJobId: string, statuses: StudyJobStatus[]) => {
-    const base = Date.now()
-    for (const [index, status] of statuses.entries()) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId, status, createdAt: new Date(base + (index + 1) * 1000) })
-            .execute()
+    for (const status of statuses) {
+        await insertTestJobStatus(studyJobId, status)
     }
 }
 
@@ -430,5 +421,42 @@ export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
     impact: null,
     additionalNotes: null,
     hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
     ...overrides,
 })
+
+// A visit stamped before a change stands in for the client's enter stamp with no leave stamp, which is
+// what a reload or a typed URL leaves behind (OTTER-937).
+export const stampStudyOpened = (studyId: string, userIds: string[], openedAt: Date) =>
+    db
+        .insertInto('studyLastOpened')
+        .values(userIds.map((userId) => ({ studyId, userId, openedAt })))
+        .onConflict((oc) => oc.columns(['userId', 'studyId']).doUpdateSet({ openedAt }))
+        .execute()
+
+export const studyOpenedAt = async (studyId: string, userId: string) =>
+    (
+        await db
+            .selectFrom('studyLastOpened')
+            .select('openedAt')
+            .where('studyId', '=', studyId)
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+    )?.openedAt ?? null
+
+// The dot the session's user sees on an org dashboard, through the same action and rule as the table.
+export const isUnreadOnOrgDashboard = async (orgSlug: string, studyId: string, audience: StudyRole) => {
+    const row = actionResult(await fetchStudiesForOrgAction({ orgSlug })).find((candidate) => candidate.id === studyId)
+    if (!row) throw new Error(`study ${studyId} is not on the ${orgSlug} dashboard`)
+    return isStudyUnread(row, audience)
+}
+
+// The same dot on the researcher's My studies (/dashboard), where QA reproduced OTTER-937.
+export const isUnreadOnMyStudies = async (studyId: string) => {
+    const row = actionResult(await fetchStudiesForCurrentResearcherUserAction()).find(
+        (candidate) => candidate.id === studyId,
+    )
+    if (!row) throw new Error(`study ${studyId} is not on My studies`)
+    return isStudyUnread(row, 'researcher')
+}

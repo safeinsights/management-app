@@ -7,9 +7,14 @@ import { Routes } from '@/lib/routes'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudyAccessSubject, withStudySubject } from '@/server/actions/study-subject'
 import { codeBuildRepositoryUrl } from '@/server/aws'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { markStudyOpened } from '@/server/db/mutations'
-import { fetchUserFullName, findOrgIdBySlug, selectCodeEnvSnapshot } from '@/server/db/queries'
+import {
+    fetchUserFullName,
+    findOrgIdBySlug,
+    jobRound,
+    latestJobQuery,
+    selectCodeEnvSnapshot,
+} from '@/server/db/queries'
 import { onStudyDraftCreated, onStudyProposalSubmitted, onStudyReviewRequested } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
@@ -92,6 +97,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
             .executeTakeFirstOrThrow()
 
         await snapshotCodeEnv(db, studyId)
+        await markStudyOpened(db, { studyId, userId, seenAt: new Date() })
         onStudyDraftCreated({ studyId, userId })
 
         return { studyId }
@@ -223,8 +229,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             }
         }
 
-        // Kept out of the middleware: that output is serialized into permission_denied and would
-        // leak the title to anyone who guessed a study id (OTTER-724 / MA-6).
+        // Read here, after the check, rather than widening the shared study subject.
         const submittedTitle =
             'title' in snapshotFields
                 ? (snapshotFields.title as string | null)
@@ -272,25 +277,19 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
             .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow()
 
-        // id tiebreaker keeps this deterministic when two jobs share a createdAt.
-        const latestJob = await db
-            .selectFrom('studyJob')
-            .select('studyJob.id as id')
-            .where('studyJob.studyId', '=', studyId)
-            .orderBy('studyJob.createdAt', 'desc')
-            .orderBy('studyJob.id', 'desc')
-            .limit(1)
-            .executeTakeFirst()
+        const latestJob = await latestJobQuery(db, studyId).select('studyJob.id').executeTakeFirst()
 
         if (latestJob) {
             await markCodeSubmitted(db, { studyJobId: latestJob.id, userId })
             // Read after the CODE-SUBMITTED row and inside its transaction, so it names the round
             // this code belongs to. A result that arrives after the next round opens is discarded
             // against it rather than shown as current (OTTER-779).
-            const round = await codeRoundForJob(latestJob.id, db)
+            const round = await jobRound(latestJob.id, db)
             triggerCodeScan(latestJob.id, orgSlug, studyId, round)
             afterCommit(() => onStudyReviewRequested({ studyJobId: latestJob.id, round }))
         }
+
+        await markStudyOpened(db, { studyId, userId, seenAt: submittedAt })
 
         onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 
@@ -344,12 +343,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
             .where('study.status', 'in', ['DRAFT', 'CHANGE-REQUESTED', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
 
-        const studyJob = await db
-            .selectFrom('studyJob')
-            .select('id')
-            .where('studyId', '=', study.id)
-            .orderBy('createdAt', 'desc')
-            .executeTakeFirst()
+        const studyJob = await latestJobQuery(db, study.id).select('studyJob.id').executeTakeFirst()
 
         let codeFiles: { name: string; fileType: string }[] = []
         if (studyJob) {

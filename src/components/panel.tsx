@@ -1,4 +1,4 @@
-import { Flex, FlexProps, Paper, Text, Anchor, Title } from '@mantine/core'
+import { Box, Flex, FlexProps, Paper, Text, Anchor, Title } from '@mantine/core'
 import { CheckCircleIcon, ProhibitIcon } from '@phosphor-icons/react/dist/ssr'
 import React from 'react'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -11,8 +11,11 @@ export type PanelProps = FlexProps & {
 export const Panel: React.FC<PanelProps> = ({ children, title, ...flexProps }) => {
     return (
         <Flex direction="column" {...flexProps}>
-            <Paper bg={semanticColor('surface.tableheader')} shadow="none" p="sm" mt="xl" radius="sm">
-                <Title order={3}>{title}</Title>
+            {/* The header tint is 50% alpha: laid over white so a dark page never shows through. */}
+            <Paper bg={semanticColor('surface.raised')} shadow="none" mt="xl" radius="sm">
+                <Box bg={semanticColor('surface.tableheader')} p="sm" bdrs="sm">
+                    <Title order={3}>{title}</Title>
+                </Box>
             </Paper>
             <Paper bg={semanticColor('surface.sunken')} shadow="none" p="xl" radius="sm">
                 {children}

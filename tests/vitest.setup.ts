@@ -175,6 +175,27 @@ vi.mock('@/server/clerk', async (importOriginal) => {
     }
 })
 
+// Coder's network calls, real until stubCoder() stubs them for a test.
+vi.mock('@/server/coder', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/coder')>()
+    return {
+        ...actual,
+        createUserAndWorkspace: vi.fn(actual.createUserAndWorkspace),
+        getCoderWorkspaceLaunchStatus: vi.fn(actual.getCoderWorkspaceLaunchStatus),
+    }
+})
+
+// Coder is off in every unit test, wherever it runs, until stubCoder() turns it on for one test through this env var.
+vi.mock('@/server/config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/config')>()
+    return {
+        ...actual,
+        get CODER_DISABLED() {
+            return process.env.UNIT_CODER_STUBBED !== 't'
+        },
+    }
+})
+
 vi.mock('@mantine/notifications', () => ({
     notifications: {
         show: vi.fn(),

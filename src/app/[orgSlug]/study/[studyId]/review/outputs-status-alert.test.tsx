@@ -1,7 +1,17 @@
-import { act, afterEach, describe, expect, it, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
-import dayjs from 'dayjs'
+import {
+    act,
+    afterEach,
+    describe,
+    expect,
+    hydrateServerHtml,
+    it,
+    renderToServerHtml,
+    renderWithProviders,
+    screen,
+    vi,
+} from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { ExternalLinks } from '@/lib/routes'
+import { Routes } from '@/lib/routes'
 import { formatElapsed, formatStartedWhen, OutputsStatusAlert } from './outputs-status-alert'
 
 describe('formatElapsed', () => {
@@ -26,16 +36,15 @@ describe('formatStartedWhen', () => {
     const base = new Date('2026-07-20T10:00:00Z').getTime()
     const at = (minutes: number) => base + minutes * 60_000
 
-    const absolute = (ms: number) => `on ${dayjs(ms).format('MMM DD, YYYY [at] h:mm A')}`
-
     it('uses relative "ago" phrasing within 24 hours', () => {
         expect(formatStartedWhen(base, at(5))).toBe('5 minutes ago')
         expect(formatStartedWhen(base, at(23 * 60 + 59))).toBe('23 hours and 59 minutes ago')
     })
 
     it('switches to an absolute date/time at or past 24 hours', () => {
-        expect(formatStartedWhen(base, at(24 * 60))).toBe(absolute(base))
-        expect(formatStartedWhen(base, at(48 * 60 + 30))).toBe(absolute(base))
+        // Tests run in America/Chicago.
+        expect(formatStartedWhen(base, at(24 * 60))).toBe('on Jul 20, 2026 at 5:00 AM')
+        expect(formatStartedWhen(base, at(48 * 60 + 30))).toBe('on Jul 20, 2026 at 5:00 AM')
     })
 })
 
@@ -52,13 +61,11 @@ describe('OutputsStatusAlert', () => {
 
     const expectPreparingCodeBodyWithSupportLink = () => {
         expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\s*\(opens in a new tab\)\.$/,
+            /Preparing the code to run in the secure enclave\. If it stays in this status for over 1 hour, don’t hesitate to contact SafeInsights here\.$/,
         )
         const link = screen.getByRole('link', { name: /here/ })
-        expect(link).toHaveAttribute('href', ExternalLinks.support)
-        expect(link).toHaveAttribute('target', '_blank')
-        expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-        expect(link).toHaveAccessibleName(/^here\s*\(opens in a new tab\)$/)
+        expect(link).toHaveAttribute('href', Routes.support)
+        expect(link).not.toHaveAttribute('target')
         expect(screen.queryByRole('link', { name: /Slack/ })).not.toBeInTheDocument()
     }
 
@@ -115,9 +122,7 @@ describe('OutputsStatusAlert', () => {
         act(() => {
             vi.advanceTimersByTime(60_000)
         })
-        expect(screen.getByTestId('status-alert')).toHaveTextContent(
-            `on ${dayjs(new Date(STARTED)).format('MMM DD, YYYY [at] h:mm A')}`,
-        )
+        expect(screen.getByTestId('status-alert')).toHaveTextContent('running on Jul 20, 2026 at 5:00 AM')
         expect(vi.getTimerCount()).toBe(0)
     })
 
@@ -126,5 +131,25 @@ describe('OutputsStatusAlert', () => {
         vi.setSystemTime(new Date(STARTED))
         renderWithProviders(<OutputsStatusAlert stageStatus="CODE-SUBMITTED" startedAt={STARTED} />)
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()
+    })
+
+    it('ends the server HTML title at the stage, with only the instant after it', () => {
+        const html = renderToServerHtml(<OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />)
+
+        expect(html).toMatch(/Outputs not ready, code approved<time datetime="2026-07-20T10:00:00.000Z"><\/time>/i)
+        expect(html).not.toContain('ago')
+        expect(html).not.toContain(' on ')
+    })
+
+    it('hydrates without a mismatch, then shows when the stage started', async () => {
+        const { recoverableErrors } = hydrateServerHtml(
+            <OutputsStatusAlert stageStatus="CODE-APPROVED" startedAt={STARTED} />,
+        )
+
+        expect(await screen.findByText('on Jul 20, 2026 at 5:00 AM')).toBeInTheDocument()
+        expect(screen.getByTestId('status-alert')).toHaveTextContent(
+            'Outputs not ready, code approved on Jul 20, 2026 at 5:00 AM',
+        )
+        expect(recoverableErrors).toEqual([])
     })
 })

@@ -119,7 +119,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     if (!isLoaded) return <Loader />
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: 'md', lg: 0 }}>
             <SelectMethodStep
                 isVisible={step === 'select'}
                 hasSMS={hasSMS}

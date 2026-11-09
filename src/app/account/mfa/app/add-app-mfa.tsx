@@ -129,13 +129,13 @@ const AddTotpStep: FC<AddTotpStepProps> = ({ isVisible, form, isVerifying, onVer
 }
 
 export function AddAppMFA() {
-    const { isReady, step, backupCodes, totpUri, secret, canRegenerate, isVerifying, form, regenerate, verifyTotp } =
+    const { isReady, step, enrolled, totpUri, secret, canRegenerate, isVerifying, form, regenerate, verifyTotp } =
         useAddAppMfa()
 
     if (!isReady) return null
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: 'md', lg: 0 }}>
             <AddTotpStep
                 isVisible={step === 'add'}
                 uri={totpUri}
@@ -146,7 +146,7 @@ export function AddAppMFA() {
                 isVerifying={isVerifying}
                 onVerify={verifyTotp}
             />
-            <BackupCodes isVisible={step === 'success'} codes={backupCodes} />
+            <BackupCodes isVisible={step === 'success'} enrolled={enrolled} />
         </Paper>
     )
 }

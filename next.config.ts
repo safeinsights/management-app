@@ -68,8 +68,8 @@ const nextConfig: NextConfig = {
     cacheComponents: false,
     // Don't advertise the framework in responses (SIINFOSEC-771, ZAP-40025).
     poweredByHeader: false,
-    // Matching every UA turns off streaming metadata, so a navigation commits its <title> with the
-    // page. Streamed, the title lands a chunk later and Next's route announcer reads the H1 (OTTER-823).
+    // Matching every UA turns off streaming metadata, so a full page load sends its <title> in <head>.
+    // Client navigations still commit the title after the page; RouteAnnouncer handles those (OTTER-823).
     htmlLimitedBots: /.*/,
     productionBrowserSourceMaps: true,
     assetPrefix: isDev ? undefined : '/assets/',

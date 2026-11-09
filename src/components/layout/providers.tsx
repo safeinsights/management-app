@@ -14,6 +14,7 @@ import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { isServer, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { usePostHogInit } from '@/hooks/use-posthog-init'
 import { reportQueryError } from '@/hooks/query-wrappers'
+import { RouteAnnouncer } from '@/components/layout/route-announcer'
 import { ToastProvider } from './toast-provider'
 
 function makeQueryClient() {
@@ -75,6 +76,8 @@ export const Providers: FC<Props> = ({
                                 </YjsWebsocketProvider>
                             </SpyModeProvider>
                         </ErrorBoundary>
+                        {/* Outside the boundary, so it survives to announce the error screen's title. */}
+                        <RouteAnnouncer />
                     </ModalsProvider>
                 </MantineProvider>
             </SessionInfoProvider>

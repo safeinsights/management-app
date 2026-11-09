@@ -11,6 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
+import noJobStatusWrites from './tests/no-job-status-writes.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -43,6 +44,11 @@ const indexOnlyZone = (folder) => ({
 const awsIndexZone = indexOnlyZone('aws')
 const queriesIndexZone = indexOnlyZone('db/queries')
 
+const noProcessEnv = {
+    selector: "MemberExpression[object.name='process'][property.name='env']",
+    message: 'Read config through `env` from @/server/config, not process.env.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -62,7 +68,6 @@ const eslintConfig = [
             'CHANGELOG.md',
             'test-results/**',
             'tests/coverage/**',
-            'services/**',
         ],
     },
     // Base JavaScript recommended rules
@@ -163,6 +168,7 @@ const eslintConfig = [
                     noBareRouteStrings,
                     noInvalidButtonVariant,
                     noRawStyleValues,
+                    noJobStatusWrites,
                 },
             },
         },
@@ -203,9 +209,21 @@ const eslintConfig = [
             ],
         },
     },
+    // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
+    // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
+    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seed's
+    // fail-closed checks.
     {
-        files: ['src/**/*.{ts,tsx}'],
-        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts'],
+        files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
+        ignores: [
+            '**/*.test.{ts,tsx}',
+            'src/server/request-context.ts',
+            'src/server/config.ts',
+            'src/lib/config.ts',
+            'src/instrumentation.ts',
+            'src/instrumentation-client.ts',
+            'src/database/seeds/1743608138837_test_users.ts',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -215,7 +233,22 @@ const eslintConfig = [
                         'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
                     message: 'Open transactions with withTransaction() from @/server/request-context.',
                 },
+                noProcessEnv,
             ],
+        },
+    },
+    // The status writer must stay loadable by the migrator bundle, which cannot load request-context,
+    // so it skips the transaction rule only.
+    {
+        files: ['src/database/job-status-writer.ts'],
+        rules: { 'no-restricted-syntax': ['error', noProcessEnv] },
+    },
+    // Job statuses change only through the transition table (OTTER-973).
+    {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'bin/**/*.ts'],
+        ignores: ['src/database/job-status-writer.ts', 'src/database/migrations/**'],
+        rules: {
+            'custom/noJobStatusWrites': 'error',
         },
     },
     // Theme tokens over ad-hoc styling.
@@ -230,15 +263,14 @@ const eslintConfig = [
     },
     // The theme is where raw values are supposed to live: it is what the tokens resolve to.
     {
-        files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        files: ['src/theme.ts', 'src/theme/**/*.ts'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },
     },
-    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
-    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    // Brand artwork is not themeable: the logo hexes are the mark itself.
     {
-        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
+        files: ['src/components/layout/svg/**'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },

@@ -11,6 +11,7 @@
 // Deletion order is FK-safe by hand: a new table referencing user.id without ON DELETE CASCADE
 // breaks deletion at runtime, so give it a cascade or add it below.
 import { sql, type Kysely } from 'kysely'
+import { env } from '@/server/config'
 import { type DB } from '@/database/types'
 import { type SessionUser } from '@/lib/types'
 import { clerkClient, verifyToken } from '@clerk/nextjs/server'
@@ -21,6 +22,7 @@ import { pathForStudy } from '@/lib/paths'
 import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
 import logger from '@/lib/logger'
 import { localStorageContext, withTransaction } from '@/server/request-context'
+import { detachJobStatusAuthor } from '@/database/job-status-writer'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -66,7 +68,7 @@ export async function requireQaAuth(): Promise<QaAuthResult> {
         // The standalone verifyToken (unlike auth()/clerkClient()) does not read CLERK_SECRET_KEY
         // from the environment on its own — it only uses the key passed in options. Without it,
         // JWK resolution fails and the guard rejects every request, so pass the secret explicitly.
-        claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
+        claims = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY })
     } catch (error) {
         logger.warn('QA cleanup token verification failed', error)
         return { ok: false, status: 401, message: 'Authentication required' }
@@ -199,8 +201,10 @@ async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
     const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
     if (jobs.length > 0) {
         const jobIds = jobs.map((job) => job.id)
+        // eslint-disable-next-line custom/noJobStatusWrites -- the jobs themselves are deleted below
         await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
         await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
+        // eslint-disable-next-line custom/noJobStatusWrites -- every job of the study goes, with the study
         await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
     }
     await db.deleteFrom('yjsDocument').where('studyId', '=', studyId).execute()
@@ -331,7 +335,7 @@ export async function deleteUserCompletely(
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
-        await trx.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
+        await detachJobStatusAuthor(trx, userId)
         // Written by the signup flow, one row per enforced published document, so every
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.

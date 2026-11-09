@@ -15,7 +15,7 @@ export function AddSMSMFA() {
         isSendingSms,
         isVerifyingCode,
         phoneLastFour,
-        backupCodes,
+        enrolled,
         sendVerificationCode,
         resendCode,
         verifyCodeAndSetMfa,
@@ -25,7 +25,7 @@ export function AddSMSMFA() {
 
     return (
         <Container>
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={500} my={{ base: 'md', lg: 0 }}>
                 <Stack gap="lg">
                     <AddSmsMfaView
                         isVisible={step === 'phone'}
@@ -41,7 +41,7 @@ export function AddSMSMFA() {
                         isVerifyingCode={isVerifyingCode}
                         phoneLastFour={phoneLastFour}
                     />
-                    <BackupCodes isVisible={step === 'backup'} codes={backupCodes} />
+                    <BackupCodes isVisible={step === 'backup'} enrolled={enrolled} />
                 </Stack>
             </Paper>
         </Container>

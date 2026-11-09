@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
     mockSessionWithTestData,
     actionResult,
@@ -23,12 +23,6 @@ async function validTestKey() {
     const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
     return { publicKey, fingerprint: await fingerprintKeyData(publicKey) }
 }
-
-vi.mock('@/server/events', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/events')>()),
-    onUserPublicKeyCreated: vi.fn(),
-    onUserPublicKeyUpdated: vi.fn(),
-}))
 
 describe('User Keys Actions', () => {
     it('allows lab researchers to access the actions, since they now hold keys too', async () => {

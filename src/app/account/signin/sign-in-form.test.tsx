@@ -1,5 +1,6 @@
 import {
     db,
+    findFieldErrorShownOnce,
     insertKeylessInvitedUser,
     renderWithProviders,
     screen,
@@ -127,6 +128,7 @@ describe('SignInForm', () => {
 
         await waitFor(() => expect(screen.getByText(clerkErrorOverrides.form_password_incorrect)).toBeInTheDocument())
         expect(memoryRouter.asPath).toBe('/account/signin')
+        await findFieldErrorShownOnce(clerkErrorOverrides.form_password_incorrect)
 
         const email = screen.getByLabelText('Email')
         expect(email).toHaveAttribute('aria-invalid', 'true')
@@ -142,7 +144,7 @@ describe('SignInForm', () => {
         await userEvent.click(screen.getByLabelText('Email'))
         await userEvent.tab()
 
-        expect(await screen.findByText('Email is required')).toBeInTheDocument()
+        await findFieldErrorShownOnce('Email is required')
         expect(screen.queryByText('Invalid email')).not.toBeInTheDocument()
     })
 

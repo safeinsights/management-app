@@ -110,14 +110,14 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     if (isLoading || !org) {
         return (
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
             </Paper>
         )
     }
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <Title order={3} ta="center" mb="md">
                     You’ve been invited to join {org.name}.

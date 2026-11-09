@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -18,18 +18,14 @@ import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
 
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
-
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
 
-const LOCKED_HEADING = 'Decrypt outputs to view code error'
+const LOCKED_HEADING = 'Code run errored. Decrypt to view your outputs and feedback'
 const UNLOCKED_HEADING = 'Resolve the code error to proceed'
-const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
+const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`
 const UNLOCKED_BODY =
-    'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.'
+    'Review the outputs and feedback for the latest code run below to understand why it failed, then update your code and resubmit.'
 
 const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
 const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
@@ -109,12 +105,11 @@ describe('SharedOutputsPanel', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         job = (await latestJobForStudy(study.id))!
 
-        const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedEncryptedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+            sharedWith: user.id,
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     describe('before decryption', () => {
@@ -145,7 +140,7 @@ describe('SharedOutputsPanel', () => {
                 />,
             )
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Decrypt outputs to view code error')
+            expect(alert).toHaveTextContent(LOCKED_HEADING)
             expect(alert).not.toHaveTextContent('•')
         })
 
@@ -159,11 +154,12 @@ describe('SharedOutputsPanel', () => {
             ).toBeInTheDocument()
         })
 
+        // The outputs are encrypted to the enclave, so the researcher's key opens them only through
+        // the wraps the researcher key set carries.
         it("asks for the RESEARCHER key set, not the reviewer's", async () => {
-            const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
             renderPanel()
-            await screen.findByRole('button', { name: 'View' })
-            expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type: 'researcher' })
+            await decrypt()
+            expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
         it('shows the feedback section and no outputs table', () => {
@@ -191,7 +187,7 @@ describe('SharedOutputsPanel', () => {
             expect(alert).toHaveAttribute('data-variant', 'action')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
             expect(alert).toHaveTextContent(UNLOCKED_BODY)
-            expect(alert).not.toHaveTextContent('Decrypt outputs to view code error')
+            expect(alert).not.toHaveTextContent(LOCKED_HEADING)
         })
 
         it('renders a success unlocked banner when that is the copy it is given', async () => {

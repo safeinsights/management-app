@@ -26,6 +26,7 @@ import {
     publishLegalDocumentVersionAction,
 } from './legal-document.actions'
 import { fetchParticipationAgreementFromInviteIdAction } from './participation-agreement.actions'
+import { findOrCreateOrgMembership } from '@/server/db/mutations'
 
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
@@ -445,28 +446,24 @@ const publishPn = async (fileName = 'privacy.md') =>
     )
 
 describe('fetchNextPendingLegalAcknowledgementAction', () => {
+    const pendingTypes = async () =>
+        actionResult(await fetchNextPendingLegalAcknowledgementAction()).map((document) => document.type)
+
     it('reports nothing when no document has been published', async () => {
         await mockSessionWithTestData()
 
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toEqual([])
     })
 
-    it('reports a published document the user has never acknowledged, with its content', async () => {
+    it('reports a published document the user has never acknowledged, without reading its body', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const tos = await publishTos()
 
         await mockSessionWithTestData()
         const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
 
-        expect(pending!.type).toBe('TOS')
-        expect(pending!.versionId).toBe(tos.id)
-        // A markdown tos inlines content, not a signed-url link.
-        if (pending?.format !== 'markdown') throw new Error('expected a markdown body')
-        expect(pending.content).toContain(tos.filePath)
-        // Global tos/pn bind no org, so nothing to name.
-        expect(pending.orgName).toBeNull()
-        // Never acknowledged, so the modal must say "is now available" rather than "has been updated".
-        expect(pending!.isUpdate).toBe(false)
+        // The gate links tos/pn to /legal rather than showing them, so nothing is read from storage.
+        expect(pending).toEqual([{ type: 'TOS', versionId: tos.id, isUpdate: false }])
     })
 
     it('reports nothing once the current version is acknowledged', async () => {
@@ -476,7 +473,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         await mockSessionWithTestData()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
 
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toEqual([])
     })
 
     // One SI-admin session throughout: mockSessionWithTestData mints a new user each call.
@@ -487,7 +484,7 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         actionResult(await acknowledgeLegalDocumentAction({ versionId: first.id }))
         const second = await publishTos('terms-v2.md')
 
-        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        const [pending] = actionResult(await fetchNextPendingLegalAcknowledgementAction())
 
         expect(pending!.versionId).toBe(second.id)
         expect(pending!.isUpdate).toBe(true)
@@ -499,19 +496,34 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
 
         await mockSessionWithTestData()
 
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toEqual([])
     })
 
-    it('asks for the Terms of Service before the Privacy Notice when both are outstanding', async () => {
+    it('asks for the Terms of Service and the Privacy Notice together, in that order', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
-        await publishPn()
+        const pn = await publishPn()
         const tos = await publishTos()
 
         await mockSessionWithTestData()
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('TOS')
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
 
-        actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('PN')
+        expect(pending.map((document) => document.versionId)).toEqual([tos.id, pn.id])
+    })
+
+    // Each document of the pair carries its own update state, so the copy can tell a mixed pair apart.
+    it('marks each of the pair as an update or not on its own', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const firstPn = await publishPn()
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: firstPn.id }))
+        await publishPn('privacy-v2.md')
+        await publishTos()
+
+        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+
+        expect(pending.map(({ type, isUpdate }) => ({ type, isUpdate }))).toEqual([
+            { type: 'TOS', isUpdate: false },
+            { type: 'PN', isUpdate: true },
+        ])
     })
 
     it('surfaces an org-scoped ropa to a member of the org it binds', async () => {
@@ -520,13 +532,15 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         const published = await publish(version.id, '2026-07-27')
 
         await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
-        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        const [pending] = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        // Only a ropa/dopa carries an org and a body.
+        if (!pending || !('format' in pending)) throw new Error('expected an agreement')
 
-        expect(pending!.type).toBe('ROPA')
-        expect(pending!.versionId).toBe(published.id)
-        expect(pending!.orgName).toBe(org.name)
+        expect(pending.type).toBe('ROPA')
+        expect(pending.versionId).toBe(published.id)
+        expect(pending.orgName).toBe(org.name)
         // A ropa is a pdf: a signed-url link, not inlined.
-        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        if (pending.format !== 'pdf') throw new Error('expected a pdf body')
         expect(pending.url).toBeTruthy()
     })
 
@@ -537,12 +551,14 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         const published = await publish(version.id, '2026-07-27')
 
         await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'enclave' })
-        const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        const [pending] = actionResult(await fetchNextPendingLegalAcknowledgementAction())
+        // Only a ropa/dopa carries an org and a body.
+        if (!pending || !('format' in pending)) throw new Error('expected an agreement')
 
-        expect(pending!.type).toBe('DOPA')
-        expect(pending!.versionId).toBe(published.id)
-        expect(pending!.orgName).toBe(org.name)
-        if (pending?.format !== 'pdf') throw new Error('expected a pdf body')
+        expect(pending.type).toBe('DOPA')
+        expect(pending.versionId).toBe(published.id)
+        expect(pending.orgName).toBe(org.name)
+        if (pending.format !== 'pdf') throw new Error('expected a pdf body')
         expect(pending.url).toBeTruthy()
     })
 
@@ -553,23 +569,40 @@ describe('fetchNextPendingLegalAcknowledgementAction', () => {
         await publish(version.id, '2026-07-27')
 
         await mockSessionWithTestData()
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toBeNull()
+        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())).toEqual([])
     })
 
-    // Global tos/pn precede org-scoped ones, so a member owing both gets tos first, ropa only after.
-    it('asks for global tos before an org-scoped ropa the member also owes', async () => {
+    // Global tos/pn precede org-scoped ones, and a ropa never joins their group.
+    it('asks for global tos and pn before an org-scoped ropa the member also owes', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const tos = await publishTos()
+        const pn = await publishPn()
         const { version, org } = await createOrgAgreementDraft('ROPA')
         const ropa = await publish(version.id, '2026-07-27')
 
         await mockSessionWithTestData({ orgSlug: org.slug, orgType: 'lab' })
-        expect(actionResult(await fetchNextPendingLegalAcknowledgementAction())!.type).toBe('TOS')
+        expect(await pendingTypes()).toEqual(['TOS', 'PN'])
 
         actionResult(await acknowledgeLegalDocumentAction({ versionId: tos.id }))
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: pn.id }))
         const pending = actionResult(await fetchNextPendingLegalAcknowledgementAction())
-        expect(pending!.type).toBe('ROPA')
-        expect(pending!.versionId).toBe(ropa.id)
+        expect(pending.map((document) => document.versionId)).toEqual([ropa.id])
+    })
+
+    // ropa/dopa keep the one-document modal, so each arrives alone even when both are owed.
+    it('asks for a ropa and a dopa one at a time', async () => {
+        await mockSessionWithTestData({ isSiAdmin: true })
+        const ropaDraft = await createOrgAgreementDraft('ROPA')
+        const ropa = await publish(ropaDraft.version.id, '2026-07-27')
+        const dopaDraft = await createOrgAgreementDraft('DOPA')
+        await publish(dopaDraft.version.id, '2026-07-27')
+
+        const { user } = await mockSessionWithTestData({ orgSlug: ropaDraft.org.slug, orgType: 'lab' })
+        await findOrCreateOrgMembership({ userId: user.id, slug: dopaDraft.org.slug })
+        expect(await pendingTypes()).toEqual(['ROPA'])
+
+        actionResult(await acknowledgeLegalDocumentAction({ versionId: ropa.id }))
+        expect(await pendingTypes()).toEqual(['DOPA'])
     })
 })
 

@@ -9,7 +9,7 @@
     "type": "module",
     "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620",
     "engines": {
-        "node": ">=22",
+        "node": ">=24",
         "pnpm": ">=11"
     },
     "scripts": {
@@ -87,6 +87,7 @@
         "@swc/helpers": "0.5.15",
         "@tanstack/react-query": "^5.100.11",
         "@zip.js/zip.js": "^2.8.26",
+        "aws-ssl-profiles": "^1.1.2",
         "clsx": "^2.1.1",
         "commander": "^14.0.3",
         "dayjs": "^1.11.20",
@@ -122,7 +123,8 @@
         "@faker-js/faker": "^10.6.0",
         "@ladle/react": "^5.1.1",
         "@next/eslint-plugin-next": "16.1.6",
-        "@playwright/test": "^1.60.0",
+        "@playwright/cli": "^0.1.23",
+        "@playwright/test": "1.64.1",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",
         "@testing-library/user-event": "^14.6.1",
@@ -154,6 +156,7 @@
         "monocart-reporter": "^2.13.1",
         "next-router-mock": "^1.0.5",
         "pg-transactional-tests": "^1.2.0",
+        "playwright-core": "1.64.1",
         "postcss": "^8.5.29",
         "postcss-preset-mantine": "^1.18.0",
         "prettier": "^3.8.3",
@@ -163,7 +166,7 @@
         "typescript-eslint": "^8.59.4",
         "vite": "^8.3.4",
         "vite-plugin-singlefile": "^2.3.3",
-        "vitest": "^4.1.11",
+        "vitest": "^4.1.12",
         "vitest-monocart-coverage": "^4.0.2"
     }
 }

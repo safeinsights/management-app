@@ -1,33 +1,43 @@
 'use client'
 
-import { Stack, TextInput, Textarea, Grid, Text, Flex, Title, Button, Group, Divider } from '@mantine/core'
+import {
+    Stack,
+    TextInput,
+    Textarea,
+    Grid,
+    Flex,
+    Title,
+    Button,
+    Group,
+    Divider,
+    type InputWrapperProps,
+} from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
 import { useForm, zodResolver, useMutation } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
-import { type PublicOrg } from '@/schema/org'
+import {
+    ORG_DESCRIPTION_MAX_CHARACTERS,
+    ORG_NAME_MAX_CHARACTERS,
+    orgDescriptionField,
+    orgNameField,
+    type PublicOrg,
+} from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
-import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
+import { handleMutationErrorsWithForm } from '@/components/errors'
+import { countCharacters } from '@/lib/field-limits'
 import { resizableTextareaProps } from '@/components/textarea-resize'
 import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 
-interface FormFieldMessageProps {
-    message: string
-}
-
-export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) => {
-    return (
-        <Text size="xs" c="dimmed" mt="xs">
-            {message}
-        </Text>
-    )
-}
-
 export const settingsFormSchema = z.object({
-    name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-    description: z.string().max(250, 'Description cannot exceed 250 characters').default(''),
+    name: orgNameField,
+    description: orgDescriptionField.default(''),
 })
+
+const COUNTER_BELOW_INPUT: InputWrapperProps['inputWrapperOrder'] = ['label', 'input', 'description', 'error']
+
+const characterCount = (value: string, maxCharacters: number) => `${countCharacters(value)}/${maxCharacters} characters`
 
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
 
@@ -109,18 +119,13 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 autoFocus
                                 key={form.key('name')}
                                 {...form.getInputProps('name')}
-                                error={
-                                    form.errors.name && (
-                                        <Group gap="xs">
-                                            <InputError error={form.errors.name} />
-                                            <span>{(form.values.name || '').length}/50 characters</span>
-                                        </Group>
-                                    )
+                                description={
+                                    form.errors.name
+                                        ? characterCount(form.values.name, ORG_NAME_MAX_CHARACTERS)
+                                        : undefined
                                 }
+                                inputWrapperOrder={COUNTER_BELOW_INPUT}
                             />
-                            {form.errors.name && (
-                                <FormFieldMessage message={(form.values.name || '').length + '/50 characters'} />
-                            )}
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
@@ -137,16 +142,9 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 rows={3}
                                 {...resizableTextareaProps(descriptionFloor)}
                                 placeholder="Consider adding a sentence to publicly introduce your organization."
-                                error={
-                                    form.errors.description && (
-                                        <Group gap="xs">
-                                            <InputError error={form.errors.description} />
-                                            <span>{(form.values.description || '').length}/250 characters</span>
-                                        </Group>
-                                    )
-                                }
+                                description={characterCount(form.values.description, ORG_DESCRIPTION_MAX_CHARACTERS)}
+                                inputWrapperOrder={COUNTER_BELOW_INPUT}
                             />
-                            <FormFieldMessage message={(form.values.description || '').length + '/250 characters'} />
                         </Grid.Col>
                     </Grid>
                 </Stack>

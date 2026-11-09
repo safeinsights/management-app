@@ -1,8 +1,8 @@
 import { getStudyAndOrgDisplayInfo, studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
 import { findLegalDocument } from '@/server/db/legal-document'
-import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
 import { Routes } from '@/lib/routes'
+import { formatInstantAsUtcDayLabel } from '@/lib/dates'
 import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
@@ -43,7 +43,7 @@ function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
         submittedBy: study.researcherFullName,
-        submittedOn: dayjs(study.submittedAt ?? study.createdAt).format('MM/DD/YYYY'),
+        submittedOn: formatInstantAsUtcDayLabel(study.submittedAt ?? study.createdAt),
         submittedTo: study.orgName,
         researchLab: study.labName,
         dataPartner: study.orgName,
@@ -71,7 +71,7 @@ async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    return dayjs(latest?.createdAt ?? study.submittedAt ?? study.createdAt).format('MM/DD/YYYY')
+    return formatInstantAsUtcDayLabel(latest?.createdAt ?? study.submittedAt ?? study.createdAt)
 }
 
 // actionURL is deliberately generic, so a template need not change when its button's destination does.
@@ -142,20 +142,6 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// onStudyProposalSubmitted is the only writer of CREATED/STUDY and audits before it mails, so the row for
-// this submission is already there: a second one means the lab has submitted before.
-const isResubmission = async (studyId: string) => {
-    const { submissions } = await currentDb()
-        .selectFrom('audit')
-        .select((eb) => eb.fn.countAll().as('submissions'))
-        .where('recordType', '=', 'STUDY')
-        .where('recordId', '=', studyId)
-        .where('eventType', '=', 'CREATED')
-        .executeTakeFirstOrThrow()
-
-    return Number(submissions) > 1
-}
-
 // Audience: SafeInsights admins, Trigger: a proposal is submitted to a Data Partner. Only they can
 // draw the agreement up, and the study sits behind the gate until one of them publishes it.
 export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
@@ -167,9 +153,6 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
     // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
     // reaches here too, and its gate only passes once one is acknowledged.
     if (await findLegalDocument(currentDb(), { type: 'SLA', studyId })) return
-
-    // The same proposal coming back is already on the admins' list.
-    if (await isResubmission(studyId)) return
 
     const admins = await getSiAdmins()
     const emails = admins.map((admin) => admin.email).filter((email) => email)

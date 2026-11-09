@@ -21,6 +21,7 @@ import {
     isCspEnabled,
     reportingEndpointsValue,
 } from '@/lib/csp'
+import { env } from '@/server/config'
 
 const ANON_ROUTES: Array<string> = [
     '/about',
@@ -86,10 +87,10 @@ export function continueWithNonce(req: NextRequest): NextResponse {
     // set, not append: a client-supplied value must never reach the key gate.
     headers.set(REQUEST_PATH_HEADER, req.nextUrl.pathname + req.nextUrl.search)
 
-    if (!isCspEnabled()) return NextResponse.next({ request: { headers } })
+    if (!isCspEnabled(env.NODE_ENV)) return NextResponse.next({ request: { headers } })
 
     const nonce = generateNonce()
-    const reportUrl = cspReportUrl()
+    const reportUrl = cspReportUrl(env.NEXT_PUBLIC_SENTRY_DSN || env.SENTRY_DSN, env)
     const policy = cspHeaderValue(nonce, reportUrl)
 
     // Do not collapse these two. Next learns the nonce only by parsing a `content-security-policy`

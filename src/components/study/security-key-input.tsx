@@ -1,6 +1,7 @@
 import { Textarea, type TextareaProps } from '@mantine/core'
 import { forwardRef } from 'react'
 
+import { InputError } from '@/components/errors'
 import { resizableTextareaProps } from '@/components/textarea-resize'
 
 type SecurityKeyInputProps = Omit<TextareaProps, 'autoComplete' | 'aria-required' | 'aria-label'>
@@ -13,7 +14,13 @@ export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInput
             aria-required
             aria-label="Security key"
             disabled={disabled}
-            error={error ? <span role="alert">{error}</span> : undefined}
+            error={
+                error ? (
+                    <span role="alert">
+                        <InputError error={error} />
+                    </span>
+                ) : undefined
+            }
             {...resizableTextareaProps()}
             w="75%"
             {...props}

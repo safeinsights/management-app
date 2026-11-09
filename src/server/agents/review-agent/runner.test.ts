@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import { sql } from 'kysely'
-import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
+import { db, insertTestJobStatus, insertTestStudyJobData } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
 import { generateAndStoreStudyReview, PLACEHOLDER } from './runner'
@@ -41,7 +41,7 @@ const stubReport: AnalysisReport = {
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 
 const addStatus = (studyJobId: string, status: StudyJobStatus, createdAt: Date) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status, createdAt }).execute()
+    insertTestJobStatus(studyJobId, status, { at: createdAt })
 
 const insertMainCode = (studyJobId: string) =>
     db

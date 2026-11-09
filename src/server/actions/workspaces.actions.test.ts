@@ -3,12 +3,17 @@ import {
     actionResult,
     createTestProposalDraft,
     insertTestBaselineJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
     insertTestStudyOnly,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
+    stampStudyOpened,
+    studyOpenedAt,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
@@ -236,10 +241,7 @@ describe('Workspace Actions', () => {
                 ])
                 .execute()
             const submittedAt = new Date('2026-01-01T00:00:00.000Z')
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
 
             const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
             const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
@@ -262,13 +264,8 @@ describe('Workspace Actions', () => {
                 .insertInto('studyJobFile')
                 .values({ studyJobId: job.id, name: 'main.r', path: `p/${job.id}/main.r`, fileType: 'MAIN-CODE' })
                 .execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt },
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: submittedAt },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED', { at: submittedAt })
 
             await insertTestBaselineJob(study.id)
 
@@ -360,6 +357,24 @@ describe('Workspace Actions', () => {
             actionResult(await ensureWorkspaceAction({ studyId: study.id }))
 
             expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+
+        // OTTER-937: opening the round moves the launcher's badge, so that launch counts as the visit.
+        test('a launch that opens the round leaves it read for the launcher, a relaunch stamps nothing', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(study.id, [user.id], earlier)
+
+            const { ensureWorkspaceAction } = await import('@/server/actions/workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+
+            await stampStudyOpened(study.id, [user.id], earlier)
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await studyOpenedAt(study.id, user.id)).toEqual(earlier)
         })
 
         test('uploading a code file opens the round', async () => {
@@ -522,9 +537,7 @@ describe('Workspace Actions', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: statuses[0],
             })
-            for (const status of statuses.slice(1)) {
-                await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
-            }
+            await insertTestJobStatuses(job.id, statuses.slice(1))
 
             const studyDir = path.join(TEST_CODER_FILES, study.id)
             await fs.mkdir(studyDir, { recursive: true })

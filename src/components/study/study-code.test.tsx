@@ -16,6 +16,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    stubCoder,
     userEvent,
     waitFor,
     waitForPendingQueries,
@@ -47,27 +48,6 @@ vi.mock('@/server/aws', async () => {
         deleteFolderContents: vi.fn(),
         createSignedUploadUrl: vi.fn().mockResolvedValue('https://mock-s3-url.example.com'),
         signedUrlForFile: vi.fn().mockResolvedValue('https://mock-s3-url.example.com/starter.R'),
-    }
-})
-
-// This page runs against Coder in production, and CODER_DISABLED short-circuits ensureWorkspaceAction
-// before it reaches createUserAndWorkspace — which would leave the mocks below unreachable. CI sets
-// CI=true, so without this the launch tests silently exercise the dev shim instead. Same approach as
-// workspaces.actions.test.ts.
-vi.mock('@/server/config', async () => ({
-    ...(await vi.importActual<typeof import('@/server/config')>('@/server/config')),
-    CODER_DISABLED: false,
-}))
-
-// Same treatment as @/server/aws above: an external service with no instance in the unit env. Left
-// unmocked, every launch throws on a refused connection, and since the launch action claims the
-// study's IDE in the same transaction, the claim would roll back with it.
-vi.mock('@/server/coder', async () => {
-    const actual = await vi.importActual<typeof import('@/server/coder')>('@/server/coder')
-    return {
-        ...actual,
-        createUserAndWorkspace: vi.fn(),
-        getCoderWorkspaceLaunchStatus: vi.fn(),
     }
 })
 
@@ -198,13 +178,7 @@ describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
         vi.mocked(signedUrlForFile).mockResolvedValue('https://mock-s3-url.example.com/starter.R')
-        vi.mocked(createUserAndWorkspace).mockResolvedValue({
-            success: true,
-            workspace: { id: 'ws-test' } as Awaited<ReturnType<typeof createUserAndWorkspace>>['workspace'],
-        })
-        vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-            launchStatus() as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
-        )
+        stubCoder(launchStatus() as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>)
     })
 
     afterEach(async () => {
@@ -1623,10 +1597,10 @@ describe('StudyCode component', () => {
                 />,
             )
 
-            await waitFor(() => {
-                expect(screen.getByText(new RegExp(`${user.fullName} · Uploaded · Jul 15, 2026,`))).toBeInTheDocument()
-            })
-            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE · Jul 21, 2026,`))).toBeInTheDocument()
+            // The date sits in its own time element, so find the cell by its label, then read it whole.
+            const uploaded = await screen.findByText(new RegExp(`${user.fullName} · Uploaded`))
+            expect(uploaded).toHaveTextContent('Jul 15, 2026,')
+            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE`))).toHaveTextContent('Jul 21, 2026,')
             expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
         })
 
@@ -1653,10 +1627,8 @@ describe('StudyCode component', () => {
             )
 
             // The column reports the latest action, not a history.
-            await waitFor(() => {
-                expect(screen.getByText(/Edited in IDE · Jul 21, 2026,/)).toBeInTheDocument()
-            })
-            expect(screen.queryByText(/Uploaded · Jul 15, 2026,/)).not.toBeInTheDocument()
+            expect(await screen.findByText(/· Edited in IDE/)).toHaveTextContent('Jul 21, 2026,')
+            expect(screen.queryByText(/· Uploaded/)).not.toBeInTheDocument()
         })
 
         it('records an upload against the researcher who uploaded it', async () => {

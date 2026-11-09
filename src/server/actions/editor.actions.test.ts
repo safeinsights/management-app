@@ -13,8 +13,8 @@ import { getStudyStatusAction } from './editor.actions'
 
 describe('getStudyStatusAction', () => {
     // OTTER-726: the outputs review backstop has to see the files decision even when the scanner
-    // appends CODE-SCANNED afterwards, which is the ordering QA recorded.
-    it('lists every status of the named job, so a late scan row cannot hide the files decision', async () => {
+    // appends CODE-SCANNED afterwards, which is the ordering QA recorded. The late row is history only.
+    it('lists every status of the named job and stays on the files decision after a late scan', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -26,8 +26,9 @@ describe('getStudyStatusAction', () => {
 
         const result = actionResult(await getStudyStatusAction({ studyId: study.id, studyJobId: job.id }))
 
-        expect(result.latestJobStatus).toBe('CODE-SCANNED')
+        expect(result.latestJobStatus).toBe('FILES-APPROVED')
         expect(result.jobStatuses).toEqual([
+            'INITIATED',
             'CODE-SUBMITTED',
             'CODE-APPROVED',
             'RUN-COMPLETE',
