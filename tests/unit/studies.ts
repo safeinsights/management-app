@@ -1,4 +1,3 @@
-import { v7 as uuidv7 } from 'uuid'
 import { db } from '@/database'
 import { openStudyJob, writeJobStatus, type JobStatusWriteOptions } from '@/database/job-status-writer'
 import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
@@ -98,6 +97,7 @@ export const insertTestStudyJobData = async ({
     additionalNotes,
     datasets,
     withStudyAgreement = true,
+    priorRuns = [],
 }: {
     org?: MinimalTestOrg
     // See insertTestStudyOnly: puts the Data Partner and the Research Lab on different orgs.
@@ -114,6 +114,7 @@ export const insertTestStudyJobData = async ({
     impact?: Json | null
     additionalNotes?: Json | null
     withStudyAgreement?: boolean
+    priorRuns?: PriorCodeRunOptions[]
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -145,6 +146,8 @@ export const insertTestStudyJobData = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
+    const priorJobs = []
+    for (const run of priorRuns) priorJobs.push(await insertTestPriorCodeRun(study.id, run))
     const job = await insertTestJob(study.id)
     const studyJobStatus =
         jobStatus === 'INITIATED'
@@ -161,6 +164,7 @@ export const insertTestStudyJobData = async ({
         study,
         studyJobStatus,
         latestJobWithStatus,
+        priorJobs,
     }
 }
 
@@ -458,31 +462,22 @@ export const isUnreadOnMyStudies = async (studyId: string) => {
     return isStudyUnread(row, 'researcher')
 }
 
-type PriorCodeRunOptions = {
+export type PriorCodeRunOptions = {
     ranAt: Date
     outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
     decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
 }
 
-// An earlier, already-reviewed code run. Its id and dates sit before `ranAt`, so neither the
-// createdAt nor the v7-id ordering of "latest job" picks it over the study's current run.
+// An earlier, already-reviewed code run. The writer numbers a job after every job already on the
+// study, so it must be written before the current run is opened (see `priorRuns` on insertTestStudyJobData).
 export const insertTestPriorCodeRun = async (
     studyId: string,
     { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED' }: PriorCodeRunOptions,
 ) => {
     const submittedAt = new Date(ranAt.getTime() - 60_000)
-    const job = await db
-        .insertInto('studyJob')
-        .values({ id: uuidv7({ msecs: submittedAt.getTime() }), studyId, createdAt: submittedAt })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-    await db
-        .insertInto('jobStatusChange')
-        .values([
-            { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt },
-            { studyJobId: job.id, status: outcome, createdAt: ranAt },
-            { studyJobId: job.id, status: decision, createdAt: new Date(ranAt.getTime() + 60_000) },
-        ])
-        .execute()
+    const job = await insertTestJob(studyId, { createdAt: submittedAt })
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
+    await insertTestJobStatus(job.id, outcome, { at: ranAt })
+    await insertTestJobStatus(job.id, decision, { at: new Date(ranAt.getTime() + 60_000) })
     return job
 }
