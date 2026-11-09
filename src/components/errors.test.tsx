@@ -12,7 +12,14 @@ import {
     AlertNotFound,
     STALE_DEPLOYMENT_NOTIFICATION_ID,
 } from './errors'
-import { isClerkApiError, isServerActionError, errorToString, STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
+import {
+    ActionFailure,
+    isClerkApiError,
+    isServerActionError,
+    errorToString,
+    STALE_DEPLOYMENT_TITLE,
+    UNEXPECTED_ERROR_MESSAGE,
+} from '@/lib/errors'
 
 describe('isClerkApiError', () => {
     it('returns true for a valid Clerk API error object', () => {
@@ -195,6 +202,19 @@ describe('reportError', () => {
         expect(eventId).toMatch(/^[a-f0-9]{32}$/)
         expect(notificationsShowSpy).toHaveBeenLastCalledWith(
             expect.objectContaining({ message: expect.stringContaining(`Reference: ${eventId}`) }),
+        )
+    })
+
+    // OTTER-984: the server already raised this event, so the toast quotes its id rather than a new one.
+    it.each([
+        ['an action error', (eventId: string) => ({ error: UNEXPECTED_ERROR_MESSAGE, eventId })],
+        ['a query wrapper failure', (eventId: string) => new ActionFailure(UNEXPECTED_ERROR_MESSAGE, eventId)],
+    ])('quotes the server event id for %s', (_label, makeError) => {
+        const serverEventId = 'a'.repeat(32)
+
+        expect(reportError(makeError(serverEventId))).toBe(serverEventId)
+        expect(notificationsShowSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({ message: `${UNEXPECTED_ERROR_MESSAGE}\nReference: ${serverEventId}` }),
         )
     })
 

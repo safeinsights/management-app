@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
 import { Action, ActionFailure, z } from './action'
 import { type DBExecutor } from '@/database'
+import { isPgUniqueViolation } from '@/lib/errors'
 import { Language } from '@/database/types'
 import { deleteOrgFromClerk, syncOrgToClerk } from '@/server/clerk-org-sync'
 
@@ -31,7 +32,16 @@ export const insertOrgAction = new Action('insertOrgAction', { performsMutations
     .middleware(async ({ params: { slug } }) => ({ orgSlug: slug }))
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
-        const inserted = await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
+        const inserted = await db
+            .insertInto('org')
+            .values(org)
+            .returningAll()
+            .executeTakeFirstOrThrow()
+            .catch((err) => {
+                if (isPgUniqueViolation(err))
+                    throw new ActionFailure(`An organization with the slug "${org.slug}" already exists.`)
+                throw err
+            })
         await syncOrgToClerk(inserted.slug)
         return inserted
     })

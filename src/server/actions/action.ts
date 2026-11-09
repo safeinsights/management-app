@@ -3,7 +3,7 @@ import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } 
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 
-import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
+import { AccessDeniedError, ActionFailure, UNEXPECTED_ERROR_MESSAGE, type ActionResponse } from '@/lib/errors'
 import { UUID_RE } from '@/lib/collaboration-documents'
 import logger from '@/lib/logger'
 import { isSensitiveKey } from '@/lib/sentry-scrub-text'
@@ -142,7 +142,8 @@ export class Action<
                             }
                             return { error: `Validation error: ${JSON.stringify(sanitizedErrors)}` }
                         }
-                        return { error: error instanceof Error ? error.message : 'Unknown validation error' }
+                        // A transform or refine that throws is a bug, so it takes the unexpected-error path below.
+                        throw error
                     }
                 } else {
                     args = raw as Args
@@ -183,11 +184,12 @@ export class Action<
                 return result
             } catch (error) {
                 // ActionFailure is the expected validation / permission path; only the rest is a bug.
-                if (!(error instanceof ActionFailure)) logger.error(error)
+                const eventId = error instanceof ActionFailure ? undefined : logger.error(error)
                 // The Lambda freezes once the response ends, and nothing else flushes a page render (OTTER-842).
                 await Sentry.flush(2000)
                 if (error instanceof ActionFailure) return { error: error.error }
-                return { error: error instanceof Error ? error.message : 'Unknown error occurred' }
+                // A bug's own text can name tables and constraints (OTTER-984), so the reader gets a reference instead.
+                return { error: UNEXPECTED_ERROR_MESSAGE, eventId }
             }
         }
 

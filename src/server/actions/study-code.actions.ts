@@ -37,11 +37,11 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
     .middleware(requireOpenedCodeRound(({ params }) => params.studyId))
     .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db, status, afterCommit }) => {
         if (fileNames.length === 0) {
-            throw new Error('No files provided')
+            throw new ActionFailure('No files provided')
         }
 
         if (!fileNames.includes(mainFileName)) {
-            throw new Error('Main file not in file list')
+            throw new ActionFailure('Main file not in file list')
         }
 
         const userId = session.user.id
@@ -142,8 +142,8 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
     .handler(async ({ orgSlug, params, session, db, afterCommit }) => {
         const { studyId, mainFileName, fileNames, resubmissionNote } = params
 
-        if (fileNames.length === 0) throw new Error('No files provided')
-        if (!fileNames.includes(mainFileName)) throw new Error('Main file not in file list')
+        if (fileNames.length === 0) throw new ActionFailure('No files provided')
+        if (!fileNames.includes(mainFileName)) throw new ActionFailure('Main file not in file list')
 
         const userId = session.user.id
         const sanitizedMainFileName = sanitizeFileName(mainFileName)

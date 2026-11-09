@@ -15,7 +15,7 @@ test('missing JWT is rejected', async () => {
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
     expect(await resp.json()).toEqual({
-        error: "Token error: Error: 'Authorization' header missing or not well formed.",
+        error: 'Invalid or expired token',
     })
 })
 
@@ -26,7 +26,7 @@ test('jwt with invalid iss is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Token error: Error: Org not found' })
+    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
 })
 
 test('jwt with expired token is rejected', async () => {
@@ -37,7 +37,7 @@ test('jwt with expired token is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Token error: TokenExpiredError: jwt expired' })
+    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
 })
 
 test('return study jobs', async () => {

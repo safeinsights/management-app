@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { localStorageContext } from '@/server/request-context'
 import { orgFromAuthToken } from './org-from-auth-token'
 import { captureException } from '@sentry/nextjs'
+import logger from '@/lib/logger'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WrappedFunc = (..._: any[]) => Promise<any>
@@ -19,7 +20,9 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
         try {
             org = await orgFromAuthToken()
         } catch (e) {
-            return new NextResponse(JSON.stringify({ error: `Token error: ${e}` }), {
+            // The cause can name an org or carry a database error, so it stays in the log (OTTER-984).
+            logger.info('Token error', e)
+            return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' },
             })

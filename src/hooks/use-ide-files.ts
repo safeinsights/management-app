@@ -205,7 +205,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to read file')(new ActionFailure(result.error))
+                reportMutationError('Failed to read file')(new ActionFailure(result.error, result.eventId))
                 return
             }
             setViewingFile({ name: result.fileName, contents: result.contents })
@@ -222,7 +222,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // denial or a DB failure must not vanish along with the Last activity row.
             const result = await recordWorkspaceFileEditAction({ studyId, fileName })
             if (result && 'error' in result)
-                reportMutationError('Failed to record file edit')(new ActionFailure(result.error))
+                reportMutationError('Failed to record file edit')(new ActionFailure(result.error, result.eventId))
 
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             launchWorkspace()
@@ -236,7 +236,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to download file')(new ActionFailure(result.error))
+                reportMutationError('Failed to download file')(new ActionFailure(result.error, result.eventId))
                 return
             }
             downloadBlob(result.fileName, new Blob([result.contents]))
