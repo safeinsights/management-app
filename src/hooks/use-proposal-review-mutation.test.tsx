@@ -14,6 +14,7 @@ import {
     renderHook,
     setTestStudyStatus,
     waitFor,
+    waitForPendingMutations,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
@@ -78,6 +79,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         const provider = createStubProvider()
 
@@ -133,6 +135,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         const provider = createStubProvider()
         const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
@@ -179,6 +182,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
 
         // No provider in the share context, simulating the editor not having mounted yet.
@@ -208,6 +212,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         // Promoting out of PENDING-REVIEW forces the action's editable-status guard to reject.
         await setTestStudyStatus(study.id, 'APPROVED')
@@ -247,6 +252,7 @@ describe('useProposalReviewMutation', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
         await setTestStudyStatus(study.id, 'APPROVED')
         const provider = createStubProvider()
@@ -270,5 +276,87 @@ describe('useProposalReviewMutation', () => {
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
         expect(callerOnError).toHaveBeenCalledTimes(1)
+    })
+
+    it('a double submit records one decision and shows no failure toast', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        const provider = createStubProvider()
+
+        const { result } = renderHook(
+            () =>
+                useProposalReviewMutation({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    tabSessionId,
+                    reviewVersion: REVIEW_VERSION,
+                }),
+            { wrapper: makeWrapper(provider) },
+        )
+
+        // No render between the two calls, as with both clicks of a double-click.
+        await act(async () => {
+            result.current.submitReview({ decision: 'approve', feedback: validFeedback })
+            result.current.submitReview({ decision: 'approve', feedback: validFeedback })
+        })
+        await waitForPendingMutations()
+
+        const feedbackEntries = await db
+            .selectFrom('studyProposalComment')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'REVIEWER-FEEDBACK')
+            .execute()
+        expect(feedbackEntries).toHaveLength(1)
+        expect(notifications.show).not.toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        expect(provider.sendStateless).toHaveBeenCalledTimes(1)
+    })
+
+    it('a failed submit lets the reviewer try again', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        await setTestStudyStatus(study.id, 'APPROVED')
+
+        const { result } = renderHook(
+            () =>
+                useProposalReviewMutation({
+                    studyId: study.id,
+                    orgSlug: org.slug,
+                    tabSessionId,
+                    reviewVersion: REVIEW_VERSION,
+                }),
+            { wrapper: makeWrapper(createStubProvider()) },
+        )
+
+        await act(async () => {
+            result.current.submitReview({ decision: 'reject', feedback: validFeedback })
+        })
+        await waitForPendingMutations()
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        await setTestStudyStatus(study.id, 'PENDING-REVIEW')
+
+        await act(async () => {
+            result.current.submitReview({ decision: 'reject', feedback: validFeedback })
+        })
+        await waitFor(async () => {
+            const updated = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updated.status).toBe('REJECTED')
+        })
     })
 })

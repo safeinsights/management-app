@@ -182,6 +182,16 @@ describe('inputs', () => {
         })
     })
 
+    it('puts the error row an xs gap below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: true }).wrapper['--input-margin-bottom']).toBe(
+            'var(--mantine-spacing-xs)',
+        )
+    })
+
+    it('adds no gap when nothing sits below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: false }).wrapper).not.toHaveProperty('--input-margin-bottom')
+    })
+
     it('keeps disabled inputs at full opacity', () => {
         const styles = theme.components?.Input?.styles as { input?: { opacity?: number } } | undefined
 

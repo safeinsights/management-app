@@ -8,8 +8,8 @@ import { CodeRunHistory } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
+import { CodeRunKeyForm } from '@/components/study/code-run-key-form'
 import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
-import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -145,9 +145,13 @@ type LockedPhaseProps = {
 
 const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
     if (!isVisible) return null
-    // Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file keys, so
-    // the researcher key set would come back empty.
-    return <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
+    return (
+        <CodeRunKeyForm
+            job={job}
+            description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
+            onDecrypted={onDecrypted}
+        />
+    )
 }
 
 const LockedNav: FC<{ isVisible: boolean; nav: StepNav }> = ({ isVisible, nav }) => {

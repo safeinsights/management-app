@@ -1,7 +1,7 @@
 import type { ActionResponse } from '@/lib/errors'
 import { FileEntry } from 'si-encryption/job-results/types'
 import { z } from 'zod'
-import type { FileType, Language, OrgType, StudyJobStatus } from '../database/types'
+import type { FileType, Language, OrgType } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -134,8 +134,10 @@ export function hasAcceptedExtension(fileName: string) {
 }
 
 /** Per file, not per upload: OTTER-693 sets no cap on how many files a researcher may add. */
-export const MAX_UPLOAD_FILE_BYTES = 3 * 1024 * 1024
-export const MAX_UPLOAD_FILE_TEXT = 'Maximum file size is 3 MB.'
+const MAX_UPLOAD_FILE_MB = 3
+export const MAX_UPLOAD_FILE_BYTES = MAX_UPLOAD_FILE_MB * 1024 * 1024
+export const MAX_UPLOAD_FILE_TEXT = `Maximum file size is ${MAX_UPLOAD_FILE_MB} MB.`
+export const MAX_UPLOAD_FILE_HINT = `File size: ${MAX_UPLOAD_FILE_MB} MB max.`
 
 export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
@@ -170,8 +172,6 @@ export const DATA_SOURCE_TYPES = {
 } as const
 
 export type DataSourceType = keyof typeof DATA_SOURCE_TYPES
-
-export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 

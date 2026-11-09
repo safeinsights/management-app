@@ -1,6 +1,7 @@
 'use server'
 
 import { throwNotFound } from '@/lib/errors'
+import { latestJobQuery } from '@/server/db/queries'
 import { Action, z } from './action'
 import { withStudyAccessSubject } from './study-subject'
 
@@ -32,15 +33,8 @@ export const getStudyStatusAction = new Action('getStudyStatusAction')
             .where('id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('study'))
 
-        // Ordering matches latestJobForStudyQuery so both agree on what "latest" means.
-        const latestJobStatusRow = await db
-            .selectFrom('jobStatusChange')
-            .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-            .select('jobStatusChange.status')
-            .where('studyJob.studyId', '=', studyId)
-            .orderBy('jobStatusChange.createdAt', 'desc')
-            .orderBy('jobStatusChange.id', 'desc')
-            .limit(1)
+        const latestJobStatusRow = await latestJobQuery(db, studyId)
+            .select('studyJob.currentStatus as status')
             .executeTakeFirst()
 
         // Joined through the study so a job id from another study yields nothing.

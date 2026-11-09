@@ -1,6 +1,6 @@
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { z } from 'zod'
-import { fetchSecretJson, resolveDatabaseURL } from '../lib/db-connection'
+import { fetchSecretJson, resolveDatabaseURL } from '../lib/db-connection.ts'
 
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
@@ -22,6 +22,7 @@ const envSchema = z.object({
     TEST_DATA_BUCKET_NAME: z.string().optional(),
     ATHENA_RESULTS_BUCKET_NAME: z.string().optional(),
     JOB_QUEUE_URL: z.string().optional(),
+    JOB_WORKER: z.string().optional(),
     CODE_BUILD_REPOSITORY_DOMAIN: z.string().optional(),
     CONTAINERIZER_PROJECT_NAME: z.string().optional(),
     SCANNER_PROJECT_NAME: z.string().optional(),
@@ -35,7 +36,11 @@ const envSchema = z.object({
     CODER_SAMPLE_DATA_ADMIN_POSTGRES_USER: z.string().optional(),
     CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER: z.string().optional(),
     CLERK_SECRET_KEY: z.string().optional(),
+    CLERK_JWT_KEY: z.string().optional(),
+    CLERK_AUTHORIZED_PARTIES: z.string().optional(),
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().optional(),
+    NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
+    SENTRY_DSN: z.string().optional(),
     MAILGUN_API_KEY: z.string().optional(),
     MAILGUN_DOMAIN: z.string().optional(),
     POSTHOG_PROJECT_TOKEN: z.string().optional(),

@@ -7,6 +7,7 @@ import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
 import { connection } from 'next/server'
+import { env } from '@/server/config'
 import PostHogUserProvider from '../posthog-user-provider'
 import { requireUserKey } from '@/server/user-key-gate'
 import { Routes } from '@/lib/routes'
@@ -18,7 +19,7 @@ type Props = {
 
 export async function UserLayout({ children, showOverlay = false }: Props) {
     await connection() // force server rendering so we can access env vars
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
+    const clerkPublishableKey = env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
     const user = await currentUser()

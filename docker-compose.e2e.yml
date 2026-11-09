@@ -1,0 +1,186 @@
+# Driven by ./bin/docker-e2e with -p mgmt-app-e2e-<hash>. App, Playwright and Chromium share one
+# container, so localhost:4100 and the cookie domain of tests/.auth keep their defaults. No
+# container_name and no host ports (except the UI's), so it never collides with other stacks.
+
+# Shared by the one-shot runner and the interactive session.
+x-runner: &runner
+    working_dir: /app
+    init: true
+    # Docker's 64 MB default /dev/shm crashes Chromium. ipc: host would share the VM's IPC
+    # namespace between parallel stacks, so a per-container size is used instead.
+    shm_size: 2gb
+    # No env_file. The values follow the CI e2e job (.github/workflows/checks.yml) and
+    # bin/ci-server, with container addresses for the infrastructure keys.
+    environment:
+        # Host `db`: tests/e2e.seed.ts only seeds legal documents into hosts it knows as disposable.
+        - DATABASE_URL=postgres://si:si@db:5432/si_e2e
+        - S3_ENDPOINT=http://seaweedfs-e2e:8333
+        - S3_BROWSER_ENDPOINT=http://seaweedfs-e2e:8333
+        - AWS_ACCESS_KEY_ID=si-local-s3
+        - AWS_SECRET_ACCESS_KEY=si-local-s3
+        - BUCKET_NAME=mgmt-app-local
+        - AWS_REGION=us-east-1
+        - SIMULATE_CODE_BUILD=t
+        - E2E_FAKE_CLERK=1
+        - E2E_CI_TIMEOUTS=1
+        - SINGLE_USER_EDITING=t
+        - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZHVtbXktZm9yLWUyZS5jbGVyay5hY2NvdW50cy5kZXYk
+        - NEXT_PUBLIC_CI=true
+        - TURBOPACK_FS_CACHE=1
+        - PORT=4100
+        # Set, so a bind-mounted .env.test cannot point Playwright at an app other than this one.
+        - E2E_BASE_URL=http://localhost:4100
+        - ASSETS_PREFIX=/
+        - CODER_FILES=./coder-files
+        - NODE_OPTIONS=--max-old-space-size=4096
+        # Next's env loader and dotenv skip keys that are already set, even to "", so these keep a
+        # bind-mounted .env / .env.test away from real services. Every reader treats "" as unset;
+        # never blank a required key (MAILGUN_DOMAIN, CODER_*), getConfigValue would return "".
+        - AWS_PROFILE=
+        - DB_SECRET_ARN=
+        - SECRETS_ARN=
+        - CLAUDE_API_KEY=
+        - MAILGUN_API_KEY=
+        - CLERK_SECRET_KEY=
+        - POSTHOG_PROJECT_TOKEN=
+        - NEXT_PUBLIC_SENTRY_DSN=
+        - SENTRY_DSN=
+        - SENTRY_AUTH_TOKEN=
+        # bin/seed-environment.ts imports dotenv/config; keep it off the host .env.
+        - DOTENV_CONFIG_PATH=/dev/null
+        # Same pnpm/corepack setup as docker-compose.testunit.yml: corepack cache inside
+        # the node_modules volume, which starts owned by node.
+        - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+        - COREPACK_HOME=/app/node_modules/.corepack
+        # For every pnpm call, not only the runner's install: otherwise `CI=true pnpm exec` runs a
+        # second install first, with scripts, its store in the checkout and an empty metadata cache.
+        - pnpm_config_store_dir=/app/node_modules/.pnpm-store
+        - pnpm_config_cache_dir=/app/node_modules/.pnpm-cache
+        - pnpm_config_verify_deps_before_run=false
+        # Passed through from bin/docker-e2e.
+        - E2E_APP_FINGERPRINT
+        - E2E_REBUILD
+        - E2E_COVERAGE
+        - E2E_TTL
+        - PLAYWRIGHT_WORKERS
+    volumes:
+        - ./:/app/
+        - node_modules_e2e:/app/node_modules
+        # Masks the host .next, so host-mode builds and this build never overwrite each other.
+        - next_e2e:/app/.next
+    entrypoint: ['bin/lib/e2e-runner.sh', '--deps', '--prepare', '--']
+    # Playwright UI mode. Loopback only, because the UI can run tests and read project files;
+    # no host port, so Docker picks a free one and parallel checkouts never collide.
+    ports:
+        - '127.0.0.1::9323'
+    depends_on:
+        db-e2e:
+            condition: service_healthy
+        seaweedfs-e2e:
+            condition: service_healthy
+        create-buckets-e2e:
+            condition: service_completed_successfully
+    networks:
+        - e2e-net
+    restart: 'no'
+
+services:
+    # One-shot runs (`docker compose run --rm`), removed again when the run ends.
+    e2e-runner:
+        <<: *runner
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+            target: e2e-runner
+            args:
+                PNPM_PACKAGE_MANAGER: ${PNPM_PACKAGE_MANAGER:-}
+                PLAYWRIGHT_VERSION: ${PLAYWRIGHT_VERSION:-}
+                PLAYWRIGHT_CLI_CORE_VERSION: ${PLAYWRIGHT_CLI_CORE_VERSION:-}
+        image: ${E2E_RUNNER_IMAGE:-mgmt-app-e2e-runner}
+        command: ['test']
+
+    # Interactive session (--up): the same image, kept running for --exec, runs and --ui until
+    # --down or the TTL. Healthy once deps, DB, build and server are ready.
+    e2e-session:
+        <<: *runner
+        image: ${E2E_RUNNER_IMAGE:-mgmt-app-e2e-runner}
+        pull_policy: never
+        command: ['session']
+        healthcheck:
+            test: ['CMD', 'test', '-f', '/tmp/e2e-session.ready']
+            interval: 2s
+            timeout: 3s
+            retries: 3
+            # Covers a cold install + next build.
+            start_period: 30m
+
+    db-e2e:
+        image: 'postgres:16'
+        # Ends on its own after the TTL that bin/docker-e2e sets. SIGINT is Postgres' fast shutdown;
+        # SIGTERM would wait for every client to disconnect.
+        entrypoint: ['timeout', '-s', 'INT', '${E2E_INFRA_TTL:-7200}', 'docker-entrypoint.sh']
+        command: ['postgres']
+        volumes:
+            - pgdata-e2e:/var/lib/postgresql/data
+        networks:
+            e2e-net:
+                aliases: [db]
+        environment:
+            - POSTGRES_USER=si
+            - POSTGRES_PASSWORD=si
+            - POSTGRES_DB=si_e2e
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U si -d si_e2e']
+            interval: 2s
+            retries: 10
+            start_period: 2s
+            timeout: 3s
+        restart: 'no'
+
+    seaweedfs-e2e:
+        image: chrislusf/seaweedfs
+        volumes:
+            - seaweedfs-data-e2e:/data
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        entrypoint: ['timeout', '-s', 'INT', '${E2E_INFRA_TTL:-7200}', '/entrypoint.sh']
+        command: ['server', '-s3', '-dir=/data']
+        networks:
+            - e2e-net
+        healthcheck:
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            interval: 2s
+            timeout: 3s
+            retries: 10
+            start_period: 3s
+        restart: 'no'
+
+    create-buckets-e2e:
+        image: amazon/aws-cli
+        depends_on:
+            seaweedfs-e2e:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
+        # `mb` fails with BucketAlreadyExists after the first run, so fall back to head-bucket:
+        # the runner's service_completed_successfully gate then still means "the bucket exists".
+        entrypoint: >
+            /bin/sh -c "
+            aws --endpoint-url http://seaweedfs-e2e:8333 s3 mb s3://mgmt-app-local ||
+            aws --endpoint-url http://seaweedfs-e2e:8333 s3api head-bucket --bucket mgmt-app-local
+            "
+        networks:
+            - e2e-net
+        restart: 'no'
+
+networks:
+    e2e-net:
+
+volumes:
+    pgdata-e2e:
+    seaweedfs-data-e2e:
+    node_modules_e2e: # also holds the pnpm store (.pnpm-store), pnpm metadata (.pnpm-cache) and corepack cache (.corepack)
+    next_e2e: # build output, Turbopack cache and the build fingerprint

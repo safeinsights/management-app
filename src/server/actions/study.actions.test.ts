@@ -8,6 +8,8 @@ import {
     createTestProposalDraft,
     db,
     getAuditEntries,
+    insertTestJob,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyData,
@@ -28,6 +30,7 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { latestJobForStudy } from '../db/queries'
+import { openStudyJob } from '@/database/job-status-writer'
 import { ackAgreementsAction, markStudyOpenedAction, getStudyAction, softDeleteStudyAction } from './study.actions'
 import {
     fetchStudiesForCurrentResearcherUserAction,
@@ -94,6 +97,7 @@ describe('Study Actions', () => {
             org,
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
             withStudyAgreement: false,
         })
 
@@ -110,7 +114,12 @@ describe('Study Actions', () => {
 
     it('does not approve a study proposal twice', async () => {
         const { user, org } = await mockSessionWithTestData()
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         await Promise.all([approveProposal(study.id, org.slug), approveProposal(study.id, org.slug)])
 
@@ -219,6 +228,27 @@ describe('Study Actions', () => {
                 .select('jobStatusChange.id')
                 .execute()
             expect(jobStatusChanges).toHaveLength(0)
+        })
+
+        it('approves a proposal whose job was opened but never had code submitted', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const study = await insertProposalOnlyStudy(org, user.id)
+            const job = await openStudyJob(db, study.id, { actor: 'system' })
+
+            actionResult(await approveProposal(study.id, org.slug))
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select('status')
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            const statuses = await db
+                .selectFrom('jobStatusChange')
+                .select('status')
+                .where('studyJobId', '=', job.id)
+                .execute()
+            expect(statuses).toEqual([{ status: 'INITIATED' }])
         })
     })
 
@@ -467,9 +497,10 @@ describe('dashboard rows (OTTER-617)', () => {
             .execute()
 
     const jobWithStatuses = async (studyId: string, rows: Array<[StudyJobStatus, string | null, Date]>) => {
-        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        const first = rows[0]?.[2]
+        const job = await insertTestJob(studyId, { at: first && new Date(first.getTime() - 1000) })
         for (const [status, userId, createdAt] of rows) {
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status, userId, createdAt }).execute()
+            await insertTestJobStatus(job.id, status, { at: createdAt, userId })
         }
         return job.id
     }
@@ -973,6 +1004,7 @@ describe('submitProposalReviewAction', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'PENDING-REVIEW',
+                jobStatus: 'CODE-SUBMITTED',
             })
             const earlier = new Date(Date.now() - 60 * 60 * 1000)
             await stampStudyOpened(study.id, [user.id, otherReviewer.id], earlier)
@@ -994,7 +1026,12 @@ describe('submitProposalReviewAction', () => {
 
     it('approve decision writes review row, approves study, emits approval audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const result = await submitProposalReviewAction({
             studyId: study.id,
@@ -1058,7 +1095,12 @@ describe('submitProposalReviewAction', () => {
         ['needs-clarification', 'vb - research proposal needs revision'],
     ] as const)('%s emails the researcher', async (decision, template) => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         await submitProposalReviewAction({
             studyId: study.id,
@@ -1075,7 +1117,12 @@ describe('submitProposalReviewAction', () => {
 
     it('needs-clarification writes review row, moves study to CHANGE-REQUESTED, writes only clarification audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const beforeAction = await db
             .selectFrom('study')
@@ -1149,7 +1196,12 @@ describe('submitProposalReviewAction', () => {
 
     it('reject decision writes review row, rejects study, emits rejection audit', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const beforeAction = await db
             .selectFrom('study')
@@ -1266,7 +1318,12 @@ describe('submitProposalReviewAction', () => {
 
     it('rejects feedback below minimum word count', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const result = await submitProposalReviewAction({
             studyId: study.id,
@@ -1291,7 +1348,12 @@ describe('submitProposalReviewAction', () => {
 
     it('rejects feedback one character over the cap, naming the field and the cap', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const result = await submitProposalReviewAction({
             studyId: study.id,
@@ -1313,7 +1375,12 @@ describe('submitProposalReviewAction', () => {
 
     it('accepts feedback at exactly the cap, and ignores whitespace at its ends', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         actionResult(
             await submitProposalReviewAction({
@@ -1331,7 +1398,12 @@ describe('submitProposalReviewAction', () => {
 
     it('accepts many short words that the old 500-word cap would have rejected', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         actionResult(
             await submitProposalReviewAction({
@@ -1349,7 +1421,12 @@ describe('submitProposalReviewAction', () => {
 
     it('normalizes plain-text feedback into Lexical JSON on ingest', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         await submitProposalReviewAction({
             studyId: study.id,
@@ -1367,7 +1444,12 @@ describe('submitProposalReviewAction', () => {
 
     it('accepts pre-formatted Lexical JSON feedback as-is', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const lexical = lexicalJson(validFeedback)
 
@@ -1392,6 +1474,7 @@ describe('submitProposalReviewAction', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'PENDING-REVIEW',
+                jobStatus: 'CODE-SUBMITTED',
             })
             await db.updateTable('study').set({ status }).where('id', '=', study.id).execute()
 
@@ -1441,7 +1524,12 @@ describe('submitProposalReviewAction', () => {
 
     it('rejects a second proposal review submission after the first decision is recorded', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         await submitProposalReviewAction({
             studyId: study.id,
@@ -1475,7 +1563,12 @@ describe('submitProposalReviewAction', () => {
 
     it('OTTER-471: parallel approve + reject through submit action, exactly one wins', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const results = await Promise.all([
             submitProposalReviewAction({
@@ -1548,7 +1641,11 @@ describe('submitProposalReviewAction', () => {
 
     it('denies callers without review ability on the study org', async () => {
         const enclaveOrg = await insertTestOrg({ slug: 'reviewer-enclave', type: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org: enclaveOrg, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const outsiderOrg = await insertTestOrg({ slug: 'outsider-lab', type: 'lab' })
         const { user: outsider } = await insertTestUser({ org: outsiderOrg })
@@ -1583,7 +1680,12 @@ describe('submitProposalReviewAction', () => {
 
     it('purgeReviewFeedbackYjsDocBeforeAt deletes only rows whose updatedAt predates the bound', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const before = new Date('2026-01-01T00:00:00Z')
         const versionedName = `review-feedback-${study.id}-v1`
@@ -1629,7 +1731,12 @@ describe('submitProposalReviewAction', () => {
 
     it('deletes the versioned review-feedback yjs_document so the next round starts fresh', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const versionedName = `review-feedback-${study.id}-v1`
         await db
@@ -1655,7 +1762,12 @@ describe('submitProposalReviewAction', () => {
 
     it('rejects a submit whose reviewVersion is stale (researcher already resubmitted)', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         await db
             .insertInto('studyProposalComment')
@@ -1690,7 +1802,12 @@ describe('submitProposalReviewAction', () => {
 
     it('valid round-2 submit creates a REVIEWER-FEEDBACK with version=2 leaving v1 untouched', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
 
         const round1Body = { root: { type: 'root', marker: 'round-1-original' } }
         await db
@@ -1745,6 +1862,7 @@ describe('submitProposalReviewAction', () => {
             org,
             researcherId: reviewerA.id,
             studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
         })
 
         await submitProposalReviewAction({
@@ -1815,7 +1933,7 @@ describe('submitCodeReviewDecisionAction', () => {
         const { study, job } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
+            studyStatus: 'APPROVED',
             jobStatus: 'CODE-SUBMITTED',
         })
         await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
@@ -1832,7 +1950,40 @@ describe('submitCodeReviewDecisionAction', () => {
             .execute()
 
     const simulateResubmitOnSameJob = (jobId: string, userId: string) =>
-        db.insertInto('jobStatusChange').values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId }).execute()
+        insertTestJobStatus(jobId, 'CODE-SUBMITTED', { userId })
+
+    it('gives a refused caller no study content and sends only ids to the warning (OTTER-891)', async () => {
+        const enclave = await insertTestOrg({ slug: 'otter891-code-review-enclave', type: 'enclave' })
+        const { study } = await insertTestStudyJobData({
+            org: enclave,
+            studyStatus: 'PENDING-REVIEW',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await db
+            .updateTable('study')
+            .set({ containerLocation: 'confidential/container-location' })
+            .where('id', '=', study.id)
+            .execute()
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const result = await submitCodeReviewDecisionAction({
+            studyId: study.id,
+            orgSlug: org.slug,
+            decision: 'approve',
+            feedback: 'confidential reviewer feedback',
+            criteria: validCriteria,
+        })
+
+        expect(result).toEqual({
+            error: { permission_denied: 'in submitCodeReviewDecisionAction action; cannot review Study.' },
+        })
+        const warning = String(warnSpy.mock.calls[0][0])
+        expect(warning).toContain(study.id)
+        expect(warning).not.toContain('confidential/container-location')
+        expect(warning).not.toContain('confidential reviewer feedback')
+        expect(await loadCodeReviewRows(study.id)).toHaveLength(0)
+    })
 
     it('rejects feedback one character over the cap and writes nothing', async () => {
         const { org, study } = await setApprovedStudyAndCodeSubmitted()
@@ -2320,19 +2471,9 @@ describe('submitCodeReviewDecisionAction', () => {
             criteria: validCriteria,
         })
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'FILES-APPROVED', userId: user.id })
-            .execute()
-        const job2 = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job2.id, status: 'CODE-SUBMITTED', userId: user.id })
-            .execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED', { userId: user.id })
+        const job2 = await insertTestJob(study.id)
+        await insertTestJobStatus(job2.id, 'CODE-SUBMITTED', { userId: user.id })
 
         const second = await submitCodeReviewDecisionAction({
             studyId: study.id,
@@ -2701,11 +2842,7 @@ describe('getCodeReviewFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const newerJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const newerJob = await insertTestJob(study.id)
         const newer = await db
             .insertInto('studyReviewComment')
             .values({
@@ -2875,11 +3012,7 @@ describe('getOutputsDecisionFeedbackAction', () => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const newerJob = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const newerJob = await insertTestJob(study.id)
         const newer = await db
             .insertInto('studyReviewComment')
             .values({
@@ -3040,6 +3173,7 @@ describe('softDeleteStudyAction', () => {
 describe('study subjects carry ids only (MA-6)', () => {
     const permissionDenied = (result: unknown) =>
         (result as { error: { permission_denied: string } }).error.permission_denied
+    const warning = () => String(vi.mocked(logger.warn).mock.calls[0][0])
 
     const seedStudy = async (studyStatus: StudyStatus = 'PENDING-REVIEW') => {
         const enclave = await insertTestOrg({ slug: 'ma6-study-enclave', type: 'enclave' })
@@ -3102,8 +3236,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getProposalFeedbackForStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain('confidential reviewer notes')
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain('confidential reviewer notes')
     })
 
     it('gives a refused caller of getStudyAction no title or document path', async () => {
@@ -3113,9 +3249,12 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await getStudyAction({ studyId: study.id }))
 
-        expect(denied).toContain(study.id)
+        expect(denied).not.toContain(study.id)
         expect(denied).not.toContain(study.title)
         expect(denied).not.toContain(descriptionDocPath)
+        expect(warning()).toContain(study.id)
+        expect(warning()).not.toContain(study.title)
+        expect(warning()).not.toContain(descriptionDocPath)
     })
 
     it('still refuses an enclave reviewer the study of an unsubmitted draft', async () => {
@@ -3149,8 +3288,10 @@ describe('study subjects carry ids only (MA-6)', () => {
 
         const denied = permissionDenied(await softDeleteStudyAction({ studyId }))
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
+        expect(warning()).toContain(studyId)
+        expect(warning()).not.toContain('Confidential draft title')
     })
 
     it('still keeps an SI admin who is not the author from deleting a draft', async () => {

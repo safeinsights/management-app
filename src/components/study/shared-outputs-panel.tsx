@@ -58,7 +58,7 @@ type LockedPhaseProps = {
 // Unmounted rather than hidden so the input leaves the tab order once used (OTTER-696 AC).
 const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
     if (!isVisible) return null
-    return <SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />
+    return <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
 }
 
 type UnlockedPhaseProps = {

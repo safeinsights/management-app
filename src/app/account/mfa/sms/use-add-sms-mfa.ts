@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useReverification } from '@clerk/nextjs'
+import { isReverificationCancelledError } from '@clerk/nextjs/errors'
 import type { PhoneNumberResource } from '@clerk/nextjs/types'
 import { isPossiblePhoneNumber } from 'react-phone-number-input'
 import { useForm } from '@/common'
@@ -9,6 +10,7 @@ import { showToast } from '@/components/toast-notifications'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/utils'
+import { enrollAndReadCodes, type EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 import type { PhoneFormValues } from './add-sms-mfa-view'
 
@@ -21,7 +23,7 @@ export type AddSmsMfaStep = 'phone' | 'otp' | 'backup'
 export function useAddSmsMfa() {
     const { isLoaded, user } = useRequireUser()
     const [isVerifying, setIsVerifying] = useState(false)
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+    const [enrolled, setEnrolled] = useState<EnrolledCodes | null>(null)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
@@ -30,8 +32,6 @@ export function useAddSmsMfa() {
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
     )
-    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
-    const createBackupCode = useReverification(() => user?.createBackupCode())
 
     // OTTER-647. isPossiblePhoneNumber, not isValidPhoneNumber: the latter checks real numbering
     // plans and rejects Clerk's reserved test range the MFA e2e uses.
@@ -108,6 +108,7 @@ export function useAddSmsMfa() {
     }
 
     const verifyCodeAndSetMfa = async (values: typeof otpForm.values) => {
+        if (!user) return
         if (!phoneObj) {
             showToast({ category: 'error', title: 'No phone number found' })
             return
@@ -124,25 +125,12 @@ export function useAddSmsMfa() {
             }
 
             try {
-                await setReservedForSecondFactor(phoneObj)
-                await makeDefaultSecondFactor(phoneObj)
+                setEnrolled(await enrollAndReadCodes(user, () => setReservedForSecondFactor(phoneObj)))
                 showToast({ category: 'success', title: 'MFA enabled' })
             } catch (error) {
-                console.error(error)
+                if (!isReverificationCancelledError(error)) logger.error('Error enabling SMS MFA', error)
                 otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
-                return
             }
-            try {
-                if (user && !user.backupCodeEnabled) {
-                    const resource = await createBackupCode()
-                    setBackupCodes(resource?.codes || [])
-                }
-            } catch (err) {
-                logger.error({ err, message: 'Error generating backup codes' })
-                setBackupCodes([])
-            }
-
-            showToast({ category: 'success', title: 'Verification successful' })
         } catch (err) {
             otpForm.setFieldError(
                 'code',
@@ -155,7 +143,7 @@ export function useAddSmsMfa() {
         }
     }
 
-    const step: AddSmsMfaStep = backupCodes ? 'backup' : isVerifying ? 'otp' : 'phone'
+    const step: AddSmsMfaStep = enrolled ? 'backup' : isVerifying ? 'otp' : 'phone'
 
     return {
         isReady: isLoaded && Boolean(user),
@@ -165,7 +153,7 @@ export function useAddSmsMfa() {
         isSendingSms,
         isVerifyingCode,
         phoneLastFour: phoneObj?.phoneNumber?.slice(-4),
-        backupCodes,
+        enrolled,
         sendVerificationCode,
         resendCode,
         verifyCodeAndSetMfa,

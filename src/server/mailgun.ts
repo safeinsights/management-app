@@ -71,5 +71,6 @@ export async function deliver({
         })
     } catch (error) {
         logger.error(`mailgun send ${template} error:`, error)
+        throw error
     }
 }

@@ -9,6 +9,7 @@ const REPORT = { codeExplanation: 'Aggregates scores by school.' }
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 
 const addStatus = (studyJobId: string, status: StudyJobStatus, createdAt: Date) =>
+    // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration log rows directly
     db.insertInto('jobStatusChange').values({ studyJobId, status, createdAt }).execute()
 
 const insertReview = (studyJobId: string, createdAt: Date) =>
