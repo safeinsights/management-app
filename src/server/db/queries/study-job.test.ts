@@ -185,14 +185,17 @@ describe('priorCodeRunsForStudy', () => {
 
     it("returns only each run's own outputs decision feedback", async () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study, job: latestJob } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
-        const older = await insertTestPriorCodeRun(study.id, {
-            ranAt: daysAgo(6),
-            feedback: { authorId: user.id, text: 'older run feedback' },
-        })
-        const newer = await insertTestPriorCodeRun(study.id, {
-            ranAt: daysAgo(3),
-            feedback: { authorId: user.id, text: 'newer run feedback' },
+        const {
+            study,
+            job: latestJob,
+            priorJobs: [older, newer],
+        } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+            priorRuns: [
+                { ranAt: daysAgo(6), feedback: { authorId: user.id, text: 'older run feedback' } },
+                { ranAt: daysAgo(3), feedback: { authorId: user.id, text: 'newer run feedback' } },
+            ],
         })
 
         const runs = await priorCodeRunsForStudy(study.id, latestJob.id)

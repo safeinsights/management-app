@@ -3,7 +3,7 @@ import {
     expect,
     fireEvent,
     hydrateServerHtml,
-    insertTestPriorCodeRun,
+    type PriorCodeRunOptions,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
@@ -268,15 +268,20 @@ const stubReducedMotion = (isOn: boolean) =>
             }) as unknown as MediaQueryList,
     )
 
-const setupLatest = async () => {
+// Earlier runs take the session user's id, so their feedback can name its author.
+const setupLatest = async (priorRunsFor: (userId: string) => PriorCodeRunOptions[] = () => []) => {
     const { org, user } = await mockSessionWithTestData()
-    const { study } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+    const { study, priorJobs } = await insertTestStudyJobData({
+        org,
+        jobStatus: 'RUN-COMPLETE',
+        priorRuns: priorRunsFor(user.id),
+    })
     const latest = await latestJobForStudy(study.id)
     await seedEncryptedArtifact(latest.id, {
         fileType: 'ENCRYPTED-RESULT',
         files: [{ name: 'latest.csv', content: 'a\n1' }],
     })
-    return { study, user, latest }
+    return { study, user, latest, priorJobs }
 }
 
 const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<typeof latestJobForStudy>>) => {
@@ -288,27 +293,28 @@ const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<type
 // Newest first: a run the reviewer's current key opens, two encrypted with an older key, and one
 // that produced nothing, placed so the oldest old-key run sits beyond the first three.
 const setupRuns = async () => {
-    const { study, user, latest } = await setupLatest()
     const oldKey = await generateKeyPair()
     const encryptedFor = { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint }
-
-    const seedRun = async (days: number, file: string | null, key?: typeof encryptedFor) => {
-        const job = await insertTestPriorCodeRun(study.id, {
+    const runs = [
+        { days: 3, file: 'matching.csv' },
+        { days: 6, file: 'old-a.csv', key: encryptedFor },
+        { days: 9, file: null },
+        { days: 12, file: 'old-b.csv', key: encryptedFor },
+    ]
+    const { study, latest, priorJobs } = await setupLatest((userId) =>
+        runs.map(({ days, file }) => ({
             ranAt: daysAgo(days),
-            feedback: { authorId: user.id, text: `feedback for ${file ?? 'the empty run'}` },
+            feedback: { authorId: userId, text: `feedback for ${file ?? 'the empty run'}` },
+        })),
+    )
+    for (const [index, { file, key }] of runs.entries()) {
+        if (!file) continue
+        await seedEncryptedArtifact(priorJobs[index].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: file, content: 'b\n2' }],
+            encryptedFor: key,
         })
-        if (file) {
-            await seedEncryptedArtifact(job.id, {
-                fileType: 'ENCRYPTED-RESULT',
-                files: [{ name: file, content: 'b\n2' }],
-                encryptedFor: key,
-            })
-        }
     }
-    await seedRun(3, 'matching.csv')
-    await seedRun(6, 'old-a.csv', encryptedFor)
-    await seedRun(9, null)
-    await seedRun(12, 'old-b.csv', encryptedFor)
 
     await renderHistoryFor(study.id, latest)
     return { oldKey }
@@ -423,15 +429,17 @@ describe('CodeRunHistory expanded row', () => {
     )
 
     it('reports a tampered run, and says when a run’s outputs could not be loaded', async () => {
-        const { study, latest } = await setupLatest()
-        const tampered = await insertTestPriorCodeRun(study.id, { ranAt: daysAgo(3) })
+        const {
+            study,
+            latest,
+            priorJobs: [tampered, missing],
+        } = await setupLatest(() => [{ ranAt: daysAgo(3) }, { ranAt: daysAgo(6) }])
         await seedEncryptedArtifact(tampered.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'tampered.csv', content: 'c\n3' }],
             tamperWith: { drop: ['tampered.csv'] },
         })
         // A file row whose archive was never stored, so fetching it fails.
-        const missing = await insertTestPriorCodeRun(study.id, { ranAt: daysAgo(6) })
         await seedJobFileRow(missing.id, 'ENCRYPTED-RESULT', 'missing.zip')
         await renderHistoryFor(study.id, latest)
         await openHistory()
