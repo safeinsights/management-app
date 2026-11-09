@@ -54,8 +54,8 @@ export type StudyRows = {
         version: Insertable<DB['legalDocumentVersion']>
         acknowledgements: Insertable<DB['legalDocumentAcknowledgement']>[]
     } | null
-    jobs: (Insertable<DB['studyJob']> & { id: string })[]
-    statusChanges: Insertable<DB['jobStatusChange']>[]
+    jobs: { id: string; studyId: string; createdAt: Date }[]
+    statusChanges: { studyJobId: string; status: StudyJobStatus; userId: string | null; createdAt: Date }[]
     files: Insertable<DB['studyJobFile']>[]
     reviews: (Omit<Insertable<DB['studyReview']>, 'report'> & { report: object })[]
     proposalComments: Insertable<DB['studyProposalComment']>[]
