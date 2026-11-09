@@ -70,7 +70,16 @@ describe('spec statuses', () => {
             projectSummary: text,
             impact: spec.halfFilled ? null : text,
             additionalNotes: null,
-            jobs: spec.job ? [{ id: '0', statusChanges: spec.job.statuses.map((status) => ({ status })) }] : [],
+            jobs: spec.job
+                ? [
+                      {
+                          id: '0',
+                          round: 1,
+                          currentStatus: spec.job.statuses.at(-1)!,
+                          statusChanges: spec.job.statuses.map((status) => ({ status })),
+                      },
+                  ]
+                : [],
         })
         expect(resolvePillId('researcher', state)).toBe(spec.expectedPills.researcher)
         if (spec.expectedPills.reviewer) expect(resolvePillId('reviewer', state)).toBe(spec.expectedPills.reviewer)
