@@ -1,5 +1,6 @@
 import { sql, type Kysely, type Transaction } from 'kysely'
 import type { DB } from '@/database/types'
+import { openStudyJob, writeJobStatus } from '../job-status-writer'
 import { buildStudyRows, type BuildContext, type EncryptedArtifact, type StudyRows } from './build-rows'
 import { encryptFiles, orgRecipients, type Recipient } from './encrypt'
 import { personIds, seedExtras } from './extras'
@@ -99,14 +100,13 @@ async function insertStudy(trx: Transaction<DB>, rows: StudyRows, encrypted: Enc
                 .execute()
         }
     }
-    if (rows.jobs.length) await trx.insertInto('studyJob').values(rows.jobs).execute()
+    await openJobs(trx, rows)
     if (rows.reviews.length) {
         await trx
             .insertInto('studyReview')
             .values(rows.reviews.map((r) => ({ ...r, report: sql`${JSON.stringify(r.report)}::jsonb` })))
             .execute()
     }
-    if (rows.statusChanges.length) await trx.insertInto('jobStatusChange').values(rows.statusChanges).execute()
     const files = [...rows.files, ...encrypted.files]
     if (files.length) await trx.insertInto('studyJobFile').values(files).execute()
     if (encrypted.recipientKeys.length)
@@ -119,6 +119,21 @@ async function insertStudy(trx: Transaction<DB>, rows: StudyRows, encrypted: Enc
     if (rows.workspaceActivity.length)
         await trx.insertInto('workspaceFileActivity').values(rows.workspaceActivity).execute()
     await insertLastOpened(trx, rows.lastOpened)
+}
+
+// openStudyJob writes the INITIATED row itself, at the job's creation time.
+async function openJobs(trx: Transaction<DB>, rows: StudyRows) {
+    for (const job of rows.jobs) {
+        await openStudyJob(trx, job.studyId, { actor: 'qa', id: job.id, createdAt: job.createdAt, at: job.createdAt })
+        for (const change of rows.statusChanges) {
+            if (change.studyJobId !== job.id || change.status === 'INITIATED') continue
+            await writeJobStatus(trx, job.id, change.status, {
+                actor: 'qa',
+                userId: change.userId,
+                at: change.createdAt,
+            })
+        }
+    }
 }
 
 async function insertLastOpened(db: Kysely<DB>, rows: StudyRows['lastOpened']) {

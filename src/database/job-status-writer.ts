@@ -189,14 +189,17 @@ export type OpenStudyJobOptions = {
     createdAt?: Date
     // Backdates the INITIATED row. QA only, as in writeJobStatus.
     at?: Date
+    // A fixed job id for seeded fixtures whose file paths embed it. QA only.
+    id?: string
 }
 
 export async function openStudyJob(
     executor: Executor,
     studyId: string,
-    { actor, createdAt, at }: OpenStudyJobOptions,
+    { actor, createdAt, at, id }: OpenStudyJobOptions,
 ): Promise<{ id: string; createdAt: Date; statusChangeId: string; round: number }> {
     if (at && actor !== 'qa') throw new Error('only a qa write may set its own timestamp')
+    if (id && actor !== 'qa') throw new Error('only a qa write may set its own job id')
 
     return inTransaction(executor, async (trx) => {
         // Serializes job opens on one study, so two requests cannot both open the next round.
@@ -214,7 +217,7 @@ export async function openStudyJob(
         const { job, initiated } = await insertAsWriter(trx, async () => {
             const job = await trx
                 .insertInto('studyJob')
-                .values({ studyId, round, ...(createdAt ? { createdAt } : {}) })
+                .values({ studyId, round, ...(createdAt ? { createdAt } : {}), ...(id ? { id } : {}) })
                 .returning(['id', 'createdAt'])
                 .executeTakeFirstOrThrow()
             const initiated = await trx
