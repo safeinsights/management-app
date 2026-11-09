@@ -11,11 +11,11 @@ import { useReviewDecision } from '@/hooks/use-review-decision'
 import { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { StudyKickOutProvider, type EditableSnapshot } from '@/hooks/use-study-status-on-reconnect'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
-import { REVIEWABLE_CODE_JOB_STATUSES } from '@/lib/code-review-status'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
 import type { CodeDecision } from '@/lib/review-decision'
 import { Routes } from '@/lib/routes'
+import { CODE_UNDER_REVIEW_JOB_STATUSES } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -39,7 +39,7 @@ type Props = {
 // Driven by the job status alone: gating on study.status showed "Code review is closed" for
 // legitimate resubmissions, which leave the study at APPROVED.
 const isCodeReviewEditable = ({ latestJobStatus }: Pick<EditableSnapshot, 'latestJobStatus'>): boolean =>
-    latestJobStatus !== null && REVIEWABLE_CODE_JOB_STATUSES.includes(latestJobStatus)
+    latestJobStatus !== null && CODE_UNDER_REVIEW_JOB_STATUSES.includes(latestJobStatus)
 
 const allCriteriaAnswered = (draft: CodeReviewCriteriaDraft): draft is CodeReviewCriteria =>
     CODE_REVIEW_CRITERIA_KEYS.every((key) => draft[key] !== null)

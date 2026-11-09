@@ -107,7 +107,6 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
                 scope={{ type, orgId: historyFor?.orgId }}
             />
             <DataTable
-                withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 minHeight={140}

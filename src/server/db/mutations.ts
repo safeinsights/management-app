@@ -4,7 +4,9 @@ import type { createClerkOrgSync } from '@/lib/clerk-org-sync-core'
 import { throwNotFound } from '@/lib/errors'
 import type { DB } from '@/database/types'
 import { sql, type Kysely, type Updateable } from 'kysely'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { isRoundClosing } from '@/lib/job-status-rules'
+import { openStudyJob } from '@/database/job-status-writer'
+import { latestJobQuery } from '@/server/db/latest-job'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -84,17 +86,7 @@ export type RoundJob = {
 }
 
 async function createRoundJob(db: Kysely<DB>, studyId: string, createdAt: Date): Promise<RoundJob> {
-    const studyJob = await db
-        .insertInto('studyJob')
-        .values({ studyId, createdAt })
-        .returning(['id', 'createdAt'])
-        .executeTakeFirstOrThrow()
-
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: studyJob.id, status: 'INITIATED' })
-        .executeTakeFirstOrThrow()
-
+    const studyJob = await openStudyJob(db, studyId, { actor: 'system', createdAt })
     return { id: studyJob.id, createdAt: studyJob.createdAt, hasSubmission: false, created: true }
 }
 
@@ -105,22 +97,10 @@ export async function getOrCreateCurrentRoundJob(
     studyId: string,
     { backdateMs = 0 }: { backdateMs?: number } = {},
 ): Promise<RoundJob> {
-    const latest = await db
-        .selectFrom('studyJob')
-        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt'])
-        // Existence checks, not "latest status": createdAt is constant within a transaction and v7
-        // ids are not monotonic inside a millisecond, so ordering could flip the round decision.
-        .select((eb) =>
-            eb
-                .exists(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select('jobStatusChange.id')
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .where('jobStatusChange.status', 'in', ROUND_CLOSING_JOB_STATUSES),
-                )
-                .as('roundClosed'),
-        )
+    // Study first, as the status writer locks it, so two requests cannot both open the next round.
+    await db.selectFrom('study').select('id').where('id', '=', studyId).forUpdate().execute()
+    const latest = await latestJobQuery(db, studyId)
+        .select(['studyJob.id as id', 'studyJob.createdAt as createdAt', 'studyJob.currentStatus as currentStatus'])
         .select((eb) =>
             eb
                 .exists(
@@ -132,14 +112,12 @@ export async function getOrCreateCurrentRoundJob(
                 )
                 .as('hasSubmission'),
         )
-        .where('studyJob.studyId', '=', studyId)
-        // By id, not createdAt: ensureRoundJobForUpload backdates createdAt, which would rank a new
-        // round job behind the prior submission and open yet another round.
-        .orderBy('studyJob.id', 'desc')
-        .limit(1)
         .executeTakeFirst()
 
-    if (!latest || latest.roundClosed) {
+    // Read under the study lock, which every status write takes first.
+    const roundClosed = latest && isRoundClosing(latest.currentStatus)
+
+    if (!latest || roundClosed) {
         return createRoundJob(db, studyId, new Date(Date.now() - backdateMs))
     }
     return { id: latest.id, createdAt: latest.createdAt, hasSubmission: Boolean(latest.hasSubmission), created: false }
@@ -177,13 +155,7 @@ export async function ensureRoundJobForUpload(db: Kysely<DB>, studyId: string): 
 // The baseline starter-file copies backdate mtimes against; a wall-clock backdate is unsafe when
 // provisioning exceeds the backdate window (OTTER-547).
 export async function latestStudyJobCreatedAt(db: Kysely<DB>, studyId: string): Promise<Date | null> {
-    const row = await db
-        .selectFrom('studyJob')
-        .select('createdAt')
-        .where('studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
+    const row = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
     return row?.createdAt ?? null
 }
 

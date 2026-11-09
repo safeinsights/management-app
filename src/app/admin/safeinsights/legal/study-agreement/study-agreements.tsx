@@ -84,7 +84,6 @@ export const StudyAgreements: FC = () => {
                 scope={{ type: 'SLA', studyId: historyFor?.studyId }}
             />
             <DataTable
-                withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 minHeight={140}

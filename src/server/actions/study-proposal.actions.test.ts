@@ -10,6 +10,7 @@ import {
     getAuditEntries,
     insertTestCodeEnv,
     type InsertTestCodeEnvOptions,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
@@ -90,8 +91,7 @@ const deliverMock = deliver as unknown as Mock
 
 const workspaceRoots: string[] = []
 
-const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
+const insertStatus = (studyJobId: string, status: StudyJobStatus) => insertTestJobStatus(studyJobId, status)
 
 // The code-round gate refuses with an ActionFailure keyed 'code', so the message arrives as an
 // object rather than the plain string most of these actions return.
@@ -387,7 +387,8 @@ describe('Request Study Actions', () => {
 
         actionResult(await finalizeStudySubmissionAction({ studyId: draft.studyId }))
 
-        expect(visibleWhenSent).toEqual([true])
+        // The review and the two proposal emails (OTTER-855) all leave after the commit.
+        expect(visibleWhenSent).toEqual([true, true, true])
     })
 
     it('submission flow works with Python language', async () => {
@@ -465,6 +466,27 @@ describe('Request Study Actions', () => {
 
         expect(deliverMock).toHaveBeenCalledWith(expect.objectContaining({ template: 'vb - new research proposal' }))
         expect(deliverMock).not.toHaveBeenCalledWith(SLA_NOTICE)
+    })
+
+    // The worker reads the audit rows the app writes in after(), so the resubmission is decided here.
+    it('finalizeStudySubmissionAction queues no Study Agreement request on resubmission', async () => {
+        const studyId = await submitDraftProposal('sla-once-queued')
+        const queue = stubJobQueue()
+
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+        await setTestStudyStatus(studyId, 'CHANGE-REQUESTED')
+        actionResult(await finalizeStudySubmissionAction({ studyId }))
+
+        const emails = queue
+            .commandCalls(SendMessageCommand)
+            .map((call) => JSON.parse(call.args[0].input.MessageBody!))
+            .filter((message) => message.job === 'study-email')
+            .map((message) => message.payload.email)
+        expect(emails).toEqual([
+            'sendStudyProposalEmails',
+            'sendStudyAgreementPreparationEmail',
+            'sendStudyProposalEmails',
+        ])
     })
 
     it('finalizeStudySubmissionAction asks for no Study Agreement once one has been drafted', async () => {
@@ -1208,8 +1230,7 @@ describe('Request Study Actions', () => {
             await mockSessionWithTestData({ orgSlug: labB.slug, orgType: 'lab' })
             const result = await getDraftStudyAction({ studyId })
             const permissionDenied = (result as { error: { permission_denied: string } }).error.permission_denied
-            expect(permissionDenied).toContain('in getDraftStudyAction action; cannot view Study.')
-            expect(permissionDenied).toContain(`"studyId": "${studyId}"`)
+            expect(permissionDenied).toBe('in getDraftStudyAction action; cannot view Study.')
         })
 
         // The page header eyebrow reads submittingLabName. Before OTTER-619 this select carried the
@@ -1602,10 +1623,7 @@ describe('Request Study Actions', () => {
                 .set({ report: JSON.stringify({ codeExplanation: 'describes round 1' }) })
                 .where('studyJobId', '=', job.id)
                 .execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             actionResult(
@@ -1635,10 +1653,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             actionResult(
@@ -1679,10 +1694,7 @@ describe('Request Study Actions', () => {
                 [2, 'second round'],
                 [3, 'third round'],
             ] as const) {
-                await db
-                    .insertInto('jobStatusChange')
-                    .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                    .execute()
+                await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
                 await writeWorkspaceFiles(root, study.id, { 'main.R': `round${round}` })
                 actionResult(
                     await resubmitStudyCodeAction({
@@ -1718,13 +1730,8 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', userId: user.id },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { userId: user.id })
             await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
             const filesBefore = await codeFilesFor(study.id)
             vi.mocked(aws.deleteFolderContents).mockClear()
@@ -1760,10 +1767,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
             await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
@@ -1794,10 +1798,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             await ensureRoundJobForUpload(db, study.id)
             expect(await jobCount(study.id)).toBe(1)
@@ -1832,10 +1833,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             // A change request reopens the round for /resubmit, never for /code.
             expectCodeLocked(await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R'))
@@ -2080,12 +2078,13 @@ describe('Request Study Actions', () => {
 
         it('creates a new job, records the resubmission note, clears the draft, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
+            const { study, job } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
+                jobStatus: 'CODE-SUBMITTED',
             })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
             await db
                 .updateTable('study')
                 .set({ codeResubmissionNoteDraft: 'work in progress' })
@@ -2146,10 +2145,10 @@ describe('Request Study Actions', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
+                jobStatus: 'CODE-SUBMITTED',
             })
-            // The round the change request was asked about, so the resubmit opens round 2.
-            await insertStatus(job.id, 'CODE-SUBMITTED')
+            // A change request on round 1, so the resubmit opens round 2.
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
             const staleExplanation = 'Summary of the previously submitted code'
             await db
                 .insertInto('studyReview')
@@ -2542,8 +2541,13 @@ describe('getDraftStudyAction subject (MA-6)', () => {
         const result = await getDraftStudyAction({ studyId })
         const denied = (result as { error: { permission_denied: string } }).error.permission_denied
 
-        expect(denied).toContain(studyId)
+        expect(denied).not.toContain(studyId)
         expect(denied).not.toContain('Confidential draft title')
         expect(denied).not.toContain('Confidential research question')
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(studyId)
+        expect(warning).not.toContain('Confidential draft title')
+        expect(warning).not.toContain('Confidential research question')
     })
 })

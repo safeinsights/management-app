@@ -227,8 +227,14 @@ export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<
 
 // Only the default variant takes the focus border: unstyled inputs, which Mantine also uses inside
 // its own components, are meant to show none.
-export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record<string, string> } => ({
+// Figma puts the error row Spacing/xs below the input (OTTER-952); Mantine's offset is half that.
+export const inputVars = (
+    _theme: unknown,
+    props: InputProps,
+    ctx?: { offsetBottom?: boolean },
+): { wrapper: Record<string, string> } => ({
     wrapper: {
+        ...(ctx?.offsetBottom ? { '--input-margin-bottom': 'var(--mantine-spacing-xs)' } : {}),
         '--input-disabled-bg': semanticColor('surface.disabled.medium'),
         '--input-disabled-color': semanticColor('text.disabled'),
         ...(!props.variant || props.variant === 'default'

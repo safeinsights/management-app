@@ -3,6 +3,7 @@ import { db } from '@/database'
 import {
     createFakeClerkOrgs,
     enableClerkOrgSync,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
@@ -26,8 +27,7 @@ import {
 const jobsForStudy = (studyId: string) =>
     db.selectFrom('studyJob').select(['id', 'createdAt']).where('studyId', '=', studyId).orderBy('createdAt').execute()
 
-const addStatus = (studyJobId: string, status: StudyJobStatus) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
+const addStatus = (studyJobId: string, status: StudyJobStatus) => insertTestJobStatus(studyJobId, status)
 
 const addFile = (studyJobId: string) =>
     db
@@ -162,13 +162,8 @@ describe('getOrCreateCurrentRoundJob (OTTER-601)', () => {
             await addFile(job.id)
             // Forces the createdAt tie the bug depended on.
             const tied = new Date()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'RUN-COMPLETE', createdAt: tied },
-                    { studyJobId: job.id, status: 'FILES-REJECTED', createdAt: tied },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'RUN-COMPLETE', { at: tied })
+            await insertTestJobStatus(job.id, 'FILES-REJECTED', { at: tied })
 
             const result = await getOrCreateCurrentRoundJob(db, study.id)
             expect(result.created).toBe(true)

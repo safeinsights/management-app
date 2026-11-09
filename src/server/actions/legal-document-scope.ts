@@ -1,9 +1,5 @@
 import type { DBExecutor } from '@/database'
-import type { LegalDocumentType } from '@/database/types'
-import { GlobalLegalDocumentType, globalLegalDocumentTypes } from '@/schema/legal-document'
-
-const isGlobalType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
-    (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
+import { isGlobalLegalDocumentType } from '@/schema/legal-document'
 
 // An unknown versionId yields no audience, so every condition fails closed.
 export const scopeFromVersionId = async ({
@@ -31,7 +27,7 @@ export const scopeFromVersionId = async ({
         orgId: scope?.orgId ?? undefined,
         studyId: scope?.studyId ?? undefined,
         // Only global tos/pn bind everyone. A ropa/dopa is enforced but binds one org
-        isGlobal: scope ? isGlobalType(scope.type) : false,
+        isGlobal: scope ? isGlobalLegalDocumentType(scope.type) : false,
         audienceOrgIds: [scope?.orgId, scope?.dataPartnerId, scope?.researchLabId].filter(
             (orgId): orgId is string => orgId != null,
         ),

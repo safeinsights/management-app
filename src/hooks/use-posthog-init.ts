@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
-import { POSTHOG_HOST } from '@/lib/constants'
+import { POSTHOG_HOST, POSTHOG_SURFACE } from '@/lib/constants'
 import { expireParentDomainPostHogCookie } from '@/lib/posthog-cookie'
+import { IS_DEV } from '@/lib/config'
 
 let initialized = false
 
@@ -17,7 +18,13 @@ export function usePostHogInit(projectToken: string) {
             // Each environment is its own project, yet a parent-domain cookie reached all of them and
             // pushed server action headers past the origin limit (OTTER-797).
             cross_subdomain_cookie: false,
-            debug: process.env.NODE_ENV === 'development',
+            // Not posthog.register(): reset() on sign-out clears registered properties, and this
+            // config outlives it.
+            before_send: (event) => {
+                if (event) event.properties = { ...event.properties, surface: POSTHOG_SURFACE }
+                return event
+            },
+            debug: IS_DEV,
         })
     }, [projectToken])
 }

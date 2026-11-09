@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { RawStudyState, RawJob } from './state.types'
+import { rawJob } from '@/tests/unit/job-histories'
+import type { RawStudyState } from './state.types'
 import {
     codeDecisionForScreen,
     isErroredOutputsSharedOutcome,
     isFeedbackOnlyOutcome,
     isOutputsSharedOutcome,
+    latestJob,
     projectStudyState,
 } from './state'
 import { resolveResearcherCodeScreen, resolveScreen } from './resolve'
 
-const job = (id: string, statuses: string[]): RawJob => ({
-    id,
-    statusChanges: statuses.map((status) => ({ status: status as RawJob['statusChanges'][number]['status'] })),
-})
+const job = rawJob
 
 const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     status: 'DRAFT',
@@ -33,7 +32,7 @@ const raw = (overrides: Partial<RawStudyState> = {}): RawStudyState => ({
     ...overrides,
 })
 
-// v7 ids are insertion-ordered, so lexically-increasing ids make max(id) the latest round.
+// Ids break ties between jobs on the same round.
 const ID1 = '019000000000-0000-0000-0000-000000000001'
 const ID2 = '019000000000-0000-0000-0000-000000000002'
 
@@ -46,7 +45,6 @@ describe('projectStudyState', () => {
         expect(s.codeAwaitingDecision).toBe(false)
         expect(s.hasResults).toBe(false)
         expect(s.isDraft).toBe(true)
-        expect(s.submissionRound).toBe(0)
     })
 
     it('CODE-APPROVED stays approved even with a later CODE-SCANNED on the same job', () => {
@@ -63,7 +61,6 @@ describe('projectStudyState', () => {
         const s = projectStudyState(raw({ status: 'APPROVED', jobs: [older, newer] }))
         expect(s.codeDecision).toBeNull()
         expect(s.codeAwaitingDecision).toBe(true)
-        expect(s.submissionRound).toBe(2)
     })
 
     // A same-job resubmit appends a second CODE-SUBMITTED, so submittedCount exceeds decisionCount
@@ -220,6 +217,26 @@ describe('projectStudyState', () => {
             expect(projectStudyState(raw({ status, piUserId: 'pi-1' })).hasStep2Progress).toBe(false)
             expect(projectStudyState(raw({ status, hasStep2CollabDoc: true })).hasStep2Progress).toBe(false)
         }
+    })
+})
+
+// The rule of latestJobQuery; real histories never order rounds and ids differently, so pin it here.
+describe('latestJob', () => {
+    it('selects the higher round before the newer id', () => {
+        const older = job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], 2)
+        const newer = job(ID2, ['CODE-SUBMITTED'], 1)
+        expect(latestJob([older, newer])).toBe(older)
+    })
+
+    it('skips a newer job that is still INITIATED', () => {
+        const decided = job(ID1, ['INITIATED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED'])
+        const opened = job(ID2, ['INITIATED'], 2)
+        expect(latestJob([decided, opened])).toBe(decided)
+    })
+
+    it('selects the INITIATED job when no job is submitted', () => {
+        const opened = job(ID1, ['INITIATED'])
+        expect(latestJob([opened])).toBe(opened)
     })
 })
 

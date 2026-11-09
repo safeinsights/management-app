@@ -20,6 +20,7 @@ export type FakeFixture = {
     firstName: string
     lastName: string
     orgs: Record<string, FakeOrg>
+    backupCodeEnabled?: boolean
 }
 
 const ORG = {

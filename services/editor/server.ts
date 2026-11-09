@@ -16,12 +16,12 @@ import {
     shouldPersistDocument,
     studyIdForDocument,
 } from './auth.ts'
-import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
-import { RDS_SSL, resolveDatabaseURL } from '../../src/lib/db-connection.ts'
+import { RDS_SSL } from '../../src/lib/db-connection.ts'
 import { pgPoolFactory, ResilientPool } from '../../src/lib/resilient-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
 import { mirrorProposalTitleToStudy } from './title-mirror.ts'
 import { editorUserIds, markStudyOpenedByEditors } from './study-visit.ts'
+import { databaseURL, env } from '../../src/server/config.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
 // logging when authentication has already failed. Returns null on any error.
@@ -41,13 +41,13 @@ function log(event: string, fields: Record<string, unknown> = {}): void {
     process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + '\n')
 }
 
-const jwtKey = process.env.CLERK_JWT_KEY
+const jwtKey = env.CLERK_JWT_KEY
 if (!jwtKey) {
     // Fail closed: refuse to start rather than silently allow anonymous WS connections.
     throw new Error('CLERK_JWT_KEY is required')
 }
-const secretKey = process.env.CLERK_SECRET_KEY
-const authorizedParties = (process.env.CLERK_AUTHORIZED_PARTIES ?? '')
+const secretKey = env.CLERK_SECRET_KEY
+const authorizedParties = (env.CLERK_AUTHORIZED_PARTIES ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -56,8 +56,8 @@ log('startup.config', {
     hasJwtKey: !!jwtKey,
     hasSecretKey: !!secretKey,
     authorizedParties,
-    hasDatabaseUrl: !!process.env.DATABASE_URL,
-    hasDbSecretArn: !!process.env.DB_SECRET_ARN,
+    hasDatabaseUrl: !!env.DATABASE_URL,
+    hasDbSecretArn: !!env.DB_SECRET_ARN,
     nodeVersion: process.version,
 })
 
@@ -65,12 +65,11 @@ const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
 // ResilientPool re-reads the secret and rebuilds itself if a deploy rotates the DB password, so the
 // long-running editor task recovers without a restart (OTTER-626).
-const resolveConnectionString = () => resolveDatabaseURL(process.env, new SecretsManagerClient())
-log('db.config.source', { source: process.env.DATABASE_URL ? 'DATABASE_URL' : 'secretsManager' })
+log('db.config.source', { source: env.DATABASE_URL ? 'DATABASE_URL' : 'secretsManager' })
 const pool = new ResilientPool(
-    await resolveConnectionString(),
-    pgPoolFactory(process.env.DATABASE_URL ? undefined : RDS_SSL),
-    resolveConnectionString,
+    await databaseURL(),
+    pgPoolFactory(env.DATABASE_URL ? undefined : RDS_SSL),
+    databaseURL,
     () => log('db.credentials.rotated'),
 )
 pool.on('error', (err) => log('db.pool.error', { message: err.message }))
