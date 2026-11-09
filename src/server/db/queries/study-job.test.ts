@@ -4,11 +4,14 @@ import {
     expect,
     insertTestJob,
     insertTestJobStatus,
+    insertTestLaterJob,
     insertTestStudyJobData,
     it,
+    mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { seedJobFileRow } from '@/tests/artifact.helpers'
 import type { StudyJobStatus } from '@/database/types'
-import { jobRound } from './study-job'
+import { jobRound, latestSubmittedJobForStudy } from './study-job'
 
 // Explicit timestamps, so the order of the rows under test is never left to the clock.
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -93,5 +96,21 @@ describe('the stored job round', () => {
         const openedJob = await insertTestJob(study.id)
 
         expect(await jobRound(openedJob.id, db)).toBe(2)
+    })
+})
+
+// OTTER-882: the reviewer's code run card reads this job, so an earlier run's files must never ride along.
+describe('latestSubmittedJobForStudy', () => {
+    it('returns the latest run with only its own files', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job: earlierJob } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await seedJobFileRow(earlierJob.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        const latestJob = await insertTestLaterJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
+        const latestFile = await seedJobFileRow(latestJob.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+
+        const job = await latestSubmittedJobForStudy(study.id)
+
+        expect(job?.id).toBe(latestJob.id)
+        expect(job?.files.map((file) => file.id)).toEqual([latestFile.id])
     })
 })

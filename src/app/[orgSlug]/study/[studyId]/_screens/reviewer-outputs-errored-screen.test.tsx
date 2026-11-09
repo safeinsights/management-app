@@ -4,6 +4,8 @@ import {
     actionResult,
     db,
     fireEvent,
+    insertTestJobStatuses,
+    insertTestLaterJob,
     insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -479,5 +481,46 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
         expect(rows).toHaveLength(1)
         expect(rows[0].action).toBe('VIEWED')
         expect(rows[0].filePath).toBe('run.log')
+    })
+})
+
+// OTTER-882: the code run card shows the latest run alone. An earlier run's files, even one with the
+// same name, belong to the code run history.
+describe('ReviewerOutputsErroredScreen with an earlier run', () => {
+    it("lists only the latest run's files", async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study: dbStudy, job: earlierJob } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'JOB-ERRORED',
+        })
+        await insertTestJobStatuses(earlierJob.id, ['FILES-REJECTED'])
+        const latestJob = await insertTestLaterJob(dbStudy.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'])
+        await seedEncryptedArtifact(earlierJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'earlier.log', content: 'earlier' },
+                { name: 'run.log', content: 'earlier' },
+            ],
+        })
+        await seedEncryptedArtifact(latestJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'latest.log', content: 'latest' },
+                { name: 'run.log', content: 'latest' },
+            ],
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        await screen.findByRole('button', { name: 'View' })
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
+
+        expect(screen.getByRole('button', { name: 'latest.log' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'run.log' })).toHaveLength(1)
+        expect(screen.queryByRole('button', { name: 'earlier.log' })).toBeNull()
     })
 })
