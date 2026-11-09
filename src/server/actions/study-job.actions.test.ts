@@ -354,19 +354,63 @@ describe('Study Job Actions', () => {
                 orgType: 'lab',
             })
 
+        const withholdOutputs = async ({ enclave, job }: Fixture) =>
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'Outputs withheld.',
+                    sharedFiles: [],
+                }),
+            )
+
         // Sequentially, which is the guard the action actually provides; see the race documented on
         // the insert for what two overlapping visits do.
-        test('records the lab view of a released decision once, on the decided job', async () => {
+        test('records the lab decrypting shared outputs once, on the decided job', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(await viewedRows(fixture.job.id)).toEqual([
+                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
+            ])
+        })
+
+        test('does not count a visit to shared outputs that are still encrypted', async () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)
             signInAsResearcher(fixture)
 
             actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
+        })
+
+        test('counts a visit to feedback-only, where there is nothing to decrypt', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await withholdOutputs(fixture)
+            signInAsResearcher(fixture)
+
             actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
 
-            expect(await viewedRows(fixture.job.id)).toEqual([
-                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
-            ])
+            expect(await viewedRows(fixture.job.id)).toHaveLength(1)
+        })
+
+        test.each([
+            ['shared outputs', approve],
+            ['feedback only', withholdOutputs],
+        ])('never marks an errored run reviewed: %s', async (_, decide) => {
+            const fixture = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
+            await decide(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
 
         // OTTER-937: viewing moves the researcher's badge, so the view itself must count as the visit.
@@ -378,7 +422,7 @@ describe('Study Job Actions', () => {
             await stampStudyOpened(fixture.study.id, [fixture.researcher.id, coAuthor.id], earlier)
             signInAsResearcher(fixture)
 
-            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
 
             expect(await isUnreadOnOrgDashboard(fixture.lab.slug, fixture.study.id, 'researcher')).toBe(false)
             expect(await studyOpenedAt(fixture.study.id, coAuthor.id)).toEqual(earlier)
@@ -399,7 +443,7 @@ describe('Study Job Actions', () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)
 
-            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
 
             expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
