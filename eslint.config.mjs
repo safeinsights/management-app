@@ -211,8 +211,8 @@ const eslintConfig = [
     },
     // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
     // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
-    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seed's
-    // fail-closed checks.
+    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seeds'
+    // fail-closed checks, which the migrator bundle runs without @/server/config.
     {
         files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
         ignores: [
@@ -223,6 +223,7 @@ const eslintConfig = [
             'src/instrumentation.ts',
             'src/instrumentation-client.ts',
             'src/database/seeds/1743608138837_test_users.ts',
+            'src/database/seeds/1793200000000_sample_studies.ts',
         ],
         rules: {
             'no-restricted-syntax': [

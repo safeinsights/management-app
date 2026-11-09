@@ -54,6 +54,12 @@ describe('legalAcknowledgementBody', () => {
         )
     })
 
+    it('sets the binding org name in semibold', () => {
+        renderWithProviders(<>{legalAcknowledgementBody(pdfDoc('DOPA', false, 'Acme Lab'))}</>)
+
+        expect(screen.getByText('Acme Lab').style.fontWeight).toBe('var(--si-font-weight-semibold)')
+    })
+
     it('links a pdf agreement to its signed url in a new tab', () => {
         renderWithProviders(
             <>{legalAcknowledgementBody(pdfDoc('ROPA', false, 'Acme Lab', 'https://files.example/ropa.pdf'))}</>,
@@ -74,10 +80,10 @@ describe('legalAcknowledgementBody', () => {
 describe('legalAcknowledgementCheckboxLabel', () => {
     it('says "updated" only for a document the user acknowledged an earlier version of', () => {
         expect(legalAcknowledgementCheckboxLabel(markdownDoc('TOS', true))).toBe(
-            'I have read and acknowledge the updated Terms of Service',
+            'I have read and acknowledge the updated Terms of Service.',
         )
         expect(legalAcknowledgementCheckboxLabel(markdownDoc('PN', false))).toBe(
-            'I have read and acknowledge the Privacy Notice',
+            'I have read and acknowledge the Privacy Notice.',
         )
     })
 })

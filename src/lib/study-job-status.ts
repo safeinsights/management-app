@@ -1,7 +1,8 @@
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import { ROUND_CLOSING_JOB_STATUSES, type JobStatus, type StudyStatusValue } from '@/lib/job-status-rules'
+// Relative: the sample-data seed loads this file under kysely-ctl, which does not resolve '@/'.
+import { ROUND_CLOSING_JOB_STATUSES, type JobStatus, type StudyStatusValue } from './job-status-rules'
 
-export { CODE_ROUND_CLOSING_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/job-status-rules'
+export { CODE_ROUND_CLOSING_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from './job-status-rules'
 
 type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 type Assert<T extends true> = T
