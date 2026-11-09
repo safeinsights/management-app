@@ -4,7 +4,7 @@ import { getStudyFilesPath } from '@/server/workspace-files'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
 import { withStudySubject } from './study-subject'
 import {
     copyStarterCodeIntoWorkspace,
@@ -139,7 +139,7 @@ const requireIdeOwner = async (db: DBExecutor, studyId: string, userId: string) 
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow()
 
-    if (ideOwnerId !== userId) throw new Error('The IDE for this study is locked to another researcher')
+    if (ideOwnerId !== userId) throw new ActionFailure('The IDE for this study is locked to another researcher')
 }
 
 // Kept out of the polled status action: the baseline reset and build POST must run once per

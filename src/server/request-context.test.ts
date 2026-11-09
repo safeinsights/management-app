@@ -1,5 +1,5 @@
 import { AsyncResource } from 'node:async_hooks'
-import { AccessDeniedError } from '@/lib/errors'
+import { AccessDeniedError, UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 import { deferred } from '@/server/events'
 import {
@@ -205,7 +205,7 @@ describe('withTransaction', () => {
                 throw new Error('outer')
             })
 
-            expect(await action()).toEqual({ error: 'outer' })
+            expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
             await flushDeferred()
             expect(handler).toHaveBeenCalledOnce()
         })

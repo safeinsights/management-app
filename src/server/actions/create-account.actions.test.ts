@@ -995,7 +995,7 @@ describe('Create Account Actions', () => {
 
     it('getOrgInfoForInviteAction throws error for invalid invite', async () => {
         const result = await getOrgInfoForInviteAction({ inviteId: v7() })
-        expect(result).toEqual({ error: expect.stringContaining('no result') })
+        expect(result).toEqual({ error: { invite: 'not found' } })
     })
 
     it('getOrgInfoForInviteAction discloses nothing for an already-claimed invite', async () => {
@@ -1012,7 +1012,7 @@ describe('Create Account Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = await getOrgInfoForInviteAction({ inviteId: invite.id })
-        expect(result).toEqual({ error: expect.stringContaining('no result') })
+        expect(result).toEqual({ error: { invite: 'not found' } })
     })
 
     it('onCreateAccountAction refuses an already-claimed invite', async () => {

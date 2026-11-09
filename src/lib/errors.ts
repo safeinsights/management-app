@@ -36,7 +36,11 @@ export function extractClerkCodeAndMessage(error: ClerkAPIErrorResponse) {
 
 export type ActionError = {
     error: string | Record<string, string>
+    // The Sentry event the server raised for an unexpected error.
+    eventId?: string
 }
+
+export const UNEXPECTED_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 
 export type ActionResponse<T> = T | ActionError
 
@@ -105,11 +109,6 @@ export function isStaleDeploymentError(error: unknown): boolean {
     return error instanceof Error && error.name === 'UnrecognizedActionError'
 }
 
-// Checked by name, not instanceof: Next bundles instrumentation.ts apart from the app modules.
-export class ActionResultError extends Error {
-    name = 'ActionResultError'
-}
-
 export const isActionResultError = (error: unknown): boolean =>
     error instanceof Error && error.name === 'ActionResultError'
 
@@ -119,8 +118,21 @@ export const STALE_DEPLOYMENT_MESSAGE =
     'SafeInsights was updated while this page was open. Reload the page to continue.'
 
 export class ActionFailure extends Error {
-    constructor(public error: ActionError['error']) {
+    constructor(
+        public error: ActionError['error'],
+        public eventId?: string,
+    ) {
         super(typeof error === 'string' ? error : JSON.stringify(error))
+    }
+}
+
+// Checked by name, not instanceof: Next bundles instrumentation.ts apart from the app modules.
+export class ActionResultError extends ActionFailure {
+    name = 'ActionResultError'
+
+    constructor(response: ActionError) {
+        super(response.error, response.eventId)
+        this.message = errorToString(response)
     }
 }
 

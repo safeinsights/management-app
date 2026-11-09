@@ -13,6 +13,7 @@ import {
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 
 const configState = { PROD_ENV: false }
 vi.mock('@/server/config', async (importOriginal) => {
@@ -338,7 +339,7 @@ describe('deleteStudyCompletely inside a mutating action', () => {
             throw new Error('rolled back')
         })
 
-        expect(await action()).toEqual({ error: 'rolled back' })
+        expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
 
         expect(deleteFolderContents).not.toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
         const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()

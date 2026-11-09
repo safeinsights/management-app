@@ -71,10 +71,9 @@ describe('Org Actions', () => {
             expect(org).toMatchObject(newOrg)
         })
 
-        it('throws error when duplicate organization name exists for new org', async () => {
-            vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        it('refuses a duplicate slug with copy the admin can act on', async () => {
             const result = await insertOrgAction(newOrg)
-            expect(result).toEqual({ error: expect.stringContaining('duplicate key value violates unique constraint') })
+            expect(result).toEqual({ error: `An organization with the slug "${newOrg.slug}" already exists.` })
         })
 
         it('throws error with malformed input', async () => {
