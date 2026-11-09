@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import {
+    codeRunEndedAt,
     compareOutputFiles,
     isOutputsReviewEditable,
     OUTPUTS_DECISION_ERRORS,
@@ -139,5 +140,40 @@ describe('compareOutputFiles', () => {
 
         expect(order(files)).toEqual(expected)
         expect(order([...files].reverse())).toEqual(expected)
+    })
+})
+
+describe('codeRunEndedAt', () => {
+    it('returns null when the run never finished', () => {
+        expect(codeRunEndedAt([])).toBeNull()
+        expect(codeRunEndedAt([{ status: 'JOB-RUNNING', createdAt: new Date() }])).toBeNull()
+    })
+
+    it('dates an errored run by its error and a completed run by its completion', () => {
+        const erroredAt = new Date('2026-03-05T12:00:00Z')
+        const completedAt = new Date('2026-03-06T12:00:00Z')
+        expect(codeRunEndedAt([{ status: 'JOB-ERRORED', createdAt: erroredAt }])).toBe(erroredAt)
+        expect(codeRunEndedAt([{ status: 'RUN-COMPLETE', createdAt: completedAt }])).toBe(completedAt)
+    })
+
+    it('ignores a later outputs decision', () => {
+        const completedAt = new Date('2026-03-05T12:00:00Z')
+        expect(
+            codeRunEndedAt([
+                { status: 'FILES-APPROVED', createdAt: new Date('2026-03-09T12:00:00Z') },
+                { status: 'RUN-COMPLETE', createdAt: completedAt },
+            ]),
+        ).toBe(completedAt)
+    })
+
+    it('picks the latest end regardless of array order', () => {
+        const erroredAt = new Date('2026-03-05T12:00:00Z')
+        const completedAt = new Date('2026-03-06T12:00:00Z')
+        expect(
+            codeRunEndedAt([
+                { status: 'RUN-COMPLETE', createdAt: completedAt },
+                { status: 'JOB-ERRORED', createdAt: erroredAt },
+            ]),
+        ).toBe(completedAt)
     })
 })

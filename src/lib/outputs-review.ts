@@ -30,6 +30,17 @@ export const OUTPUTS_REVIEWABLE_JOB_STATUSES: readonly StudyJobStatus[] = ['JOB-
 const includesStatus = (jobStatuses: readonly string[], wanted: readonly StudyJobStatus[]) =>
     jobStatuses.some((status) => (wanted as readonly string[]).includes(status))
 
+// A code run is dated by when the enclave finished it, errored or not, so a later outputs decision
+// does not move it (OTTER-882).
+export const codeRunEndedAt = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+): Date | string | null =>
+    statusChanges
+        .filter((c) => OUTPUTS_REVIEWABLE_JOB_STATUSES.includes(c.status))
+        .reduce<
+            Date | string | null
+        >((latest, c) => (latest && new Date(latest) >= new Date(c.createdAt) ? latest : c.createdAt), null)
+
 export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, OUTPUTS_REVIEWABLE_JOB_STATUSES)
 
