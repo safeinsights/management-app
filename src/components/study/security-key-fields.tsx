@@ -11,22 +11,40 @@ interface SecurityKeyFieldsProps {
     job: { id: string }
     type: 'researcher' | 'reviewer'
     onDecrypted: (files: JobFileInfo[]) => void
+    onKeyAccepted?: (privateKey: string) => void
     buttonLabel?: string
+    autoFocus?: boolean
+    withLostKeyHelp?: boolean
+    value?: string
+    onValueChange?: (value: string) => void
 }
 
 // The key entry shared by every key card; each card renders its own header above it.
-export const SecurityKeyFields: FC<SecurityKeyFieldsProps> = ({ job, type, onDecrypted, buttonLabel }) => {
+export const SecurityKeyFields: FC<SecurityKeyFieldsProps> = ({
+    job,
+    type,
+    onDecrypted,
+    onKeyAccepted,
+    buttonLabel,
+    autoFocus = true,
+    withLostKeyHelp = true,
+    value: heldValue,
+    onValueChange,
+}) => {
     const { value, setValue, error, isDecrypting, isLoadingFiles, inputRef, handleSubmit } = useSecurityKeyForm({
         job,
         type,
         onDecrypted,
+        onKeyAccepted,
+        value: heldValue,
+        onValueChange,
     })
 
     return (
         <>
             <SecurityKeyInput
                 ref={inputRef}
-                autoFocus
+                autoFocus={autoFocus}
                 placeholder="Enter your security key"
                 value={value}
                 onChange={(event) => setValue(event.currentTarget.value)}
@@ -39,7 +57,7 @@ export const SecurityKeyFields: FC<SecurityKeyFieldsProps> = ({ job, type, onDec
                 idleLabel={buttonLabel}
                 onClick={handleSubmit}
             />
-            <LostKeyPopover />
+            <LostKeyPopover isVisible={withLostKeyHelp} />
         </>
     )
 }

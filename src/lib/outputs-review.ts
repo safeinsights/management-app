@@ -99,3 +99,11 @@ export const OUTPUTS_DECISION_ERRORS = {
     feedbackTooLong: overCharacterLimitError(OUTPUTS_FEEDBACK_FIELD_TITLE, OUTPUTS_FEEDBACK_MAX_CHARACTERS),
     decisionMissing: 'Select an option before submitting',
 } as const
+
+// One shape for an outputs decision wherever it is shown, so the decided page and the code run
+// history label the same decision the same way.
+export const toOutputsFeedbackEntry = <T extends { round: number | null }>(row: T) => ({
+    ...row,
+    entryType: 'REVIEWER-FEEDBACK' as const,
+    version: row.round,
+})

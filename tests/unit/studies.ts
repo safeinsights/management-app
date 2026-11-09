@@ -466,18 +466,35 @@ export type PriorCodeRunOptions = {
     ranAt: Date
     outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
     decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+    feedback?: { authorId: string; text: string }
 }
 
 // An earlier, already-reviewed code run. The writer numbers a job after every job already on the
 // study, so it must be written before the current run is opened (see `priorRuns` on insertTestStudyJobData).
 export const insertTestPriorCodeRun = async (
     studyId: string,
-    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED' }: PriorCodeRunOptions,
+    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED', feedback }: PriorCodeRunOptions,
 ) => {
     const submittedAt = new Date(ranAt.getTime() - 60_000)
     const job = await insertTestJob(studyId, { createdAt: submittedAt })
     await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
     await insertTestJobStatus(job.id, outcome, { at: ranAt })
     await insertTestJobStatus(job.id, decision, { at: new Date(ranAt.getTime() + 60_000) })
+    if (feedback) {
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId,
+                studyJobId: job.id,
+                authorId: feedback.authorId,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: decision === 'FILES-APPROVED' ? 'APPROVE' : 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson(feedback.text)),
+                round: 1,
+                createdAt: new Date(ranAt.getTime() + 60_000),
+            })
+            .execute()
+    }
     return job
 }

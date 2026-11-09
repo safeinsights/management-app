@@ -1,15 +1,100 @@
 'use client'
 
-import { ActionIcon, Badge, Collapse, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { ActionIcon, Alert, Badge, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core'
+import { useDisclosure, useReducedMotion } from '@mantine/hooks'
+import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
+import { useQueryClient } from '@/common'
+import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
 import { LocalDateTime } from '@/components/local-date-time'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
+import { FeedbackEntries } from '@/components/study/feedback-and-notes'
+import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
+import { SecurityKeyFields } from '@/components/study/security-key-fields'
+import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
+import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, decryptJobFiles } from '@/hooks/use-decrypt-files'
+import { APP_SHELL } from '@/lib/constants'
+import { toOutputsFeedbackEntry } from '@/lib/outputs-review'
+import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
 
 const VISIBLE_RUNS = 3
+
+// How much of an opened row must show below its header: enough to see what it holds, never all of it.
+const CONTENT_PEEK_PX = 160
+
+export type RunOutputs =
+    | { status: 'decrypting' }
+    | { status: 'unlocked'; files: JobFileInfo[] }
+    | { status: 'wrong-key' }
+    | { status: 'integrity' }
+    | { status: 'no-files' }
+    | { status: 'fetch-failed' }
+
+async function decryptPriorRun(
+    queryClient: ReturnType<typeof useQueryClient>,
+    jobId: string,
+    privateKey: string,
+): Promise<RunOutputs> {
+    let encryptedFiles
+    try {
+        encryptedFiles = await queryClient.fetchQuery(encryptedFilesQuery(jobId, 'reviewer'))
+    } catch {
+        return { status: 'fetch-failed' }
+    }
+    if (!encryptedFiles.length) return { status: 'no-files' }
+
+    try {
+        const files = await decryptJobFiles(encryptedFiles, privateKey, jobId)
+        return files.length ? { status: 'unlocked', files } : { status: 'wrong-key' }
+    } catch (err) {
+        if (err instanceof ArchiveIntegrityError) {
+            // Sent to Sentry with no toast: the row shows its own message, and this runs for every
+            // earlier run when the latest one unlocks.
+            captureError(err)
+            return { status: 'integrity' }
+        }
+        return { status: 'wrong-key' }
+    }
+}
+
+// Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
+// is dropped: it is only ever an argument here, never state, a ref or storage.
+export function usePriorRunOutputs(runs: PriorCodeRun[]) {
+    const queryClient = useQueryClient()
+    const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
+    const setRun = (runId: string, outputs: RunOutputs) => setByRun((current) => ({ ...current, [runId]: outputs }))
+
+    return {
+        byRun,
+        decryptWith: (privateKey: string) => {
+            setByRun(Object.fromEntries(runs.map((run) => [run.id, { status: 'decrypting' } as const])))
+            for (const run of runs) {
+                void decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => setRun(run.id, outputs))
+            }
+        },
+        unlockRun: (runId: string, files: JobFileInfo[]) => setRun(runId, { status: 'unlocked', files }),
+    }
+}
+
+export type PriorRunOutputs = ReturnType<typeof usePriorRunOutputs>
+
+// The header never moves when a row opens, so its position before the change is enough to decide.
+// The window scrolls under the fixed app header, so "visible" starts below it, not at 0.
+function revealRow(header: HTMLElement | null, isOpening: boolean, reduceMotion: boolean) {
+    if (!header) return
+    const { top, bottom } = header.getBoundingClientRect()
+    const behavior = reduceMotion ? 'auto' : 'smooth'
+    const visibleTop = APP_SHELL.headerHeight
+    if (top < visibleTop) {
+        window.scrollBy({ top: top - visibleTop, behavior })
+        return
+    }
+    const overflow = bottom + CONTENT_PEEK_PX - window.innerHeight
+    if (isOpening && overflow > 0) window.scrollBy({ top: Math.min(overflow, top - visibleTop), behavior })
+}
 
 // Matches the decided banner and decision email, which call a job errored if it ever errored, even
 // when a rerun in the same job then completed.
@@ -22,12 +107,13 @@ const codeRunBadges = (statusChanges: PriorCodeRun['statusChanges']): string[] =
     ].filter((label): label is string => !!label)
 }
 
-// Hide and View less only change what is shown; what the reviewer opened lives here so it comes
-// back, and is lost on refresh or navigation because it is never written to storage.
+// Hide and View less only change what is shown; what the reviewer opened and typed lives here so
+// it comes back, and is lost on refresh or navigation because it is never written to storage.
 function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [isOpen, { toggle }] = useDisclosure(false)
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
+    const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
     const caretRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
     const movesFocus = useRef(false)
@@ -45,6 +131,8 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
         toggle,
         showAll,
         visibleRuns: showAll ? runs : runs.slice(0, VISIBLE_RUNS),
+        keyDrafts,
+        setKeyDraft: (id: string, value: string) => setKeyDrafts((current) => ({ ...current, [id]: value })),
         expandedIds,
         showAllRef,
         toggleShowAll: () => {
@@ -64,19 +152,203 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     }
 }
 
-type CodeRunHistoryRowProps = {
+type RowOutputsProps = {
     run: PriorCodeRun
+    outputs: RunOutputs | undefined
+    isLatestDecrypted: boolean
+    onUnlocked: (runId: string, files: JobFileInfo[]) => void
+    keyDraft: string
+    onKeyDraftChange: (runId: string, value: string) => void
+}
+
+const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return (
+        <Stack
+            align="center"
+            gap="sm"
+            p="lg"
+            bg={semanticColor('surface.sunken')}
+            data-testid="code-run-outputs-locked"
+        >
+            <LockIcon size={24} aria-hidden="true" color={semanticColor('text.secondary')} />
+            <Text fz="sm" c={semanticColor('text.secondary')}>
+                Enter security key above to decrypt and review output files.
+            </Text>
+        </Stack>
+    )
+}
+
+const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
+    if (!isVisible) return null
+    return (
+        <Alert
+            variant="light"
+            radius={0}
+            bg={semanticColor('warning.bg.light')}
+            c={semanticColor('warning.text')}
+            icon={<WarningCircleIcon size={20} weight="fill" />}
+        >
+            <Text fz="sm" c={semanticColor('text.primary')}>
+                {children}
+            </Text>
+        </Alert>
+    )
+}
+
+// A run whose outputs need a key of their own: one the latest key did not open, or every run when
+// the latest run had nothing to decrypt and so no key was entered above.
+const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
+    isVisible,
+    run,
+    outputs,
+    onUnlocked,
+    keyDraft,
+    onKeyDraftChange,
+}) => {
+    if (!isVisible) return null
+    return (
+        <Stack gap="md">
+            <WrongKeyAlert isVisible={outputs?.status === 'wrong-key'}>
+                This run’s outputs were encrypted with your previous security key. Enter that key to view them.
+            </WrongKeyAlert>
+            <SecurityKeyFields
+                job={run}
+                type="reviewer"
+                buttonLabel="View files"
+                autoFocus={false}
+                withLostKeyHelp={false}
+                value={keyDraft}
+                onValueChange={(value) => onKeyDraftChange(run.id, value)}
+                onDecrypted={(files) => onUnlocked(run.id, files)}
+            />
+        </Stack>
+    )
+}
+
+const RunOutputsMessage: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
+    if (!isVisible) return null
+    return (
+        <Text fz="sm" c={semanticColor('text.secondary')}>
+            {children}
+        </Text>
+    )
+}
+
+const UnlockedOutputs: FC<{ jobId: string; outputs: RunOutputs | undefined }> = ({ jobId, outputs }) => {
+    if (outputs?.status !== 'unlocked') return null
+    return <OutputsFilesViewer jobId={jobId} decryptedFiles={outputs.files} variant="embedded" />
+}
+
+const DecryptingLoader: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <Loader size="sm" aria-label="Decrypting outputs" />
+}
+
+const needsOwnKey = (outputs: RunOutputs | undefined) => !outputs || outputs.status === 'wrong-key'
+
+// The unlocked table carries its own "Output files" title and Download all button.
+const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return (
+        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+            Output files
+        </Text>
+    )
+}
+
+const RunOutputsSection: FC<RowOutputsProps> = (props) => {
+    const { run, outputs, isLatestDecrypted } = props
+    const status = outputs?.status
+
+    return (
+        <Stack gap="md">
+            <OutputsTitle isVisible={status !== 'unlocked'} />
+            <LockedOutputs isVisible={!isLatestDecrypted} />
+            <DecryptingLoader isVisible={isLatestDecrypted && status === 'decrypting'} />
+            <UnlockedOutputs jobId={run.id} outputs={outputs} />
+            <RunKeyEntry {...props} isVisible={isLatestDecrypted && needsOwnKey(outputs)} />
+            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'integrity'}>
+                {ARCHIVE_INTEGRITY_MESSAGE}
+            </RunOutputsMessage>
+            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'no-files'}>
+                This run produced no output files.
+            </RunOutputsMessage>
+            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'fetch-failed'}>
+                This run’s outputs could not be loaded. Refresh the page to try again.
+            </RunOutputsMessage>
+        </Stack>
+    )
+}
+
+// Every expanded row shows this section, so "no feedback" never reads as a failure to load it.
+// Older rejections recorded the decision without a comment.
+const RunFeedback: FC<{ feedback: PriorCodeRun['feedback'] }> = ({ feedback }) => {
+    if (feedback.length > 0) {
+        return (
+            <FeedbackEntries
+                entries={feedback.map(toOutputsFeedbackEntry)}
+                alwaysExpandLatest
+                testId="code-run-feedback"
+            />
+        )
+    }
+    return (
+        <Stack gap="sm" data-testid="code-run-feedback">
+            <Text fw={fontWeight.bold} fz="sm">
+                Reviewer feedback
+            </Text>
+            <Text fz="sm" c={semanticColor('text.secondary')}>
+                No feedback was shared for this run.
+            </Text>
+        </Stack>
+    )
+}
+
+// Mounted only while the row is open, so a closed row neither fetches its archives nor relies on
+// Collapse keeping it alive (it unmounts when reduced motion is on).
+const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
+    if (!isVisible) return null
+    return (
+        <Stack gap="lg" pt="lg" data-testid="code-run-history-row-body">
+            <Divider />
+            <RunOutputsSection {...props} />
+            <RunFeedback feedback={props.run.feedback} />
+        </Stack>
+    )
+}
+
+type CodeRunHistoryRowProps = Omit<RowOutputsProps, 'outputs'> & {
+    outputs: PriorRunOutputs['byRun']
     isExpanded: boolean
     onToggle: (id: string) => void
     registerCaret: (id: string, element: HTMLButtonElement | null) => void
 }
 
-const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({ run, isExpanded, onToggle, registerCaret }) => {
+const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
+    run,
+    outputs,
+    isLatestDecrypted,
+    onUnlocked,
+    keyDraft,
+    onKeyDraftChange,
+    isExpanded,
+    onToggle,
+    registerCaret,
+}) => {
     const titleId = useId()
+    const bodyId = useId()
+    const headerRef = useRef<HTMLDivElement>(null)
+    const reduceMotion = useReducedMotion() ?? false
+
+    const toggle = () => {
+        revealRow(headerRef.current, !isExpanded, reduceMotion)
+        onToggle(run.id)
+    }
 
     return (
         <Paper withBorder p="lg" data-testid="code-run-history-row">
-            <Group justify="space-between" wrap="nowrap">
+            <Group ref={headerRef} justify="space-between" wrap="nowrap">
                 <Group gap="sm">
                     <Title id={titleId} order={4} fz="lg" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
                         Code run
@@ -91,13 +363,25 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({ run, isExpanded, onTogg
                 <ActionIcon
                     ref={(element) => registerCaret(run.id, element)}
                     variant="subtle"
-                    onClick={() => onToggle(run.id)}
+                    onClick={toggle}
                     aria-labelledby={titleId}
                     aria-expanded={isExpanded}
+                    aria-controls={bodyId}
                 >
                     <ToggleChevron isExpanded={isExpanded} />
                 </ActionIcon>
             </Group>
+            <Collapse in={isExpanded} id={bodyId}>
+                <RowBody
+                    isVisible={isExpanded}
+                    run={run}
+                    outputs={outputs[run.id]}
+                    isLatestDecrypted={isLatestDecrypted}
+                    onUnlocked={onUnlocked}
+                    keyDraft={keyDraft}
+                    onKeyDraftChange={onKeyDraftChange}
+                />
+            </Collapse>
         </Paper>
     )
 }
@@ -129,11 +413,27 @@ const ShowAllRuns: FC<ShowAllRunsProps> = ({ isVisible, showAll, total, onToggle
     )
 }
 
+type CodeRunHistoryProps = {
+    runs: PriorCodeRun[]
+    /** From usePriorRunOutputs, owned by the page so the latest run's key form can feed it. */
+    outputs?: PriorRunOutputs
+    /** True once the latest run is decrypted, or when it had nothing to decrypt. */
+    isLatestDecrypted?: boolean
+}
+
+const NO_OUTPUTS: PriorRunOutputs['byRun'] = {}
+
 // `runs` never holds the latest run, which has its own card above; with no earlier runs there is
 // no history to show.
-export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
+export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLatestDecrypted = false }) => {
     const history = useCodeRunHistory(runs)
     const listId = useId()
+
+    // A submitted key has done its job, so its text is not held any longer than the input needed it.
+    const unlockRun = (runId: string, files: JobFileInfo[]) => {
+        history.setKeyDraft(runId, '')
+        outputs?.unlockRun(runId, files)
+    }
 
     if (runs.length === 0) return null
 
@@ -158,6 +458,11 @@ export const CodeRunHistory: FC<{ runs: PriorCodeRun[] }> = ({ runs }) => {
                         <CodeRunHistoryRow
                             key={run.id}
                             run={run}
+                            outputs={outputs?.byRun ?? NO_OUTPUTS}
+                            isLatestDecrypted={isLatestDecrypted}
+                            onUnlocked={unlockRun}
+                            keyDraft={history.keyDrafts[run.id] ?? ''}
+                            onKeyDraftChange={history.setKeyDraft}
                             isExpanded={history.expandedIds.has(run.id)}
                             onToggle={history.toggleRow}
                             registerCaret={history.registerCaret}

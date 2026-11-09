@@ -183,6 +183,31 @@ describe('priorCodeRunsForStudy', () => {
         ])
     })
 
+    it("returns only each run's own outputs decision feedback", async () => {
+        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const {
+            study,
+            job: latestJob,
+            priorJobs: [older, newer],
+        } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+            priorRuns: [
+                { ranAt: daysAgo(6), feedback: { authorId: user.id, text: 'older run feedback' } },
+                { ranAt: daysAgo(3), feedback: { authorId: user.id, text: 'newer run feedback' } },
+            ],
+        })
+
+        const runs = await priorCodeRunsForStudy(study.id, latestJob.id)
+        const feedbackText = (id: string) =>
+            JSON.stringify(runs.find((run) => run.id === id)?.feedback.map((entry) => entry.body))
+
+        expect(feedbackText(newer.id)).toContain('newer run feedback')
+        expect(feedbackText(newer.id)).not.toContain('older run feedback')
+        expect(feedbackText(older.id)).toContain('older run feedback')
+        expect(runs[0].feedback[0].authorName).toBeTruthy()
+    })
+
     it('leaves out jobs that never ran', async () => {
         const {
             study,

@@ -13,10 +13,11 @@ interface CodeRunKeyFormProps {
     job: { id: string; statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }> }
     description: string
     onDecrypted: (files: JobFileInfo[]) => void
+    onKeyAccepted?: (privateKey: string) => void
 }
 
 // The reviewer's key form for the latest run. Researchers keep SecurityKeyForm.
-export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDecrypted }) => {
+export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDecrypted, onKeyAccepted }) => {
     const runEndedAt = codeRunEndedAt(job.statusChanges)
 
     return (
@@ -42,7 +43,13 @@ export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDe
                 </Stack>
                 {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
                     keys, so the researcher key set would come back empty. */}
-                <SecurityKeyFields job={job} type="reviewer" buttonLabel="View files" onDecrypted={onDecrypted} />
+                <SecurityKeyFields
+                    job={job}
+                    type="reviewer"
+                    buttonLabel="View files"
+                    onDecrypted={onDecrypted}
+                    onKeyAccepted={onKeyAccepted}
+                />
             </Stack>
         </Paper>
     )

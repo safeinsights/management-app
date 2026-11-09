@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
+    createTestQueryClient,
     fireEvent,
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -62,6 +63,80 @@ describe('SecurityKeyFields', () => {
 
         expect(screen.getByRole('textbox')).toHaveAttribute('autocomplete', 'off')
         expect(screen.getByRole('button', { name: /lost your key/i })).toBeInTheDocument()
+    })
+
+    it('hands over the accepted key only after this job decrypts', async () => {
+        const onKeyAccepted = vi.fn()
+        const privateKey = await readTestSupportFile('private_key.pem')
+        renderWithProviders(
+            <SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} onKeyAccepted={onKeyAccepted} />,
+        )
+        await screen.findByRole('button', { name: 'View' })
+
+        enterKey('not-a-real-key')
+        clickView()
+        expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+        expect(onKeyAccepted).not.toHaveBeenCalled()
+
+        enterKey(privateKey)
+        clickView()
+
+        await waitFor(() => expect(onKeyAccepted).toHaveBeenCalledWith(privateKey.trim()))
+        expect(onDecrypted).toHaveBeenCalled()
+    })
+
+    it('lets the caller hold the typed key', async () => {
+        const onValueChange = vi.fn()
+        renderWithProviders(
+            <SecurityKeyFields
+                job={job}
+                type="reviewer"
+                onDecrypted={onDecrypted}
+                value="held by the caller"
+                onValueChange={onValueChange}
+            />,
+        )
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('textbox')).toHaveValue('held by the caller')
+        enterKey('typed')
+        expect(onValueChange).toHaveBeenCalledWith('typed')
+    })
+
+    // The decrypt mutation's variables are the private key, so they must not outlive the form.
+    it('leaves no private key in the query client once the form unmounts', async () => {
+        const queryClient = createTestQueryClient()
+        const privateKey = await readTestSupportFile('private_key.pem')
+        const { unmount } = renderWithProviders(
+            <SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} />,
+            { queryClient },
+        )
+        await screen.findByRole('button', { name: 'View' })
+        enterKey(privateKey)
+        clickView()
+        await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
+
+        unmount()
+
+        await waitFor(() => expect(queryClient.getMutationCache().getAll()).toEqual([]))
+    })
+
+    // A code run history row sits among others, so it neither grabs focus nor repeats the help.
+    it('can leave focus alone and drop the lost-key help', async () => {
+        renderWithProviders(
+            <SecurityKeyFields
+                job={job}
+                type="reviewer"
+                onDecrypted={onDecrypted}
+                autoFocus={false}
+                withLostKeyHelp={false}
+            />,
+        )
+
+        await screen.findByRole('button', { name: 'View' })
+
+        expect(screen.getByRole('textbox')).not.toHaveFocus()
+        expect(screen.queryByRole('button', { name: /lost your key/i })).toBeNull()
     })
 
     it('labels the button as the caller asks and still decrypts', async () => {

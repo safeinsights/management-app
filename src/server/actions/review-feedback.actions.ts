@@ -1,6 +1,7 @@
 'use server'
 
 import { type DBExecutor } from '@/database'
+import { toOutputsFeedbackEntry } from '@/lib/outputs-review'
 import { ActionSuccessType } from '@/lib/types'
 import { getProposalFeedbackForStudy } from '@/server/db/queries'
 import { Action, z } from './action'
@@ -92,16 +93,7 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
             .execute()
 
         // Outputs decisions carry no criteria, unlike code reviews.
-        return rows.map((row) => ({
-            id: row.id,
-            authorId: row.authorId,
-            entryType: 'REVIEWER-FEEDBACK' as const,
-            decision: row.decision,
-            body: row.body,
-            createdAt: row.createdAt,
-            authorName: row.authorName,
-            version: row.round ?? null,
-        }))
+        return rows.map(toOutputsFeedbackEntry)
     })
 
 export type OutputsDecisionFeedbackEntry = ActionSuccessType<typeof getOutputsDecisionFeedbackAction>[number]
