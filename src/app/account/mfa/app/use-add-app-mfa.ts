@@ -1,16 +1,20 @@
 'use client'
 
 import { useEffect, useEffectEvent, useState } from 'react'
-import { useReverification } from '@clerk/nextjs'
 import type { TOTPResource } from '@clerk/nextjs/types'
 import { useForm } from '@/common'
 import { reportError } from '@/components/errors'
+import { errorToString, isClerkApiError } from '@/lib/errors'
 import logger from '@/lib/logger'
+import { enrollAndReadCodes, type EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
 import { useRequireUser } from '../use-require-user'
 
 const REGENERATE_COOLDOWN_MS = 30000
 
 export type AddAppMfaStep = 'add' | 'success'
+
+const isIncorrectCode = (err: unknown) =>
+    isClerkApiError(err) && err.errors.some((e) => e.code === 'form_code_incorrect')
 
 function secretFromUri(uri?: string) {
     if (!uri) return null
@@ -24,9 +28,7 @@ function secretFromUri(uri?: string) {
 
 export function useAddAppMfa() {
     const { isLoaded, user } = useRequireUser()
-    const createBackupCode = useReverification(() => user?.createBackupCode())
-    const [step, setStep] = useState<AddAppMfaStep>('add')
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+    const [enrolled, setEnrolled] = useState<EnrolledCodes | null>(null)
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [isVerifying, setIsVerifying] = useState(false)
@@ -68,30 +70,28 @@ export function useAddAppMfa() {
     }
 
     const verifyTotp = async (values: { code: string }) => {
+        if (!user) return
         setIsVerifying(true)
         try {
-            await user?.verifyTOTP({ code: values.code })
-            if (user && !user.backupCodeEnabled) {
-                try {
-                    const resource = await createBackupCode()
-                    setBackupCodes(resource?.codes || [])
-                } catch (err) {
-                    logger.error({ err, message: 'Error generating backup codes' })
-                    setBackupCodes([])
-                }
-            }
-            setStep('success')
-        } catch {
-            form.setErrors({ code: 'Invalid verification code. Please try again.' })
+            setEnrolled(await enrollAndReadCodes(user, () => user.verifyTOTP({ code: values.code })))
+        } catch (err) {
+            if (!isIncorrectCode(err)) logger.error('Error verifying TOTP', err)
+            form.setErrors({
+                code: errorToString(err, {
+                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
+                }),
+            })
         } finally {
             setIsVerifying(false)
         }
     }
 
+    const step: AddAppMfaStep = enrolled ? 'success' : 'add'
+
     return {
         isReady: isLoaded && Boolean(user),
         step,
-        backupCodes,
+        enrolled,
         totpUri: totp?.uri,
         secret: secretFromUri(totp?.uri),
         canRegenerate,

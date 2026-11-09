@@ -10,8 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Review proposal' }
 }
 
-// Shows the decided proposal even when the canonical /review screen is code-stage. Decided-ness
-// comes from proposalReviewDecision because code submissions flip status back to PENDING-REVIEW.
+// Shows the decided proposal even when the canonical /review screen is code-stage.
 export default async function ReviewProposalPage(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
     const { orgSlug, studyId } = await props.params
 

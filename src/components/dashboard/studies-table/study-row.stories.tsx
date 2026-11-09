@@ -32,6 +32,8 @@ const study = (o: Partial<StudyRowType> = {}): StudyRowType => ({
     impact: null,
     additionalNotes: null,
     hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
     orgName: 'Mars University',
     orgSlug: 'mars-university',
     reviewingEnclaveName: 'Mars University Data Partner',

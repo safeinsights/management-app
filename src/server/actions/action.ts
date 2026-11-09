@@ -4,7 +4,9 @@ import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 
 import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
+import { UUID_RE } from '@/lib/collaboration-documents'
 import logger from '@/lib/logger'
+import { isSensitiveKey } from '@/lib/sentry-scrub-text'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 import { setSentryFromSession } from '@/lib/sentry'
@@ -42,6 +44,16 @@ export async function currentSession<T extends boolean>(
 
     return ctx?.session as UserSession
 }
+
+// The subject holds the caller's params and whatever a middleware loaded, so Sentry gets its ids only.
+// Sensitive keys are skipped: an id such as inviteId is a bearer token, and console.warn is not scrubbed.
+const subjectIds = (subject: Record<string, unknown>) =>
+    Object.fromEntries(
+        Object.entries(subject).filter(
+            ([key, value]) =>
+                /(^id|Id)$/.test(key) && !isSensitiveKey(key) && typeof value === 'string' && UUID_RE.test(value),
+        ),
+    )
 
 export class Action<
     Args = unknown,
@@ -88,17 +100,15 @@ export class Action<
                 throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
             }
 
-            // Lands in the permission_denied message returned to a refused caller, so middleware
-            // must return ids and slugs only — never a whole row, never secrets (OTTER-724 / MA-6).
+            // CASL checks these keys. Keep middleware output to ids and status, since a row
+            // key can override a caller param of the same name.
             const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit', 'org']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (!session.ability.can(action, abilitySubject as any)) {
-                const msg =
-                    `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
-                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n`
-                logger.warn(`user ${session.user.id} ${msg}`)
+                const msg = `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.`
+                logger.warn(`user ${session.user.id} ${msg} ids: ${JSON.stringify(subjectIds(abilityArgs))}`)
                 throw new ActionFailure({ permission_denied: msg })
             }
 

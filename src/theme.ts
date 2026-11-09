@@ -16,6 +16,7 @@ import {
     MantineColorsTuple,
     Modal,
     Notification,
+    PinInput,
     Radio,
     rem,
     Table,
@@ -227,8 +228,14 @@ export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<
 
 // Only the default variant takes the focus border: unstyled inputs, which Mantine also uses inside
 // its own components, are meant to show none.
-export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record<string, string> } => ({
+// Figma puts the error row Spacing/xs below the input (OTTER-952); Mantine's offset is half that.
+export const inputVars = (
+    _theme: unknown,
+    props: InputProps,
+    ctx?: { offsetBottom?: boolean },
+): { wrapper: Record<string, string> } => ({
     wrapper: {
+        ...(ctx?.offsetBottom ? { '--input-margin-bottom': 'var(--mantine-spacing-xs)' } : {}),
         '--input-disabled-bg': semanticColor('surface.disabled.medium'),
         '--input-disabled-color': semanticColor('text.disabled'),
         ...(!props.variant || props.variant === 'default'
@@ -319,6 +326,11 @@ export const theme = createTheme({
         // Same blue as the checkboxes, which share forms with radios (code-env-form).
         Radio: Radio.extend({
             defaultProps: { color: semanticColor('surface.selected') },
+        }),
+        // Mantine's digit boxes have a fixed width and never wrap, so a six-digit code overflows a phone-width
+        // card. A flex basis instead of a width lets them shrink.
+        PinInput: PinInput.extend({
+            styles: { pinInput: { flex: '0 1 var(--pin-input-size)', width: 'auto', minWidth: 0 } },
         }),
         // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
         Divider: Divider.extend({

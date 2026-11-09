@@ -5,9 +5,10 @@ import {
     actionResult,
     db,
     insertTestCodeResubmissionNote,
-    insertTestPriorCodeRun,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
+    type PriorCodeRunOptions,
     renderWithProviders,
     requireRawState,
     screen,
@@ -26,18 +27,20 @@ import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 const setupDecided = async ({
     jobStatus = 'RUN-COMPLETE' as StudyJobStatus,
     filesDecision = 'FILES-APPROVED' as StudyJobStatus,
+    ranAt = undefined as Date | undefined,
+    priorRuns = [] as PriorCodeRunOptions[],
 } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy, job } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        jobStatus: 'INITIATED',
+        priorRuns,
+    })
+    await insertTestJobStatus(job.id, jobStatus, { userId: user.id, at: ranAt })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
 
-    const job = await db
-        .selectFrom('studyJob')
-        .where('studyId', '=', dbStudy.id)
-        .selectAll('studyJob')
-        .executeTakeFirstOrThrow()
-
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: filesDecision }).execute()
+    await insertTestJobStatus(job.id, filesDecision)
 
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -296,14 +299,8 @@ describe('ReviewerOutputsDecided', () => {
 
     // The decision lands later than the run, and must not move the date the run is known by.
     it('dates the code run by when it finished, not by the outputs decision', async () => {
-        const { org, study, job } = await setupDecided()
+        const { org, study, job } = await setupDecided({ ranAt: new Date('2026-03-05T12:00:00Z') })
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
-        await db
-            .updateTable('jobStatusChange')
-            .set({ createdAt: new Date('2026-03-05T12:00:00Z') })
-            .where('studyJobId', '=', job.id)
-            .where('status', '=', 'RUN-COMPLETE')
-            .execute()
         await renderView(study, await requireRawState(study.id), org.slug)
 
         expect(screen.getByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
@@ -355,9 +352,10 @@ describe('ReviewerOutputsDecided code run history', () => {
     })
 
     it('counts the earlier runs below the View outputs again card', async () => {
-        const { org, study, job, raw } = await setupDecided()
+        const { org, study, job, raw } = await setupDecided({
+            priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }],
+        })
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
-        await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(5, 'day').toDate() })
         await renderView(study, raw, org.slug)
 
         const history = screen.getByTestId('code-run-history')
@@ -368,8 +366,7 @@ describe('ReviewerOutputsDecided code run history', () => {
 
     // A run closed out with nothing to decrypt still has a history worth showing.
     it('shows the history even when the decided run left nothing to decrypt', async () => {
-        const { org, study, raw } = await setupDecided()
-        await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(5, 'day').toDate() })
+        const { org, study, raw } = await setupDecided({ priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }] })
         await renderView(study, raw, org.slug)
 
         expect(screen.queryByTestId('security-key-form')).toBeNull()

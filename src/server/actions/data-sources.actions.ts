@@ -143,6 +143,7 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
                     description: u.description,
                 })
                 .where('id', '=', u.id)
+                .where('orgDataSourceId', '=', dataSourceId)
                 .returning(['id', 'url', 'description'])
                 .executeTakeFirstOrThrow(throwNotFound(`Data source url with id ${u.id}`))
 

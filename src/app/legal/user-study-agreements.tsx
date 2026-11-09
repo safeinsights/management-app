@@ -24,6 +24,7 @@ const studyHref = ({ isResearcher, fromOrgSlug, toOrgSlug, studyId }: StudyAgree
 const columns: DataTableColumn<StudyAgreement>[] = [
     { accessor: 'studyId', title: 'Study ID', sortable: true },
     studyTitleColumn<StudyAgreement>(studyHref),
+    // No design width: beside Study ID (SHRMP-341) it would squeeze the title below its floor.
     { accessor: 'fromName', title: 'From' },
     { accessor: 'toName', title: 'To' },
     ...agreementDateColumns<StudyAgreement>(testStudyDateCell),

@@ -20,9 +20,10 @@ type ParticipationAgreement = ActionSuccessType<typeof fetchUserParticipationAgr
 
 const columns: DataTableColumn<ParticipationAgreement>[] = [
     // Not a link: design has not yet decided whether an org name should open anything.
-    clampedColumn('40%', {
+    // 100% so the name takes whatever the fixed-width columns leave.
+    clampedColumn('100%', {
         accessor: 'orgName',
-        title: 'Organization',
+        title: 'Organization name',
         render: ({ orgName }) => <TruncatedNameCell name={orgName} />,
     }),
     ...agreementDateColumns<ParticipationAgreement>(),

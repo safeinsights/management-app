@@ -66,7 +66,7 @@ describe('TosPnPanel', () => {
         expect(screen.getByText(/Published on/)).toBeDefined()
     })
 
-    // Matches "Effective on" on the user's legal page, which reads the same instant as a UTC day.
+    // Matches the user's legal page, which also dates by UTC day.
     it('dates the current version by its UTC day', async () => {
         await mockSessionWithTestData({ isSiAdmin: true })
         const published = await seedPublishedTos('terms.md')

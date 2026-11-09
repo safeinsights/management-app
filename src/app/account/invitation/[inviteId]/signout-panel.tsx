@@ -1,9 +1,8 @@
 'use client'
 
-import { semanticColor } from '@/theme/tokens'
 import { ErrorPanel } from '@/components/panel'
+import { FocusedCard } from '@/components/layout/focused-card'
 import { useSignOut } from '@/hooks/use-sign-out'
-import { Paper } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 
 export const SignOutPanel = () => {
@@ -12,10 +11,10 @@ export const SignOutPanel = () => {
     const signOut = useSignOut({ redirectAfterSignOut: pathname ?? '/' })
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600}>
+        <FocusedCard>
             <ErrorPanel title="You must be signed out to accept invitations" onContinue={signOut}>
                 Sign out to continue
             </ErrorPanel>
-        </Paper>
+        </FocusedCard>
     )
 }

@@ -12,7 +12,8 @@ import { markInvitationNotice } from '@/lib/invitation-notice'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
-import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Button, Flex, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import {
@@ -110,14 +111,14 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     if (isLoading || !org) {
         return (
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
+            <FocusedCard my={{ base: 'md', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
-            </Paper>
+            </FocusedCard>
         )
     }
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <Title order={3} ta="center" mb="md">
                     You’ve been invited to join {org.name}.
@@ -165,7 +166,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     Skip for now
                 </Button>
             </Flex>
-        </Paper>
+        </FocusedCard>
     )
 }
 

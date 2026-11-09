@@ -11,9 +11,8 @@ import { sanitizeFileName } from '@/lib/utils'
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudySubject } from '@/server/actions/study-subject'
 import { storeS3File } from '@/server/aws'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
-import { codeSubmissionVersion } from '@/server/db/queries'
+import { jobRound } from '@/server/db/queries'
 import { onStudyCodeSubmitted, onStudyProposalSubmitted, onStudyReviewRequested } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { resubmissionNoteToLexicalJson, resubmissionNoteParam } from '@/schema/resubmission-note'
@@ -70,7 +69,7 @@ export const submitStudyCodeAction = new Action('submitStudyCodeAction', { perfo
         }
 
         await markCodeSubmitted(db, { studyJobId, userId })
-        const round = await codeRoundForJob(studyJobId, db)
+        const round = await jobRound(studyJobId, db)
 
         await markStudyUpdated(db, { studyId, userId })
 
@@ -172,12 +171,9 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
 
         await markCodeSubmitted(db, { studyJobId, userId })
 
-        // Lets the reviewer's feedback panel label note and decision with the same version
-        // (OTTER-638).
-        const resubmissionRound = await codeSubmissionVersion(studyId, db)
-        // The same number for every real history, but derived from the job the result will be
-        // written against, so a summary or a scan is never filed under a round the job is not on.
-        const round = await codeRoundForJob(studyJobId, db)
+        // The note and the reviewer's decision share this round, so the feedback panel labels them with
+        // the same version (OTTER-638).
+        const round = await jobRound(studyJobId, db)
 
         // One row per round (OTTER-802); the key on (job, kind, round, entry type) is the backstop
         // behind the study-row lock above.
@@ -191,7 +187,7 @@ export const resubmitStudyCodeAction = new Action('resubmitStudyCodeAction', { p
                     reviewKind: 'CODE',
                     entryType: 'RESUBMISSION-NOTE',
                     body: JSON.parse(resubmissionNoteToLexicalJson(resubmissionNote)),
-                    round: resubmissionRound,
+                    round,
                 })
                 .execute()
         } catch (err) {

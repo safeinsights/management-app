@@ -5,11 +5,14 @@ import {
     actionResult,
     db,
     fireEvent,
-    insertTestPriorCodeRun,
+    insertTestJobStatus,
+    insertTestJobStatuses,
+    insertTestLaterJob,
     insertTestStudyJobData,
     mockSessionWithTestData,
     readTestSupportFile,
     renderWithProviders,
+    type PriorCodeRunOptions,
     requireRawState,
     screen,
     type ScreenInputs,
@@ -25,9 +28,9 @@ import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-scr
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsErroredScreen } from './reviewer-outputs-errored-screen'
 
-const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED') => {
+const setupErrored = async (jobStatus: StudyJobStatus = 'JOB-ERRORED', priorRuns: PriorCodeRunOptions[] = []) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus, priorRuns })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
     const raw = await requireRawState(dbStudy.id)
@@ -53,8 +56,8 @@ const unlock = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 }
 
-const setupWithArtifact = async () => {
-    const ctx = await setupErrored()
+const setupWithArtifact = async (priorRuns: PriorCodeRunOptions[] = []) => {
+    const ctx = await setupErrored('JOB-ERRORED', priorRuns)
     await seedEncryptedArtifact(ctx.job.id, {
         fileType: 'ENCRYPTED-CODE-RUN-LOG',
         files: [{ name: 'run.log', content: 'boom' }],
@@ -165,7 +168,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 
     it('shows a not-found alert when the errored run already has a files decision', async () => {
         const { org, study, job } = await setupErrored()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -177,7 +180,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
 // still let the reviewer record a decision.
 describe('ReviewerOutputsErroredScreen with no error log', () => {
     const addStatus = async (jobId: string, status: StudyJobStatus) => {
-        await db.insertInto('jobStatusChange').values({ studyJobId: jobId, status }).execute()
+        await insertTestJobStatus(jobId, status)
     }
 
     it('offers neither a key form nor sharing when the only artifact is a security scan log', async () => {
@@ -246,10 +249,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
 
     it('explains a recorded failure class in place of the stage sentence', async () => {
         const { org, study, job } = await setupErrored()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -263,10 +263,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
         const raw = 'Command "aws s3 sync s3://si-secret-bucket/studies/x/code" exited with code 1'
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: raw })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: raw })
         const rawState = await requireRawState(study.id)
         await renderScreen({ study, raw: rawState }, org.slug)
 
@@ -281,14 +278,8 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
     it('surfaces the classified reason even when a later errored row overwrites the order', async () => {
         const { org, study, job } = await setupErrored()
         await addStatus(job.id, 'JOB-PACKAGING')
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: 'BASE_IMAGE_UNAVAILABLE' })
-            .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'JOB-ERRORED', message: null })
-            .execute()
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: 'BASE_IMAGE_UNAVAILABLE' })
+        await insertTestJobStatus(job.id, 'JOB-ERRORED', { message: null })
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
 
@@ -511,14 +502,54 @@ describe('ReviewerOutputsErroredScreen code run history', () => {
     })
 
     it('counts the earlier runs before the outputs are decrypted', async () => {
-        const { org, study, raw } = await setupWithArtifact()
-        for (const days of [2, 4, 6]) {
-            await insertTestPriorCodeRun(study.id, { ranAt: dayjs().subtract(days, 'day').toDate() })
-        }
+        const { org, study, raw } = await setupWithArtifact(
+            [2, 4, 6].map((days) => ({ ranAt: dayjs().subtract(days, 'day').toDate() })),
+        )
         await renderScreen({ study, raw }, org.slug)
         await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
         expect(screen.getByRole('heading', { name: 'Code run history (3)' })).toBeInTheDocument()
         expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
+    })
+})
+
+// OTTER-882: the code run card shows the latest run alone. An earlier run's files, even one with the
+// same name, belong to the code run history.
+describe('ReviewerOutputsErroredScreen with an earlier run', () => {
+    it("lists only the latest run's files", async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study: dbStudy, job: earlierJob } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'JOB-ERRORED',
+        })
+        await insertTestJobStatuses(earlierJob.id, ['FILES-REJECTED'])
+        const latestJob = await insertTestLaterJob(dbStudy.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED'])
+        await seedEncryptedArtifact(earlierJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'earlier.log', content: 'earlier' },
+                { name: 'run.log', content: 'earlier' },
+            ],
+        })
+        await seedEncryptedArtifact(latestJob.id, {
+            fileType: 'ENCRYPTED-CODE-RUN-LOG',
+            files: [
+                { name: 'latest.log', content: 'latest' },
+                { name: 'run.log', content: 'latest' },
+            ],
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        await screen.findByRole('button', { name: 'View files' })
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
+
+        expect(screen.getByRole('button', { name: 'latest.log' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'run.log' })).toHaveLength(1)
+        expect(screen.queryByRole('button', { name: 'earlier.log' })).toBeNull()
     })
 })
