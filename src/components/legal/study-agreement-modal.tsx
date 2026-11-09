@@ -23,7 +23,7 @@ type Props = {
 }
 
 // The agreement is a PDF, so it opens in a tab rather than rendering inline as the Terms of Service
-// does. Cancel goes to the dashboard: this blocks one study, not the app, so declining has somewhere
+// does. Cancel goes to the org dashboard: this blocks one study, not the app, so declining has somewhere
 // to go.
 export const StudyAgreementModal: FC<Props> = ({
     versionId,

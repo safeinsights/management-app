@@ -1,9 +1,11 @@
 import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureException } from '@sentry/nextjs'
+import { memoryRouter } from 'next-router-mock'
 import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
 import logger from '@/lib/logger'
+import { Routes } from '@/lib/routes'
 import {
     createTestQueryWrapper,
     faker,
@@ -62,18 +64,18 @@ const acknowledgementsFor = (userId: string) =>
 
 describe('RequireStudyAgreement', () => {
     it('stays out of the way when no agreement has been published', async () => {
-        const { study } = await arrangeStudyForCurrentUser()
+        const { study, researchLab } = await arrangeStudyForCurrentUser()
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
 
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
     it('blocks the study until the agreement is acknowledged, and records the acknowledgement', async () => {
-        const { study, user } = await arrangeStudyForCurrentUser()
+        const { study, user, researchLab } = await arrangeStudyForCurrentUser()
         const version = await insertTestStudyAgreement({ studyId: study.id })
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
 
         const dialog = await screen.findByRole('dialog')
         expect(dialog).toBeInTheDocument()
@@ -90,18 +92,34 @@ describe('RequireStudyAgreement', () => {
     })
 
     it('stays out of the way once acknowledged', async () => {
-        const { study } = await arrangeStudyForCurrentUser()
+        const { study, researchLab } = await arrangeStudyForCurrentUser()
         await insertTestStudyAgreement({ studyId: study.id })
 
-        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
         await screen.findByRole('dialog')
         await userEvent.click(screen.getByRole('checkbox'))
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         unmount()
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+
+    it('sends Cancel to the org dashboard unacknowledged, and blocks again on the next visit', async () => {
+        const { study, user, researchLab } = await arrangeStudyForCurrentUser()
+        await insertTestStudyAgreement({ studyId: study.id })
+
+        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
+        await screen.findByRole('dialog')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.orgDashboard({ orgSlug: researchLab.slug })))
+        expect(await acknowledgementsFor(user.id)).toEqual([])
+        unmount()
+
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
+        expect(await screen.findByRole('dialog')).toBeInTheDocument()
     })
 })
 

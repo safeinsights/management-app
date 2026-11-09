@@ -25,7 +25,13 @@
       "WebFetch(domain:github.com)",
       "WebSearch",
       "mcp__claude_ai_Atlassian__getJiraIssue",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(grep -rn \"remote-workflow\" --include=* -I . ~/.claude 2>/dev/null | grep -v node_modules | head -20; ls .claude 2>/dev/null; ls ~/.claude/commands ~/.claude/skills 2>/dev/null)",
+      "Read(//Users/jw183/.claude/**)",
+      "Bash(grep -rnI \"remote-workflow\" --exclude-dir=node_modules --exclude-dir=.next . ~/.claude/skills ~/.claude/settings.json ~/.claude/plugins 2>/dev/null | head -20; ls ~/.claude/skills/synced)",
+      "Read(//Users/jw183/.claude/skills/**)",
+      "Read(//Users/jw183/.claude/skills/synced/**)",
+      "Bash(ls -R ~/.claude/skills/synced | head -30)"
     ],
     "deny": [
       "Read(.env)",
