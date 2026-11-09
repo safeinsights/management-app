@@ -1,4 +1,4 @@
-import type { DB } from '@/database/types'
+import type { CommandLines, DB, Language } from '@/database/types'
 import { sql, type Kysely } from 'kysely'
 import { createHash } from 'node:crypto'
 
@@ -22,7 +22,7 @@ UdB9nPRag5tVlOVm412S8aUCAwEAAQ==
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 
 // Fixed UUIDs so concurrent CI runs sharing a Clerk instance don't stomp on each other.
-const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
+export const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
     { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
     { slug: 'openstax', type: 'enclave', id: '00000000-0000-4000-8000-000000000103' },
@@ -31,12 +31,59 @@ const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
     { slug: 'reviewer-is-org-admin', type: 'enclave', id: '00000000-0000-4000-8000-000000000106' },
 ]
 
-type TestUserRole = 'admin' | 'researcher' | 'reviewer'
+type TestCodeEnv = {
+    orgSlug: string
+    name: string
+    identifier: string
+    language: Language
+    url: string
+    commandLines: CommandLines
+    starterCodeFileNames: string[]
+    isTesting: boolean
+}
+
+export const TEST_CODE_ENVS: TestCodeEnv[] = [
+    {
+        orgSlug: 'openstax',
+        name: 'R Code Environment',
+        identifier: 'r-base',
+        language: 'R',
+        url: 'public.ecr.aws/docker/library/r-base:latest',
+        commandLines: { r: 'Rscript main.r' },
+        starterCodeFileNames: ['main.r'],
+        isTesting: false,
+    },
+    {
+        orgSlug: 'openstax',
+        name: 'Python Code Environment',
+        identifier: 'python-base',
+        language: 'PYTHON',
+        url: 'public.ecr.aws/docker/library/python:latest',
+        commandLines: { py: 'python main.py' },
+        starterCodeFileNames: ['main.py'],
+        isTesting: false,
+    },
+    {
+        orgSlug: 'single-lang-r-enclave',
+        name: 'R Code Environment (Single-Lang)',
+        identifier: 'r-base',
+        language: 'R',
+        url: 'public.ecr.aws/docker/library/r-base:latest',
+        commandLines: { r: 'Rscript main.r' },
+        starterCodeFileNames: ['main.r'],
+        isTesting: false,
+    },
+]
+
+const codeEnvRows = (orgSlug: string, orgId: string) =>
+    TEST_CODE_ENVS.filter((env) => env.orgSlug === orgSlug).map(({ orgSlug: _slug, ...env }) => ({ ...env, orgId }))
+
+export type TestUserRole = 'admin' | 'researcher' | 'reviewer'
 
 // Keyed by `key` rather than role so multiple users can share a role.
-type TestUser = { key: string; role: TestUserRole; id: string; email: string }
+export type TestUser = { key: string; role: TestUserRole; id: string; email: string }
 
-const TEST_USERS: TestUser[] = [
+export const TEST_USERS: TestUser[] = [
     { key: 'admin', role: 'admin', id: '00000000-0000-4000-8000-000000000001', email: 'si-adm-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'researcher', role: 'researcher', id: '00000000-0000-4000-8000-000000000002', email: 'si-research-tester-dbfyq3@mailinator.com' }, // prettier-ignore
     { key: 'reviewer', role: 'reviewer', id: '00000000-0000-4000-8000-000000000003', email: 'si-member-tester-dbfyq3@mailinator.com' }, // prettier-ignore
@@ -136,31 +183,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const existingOpenstaxEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', openstaxId).execute()
 
     if (existingOpenstaxEnvs.length === 0) {
-        await db
-            .insertInto('orgCodeEnv')
-            .values([
-                {
-                    orgId: openstaxId,
-                    name: 'R Code Environment',
-                    identifier: 'r-base',
-                    language: 'R',
-                    url: 'public.ecr.aws/docker/library/r-base:latest',
-                    commandLines: { r: 'Rscript main.r' },
-                    starterCodeFileNames: ['main.r'],
-                    isTesting: false,
-                },
-                {
-                    orgId: openstaxId,
-                    name: 'Python Code Environment',
-                    identifier: 'python-base',
-                    language: 'PYTHON',
-                    url: 'public.ecr.aws/docker/library/python:latest',
-                    commandLines: { py: 'python main.py' },
-                    starterCodeFileNames: ['main.py'],
-                    isTesting: false,
-                },
-            ])
-            .execute()
+        await db.insertInto('orgCodeEnv').values(codeEnvRows('openstax', openstaxId)).execute()
     }
 
     const existingDataSources = await db.selectFrom('orgDataSource').where('orgId', '=', openstaxId).execute()
@@ -191,19 +214,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const existingSingleLangEnvs = await db.selectFrom('orgCodeEnv').where('orgId', '=', singleLangId).execute()
 
     if (existingSingleLangEnvs.length === 0) {
-        await db
-            .insertInto('orgCodeEnv')
-            .values({
-                orgId: singleLangId,
-                name: 'R Code Environment (Single-Lang)',
-                identifier: 'r-base',
-                language: 'R',
-                url: 'public.ecr.aws/docker/library/r-base:latest',
-                commandLines: { r: 'Rscript main.r' },
-                starterCodeFileNames: ['main.r'],
-                isTesting: false,
-            })
-            .execute()
+        await db.insertInto('orgCodeEnv').values(codeEnvRows('single-lang-r-enclave', singleLangId)).execute()
     }
 
     // Matched by id OR lower(email) because deployments may hold these emails under pre-fixed-UUID
