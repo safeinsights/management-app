@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# Runs the Semgrep runner image the way Lambda runs it and prints the result. See README.md.
+# Needs only Docker; works with the bash 3.2 of macOS.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage:
+  run-local test <rules folder> <test files folder> [options]
+  run-local scan <submission folder> <rules folder> [options]
+
+Options:
+  --build          Build the image first (the build script of the package).
+  --image <ref>    Image to run. Default: local/semgrep-runner:latest
+  --out <file>     File for the full JSON response. Default: a new temp file.
+  --timeout <s>    Lambda timeout in seconds. Default: 900 (the Lambda maximum).
+  --memory <size>  Memory of the runner container. Default: 2048m
+  --cpus <n>       CPUs of the runner container. Default: no limit.
+  -h, --help       Show this help.
+EOF
+}
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+PKG_DIR="$(dirname "$SCRIPT_DIR")"
+IMAGE=local/semgrep-runner:latest
+BUILD=0
+OUT=""
+TIMEOUT=900
+MEMORY=2048m
+CPUS=""
+MODE=""
+ARG1=""
+ARG2=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --build) BUILD=1 ;;
+        --image) IMAGE="${2:?--image needs a value}"; shift ;;
+        --out) OUT="${2:?--out needs a value}"; shift ;;
+        --timeout) TIMEOUT="${2:?--timeout needs a value}"; shift ;;
+        --memory) MEMORY="${2:?--memory needs a value}"; shift ;;
+        --cpus) CPUS="${2:?--cpus needs a value}"; shift ;;
+        -h | --help) usage; exit 0 ;;
+        -*) echo "Unknown option: $1" >&2; usage >&2; exit 64 ;;
+        *)
+            if [ -z "$MODE" ]; then MODE="$1"
+            elif [ -z "$ARG1" ]; then ARG1="$1"
+            elif [ -z "$ARG2" ]; then ARG2="$1"
+            else echo "Too many arguments: $1" >&2; usage >&2; exit 64
+            fi
+            ;;
+    esac
+    shift
+done
+
+if [ "$MODE" != test ] && [ "$MODE" != scan ] || [ -z "$ARG2" ]; then
+    usage >&2
+    exit 64
+fi
+
+abs_dir() {
+    [ -d "$1" ] || { echo "Not a folder: $1" >&2; exit 66; }
+    (cd "$1" && pwd -P)
+}
+DIR1="$(abs_dir "$ARG1")"
+DIR2="$(abs_dir "$ARG2")"
+
+command -v docker >/dev/null || { echo "Docker is not installed or not on PATH." >&2; exit 69; }
+
+if [ "$BUILD" = 1 ]; then
+    case "$IMAGE" in
+        *:*) REPO="${IMAGE%:*}"; TAG="${IMAGE##*:}" ;;
+        *) REPO="$IMAGE"; TAG=latest ;;
+    esac
+    DOCKER_REPO="$REPO" DOCKER_TAG="$TAG" "$PKG_DIR/build"
+fi
+docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    echo "Image $IMAGE not found. Run with --build, or: DOCKER_REPO=local/semgrep-runner pnpm run build:semgrep-runner" >&2
+    exit 69
+}
+
+ID="semgrep-runner-local-$$-$RANDOM"
+NET="$ID"
+LAMBDA="$ID-lambda"
+S3="$ID-s3"
+KEY=local-s3
+
+cleanup() {
+    docker rm -f -v "$LAMBDA" "$S3" >/dev/null 2>&1 || true
+    docker network rm "$NET" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+docker network create "$NET" >/dev/null
+
+if [ "$MODE" = scan ]; then
+    echo "Starting a throwaway S3 (SeaweedFS) and uploading the submission and the rules ..." >&2
+    docker run -d --name "$S3" --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
+        chrislusf/seaweedfs server -s3 -dir=/data >/dev/null
+    ready=0
+    for _ in $(seq 1 60); do
+        if docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
+            -e AWS_DEFAULT_REGION=us-east-1 amazon/aws-cli --endpoint-url "http://$S3:8333" \
+            s3 mb s3://local >/dev/null 2>&1; then
+            ready=1
+            break
+        fi
+        sleep 1
+    done
+    [ "$ready" = 1 ] || { echo "The local S3 did not start." >&2; exit 70; }
+    docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
+        -e AWS_DEFAULT_REGION=us-east-1 -v "$DIR1:/in:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
+        s3 cp --quiet --recursive /in s3://local/submission/
+    docker run --rm --network "$NET" -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY \
+        -e AWS_DEFAULT_REGION=us-east-1 -v "$DIR2:/in:ro" amazon/aws-cli --endpoint-url "http://$S3:8333" \
+        s3 cp --quiet --recursive /in s3://local/rulesets/dev/local/rules/
+fi
+
+# The Lambda limits: read-only file system, /tmp of 512 MB (the Lambda default), and no /dev/shm.
+docker run -d --name "$LAMBDA" --network "$NET" --platform linux/amd64 \
+    --read-only --tmpfs /tmp:size=512m --ipc=none --memory "$MEMORY" ${CPUS:+--cpus=$CPUS} \
+    -e AWS_LAMBDA_FUNCTION_TIMEOUT="$TIMEOUT" -e S3_ENDPOINT="http://$S3:8333" \
+    -e AWS_ACCESS_KEY_ID=$KEY -e AWS_SECRET_ACCESS_KEY=$KEY -e AWS_REGION=us-east-1 \
+    -e SEMGREP_RULES_BUCKET=local -e SEMGREP_RULESET_ENV=dev "$IMAGE" >/dev/null
+
+[ -n "$OUT" ] || OUT="$(mktemp "${TMPDIR:-/tmp}/semgrep-runner-response.XXXXXX")"
+echo "Running $MODE mode (linux/amd64; on an arm64 host this is emulated and slow) ..." >&2
+if [ "$MODE" = test ]; then
+    MOUNT_RULES="$DIR1"
+    MOUNT_FILES="$DIR2"
+else
+    MOUNT_RULES="$DIR2"
+    MOUNT_FILES="$DIR1"
+fi
+status=0
+docker run --rm --network "$NET" --platform linux/amd64 --entrypoint /var/lang/bin/node \
+    -v "$SCRIPT_DIR:/local:ro" -v "$MOUNT_RULES:/in/rules:ro" -v "$MOUNT_FILES:/in/files:ro" \
+    "$IMAGE" /local/invoke.ts "$MODE" "$LAMBDA" >"$OUT" || status=$?
+echo "" >&2
+echo "Full response: $OUT" >&2
+exit "$status"

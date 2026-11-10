@@ -5,7 +5,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY services/semgrep-runner/package.json ./services/semgrep-runner/
 RUN pnpm --filter=@safeinsights/semgrep-runner install --frozen-lockfile --prod --ignore-scripts
 COPY services/semgrep-runner ./services/semgrep-runner
-RUN rm -rf services/semgrep-runner/*.test.ts services/semgrep-runner/fixtures
+RUN rm -rf services/semgrep-runner/*.test.ts services/semgrep-runner/fixtures services/semgrep-runner/local
 
 FROM public.ecr.aws/lambda/nodejs:24
 # requirements.in sets the Semgrep version. requirements.txt, made from it by the uv command in its header,
