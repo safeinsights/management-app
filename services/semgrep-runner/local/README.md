@@ -6,9 +6,8 @@ result. It needs only Docker, on Linux or macOS. Nothing runs on the host except
 ## Requirements
 
 - Docker (Docker Desktop on macOS, Docker Engine on Linux).
-- The image is `linux/amd64`, like the Lambda function. On an arm64 host (Apple Silicon, or Linux on
-  arm64) Docker emulates amd64, so a run is slow. Docker Desktop has the emulation built in. On Linux on
-  arm64, install it once: `docker run --privileged --rm tonistiigi/binfmt --install amd64`.
+- The image is `linux/amd64`, like the Lambda function. On Apple Silicon, Docker Desktop emulates amd64,
+  so a run is slow.
 
 ## Build the image
 
