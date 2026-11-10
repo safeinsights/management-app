@@ -3,7 +3,8 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { readJsonReport } from './json-report.ts'
-import { prepareSemgrepReport, semgrepPlaintextLog, type SemgrepOutput } from './semgrep.ts'
+import type { SemgrepOutput } from './protocol.ts'
+import { prepareSemgrepReport, semgrepPlaintextLog } from './semgrep.ts'
 
 it('returns null for missing, empty, unreadable, or malformed reports', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'reports-'))

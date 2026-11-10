@@ -1,6 +1,6 @@
+import type { S3Client } from '@aws-sdk/client-s3'
 import { z } from 'zod'
-import { RULESET_ENVS } from './protocol.ts'
-import type { RulesetStorage } from './run.ts'
+import { RULESET_ENVS, type RulesetEnv } from './protocol.ts'
 
 // The runner is its own Lambda image and does not load the app's src/server/config.ts. This module is
 // its one reader of process.env: its settings, and the environment its Semgrep processes inherit.
@@ -21,6 +21,14 @@ const configSchema = z
         message: 'SEMGREP_RULES_BUCKET_OWNER is required without S3_ENDPOINT',
         path: ['SEMGREP_RULES_BUCKET_OWNER'],
     })
+
+export type RulesetStorage = {
+    s3: S3Client
+    rulesBucket: string
+    rulesetEnv: RulesetEnv
+    // Sent as ExpectedBucketOwner on every rules bucket call; unset only against a local S3 stand-in.
+    rulesBucketOwner?: string
+}
 
 export type RunnerConfig = Omit<RulesetStorage, 's3'> & { s3Endpoint?: string }
 
