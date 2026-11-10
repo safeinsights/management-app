@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { processEnv } from './config.ts'
 import { NOTEBOOK_ROOT, SUBMISSION_ROOT } from './semgrep.ts'
 import type { Workspace } from './workspace.ts'
 
@@ -19,10 +20,9 @@ const COMMON_FLAGS = ['--metrics=off', '--disable-version-check']
 
 export const SCAN_FLAGS = [
     ...COMMON_FLAGS,
-    // The submission must not be able to hide code from review. These turn off `nosemgrep`
-    // comments, .gitignore and .semgrepignore files, and Semgrep's default ignore list (which
-    // skips tests/, build/, and node_modules/). The default 1 MB size limit would skip a file
-    // padded past it; a file too large to finish is still reported, as a timeout.
+    // A submission must not hide code from review: no `nosemgrep`, no .gitignore or .semgrepignore, no
+    // default ignore list (tests/, build/, node_modules/). The 1 MB default would skip a padded file; a
+    // file too large to finish is still reported, as a timeout.
     '--disable-nosem',
     '--no-git-ignore',
     '--x-ignore-semgrepignore-files',
@@ -94,7 +94,7 @@ export function spawnCommand(
     return new Promise((resolve) => {
         const child = spawn(file, args, {
             cwd,
-            env: { ...semgrepEnv(process.env), ...env },
+            env: { ...semgrepEnv(processEnv()), ...env },
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe'],
         })

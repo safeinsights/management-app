@@ -54,10 +54,9 @@ export const testFileSchema = z.object({ path: relativePath, content: z.string()
 const fileList = <T extends z.ZodType<{ path: string }>>(item: T) =>
     z.array(item).min(1).refine(distinctPaths, 'duplicate or conflicting paths')
 
-// The fixture test pairs rules/<dir>/<stem>.yaml with src/<dir>/<stem>.<ext>. A test file whose stem
-// matches no rule file is scanned but not annotation-tested, and a run with zero checks is not a pass.
-// As in iac CI, the fixture test reads notebooks as they are, not their R and Python extracts, so an
-// R or Python rule match in a notebook shows in findings but not as an annotated check.
+// The fixture test pairs rules/<dir>/<stem>.yaml with src/<dir>/<stem>.<ext>; an unpaired test file is only
+// scanned, and zero checks is not a pass. As in iac CI it reads notebooks as is, not their extracts, so an
+// R or Python match in a notebook shows in findings but not as a check.
 export const runnerRequestSchema = z.discriminatedUnion('mode', [
     z.object({
         mode: z.literal('test'),
