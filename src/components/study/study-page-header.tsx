@@ -1,4 +1,3 @@
-import { Stack, Group } from '@mantine/core'
 import { PageHeader, type PageHeaderStep } from '@/components/page-header'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import { TestStudyLabel } from './test-study-label'
@@ -12,14 +11,12 @@ export type StudyHeaderStudy = {
 }
 
 export function StudyPageHeader({ study, step }: { study: StudyHeaderStudy; step?: PageHeaderStep }) {
-    const title = (
-        <Group gap="sm" align="center">
-            <Stack gap="xs" align="flex-start">
-                {study.title ?? UNTITLED_STUDY_TITLE}
-                <TestStudyLabel isVisible={study.isTestStudy} />
-            </Stack>
-        </Group>
+    return (
+        <PageHeader
+            eyebrow={study.submittingLabName}
+            title={study.title ?? UNTITLED_STUDY_TITLE}
+            step={step}
+            badge={<TestStudyLabel isVisible={study.isTestStudy} />}
+        />
     )
-
-    return <PageHeader eyebrow={study.submittingLabName} title={title} step={step} />
 }
