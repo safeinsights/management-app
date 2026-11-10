@@ -30,11 +30,21 @@ export const SCAN_FLAGS = [
     '0',
 ]
 
+// Test mode runs two Semgrep processes at once, and a warm Lambda keeps /tmp between invocations. Each
+// process gets its own settings and log inside the workspace, so they neither race nor outlive the run.
+function runEnv(work: Workspace, name: string): Record<string, string> {
+    return {
+        TMPDIR: work.tmp,
+        SEMGREP_SETTINGS_FILE: path.join(work.tmp, name, 'settings.yml'),
+        SEMGREP_LOG_FILE: path.join(work.tmp, name, 'semgrep.log'),
+    }
+}
+
 // Rules are always the local folder the runner wrote, never a registry config.
 export function scanInvocation(work: Workspace): CommandInvocation {
     return {
         file: SEMGREP_BIN,
-        env: { TMPDIR: work.tmp },
+        env: runEnv(work, 'scan'),
         args: [
             'scan',
             '--config',
@@ -53,7 +63,7 @@ export function scanInvocation(work: Workspace): CommandInvocation {
 export function testInvocation(work: Workspace): CommandInvocation {
     return {
         file: SEMGREP_PYTHON,
-        env: { TMPDIR: work.tmp },
+        env: runEnv(work, 'test'),
         args: [SEMGREP_TEST_SHIM, '--test', '--json', ...COMMON_FLAGS, '--config', work.rules, SUBMISSION_ROOT],
     }
 }
