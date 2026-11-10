@@ -329,6 +329,8 @@ describe.skipIf(!s3Available)('scan mode', () => {
                 'rules/README.md': 'notes',
                 'rules/Secrets.YAML': 'not loaded by Semgrep',
                 'rules/secrets.test.yaml': 'a fixture',
+                'rules/.hidden.yaml': 'not fixture-tested',
+                'rules/.dir/hidden.yaml': 'not fixture-tested',
                 'tests/secrets.yaml': 'not a rule',
             },
         )

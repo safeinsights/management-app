@@ -55,11 +55,16 @@ function pathSuffixes(file: string): string[] {
 }
 
 // Semgrep's is_config_suffix: a rule file ends in .yaml or .yml (case sensitive), and *.test.yaml or any
-// .fixed suffix is a fixture. Semgrep never loads anything else from a rules folder.
+// .fixed suffix is a fixture. A dot-name is left out too: a scan loads it, but the fixture test skips it.
 export function isRuleFile(file: string): boolean {
     const suffixes = pathSuffixes(file)
     const last = suffixes.at(-1)
-    return (last === '.yaml' || last === '.yml') && suffixes.at(-2) !== '.test' && !suffixes.includes('.fixed')
+    return (
+        (last === '.yaml' || last === '.yml') &&
+        suffixes.at(-2) !== '.test' &&
+        !suffixes.includes('.fixed') &&
+        !file.split('/').some((segment) => segment.startsWith('.'))
+    )
 }
 
 // A backslash is an ordinary file name character on Linux, and the app keeps it in uploaded names.
@@ -85,9 +90,9 @@ export const testFileSchema = z.object({ path: relativePath, content: z.string()
 const fileList = <T extends z.ZodType<{ path: string }>>(item: T) =>
     z.array(item).min(1).refine(distinctPaths, 'duplicate or conflicting paths')
 
-// The fixture test pairs rules/<dir>/<stem>.yaml with src/<dir>/<stem>.<ext>; an unpaired test file is only
-// scanned, and zero checks is not a pass. As in iac CI it reads notebooks as is, not their extracts, so an
-// R or Python match in a notebook shows in findings but not as a check.
+// The fixture test pairs rules/<dir>/<stem>.yaml with src/<dir>/<stem>.<any ext> and every file under
+// src/<dir>/<stem>/; an unpaired file is only scanned, and zero checks is not a pass. It reads notebooks
+// as is, not their extracts, so an R or Python match in a notebook shows in findings but not as a check.
 export const runnerRequestSchema = z.discriminatedUnion('mode', [
     z.object({
         mode: z.literal('test'),
