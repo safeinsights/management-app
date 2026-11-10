@@ -1,4 +1,13 @@
-import { describe, expect, it, pageHeaderEyebrow, renderWithProviders, screen, vi } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    pageHeaderEyebrow,
+    renderWithProviders,
+    screen,
+    userEvent,
+    vi,
+} from '@/tests/unit.helpers'
 import { PageHeader } from './page-header'
 
 describe('PageHeader', () => {
@@ -55,20 +64,26 @@ describe('PageHeader', () => {
         expect(screen.getByTestId('page-header-eyebrow')).toHaveAttribute('data-truncate', 'end')
     })
 
-    it('offers no hover title while nothing is cut off', () => {
+    it('offers no tooltip while nothing is cut off', async () => {
         renderWithProviders(<PageHeader eyebrow="Genius Research Lab" title="Manage team" />)
 
-        expect(screen.getByRole('heading', { level: 1 })).not.toHaveAttribute('title')
-        expect(screen.getByTestId('page-header-eyebrow')).not.toHaveAttribute('title')
+        await userEvent.hover(screen.getByRole('heading', { level: 1 }))
+        await userEvent.hover(screen.getByTestId('page-header-eyebrow'))
+
+        expect(screen.queryByRole('tooltip')).toBeNull()
     })
 
-    it('offers the full title and eyebrow on hover once they are cut off', () => {
+    it('offers the full title and eyebrow in a tooltip once they are cut off', async () => {
         vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
         const title = 'A very long study title '.repeat(6).trim()
         renderWithProviders(<PageHeader eyebrow="Genius Research Lab" title={title} />)
 
-        expect(screen.getByRole('heading', { level: 1, name: title })).toHaveAttribute('title', title)
-        expect(screen.getByTestId('page-header-eyebrow')).toHaveAttribute('title', 'Genius Research Lab')
+        await userEvent.hover(screen.getByRole('heading', { level: 1, name: title }))
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(title)
+
+        await userEvent.unhover(screen.getByRole('heading', { level: 1, name: title }))
+        await userEvent.hover(screen.getByTestId('page-header-eyebrow'))
+        expect(await screen.findByRole('tooltip', { name: 'Genius Research Lab' })).toBeInTheDocument()
     })
 
     it('renders the badge after the heading rather than inside it', () => {

@@ -1,10 +1,10 @@
 'use client'
 
 import { type FC, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
-import { Stack, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Stack, Text, Title, Tooltip, VisuallyHidden } from '@mantine/core'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-// The hover title is only offered once text is cut off, so screen readers do not hear it twice.
+// The tooltip is only offered once text is cut off, so short text gets none.
 const useIsTruncated = <T extends HTMLElement>(text?: string | null): [RefObject<T | null>, boolean] => {
     const ref = useRef<T>(null)
     const [isTruncated, setIsTruncated] = useState(false)
@@ -32,21 +32,28 @@ const Eyebrow: FC<{ text?: string | null }> = ({ text }) => {
     const [ref, isTruncated] = useIsTruncated<HTMLParagraphElement>(text)
 
     return (
-        <Text
-            ref={ref}
-            fz="sm"
-            fw={fontWeight.semibold}
-            c={semanticColor('text.secondary')}
-            tt="uppercase"
-            mih="1lh"
-            // The header stack sizes its children to their content, so without a cap a long name never truncates.
-            maw="100%"
-            truncate="end"
-            title={isTruncated ? (text ?? undefined) : undefined}
-            data-testid="page-header-eyebrow"
+        <Tooltip
+            label={text}
+            disabled={!isTruncated}
+            events={{ hover: true, focus: true, touch: true }}
+            multiline
+            maw={400}
         >
-            {text}
-        </Text>
+            <Text
+                ref={ref}
+                fz="sm"
+                fw={fontWeight.semibold}
+                c={semanticColor('text.secondary')}
+                tt="uppercase"
+                mih="1lh"
+                // The header stack sizes its children to their content, so without a cap a long name never truncates.
+                maw="100%"
+                truncate="end"
+                data-testid="page-header-eyebrow"
+            >
+                {text}
+            </Text>
+        </Tooltip>
     )
 }
 
@@ -81,18 +88,25 @@ export const PageHeader: FC<PageHeaderProps> = ({ title, eyebrow, step, badge })
     return (
         <Stack gap="xs" align="flex-start">
             <Eyebrow text={eyebrow} />
-            <Title
-                ref={titleRef}
-                order={1}
-                c={semanticColor('text.header')}
-                maw={760}
-                lh="var(--si-line-height-heading)"
-                lineClamp={2}
-                title={isTitleTruncated ? title : undefined}
+            <Tooltip
+                label={title}
+                disabled={!isTitleTruncated}
+                events={{ hover: true, focus: true, touch: true }}
+                multiline
+                maw={400}
             >
-                {title}
-                <HiddenStep step={step} />
-            </Title>
+                <Title
+                    ref={titleRef}
+                    order={1}
+                    c={semanticColor('text.header')}
+                    maw={760}
+                    lh="var(--si-line-height-heading)"
+                    lineClamp={2}
+                >
+                    {title}
+                    <HiddenStep step={step} />
+                </Title>
+            </Tooltip>
             {badge}
         </Stack>
     )
