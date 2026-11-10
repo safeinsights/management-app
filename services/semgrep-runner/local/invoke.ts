@@ -88,12 +88,12 @@ const res = await invoke(body)
 const text = await res.text()
 const ms = Date.now() - started
 process.stdout.write(text)
-let response: Reply
+let response: Reply | undefined
 try {
     response = JSON.parse(text) as Reply
 } catch {
     console.error(`The emulator returned no JSON (HTTP ${res.status}).`)
-    process.exit(1)
 }
-console.error(summarize(response, ms).join('\n'))
-process.exit(response.errorType || response.errorMessage ? 1 : 0)
+if (response) console.error(summarize(response, ms).join('\n'))
+// Not process.exit(): it ends the process before a large stdout write to a pipe is flushed.
+process.exitCode = !response || response.errorType || response.errorMessage ? 1 : 0
