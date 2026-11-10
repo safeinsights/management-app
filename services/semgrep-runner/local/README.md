@@ -6,9 +6,7 @@ result. It needs only Docker, on Linux or macOS. Nothing runs on the host except
 ## Requirements
 
 - Docker (Docker Desktop on macOS, Docker Engine on Linux).
-- The image is `linux/amd64`, like the Lambda function. On Apple Silicon, Docker Desktop emulates amd64.
-  With the Docker VMM backend it uses QEMU, which is slow. With the Apple Virtualization framework and
-  "Use Rosetta for x86_64/amd64 emulation" turned on, it uses Rosetta, which is faster.
+- The image is `linux/amd64`, like the Lambda function. On Apple Silicon, Docker emulates it.
 
 ## Build the image
 
@@ -81,7 +79,7 @@ The runner container has the Lambda limits: a read-only file system, a 512 MB `/
 
 ## Limits
 
-- Times are not Lambda times, most of all under amd64 emulation.
+- Times are not Lambda times.
 - No IAM, no cross-account read of the rules bucket, and no `ExpectedBucketOwner` check: SeaweedFS has
   no account owner.
 - SeaweedFS refuses S3 keys with `..` or `.` segments and changes a backslash to `/`, so scan mode cannot
