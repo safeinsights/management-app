@@ -125,7 +125,7 @@ docker run -d --name "$LAMBDA" --network "$NET" --platform linux/amd64 \
     -e SEMGREP_RULES_BUCKET=local -e SEMGREP_RULESET_ENV=dev "$IMAGE" >/dev/null
 
 [ -n "$OUT" ] || OUT="$(mktemp "${TMPDIR:-/tmp}/semgrep-runner-response.XXXXXX")"
-echo "Running $MODE mode (linux/amd64; emulated and slow on Apple Silicon) ..." >&2
+echo "Running $MODE mode (linux/amd64; emulated on Apple Silicon) ..." >&2
 if [ "$MODE" = test ]; then
     MOUNT_RULES="$DIR1"
     MOUNT_FILES="$DIR2"
