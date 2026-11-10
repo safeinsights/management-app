@@ -71,7 +71,7 @@ describe('runnerRequestSchema', () => {
 })
 
 describe('isRuleFile', () => {
-    it.each(['a.yaml', 'a.yml', 'x/my.rule.yaml', '.hidden.yaml', 'a.tests.yaml'])('accepts %j', (file) => {
+    it.each(['a.yaml', 'a.yml', 'x/my.rule.yaml', 'a.tests.yaml'])('accepts %j', (file) => {
         expect(isRuleFile(file)).toBe(true)
     })
 
@@ -81,6 +81,11 @@ describe('isRuleFile', () => {
             expect(isRuleFile(file)).toBe(false)
         },
     )
+
+    // A scan would load these, but Semgrep's fixture test skips them, so they could run untested.
+    it.each(['.hidden.yaml', '.dir/a.yaml', 'x/.dir/a.yaml'])('rejects the dot-name %j', (file) => {
+        expect(isRuleFile(file)).toBe(false)
+    })
 })
 
 describe('rulesetRulesPrefix', () => {
