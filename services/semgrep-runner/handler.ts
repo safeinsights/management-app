@@ -1,7 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3'
-import { parseRunnerConfig } from './config.ts'
+import { parseRunnerConfig, type RulesetStorage } from './config.ts'
 import { runnerRequestSchema, type RunnerResponse } from './protocol.ts'
-import { runRequest, type RulesetStorage } from './run.ts'
+import { runRequest } from './run.ts'
 import { spawnCommand } from './semgrep-command.ts'
 
 // Leaves time to return the "did not complete" response before Lambda kills the invocation.

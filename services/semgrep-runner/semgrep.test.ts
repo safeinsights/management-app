@@ -10,9 +10,8 @@ import {
     semgrepOutcome,
     semgrepPlaintextLog,
     submissionPath,
-    type SemgrepFinding,
-    type SemgrepOutput,
 } from './semgrep.ts'
+import type { SemgrepFinding, SemgrepOutput } from './protocol.ts'
 
 function finding(file: string, line: number, severity: string, rule = 'r-eval-parse'): SemgrepFinding {
     return {

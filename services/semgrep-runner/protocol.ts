@@ -1,5 +1,36 @@
 import { z } from 'zod'
-import type { SemgrepError, SemgrepFinding, SemgrepOutcome } from './semgrep.ts'
+
+// The parts of Semgrep's JSON report that the runner reads.
+export interface SemgrepFinding {
+    check_id: string
+    path: string
+    start: { line: number }
+    extra: { severity: string; message: string }
+}
+
+export interface SemgrepError {
+    type?: unknown
+    message?: string
+    path?: string
+}
+
+export interface SemgrepOutput {
+    results?: SemgrepFinding[]
+    errors?: SemgrepError[]
+    paths?: { scanned?: string[] }
+}
+
+/**
+ * The states a Semgrep run can end in. "No findings" is only claimed on positive evidence: an R or
+ * Python file was parsed and every rule finished on every file. A rule that times out or a file that
+ * fails to parse leaves part of the submission unexamined, which is not clean.
+ */
+export type SemgrepOutcome =
+    | 'FINDINGS-FOUND'
+    | 'NO-FINDINGS'
+    | 'PARTIALLY-SCANNED'
+    | 'NOTHING-SCANNED'
+    | 'DID-NOT-COMPLETE'
 
 export const RULESET_ENVS = ['dev', 'sandbox', 'staging', 'demo', 'production'] as const
 export type RulesetEnv = (typeof RULESET_ENVS)[number]
