@@ -6,8 +6,9 @@ result. It needs only Docker, on Linux or macOS. Nothing runs on the host except
 ## Requirements
 
 - Docker (Docker Desktop on macOS, Docker Engine on Linux).
-- The image is `linux/amd64`, like the Lambda function. On Apple Silicon, Docker Desktop emulates amd64,
-  so a run is slow.
+- The image is `linux/amd64`, like the Lambda function. On Apple Silicon, Docker Desktop emulates amd64.
+  With the Docker VMM backend it uses QEMU, which is slow. With the Apple Virtualization framework and
+  "Use Rosetta for x86_64/amd64 emulation" turned on, it uses Rosetta, which is faster.
 
 ## Build the image
 
