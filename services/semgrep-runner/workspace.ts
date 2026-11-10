@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type { Readable } from 'node:stream'
 import { GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
+import { processEnv } from './config.ts'
 import { distinctPaths, isSafeRelativePath, type RunnerError } from './protocol.ts'
 import { NOTEBOOK_ROOT, SUBMISSION_ROOT } from './semgrep.ts'
 
@@ -31,7 +32,7 @@ const semgrepHomeDirs = (env: Record<string, string | undefined>) =>
         file ? [path.dirname(file)] : [],
     )
 
-export async function createWorkspace(env: Record<string, string | undefined> = process.env): Promise<Workspace> {
+export async function createWorkspace(env: Record<string, string | undefined> = processEnv()): Promise<Workspace> {
     try {
         await Promise.all(semgrepHomeDirs(env).map((dir) => fs.mkdir(dir, { recursive: true })))
         const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'semgrep-run-')))
