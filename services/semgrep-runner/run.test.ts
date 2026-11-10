@@ -119,7 +119,11 @@ describe('test mode', () => {
         const { cwd } = scan
         expect(scan.invocation).toEqual({
             file: SEMGREP_BIN,
-            env: { TMPDIR: `${cwd}/tmp` },
+            env: {
+                TMPDIR: `${cwd}/tmp`,
+                SEMGREP_SETTINGS_FILE: `${cwd}/tmp/scan/settings.yml`,
+                SEMGREP_LOG_FILE: `${cwd}/tmp/scan/semgrep.log`,
+            },
             args: [
                 'scan',
                 '--config',
@@ -148,7 +152,11 @@ describe('test mode', () => {
             `${cwd}/rules`,
             'src',
         ])
-        expect(fixtureTest.invocation.env).toEqual({ TMPDIR: `${cwd}/tmp` })
+        expect(fixtureTest.invocation.env).toEqual({
+            TMPDIR: `${cwd}/tmp`,
+            SEMGREP_SETTINGS_FILE: `${cwd}/tmp/test/settings.yml`,
+            SEMGREP_LOG_FILE: `${cwd}/tmp/test/semgrep.log`,
+        })
         fake.calls.forEach(expectLocalRulesOnly)
     })
 

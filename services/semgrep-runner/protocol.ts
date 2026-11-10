@@ -56,6 +56,8 @@ const fileList = <T extends z.ZodType<{ path: string }>>(item: T) =>
 
 // The fixture test pairs rules/<dir>/<stem>.yaml with src/<dir>/<stem>.<ext>. A test file whose stem
 // matches no rule file is scanned but not annotation-tested, and a run with zero checks is not a pass.
+// As in iac CI, the fixture test reads notebooks as they are, not their R and Python extracts, so an
+// R or Python rule match in a notebook shows in findings but not as an annotated check.
 export const runnerRequestSchema = z.discriminatedUnion('mode', [
     z.object({
         mode: z.literal('test'),
