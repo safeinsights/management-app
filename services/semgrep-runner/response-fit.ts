@@ -44,23 +44,43 @@ export function fitScanResponse(response: ScanResponse): ScanResponse {
     return fitResponse(response, [(r) => ({ ...r, semgrepJson: null, semgrepJsonOmitted: 'too-large' }), truncateLog])
 }
 
+const dropTests = (r: TestResponse): TestResponse => ({ ...r, tests: null, testsError: 'too-large' })
+
 // The fixture test results go last: nothing else in the response repeats them.
 function shortenLogOrDropTests(response: TestResponse): TestResponse {
     const shorterLog = truncateLog(response)
     if (fits(shorterLog)) return shorterLog
-    const withoutTests: TestResponse = { ...response, tests: null, testsError: 'too-large' }
+    const withoutTests = dropTests(response)
     return fits(withoutTests) ? withoutTests : truncateLog(withoutTests)
 }
 
+const trimFindings = (r: TestResponse) =>
+    keepLeading(r.findings, (kept) => ({ ...r, findings: kept, findingsOmitted: r.findings.length - kept.length }))
+const trimErrors = (r: TestResponse) =>
+    keepLeading(r.errors, (kept) => ({ ...r, errors: kept, errorsOmitted: r.errors.length - kept.length }))
+
+// Applies a step only when the part it cuts is the one that is too large, so the other parts stay whole.
+const ifAloneTooLarge =
+    (without: (r: TestResponse) => TestResponse, step: (r: TestResponse) => TestResponse) => (r: TestResponse) =>
+        fits(without(r)) ? step(r) : r
+
+const findingsAlone = ifAloneTooLarge((r) => ({ ...r, findings: [] }), trimFindings)
+const errorsAlone = ifAloneTooLarge((r) => ({ ...r, errors: [] }), trimErrors)
+
 export function fitTestResponse(response: TestResponse): TestResponse {
     return fitResponse(response, [
-        (r) =>
-            keepLeading(r.findings, (kept) => ({
-                ...r,
-                findings: kept,
-                findingsOmitted: r.findings.length - kept.length,
-            })),
-        (r) => keepLeading(r.errors, (kept) => ({ ...r, errors: kept, errorsOmitted: r.errors.length - kept.length })),
+        findingsAlone,
+        errorsAlone,
+        ifAloneTooLarge((r) => ({ ...r, log: r.log.split('\n')[0] }), truncateLog),
+        ifAloneTooLarge((r) => ({ ...r, tests: null }), dropTests),
+        // More than one part is too large: the log goes first (it repeats findings and errors), then fixture
+        // results that do not fit even next to empty lists, then errors before the findings a rule author tests.
+        truncateLog,
+        (r) => (fits({ ...r, findings: [], errors: [] }) ? r : dropTests(r)),
+        findingsAlone,
+        errorsAlone,
+        trimErrors,
+        trimFindings,
         shortenLogOrDropTests,
     ])
 }

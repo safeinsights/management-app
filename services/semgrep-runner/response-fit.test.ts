@@ -37,11 +37,16 @@ describe('fitting the Lambda response limit', () => {
         expect(response.errorsOmitted).toBeGreaterThan(0)
         expect(response.errors.length + response.errorsOmitted!).toBe(6000)
         expect(response.errors[0].path).toBe('f0.R')
-        expect(response).toMatchObject({ log: testResponse.log, tests: testResponse.tests })
+        expect(response).toMatchObject({
+            log: testResponse.log,
+            tests: testResponse.tests,
+            findings: testResponse.findings,
+        })
+        expect(response.findingsOmitted).toBeUndefined()
         expect(responseBytes(response)).toBeLessThanOrEqual(MAX_RESPONSE_BYTES)
     })
 
-    it('drops the fixture test results, but keeps the log, when they alone are too large', () => {
+    it('drops the fixture test results, but keeps the log, findings and errors, when they alone are too large', () => {
         const checks = Object.fromEntries(
             Array.from({ length: 6000 }, (_, i) => [
                 `rule-${i}-${'x'.repeat(1000)}`,
@@ -49,10 +54,19 @@ describe('fitting the Lambda response limit', () => {
             ]),
         )
         const tests: SemgrepTestsResult = { ...testResponse.tests!, results: { 'rules/a.yaml': { checks } } }
-        const response = fitTestResponse({ ...testResponse, tests })
+        const errors = [{ type: 'Syntax error', path: 'b.R', message: 'm' }]
+        const response = fitTestResponse({ ...testResponse, tests, errors })
 
-        expect(response).toMatchObject({ tests: null, testsError: 'too-large', log: testResponse.log })
+        expect(response).toMatchObject({
+            tests: null,
+            testsError: 'too-large',
+            log: testResponse.log,
+            findings: testResponse.findings,
+            errors,
+        })
         expect(response.logTruncated).toBeUndefined()
+        expect(response.findingsOmitted).toBeUndefined()
+        expect(response.errorsOmitted).toBeUndefined()
         expect(responseBytes(response)).toBeLessThanOrEqual(MAX_RESPONSE_BYTES)
     })
 
@@ -64,7 +78,28 @@ describe('fitting the Lambda response limit', () => {
         expect(kept[0]).toBe('Semgrep Scan: findings found')
         expect(kept.at(-1)).toBe('(log truncated to fit the response limit)')
         expect(kept.length).toBeGreaterThan(2)
+        expect(response).toMatchObject({
+            logTruncated: true,
+            tests: testResponse.tests,
+            findings: testResponse.findings,
+        })
+        expect(response.findingsOmitted).toBeUndefined()
+        expect(responseBytes(response)).toBeLessThanOrEqual(MAX_RESPONSE_BYTES)
+    })
+
+    it('cuts the log before the findings when both are too large', () => {
+        const findings = Array.from({ length: 6000 }, (_, i) => ({
+            ...testResponse.findings[0],
+            start: { line: i + 1 },
+            extra: { severity: 'ERROR', message: 'x'.repeat(1000) },
+        }))
+        const log = ['Semgrep Scan: findings found', ...lines(6000)].join('\n')
+        const response = fitTestResponse({ ...testResponse, findings, log })
+
+        expect(response.log.split('\n')[0]).toBe('Semgrep Scan: findings found')
         expect(response).toMatchObject({ logTruncated: true, tests: testResponse.tests })
+        expect(response.findings.length).toBeGreaterThan(0)
+        expect(response.findings.length + response.findingsOmitted!).toBe(6000)
         expect(responseBytes(response)).toBeLessThanOrEqual(MAX_RESPONSE_BYTES)
     })
 

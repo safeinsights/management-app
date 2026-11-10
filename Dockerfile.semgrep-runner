@@ -18,12 +18,10 @@ RUN dnf install -y python3.12 python3.12-pip && dnf clean all \
     && LD_LIBRARY_PATH=/usr/lib64 /opt/semgrep/bin/pip install --no-cache-dir --require-hashes --no-deps \
         -r /tmp/semgrep-requirements.txt \
     && rm /tmp/semgrep-requirements.txt
-# Lambda's file system is read only outside /tmp, and Semgrep writes settings, a log and a version cache.
+# Lambda's file system is read only outside /tmp. Each Semgrep process gets its settings, log and temp
+# folder inside its work folder; HOME covers anything else Semgrep writes.
 ENV PATH=/opt/semgrep/bin:$PATH \
-    HOME=/tmp \
-    SEMGREP_SETTINGS_FILE=/tmp/.semgrep/settings.yml \
-    SEMGREP_LOG_FILE=/tmp/.semgrep/semgrep.log \
-    SEMGREP_VERSION_CACHE_PATH=/tmp/.cache/semgrep_version
+    HOME=/tmp
 # The package's node_modules holds pnpm symlinks into ../../node_modules/.pnpm, as in the editor image.
 COPY --from=builder /repo/node_modules ${LAMBDA_TASK_ROOT}/node_modules
 COPY --from=builder /repo/services/semgrep-runner/ ${LAMBDA_TASK_ROOT}/services/semgrep-runner/

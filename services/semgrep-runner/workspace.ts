@@ -3,7 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type { Readable } from 'node:stream'
 import { GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'
-import { processEnv } from './config.ts'
 import { distinctPaths, isSafeRelativePath, type RunnerError } from './protocol.ts'
 import { NOTEBOOK_ROOT, SUBMISSION_ROOT } from './semgrep.ts'
 
@@ -26,15 +25,8 @@ export class RunnerFailure extends Error {
     }
 }
 
-// Semgrep writes settings, a log and a version cache, and Lambda starts with an empty /tmp.
-const semgrepHomeDirs = (env: Record<string, string | undefined>) =>
-    [env.SEMGREP_SETTINGS_FILE, env.SEMGREP_LOG_FILE, env.SEMGREP_VERSION_CACHE_PATH].flatMap((file) =>
-        file ? [path.dirname(file)] : [],
-    )
-
-export async function createWorkspace(env: Record<string, string | undefined> = processEnv()): Promise<Workspace> {
+export async function createWorkspace(): Promise<Workspace> {
     try {
-        await Promise.all(semgrepHomeDirs(env).map((dir) => fs.mkdir(dir, { recursive: true })))
         const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'semgrep-run-')))
         const work = {
             root,
