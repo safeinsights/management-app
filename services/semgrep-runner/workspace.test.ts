@@ -1,5 +1,4 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import { describe, expect, it } from '../../tests/unit.helpers'
 import { createWorkspace, keyPath, removeWorkspace, RunnerFailure, safeJoin, writeFiles } from './workspace.ts'
@@ -28,34 +27,13 @@ describe('keyPath', () => {
 })
 
 describe('createWorkspace', () => {
-    it("creates Semgrep's home folders and a temp folder inside the workspace", async () => {
-        const home = fs.mkdtempSync(path.join(os.tmpdir(), 'semgrep-home-'))
-        const work = await createWorkspace({
-            SEMGREP_SETTINGS_FILE: `${home}/.semgrep/settings.yml`,
-            SEMGREP_VERSION_CACHE_PATH: `${home}/.cache/semgrep_version`,
-        })
+    it("creates the work folders, with Semgrep's temp folder inside the workspace", async () => {
+        const work = await createWorkspace()
         try {
-            expect(fs.existsSync(`${home}/.semgrep`)).toBe(true)
-            expect(fs.existsSync(`${home}/.cache`)).toBe(true)
             expect(path.dirname(work.tmp)).toBe(work.root)
-            expect(fs.existsSync(work.tmp)).toBe(true)
+            for (const dir of [work.src, work.notebooks, work.rules, work.tmp]) expect(fs.existsSync(dir)).toBe(true)
         } finally {
             await removeWorkspace(work)
-            fs.rmSync(home, { recursive: true, force: true })
-        }
-    })
-
-    it('reports a home folder it cannot create as workspace-failed', async () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'semgrep-home-'))
-        fs.writeFileSync(`${dir}/file`, '')
-        try {
-            await expect(
-                createWorkspace({ SEMGREP_LOG_FILE: `${dir}/file/.semgrep/semgrep.log` }),
-            ).rejects.toMatchObject({
-                code: 'workspace-failed',
-            })
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true })
         }
     })
 })

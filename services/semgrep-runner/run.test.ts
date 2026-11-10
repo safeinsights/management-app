@@ -215,6 +215,20 @@ describe('test mode', () => {
         })
     })
 
+    it('strips the work dir from the rule file paths that Semgrep errors name', async () => {
+        const fake = fakeSemgrep({
+            onScan: (cwd) => {
+                const error = { type: 'InvalidRuleSchemaError', spans: [{ file: `${cwd}/rules/secrets.yaml` }] }
+                const report = { results: [], errors: [error], paths: { scanned: [] } }
+                fs.writeFileSync(path.join(cwd, 'reports/semgrep.json'), JSON.stringify(report))
+            },
+        })
+        const response = await runRequest(request, { semgrep: fake.semgrep, signal: signal() })
+
+        if (response.mode !== 'test') throw new Error('expected a test response')
+        expect(response.errors).toEqual([{ type: 'InvalidRuleSchemaError', spans: [{ file: 'rules/secrets.yaml' }] }])
+    })
+
     it('drops findings from the end until the response fits the Lambda limit', async () => {
         const results = Array.from({ length: 6000 }, (_, i) => ({
             ...finding('src/analysis.R', i + 1, 'ERROR', 'r-eval-parse'),

@@ -52,6 +52,10 @@ function failureCode(error: unknown, signal: AbortSignal): RunnerError {
     throw error
 }
 
+// Semgrep prints the absolute paths it was given: the rules folder in rule errors, and every path in the
+// fixture test. Strip the work dir so they read rules/... and src/..., the same on every run.
+const withoutWorkRoot = (text: string, root: string) => text.replaceAll(`${root}/`, '')
+
 type ScanResult = { data: SemgrepOutput | null; rawReport: string | null; aborted: boolean }
 
 async function scanWorkspace(work: Workspace, { semgrep, signal }: RunnerDeps): Promise<ScanResult> {
@@ -66,10 +70,13 @@ async function scanWorkspace(work: Workspace, { semgrep, signal }: RunnerDeps): 
     if (result.aborted || signal.aborted) return { data: null, rawReport: null, aborted: true }
 
     // As in CodeBuild, a report is used whatever Semgrep's exit code was.
-    const data = readJsonReport<SemgrepOutput>(work.report)
-    // The exit code only: stderr can quote submitted code.
-    if (!data) console.warn(JSON.stringify({ semgrepExitCode: result.code }))
-    return { data, rawReport: data ? fs.readFileSync(work.report, 'utf-8') : null, aborted: false }
+    if (!readJsonReport<SemgrepOutput>(work.report)) {
+        // The exit code only: stderr can quote submitted code.
+        console.warn(JSON.stringify({ semgrepExitCode: result.code }))
+        return { data: null, rawReport: null, aborted: false }
+    }
+    const rawReport = withoutWorkRoot(fs.readFileSync(work.report, 'utf-8'), work.root)
+    return { data: JSON.parse(rawReport) as SemgrepOutput, rawReport, aborted: false }
 }
 
 async function withWorkspace<T>(run: (work: Workspace) => Promise<T>): Promise<T> {
@@ -150,10 +157,9 @@ function testFailure(error: RunnerError): TestResponse {
     }
 }
 
-// Semgrep prints the absolute paths it was given; strip the work dir so they read rules/... and src/...
 export function parseTestsResult(stdout: string, root: string): Pick<TestResponse, 'tests' | 'testsError'> {
     try {
-        const parsed = semgrepTestsResultSchema.safeParse(JSON.parse(stdout.replaceAll(`${root}/`, '')))
+        const parsed = semgrepTestsResultSchema.safeParse(JSON.parse(withoutWorkRoot(stdout, root)))
         if (parsed.success) return { tests: parsed.data }
     } catch {
         // not JSON
