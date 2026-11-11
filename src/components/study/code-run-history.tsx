@@ -459,6 +459,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     onClick={history.toggle}
                     controls={listId}
                     withChevron={false}
+                    withAriaExpanded={false}
                     size="md"
                 />
             </Group>

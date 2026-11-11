@@ -72,8 +72,9 @@ describe('CodeRunHistory', () => {
     it('starts collapsed with a View code run history button', () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
 
-        expect(viewButton()).toHaveTextContent('View code run history')
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        // The label already says which way it toggles; aria-expanded would make it read twice.
+        expect(viewButton()).not.toHaveAttribute('aria-expanded')
         expect(firstRow()).not.toBeVisible()
     })
 
@@ -82,8 +83,8 @@ describe('CodeRunHistory', () => {
 
         await openHistory()
 
-        expect(viewButton()).toHaveTextContent('Hide code run history')
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'true')
+        expect(viewButton()).toHaveAccessibleName('Hide code run history')
+        expect(viewButton()).not.toHaveAttribute('aria-expanded')
         expect(viewButton()).toHaveAttribute('type', 'button')
         expect(rows().map((row) => within(row).getByRole('heading').textContent)).toEqual([
             'Code run • Mar 05, 2026',
@@ -235,7 +236,7 @@ describe('CodeRunHistory', () => {
 
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
 
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
+        expect(viewButton()).toHaveAccessibleName('View code run history')
         await openHistory()
         expect(rows()).toHaveLength(3)
         expect(caret('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'false')

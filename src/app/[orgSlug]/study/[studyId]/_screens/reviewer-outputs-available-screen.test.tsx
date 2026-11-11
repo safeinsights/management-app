@@ -302,10 +302,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
 
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
-        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
-            'aria-expanded',
-            'true',
-        )
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
         expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
         expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
     })

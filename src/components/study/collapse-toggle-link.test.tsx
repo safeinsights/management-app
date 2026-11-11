@@ -24,4 +24,12 @@ describe('CollapseToggleLink', () => {
         expect(button).toHaveAttribute('aria-controls', 'history')
         expect(button.querySelector('.rotatable')).toBeNull()
     })
+
+    it('leaves the state out when the label already says it', () => {
+        renderWithProviders(
+            <CollapseToggleLink label="Hide history" isExpanded onClick={() => {}} withAriaExpanded={false} />,
+        )
+
+        expect(screen.getByRole('button', { name: 'Hide history' })).not.toHaveAttribute('aria-expanded')
+    })
 })
