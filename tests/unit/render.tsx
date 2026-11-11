@@ -1,5 +1,5 @@
 import { cssVariablesResolver, theme } from '@/theme'
-import { MantineProvider } from '@mantine/core'
+import { MantineProvider, Tooltip, mergeThemeOverrides } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider, useSpyMode } from '@/components/spy-mode-context'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
@@ -34,6 +34,12 @@ export const createTestQueryWrapper = (options?: SessionInfoOption & { queryClie
 
 type ProviderOptions = SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient }
 
+// happy-dom measures every element as 0×0, which floating-ui's hide() reads as "target scrolled out
+// of view", so Mantine 9's hideDetached would display:none every tooltip under test.
+const testTheme = mergeThemeOverrides(theme, {
+    components: { Tooltip: Tooltip.extend({ defaultProps: { hideDetached: false } }) },
+})
+
 /**
  * `singleUserEditing` swaps the collaborative editors for the standalone Lexical surface, putting
  * the editable node in the DOM instead of behind a skeleton awaiting a live websocket.
@@ -45,7 +51,7 @@ const TestProviders: FC<{ client: QueryClient; options?: ProviderOptions; childr
 }) => (
     <QueryClientProvider client={client}>
         <SessionInfoProvider userInfo={layoutUserInfo(options)}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+            <MantineProvider theme={testTheme} cssVariablesResolver={cssVariablesResolver}>
                 <SpyModeProvider>
                     <YjsWebsocketProvider singleUserEditing={options?.singleUserEditing}>
                         <ModalsProvider>{children}</ModalsProvider>

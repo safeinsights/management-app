@@ -9,7 +9,7 @@ test.describe('user sign in', async () => {
 
             const fillForm = async () => {
                 await page.getByLabel('email').fill(props.identifier)
-                await page.getByLabel('password').fill(props.password)
+                await page.getByRole('textbox', { name: 'Password' }).fill(props.password)
                 await page.getByRole('button', { name: 'login' }).click()
             }
 

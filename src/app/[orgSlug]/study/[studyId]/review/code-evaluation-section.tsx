@@ -6,7 +6,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { ArrowSquareOutIcon, InfoIcon } from '@phosphor-icons/react/dist/ssr'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
-import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { fieldErrorId, FieldErrorBox, RadioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { LinkWithHoverCard } from '@/components/link-hover-card/link-with-hover-card'
 import { InfoTooltip } from '@/components/tooltip'
 import { useCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
@@ -75,8 +75,6 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
         />
     ))
 
-    // Radio.Group strands a hand-passed aria-label on its roleless outer wrapper; the
-    // role="radiogroup" element takes its name from labelProps.id instead.
     const labelId = `${fieldId}-label`
 
     return (
@@ -89,18 +87,13 @@ function CriterionRow({ criterionKey, value, error, sectionErrorId, onChange, on
             </Text>
             {/* Blur is a bubbled focusout, so moving between radios would validate a still-empty
                 group; useWidgetBlur waits for the user to leave it. */}
-            <Radio.Group
-                value={value ?? ''}
-                onChange={handleChange}
-                {...widgetBlur}
-                name={fieldId}
-                labelProps={{ id: labelId }}
-                flex={1}
-            >
-                <Group justify="space-between" wrap="nowrap">
-                    {radioOptions}
-                </Group>
-            </Radio.Group>
+            <RadioGroupAria labelledBy={labelId}>
+                <Radio.Group value={value ?? ''} onChange={handleChange} {...widgetBlur} name={fieldId} flex={1}>
+                    <Group justify="space-between" wrap="nowrap">
+                        {radioOptions}
+                    </Group>
+                </Radio.Group>
+            </RadioGroupAria>
         </Group>
     )
 }

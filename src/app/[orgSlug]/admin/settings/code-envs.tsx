@@ -267,7 +267,7 @@ const CodeEnvRow: React.FC<{
                     </>
                 }
                 detail={
-                    <Collapse in={detailOpened}>
+                    <Collapse expanded={detailOpened}>
                         <CodeEnvDetailPanel image={image} onViewCode={handleViewCode} isLoadingCode={isLoadingCode} />
                     </Collapse>
                 }

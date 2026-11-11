@@ -128,7 +128,7 @@ export async function fillAndSubmitProposal(page: Page, opts: { linkNotes?: bool
         await expect(linkCard).toBeHidden()
     }
 
-    const piSelect = page.getByRole('textbox', { name: 'Principal Investigator' })
+    const piSelect = page.getByRole('combobox', { name: 'Principal Investigator' })
     await piSelect.click()
     await page.getByRole('option').first().click()
 

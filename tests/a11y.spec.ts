@@ -44,7 +44,7 @@ test.describe('accessibility: signed out', () => {
         await goto(page, Routes.accountSignin)
         await page.getByLabel('email').fill(`nobody-${Date.now()}@example.com`)
         // The fake Clerk rejects only this password; any other one moves on to the MFA screen.
-        await page.getByLabel('password').fill('wrong')
+        await page.getByRole('textbox', { name: 'Password' }).fill('wrong')
         await page.getByRole('button', { name: 'login' }).click()
         await expect(
             page.getByText('Invalid login credentials. Please double-check your email and password.'),

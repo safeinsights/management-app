@@ -247,6 +247,9 @@ export const inputVars = (
 export const theme = createTheme({
     fontFamily: fontFamilySans,
     fontFamilyMonospace: fontFamilyMono,
+    // Mantine 9 moved `medium` to 600; kept at the 8.x value so the upgrade changes no rendering.
+    // Figma has no 500 weight, so a follow-up can drop this once design has reviewed the 600 look.
+    fontWeights: { medium: '500' },
     headings: {
         fontFamily: fontFamilySans,
         // Figma collection `font-weight`: regular 400, semibold 600, bold 700. There is no 500.
@@ -312,6 +315,7 @@ export const theme = createTheme({
                 label: {},
                 description: {},
                 error: { '--input-error-size': 'var(--mantine-font-size-sm)' },
+                success: {},
             }),
         }),
         // Mantine fades disabled inputs to 0.6 opacity, which would wash the disabled tokens out.
