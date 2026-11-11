@@ -97,7 +97,7 @@ const server = new Server({
                 })
                 return result.rows[0]?.data ?? null
             },
-            store: async ({ documentName, state, document, context }) => {
+            store: async ({ documentName, state, document, lastContext }) => {
                 const parsed = parseDocumentName(documentName)
                 if (!parsed) {
                     log('db.store.reject', { documentName, reason: 'unrecognized-name' })
@@ -121,7 +121,7 @@ const server = new Server({
 
                 // Best-effort like the title mirror below: the edit is already persisted.
                 try {
-                    const editors = editorUserIds([context, ...document.getConnections().map((c) => c.context)])
+                    const editors = editorUserIds([lastContext, ...document.getConnections().map((c) => c.context)])
                     await markStudyOpenedByEditors(studyId, editors, pool)
                 } catch (err) {
                     log('db.store.studyVisit.fail', {
@@ -146,8 +146,8 @@ const server = new Server({
         }),
     ],
     async onAuthenticate({ token, documentName, requestHeaders, requestParameters }) {
-        const headerKeys = Object.keys(requestHeaders ?? {})
-        const paramKeys = requestParameters ? Array.from(requestParameters.keys()) : []
+        const headerKeys = Array.from(requestHeaders.keys())
+        const paramKeys = Array.from(requestParameters.keys())
         log('auth.start', {
             documentName,
             tokenLength: token?.length ?? 0,
