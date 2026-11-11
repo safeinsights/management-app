@@ -65,7 +65,17 @@ async function decryptPriorRun(
 export function usePriorRunOutputs(runs: PriorCodeRun[]) {
     const queryClient = useQueryClient()
     const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
-    const setRun = (runId: string, outputs: RunOutputs) => setByRun((current) => ({ ...current, [runId]: outputs }))
+    // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
+    const isMounted = useRef(false)
+    useEffect(() => {
+        isMounted.current = true
+        return () => {
+            isMounted.current = false
+        }
+    }, [])
+    const setRun = (runId: string, outputs: RunOutputs) => {
+        if (isMounted.current) setByRun((current) => ({ ...current, [runId]: outputs }))
+    }
 
     return {
         byRun,
