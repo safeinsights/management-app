@@ -25,7 +25,12 @@ overrides:
     # mailgun.js → axios. Then CVE-2026-116689 against 1.16.1 — information disclosure via
     # cross-origin redirects. Fixed in 1.16.2.
     follow-redirects: ^1.16.2
-    minimatch: ^10.2.1
+    # fast-xml-parser <=5.11.2: GHSA-474x-hrwr-fgx4 (quadratic CPU on unterminated stop-node tags), via @aws-sdk.
+    fast-xml-parser: ^5.11.3
+    # glob <14.0.2: CVE-2026-118773 (abort does not stop traversal), via @sentry and test-exclude.
+    glob: ^14.0.2
+    # minimatch <11.0.1: CVE-2026-118764 (DoS expanding **/.. segments).
+    minimatch: ^11.0.1
     picomatch: ^4.0.4
     # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
     # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
