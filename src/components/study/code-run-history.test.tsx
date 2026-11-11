@@ -22,7 +22,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
 import { lexicalJson } from '@/lib/lexical'
 import { latestJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
-import { CodeRunHistory, decryptedSummary } from './code-run-history'
+import { CodeRunHistory, decryptedSummary, type RunOutputs } from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 const run = (
@@ -399,7 +399,7 @@ const enterRowKey = (row: HTMLElement, key: string) => {
 }
 
 describe('decryptedSummary', () => {
-    it.each([
+    it.each<{ results: RunOutputs[]; message: string }>([
         { results: [], message: 'Outputs decrypted.' },
         { results: [{ status: 'unlocked', files: [] }, { status: 'no-files' }], message: 'Outputs decrypted.' },
         {
@@ -410,8 +410,8 @@ describe('decryptedSummary', () => {
             results: [{ status: 'wrong-key' }, { status: 'wrong-key' }],
             message: 'Outputs decrypted. 2 previous runs need a different key.',
         },
-    ] as const)('says "$message"', ({ results, message }) => {
-        expect(decryptedSummary([...results])).toBe(message)
+    ])('says "$message"', ({ results, message }) => {
+        expect(decryptedSummary(results)).toBe(message)
     })
 })
 
