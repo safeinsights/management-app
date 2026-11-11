@@ -1,13 +1,13 @@
 'use client'
 
-import { ActionIcon, Alert, Badge, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core'
+import { Alert, Badge, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title, UnstyledButton } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
-import { LocalDateTime } from '@/components/local-date-time'
+import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 import { FeedbackEntries } from '@/components/study/feedback-and-notes'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
@@ -124,7 +124,7 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
     const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
-    const caretRefs = useRef(new Map<string, HTMLButtonElement>())
+    const toggleRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
     const movesFocus = useRef(false)
 
@@ -132,7 +132,7 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     useEffect(() => {
         if (!movesFocus.current) return
         movesFocus.current = false
-        if (showAll) caretRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
+        if (showAll) toggleRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
         else showAllRef.current?.focus()
     }, [showAll, runs])
 
@@ -155,9 +155,9 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
                 if (!next.delete(id)) next.add(id)
                 return next
             }),
-        registerCaret: (id: string, element: HTMLButtonElement | null) => {
-            if (element) caretRefs.current.set(id, element)
-            else caretRefs.current.delete(id)
+        registerToggle: (id: string, element: HTMLButtonElement | null) => {
+            if (element) toggleRefs.current.set(id, element)
+            else toggleRefs.current.delete(id)
         },
     }
 }
@@ -332,9 +332,22 @@ type CodeRunHistoryRowProps = Omit<RowOutputsProps, 'outputs'> & {
     outputs: PriorRunOutputs['byRun']
     isExpanded: boolean
     onToggle: (id: string) => void
-    registerCaret: (id: string, element: HTMLButtonElement | null) => void
+    registerToggle: (id: string, element: HTMLButtonElement | null) => void
 }
 
+// The badges are the toggle's description, so a collapsed row is heard with its status.
+const RunBadges: FC<{ id: string; labels: string[] }> = ({ id, labels }) => (
+    <Group component="span" gap="sm" id={id}>
+        {labels.map((label) => (
+            <Badge key={label} component="span" color="grey" variant="light">
+                {label}
+            </Badge>
+        ))}
+    </Group>
+)
+
+// Accordion pattern: the heading wraps a button that spans the whole header. Mantine's Accordion
+// is not used because its panel always carries role="region".
 const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     run,
     outputs,
@@ -344,11 +357,12 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     onKeyDraftChange,
     isExpanded,
     onToggle,
-    registerCaret,
+    registerToggle,
 }) => {
-    const titleId = useId()
+    const nameId = useId()
+    const badgesId = useId()
     const bodyId = useId()
-    const headerRef = useRef<HTMLDivElement>(null)
+    const headerRef = useRef<HTMLHeadingElement>(null)
     const reduceMotion = useReducedMotion() ?? false
 
     const toggle = () => {
@@ -358,29 +372,29 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
 
     return (
         <Paper withBorder p="lg" data-testid="code-run-history-row">
-            <Group ref={headerRef} justify="space-between" wrap="nowrap">
-                <Group gap="sm">
-                    <Title id={titleId} order={4} fz="lg" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
-                        Code run
-                        <LocalDateTime value={run.ranAt} prefix=" • " />
-                    </Title>
-                    {codeRunBadges(run.statusChanges).map((label) => (
-                        <Badge key={label} color="grey" variant="light">
-                            {label}
-                        </Badge>
-                    ))}
-                </Group>
-                <ActionIcon
-                    ref={(element) => registerCaret(run.id, element)}
-                    variant="subtle"
+            <Title ref={headerRef} order={4} fz="lg" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
+                <UnstyledButton
+                    ref={(element) => registerToggle(run.id, element)}
+                    w="100%"
+                    fz="lg"
+                    fw={fontWeight.semibold}
                     onClick={toggle}
-                    aria-labelledby={titleId}
                     aria-expanded={isExpanded}
                     aria-controls={bodyId}
+                    aria-labelledby={nameId}
+                    aria-describedby={badgesId}
                 >
-                    <ToggleChevron isExpanded={isExpanded} />
-                </ActionIcon>
-            </Group>
+                    <Group component="span" justify="space-between" wrap="nowrap">
+                        <Group component="span" gap="sm">
+                            <span id={nameId}>
+                                <CodeRunTitle value={run.ranAt} />
+                            </span>
+                            <RunBadges id={badgesId} labels={codeRunBadges(run.statusChanges)} />
+                        </Group>
+                        <ToggleChevron isExpanded={isExpanded} />
+                    </Group>
+                </UnstyledButton>
+            </Title>
             <Collapse expanded={isExpanded} id={bodyId}>
                 <RowBody
                     isVisible={isExpanded}
@@ -476,7 +490,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                             onKeyDraftChange={history.setKeyDraft}
                             isExpanded={history.expandedIds.has(run.id)}
                             onToggle={history.toggleRow}
-                            registerCaret={history.registerCaret}
+                            registerToggle={history.registerToggle}
                         />
                     ))}
                     <ShowAllRuns

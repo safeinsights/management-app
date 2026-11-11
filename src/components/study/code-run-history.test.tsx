@@ -49,7 +49,7 @@ const RUNS = [
 const viewButton = () => screen.getByRole('button', { name: /^(View|Hide) code run history$/ })
 const rows = () => screen.getAllByTestId('code-run-history-row')
 const firstRow = () => rows()[0]
-const caret = (date: string) => screen.getByRole('button', { name: `Code run • ${date}` })
+const rowToggle = (date: string) => screen.getByRole('button', { name: `Code run ${date}` })
 
 const openHistory = async () => {
     await userEvent.click(viewButton())
@@ -86,13 +86,13 @@ describe('CodeRunHistory', () => {
         expect(viewButton()).toHaveAccessibleName('Hide code run history')
         expect(viewButton()).not.toHaveAttribute('aria-expanded')
         expect(viewButton()).toHaveAttribute('type', 'button')
-        expect(rows().map((row) => within(row).getByRole('heading').textContent)).toEqual([
-            'Code run • Mar 05, 2026',
-            'Code run • Feb 10, 2026',
-            'Code run • Jan 20, 2026',
+        expect(rows().map((row) => within(row).getByRole('button').textContent)).toEqual([
+            'Code run • Mar 05, 2026Outputs and feedback',
+            'Code run • Feb 10, 2026Outputs and feedback',
+            'Code run • Jan 20, 2026Outputs and feedback',
         ])
         for (const date of ['Mar 05, 2026', 'Feb 10, 2026', 'Jan 20, 2026']) {
-            expect(caret(date)).toHaveAttribute('aria-expanded', 'false')
+            expect(rowToggle(date)).toHaveAttribute('aria-expanded', 'false')
         }
 
         await userEvent.click(viewButton())
@@ -142,23 +142,72 @@ describe('CodeRunHistory', () => {
         expect(firstRow()).toHaveTextContent('Outputs and feedback')
     })
 
+    it('builds each row as a heading around one toggle whose name stays put and whose description is its status', async () => {
+        renderWithProviders(
+            <CodeRunHistory
+                runs={[run('run-3', '2026-03-05T12:00:00Z', ['CODE-SUBMITTED', 'JOB-ERRORED', 'FILES-REJECTED'])]}
+            />,
+        )
+        await openHistory()
+
+        const toggle = rowToggle('Mar 05, 2026')
+        expect(within(firstRow()).getByRole('heading', { level: 4 })).toContainElement(toggle)
+        expect(toggle).toHaveAccessibleDescription(/Code errored/)
+        expect(toggle).toHaveAccessibleDescription(/Feedback only/)
+        expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+        await userEvent.click(toggle)
+
+        expect(rowToggle('Mar 05, 2026')).toBe(toggle)
+        expect(toggle).toHaveAttribute('aria-expanded', 'true')
+        const panel = document.getElementById(toggle.getAttribute('aria-controls')!)
+        expect(panel).toContainElement(within(firstRow()).getByTestId('code-run-history-row-body'))
+        expect(firstRow().querySelector('[role="region"]')).toBeNull()
+    })
+
+    it('toggles a row from anywhere on its header, not just the caret', async () => {
+        renderWithProviders(<CodeRunHistory runs={RUNS} />)
+        await openHistory()
+
+        await userEvent.click(within(firstRow()).getByText('Outputs and feedback'))
+
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('keeps collapsed rows and the collapsed section out of the accessibility tree', async () => {
+        renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
+
+        expect(screen.queryAllByRole('button', { name: /^Code run / })).toHaveLength(0)
+
+        await openHistory()
+        expect(within(firstRow()).queryByText('Reviewer feedback')).toBeNull()
+
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        expect(screen.getAllByRole('button', { name: /^Code run / })).toHaveLength(5)
+        await userEvent.click(screen.getByRole('button', { name: 'View less' }))
+        expect(screen.getAllByRole('button', { name: /^Code run / })).toHaveLength(3)
+
+        await userEvent.click(viewButton())
+        await waitFor(() => expect(screen.queryAllByRole('button', { name: /^Code run / })).toHaveLength(0))
+    })
+
     it('expands rows independently and turns each caret', async () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
         await openHistory()
 
-        await userEvent.click(caret('Mar 05, 2026'))
-        await userEvent.click(caret('Jan 20, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Jan 20, 2026'))
 
-        expect(caret('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
-        expect(caret('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Mar 05, 2026').querySelector('[data-rotated]')).not.toBeNull()
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).not.toBeNull()
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
-        expect(caret('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'false')
-        expect(caret('Mar 05, 2026').querySelector('[data-rotated]')).toBeNull()
-        expect(caret('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).toBeNull()
+        expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('shows every run with no View all runs when there are three', async () => {
@@ -187,7 +236,7 @@ describe('CodeRunHistory', () => {
 
         expect(rows()).toHaveLength(5)
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
-        expect(caret('Jun 15, 2026')).toHaveFocus()
+        expect(rowToggle('Jun 15, 2026')).toHaveFocus()
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
@@ -200,38 +249,38 @@ describe('CodeRunHistory', () => {
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('Sep 15, 2026'))
-        await userEvent.click(caret('May 15, 2026'))
+        await userEvent.click(rowToggle('Sep 15, 2026'))
+        await userEvent.click(rowToggle('May 15, 2026'))
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
-        expect(caret('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'true')
 
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
 
-        expect(caret('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Jun 15, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Jun 15, 2026')).toHaveAttribute('aria-expanded', 'false')
     })
 
     it('restores the list length and expanded rows after Hide and View', async () => {
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('May 15, 2026'))
+        await userEvent.click(rowToggle('May 15, 2026'))
 
         await userEvent.click(viewButton())
         await userEvent.click(viewButton())
 
         expect(rows()).toHaveLength(5)
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
-        expect(caret('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('starts over collapsed, with three rows and none expanded, when mounted again', async () => {
         const { unmount } = renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('Sep 15, 2026'))
+        await userEvent.click(rowToggle('Sep 15, 2026'))
         unmount()
 
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
@@ -239,7 +288,7 @@ describe('CodeRunHistory', () => {
         expect(viewButton()).toHaveAccessibleName('View code run history')
         await openHistory()
         expect(rows()).toHaveLength(3)
-        expect(caret('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'false')
     })
 
     // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
@@ -321,10 +370,10 @@ const setupRuns = async () => {
     return { oldKey }
 }
 
-const rowCaret = (row: HTMLElement) => within(row).getByRole('button', { name: /^Code run •/ })
+const rowToggleIn = (row: HTMLElement) => within(row).getByRole('button', { name: /^Code run / })
 
 const expandRow = async (row: HTMLElement) => {
-    await userEvent.click(rowCaret(row))
+    await userEvent.click(rowToggleIn(row))
     await waitFor(() => expect(within(row).getByTestId('code-run-history-row-body')).toBeVisible())
 }
 
@@ -490,7 +539,7 @@ describe('CodeRunHistory expanded row', () => {
 
 describe('CodeRunHistory row scrolling', () => {
     const placeHeader = (top: number, height = 40) => {
-        const header = caret('Mar 05, 2026').parentElement!
+        const header = rowToggle('Mar 05, 2026').parentElement!
         header.getBoundingClientRect = () => ({ top, bottom: top + height }) as DOMRect
     }
 
@@ -508,7 +557,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(100)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).not.toHaveBeenCalled()
     })
@@ -517,7 +566,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(700)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'smooth' })
     })
@@ -526,7 +575,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(100, 690)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 36, behavior: 'smooth' })
     })
@@ -535,7 +584,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(30)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: -34, behavior: 'smooth' })
     })
@@ -543,10 +592,10 @@ describe('CodeRunHistory row scrolling', () => {
     it('scrolls back to a header above the viewport when the row collapses', async () => {
         const scrollBy = await setup()
         placeHeader(100)
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
         placeHeader(-60)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: -124, behavior: 'smooth' })
     })
@@ -555,7 +604,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup({ reducedMotion: true })
         placeHeader(700)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'auto' })
     })
