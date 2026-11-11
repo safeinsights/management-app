@@ -272,7 +272,7 @@ describe('LinkHoverCardPlugin', () => {
         const user = userEvent.setup()
         const { anchor, editor } = await renderLinkedEditor('card-escape-bold')
         act(() => {
-            editor.update(() => $linkNode().getFirstChildOrThrow<TextNode>().setFormat('bold'), { discrete: true })
+            editor.update(() => ($linkNode().getFirstChildOrThrow() as TextNode).setFormat('bold'), { discrete: true })
         })
         clickWithCaret(anchor, 3)
         await findCard()
@@ -295,7 +295,7 @@ describe('LinkHoverCardPlugin', () => {
             editor.getRootElement()?.focus()
             editor.update(
                 () => {
-                    const [, second] = $linkNode().getFirstChildOrThrow<TextNode>().splitText(6)
+                    const [, second] = ($linkNode().getFirstChildOrThrow() as TextNode).splitText(6)
                     second.insertBefore($createLineBreakNode())
                     second.select(0, 0)
                 },
