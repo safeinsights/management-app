@@ -5,6 +5,7 @@ import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentCollectionLabels,
+    legalDocumentTypeLabels,
     type UserStudyAgreementSort,
 } from '@/schema/legal-document'
 import { fetchUserStudyAgreementsAction } from '@/server/actions/user-legal.actions'
@@ -39,6 +40,7 @@ const SORTING = {
 export const UserStudyAgreements: FC = () => (
     <AgreementsPanel
         label={legalDocumentCollectionLabels.SLA}
+        title={legalDocumentTypeLabels.SLA}
         idAccessor="studyId"
         columns={columns}
         sorting={SORTING}
