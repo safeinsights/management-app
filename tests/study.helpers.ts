@@ -366,7 +366,7 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
     await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
-    await expect(page.getByRole('heading', { name: /^Code run •/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Code run / })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
     const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
@@ -402,7 +402,7 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
-    await expect(page.getByRole('heading', { name: /^Code run •/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Code run / })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
     const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })

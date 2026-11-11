@@ -303,7 +303,7 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, await requireRawState(study.id), org.slug)
 
-        expect(screen.getByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Code run Mar 05, 2026' })).toBeInTheDocument()
     })
 
     // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
