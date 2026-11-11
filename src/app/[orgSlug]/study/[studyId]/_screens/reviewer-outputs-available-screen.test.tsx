@@ -300,6 +300,10 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
 
+        // The table takes the focus the key form held, and one polite message covers every run.
+        expect(within(screen.getByTestId('outputs-files-section')).getByText('Output files')).toHaveFocus()
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
+
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
         expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()

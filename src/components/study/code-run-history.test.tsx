@@ -22,7 +22,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
 import { lexicalJson } from '@/lib/lexical'
 import { latestJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
-import { CodeRunHistory } from './code-run-history'
+import { CodeRunHistory, decryptedSummary } from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 const run = (
@@ -50,6 +50,8 @@ const viewButton = () => screen.getByRole('button', { name: /^(View|Hide) code r
 const rows = () => screen.getAllByTestId('code-run-history-row')
 const firstRow = () => rows()[0]
 const rowToggle = (date: string) => screen.getByRole('button', { name: `Code run ${date}` })
+
+const historyStatus = () => within(screen.getByTestId('code-run-history')).getAllByRole('status')[0]
 
 const openHistory = async () => {
     await userEvent.click(viewButton())
@@ -237,12 +239,15 @@ describe('CodeRunHistory', () => {
         expect(rows()).toHaveLength(5)
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
         expect(rowToggle('Jun 15, 2026')).toHaveFocus()
+        expect(historyStatus()).toHaveTextContent('Showing all 5 previous runs')
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
         expect(rows()).toHaveLength(3)
-        expect(screen.getByText('Showing 3 of 5 previous runs')).toBeInTheDocument()
+        expect(screen.getByText('Showing 3 of 5 previous runs', { selector: 'p' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'View all runs' })).toHaveFocus()
+        expect(historyStatus()).toHaveTextContent('Showing 3 of 5 previous runs')
+        expect(historyStatus()).toHaveAttribute('aria-live', 'polite')
     })
 
     it('restores expanded rows, including hidden ones, after View less and View all runs', async () => {
@@ -392,6 +397,84 @@ const enterRowKey = (row: HTMLElement, key: string) => {
     fireEvent.change(keyInput(row), { target: { value: key } })
     fireEvent.click(within(row).getByRole('button', { name: 'View files' }))
 }
+
+describe('decryptedSummary', () => {
+    it.each([
+        { results: [], message: 'Outputs decrypted.' },
+        { results: [{ status: 'unlocked', files: [] }, { status: 'no-files' }], message: 'Outputs decrypted.' },
+        {
+            results: [{ status: 'wrong-key' }, { status: 'integrity' }, { status: 'fetch-failed' }],
+            message: 'Outputs decrypted. 1 previous run needs a different key.',
+        },
+        {
+            results: [{ status: 'wrong-key' }, { status: 'wrong-key' }],
+            message: 'Outputs decrypted. 2 previous runs need a different key.',
+        },
+    ] as const)('says "$message"', ({ results, message }) => {
+        expect(decryptedSummary([...results])).toBe(message)
+    })
+})
+
+const outputsTitleIn = (container: HTMLElement) => within(container).getByText('Output files', { selector: 'p' })
+
+describe('CodeRunHistory decryption focus and announcements', () => {
+    it('focuses the latest outputs and announces one message for every run the key was tried on', async () => {
+        await setupRuns()
+        await openHistory()
+        await unlockLatest()
+
+        expect(outputsTitleIn(screen.getByTestId('outputs-files-section'))).toHaveFocus()
+        const message = await screen.findByText('Outputs decrypted. 2 previous runs need a different key.')
+        expect(message.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
+        expect(screen.queryByText(/^Outputs decrypted for Code run/)).toBeNull()
+        // Runs the latest key opened do not pull focus away from it.
+        await expandRow(rows()[0])
+        expect(await within(rows()[0]).findByText('matching.csv')).toBeVisible()
+        expect(outputsTitleIn(rows()[0])).not.toHaveFocus()
+    })
+
+    it('focuses a row’s outputs and announces it when its own key opens it, only once', async () => {
+        const { oldKey } = await setupRuns()
+        await openHistory()
+        await unlockLatest()
+        const oldA = rows()[1]
+        await expandRow(oldA)
+        await within(oldA).findByText(WRONG_KEY_ALERT)
+
+        enterRowKey(oldA, oldKey.privateKeyString)
+
+        expect(await within(oldA).findByText('old-a.csv')).toBeVisible()
+        await waitFor(() => expect(outputsTitleIn(oldA)).toHaveFocus())
+        expect(historyStatus()).toHaveTextContent(/^Outputs decrypted for Code run \w{3} \d{2}, \d{4}\.$/)
+
+        await userEvent.click(rowToggleIn(oldA))
+        await expandRow(oldA)
+        expect(await within(oldA).findByText('old-a.csv')).toBeVisible()
+        expect(rowToggleIn(oldA)).toHaveFocus()
+    })
+
+    // Mantine 9 keeps a hidden section mounted and re-runs its effects when it is shown again.
+    it.each([false, true])(
+        'does not move focus to a row’s outputs again after Hide and View (reduced motion: %s)',
+        async (reducedMotion) => {
+            stubReducedMotion(reducedMotion)
+            const { oldKey } = await setupRuns()
+            await openHistory()
+            await unlockLatest()
+            const oldA = rows()[1]
+            await expandRow(oldA)
+            await within(oldA).findByText(WRONG_KEY_ALERT)
+            enterRowKey(oldA, oldKey.privateKeyString)
+            await waitFor(() => expect(outputsTitleIn(rows()[1])).toHaveFocus())
+
+            await userEvent.click(viewButton())
+            await userEvent.click(viewButton())
+            await waitFor(() => expect(within(rows()[1]).getByText('old-a.csv')).toBeVisible())
+
+            expect(viewButton()).toHaveFocus()
+        },
+    )
+})
 
 describe('CodeRunHistory expanded row', () => {
     it('shows the locked state and the run’s own feedback before the latest run is decrypted', async () => {

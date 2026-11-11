@@ -1,9 +1,22 @@
 'use client'
 
-import { Alert, Badge, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title, UnstyledButton } from '@mantine/core'
+import {
+    Alert,
+    Badge,
+    Collapse,
+    Divider,
+    Group,
+    Loader,
+    Paper,
+    Stack,
+    Text,
+    Title,
+    UnstyledButton,
+    VisuallyHidden,
+} from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
+import { FC, Fragment, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
@@ -15,6 +28,7 @@ import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
 import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, decryptJobFiles } from '@/hooks/use-decrypt-files'
 import { APP_SHELL } from '@/lib/constants'
+import { formatInstant } from '@/lib/dates'
 import { toOutputsFeedbackEntry } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -60,11 +74,19 @@ async function decryptPriorRun(
     }
 }
 
+// One message for the latest run and every earlier run it tried, rather than one per row.
+export function decryptedSummary(results: RunOutputs[]): string {
+    const needKey = results.filter((outputs) => outputs.status === 'wrong-key').length
+    if (needKey === 0) return 'Outputs decrypted.'
+    return `Outputs decrypted. ${needKey} previous ${needKey === 1 ? 'run needs' : 'runs need'} a different key.`
+}
+
 // Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
 // is dropped: it is only ever an argument here, never state, a ref or storage.
 export function usePriorRunOutputs(runs: PriorCodeRun[]) {
     const queryClient = useQueryClient()
     const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
+    const [announcement, setAnnouncement] = useState('')
     // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
     const isMounted = useRef(false)
     useEffect(() => {
@@ -79,15 +101,29 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
 
     return {
         byRun,
+        announcement,
         decryptWith: (privateKey: string) => {
             setByRun(Object.fromEntries(runs.map((run) => [run.id, { status: 'decrypting' } as const])))
-            for (const run of runs) {
-                void decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => setRun(run.id, outputs))
-            }
+            const decrypts = runs.map((run) =>
+                decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => {
+                    setRun(run.id, outputs)
+                    return outputs
+                }),
+            )
+            void Promise.all(decrypts).then((results) => {
+                if (isMounted.current) setAnnouncement(decryptedSummary(results))
+            })
         },
         unlockRun: (runId: string, files: JobFileInfo[]) => setRun(runId, { status: 'unlocked', files }),
     }
 }
+
+// A new text node per message: VoiceOver in Safari can skip text that only changes in place.
+export const PoliteStatus: FC<{ message: string }> = ({ message }) => (
+    <VisuallyHidden role="status" aria-live="polite" aria-atomic="true">
+        <Fragment key={message}>{message}</Fragment>
+    </VisuallyHidden>
+)
 
 export type PriorRunOutputs = ReturnType<typeof usePriorRunOutputs>
 
@@ -124,6 +160,10 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
     const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
+    const [message, setMessage] = useState('')
+    // The row whose own key just opened it, so its table takes focus once. Any later toggle clears
+    // it: a remounted table (a row reopened, or on Mantine 9 a section shown again) must not take it.
+    const [focusRunId, setFocusRunId] = useState<string | null>(null)
     const toggleRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
     const movesFocus = useRef(false)
@@ -138,23 +178,43 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
 
     return {
         isOpen,
-        toggle,
+        toggle: () => {
+            setMessage('')
+            setFocusRunId(null)
+            toggle()
+        },
+        message,
+        focusRunId,
+        announceUnlocked: (runId: string) => {
+            const run = runs.find((candidate) => candidate.id === runId)
+            setFocusRunId(runId)
+            if (run) setMessage(`Outputs decrypted for Code run ${formatInstant(run.ranAt)}.`)
+        },
         showAll,
         visibleRuns: showAll ? runs : runs.slice(0, VISIBLE_RUNS),
         keyDrafts,
         setKeyDraft: (id: string, value: string) => setKeyDrafts((current) => ({ ...current, [id]: value })),
         expandedIds,
         showAllRef,
+        // Focus lands on one row, which says nothing about how many runs the list now holds.
         toggleShowAll: () => {
             movesFocus.current = true
+            setFocusRunId(null)
+            setMessage(
+                showAll
+                    ? `Showing ${VISIBLE_RUNS} of ${runs.length} previous runs`
+                    : `Showing all ${runs.length} previous runs`,
+            )
             setShowAll((current) => !current)
         },
-        toggleRow: (id: string) =>
+        toggleRow: (id: string) => {
+            setFocusRunId(null)
             setExpandedIds((current) => {
                 const next = new Set(current)
                 if (!next.delete(id)) next.add(id)
                 return next
-            }),
+            })
+        },
         registerToggle: (id: string, element: HTMLButtonElement | null) => {
             if (element) toggleRefs.current.set(id, element)
             else toggleRefs.current.delete(id)
@@ -169,6 +229,8 @@ type RowOutputsProps = {
     onUnlocked: (runId: string, files: JobFileInfo[]) => void
     keyDraft: string
     onKeyDraftChange: (runId: string, value: string) => void
+    /** True right after this row's own key opened it, so its table takes focus. */
+    isFocusTarget: boolean
 }
 
 const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -253,9 +315,18 @@ const RunOutputsMessage: FC<{ isVisible: boolean; children: string }> = ({ isVis
     )
 }
 
-const UnlockedOutputs: FC<{ jobId: string; outputs: RunOutputs | undefined }> = ({ jobId, outputs }) => {
+type UnlockedOutputsProps = { jobId: string; outputs: RunOutputs | undefined; isFocusTarget: boolean }
+
+const UnlockedOutputs: FC<UnlockedOutputsProps> = ({ jobId, outputs, isFocusTarget }) => {
     if (outputs?.status !== 'unlocked') return null
-    return <OutputsFilesViewer jobId={jobId} decryptedFiles={outputs.files} variant="embedded" />
+    return (
+        <OutputsFilesViewer
+            jobId={jobId}
+            decryptedFiles={outputs.files}
+            variant="embedded"
+            autoFocusTitle={isFocusTarget}
+        />
+    )
 }
 
 const DecryptingLoader: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -276,7 +347,7 @@ const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 }
 
 const RunOutputsSection: FC<RowOutputsProps> = (props) => {
-    const { run, outputs, isLatestDecrypted } = props
+    const { run, outputs, isLatestDecrypted, isFocusTarget } = props
     const status = outputs?.status
 
     return (
@@ -284,7 +355,7 @@ const RunOutputsSection: FC<RowOutputsProps> = (props) => {
             <OutputsTitle isVisible={status !== 'unlocked'} />
             <LockedOutputs isVisible={!isLatestDecrypted} />
             <DecryptingLoader isVisible={isLatestDecrypted && status === 'decrypting'} />
-            <UnlockedOutputs jobId={run.id} outputs={outputs} />
+            <UnlockedOutputs jobId={run.id} outputs={outputs} isFocusTarget={isFocusTarget} />
             <RunKeyEntry {...props} isVisible={isLatestDecrypted && needsOwnKey(outputs)} />
             <RunOutputsMessage isVisible={isLatestDecrypted && status === 'integrity'}>
                 {ARCHIVE_INTEGRITY_MESSAGE}
@@ -363,6 +434,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     onUnlocked,
     keyDraft,
     onKeyDraftChange,
+    isFocusTarget,
     isExpanded,
     onToggle,
     registerToggle,
@@ -412,6 +484,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                     onUnlocked={onUnlocked}
                     keyDraft={keyDraft}
                     onKeyDraftChange={onKeyDraftChange}
+                    isFocusTarget={isFocusTarget}
                 />
             </Collapse>
         </Paper>
@@ -464,6 +537,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
     // A submitted key has done its job, so its text is not held any longer than the input needed it.
     const unlockRun = (runId: string, files: JobFileInfo[]) => {
         history.setKeyDraft(runId, '')
+        history.announceUnlocked(runId)
         outputs?.unlockRun(runId, files)
     }
 
@@ -485,6 +559,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     size="md"
                 />
             </Group>
+            <PoliteStatus message={history.message} />
             <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
                     {history.visibleRuns.map((run) => (
@@ -496,6 +571,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                             onUnlocked={unlockRun}
                             keyDraft={history.keyDrafts[run.id] ?? ''}
                             onKeyDraftChange={history.setKeyDraft}
+                            isFocusTarget={history.focusRunId === run.id}
                             isExpanded={history.expandedIds.has(run.id)}
                             onToggle={history.toggleRow}
                             registerToggle={history.registerToggle}

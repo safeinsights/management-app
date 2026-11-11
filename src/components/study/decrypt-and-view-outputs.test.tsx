@@ -64,5 +64,7 @@ describe('DecryptAndViewOutputs', () => {
         expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
         expect(screen.getByText('summary.csv')).toBeInTheDocument()
+        expect(screen.getByText('Output files')).toHaveFocus()
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
     })
 })

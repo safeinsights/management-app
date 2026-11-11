@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
+import { CodeRunHistory, PoliteStatus, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { CodeRunKeyForm } from '@/components/study/code-run-key-form'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -37,7 +37,7 @@ const LatestOutputs: FC<LatestOutputsProps> = ({ isVisible, job, decryptedFiles,
         )
     }
 
-    return <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} />
+    return <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} autoFocusTitle />
 }
 
 // The history shares this component's state, so the key that opens the latest run can open the
@@ -60,6 +60,7 @@ export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({ job, pri
                 outputs={priorOutputs}
                 isLatestDecrypted={!isVisible || decryptedFiles !== null}
             />
+            <PoliteStatus message={priorOutputs.announcement} />
         </>
     )
 }
