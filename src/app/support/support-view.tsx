@@ -11,14 +11,19 @@ export const SUPPORT_EMAIL = 'beta-team@safeinsights.org'
 const ICON_SIZE = 16
 const COPIED_MS = 2000
 
-const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
-    if (!isVisible) return null
-    return (
-        <Text component="span" fz="sm" ml="xs" c={semanticColor('success.text')}>
-            Copied
-        </Text>
-    )
-}
+// Hidden rather than unmounted: the label keeps its width, so copying never moves the line break.
+const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => (
+    <Text
+        component="span"
+        fz="sm"
+        ml="xs"
+        c={semanticColor('success.text')}
+        opacity={isVisible ? 1 : 0}
+        aria-hidden={!isVisible}
+    >
+        Copied
+    </Text>
+)
 
 // Plain text on purpose: the card rules out a mailto: link.
 // The address may break only after the @; the domain, period, icon and "Copied" stay one unbreakable
