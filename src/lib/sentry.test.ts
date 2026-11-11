@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
-import type { ErrorEvent, Event, Log } from '@sentry/nextjs'
-import { scrubSentryEvent, scrubSentryLog, scrubSentryTransaction, sentryScrubOptions } from './sentry'
+import type { ErrorEvent, Log } from '@sentry/nextjs'
+import { scrubSentryEvent, scrubSentryLog, scrubSentrySpan, sentryScrubOptions } from './sentry'
 import { scrubText } from './sentry-scrub-text'
 
 function makeEvent(overrides: Partial<ErrorEvent> = {}): ErrorEvent {
@@ -381,37 +381,42 @@ describe('key and text matching', () => {
     })
 })
 
-describe('scrubSentryTransaction', () => {
-    it('scrubs span descriptions, span data and breadcrumbs', () => {
-        const event = {
-            type: 'transaction',
-            spans: [
-                {
-                    span_id: '1',
-                    trace_id: 't',
-                    start_timestamp: 0,
-                    description: 'GET /api/x?token=abc',
-                    data: {
-                        'http.query': '?api_key=k&page=1',
-                        authorization: 'Bearer z',
-                        'http.request.header.authorization': 'x',
-                        'user.email_hash': 'h',
-                    },
-                },
-            ],
-            breadcrumbs: [{ message: 'pat@example.org' }],
-        } as unknown as Event
+type StreamedSpan = Parameters<typeof scrubSentrySpan>[0]
 
-        const result = scrubSentryTransaction(event)
+function makeSpan(overrides: Partial<StreamedSpan>): StreamedSpan {
+    return {
+        span_id: '1',
+        trace_id: 't',
+        name: 'span',
+        start_timestamp: 0,
+        status: 'ok',
+        is_segment: false,
+        attributes: {},
+        ...overrides,
+    }
+}
 
-        expect(result.spans![0].description).toBe('GET /api/x?token=[Filtered]')
-        expect(result.spans![0].data).toEqual({
+describe('scrubSentrySpan', () => {
+    it('scrubs the span name and attributes', () => {
+        const span = makeSpan({
+            name: 'GET /api/x?token=abc',
+            attributes: {
+                'http.query': '?api_key=k&page=1',
+                authorization: 'Bearer z',
+                'http.request.header.authorization': 'x',
+                'user.email_hash': 'h',
+            },
+        })
+
+        const result = scrubSentrySpan(span)
+
+        expect(result.name).toBe('GET /api/x?token=[Filtered]')
+        expect(result.attributes).toEqual({
             'http.query': '?api_key=[Filtered]&page=1',
             authorization: '[Filtered]',
             'http.request.header.authorization': '[Filtered]',
             'user.email_hash': '[Filtered]',
         })
-        expect(result.breadcrumbs![0].message).toBe('[Filtered]')
     })
 })
 
@@ -513,11 +518,11 @@ describe('sentryScrubOptions', () => {
     // pointing at the wrong function silently stops scrubbing for that event type.
     it('wires each hook to its scrubber', () => {
         expect(sentryScrubOptions.beforeSend).toBe(scrubSentryEvent)
-        expect(sentryScrubOptions.beforeSendTransaction).toBe(scrubSentryTransaction)
+        expect(sentryScrubOptions.beforeSendSpan).toBe(scrubSentrySpan)
         expect(sentryScrubOptions.beforeSendLog).toBe(scrubSentryLog)
     })
-    it('disables default PII transmission explicitly', () => {
-        expect(sentryScrubOptions.sendDefaultPii).toBe(false)
+    it('opts out of the default PII collection explicitly', () => {
+        expect(sentryScrubOptions.dataCollection).toMatchObject({ userInfo: false, cookies: false, httpBodies: [] })
     })
 })
 
@@ -528,17 +533,13 @@ describe('Sentry scrubbing review regressions', () => {
         expect(scrubSentryEvent(event).breadcrumbs?.[0].data?.headers).toEqual({ [header]: '[Filtered]' })
     })
     it('scrubs dotted sensitive header span attributes', () => {
-        const event = {
-            spans: [
-                {
-                    data: {
-                        [`http.request.header.${header}`]: 'opaque-secret',
-                        'http.request.header.x-amzn-oidc-data': 'opaque-data',
-                    },
-                },
-            ],
-        } as unknown as Event
-        const attrs = scrubSentryTransaction(event).spans?.[0].data
+        const span = makeSpan({
+            attributes: {
+                [`http.request.header.${header}`]: 'opaque-secret',
+                'http.request.header.x-amzn-oidc-data': 'opaque-data',
+            },
+        })
+        const attrs = scrubSentrySpan(span).attributes
         expect(attrs?.[`http.request.header.${header}`]).toBe('[Filtered]')
         expect(attrs?.['http.request.header.x-amzn-oidc-data']).toBe('[Filtered]')
     })
@@ -582,9 +583,7 @@ describe('Sentry scrubbing review regressions', () => {
         const url = '/signin?redirect_url=%2Fcb%3Faccesstoken%3Dopaque-secret'
         const event = makeEvent({ request: { url }, breadcrumbs: [{ data: { url } }], message: url })
         expect(JSON.stringify(scrubSentryEvent(event))).not.toContain('opaque-secret')
-        expect(JSON.stringify(scrubSentryTransaction({ spans: [{ description: url }] } as Event))).not.toContain(
-            'opaque-secret',
-        )
+        expect(JSON.stringify(scrubSentrySpan(makeSpan({ name: url })))).not.toContain('opaque-secret')
         expect(scrubSentryLog({ message: url } as Log).message).not.toContain('opaque-secret')
     })
 })
