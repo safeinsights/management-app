@@ -15,7 +15,14 @@ describe('parseRunnerConfig', () => {
             rulesetEnv,
             rulesBucketOwner: '432772479668',
             s3Endpoint: undefined,
+            forcePathStyle: false,
         })
+    })
+
+    it('forces path style only for a non-AWS endpoint', () => {
+        const local = parseRunnerConfig({ ...env, S3_ENDPOINT: 'http://seaweedfs:8333' })
+        const fips = parseRunnerConfig({ ...env, S3_ENDPOINT: 'https://s3-fips.us-east-1.amazonaws.com' })
+        expect([local.forcePathStyle, fips.forcePathStyle]).toEqual([true, false])
     })
 
     it('rejects an unknown ruleset environment and a missing bucket', () => {

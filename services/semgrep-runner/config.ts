@@ -30,7 +30,12 @@ export type RulesetStorage = {
     rulesBucketOwner?: string
 }
 
-export type RunnerConfig = Omit<RulesetStorage, 's3'> & { s3Endpoint?: string }
+export type RunnerConfig = Omit<RulesetStorage, 's3'> & { s3Endpoint?: string; forcePathStyle: boolean }
+
+// AWS S3, also at a custom AWS endpoint, uses the default virtual-hosted style; only a local stand-in needs path style.
+function needsPathStyle(endpoint?: string): boolean {
+    return Boolean(endpoint) && !new URL(endpoint!).hostname.endsWith('.amazonaws.com')
+}
 
 export function parseRunnerConfig(env: Record<string, string | undefined> = processEnv()): RunnerConfig {
     const config = configSchema.parse({ ...env, S3_ENDPOINT: env.S3_ENDPOINT || undefined })
@@ -39,5 +44,6 @@ export function parseRunnerConfig(env: Record<string, string | undefined> = proc
         rulesetEnv: config.SEMGREP_RULESET_ENV,
         rulesBucketOwner: config.SEMGREP_RULES_BUCKET_OWNER,
         s3Endpoint: config.S3_ENDPOINT,
+        forcePathStyle: needsPathStyle(config.S3_ENDPOINT),
     }
 }
