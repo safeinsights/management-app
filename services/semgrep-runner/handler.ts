@@ -10,8 +10,8 @@ export const DEADLINE_MARGIN_MS = 15_000
 let storage: RulesetStorage | undefined
 function rulesetStorage(): RulesetStorage {
     if (!storage) {
-        const { s3Endpoint, ...config } = parseRunnerConfig()
-        storage = { ...config, s3: new S3Client({ forcePathStyle: true, endpoint: s3Endpoint }) }
+        const { s3Endpoint, forcePathStyle, ...config } = parseRunnerConfig()
+        storage = { ...config, s3: new S3Client({ forcePathStyle, endpoint: s3Endpoint }) }
     }
     return storage
 }
