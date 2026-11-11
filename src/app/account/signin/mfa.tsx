@@ -1,8 +1,9 @@
 'use client'
 
 import type { FC } from 'react'
-import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
+import { Button, Divider, Loader, Stack, Text, Title } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
+import { FocusedCard } from '@/components/layout/focused-card'
 import type { MFAState } from './logic'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { useRequestMfa, type Method, type Step } from './use-request-mfa'
@@ -119,7 +120,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     if (!isLoaded) return <Loader />
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard maw={500} my={{ base: 'md', lg: 0 }}>
             <SelectMethodStep
                 isVisible={step === 'select'}
                 hasSMS={hasSMS}
@@ -138,6 +139,6 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 resetFlow={resetFlow}
             />
             <RecoveryStep isVisible={step === 'recovery'} setStep={setStep} />
-        </Paper>
+        </FocusedCard>
     )
 }
