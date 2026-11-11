@@ -215,6 +215,15 @@ if [ "$action" = prune ]; then
     exit 0
 fi
 
+# --up --host recreates db-e2e and seaweedfs-e2e with host ports, and a one-shot --host-run removes the
+# stack at its end, so neither may start on another run's stack. 75 tells the one-shot it owns nothing.
+if [ "$action" = up ] && [ "$host" = true ] && [ -n "$(running_container db-e2e)" ] &&
+    { [ -z "$(running_container e2e-session)" ] || [ -n "${E2E_ONESHOT:-}" ]; }; then
+    echo "Error: another ./bin/docker-e2e run or session is using the stack of this checkout." >&2
+    echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
+    exit 75
+fi
+
 # One one-shot run per checkout: its running runner container is the lock. Checked after argument
 # parsing so --help and --print-project-name work with Docker stopped. A running session is not a
 # lock: runs go through it and are serialized inside the container.
@@ -260,8 +269,13 @@ case $action in
             up_flags=()
             if [ "$clean" = true ]; then up_flags+=(--clean); fi
             if [ "$rebuild" = true ]; then up_flags+=(--rebuild); fi
-            "$self" --up --host ${up_flags[@]+"${up_flags[@]}"}
             status=0
+            "$self" --up --host ${up_flags[@]+"${up_flags[@]}"} || status=$?
+            if [ "$status" -eq 75 ]; then
+                trap - EXIT
+                exit 1
+            fi
+            if [ "$status" -ne 0 ]; then exit "$status"; fi
             "$self" --host-run -- ${extra_args[@]+"${extra_args[@]}"} || status=$?
             exit "$status"
         fi
@@ -277,7 +291,8 @@ case $action in
         if [ "${E2E_ONESHOT:-}" != 1 ] &&
             docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$session" | grep -x 'E2E_ONESHOT=1' >/dev/null; then
             echo "Error: a one-shot ./bin/docker-e2e --host-run is active for this checkout; its session ends with it." >&2
-            echo "       Wait for it to finish, or use ./bin/docker-e2e --up --host for several runs." >&2
+            echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
+            echo "       Use ./bin/docker-e2e --up --host for several runs." >&2
             exit 1
         fi
         ;;
@@ -534,7 +549,9 @@ print_stack_notice() {
     echo "[docker-e2e] NOTICE: other Docker stacks were running $1"
     LC_ALL=C sort -u "$stack_log" | sed 's/^/  /'
     echo "  They share the Docker host's CPU and memory, so a timeout may come from load."
-    echo "  Before debugging one, rerun it alone: ./bin/docker-e2e -- <spec> --repeat-each 5"
+    local rerun=./bin/docker-e2e
+    if [ "$action" = host-run ]; then rerun="./bin/docker-e2e --host-run"; fi
+    echo "  Before debugging one, rerun it alone: $rerun -- <spec> --repeat-each 5"
     echo "  (CLAUDE.md, \"Timeouts under Docker load\"). Failures other than timeouts are real."
     echo "################################################################################"
     echo ""
@@ -606,6 +623,8 @@ hold_dir=
 release_host_lock() {
     if [ -n "$holder" ]; then
         exec 7>&-
+        # It may still wait for the lock, where a closed stdin does not end it.
+        kill "$holder" 2>/dev/null || true
         wait "$holder" 2>/dev/null || true
         holder=
     fi

@@ -229,6 +229,8 @@ if [ "$deps" = true ]; then install_deps; fi
 case $command in
     test | ui | hold) take_playwright_lock ;;
 esac
+# The host run ended while this holder waited for the lock. Its stdin carries no data, only EOF.
+if [ "$command" = hold ] && read -r -t 0; then exit 0; fi
 
 if [ "$prepare" = true ]; then
     # A session's server would keep connections and caches of the dropped database.
