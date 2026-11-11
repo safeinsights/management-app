@@ -54,7 +54,7 @@
         "update-all-packages": "pnpm dlx npm-check-updates -u"
     },
     "dependencies": {
-        "@anthropic-ai/sdk": "^0.95.2",
+        "@anthropic-ai/sdk": "^1.6.0",
         "@aws-sdk/client-codebuild": "^3.1049.0",
         "@aws-sdk/client-glue": "^3.1049.0",
         "@aws-sdk/client-s3": "^3.1049.0",
