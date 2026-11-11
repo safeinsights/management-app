@@ -115,7 +115,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText(
                 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
