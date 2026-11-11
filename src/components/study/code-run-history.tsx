@@ -371,7 +371,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                     <ToggleChevron isExpanded={isExpanded} />
                 </ActionIcon>
             </Group>
-            <Collapse in={isExpanded} id={bodyId}>
+            <Collapse expanded={isExpanded} id={bodyId}>
                 <RowBody
                     isVisible={isExpanded}
                     run={run}
@@ -452,7 +452,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     size="md"
                 />
             </Group>
-            <Collapse in={history.isOpen} id={listId}>
+            <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
                     {history.visibleRuns.map((run) => (
                         <CodeRunHistoryRow
