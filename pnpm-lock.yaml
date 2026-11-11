@@ -143,8 +143,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       commander:
-        specifier: ^14.0.3
-        version: 14.0.3
+        specifier: ^15.1.0
+        version: 15.1.0
       dayjs:
         specifier: ^1.11.20
         version: 1.11.20
@@ -167,8 +167,8 @@ importers:
         specifier: ^0.41.0
         version: 0.41.0
       mailgun.js:
-        specifier: ^12.9.0
-        version: 12.9.0(debug@4.4.3)
+        specifier: ^14.1.1
+        version: 14.1.1(debug@4.4.3)
       mantine-datatable:
         specifier: ^8.3.13
         version: 8.3.13(@mantine/core@8.3.18(@mantine/hooks@8.3.18(react@19.2.4))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@mantine/hooks@8.3.18(react@19.2.4))(clsx@2.1.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -3054,6 +3054,10 @@ packages:
     resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
     engines: {node: '>=20'}
 
+  commander@15.1.0:
+    resolution: {integrity: sha512-cgnQ88TRrWcC7pVq46RzJVRMktu3W2RcbnoidnfBsl1bmDCBwJS/udcIZpKoCrbAYYaCqsz1yZCVIgbIaU3ddQ==}
+    engines: {node: '>=22.12.0'}
+
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
@@ -4486,8 +4490,8 @@ packages:
   magicast@0.5.3:
     resolution: {integrity: sha512-pVKE4UdSQ7DvHzivsCIFx2BJn1mHG6KsyrFcaxFx6tONdneEuThrDx0Cj3AMg58KyN4pzYT+LHOotxDQDjNvkw==}
 
-  mailgun.js@12.9.0:
-    resolution: {integrity: sha512-eUoZnMEfC3+lKmRt/h8CaxtIJSlm6QRSQM7FjQKSV4AqH4/9MmHL9o2IvtHVUj46KuJLn1iUqzjy48W/9iUEpw==}
+  mailgun.js@14.1.1:
+    resolution: {integrity: sha512-xaYZKhoQEfoNj2bpVt5bKnCMdHLKYRz9k8jjZQJBLm4+JIdv+EMXyYE8l4v3wTMkO0m4wBiM3yLkWEetui/9/A==}
     engines: {node: '>=18.0.0'}
 
   make-dir@4.0.0:
@@ -9325,6 +9329,8 @@ snapshots:
 
   commander@14.0.3: {}
 
+  commander@15.1.0: {}
+
   commander@2.20.3: {}
 
   commondir@1.0.1: {}
@@ -10938,7 +10944,7 @@ snapshots:
       '@babel/types': 7.29.8
       source-map-js: 1.2.2
 
-  mailgun.js@12.9.0(debug@4.4.3):
+  mailgun.js@14.1.1(debug@4.4.3):
     dependencies:
       axios: 1.20.0(debug@4.4.3)
       base-64: 1.0.0
