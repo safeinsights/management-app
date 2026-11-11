@@ -2,7 +2,8 @@
 
 import { semanticColor } from '@/theme/tokens'
 import { type FC } from 'react'
-import { Button, Paper, Stack, Text, Title } from '@mantine/core'
+import { Button, Stack, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
 
 export interface AlreadySignedInViewProps {
     email: string | null
@@ -21,7 +22,7 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
     onSwitchAccount,
 }) => {
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={500} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard maw={500} my={{ base: 'md', lg: 0 }}>
             <Stack gap="xl">
                 <Title order={3} ta="center">
                     You’re already signed in
@@ -38,6 +39,6 @@ export const AlreadySignedInView: FC<AlreadySignedInViewProps> = ({
                     </Button>
                 </Stack>
             </Stack>
-        </Paper>
+        </FocusedCard>
     )
 }
