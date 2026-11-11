@@ -386,7 +386,7 @@ const unlockLatest = async () => {
     await screen.findByTestId('outputs-files-section')
 }
 
-const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: 'Security key' })
+const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: /^Security key for Code run / })
 
 const enterRowKey = (row: HTMLElement, key: string) => {
     fireEvent.change(keyInput(row), { target: { value: key } })
@@ -421,6 +421,9 @@ describe('CodeRunHistory expanded row', () => {
         expect(await within(matching).findByText('matching.csv')).toBeVisible()
         expect(within(matching).queryByText('latest.csv')).toBeNull()
         expect(await within(oldA).findByText(WRONG_KEY_ALERT)).toBeVisible()
+        // Inside a row the reviewer chose to open, so it is read in place rather than announced.
+        expect(within(oldA).getByText(WRONG_KEY_ALERT).closest('.mantine-Alert-root')).toHaveAttribute('role', 'note')
+        expect(within(oldA).queryByRole('alert')).toBeNull()
         expect(within(oldA).getByPlaceholderText('Enter your security key')).toBeVisible()
         expect(within(oldA).queryByText('old-a.csv')).toBeNull()
         expect(within(oldA).getByText('feedback for old-a.csv')).toBeVisible()
@@ -437,9 +440,21 @@ describe('CodeRunHistory expanded row', () => {
         await expandRow(oldB)
         await within(oldA).findByText(WRONG_KEY_ALERT)
 
+        // Several key fields can be open at once, so each names its own run with a visible label.
+        const labelA = within(oldA).getByText(/^Security key for Code run/)
+        expect(labelA).toBeVisible()
+        expect(keyInput(oldA)).not.toHaveAttribute('aria-label')
+        expect(labelA.textContent).not.toEqual(within(oldB).getByText(/^Security key for Code run/).textContent)
+
+        fireEvent.click(within(oldA).getByRole('button', { name: 'View files' }))
+        expect(await within(oldA).findByText('Enter your security key to decrypt the outputs.')).toBeVisible()
+        expect(keyInput(oldA)).toHaveAttribute('aria-invalid', 'true')
+        expect(keyInput(oldA)).toHaveAccessibleDescription(/Enter your security key to decrypt the outputs\./)
+
         enterRowKey(oldA, 'not-a-real-key')
 
         expect(await within(oldA).findByText(/Invalid key/)).toBeVisible()
+        expect(keyInput(oldA)).toHaveAccessibleDescription(/Invalid key/)
         expect(within(oldB).queryByText(/Invalid key/)).toBeNull()
 
         fireEvent.change(keyInput(oldB), { target: { value: 'draft for b' } })
@@ -460,7 +475,7 @@ describe('CodeRunHistory expanded row', () => {
             await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
             await expandRow(rows()[3])
             const typed = 'unsubmitted-key-draft'
-            fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: 'Security key' }), {
+            fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: /^Security key for Code run / }), {
                 target: { value: typed },
             })
 

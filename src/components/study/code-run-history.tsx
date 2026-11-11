@@ -192,7 +192,10 @@ const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
     if (!isVisible) return null
     return (
+        // Static on purpose: the reviewer opened this row, so nothing needs announcing. Mantine's
+        // Alert would otherwise be role="alert", which a screen reader reads out as soon as it appears.
         <Alert
+            role="note"
             variant="light"
             radius={0}
             bg={semanticColor('warning.bg.light')}
@@ -226,6 +229,11 @@ const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
                 job={run}
                 type="reviewer"
                 buttonLabel="View files"
+                label={
+                    <>
+                        Security key for <CodeRunTitle value={run.ranAt} />
+                    </>
+                }
                 autoFocus={false}
                 withLostKeyHelp={false}
                 value={keyDraft}
