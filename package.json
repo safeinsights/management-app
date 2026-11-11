@@ -86,7 +86,7 @@
         "@sentry/nextjs": "^10.76.0",
         "@swc/helpers": "0.5.15",
         "@tanstack/react-query": "^5.100.11",
-        "@zip.js/zip.js": "^2.8.26",
+        "@zip.js/zip.js": "^2.24.0",
         "aws-ssl-profiles": "^1.1.2",
         "clsx": "^2.1.1",
         "commander": "^14.0.3",
