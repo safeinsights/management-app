@@ -518,6 +518,7 @@ const ShowAllRuns: FC<ShowAllRunsProps> = ({ isVisible, showAll, total, onToggle
                 ref={buttonRef}
                 label={showAll ? 'View less' : 'View all runs'}
                 isExpanded={showAll}
+                withAriaExpanded={false}
                 onClick={onToggle}
                 withChevron={false}
                 size="md"

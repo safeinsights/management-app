@@ -240,6 +240,8 @@ describe('CodeRunHistory', () => {
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
         expect(rowToggle('Jun 15, 2026')).toHaveFocus()
         expect(historyStatus()).toHaveTextContent('Showing all 5 previous runs')
+        // The label already says which way it toggles, as on the section toggle.
+        expect(screen.getByRole('button', { name: 'View less' })).not.toHaveAttribute('aria-expanded')
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
