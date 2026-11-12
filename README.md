@@ -249,21 +249,16 @@ To have Claude Code use docker e2e tests, see the "Claude Code integration" sect
 
 ##### Browsers on your host
 
-To test in WebKit, Firefox, Chrome or Edge, or to watch the browser, keep the app, Postgres and SeaweedFS in Docker and run Playwright on your host. The session publishes them on 127.0.0.1 at free ports, so several checkouts can do this at the same time, and the dev stack, unit tests and the host setup above are not touched.
+For WebKit, Firefox, Chrome, Safari or a headed browser, start a host session: the app stays in Docker, the browsers run on your host. For Safari, open the printed app URL.
 
 ```bash
-pnpm exec playwright install chromium webkit firefox   # once; global setup always uses Chromium
-./bin/docker-e2e --up --host                           # start a session; prints the app URL
-./bin/docker-e2e --host-run                            # whole suite on your host
-./bin/docker-e2e --host-run -- --project='*'           # whole suite in every host browser
-./bin/docker-e2e --host-run -- tests/signin.spec.ts    # fresh database, then Playwright on your host (chromium + a11y projects)
-./bin/docker-e2e --host-run -- --project=webkit --headed tests/signin.spec.ts
-./bin/docker-e2e --host-run -- --ui                    # Playwright UI with every host browser
-./bin/docker-e2e --host-exec -- pnpm exec playwright-cli open --browser webkit --headed <app url>
-./bin/docker-e2e --down                                # end the session
+pnpm exec playwright install chromium webkit firefox   # once
+./bin/docker-e2e --up --host                           # start, prints the app URL
+./bin/docker-e2e --host-run -- --project=webkit tests/signin.spec.ts
+./bin/docker-e2e --down                                # end; plain runs are refused until then
 ```
 
-`chrome` and `msedge` use the installed Google Chrome and Microsoft Edge. You can also open the printed app URL in any browser and sign in with the test users of the fake sign-in. In this mode the browser in the container cannot load uploads or downloads, so plain runs and `--ui` are refused until `--down`.
+For Claude Code, see the "Claude Code integration" section of [PR #1296](https://github.com/safeinsights/management-app/pull/1296).
 
 #### Results
 
