@@ -1,24 +1,26 @@
-import { useUser } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
 import router from 'next-router-mock'
 import {
+    BLANK_UUID,
     beforeEach,
     describe,
     expect,
     it,
+    mockClerkSession,
     renderWithProviders,
     screen,
-    vi,
     waitFor,
-    type Mock,
 } from '@/tests/unit.helpers'
 import { ManageMFA } from './manage-mfa'
 
-const mockMfaUser = (twoFactorEnabled: boolean) => {
-    const user = { id: 'user-1', twoFactorEnabled, reload: vi.fn().mockResolvedValue(undefined) }
-    ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: true, user })
-    return user
-}
+const mockMfaUser = (twoFactorEnabled: boolean, factorVerificationAge?: [number, number]) =>
+    mockClerkSession({
+        clerkUserId: 'user-1',
+        userId: BLANK_UUID,
+        orgSlug: 'mfa-org',
+        twoFactorEnabled,
+        factorVerificationAge,
+    })!.useUserReturn.user
 
 describe('ManageMFA', () => {
     beforeEach(() => {
@@ -26,7 +28,7 @@ describe('ManageMFA', () => {
     })
 
     it('sends a signed-out visitor home with a notice', async () => {
-        ;(useUser as Mock).mockReturnValue({ isLoaded: true, isSignedIn: false, user: null })
+        mockClerkSession(null)
 
         renderWithProviders(<ManageMFA />)
 
@@ -37,7 +39,7 @@ describe('ManageMFA', () => {
     })
 
     it('offers enrolment to a user without MFA, reloading the user once', async () => {
-        const user = mockMfaUser(false)
+        const user = mockMfaUser(false, [0, -1])
 
         renderWithProviders(<ManageMFA />)
 
@@ -51,5 +53,14 @@ describe('ManageMFA', () => {
         renderWithProviders(<ManageMFA />)
 
         expect(screen.getByText('MFA is enabled')).toBeDefined()
+    })
+
+    it('sends an enrolled user whose session never verified the factor back through sign-in', async () => {
+        mockMfaUser(true, [0, -1])
+
+        renderWithProviders(<ManageMFA />)
+
+        await waitFor(() => expect(router.asPath).toBe('/account/signin?mfa=verify'))
+        expect(screen.queryByText('MFA is enabled')).toBeNull()
     })
 })

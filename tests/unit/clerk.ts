@@ -20,6 +20,8 @@ type MockSession = {
     orgType?: 'enclave' | 'lab'
     isSiAdmin?: boolean
     twoFactorEnabled?: boolean
+    // Clerk's fva claim; defaults to a session that passed its second factor.
+    factorVerificationAge?: [number, number] | null
     // Ids must match real DB org ids when the mocked session drives server actions that
     // query by org id.
     extraOrgs?: Array<{ slug: string; id?: string; type?: 'enclave' | 'lab'; isAdmin?: boolean }>
@@ -84,6 +86,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         id: values.clerkUserId,
         banned: false,
         twoFactorEnabled: values.twoFactorEnabled ?? true,
+        reload: vi.fn().mockResolvedValue(undefined),
         imageUrl: values.imageUrl,
         firstName: values.firstName,
         lastName: values.lastName,
@@ -141,6 +144,13 @@ export const mockClerkSession = (values: MockSession | null) => {
     client.mockResolvedValue(clientMocks)
     ;(useClerk as Mock).mockReturnValue({
         isLoaded: true,
+        signOut: vi.fn(),
+    })
+    const factorVerificationAge = values.factorVerificationAge === undefined ? [0, 0] : values.factorVerificationAge
+    ;(useSession as Mock).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
+        session: { id: `sess_${values.clerkUserId}`, factorVerificationAge },
     })
     ;(useAuth as Mock).mockReturnValue({
         isLoaded: true,
@@ -150,7 +160,9 @@ export const mockClerkSession = (values: MockSession | null) => {
         sessionClaims: {
             unsafeMetadata,
             userMetadata: publicMetadata,
+            fva: factorVerificationAge ?? undefined,
         },
+        factorVerificationAge,
         userId: values.clerkUserId,
     }))
 

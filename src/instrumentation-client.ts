@@ -11,7 +11,6 @@ Sentry.init({
     ...sentryScrubOptions,
 
     tracesSampleRate: 1,
-    enableLogs: true,
 
     debug: false,
 

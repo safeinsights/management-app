@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, type Mock, vi } from '@/tests/unit.helpers'
+import { beforeEach, describe, expect, it, mockSessionWithTestData, type Mock, vi } from '@/tests/unit.helpers'
 import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
@@ -134,6 +134,7 @@ describe('proxy signin param sanitization', () => {
         ['invite_not_found', '<svg onload=alert(1)>'],
         ['error', 'session<script>'],
         ['invite_id', 'not-a-uuid<b>'],
+        ['mfa', 'verify<b>'],
     ])('drops an invalid %s value', async (param, value) => {
         const { res } = await runProxy(`https://app.test/account/signin?${param}=${encodeURIComponent(value)}&keep=1`)
 
@@ -149,7 +150,7 @@ describe('proxy signin param sanitization', () => {
 
     it('lets the values the app itself writes through', async () => {
         const { res, auth } = await runProxy(
-            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b`,
+            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b&mfa=verify`,
         )
 
         expect(res.headers.get('location')).toBeNull()
@@ -175,6 +176,7 @@ describe('proxy session marshaling failures', () => {
         vi.fn().mockResolvedValue({
             userId: 'clerk_proxy_test_user',
             sessionClaims: { userMetadata: null, unsafeMetadata: {} },
+            factorVerificationAge: [0, 0],
         })
 
     const mockClerkGetUser = (getUser: Mock) =>
@@ -237,5 +239,81 @@ describe('proxy session marshaling failures', () => {
         // OTTER-745: this branch is the only one that refuses a session, and the signin page reads the
         // mark rather than inferring the refusal from its own (stale) client state.
         expect(location).toContain(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
+    })
+})
+
+describe('proxy second-factor check', () => {
+    beforeEach(() => {
+        vi.resetModules()
+        ;(clerkMiddleware as unknown as Mock).mockImplementation((handler) => handler)
+        ;(createRouteMatcher as unknown as Mock).mockReturnValue(() => false)
+    })
+
+    const runProxy = async (
+        path: string,
+        factorVerificationAge: [number, number] | null,
+        headers: Record<string, string> = {},
+    ) => {
+        const mocks = await mockSessionWithTestData({ factorVerificationAge })
+        const auth = vi.fn().mockResolvedValue(mocks.auth!())
+        const { proxy } = await import('./proxy')
+        return (proxy as unknown as ProxyHandler)(auth, new NextRequest(`https://app.test${path}`, { headers }))
+    }
+
+    const serverAction = { 'next-action': '7f3a9c' }
+
+    it('sends a page request from a session that never passed a second factor to MFA setup', async () => {
+        const res = await runProxy('/dashboard', [0, -1])
+
+        expect(res.status).toBe(307)
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('treats a session without the fva claim as unverified', async () => {
+        const res = await runProxy('/dashboard', null)
+
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('refuses a server action from an unverified session', async () => {
+        const res = await runProxy('/dashboard', [0, -1], serverAction)
+
+        expect(res.status).toBe(403)
+        expect(res.headers.get('location')).toBeNull()
+    })
+
+    it.each(['/account/mfa', '/account/mfa/app', '/account/mfa/sms'])(
+        'lets an unverified session set up MFA on %s',
+        async (path) => {
+            const page = await runProxy(path, [0, -1])
+            const action = await runProxy(path, [0, -1], serverAction)
+
+            expect(page.headers.get('location')).toBeNull()
+            expect(action.status).toBe(200)
+        },
+    )
+
+    it.each(['/account/signin', '/account/invitation/0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b/signup'])(
+        'lets an unverified session finish signing in on %s',
+        async (path) => {
+            const res = await runProxy(path, [0, -1], serverAction)
+
+            expect(res.status).toBe(200)
+            expect(res.headers.get('location')).toBeNull()
+        },
+    )
+
+    it('does not treat a lookalike of the MFA path as setup', async () => {
+        const res = await runProxy('/account/mfa-reset', [0, -1])
+
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('lets a session that passed its second factor through', async () => {
+        const page = await runProxy('/dashboard', [3, 3])
+        const action = await runProxy('/dashboard', [3, 3], serverAction)
+
+        expect(page.headers.get('location')).toBeNull()
+        expect(action.status).toBe(200)
     })
 })

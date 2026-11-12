@@ -3,8 +3,10 @@
 import { FC, FormEvent } from 'react'
 import type { Route } from 'next'
 import { type UseFormReturnType } from '@mantine/form'
-import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
+import { PasswordInput, TextInput, Title } from '@mantine/core'
 import { Button, Flex, Link } from '@/common'
+import { StatusAlert } from '@/components/study/status-alert'
+import { FocusedCard } from '@/components/layout/focused-card'
 import { SignInError } from './sign-in-error'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -17,24 +19,37 @@ export type SignInFormViewProps = {
     form: UseFormReturnType<SignInFormValues>
     onSubmit: (event?: FormEvent<HTMLFormElement>) => void
     forgotPasswordHref: Route
+    isFinishingMfaSetup: boolean
     clerkError: { title: string; message: string } | null
     setClerkError: (error: { title: string; message: string } | null) => void
+}
+
+const MfaSetupNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return (
+        <StatusAlert variant="success" title="MFA is set up">
+            Sign in again with your password and a verification code to finish.
+        </StatusAlert>
+    )
 }
 
 export const SignInFormView: FC<SignInFormViewProps> = ({
     form,
     onSubmit,
     forgotPasswordHref,
+    isFinishingMfaSetup,
     clerkError,
     setClerkError,
 }) => {
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg={semanticColor('surface.raised')} radius="sm" p="xxl">
+            <FocusedCard>
                 <Title mb="lg" order={3} ta="center">
                     Welcome to SafeInsights!
                 </Title>
                 <Flex direction="column" gap="xs">
+                    <MfaSetupNotice isVisible={isFinishingMfaSetup} />
                     <TextInput
                         key={form.key('email')}
                         {...form.getInputProps('email')}
@@ -67,7 +82,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         Login
                     </Button>
                 </Flex>
-            </Paper>
+            </FocusedCard>
         </form>
     )
 }

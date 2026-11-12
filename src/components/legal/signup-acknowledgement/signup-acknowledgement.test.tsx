@@ -93,6 +93,24 @@ describe('AcknowledgementCheckbox', () => {
 
             const link = screen.getByRole('link', { name: 'Research Organization Participation Agreement' })
             expect(link).toHaveAttribute('href', 'https://example.com/agreement.pdf')
+            expect(link).toHaveAttribute('target', '_blank')
+        })
+
+        it('lets the agreement name wrap so the form fits a phone', () => {
+            renderWithProviders(
+                <AcknowledgementCheckbox
+                    label={participationAgreementLabel({
+                        versionId: 'ropa-v1',
+                        type: 'ROPA',
+                        url: 'https://example.com/agreement.pdf',
+                    })}
+                    checked={false}
+                    onChange={vi.fn()}
+                />,
+            )
+
+            const link = screen.getByRole('link', { name: 'Research Organization Participation Agreement' })
+            expect(link).not.toHaveClass('nowrap')
         })
 
         it('ends the label with a full stop and shows the link underlined, without the new-tab icon', () => {
