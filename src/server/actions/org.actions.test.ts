@@ -89,7 +89,7 @@ describe('Org Actions', () => {
                 .selectAll('org')
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
-            // Kysely's DeleteResult is a class instance, which Next.js cannot send to the client (OTTER-876).
+            // Kysely's DeleteResult is a class instance, which Next.js cannot send to the client.
             expect(await deleteOrgAction({ orgId: org.id })).toBeUndefined()
             const result = await fetchUsersOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
