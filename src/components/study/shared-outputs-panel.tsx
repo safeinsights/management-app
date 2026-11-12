@@ -1,6 +1,7 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
+import { useMarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { SecurityKeyForm } from '@/components/study/security-key-form'
@@ -21,10 +22,31 @@ type SharedOutputsPanelProps = {
     feedbackSection: ReactNode
     /** One nav per phase, like `banner`: the panel picks, it does not derive. */
     nav: PhasedStepNav
+    studyId: string
 }
 
-export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({ decidedAt, banner, job, feedbackSection, nav }) => {
-    const { decryptedFiles, isLocked, onDecrypted } = useDecryptPhase()
+// Shared outputs count as reviewed only once a key opens them, not when the page loads (OTTER-999).
+function useUnlockSharedOutputs(studyId: string) {
+    const { decryptedFiles, isLocked, onDecrypted: setDecryptedFiles } = useDecryptPhase()
+    const markViewed = useMarkOutputsDecisionViewed(studyId)
+
+    const onDecrypted = (files: JobFileInfo[]) => {
+        setDecryptedFiles(files)
+        markViewed(true)
+    }
+
+    return { decryptedFiles, isLocked, onDecrypted }
+}
+
+export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
+    decidedAt,
+    banner,
+    job,
+    feedbackSection,
+    nav,
+    studyId,
+}) => {
+    const { decryptedFiles, isLocked, onDecrypted } = useUnlockSharedOutputs(studyId)
     const { variant, title, body } = isLocked ? banner.locked : banner.unlocked
     const phaseNav = isLocked ? nav.locked : nav.unlocked
 
@@ -58,7 +80,7 @@ type LockedPhaseProps = {
 // Unmounted rather than hidden so the input leaves the tab order once used (OTTER-696 AC).
 const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
     if (!isVisible) return null
-    return <SecurityKeyForm job={job} type="researcher" onDecrypted={onDecrypted} />
+    return <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
 }
 
 type UnlockedPhaseProps = {

@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import {
+    insertTestJobStatus,
     insertTestProposalDecision,
     insertTestStudyData,
     mockSessionWithTestData,
@@ -265,13 +266,8 @@ test('ignores a CODE-SUBMITTED echo even after the round has been decided', asyn
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    await db
-        .insertInto('jobStatusChange')
-        .values([
-            { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
-            { studyJobId: jobId, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
-        ])
-        .execute()
+    await insertTestJobStatus(jobId, 'CODE-SUBMITTED', { userId: user.id })
+    await insertTestJobStatus(jobId, 'CODE-CHANGES-REQUESTED', { userId: user.id })
 
     const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SUBMITTED' }))
     expect(resp.ok).toBe(true)
@@ -293,14 +289,9 @@ describe('a delivery that names a round', () => {
         const { org, user } = await mockSessionWithTestData()
         const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
         const jobId = jobIds[0]
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
-                { studyJobId: jobId, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
-                { studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id },
-            ])
-            .execute()
+        for (const status of ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'] as const) {
+            await insertTestJobStatus(jobId, status, { userId: user.id })
+        }
         return jobId
     }
 
@@ -345,10 +336,7 @@ describe('a delivery that names a round', () => {
         const { org, user } = await mockSessionWithTestData()
         const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
         const jobId = jobIds[0]
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: jobId, status: 'CODE-SUBMITTED', userId: user.id })
-            .execute()
+        await insertTestJobStatus(jobId, 'CODE-SUBMITTED', { userId: user.id })
 
         const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
 

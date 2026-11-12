@@ -3,7 +3,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import type { DBExecutor } from '@/database'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
 import { withStudySubject } from './study-subject'
 import { getStudyFilesPath } from '@/server/workspace-files'
 import { sanitizeFileName } from '@/lib/utils'
@@ -145,7 +145,7 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
             .where('id', '=', studyId)
             .executeTakeFirst()
         if (study?.mainCodeFileName === sanitized) {
-            throw new Error('Main file cannot be deleted. Set another file as main first.')
+            throw new ActionFailure('Main file cannot be deleted. Set another file as main first.')
         }
 
         try {

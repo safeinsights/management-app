@@ -53,7 +53,7 @@ export type { UseQueryResult, UseMutateFunction }
 
 function processResponse<T>(response: ActionResponse<T>): T {
     if (isActionError(response)) {
-        throw new ActionFailure(response.error)
+        throw new ActionFailure(response.error, response.eventId)
     }
 
     return response

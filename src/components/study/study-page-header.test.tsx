@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 
 const study = {
@@ -28,10 +28,21 @@ describe('StudyPageHeader', () => {
         expect(screen.getByText('Genius Lab')).toBeInTheDocument()
     })
 
-    it('marks a test study beside the title', () => {
+    it('marks a test study under the title without adding the badge to the heading', () => {
         renderWithProviders(<StudyPageHeader study={{ ...study, isTestStudy: true }} />)
 
         expect(screen.getByText('Test study')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title })).toBeInTheDocument()
+    })
+
+    it('explains a test study when its badge is hovered', async () => {
+        renderWithProviders(<StudyPageHeader study={{ ...study, isTestStudy: true }} />)
+
+        await userEvent.hover(screen.getByText('Test study'))
+
+        expect(
+            await screen.findByText('This is a test study. It does not require a Study Agreement.'),
+        ).toBeInTheDocument()
     })
 
     it('says nothing for an ordinary study', () => {

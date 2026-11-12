@@ -1,7 +1,13 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, insertTestOrg, readTestSupportFile, insertTestUser } from '@/tests/unit.helpers'
+import {
+    insertTestJobStatus,
+    insertTestStudyData,
+    insertTestOrg,
+    readTestSupportFile,
+    insertTestUser,
+} from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -9,7 +15,7 @@ test('missing JWT is rejected', async () => {
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
     expect(await resp.json()).toEqual({
-        error: "Token error: Error: 'Authorization' header missing or not well formed.",
+        error: 'Invalid or expired token',
     })
 })
 
@@ -20,7 +26,7 @@ test('jwt with invalid iss is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Token error: Error: Org not found' })
+    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
 })
 
 test('jwt with expired token is rejected', async () => {
@@ -31,7 +37,7 @@ test('jwt with expired token is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Token error: TokenExpiredError: jwt expired' })
+    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
 })
 
 test('return study jobs', async () => {
@@ -77,14 +83,7 @@ test('studies are not included once finished', async () => {
     const org = await insertTestOrg()
     const { jobIds } = await insertTestStudyData({ org })
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: jobIds[1],
-            status: 'RUN-COMPLETE',
-            message: 'A OK',
-        })
-        .execute()
+    await insertTestJobStatus(jobIds[1], 'RUN-COMPLETE', { message: 'A OK' })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()

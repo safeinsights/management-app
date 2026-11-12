@@ -106,13 +106,13 @@ export function researcherSharedOutputsBanner(
             return {
                 locked: {
                     variant: STATUS_ALERT_VARIANT.action,
-                    title: 'Decrypt to view your outputs',
-                    body: `${dataPartner} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
+                    title: 'Decrypt to view your outputs and feedback',
+                    body: `${dataPartner} has reviewed and shared the outputs for the latest code run. Enter your security key to view them.`,
                 },
                 unlocked: {
                     variant: STATUS_ALERT_VARIANT.success,
                     title: 'Outputs and feedback available',
-                    body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+                    body: 'Review the outputs and feedback for the latest code run below. If they do not meet your expectations, you can update your code and resubmit.',
                 },
             }
         // OTTER-781: the run still has to be fixed, so decrypting concludes nothing — action, not success.
@@ -120,13 +120,13 @@ export function researcherSharedOutputsBanner(
             return {
                 locked: {
                     variant: STATUS_ALERT_VARIANT.action,
-                    title: 'Decrypt outputs to view code error',
-                    body: `${dataPartner} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+                    title: 'Code run errored. Decrypt to view your outputs and feedback',
+                    body: `${dataPartner} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`,
                 },
                 unlocked: {
                     variant: STATUS_ALERT_VARIANT.action,
                     title: RESOLVE_CODE_ERROR_TITLE,
-                    body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
+                    body: 'Review the outputs and feedback for the latest code run below to understand why it failed, then update your code and resubmit.',
                 },
             }
     }
@@ -141,13 +141,13 @@ export function researcherOutputsFeedbackBanner(
         return {
             variant: STATUS_ALERT_VARIANT.action,
             title: RESOLVE_CODE_ERROR_TITLE,
-            body: `${dataPartner} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+            body: `${dataPartner} has shared feedback on why the latest code run failed. No output files were shared. Review the feedback below, then update your code and resubmit.`,
         }
     }
     return {
         variant: STATUS_ALERT_VARIANT.action,
-        title: 'Feedback on outputs available',
-        body: `${dataPartner} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+        title: 'Feedback available',
+        body: `${dataPartner} has shared feedback on the latest code run. No output files were shared. When you are ready, update your code and resubmit.`,
     }
 }
 

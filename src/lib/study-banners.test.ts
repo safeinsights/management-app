@@ -91,13 +91,13 @@ describe('researcherSharedOutputsBanner', () => {
 
         expect(locked).toEqual({
             variant: 'action',
-            title: 'Decrypt to view your outputs',
-            body: `${DATA_PARTNER} has reviewed and shared the outputs. Use your security key to decrypt and review them.`,
+            title: 'Decrypt to view your outputs and feedback',
+            body: `${DATA_PARTNER} has reviewed and shared the outputs for the latest code run. Enter your security key to view them.`,
         })
         expect(unlocked).toEqual({
             variant: 'success',
             title: 'Outputs and feedback available',
-            body: "Review the outputs and feedback below. If they don't meet your expectations, you can update your code and resubmit.",
+            body: 'Review the outputs and feedback for the latest code run below. If they do not meet your expectations, you can update your code and resubmit.',
         })
     })
 
@@ -108,13 +108,13 @@ describe('researcherSharedOutputsBanner', () => {
 
         expect(locked).toEqual({
             variant: 'action',
-            title: 'Decrypt outputs to view code error',
-            body: `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`,
+            title: 'Code run errored. Decrypt to view your outputs and feedback',
+            body: `${DATA_PARTNER} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`,
         })
         expect(unlocked).toEqual({
             variant: 'action',
             title: 'Resolve the code error to proceed',
-            body: 'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.',
+            body: 'Review the outputs and feedback for the latest code run below to understand why it failed, then update your code and resubmit.',
         })
     })
 })
@@ -159,15 +159,15 @@ describe('researcherOutputsFeedbackBanner', () => {
         expect(researcherOutputsFeedbackBanner({ runErrored: true }, { dataPartner: DATA_PARTNER })).toEqual({
             variant: 'action',
             title: 'Resolve the code error to proceed',
-            body: `${DATA_PARTNER} has shared feedback on why the code run failed. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+            body: `${DATA_PARTNER} has shared feedback on why the latest code run failed. No output files were shared. Review the feedback below, then update your code and resubmit.`,
         })
     })
 
     it('reads as plain feedback when the run itself completed', () => {
         expect(researcherOutputsFeedbackBanner({ runErrored: false }, { dataPartner: DATA_PARTNER })).toEqual({
             variant: 'action',
-            title: 'Feedback on outputs available',
-            body: `${DATA_PARTNER} has shared feedback on the latest code run. The outputs are not available for this study. When you are ready, edit your code and resubmit.`,
+            title: 'Feedback available',
+            body: `${DATA_PARTNER} has shared feedback on the latest code run. No output files were shared. When you are ready, update your code and resubmit.`,
         })
     })
 
@@ -178,7 +178,7 @@ describe('researcherOutputsFeedbackBanner', () => {
         })
 
         expect(withheld.body).not.toBe(shared.body)
-        expect(withheld.body).toContain('The outputs are not available for this study')
+        expect(withheld.body).toContain('No output files were shared')
     })
 })
 

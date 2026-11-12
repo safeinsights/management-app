@@ -10,6 +10,7 @@ import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
@@ -262,7 +263,10 @@ async function insertSubmittedJob(
     }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number; endingAt?: Date } = {},
 ) {
     const actors = { researcherId: await resolveUserId('researcher'), reviewerId: await resolveUserId('reviewer') }
-    const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+    // Backdated so a status a later step appends at server-now sorts after the seeded ones.
+    const last = endingAt?.getTime() ?? Date.now() - 1000
+    const statusAt = (index: number) => new Date(last - (statuses.length - 1 - index) * 1000)
+    const job = await openStudyJob(db, studyId, { actor: 'qa', at: new Date(statusAt(0).getTime() - 1000) })
 
     if (withMainCode) {
         await db
@@ -287,19 +291,13 @@ async function insertSubmittedJob(
             .execute()
     }
 
-    // Backdated so a status a later step appends at server-now sorts after the seeded ones.
-    const last = endingAt?.getTime() ?? Date.now() - 1000
-    await db
-        .insertInto('jobStatusChange')
-        .values(
-            statuses.map((status, i) => ({
-                studyJobId: job.id,
-                status,
-                userId: seededStatusActor(status, actors),
-                createdAt: new Date(last - (statuses.length - 1 - i) * 1000),
-            })),
-        )
-        .execute()
+    for (const [index, status] of statuses.entries()) {
+        await writeJobStatus(db, job.id, status, {
+            actor: 'qa',
+            userId: seededStatusActor(status, actors),
+            at: statusAt(index),
+        })
+    }
 
     return job
 }
@@ -529,7 +527,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
 
     const existing = await db
         .selectFrom('legalDocumentVersion')
-        .select(['id', 'versionNumber', 'fileName'])
+        .select(['id', 'versionNumber', 'fileName', 'filePath'])
         .where('legalDocumentId', '=', legalDocumentId)
         .where('publishedAt', 'is not', null)
         .orderBy('versionNumber')
@@ -544,6 +542,12 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
                 `(${unseeded.map((version) => version.fileName).join(', ')}). ` +
                 'Reset the database and re-run `pnpm run db:migrate` before the e2e suite.',
         )
+    }
+
+    // The test DB can outlive the bucket (a reset local SeaweedFS). A version whose object is gone
+    // stays on "Loading" forever, so restore each body; PutObject is safe to repeat.
+    for (const [index, version] of existing.entries()) {
+        await uploadSeedObject(version.filePath, contents[index])
     }
 
     const versionIds = existing.map((version) => version.id)

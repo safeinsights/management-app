@@ -15,6 +15,7 @@ import {
 } from '@/tests/unit.helpers'
 import { stubJobQueue } from '@/tests/job-queue.helpers'
 import logger from '@/lib/logger'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 
 vi.mock('@sentry/nextjs', () => ({
     captureException: vi.fn(),
@@ -203,7 +204,7 @@ describe('deferred inside an action', () => {
         const result = await approvalAction({ studyId: study.id, userId: user.id, failAfter: true })()
         await flushDeferred()
 
-        expect(result).toEqual({ error: 'a later step failed' })
+        expect(result).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
         const row = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
         expect(row.status).toBe('PENDING-REVIEW')
         expect(await approvalSideEffects(study.id, user.email)).toEqual({ audits: [], captures: [], emails: [] })
@@ -268,7 +269,7 @@ describe('deferred inside an action', () => {
             throw new Error('read failed')
         })
 
-        expect(await action()).toEqual({ error: 'read failed' })
+        expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
         await flushDeferred()
         expect(probe).toHaveBeenCalledOnce()
     })

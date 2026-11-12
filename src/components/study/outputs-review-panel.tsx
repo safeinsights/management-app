@@ -4,11 +4,12 @@ import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
+import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
+import { CodeRunKeyForm } from '@/components/study/code-run-key-form'
 import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
-import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -19,7 +20,7 @@ import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
 import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
 import type { PhasedStepNav, StepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
-import type { LatestJobForStudy } from '@/server/db/queries'
+import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
 
 // Module-level so the no-key path hands the same array identity down on every render.
 const NO_FILES: JobFileInfo[] = []
@@ -28,6 +29,7 @@ type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
     job: NonNullable<LatestJobForStudy>
+    priorRuns: PriorCodeRun[]
     labName: string
     /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
     header: ReactNode
@@ -49,6 +51,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
     job,
+    priorRuns,
     labName,
     header,
     lockedBanner,
@@ -57,6 +60,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+    const priorOutputs = usePriorRunOutputs(priorRuns)
     // Identifies this tab to the peers, so the same reviewer's other tabs are still closed out.
     const [tabSessionId] = useState(() => crypto.randomUUID())
     const isRoundOpen = !hasOutputsDecision((job.statusChanges ?? []).map((change) => change.status))
@@ -107,7 +111,21 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                             studyId={studyId}
                             consequence="You cannot release these outputs"
                         />
-                        <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
+                        {/* The history sits between the phases rather than inside either, so decrypting
+                            does not remount it and drop what the reviewer had opened. */}
+                        <LockedPhase
+                            isVisible={isLocked}
+                            job={job}
+                            onDecrypted={onDecrypted}
+                            onKeyAccepted={priorOutputs.decryptWith}
+                        />
+                        <OutputsSection
+                            isVisible={canShareOutputs && !isLocked}
+                            jobId={job.id}
+                            decryptedFiles={reviewableFiles ?? NO_FILES}
+                        />
+                        <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
+                        <LockedNav isVisible={isLocked} nav={nav.locked} />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}
                             canShareOutputs={canShareOutputs}
@@ -128,20 +146,25 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
 type LockedPhaseProps = {
     isVisible: boolean
     job: NonNullable<LatestJobForStudy>
-    nav: StepNav
     onDecrypted: (files: JobFileInfo[]) => void
+    onKeyAccepted: (privateKey: string) => void
 }
 
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, nav, onDecrypted }) => {
+const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted, onKeyAccepted }) => {
     if (!isVisible) return null
     return (
-        <>
-            {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
-                keys, so the researcher key set would come back empty. */}
-            <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
-            <StepNavigation nav={nav} />
-        </>
+        <CodeRunKeyForm
+            job={job}
+            description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
+            onDecrypted={onDecrypted}
+            onKeyAccepted={onKeyAccepted}
+        />
     )
+}
+
+const LockedNav: FC<{ isVisible: boolean; nav: StepNav }> = ({ isVisible, nav }) => {
+    if (!isVisible) return null
+    return <StepNavigation nav={nav} />
 }
 
 type UnlockedPhaseProps = {
@@ -217,7 +240,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
 
     return (
         <>
-            <OutputsSection isVisible={canShareOutputs} jobId={job.id} decryptedFiles={decryptedFiles} />
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}

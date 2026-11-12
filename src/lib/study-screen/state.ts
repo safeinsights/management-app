@@ -27,11 +27,11 @@ const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJ
 // Exported so consumers read a display fact from the SAME job the projection decided on.
 export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
     if (jobs.length === 0) return undefined
-    // v7 ids are insertion-ordered, so lexical max is the most recent round. Submitted jobs win so
-    // a baseline-only INITIATED job cannot mask the code decision.
-    const submitted = jobs.filter((j) => j.statusChanges.some((c) => c.status !== 'INITIATED'))
+    // The rule of latestJobQuery({ submitted: true }): submitted jobs win so a baseline-only INITIATED
+    // job cannot mask the code decision, then the highest round, then the newest id.
+    const submitted = jobs.filter((j) => j.currentStatus !== 'INITIATED')
     const pool = submitted.length > 0 ? submitted : jobs
-    return pool.reduce((a, b) => (b.id > a.id ? b : a))
+    return pool.reduce((a, b) => (b.round > a.round || (b.round === a.round && b.id > a.id) ? b : a))
 }
 
 export function projectStudyState(raw: RawStudyState): StudyState {
@@ -59,9 +59,6 @@ export function projectStudyState(raw: RawStudyState): StudyState {
     const isExecuting = has(job, STUDY_CODE_RUNNING_JOB_STATUSES) && (!hasResults || erroredAwaitingDecision)
     const executionStage = furthestStage(jobStatuses)
 
-    // Across ALL jobs. NOT the user-facing displayed version, which counts round-opening events.
-    const submissionRound = raw.jobs.filter((j) => j.statusChanges.some((c) => c.status === 'CODE-SUBMITTED')).length
-
     // Neither persistence layer clears itself on submit, so a submitted study would otherwise
     // report Step 2 progress it can no longer resume.
     const isDraft = raw.status === 'DRAFT'
@@ -85,7 +82,6 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsDisplayStatus,
         resultsViewed: jobStatuses.has('RESULTS-VIEWED'),
         executionStage,
-        submissionRound,
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
     }

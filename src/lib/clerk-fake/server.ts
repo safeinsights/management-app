@@ -20,15 +20,22 @@ type SessionClaims = {
 type AuthResult = {
     userId: string | null
     sessionClaims: SessionClaims | null
+    factorVerificationAge: [number, number] | null
     orgSlug?: string
 }
 
+const SIGNED_OUT: AuthResult = { userId: null, sessionClaims: null, factorVerificationAge: null }
+
+// Fixtures sign in with their second factor, so every fake session has verified it.
+const VERIFIED_FVA: [number, number] = [0, 0]
+
 function buildAuthResult(fixture: FakeFixture | null, userId: string | null): AuthResult {
-    if (!fixture || !userId) return { userId: null, sessionClaims: null }
+    if (!fixture || !userId) return SIGNED_OUT
     const orgSlug = defaultOrgSlug(fixture)
     return {
         userId,
         orgSlug,
+        factorVerificationAge: VERIFIED_FVA,
         sessionClaims: {
             userMetadata: buildSessionClaimsMetadata(fixture),
             unsafeMetadata: { currentOrgSlug: orgSlug },
@@ -38,7 +45,7 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
 
 export async function auth(): Promise<AuthResult> {
     const fixture = fixtureForRole(await readRoleCookieFromHeaders())
-    if (!fixture) return { userId: null, sessionClaims: null }
+    if (!fixture) return SIGNED_OUT
     return buildAuthResult(fixture, await resolveClerkId(fixture))
 }
 
@@ -50,10 +57,14 @@ export async function currentUser(): Promise<User | null> {
 
 // Used by the QA-cleanup routes under /api/*, which clerkMiddleware skips so auth() has no
 // context. Returns the admin fixture's claims so a manual call still authorizes.
-export async function verifyToken(_token: string, _options: unknown): Promise<{ sub: string } & SessionClaims> {
+export async function verifyToken(
+    _token: string,
+    _options: unknown,
+): Promise<{ sub: string; fva: [number, number] } & SessionClaims> {
     const fixture = fixtureForRole('admin')!
     return {
         sub: await resolveClerkId(fixture),
+        fva: VERIFIED_FVA,
         userMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
     }

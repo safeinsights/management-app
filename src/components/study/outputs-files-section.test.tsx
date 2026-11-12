@@ -36,6 +36,17 @@ describe('OutputsFilesSection', () => {
         expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
     })
 
+    // Embedded in a code run history row, which already draws the card and its divider.
+    it('drops the card and divider when embedded, keeping the title and Download all', () => {
+        renderSection([buildRow('a.csv'), buildRow('b.csv')], { variant: 'embedded' })
+
+        const section = screen.getByTestId('code-run-outputs')
+        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(within(section).getByText('Output files')).toBeInTheDocument()
+        expect(within(section).getByTestId('outputs-download-all')).toBeInTheDocument()
+        expect(section.querySelector('.mantine-Divider-root')).toBeNull()
+    })
+
     // Screen readers navigate by row/column only when the real table roles are present.
     it('uses real table semantics with column-scoped headers', () => {
         renderSection([buildRow('run.log')])

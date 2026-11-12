@@ -19,12 +19,13 @@ const viewedRows = (jobId: string) =>
         .where('status', '=', 'RESULTS-VIEWED')
         .execute()
 
-// The action's own guards (no decision yet, wrong org, already recorded) are covered in
-// study-job.actions.test.ts. What only the leaf can show is that mounting it fires the write.
+// The action's own guards (no decision yet, wrong org, errored, still encrypted) are covered in
+// study-job.actions.test.ts. What only the leaf can show is that mounting it fires the write; the
+// feedback-only screen is its one caller, since shared outputs count once decrypted (OTTER-999).
 describe('MarkOutputsDecisionViewed', () => {
     it('records the lab view of a released decision once it is on screen', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-REJECTED' })
 
         renderWithProviders(<MarkOutputsDecisionViewed studyId={study.id} />)
 
@@ -34,7 +35,7 @@ describe('MarkOutputsDecisionViewed', () => {
     // Without this the in-app route back reads a dashboard row cached before the write.
     it('invalidates the researcher dashboard rows once the view is recorded', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-APPROVED' })
+        const { study, job } = await insertTestStudyJobData({ org, jobStatus: 'FILES-REJECTED' })
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(['user-researcher-studies'], [])
         queryClient.setQueryData(['researcher-studies', org.slug], [])

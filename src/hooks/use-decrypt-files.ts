@@ -90,7 +90,7 @@ async function proveKey(
     }
 }
 
-async function decryptFiles(
+export async function decryptJobFiles(
     encryptedFiles: EncryptedJobFile[],
     privateKey: string,
     jobId: string,
@@ -133,7 +133,7 @@ export function useDecryptFiles(options: {
     encryptedFiles: EncryptedJobFile[] | undefined
     /** The job these archives were fetched for. Checked against what each archive claims. */
     jobId: string
-    onSuccess: (files: JobFileInfo[]) => void
+    onSuccess: (files: JobFileInfo[], privateKey: string) => void
     onError?: (err: Error) => void
 }) {
     const { encryptedFiles, jobId, onSuccess, onError } = options
@@ -163,11 +163,14 @@ export function useDecryptFiles(options: {
     }
 
     const { mutate, isPending } = useMutation({
+        // The mutation's variables hold the private key; the default 5-minute gcTime would keep it
+        // in the page after the form has gone.
+        gcTime: 0,
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
             if (!encryptedFiles) return []
-            return decryptFiles(encryptedFiles, privateKey, jobId)
+            return decryptJobFiles(encryptedFiles, privateKey, jobId)
         },
-        onSuccess,
+        onSuccess: (files, { privateKey }) => onSuccess(files, privateKey),
         onError: handleError,
     })
 

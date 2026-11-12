@@ -369,6 +369,23 @@ describe('Studies Table', () => {
         expect(screen.getByText(/Reload inactive, nothing needs refreshing/i)).toBeDefined()
     })
 
+    it('keeps auto-refresh active after a scan error, which the reviewer can still approve', async () => {
+        const orgs = await signInAs('researcher')
+        await insertStudyWithJob(orgs, 'APPROVED', 'JOB-ERRORED')
+        renderWithProviders(
+            <StudiesTable
+                audience="researcher"
+                scope="org"
+                orgSlug={orgs.orgSlug}
+                title="All studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
+
+        expect(await screen.findByText(/seconds until refresh/i)).toBeDefined()
+    })
+
     // The table owns its scope's dot, so a fetch patches that one org and refetches nothing (OTTER-838).
     describe('side nav dot', () => {
         const renderWithNav = async (openedAt: Date | null, isOrgMarked: boolean) => {

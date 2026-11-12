@@ -7,8 +7,10 @@ import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     actionResult,
     createTestQueryClient,
-    db,
     fireEvent,
+    insertTestJobStatuses,
+    insertTestLaterJob,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     QueryClientProvider,
@@ -17,8 +19,10 @@ import {
     renderWithProviders,
     requireRawState,
     screen,
+    type PriorCodeRunOptions,
     type ScreenInputs,
     waitFor,
+    within,
 } from '@/tests/unit.helpers'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
 import { theme } from '@/theme'
@@ -30,9 +34,9 @@ import { setupStudyAction } from '@/tests/db-action.helpers'
 import { screenNavProps } from './render-screen'
 import { ReviewerOutputsAvailableScreen } from './reviewer-outputs-available-screen'
 
-const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE') => {
+const setupAvailable = async (jobStatus: StudyJobStatus = 'RUN-COMPLETE', priorRuns: PriorCodeRunOptions[] = []) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus, priorRuns })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const job = await latestJobForStudy(dbStudy.id)
     const raw = await requireRawState(dbStudy.id)
@@ -78,7 +82,7 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
 
 const unlock = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View' }))
+    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 }
 
 const textIncludes = (needle: string) => (_: string, element: Element | null) =>
@@ -111,7 +115,13 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /security key/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
+            ),
+        ).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
@@ -126,10 +136,10 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
         await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
 
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-files-section')).toBeNull()
@@ -161,7 +171,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
 
     it('shows a not-found alert when the run already has a files decision', async () => {
         const { org, study, job } = await setupAvailable()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         const raw = await requireRawState(study.id)
         await renderScreen({ study, raw }, org.slug)
         expect(screen.getByText('Outputs not found')).toBeInTheDocument()
@@ -176,7 +186,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         const { org, study, job, raw } = await setupAvailable()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files })
         await doRender({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View' })
+        await screen.findByRole('button', { name: 'View files' })
         await unlock()
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and
@@ -257,5 +267,90 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         await waitFor(() =>
             expect(screen.getByText(textIncludes(`0/${OUTPUTS_FEEDBACK_MAX_CHARACTERS}`))).toBeInTheDocument(),
         )
+    })
+})
+
+describe('ReviewerOutputsAvailableScreen code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupAvailable()
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('sits below the key card, then stays open below the outputs once they are decrypted', async () => {
+        const { org, study, job, raw } = await setupAvailable('RUN-COMPLETE', [
+            { ranAt: dayjs().subtract(3, 'day').toDate() },
+            { ranAt: dayjs().subtract(6, 'day').toDate(), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
+        ])
+        await seedEncryptedArtifact(job.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
+        })
+        await renderScreen({ study, raw }, org.slug)
+        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+
+        const history = screen.getByTestId('code-run-history')
+        expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
+        expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
+
+        // The same node, still open: decrypting must not remount the history.
+        expect(screen.getByTestId('code-run-history')).toBe(history)
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
+            'aria-expanded',
+            'true',
+        )
+        expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
+        expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
+    })
+})
+
+const isBefore = (first: Element, second: Element) =>
+    !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+// OTTER-882: the code run card shows the latest run alone. An earlier run's files, even one with the
+// same name, belong to the code run history.
+describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
+    it("lists only the latest run's files", async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study: dbStudy, job: earlierJob } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'RUN-COMPLETE',
+        })
+        await insertTestJobStatuses(earlierJob.id, ['FILES-REJECTED'])
+        const latestJob = await insertTestLaterJob(dbStudy.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
+        await seedEncryptedArtifact(earlierJob.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [
+                { name: 'earlier.csv', content: 'earlier' },
+                { name: 'results.csv', content: 'earlier' },
+            ],
+        })
+        await seedEncryptedArtifact(latestJob.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [
+                { name: 'latest.csv', content: 'latest' },
+                { name: 'results.csv', content: 'latest' },
+            ],
+        })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
+
+        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        await screen.findByRole('button', { name: 'View files' })
+        await unlock()
+        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
+
+        expect(screen.getByRole('button', { name: 'latest.csv' })).toBeInTheDocument()
+        expect(screen.getAllByRole('button', { name: 'results.csv' })).toHaveLength(1)
+        expect(screen.queryByRole('button', { name: 'earlier.csv' })).toBeNull()
     })
 })

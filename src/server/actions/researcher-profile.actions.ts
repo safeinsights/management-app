@@ -1,6 +1,6 @@
 'use server'
 
-import { Action, z } from '@/server/actions/action'
+import { Action, ActionFailure, z } from '@/server/actions/action'
 import { withStudyAccessSubject } from '@/server/actions/study-subject'
 import { updateClerkUserName } from '@/server/clerk'
 import { positionSchema, educationSchema, personalInfoSchema, researchDetailsSchema } from '@/schema/researcher-profile'
@@ -170,7 +170,7 @@ export const getResearcherProfileByUserIdAction = new Action('getResearcherProfi
         if (userId !== study.researcherId && userId !== study.piUserId) {
             const msg = `getResearcherProfileByUserIdAction: user ${userId} is not associated with study ${studyId}`
             logger.info(msg)
-            return { error: { permission_denied: msg } }
+            throw new ActionFailure({ permission_denied: msg })
         }
 
         const user = await db

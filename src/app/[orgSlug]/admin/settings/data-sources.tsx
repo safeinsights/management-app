@@ -14,6 +14,7 @@ import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { ActionSuccessType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
+import { orgDataSourcesQueryKey } from '@/hooks/use-org-data-sources'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
@@ -24,7 +25,7 @@ const NO_DATA_SOURCES: DataSource[] = []
 const useInvalidateDataSources = (orgSlug: string) => {
     const queryClient = useQueryClient()
     return () => {
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: orgDataSourcesQueryKey(orgSlug) })
         queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 }
@@ -109,7 +110,7 @@ export const DataSources: React.FC = () => {
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const dataSources = useQuery({
-        queryKey: ['orgDataSources', orgSlug],
+        queryKey: orgDataSourcesQueryKey(orgSlug),
         queryFn: async () => await fetchOrgDataSourcesAction({ orgSlug }),
     })
 

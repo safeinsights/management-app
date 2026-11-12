@@ -90,7 +90,7 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             ])
             .where('pendingUser.id', '=', inviteId)
             .where('pendingUser.claimedByUserId', 'is', null)
-            .executeTakeFirstOrThrow()
+            .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
     })
 
 // The counterpart to getOrgInfoForInviteAction, for after the claim: that one resolves unclaimed

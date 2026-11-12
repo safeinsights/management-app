@@ -4,6 +4,8 @@ import {
     expect,
     faker,
     insertTestCodeResubmissionNote,
+    insertTestJob,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     it,
@@ -34,6 +36,8 @@ const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const ERRORED_AT = new Date('2026-07-15T12:00:00Z')
 const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
+// The status writer replays rows by date, so every row of a dated history carries one.
+const daysBefore = (date: Date, days: number) => new Date(date.getTime() - days * 24 * 60 * 60 * 1000)
 
 const DATA_PARTNER = 'Riverside University'
 // The shared helpers point study.orgId at the user's own org, so a banner reading the wrong org
@@ -68,24 +72,13 @@ const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = 
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        jobStatus: 'CODE-SUBMITTED',
+        jobStatus: 'INITIATED',
     })
 
-    await db
-        .updateTable('jobStatusChange')
-        .set({ createdAt: SUBMITTED_AT })
-        .where('studyJobId', '=', job.id)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT })
-        .execute()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT })
-        .execute()
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: APPROVED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'RUN-COMPLETE', { at: daysBefore(DECIDED_AT, 1) })
+    await insertTestJobStatus(job.id, 'FILES-REJECTED', { at: DECIDED_AT, userId: user.id })
     await db
         .insertInto('studyReviewComment')
         .values({
@@ -122,28 +115,14 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        jobStatus: 'CODE-SUBMITTED',
+        jobStatus: 'INITIATED',
     })
     const dataPartner = await givenDataPartner(dbStudy.id)
 
-    await db
-        .updateTable('jobStatusChange')
-        .set({ createdAt: SUBMITTED_AT })
-        .where('studyJobId', '=', job.id)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'JOB-ERRORED', createdAt: ERRORED_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT })
-        .execute()
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: APPROVED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'JOB-ERRORED', { at: ERRORED_AT })
+    await insertTestJobStatus(job.id, 'FILES-REJECTED', { at: DECIDED_AT, userId: user.id })
     const comment = await db
         .insertInto('studyReviewComment')
         .values({
@@ -185,16 +164,14 @@ const setupTwoOutputsRounds = async () => {
         jobStatus: 'CODE-SUBMITTED',
     })
 
-    await db
-        .insertInto('jobStatusChange')
-        .values([
-            { studyJobId: firstJob.id, status: 'CODE-CHANGES-REQUESTED', userId: user.id },
-            { studyJobId: firstJob.id, status: 'CODE-SUBMITTED', userId: user.id },
-            { studyJobId: firstJob.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT },
-            { studyJobId: firstJob.id, status: 'RUN-COMPLETE' },
-            { studyJobId: firstJob.id, status: 'FILES-REJECTED', userId: user.id, createdAt: FIRST_DECIDED_AT },
-        ])
-        .execute()
+    await insertTestJobStatus(firstJob.id, 'CODE-CHANGES-REQUESTED', {
+        at: daysBefore(APPROVED_AT, 2),
+        userId: user.id,
+    })
+    await insertTestJobStatus(firstJob.id, 'CODE-SUBMITTED', { at: daysBefore(APPROVED_AT, 1), userId: user.id })
+    await insertTestJobStatus(firstJob.id, 'CODE-APPROVED', { at: APPROVED_AT, userId: user.id })
+    await insertTestJobStatus(firstJob.id, 'RUN-COMPLETE', { at: daysBefore(FIRST_DECIDED_AT, 1) })
+    await insertTestJobStatus(firstJob.id, 'FILES-REJECTED', { at: FIRST_DECIDED_AT, userId: user.id })
     const firstComment = await db
         .insertInto('studyReviewComment')
         .values({
@@ -212,11 +189,7 @@ const setupTwoOutputsRounds = async () => {
         .executeTakeFirstOrThrow()
 
     // Created second, so its v7 id sorts above the first and latestJob picks it.
-    const secondJob = await db
-        .insertInto('studyJob')
-        .values({ studyId: dbStudy.id })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+    const secondJob = await insertTestJob(dbStudy.id)
     await insertTestCodeResubmissionNote({
         studyId: dbStudy.id,
         studyJobId: secondJob.id,
@@ -225,15 +198,10 @@ const setupTwoOutputsRounds = async () => {
         text: 'Aggregated the counts as asked.',
         createdAt: SUBMITTED_AT,
     })
-    await db
-        .insertInto('jobStatusChange')
-        .values([
-            { studyJobId: secondJob.id, status: 'CODE-SUBMITTED', userId: user.id, createdAt: SUBMITTED_AT },
-            { studyJobId: secondJob.id, status: 'CODE-APPROVED', userId: user.id },
-            { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
-            { studyJobId: secondJob.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT },
-        ])
-        .execute()
+    await insertTestJobStatus(secondJob.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+    await insertTestJobStatus(secondJob.id, 'CODE-APPROVED', { at: daysBefore(DECIDED_AT, 2), userId: user.id })
+    await insertTestJobStatus(secondJob.id, 'RUN-COMPLETE', { at: daysBefore(DECIDED_AT, 1) })
+    await insertTestJobStatus(secondJob.id, 'FILES-REJECTED', { at: DECIDED_AT, userId: user.id })
     const secondComment = await db
         .insertInto('studyReviewComment')
         .values({
@@ -314,19 +282,14 @@ describe('OutputsFeedbackScreen', () => {
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
-                jobStatus: 'CODE-SUBMITTED',
+                jobStatus: 'INITIATED',
             })
             await givenDataPartner(dbStudy.id)
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id })
-                .execute()
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'FILES-REJECTED', userId: user.id, createdAt: DECIDED_AT })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+            await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: daysBefore(DECIDED_AT, 3), userId: user.id })
+            await insertTestJobStatus(job.id, 'JOB-ERRORED', { at: daysBefore(DECIDED_AT, 2) })
+            await insertTestJobStatus(job.id, 'RUN-COMPLETE', { at: daysBefore(DECIDED_AT, 1) })
+            await insertTestJobStatus(job.id, 'FILES-REJECTED', { at: DECIDED_AT, userId: user.id })
             await db
                 .insertInto('studyReviewComment')
                 .values({
@@ -557,8 +520,8 @@ describe('OutputsFeedbackScreen', () => {
                 studyStatus: 'DRAFT',
                 jobStatus: 'CODE-SUBMITTED',
             })
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-REJECTED' }).execute()
+            await insertTestJobStatus(job.id, 'RUN-COMPLETE')
+            await insertTestJobStatus(job.id, 'FILES-REJECTED')
             const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             const raw = await requireRawState(dbStudy.id)
             ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -575,7 +538,7 @@ describe('OutputsFeedbackScreen', () => {
                 researcherId: user.id,
                 jobStatus: 'CODE-SUBMITTED',
             })
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'RUN-COMPLETE' }).execute()
+            await insertTestJobStatus(job.id, 'RUN-COMPLETE')
             const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             const raw = await requireRawState(dbStudy.id)
             ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -593,8 +556,8 @@ describe('OutputsFeedbackScreen', () => {
                 researcherId: user.id,
                 jobStatus: 'CODE-SUBMITTED',
             })
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+            await insertTestJobStatus(job.id, 'JOB-ERRORED')
+            await insertTestJobStatus(job.id, 'FILES-APPROVED')
             const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             const raw = await requireRawState(dbStudy.id)
             ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -611,7 +574,7 @@ describe('OutputsFeedbackScreen', () => {
                 researcherId: user.id,
                 jobStatus: 'CODE-SUBMITTED',
             })
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'JOB-ERRORED' }).execute()
+            await insertTestJobStatus(job.id, 'JOB-ERRORED')
             const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
             const raw = await requireRawState(dbStudy.id)
             ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

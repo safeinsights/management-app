@@ -73,7 +73,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
         await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
-        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice' }).check()
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice.' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })
         await expect(submitBtn).toBeEnabled()
@@ -146,7 +146,6 @@ test.describe('Organization Admin', () => {
         await page.getByPlaceholder(/command.*%f/i).fill('Rscript %f')
         await page.getByLabel(/add command line/i).click()
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
-        await page.getByLabel(/image digest/i).fill(`sha256:${'a'.repeat(64)}`)
 
         await expect(page.getByRole('textbox', { name: /language/i })).toHaveValue('R')
 

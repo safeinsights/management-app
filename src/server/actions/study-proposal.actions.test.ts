@@ -10,6 +10,7 @@ import {
     getAuditEntries,
     insertTestCodeEnv,
     type InsertTestCodeEnvOptions,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestCodeResubmissionNote,
     insertTestStudyAgreement,
@@ -90,8 +91,7 @@ const deliverMock = deliver as unknown as Mock
 
 const workspaceRoots: string[] = []
 
-const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
+const insertStatus = (studyJobId: string, status: StudyJobStatus) => insertTestJobStatus(studyJobId, status)
 
 // The code-round gate refuses with an ActionFailure keyed 'code', so the message arrives as an
 // object rather than the plain string most of these actions return.
@@ -1623,10 +1623,7 @@ describe('Request Study Actions', () => {
                 .set({ report: JSON.stringify({ codeExplanation: 'describes round 1' }) })
                 .where('studyJobId', '=', job.id)
                 .execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             actionResult(
@@ -1656,10 +1653,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
             actionResult(
@@ -1700,10 +1694,7 @@ describe('Request Study Actions', () => {
                 [2, 'second round'],
                 [3, 'third round'],
             ] as const) {
-                await db
-                    .insertInto('jobStatusChange')
-                    .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                    .execute()
+                await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
                 await writeWorkspaceFiles(root, study.id, { 'main.R': `round${round}` })
                 actionResult(
                     await resubmitStudyCodeAction({
@@ -1739,13 +1730,8 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', userId: user.id },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { userId: user.id })
             await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
             const filesBefore = await codeFilesFor(study.id)
             vi.mocked(aws.deleteFolderContents).mockClear()
@@ -1781,10 +1767,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED')
             await insertTestCodeResubmissionNote({ studyId: study.id, studyJobId: job.id, authorId: user.id, round: 2 })
 
             await writeWorkspaceFiles(root, study.id, { 'main.R': 'round2' })
@@ -1815,10 +1798,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             await ensureRoundJobForUpload(db, study.id)
             expect(await jobCount(study.id)).toBe(1)
@@ -1853,10 +1833,7 @@ describe('Request Study Actions', () => {
                 .select('id')
                 .where('studyId', '=', study.id)
                 .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: round1Job.id, status: 'CODE-CHANGES-REQUESTED' })
-                .execute()
+            await insertTestJobStatus(round1Job.id, 'CODE-CHANGES-REQUESTED')
 
             // A change request reopens the round for /resubmit, never for /code.
             expectCodeLocked(await submitCode(study.id, root, { 'main.R': 'round2a' }, 'main.R'))
@@ -2101,12 +2078,13 @@ describe('Request Study Actions', () => {
 
         it('creates a new job, records the resubmission note, clears the draft, and leaves the study APPROVED', async () => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
-            const { study } = await insertTestStudyJobData({
+            const { study, job } = await insertTestStudyJobData({
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
+                jobStatus: 'CODE-SUBMITTED',
             })
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
             await db
                 .updateTable('study')
                 .set({ codeResubmissionNoteDraft: 'work in progress' })
@@ -2167,10 +2145,10 @@ describe('Request Study Actions', () => {
                 org,
                 researcherId: user.id,
                 studyStatus: 'APPROVED',
-                jobStatus: 'CODE-CHANGES-REQUESTED',
+                jobStatus: 'CODE-SUBMITTED',
             })
-            // The round the change request was asked about, so the resubmit opens round 2.
-            await insertStatus(job.id, 'CODE-SUBMITTED')
+            // A change request on round 1, so the resubmit opens round 2.
+            await insertStatus(job.id, 'CODE-CHANGES-REQUESTED')
             const staleExplanation = 'Summary of the previously submitted code'
             await db
                 .insertInto('studyReview')

@@ -4,11 +4,9 @@ import { AlertNotFound } from '@/components/errors'
 import { projectStudyState } from '@/lib/study-screen'
 import { CODE_DECISION_TO_REVIEW_DECISION } from '@/lib/review-decision'
 import { getCodeReviewFeedbackAction } from '@/server/actions/review-feedback.actions'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { jobAnalysisForJob, latestSubmittedJobForStudy } from '@/server/db/queries'
 import { PostFeedbackView } from '../review/post-feedback-view'
 import type { ScreenComponentProps } from './types'
-import { currentDb } from '@/server/request-context'
 
 export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: ScreenComponentProps) {
     if (!isSubmittedStudy(study)) {
@@ -23,9 +21,7 @@ export async function ReviewerCodeFeedbackScreen({ study, raw, orgSlug, nav }: S
         // (OTTER-613).
         job ? jobAnalysisForJob(job) : null,
         getCodeReviewFeedbackAction({ studyId: study.id }),
-        // Not codeSubmissionVersion: that counts the CODE-CHANGES-REQUESTED just written and would
-        // label this page as the next iteration.
-        job ? codeRoundForJob(job.id, currentDb()) : 1,
+        job?.round ?? 1,
     ])
     const safeEntries = isActionError(entries) ? [] : entries
     if (safeEntries.length > 0) {

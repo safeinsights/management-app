@@ -52,6 +52,7 @@ Object.defineProperty(window, 'open', {
 import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
 
@@ -265,7 +266,7 @@ describe('useWorkspaceLauncher', () => {
             act(() => result.current.launchWorkspace())
 
             await waitFor(() => {
-                expect(result.current.error?.message).toBe('Failed to create workspace')
+                expect(result.current.error?.message).toBe(UNEXPECTED_ERROR_MESSAGE)
                 expect(result.current.isLaunching).toBe(false)
             })
         })
@@ -314,15 +315,26 @@ describe('useWorkspaceLauncher', () => {
         })
 
         // OTTER-832: the failure modal is the only surface, so each path captures without a toast.
+        it('reports a failed build to Sentry without a toast', async () => {
+            coderStatusMock.mockResolvedValue(failedStatus())
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.errorEventId).toMatch(/^[a-f0-9]{32}$/))
+            expect(captureException).toHaveBeenCalledTimes(1)
+            expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message: 'terraform exploded' }))
+            expect(notifications.show).not.toHaveBeenCalled()
+        })
+
+        // OTTER-984: the action already raised the Sentry event, so the modal quotes its id instead of a second one.
         it.each([
-            ['an ensure failure', 'boom', () => createWorkspaceMock.mockRejectedValue(new Error('boom'))],
-            [
-                'a status polling error',
-                'workspace not found',
-                () => coderStatusMock.mockRejectedValue(new Error('workspace not found')),
-            ],
-            ['a failed build', 'terraform exploded', () => coderStatusMock.mockResolvedValue(failedStatus())],
-        ])('reports %s to Sentry without a toast', async (_label, message, arrange) => {
+            ['an ensure failure', () => createWorkspaceMock.mockRejectedValue(new Error('boom'))],
+            ['a status polling error', () => coderStatusMock.mockRejectedValue(new Error('workspace not found'))],
+        ])('quotes the server event id for %s, without a toast', async (_label, arrange) => {
             arrange()
 
             const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
@@ -332,9 +344,8 @@ describe('useWorkspaceLauncher', () => {
             act(() => result.current.launchWorkspace())
 
             await waitFor(() => expect(result.current.errorEventId).toMatch(/^[a-f0-9]{32}$/))
-            expect(result.current.error).not.toBeNull()
-            expect(captureException).toHaveBeenCalledTimes(1)
-            expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message }))
+            expect(result.current.error?.message).toBe(UNEXPECTED_ERROR_MESSAGE)
+            expect(captureException).not.toHaveBeenCalled()
             expect(notifications.show).not.toHaveBeenCalled()
         })
 

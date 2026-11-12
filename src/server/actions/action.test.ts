@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 import { faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
 import logger from '@/lib/logger'
 import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
@@ -158,15 +159,14 @@ describe('Action Builder', () => {
     })
 
     describe('error handling', () => {
-        it('catches exceptions and returns them as error objects', async () => {
-            const errorMessage = 'Something went wrong'
-            const mockHandler = vi.fn().mockRejectedValue(new Error(errorMessage))
+        it('returns the generic message for an unexpected exception', async () => {
+            const mockHandler = vi.fn().mockRejectedValue(new Error('internal detail'))
 
             const action = new Action('error-test').handler(mockHandler)
 
             const result = await action()
 
-            expect(result).toEqual({ error: errorMessage })
+            expect(result).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
             expect(mockHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
                     params: undefined,
@@ -202,13 +202,32 @@ describe('Action Builder', () => {
             expect(result).toEqual({ error: failureObject })
         })
 
-        it('catches handler exceptions and returns them as error objects', async () => {
-            const mockHandler = vi.fn(async () => {
-                throw new Error('hi')
+        it('keeps a database error out of the response and hands back its Sentry event id', async () => {
+            const { user } = await mockSessionWithTestData()
+            const action = new Action('fk-violation', { performsMutations: true }).handler(async ({ db }) => {
+                await db
+                    .insertInto('orgUser')
+                    .values({ orgId: faker.string.uuid(), userId: user.id, isAdmin: false })
+                    .execute()
             })
-            const action = new Action('middleware-error-test').handler(mockHandler)
+
             const result = await action()
-            expect(result).toEqual({ error: 'hi' })
+
+            expect(result).toEqual({
+                error: UNEXPECTED_ERROR_MESSAGE,
+                eventId: expect.stringMatching(/^[a-f0-9]{32}$/),
+            })
+            expect(JSON.stringify(result)).not.toMatch(/foreign key|org_user/)
+        })
+
+        it('returns the generic message when a schema transform throws', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const schema = z.string().transform((): string => {
+                throw new Error('transform detail')
+            })
+            const action = new Action('transform-error').params(schema).handler(async () => 'ok')
+
+            expect(await action('x')).toEqual({ error: UNEXPECTED_ERROR_MESSAGE })
         })
     })
 
@@ -236,7 +255,7 @@ describe('Action Builder', () => {
                 },
             )
 
-            expect(await action()).toEqual({ error: 'rolled back' })
+            expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
             expect(hook).not.toHaveBeenCalled()
         })
 
@@ -273,7 +292,7 @@ describe('Action Builder', () => {
             const action = new Action('unexpected-failure').handler(async () => {
                 throw boom
             })
-            expect(await action()).toEqual({ error: 'boom' })
+            expect(await action()).toEqual({ error: UNEXPECTED_ERROR_MESSAGE })
             expect(errorSpy).toHaveBeenCalledTimes(1)
             expect(errorSpy).toHaveBeenCalledWith(boom)
         })

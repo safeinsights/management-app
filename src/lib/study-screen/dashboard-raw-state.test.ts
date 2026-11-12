@@ -25,6 +25,8 @@ const row = (overrides: Partial<StudyRow>): StudyRow => ({
     impact: null,
     additionalNotes: null,
     hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
     ...overrides,
 })
 

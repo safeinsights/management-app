@@ -47,6 +47,23 @@ export const Default: Story = () => {
                 form={form}
                 onSubmit={noop}
                 forgotPasswordHref={Routes.accountResetPassword as Route}
+                isFinishingMfaSetup={false}
+                clerkError={null}
+                setClerkError={noop}
+            />
+        </FocusedBackdrop>
+    )
+}
+
+export const FinishingMfaSetup: Story = () => {
+    const form = useStoryForm({ email: '', password: '' })
+    return (
+        <FocusedBackdrop>
+            <SignInFormView
+                form={form}
+                onSubmit={noop}
+                forgotPasswordHref={Routes.accountResetPassword as Route}
+                isFinishingMfaSetup
                 clerkError={null}
                 setClerkError={noop}
             />
@@ -62,6 +79,7 @@ export const FilledAndValid: Story = () => {
                 form={form}
                 onSubmit={noop}
                 forgotPasswordHref={Routes.accountResetPassword as Route}
+                isFinishingMfaSetup={false}
                 clerkError={null}
                 setClerkError={noop}
             />
@@ -77,6 +95,7 @@ export const WithError: Story = () => {
                 form={form}
                 onSubmit={noop}
                 forgotPasswordHref={Routes.accountResetPassword as Route}
+                isFinishingMfaSetup={false}
                 clerkError={{
                     title: 'Account Locked',
                     message: 'Your account is locked due to too many failed attempts. Try again later.',

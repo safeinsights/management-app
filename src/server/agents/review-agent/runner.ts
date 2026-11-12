@@ -4,7 +4,7 @@ import { plural } from '@/lib/string'
 import { generateAnalysis } from './agent'
 import type { AnalysisReport, ReviewContent } from './types'
 import { getConfigValue } from '@/server/config'
-import { isCurrentCodeRound } from '@/server/db/code-round'
+import { jobRound } from '@/server/db/queries'
 import { fetchFileContents } from '@/server/storage'
 import { generateDataSourcesContextString } from '@/server/utils'
 import { getAgentContextString } from '@/lib/agent-context'
@@ -170,7 +170,7 @@ export async function generateAndStoreStudyReview(studyJobId: string, round: num
 
     // Generation takes minutes, so the code it was started for can already have been replaced.
     // Checked again before each write, since the resubmit can also land mid-run (OTTER-779).
-    if (!(await isCurrentCodeRound(studyJobId, round, currentDb()))) {
+    if ((await jobRound(studyJobId, currentDb())) !== round) {
         logger.info(`Study review round is no longer current, skipping`, { studyJobId, round })
         return
     }
@@ -228,7 +228,7 @@ async function runStudyReview(studyJobId: string, round: number, claimedAt: Date
 // dropped rather than stored (OTTER-779). Its claim stays behind on that round as the record of a
 // run that produced nothing; only the current round's row is ever read back.
 async function roundWasSuperseded(studyJobId: string, round: number): Promise<boolean> {
-    if (await isCurrentCodeRound(studyJobId, round, currentDb())) return false
+    if ((await jobRound(studyJobId, currentDb())) === round) return false
     logger.warn(`Discarding a study review for a superseded round`, { studyJobId, round })
     return true
 }

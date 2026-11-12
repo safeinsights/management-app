@@ -2,6 +2,7 @@ import {
     actionResult,
     describe,
     expect,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     it,
@@ -48,11 +49,8 @@ const setupAwaitingReview = async ({
         jobStatus: 'JOB-RUNNING',
     })
     await db.updateTable('study').set({ submittedByOrgId: org.id }).where('id', '=', dbStudy.id).execute()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-APPROVED' }).execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'RUN-COMPLETE', ...(completedAt ? { createdAt: completedAt } : {}) })
-        .execute()
+    await insertTestJobStatus(job.id, 'CODE-APPROVED')
+    await insertTestJobStatus(job.id, 'RUN-COMPLETE', { at: completedAt })
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -113,7 +111,7 @@ describe('OutputsAwaitingReviewScreen', () => {
 
     it('refuses to render once the reviewer has decided, so it cannot disagree with the rule table', async () => {
         const { org, study, job } = await setupAwaitingReview()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         await renderScreen(study, org.slug)
 
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()

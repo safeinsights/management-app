@@ -6,7 +6,8 @@ import { InvalidInvitePanel } from './invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
-import { Flex, Paper, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Flex, Text, Title } from '@mantine/core'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import { currentDb } from '@/server/request-context'
 
@@ -96,7 +97,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const { orgName, isAdmin } = pendingInvite
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: 'md', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
                     You’ve been invited to join SafeInsights!
@@ -131,6 +132,6 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                     Create New Account
                 </ButtonLink>
             </Flex>
-        </Paper>
+        </FocusedCard>
     )
 }

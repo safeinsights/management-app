@@ -2,7 +2,7 @@
 
 import type { FC, RefObject } from 'react'
 import { Anchor, Stack, Text, Title } from '@mantine/core'
-import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { ACCEPTED_FILE_FORMATS_TEXT, MAX_UPLOAD_FILE_HINT } from '@/lib/types'
 import { semanticColor } from '@/theme/tokens'
 
 const SECTION_TITLE = 'Already have code?'
@@ -10,7 +10,7 @@ const SECTION_TITLE = 'Already have code?'
 const UPLOAD_LINK_TEXT = 'Upload your existing files'
 
 /** Built from the shared constant so the list cannot drift from what the dropzone accepts. */
-const LIMITS_TEXT = `(${ACCEPTED_FILE_FORMATS_TEXT} File size: 3 MB max.)`
+const LIMITS_TEXT = `(${ACCEPTED_FILE_FORMATS_TEXT} ${MAX_UPLOAD_FILE_HINT})`
 
 type AlreadyHaveCodeSectionProps = {
     isVisible?: boolean

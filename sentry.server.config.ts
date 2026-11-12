@@ -3,30 +3,24 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
-import { consoleLoggingIntegration } from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
 import { sentryDeployOptionsFromEnv } from '@/lib/sentry-deploy'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-    integrations: [
-        // Log export stays disabled until the additional server data flow receives InfoSec approval.
-        consoleLoggingIntegration({ levels: ['error', 'warn'] }),
-    ],
+    // No consoleLoggingIntegration: Sentry 11 has no enableLogs switch, the integration is what ships
+    // logs, and server log export stays off until InfoSec approves it (OTTER-707).
 
     ...sentryScrubOptions,
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
 
-    // Keep server log export disabled; OTTER-707 only changes scrubbing.
-    enableLogs: false,
-
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
 
     enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-    ...sentryDeployOptionsFromEnv(),
+    ...sentryDeployOptionsFromEnv(process.env),
 })
