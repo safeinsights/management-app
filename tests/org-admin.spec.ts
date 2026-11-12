@@ -10,13 +10,25 @@ import {
     TestingUsers,
     visitAsRole,
     path,
+    type Page,
 } from './e2e.helpers'
 import { REVIEWER_ADMIN_ORG_SLUG, SEEDED_TOS_V2_BODY } from './e2e.seed'
-import { JOINED_ORG_STORAGE_KEY } from '@/lib/joined-org'
+import { JOINED_ORG_STORAGE_KEY, type JoinedOrg } from '@/lib/joined-org'
 import { fileURLToPath } from 'url'
 
 // Reviewer is the org admin for `reviewer-is-org-admin`.
 test.use({ storageState: authFileFor('reviewer') })
+
+// The flag is written on a page without the banner. A dashboard still loading its session mounts
+// the banner after the write, which reads and clears the flag before the visit under test.
+async function openDashboardAfterJoining(page: Page, joined: JoinedOrg) {
+    await visitAsRole(page, Routes.support)
+    await page.evaluate(
+        ([key, value]) => sessionStorage.setItem(key, value),
+        [JOINED_ORG_STORAGE_KEY, JSON.stringify(joined)],
+    )
+    await goto(page, Routes.dashboard)
+}
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
@@ -87,13 +99,7 @@ test.describe('Organization Admin', () => {
     test('shows a confirmation banner on the dashboard after joining an org', async ({ page }) => {
         const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
 
-        await visitAsRole(page, Routes.dashboard)
-        await page.evaluate(
-            ([key, value]) => sessionStorage.setItem(key, value),
-            [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName })],
-        )
-
-        await goto(page, Routes.dashboard)
+        await openDashboardAfterJoining(page, { orgName })
         const banner = page.getByTestId('joined-org-banner')
         await expect(banner).toBeVisible()
         await expect(banner).toContainText(`You have been added to ${orgName}.`)
@@ -106,13 +112,7 @@ test.describe('Organization Admin', () => {
         const orgName = `OpenStax Research Lab ${Date.now().toString(36)}`
         const linkedEmail = 'invited@example.com'
 
-        await visitAsRole(page, Routes.dashboard)
-        await page.evaluate(
-            ([key, value]) => sessionStorage.setItem(key, value),
-            [JOINED_ORG_STORAGE_KEY, JSON.stringify({ orgName, linkedEmail })],
-        )
-
-        await goto(page, Routes.dashboard)
+        await openDashboardAfterJoining(page, { orgName, linkedEmail })
         const banner = page.getByTestId('joined-org-banner')
         await expect(banner).toBeVisible()
         await expect(banner).toContainText(
