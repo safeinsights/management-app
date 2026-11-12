@@ -12,6 +12,7 @@ import {
 } from '@/tests/unit.helpers'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { EMPTY_CELL } from '@/lib/dates'
 import { CodeRunKeyForm } from './code-run-key-form'
 
 const DESCRIPTION =
@@ -71,7 +72,7 @@ describe('CodeRunKeyForm', () => {
             <CodeRunKeyForm job={{ ...job, statusChanges: [] }} description={DESCRIPTION} onDecrypted={onDecrypted} />,
         )
 
-        expect(await screen.findByRole('heading', { name: 'Code run • —' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: `Code run • ${EMPTY_CELL}` })).toBeInTheDocument()
     })
 
     it('keeps the empty-key error from the shared key form', async () => {
