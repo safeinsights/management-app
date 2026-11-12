@@ -2,8 +2,6 @@ import { type ReactNode } from 'react'
 import { Radio, Text, type RadioProps } from '@mantine/core'
 import { fontWeight } from '@/theme/tokens'
 
-const descriptionSpanId = (value: string) => `decision-radio-${value}-description`
-
 export type DecisionRadioProps = {
     value: string
     label: string
@@ -24,21 +22,17 @@ export function DecisionRadio({
     isProminent = false,
     ...rest
 }: DecisionRadioProps) {
-    const descId = description ? descriptionSpanId(value) : null
-    const describedBy = [error ? errorId : null, descId].filter(Boolean).join(' ') || undefined
-
+    // Mantine wires the description itself; the shared error message is the only extra reference.
     return (
         <Radio
             value={value}
             label={<DecisionLabel label={label} isProminent={isProminent} />}
             description={
-                descId ? (
-                    <DecisionDescription id={descId} description={description} isProminent={isProminent} />
-                ) : undefined
+                description ? <DecisionDescription description={description} isProminent={isProminent} /> : undefined
             }
             error={!!error}
             aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy}
+            aria-describedby={error ? errorId : undefined}
             data-testid={testId}
             {...rest}
         />
@@ -55,17 +49,9 @@ function DecisionLabel({ label, isProminent }: { label: string; isProminent: boo
     )
 }
 
-function DecisionDescription({
-    id,
-    description,
-    isProminent,
-}: {
-    id: string
-    description: ReactNode
-    isProminent: boolean
-}) {
+function DecisionDescription({ description, isProminent }: { description: ReactNode; isProminent: boolean }) {
     return (
-        <Text span inherit id={id} fz={isProminent ? 'sm' : undefined}>
+        <Text span inherit fz={isProminent ? 'sm' : undefined}>
             {description}
         </Text>
     )

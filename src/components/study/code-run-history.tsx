@@ -65,7 +65,17 @@ async function decryptPriorRun(
 export function usePriorRunOutputs(runs: PriorCodeRun[]) {
     const queryClient = useQueryClient()
     const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
-    const setRun = (runId: string, outputs: RunOutputs) => setByRun((current) => ({ ...current, [runId]: outputs }))
+    // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
+    const isMounted = useRef(false)
+    useEffect(() => {
+        isMounted.current = true
+        return () => {
+            isMounted.current = false
+        }
+    }, [])
+    const setRun = (runId: string, outputs: RunOutputs) => {
+        if (isMounted.current) setByRun((current) => ({ ...current, [runId]: outputs }))
+    }
 
     return {
         byRun,
@@ -371,7 +381,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                     <ToggleChevron isExpanded={isExpanded} />
                 </ActionIcon>
             </Group>
-            <Collapse in={isExpanded} id={bodyId}>
+            <Collapse expanded={isExpanded} id={bodyId}>
                 <RowBody
                     isVisible={isExpanded}
                     run={run}
@@ -452,7 +462,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     size="md"
                 />
             </Group>
-            <Collapse in={history.isOpen} id={listId}>
+            <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
                     {history.visibleRuns.map((run) => (
                         <CodeRunHistoryRow

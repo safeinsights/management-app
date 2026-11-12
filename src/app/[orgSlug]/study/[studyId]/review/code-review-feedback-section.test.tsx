@@ -18,9 +18,9 @@ import { overCharacterLimitError } from '@/lib/field-limits'
 import { lexicalJson } from '@/lib/lexical'
 import { CodeReviewFeedbackProviderShare } from '@/lib/realtime/code-review-feedback-provider-context'
 import { SAVED_LABEL } from '@/components/save-status'
-import { CodeReviewFeedbackSection } from './code-review-feedback-section'
+import { CodeReviewFeedbackSection, DECISION_GROUP_ID } from './code-review-feedback-section'
 
-function CodeFeedbackTestWrapper() {
+function CodeFeedbackTestWrapper({ decisionError = null }: { decisionError?: string | null }) {
     const feedback = useReviewFeedback()
 
     return (
@@ -42,7 +42,7 @@ function CodeFeedbackTestWrapper() {
                 decisionValue={null}
                 onDecisionChange={vi.fn()}
                 onDecisionBlur={vi.fn()}
-                decisionError={null}
+                decisionError={decisionError}
                 labName="Test Lab"
             />
         </CodeReviewFeedbackProviderShare>
@@ -61,6 +61,18 @@ describe('CodeReviewFeedbackSection', () => {
                 'Share your decision and feedback with Test Lab based on the evaluation criteria above. You can also request clarifications, flag dataset risks, or outline required changes.',
             ),
         ).toBeInTheDocument()
+    })
+
+    // Mantine 9 appends a passed aria-describedby after its own description id; both must survive.
+    it('describes each option by its body text and the shared error while the error shows', () => {
+        renderWithProviders(<CodeFeedbackTestWrapper decisionError="Select a decision before submitting." />)
+
+        for (const radio of screen.getAllByRole('radio')) {
+            const ids = radio.getAttribute('aria-describedby')?.split(' ') ?? []
+            expect(ids).toHaveLength(2)
+            expect(ids).toContain(fieldErrorId(DECISION_GROUP_ID))
+            expect(radio).toHaveAccessibleDescription(/Select a decision before submitting\.$/)
+        }
     })
 
     it('displays the character counter and an empty error box while the field is clean', async () => {

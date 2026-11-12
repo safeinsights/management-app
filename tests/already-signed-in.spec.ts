@@ -30,7 +30,7 @@ test.describe('sign in while already signed in', () => {
         await page.getByRole('button', { name: /different account/i }).click()
 
         await expect(page.getByLabel('email')).toBeVisible()
-        await expect(page.getByLabel('password')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
     })
 
     // OTTER-745. Clearing the role cookie without notifying the fake's store leaves the client
@@ -44,7 +44,7 @@ test.describe('sign in while already signed in', () => {
 
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeHidden()
         await expect(page.getByLabel('email')).toBeVisible()
-        await expect(page.getByLabel('password')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
     })
 
     test('continue leads somewhere even when the session died behind the prompt', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('sign in while already signed in', () => {
 
         await expect(page).toHaveURL((url) => url.searchParams.get('redirect_url') === Routes.dashboard)
         await expect(page.getByLabel('email')).toBeVisible()
-        await expect(page.getByLabel('password')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
     })
 
     // OTTER-745: the other way this page used to stick. The automatic move leaves through a full
@@ -87,7 +87,7 @@ test.describe('sign in while already signed in', () => {
         await goto(page, withQuery(Routes.accountSignin, { redirect_url: Routes.dashboard }))
 
         await expect(page.getByLabel('email')).toBeVisible()
-        await expect(page.getByLabel('password')).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
         await expect(page.getByRole('heading', { name: /already signed in/i })).toBeHidden()
         await expect(page).toHaveURL(new RegExp(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`))
         expect(refusals).toBe(1)

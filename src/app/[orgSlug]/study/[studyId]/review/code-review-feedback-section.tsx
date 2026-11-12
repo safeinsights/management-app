@@ -5,7 +5,7 @@ import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { DecisionRadio } from '@/components/study/decision-radio'
-import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { fieldErrorId, FieldErrorBox, radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -132,8 +132,8 @@ function DecisionRadioGroup({
                 value={value ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
+                {...radioGroupAria(SECTION_HEADING_ID)}
                 name="code-review-decision"
-                labelProps={{ id: SECTION_HEADING_ID }}
             >
                 <Stack gap="md">{radioOptions}</Stack>
             </Radio.Group>

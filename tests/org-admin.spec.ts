@@ -147,7 +147,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/add command line/i).click()
         await page.getByLabel(/url to code environment/i).fill('example.com/e2e-code-env:latest')
 
-        await expect(page.getByRole('textbox', { name: /language/i })).toHaveValue('R')
+        await expect(page.getByRole('combobox', { name: /language/i })).toHaveValue('R')
 
         const __filename = fileURLToPath(import.meta.url)
         const __dirname = path.dirname(__filename)
