@@ -15,8 +15,8 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// Tabs, panel headings and empty states name a collection of documents; the modals and the admin
-// screens name one. The three agreement types pluralise with a bare 's'; tos/pn are already collective.
+// For empty states and the remaining plural surfaces (admin legal tabs and headings, mailer); the /legal
+// tabs and cards name one document. Agreement types add a bare 's'; tos/pn are already collective.
 export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = {
     TOS: legalDocumentTypeLabels.TOS,
     PN: legalDocumentTypeLabels.PN,

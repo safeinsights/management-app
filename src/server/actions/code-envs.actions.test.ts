@@ -74,7 +74,7 @@ describe('Code Environment Actions', () => {
         expect(result.starterCodeFileNames).toBeDefined()
     })
 
-    it('createOrgCodeEnvAction rejects an image reference without a digest', async () => {
+    it('createOrgCodeEnvAction accepts an image reference without a digest', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const result = await createOrgCodeEnvAction({
@@ -90,13 +90,13 @@ describe('Code Environment Actions', () => {
             dataSourceIds: [],
         })
 
-        expect(isActionError(result)).toBe(true)
+        expect(isActionError(result)).toBe(false)
         const row = await db
             .selectFrom('orgCodeEnv')
-            .select('id')
+            .select('url')
             .where('identifier', '=', 'unpinned')
-            .executeTakeFirst()
-        expect(row).toBeUndefined()
+            .executeTakeFirstOrThrow()
+        expect(row.url).toEqual('example.com/img:v1')
     })
 
     it('deleteOrgCodeEnvAction deletes a code environment', async () => {
@@ -186,7 +186,7 @@ describe('Code Environment Actions', () => {
         expect(result.starterCodeFileNames).toEqual(['starter.py'])
     })
 
-    it('updateOrgCodeEnvAction rejects an image reference without a digest', async () => {
+    it('updateOrgCodeEnvAction accepts an image reference without a digest', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const codeEnv = await db
             .insertInto('orgCodeEnv')
@@ -216,13 +216,13 @@ describe('Code Environment Actions', () => {
             dataSourceIds: [],
         })
 
-        expect(isActionError(result)).toBe(true)
+        expect(isActionError(result)).toBe(false)
         const row = await db
             .selectFrom('orgCodeEnv')
             .select('url')
             .where('id', '=', codeEnv.id)
             .executeTakeFirstOrThrow()
-        expect(row.url).toEqual(testImageRef('example.com/img:v1'))
+        expect(row.url).toEqual('example.com/img:v2')
     })
 
     it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {

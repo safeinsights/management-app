@@ -3,8 +3,9 @@
 import { FC, FormEvent } from 'react'
 import type { Route } from 'next'
 import { type UseFormReturnType } from '@mantine/form'
-import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
+import { PasswordInput, TextInput, Title } from '@mantine/core'
 import { Button, Flex, Link } from '@/common'
+import { FocusedCard } from '@/components/layout/focused-card'
 import { SignInError } from './sign-in-error'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -30,7 +31,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
 }) => {
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg={semanticColor('surface.raised')} radius="sm" p="xxl">
+            <FocusedCard>
                 <Title mb="lg" order={3} ta="center">
                     Welcome to SafeInsights!
                 </Title>
@@ -67,7 +68,7 @@ export const SignInFormView: FC<SignInFormViewProps> = ({
                         Login
                     </Button>
                 </Flex>
-            </Paper>
+            </FocusedCard>
         </form>
     )
 }
