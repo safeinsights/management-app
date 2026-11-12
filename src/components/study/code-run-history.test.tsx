@@ -404,8 +404,9 @@ describe('decryptedSummary', () => {
         { results: [{ status: 'unlocked', files: [] }, { status: 'no-files' }], message: 'Outputs decrypted.' },
         {
             results: [{ status: 'wrong-key' }, { status: 'integrity' }, { status: 'fetch-failed' }],
-            message: 'Outputs decrypted. 1 previous run needs a different key.',
+            message: 'Outputs decrypted. 1 previous run needs a different key. 2 previous runs could not be opened.',
         },
+        { results: [{ status: 'integrity' }], message: 'Outputs decrypted. 1 previous run could not be opened.' },
         {
             results: [{ status: 'wrong-key' }, { status: 'wrong-key' }],
             message: 'Outputs decrypted. 2 previous runs need a different key.',

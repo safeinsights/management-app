@@ -76,9 +76,17 @@ async function decryptPriorRun(
 
 // One message for the latest run and every earlier run it tried, rather than one per row.
 export function decryptedSummary(results: RunOutputs[]): string {
-    const needKey = results.filter((outputs) => outputs.status === 'wrong-key').length
-    if (needKey === 0) return 'Outputs decrypted.'
-    return `Outputs decrypted. ${needKey} previous ${needKey === 1 ? 'run needs' : 'runs need'} a different key.`
+    const count = (...statuses: RunOutputs['status'][]) =>
+        results.filter((outputs) => statuses.includes(outputs.status)).length
+    const needKey = count('wrong-key')
+    const failed = count('integrity', 'fetch-failed')
+    return [
+        'Outputs decrypted.',
+        needKey ? `${needKey} previous ${needKey === 1 ? 'run needs' : 'runs need'} a different key.` : '',
+        failed ? `${failed} previous ${failed === 1 ? 'run' : 'runs'} could not be opened.` : '',
+    ]
+        .filter(Boolean)
+        .join(' ')
 }
 
 // Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
