@@ -556,6 +556,7 @@ describe('CodeRunHistory expanded row', () => {
         await expandRow(oldA)
         await expandRow(oldB)
         await within(oldA).findByText(WRONG_KEY_ALERT)
+        await within(oldB).findByText(WRONG_KEY_ALERT)
 
         // Several key fields can be open at once, so each names its own run with a visible label.
         const labelA = within(oldA).getByText(/^Security key for Code run/)
