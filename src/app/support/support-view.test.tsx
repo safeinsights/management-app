@@ -11,11 +11,14 @@ describe('SupportView', () => {
         expect(screen.getByText(/Please don’t hesitate to email SafeInsights at/)).toBeInTheDocument()
         expect(screen.getByText(/Please don’t hesitate to email SafeInsights at/).textContent).toContain(SUPPORT_EMAIL)
         expect(screen.queryByRole('link')).toBeNull()
-        expect(screen.getByText('Copied')).toHaveClass('invisible')
+        const label = screen.getByText('Copied')
+        expect(label).toHaveClass('invisible')
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
 
         await userEvent.click(screen.getByRole('button', { name: 'Copy email address' }))
 
         expect(writeText).toHaveBeenCalledWith(SUPPORT_EMAIL)
-        await waitFor(() => expect(screen.getByText('Copied')).not.toHaveClass('invisible'))
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Copied'))
+        expect(label).not.toHaveClass('invisible')
     })
 })
