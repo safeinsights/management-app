@@ -1,56 +1,52 @@
 'use client'
 
-import { Divider, Paper, Stack, Text, Title } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { FC } from 'react'
-import { CodeRunTitle } from '@/components/study/code-run-title'
+import { CodeRunCard } from '@/components/study/code-run-card'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { StudyJobStatus } from '@/database/types'
-import { codeRunEndedAt } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-interface CodeRunKeyFormProps {
+interface CodeRunKeyFieldsProps {
     job: { id: string; statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }> }
     description: string
     onDecrypted: (files: JobFileInfo[]) => void
     onKeyAccepted?: (privateKey: string) => void
 }
 
-// The reviewer's key form for the latest run. Researchers keep SecurityKeyForm.
-export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDecrypted, onKeyAccepted }) => {
-    const runEndedAt = codeRunEndedAt(job.statusChanges)
-
-    return (
-        <Paper p="xxl" data-testid="security-key-form">
-            <Stack gap="lg">
-                <Title fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')} order={3}>
-                    <CodeRunTitle value={runEndedAt} />
-                </Title>
-                <Divider />
-                <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-                    Output files
+// The Output files section of the latest run's card, before its outputs are decrypted.
+export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, description, onDecrypted, onKeyAccepted }) => (
+    <Stack gap="lg" data-testid="security-key-form">
+        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+            Output files
+        </Text>
+        <Stack gap="xs">
+            <Text fz="md" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                Security key{' '}
+                <Text component="span" c={semanticColor('error.text')} inherit aria-label="required">
+                    *
                 </Text>
-                <Stack gap="xs">
-                    <Text fz="md" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-                        Security key{' '}
-                        <Text component="span" c={semanticColor('error.text')} inherit aria-label="required">
-                            *
-                        </Text>
-                    </Text>
-                    <Text fz="md" c={semanticColor('text.primary')}>
-                        {description}
-                    </Text>
-                </Stack>
-                {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
-                    keys, so the researcher key set would come back empty. */}
-                <SecurityKeyFields
-                    job={job}
-                    type="reviewer"
-                    buttonLabel="View files"
-                    onDecrypted={onDecrypted}
-                    onKeyAccepted={onKeyAccepted}
-                />
-            </Stack>
-        </Paper>
-    )
-}
+            </Text>
+            <Text fz="md" c={semanticColor('text.primary')}>
+                {description}
+            </Text>
+        </Stack>
+        {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
+            keys, so the researcher key set would come back empty. */}
+        <SecurityKeyFields
+            job={job}
+            type="reviewer"
+            buttonLabel="View files"
+            onDecrypted={onDecrypted}
+            onKeyAccepted={onKeyAccepted}
+        />
+    </Stack>
+)
+
+// The reviewer's key form for the latest run. Researchers keep SecurityKeyForm.
+export const CodeRunKeyForm: FC<CodeRunKeyFieldsProps> = (props) => (
+    <CodeRunCard job={props.job}>
+        <CodeRunKeyFields {...props} />
+    </CodeRunCard>
+)
