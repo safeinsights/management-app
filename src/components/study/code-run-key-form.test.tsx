@@ -67,12 +67,12 @@ describe('CodeRunKeyForm', () => {
         expect(recoverableErrors).toEqual([])
     })
 
-    it('falls back to a dash, hidden from screen readers, when the run has no finish time', async () => {
+    it('falls back to a dash, read as an unknown date, when the run has no finish time', async () => {
         renderWithProviders(
             <CodeRunKeyForm job={{ ...job, statusChanges: [] }} description={DESCRIPTION} onDecrypted={onDecrypted} />,
         )
 
-        const heading = await screen.findByRole('heading', { name: 'Code run' })
+        const heading = await screen.findByRole('heading', { name: 'Code run date unknown' })
         expect(heading).toHaveTextContent(`Code run • ${EMPTY_CELL}`)
     })
 

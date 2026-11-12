@@ -1,4 +1,5 @@
 import { FC } from 'react'
+import { VisuallyHidden } from '@mantine/core'
 import { LocalDateTime } from '@/components/local-date-time'
 import { EMPTY_CELL } from '@/lib/dates'
 
@@ -9,6 +10,7 @@ export const CodeRunTitle: FC<{ value: Date | string | null }> = ({ value }) => 
         return (
             <>
                 Code run<span aria-hidden="true"> • {EMPTY_CELL}</span>
+                <VisuallyHidden component="span"> date unknown</VisuallyHidden>
             </>
         )
     }

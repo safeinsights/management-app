@@ -14,14 +14,14 @@ describe('CodeRunTitle', () => {
         expect(heading).toHaveTextContent('Code run • Mar 05, 2026')
     })
 
-    it('reads as just "Code run" when the run has no date', () => {
+    it('says the date is unknown rather than reading the placeholder when the run has no date', () => {
         renderWithProviders(
             <h3>
                 <CodeRunTitle value={null} />
             </h3>,
         )
 
-        const heading = screen.getByRole('heading', { name: 'Code run' })
+        const heading = screen.getByRole('heading', { name: 'Code run date unknown' })
         expect(heading).toHaveTextContent(`Code run • ${EMPTY_CELL}`)
     })
 })
