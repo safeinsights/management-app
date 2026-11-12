@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@/tests/unit.helpers'
+import * as Sentry from '@sentry/nextjs'
 import type { ErrorEvent, Log } from '@sentry/nextjs'
 import { scrubSentryEvent, scrubSentryLog, scrubSentrySpan, sentryScrubOptions } from './sentry'
 import { scrubText } from './sentry-scrub-text'
@@ -523,6 +524,28 @@ describe('sentryScrubOptions', () => {
     })
     it('opts out of the default PII collection explicitly', () => {
         expect(sentryScrubOptions.dataCollection).toMatchObject({ userInfo: false, cookies: false, httpBodies: [] })
+    })
+
+    // Through the real SDK: v11 silently stopped calling beforeSendTransaction, and the wiring test
+    // above cannot see a hook the SDK no longer runs.
+    it('scrubs a span the SDK sends', async () => {
+        const sent: string[] = []
+        Sentry.init({
+            ...sentryScrubOptions,
+            dsn: 'https://k@o0.ingest.sentry.io/0',
+            tracesSampleRate: 1,
+            transport: () =>
+                Sentry.createTransport({ recordDroppedEvent: () => {} }, async (request) => {
+                    sent.push(String(request.body))
+                    return {}
+                }),
+        })
+
+        Sentry.startSpan({ name: 'GET /x?token=abc', attributes: { authorization: 'Bearer z' } }, () => {})
+        await Sentry.flush()
+
+        expect(sent.join()).toContain('token=[Filtered]')
+        expect(sent.join()).not.toContain('Bearer z')
     })
 })
 
