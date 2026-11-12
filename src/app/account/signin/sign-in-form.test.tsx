@@ -39,6 +39,15 @@ const submitCredentials = async () => {
 }
 
 describe('SignInForm', () => {
+    it('tells a user signed out after setting up MFA to sign in with it', async () => {
+        memoryRouter.setCurrentUrl('/account/signin?mfa=verify')
+        mockSignInCreate(vi.fn())
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+
+        expect(await screen.findByText('MFA is set up')).toBeDefined()
+    })
+
     it('redirects instead of erroring when Clerk reports an active session on submit', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
         const create = vi.fn().mockRejectedValue({

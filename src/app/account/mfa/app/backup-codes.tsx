@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
+import { SIGN_IN_TO_VERIFY_MFA, useSessionNeedsSecondFactor } from '@/app/account/mfa/use-session-needs-second-factor'
+import { useSignOut } from '@/hooks/use-sign-out'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -23,16 +25,19 @@ type BackupCodesProps = {
 
 function useBackupCodes(enrolled: EnrolledCodes | null) {
     const { isLoaded: isSessionLoaded, session } = useSession()
+    const needsSecondFactor = useSessionNeedsSecondFactor()
+    const signOut = useSignOut({ redirectAfterSignOut: SIGN_IN_TO_VERIFY_MFA })
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
     const [modalOpened, setModalOpened] = useState(false)
     const [isRedirecting, setIsRedirecting] = useState(false)
 
-    const goToDashboard = () => {
+    const goToSafeInsights = () => {
         setModalOpened(false)
         setIsRedirecting(true)
         if (!isSessionLoaded || !session) return
-        router.push(Routes.dashboard)
+        if (needsSecondFactor) void signOut()
+        else router.push(Routes.dashboard)
     }
 
     const codes = enrolled?.codes ?? []
@@ -41,7 +46,7 @@ function useBackupCodes(enrolled: EnrolledCodes | null) {
     // Leaving without copying gets a confirmation, since the codes are never shown again. With no codes
     // on screen there is nothing to lose.
     const leave = () => {
-        if (hasCopied || !hasCodes) goToDashboard()
+        if (hasCopied || !hasCodes) goToSafeInsights()
         else setModalOpened(true)
     }
 
@@ -58,7 +63,7 @@ function useBackupCodes(enrolled: EnrolledCodes | null) {
         },
         closeModal: () => setModalOpened(false),
         leave,
-        goToDashboard,
+        goToSafeInsights,
     }
 }
 
@@ -151,7 +156,7 @@ const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
         copyCodes,
         closeModal,
         leave,
-        goToDashboard,
+        goToSafeInsights,
     } = useBackupCodes(enrolled)
 
     if (!isVisible || !isLoaded) return null
@@ -185,7 +190,7 @@ const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
             <ConfirmationModal
                 isOpen={modalOpened}
                 onClose={closeModal}
-                onConfirm={goToDashboard}
+                onConfirm={goToSafeInsights}
                 isLoading={isRedirecting}
             />
         </>

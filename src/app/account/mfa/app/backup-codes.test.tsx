@@ -47,6 +47,17 @@ describe('BackupCodes', () => {
         expect(screen.queryByText('Have you stored your MFA recovery codes?')).toBeNull()
     })
 
+    it('sends a session that has not verified the new factor back through sign-in', async () => {
+        const user = userEvent.setup()
+        await mockSessionWithTestData({ orgType: 'lab', factorVerificationAge: [0, -1] })
+        renderWithProviders(<BackupCodes isVisible enrolled={ISSUED_CODES} />)
+
+        await user.click(screen.getByRole('button', { name: 'Copy codes' }))
+        await user.click(screen.getByRole('button', { name: 'Go to SafeInsights' }))
+
+        await waitFor(() => expect(router.asPath).toBe('/account/signin?mfa=verify'))
+    })
+
     it('says the existing codes still work and leaves without confirmation when there are no new codes', async () => {
         const user = userEvent.setup()
         await mockSessionWithTestData({ orgType: 'lab' })

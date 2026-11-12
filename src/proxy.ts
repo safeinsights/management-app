@@ -11,6 +11,7 @@ import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { UUID_RE } from '@/lib/collaboration-documents'
 import { REQUEST_PATH_HEADER } from '@/lib/request-path'
+import { hasVerifiedSecondFactor } from '@/lib/second-factor'
 import {
     CSP_HEADER,
     CSP_NONCE_HEADER,
@@ -40,6 +41,17 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
     return NextResponse.redirect(new URL(Routes.dashboard, request.url))
 }
 
+const isMfaSetupPath = (pathname: string) =>
+    pathname === Routes.accountMfa || pathname.startsWith(`${Routes.accountMfa}/`)
+
+// Server actions get a 403, not a redirect: their fetch would follow it by replaying the POST.
+function refuseUnverifiedSession(req: NextRequest, clerkUserId: string | null) {
+    if (!req.headers.has('next-action')) return NextResponse.redirect(new URL(Routes.accountMfa, req.url))
+
+    log.warn(`Refusing a server action without a verified second factor on ${req.nextUrl.pathname}`, clerkUserId)
+    return new NextResponse(null, { status: 403 })
+}
+
 function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
     const redirectUrl = req.nextUrl.searchParams.get('redirect_url')
     if (!redirectUrl) return null
@@ -62,6 +74,7 @@ const SIGNIN_PARAM_VALIDATORS: Record<string, (value: string) => boolean> = {
     invite_not_found: (v) => v === '1',
     error: (v) => v === 'session',
     invite_id: (v) => UUID_RE.test(v),
+    mfa: (v) => v === 'verify',
 }
 
 // Next serializes every query param into the page's RSC payload, so DAST scanners report any value
@@ -113,7 +126,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     const signinSanitized = sanitizeSigninParams(req)
     if (signinSanitized) return signinSanitized
 
-    const { userId: clerkUserId, sessionClaims } = await auth()
+    const { userId: clerkUserId, sessionClaims, factorVerificationAge } = await auth()
 
     const isAnonRoute = ANON_ROUTES.some((r) => pathname.startsWith(r))
 
@@ -151,6 +164,11 @@ export const proxy = clerkMiddleware(async (auth, req) => {
             log.warn(`attempted to load ${pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
+    }
+
+    // Signing in and accepting an invite run before the user has a second factor to verify.
+    if (!isAnonRoute && !isMfaSetupPath(pathname) && !hasVerifiedSecondFactor(factorVerificationAge)) {
+        return refuseUnverifiedSession(req, clerkUserId)
     }
 
     const currentOrgSlug = extractOrgSlugFromPath(pathname)
