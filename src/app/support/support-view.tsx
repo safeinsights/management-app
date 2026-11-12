@@ -18,8 +18,7 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => (
         fz="sm"
         ml="xs"
         c={semanticColor('success.text')}
-        opacity={isVisible ? 1 : 0}
-        aria-hidden={!isVisible}
+        className={isVisible ? undefined : 'invisible'}
     >
         Copied
     </Text>
