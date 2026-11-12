@@ -110,7 +110,10 @@ describe('DecryptAndViewOutputs', () => {
         renderView({ latestFeedback: [feedbackRow('Run 2 outputs are clean.')] })
 
         await screen.findByRole('button', { name: 'View files' })
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
+        // The read-only feedback editor is a textbox too.
+        fireEvent.change(within(screen.getByTestId('security-key-form')).getByRole('textbox'), {
+            target: { value: privateKeyPem },
+        })
         fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         const card = screen.getByTestId('code-run-card')
