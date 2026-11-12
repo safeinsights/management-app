@@ -140,9 +140,8 @@ export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations
         }
         await db.deleteFrom('pendingUser').where('orgId', '=', orgId).execute()
         await db.deleteFrom('orgUser').where('orgId', '=', orgId).execute()
-        const result = await db.deleteFrom('org').where('id', '=', orgId).execute()
+        await db.deleteFrom('org').where('id', '=', orgId).execute()
         await deleteOrgFromClerk(org.slug)
-        return result
     })
 
 // Cross-org by design. Selects catalog columns only — keep it that way (MA-6).

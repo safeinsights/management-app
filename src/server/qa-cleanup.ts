@@ -20,6 +20,7 @@ import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
 import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
+import { hasVerifiedSecondFactor } from '@/lib/second-factor'
 import logger from '@/lib/logger'
 import { localStorageContext, withTransaction } from '@/server/request-context'
 import { detachJobStatusAuthor } from '@/database/job-status-writer'
@@ -72,6 +73,10 @@ export async function requireQaAuth(): Promise<QaAuthResult> {
     } catch (error) {
         logger.warn('QA cleanup token verification failed', error)
         return { ok: false, status: 401, message: 'Authentication required' }
+    }
+
+    if (!hasVerifiedSecondFactor(claims.fva)) {
+        return { ok: false, status: 401, message: 'Second factor verification required' }
     }
 
     const session = await marshalSession(claims.sub, claims)

@@ -16,6 +16,7 @@ export interface PoolLike {
     query<R extends PG.QueryResultRow = PG.QueryResultRow>(text: string, values?: unknown[]): Promise<PG.QueryResult<R>>
     end(): Promise<void>
     on(event: 'error', listener: (err: Error, client: PG.PoolClient) => void): unknown
+    options?: object
 }
 
 export type PoolFactory = (connectionString: string) => PoolLike
@@ -48,6 +49,12 @@ export class ResilientPool implements PoolLike {
         this.resolveConnectionString = resolveConnectionString
         this.onRefresh = onRefresh
         this.delegate = this.makePool(connectionString)
+    }
+
+    // Kysely 0.29 requires this; it reads it only to open a cancel-query client via pool.Client,
+    // which ResilientPool does not expose, so the value is never used.
+    get options(): object {
+        return this.delegate.options ?? {}
     }
 
     private async refresh(): Promise<void> {

@@ -91,6 +91,7 @@ export function useSession() {
         const session = {
             id: `e2e-session-${state.role}`,
             lastActiveAt: SESSION_ACTIVE_AT,
+            factorVerificationAge: [0, 0] as [number, number],
             touch: async () => session,
             end: signOut,
         }

@@ -107,8 +107,9 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
     if (response.stop_reason === 'refusal') {
         throw new Error('The model refused to generate an analysis.')
     }
-    if (response.stop_reason === 'max_tokens') {
-        throw new Error('The model response was truncated by max_tokens — raise the limit.')
+    // max_tokens: raise the limit. model_context_window_exceeded: the submission itself is too large.
+    if (response.stop_reason === 'max_tokens' || response.stop_reason === 'model_context_window_exceeded') {
+        throw new Error(`The model response was truncated (${response.stop_reason}).`)
     }
 
     const toolUse = response.content.find(
