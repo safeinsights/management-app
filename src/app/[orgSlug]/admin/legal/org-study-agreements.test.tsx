@@ -18,6 +18,7 @@ import {
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
 import { Routes } from '@/lib/routes'
+import { EMPTY_CELL } from '@/lib/dates'
 import { OrgStudyAgreements } from './org-study-agreements'
 
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -101,7 +102,7 @@ describe('OrgStudyAgreements', () => {
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
         // Effective on, Acknowledged on and View.
-        expect(within(row).getAllByText('—')).toHaveLength(3)
+        expect(within(row).getAllByText(EMPTY_CELL)).toHaveLength(3)
     })
 
     it('links a Data Partner admin to the review page of the study', async () => {
@@ -247,6 +248,6 @@ describe('OrgStudyAgreements', () => {
 
         const row = await rowFor(title)
         expect(within(row).queryByText('Jun 20, 2026')).toBeNull()
-        expect(within(row).getAllByText('\u2014')).toHaveLength(1)
+        expect(within(row).getAllByText(EMPTY_CELL)).toHaveLength(1)
     })
 })

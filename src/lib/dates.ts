@@ -4,7 +4,8 @@ export const DISPLAY_FORMAT = 'MMM DD, YYYY'
 
 export const DATE_TIME_FORMAT = 'MMM DD, YYYY, hh:mm a'
 
-export const EMPTY_CELL = '—'
+// Design's placeholder; the legal tables also use it for empty non-date cells so a row reads the same.
+export const EMPTY_CELL = '---'
 
 export const formatInstant = (value: Date | null) => (value ? dayjs(value).format(DISPLAY_FORMAT) : EMPTY_CELL)
 
