@@ -125,6 +125,7 @@ export const SignInForm: FC<{
             form={form}
             onSubmit={onSubmit}
             forgotPasswordHref={forgotPasswordHref}
+            isFinishingMfaSetup={searchParams.get('mfa') === 'verify'}
             clerkError={clerkError}
             setClerkError={setClerkError}
         />

@@ -137,12 +137,17 @@ export function scrubSentryEvent(event: ErrorEvent, _hint?: EventHint): ErrorEve
     return scrubCommon(event)
 }
 
-export function scrubSentryTransaction<T extends Event>(event: T): T {
-    for (const span of event.spans ?? []) {
-        if (span.description) span.description = scrubText(span.description)
-        if (span.data) span.data = scrubDeep(span.data) as typeof span.data
+// @sentry/nextjs does not re-export StreamedSpanJSON.
+type StreamedSpan = Parameters<Parameters<typeof Sentry.withStreamedSpan>[0]>[0]
+
+// Spans stream individually (Sentry 11); the segment span carries what the transaction event used
+// to, so every attribute gets the deep scrub.
+export function scrubSentrySpan(span: StreamedSpan): StreamedSpan {
+    return {
+        ...span,
+        name: scrubText(span.name),
+        attributes: scrubDeep(span.attributes) as StreamedSpan['attributes'],
     }
-    return scrubCommon(event)
 }
 
 // The SDK attaches scope-level attributes after beforeSendLog. Do not put sensitive data in
@@ -157,9 +162,18 @@ export function scrubSentryLog(log: Log): Log {
 
 // Spread into every Sentry.init, so each runtime gets every hook.
 export const sentryScrubOptions = {
-    // Asserted rather than left to the SDK default; newer Sentry wizards generate `true` (OTTER-706).
-    sendDefaultPii: false,
+    // Sentry 11's default collects everything; this is the old `sendDefaultPii: false` (OTTER-706).
+    // Headers and query params still flow, scrubbed by the hooks below.
+    dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpBodies: [],
+        databaseQueryData: false,
+        queues: false,
+        genAI: { inputs: false, outputs: false },
+        graphQL: { document: false, variables: false },
+    },
     beforeSend: scrubSentryEvent,
-    beforeSendTransaction: scrubSentryTransaction,
+    beforeSendSpan: scrubSentrySpan,
     beforeSendLog: scrubSentryLog,
 }
