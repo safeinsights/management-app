@@ -23,7 +23,11 @@ type CodeRunFeedbackProps = {
 
 // One run's outputs feedback. It always renders, so "no feedback" never reads as a failure to load
 // it; older rejections recorded the decision without a comment.
-export const CodeRunFeedback: FC<CodeRunFeedbackProps> = ({ feedback, loadError = false, testId = 'code-run-feedback' }) => {
+export const CodeRunFeedback: FC<CodeRunFeedbackProps> = ({
+    feedback,
+    loadError = false,
+    testId = 'code-run-feedback',
+}) => {
     if (loadError) return <AlertNotFound title="Feedback could not be loaded" message="Please refresh and try again" />
 
     if (feedback.length > 0) {

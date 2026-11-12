@@ -14,7 +14,9 @@ describe('CodeRunCard', () => {
         const heading = screen.getByRole('heading', { name: 'Code run Mar 05, 2026' })
         const first = screen.getByText('First section')
         expect(heading.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        expect(first.compareDocumentPosition(screen.getByText('Second section')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(
+            first.compareDocumentPosition(screen.getByText('Second section')) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
     })
 
     it('reads a run with no finish time as an unknown date', () => {
