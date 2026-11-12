@@ -350,7 +350,7 @@ describe('CodeEnvs', async () => {
         expect(await screen.findByRole('button', { name: 'Delete Linked R' })).toHaveAttribute('data-disabled')
 
         await userEvent.click(await screen.findByRole('button', { name: /delete data source/i }))
-        await userEvent.click(await screen.findByRole('button', { name: /yes/i, hidden: true }))
+        await userEvent.click(await screen.findByRole('button', { name: /yes/i }))
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: 'Delete Linked R' })).not.toHaveAttribute('data-disabled')
@@ -370,7 +370,7 @@ describe('CodeEnvs', async () => {
 
         fireEvent.click(await screen.findByRole('button', { name: /edit linked r/i }))
         await userEvent.click(await screen.findByRole('combobox', { name: /Data Sources/i }))
-        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source', hidden: true }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source' }))
         await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
 
         await waitFor(() => {

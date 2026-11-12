@@ -1,5 +1,5 @@
 import { cssVariablesResolver, theme } from '@/theme'
-import { MantineProvider, Tooltip, mergeThemeOverrides } from '@mantine/core'
+import { MantineProvider, Popover, Tooltip, mergeThemeOverrides } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider, useSpyMode } from '@/components/spy-mode-context'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
@@ -35,9 +35,13 @@ export const createTestQueryWrapper = (options?: SessionInfoOption & { queryClie
 type ProviderOptions = SessionInfoOption & { singleUserEditing?: boolean; queryClient?: QueryClient }
 
 // happy-dom measures every element as 0×0, which floating-ui's hide() reads as "target scrolled out
-// of view", so Mantine 9's hideDetached would display:none every tooltip under test.
+// of view", so Mantine 9's hideDetached would display:none every tooltip and popover dropdown
+// (Select, MultiSelect, Menu, HoverCard) under test.
 const testTheme = mergeThemeOverrides(theme, {
-    components: { Tooltip: Tooltip.extend({ defaultProps: { hideDetached: false } }) },
+    components: {
+        Tooltip: Tooltip.extend({ defaultProps: { hideDetached: false } }),
+        Popover: Popover.extend({ defaultProps: { hideDetached: false } }),
+    },
 })
 
 /**

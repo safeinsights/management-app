@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
-import { TextInput } from '@mantine/core'
+import { Radio, TextInput } from '@mantine/core'
 import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, fieldDescribedBy, fieldTestId, useWidgetBlur } from './form-field'
+import { FormField, fieldDescribedBy, fieldTestId, radioGroupAria, useWidgetBlur } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -119,6 +119,29 @@ describe('FormField', () => {
 
         expect(screen.getByText('Too long.')).toBeInTheDocument()
         expect(screen.getByText('12/20')).toBeInTheDocument()
+    })
+})
+
+describe('radioGroupAria', () => {
+    it('names and describes the radiogroup from outside elements, and keeps them after a change', async () => {
+        renderWithProviders(
+            <>
+                <p id="title">Language</p>
+                <p id="help">Pick one</p>
+                <Radio.Group {...radioGroupAria('title', 'help')}>
+                    <Radio value="r" label="R" />
+                    <Radio value="python" label="Python" />
+                </Radio.Group>
+            </>,
+        )
+
+        const group = screen.getByRole('radiogroup', { name: 'Language' })
+        expect(group).toHaveAccessibleDescription('Pick one')
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Python' }))
+
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+        expect(screen.getByRole('radiogroup', { name: 'Language' })).toHaveAccessibleDescription('Pick one')
     })
 })
 

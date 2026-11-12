@@ -5,7 +5,7 @@ import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
 import { ERROR_LINE_MIN_HEIGHT, ErrorAlert, InputError } from '@/components/errors'
-import { RadioGroupAria, useWidgetBlur } from '@/components/form-field'
+import { radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
@@ -159,17 +159,16 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
-                <RadioGroupAria labelledBy={TITLE_ID} describedBy={describedBy}>
-                    <Radio.Group
-                        id={GROUP_ID}
-                        value={checkedLanguage}
-                        onChange={(value) => form.setFieldValue('language', value as Language)}
-                        {...widgetBlur}
-                    >
-                        {/* Stacked, not a row: the multi-language design lists the options vertically. */}
-                        <Stack gap="xs">{languageRadios}</Stack>
-                    </Radio.Group>
-                </RadioGroupAria>
+                <Radio.Group
+                    id={GROUP_ID}
+                    value={checkedLanguage}
+                    onChange={(value) => form.setFieldValue('language', value as Language)}
+                    {...widgetBlur}
+                    {...radioGroupAria(TITLE_ID, describedBy)}
+                >
+                    {/* Stacked, not a row: the multi-language design lists the options vertically. */}
+                    <Stack gap="xs">{languageRadios}</Stack>
+                </Radio.Group>
             </>
         )
     }
