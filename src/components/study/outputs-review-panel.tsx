@@ -4,7 +4,8 @@ import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
-import { CodeRunHistory, PoliteStatus, usePriorRunOutputs } from '@/components/study/code-run-history'
+import { PoliteStatus } from '@/components/polite-status'
+import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
@@ -125,7 +126,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                             decryptedFiles={reviewableFiles ?? NO_FILES}
                         />
                         <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
-                        <PoliteStatus message={priorOutputs.announcement} />
+                        <PoliteStatus announcement={priorOutputs.announcement} />
                         <LockedNav isVisible={isLocked} nav={nav.locked} />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}

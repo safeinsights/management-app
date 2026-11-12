@@ -456,6 +456,37 @@ describe('CodeRunHistory decryption focus and announcements', () => {
         expect(rowToggleIn(oldA)).toHaveFocus()
     })
 
+    it('announces again when a second run from the same day is opened with its own key', async () => {
+        const oldKey = await generateKeyPair()
+        const sameDay = dayjs().subtract(6, 'day')
+        const { study, latest, priorJobs } = await setupLatest(() => [
+            { ranAt: sameDay.hour(14).toDate() },
+            { ranAt: sameDay.hour(10).toDate() },
+        ])
+        for (const [index, job] of priorJobs.entries()) {
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ name: `same-day-${index}.csv`, content: 'b\n2' }],
+                encryptedFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
+            })
+        }
+        await renderHistoryFor(study.id, latest)
+        await openHistory()
+        await unlockLatest()
+        const [first, second] = rows()
+        await expandRow(first)
+        await expandRow(second)
+
+        enterRowKey(first, oldKey.privateKeyString)
+        await waitFor(() => expect(outputsTitleIn(first)).toHaveFocus())
+        const firstAnnouncement = historyStatus().firstChild
+        enterRowKey(second, oldKey.privateKeyString)
+        await waitFor(() => expect(outputsTitleIn(second)).toHaveFocus())
+
+        expect(historyStatus().firstChild).not.toBe(firstAnnouncement)
+        expect(historyStatus()).toHaveTextContent(firstAnnouncement?.textContent ?? '')
+    })
+
     // Mantine 9 keeps a hidden section mounted and re-runs its effects when it is shown again.
     it.each([false, true])(
         'does not move focus to a row’s outputs again after Hide and View (reduced motion: %s)',

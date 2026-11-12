@@ -12,14 +12,14 @@ import {
     Text,
     Title,
     UnstyledButton,
-    VisuallyHidden,
 } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, Fragment, type RefObject, useEffect, useId, useRef, useState } from 'react'
+import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
+import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
 import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 import { FeedbackEntries } from '@/components/study/feedback-and-notes'
@@ -94,7 +94,7 @@ export function decryptedSummary(results: RunOutputs[]): string {
 export function usePriorRunOutputs(runs: PriorCodeRun[]) {
     const queryClient = useQueryClient()
     const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
-    const [announcement, setAnnouncement] = useState('')
+    const [announcement, announce] = useAnnouncement()
     // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
     const isMounted = useRef(false)
     useEffect(() => {
@@ -119,19 +119,12 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
                 }),
             )
             void Promise.all(decrypts).then((results) => {
-                if (isMounted.current) setAnnouncement(decryptedSummary(results))
+                if (isMounted.current) announce(decryptedSummary(results))
             })
         },
         unlockRun: (runId: string, files: JobFileInfo[]) => setRun(runId, { status: 'unlocked', files }),
     }
 }
-
-// A new text node per message: VoiceOver in Safari can skip text that only changes in place.
-export const PoliteStatus: FC<{ message: string }> = ({ message }) => (
-    <VisuallyHidden role="status" aria-live="polite" aria-atomic="true">
-        <Fragment key={message}>{message}</Fragment>
-    </VisuallyHidden>
-)
 
 export type PriorRunOutputs = ReturnType<typeof usePriorRunOutputs>
 
@@ -168,7 +161,7 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
     const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
-    const [message, setMessage] = useState('')
+    const [announcement, announce] = useAnnouncement()
     // The row whose own key just opened it, so its table takes focus once. Any later toggle clears
     // it: a remounted table (a row reopened, or on Mantine 9 a section shown again) must not take it.
     const [focusRunId, setFocusRunId] = useState<string | null>(null)
@@ -187,16 +180,16 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     return {
         isOpen,
         toggle: () => {
-            setMessage('')
+            announce('')
             setFocusRunId(null)
             toggle()
         },
-        message,
+        announcement,
         focusRunId,
         announceUnlocked: (runId: string) => {
             const run = runs.find((candidate) => candidate.id === runId)
             setFocusRunId(runId)
-            if (run) setMessage(`Outputs decrypted for Code run ${formatInstant(run.ranAt)}.`)
+            if (run) announce(`Outputs decrypted for Code run ${formatInstant(run.ranAt)}.`)
         },
         showAll,
         visibleRuns: showAll ? runs : runs.slice(0, VISIBLE_RUNS),
@@ -208,7 +201,7 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
         toggleShowAll: () => {
             movesFocus.current = true
             setFocusRunId(null)
-            setMessage(
+            announce(
                 showAll
                     ? `Showing ${VISIBLE_RUNS} of ${runs.length} previous runs`
                     : `Showing all ${runs.length} previous runs`,
@@ -568,7 +561,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     size="md"
                 />
             </Group>
-            <PoliteStatus message={history.message} />
+            <PoliteStatus announcement={history.announcement} />
             <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
                     {history.visibleRuns.map((run) => (

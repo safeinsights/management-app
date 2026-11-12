@@ -1,7 +1,8 @@
 'use client'
 
 import { FC } from 'react'
-import { CodeRunHistory, PoliteStatus, usePriorRunOutputs } from '@/components/study/code-run-history'
+import { PoliteStatus } from '@/components/polite-status'
+import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { CodeRunKeyForm } from '@/components/study/code-run-key-form'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -60,7 +61,7 @@ export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({ job, pri
                 outputs={priorOutputs}
                 isLatestDecrypted={!isVisible || decryptedFiles !== null}
             />
-            <PoliteStatus message={priorOutputs.announcement} />
+            <PoliteStatus announcement={priorOutputs.announcement} />
         </>
     )
 }
