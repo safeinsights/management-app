@@ -1,4 +1,19 @@
-import type { StudyJobStatus } from '@/database/types'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
+// Relative: the sample-data seed loads this file under kysely-ctl, which does not resolve '@/'.
+import { ROUND_CLOSING_JOB_STATUSES, type JobStatus, type StudyStatusValue } from './job-status-rules'
+
+export { CODE_ROUND_CLOSING_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from './job-status-rules'
+
+type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+type Assert<T extends true> = T
+
+// Fails the typecheck when a migration adds a status the editor-safe copy does not list.
+export type JobStatusMatchesDb = Assert<Equals<JobStatus, StudyJobStatus>>
+export type StudyStatusMatchesDb = Assert<Equals<StudyStatusValue, StudyStatus>>
+
+// The statuses no transition leaves. JOB-ERRORED is not one: the reviewer can still approve the code,
+// and the enclave can still complete the run.
+export const JOB_FINAL_STATUSES: readonly StudyJobStatus[] = ['CODE-REJECTED', ...ROUND_CLOSING_JOB_STATUSES]
 
 export const STUDY_RESULTS_JOB_STATUSES: readonly StudyJobStatus[] = [
     'RUN-COMPLETE',
@@ -65,21 +80,6 @@ export const CODE_DECISION_JOB_STATUSES: readonly CodeDecisionStatus[] = [
 
 export const isCodeDecisionStatus = (status: StudyJobStatus | undefined): status is CodeDecisionStatus =>
     !!status && CODE_DECISION_JOB_STATUSES.includes(status as CodeDecisionStatus)
-
-// A round closes only after a post-run results decision; pre-run outcomes and a not-yet-reviewed
-// JOB-ERRORED continue the SAME job.
-export const ROUND_CLOSING_JOB_STATUSES = [
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-] as const satisfies readonly StudyJobStatus[]
-
-// Closes a submission round rather than the job: a change request reopens the same job for new code.
-// CODE-REJECTED is omitted because reject is terminal (see codeSubmissionVersion).
-export const CODE_ROUND_CLOSING_JOB_STATUSES = [
-    'CODE-CHANGES-REQUESTED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-] as const satisfies readonly StudyJobStatus[]
 
 // Counted rather than read off the latest status: createdAt defaults to now(), which Postgres holds
 // fixed for a whole transaction, so statuses written together tie exactly, and v7 ids are not

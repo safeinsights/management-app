@@ -5,6 +5,7 @@ import type { ActionSuccessType } from '@/lib/types'
 import {
     legalDocumentQueryKeys,
     legalDocumentCollectionLabels,
+    legalDocumentTypeLabels,
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
 import { fetchUserParticipationAgreementsAction } from '@/server/actions/user-legal.actions'
@@ -32,6 +33,7 @@ const columns: DataTableColumn<ParticipationAgreement>[] = [
 export const UserParticipationAgreements: FC<{ type: ParticipationAgreementType }> = ({ type }) => (
     <AgreementsPanel
         label={legalDocumentCollectionLabels[type]}
+        title={legalDocumentTypeLabels[type]}
         idAccessor="orgId"
         columns={columns}
         queryKey={() => legalDocumentQueryKeys.userParticipationAgreements(type)}

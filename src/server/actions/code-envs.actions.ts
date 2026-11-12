@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
 import { revalidatePath } from 'next/cache'
-import { Action } from '@/server/actions/action'
+import { Action, ActionFailure } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
@@ -91,7 +91,7 @@ const assertLanguageKeepsUsableCodeEnv = async (
     const others = nonTesting.filter((env) => env.id !== id)
 
     if (others.length === 0) {
-        throw new Error(usableCodeEnvErrors[change].lastNonTesting(language))
+        throw new ActionFailure(usableCodeEnvErrors[change].lastNonTesting(language))
     }
 
     // OTTER-527: removing the last passing env would make the language's default image
@@ -100,7 +100,7 @@ const assertLanguageKeepsUsableCodeEnv = async (
     const anotherPassedEnvExists = others.some((env) => env.latestScanStatus === 'SCAN-COMPLETE')
 
     if (removingPassedEnv && !anotherPassedEnvExists) {
-        throw new Error(usableCodeEnvErrors[change].onlyScanPassed(language))
+        throw new ActionFailure(usableCodeEnvErrors[change].onlyScanPassed(language))
     }
 }
 
@@ -175,7 +175,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 .where('orgId', '=', orgId)
                 .execute()
             if (matched.length !== dataSourceIds.length) {
-                throw new Error('One or more data sources not found for this organization')
+                throw new ActionFailure('One or more data sources not found for this organization')
             }
         }
 
@@ -304,7 +304,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                     .where('orgId', '=', orgId)
                     .execute()
                 if (matched.length !== dataSourceIds.length) {
-                    throw new Error('One or more data sources not found for this organization')
+                    throw new ActionFailure('One or more data sources not found for this organization')
                 }
             }
 
@@ -497,7 +497,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .executeTakeFirstOrThrow()
 
         if (Number(linkedDataSources.count) > 0) {
-            throw new Error(
+            throw new ActionFailure(
                 'Cannot delete this code environment because it has linked data sources. Remove or re-assign them first.',
             )
         }
@@ -580,7 +580,7 @@ export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .requireAbilityTo('view', 'OrgConfig')
     .handler(async ({ codeEnv, params: { fileName } }) => {
         if (!codeEnv.starterCodeFileNames.includes(fileName)) {
-            throw new Error(`Starter code file "${fileName}" not found`)
+            throw new ActionFailure(`Starter code file "${fileName}" not found`)
         }
         const path = pathForStarterCode({ orgSlug: codeEnv.orgSlug, codeEnvId: codeEnv.id, fileName })
         const blob = await fetchFileContents(path)
@@ -666,7 +666,7 @@ export const createAthenaTablesAction = new Action('createAthenaTablesAction', {
             }
         } catch (err) {
             logger.error('Failed to create Athena tables', err, { codeEnvId: codeEnv.id })
-            throw new Error(
+            throw new ActionFailure(
                 'Failed to create Athena tables from uploaded CSVs. The code environment was saved but tables were not created.',
             )
         }

@@ -17,6 +17,7 @@ import {
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
 import { getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 
 const coderStatusMock = getCoderWorkspaceLaunchStatus as unknown as Mock
 
@@ -128,7 +129,7 @@ describe('useWorkspaceBuildStatus', () => {
         const wrapper = createTestQueryWrapper()
 
         const first = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: true }), { wrapper })
-        await waitFor(() => expect(first.result.current.error?.message).toBe('network down'))
+        await waitFor(() => expect(first.result.current.error?.message).toBe(UNEXPECTED_ERROR_MESSAGE))
         first.unmount()
 
         const { result } = renderHook(() => useWorkspaceBuildStatus({ studyId, enabled: false }), { wrapper })

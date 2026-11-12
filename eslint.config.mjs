@@ -11,6 +11,7 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
+import noJobStatusWrites from './tests/no-job-status-writes.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -43,6 +44,11 @@ const indexOnlyZone = (folder) => ({
 const awsIndexZone = indexOnlyZone('aws')
 const queriesIndexZone = indexOnlyZone('db/queries')
 
+const noProcessEnv = {
+    selector: "MemberExpression[object.name='process'][property.name='env']",
+    message: 'Read config through `env` from @/server/config, not process.env.',
+}
+
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     // Global ignores
@@ -62,7 +68,6 @@ const eslintConfig = [
             'CHANGELOG.md',
             'test-results/**',
             'tests/coverage/**',
-            'services/**',
         ],
     },
     // Base JavaScript recommended rules
@@ -163,6 +168,7 @@ const eslintConfig = [
                     noBareRouteStrings,
                     noInvalidButtonVariant,
                     noRawStyleValues,
+                    noJobStatusWrites,
                 },
             },
         },
@@ -203,9 +209,22 @@ const eslintConfig = [
             ],
         },
     },
+    // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
+    // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
+    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seeds'
+    // fail-closed checks, which the migrator bundle runs without @/server/config.
     {
-        files: ['src/**/*.{ts,tsx}'],
-        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts'],
+        files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
+        ignores: [
+            '**/*.test.{ts,tsx}',
+            'src/server/request-context.ts',
+            'src/server/config.ts',
+            'src/lib/config.ts',
+            'src/instrumentation.ts',
+            'src/instrumentation-client.ts',
+            'src/database/seeds/1743608138837_test_users.ts',
+            'src/database/seeds/1793200000000_sample_studies.ts',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -215,29 +234,22 @@ const eslintConfig = [
                         'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
                     message: 'Open transactions with withTransaction() from @/server/request-context.',
                 },
+                noProcessEnv,
             ],
         },
     },
-    // Server config is read through the env schema, so every variable is declared once and typed
-    // (OTTER-848). The schema itself, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts, and
-    // the proxy/client helpers that take env as a parameter are the exceptions.
+    // The status writer must stay loadable by the migrator bundle, which cannot load request-context,
+    // so it skips the transaction rule only.
     {
-        files: ['src/server/**/*.ts', 'src/lib/**/*.ts'],
-        ignores: [
-            'src/**/*.test.ts',
-            'src/server/config.ts',
-            'src/lib/config.ts',
-            'src/lib/csp.ts',
-            'src/lib/sentry-deploy.ts',
-        ],
+        files: ['src/database/job-status-writer.ts'],
+        rules: { 'no-restricted-syntax': ['error', noProcessEnv] },
+    },
+    // Job statuses change only through the transition table (OTTER-973).
+    {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'bin/**/*.ts'],
+        ignores: ['src/database/job-status-writer.ts', 'src/database/migrations/**'],
         rules: {
-            'no-restricted-syntax': [
-                'error',
-                {
-                    selector: "MemberExpression[object.name='process'][property.name='env']",
-                    message: 'Read config through `env` from @/server/config, not process.env.',
-                },
-            ],
+            'custom/noJobStatusWrites': 'error',
         },
     },
     // Theme tokens over ad-hoc styling.

@@ -5,6 +5,7 @@ import { derivedToastId, showToast } from '@/components/toast-notifications'
 import {
     errorToString,
     extractActionFailure,
+    isActionError,
     isStaleDeploymentError,
     STALE_DEPLOYMENT_MESSAGE,
     STALE_DEPLOYMENT_TITLE,
@@ -43,11 +44,14 @@ const reportStaleDeployment = () =>
         message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
+// The server already raised this event, so the reader gets its id and Sentry gets no second one (OTTER-984).
+const serverEventId = (error: unknown) => (isActionError(error) ? error.eventId : undefined)
+
 const capture = (error: unknown) => {
     // Captured on purpose for a stale action id too: these events are the only client-side measure
     // of how often a deploy lands under an open tab. Only the reference id is withheld from the
     // notice, because the copy already says the one thing the reader can do.
-    const eventId = captureException(error)
+    const eventId = serverEventId(error) ?? captureException(error)
     const isStale = isStaleDeploymentError(error)
     if (isStale) reportStaleDeployment()
     return { eventId, isStale }

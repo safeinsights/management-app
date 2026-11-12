@@ -21,9 +21,9 @@ import {
     getUserPublicKey,
     jobAnalysisForJob,
     fetchUserFullName,
+    jobRound,
     outputsDecisionVersion,
 } from '@/server/db/queries'
-import { codeRoundForJob } from '@/server/db/code-round'
 import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
@@ -32,6 +32,7 @@ import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
 import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { transitionJob } from '@/server/job-transitions'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -148,14 +149,11 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
-                studyJobId,
-            })
-            .executeTakeFirstOrThrow()
+        // Re-checked under the job lock: two identical decisions can both pass hasOutputsDecision above.
+        await transitionJob(db, studyJobId, shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED', {
+            actor: 'reviewer',
+            userId,
+        })
 
         await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
 
@@ -190,7 +188,7 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
         // Only this round's row is touched; an earlier round's rows are that round's history.
-        const round = await codeRoundForJob(studyJobId, db)
+        const round = await jobRound(studyJobId, db)
         const existing = await db
             .selectFrom('studyReview')
             .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
@@ -303,15 +301,15 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
     })
 
-// Recorded from the client once the outputs decision page is on screen, not during its render: a
-// render-time write would fire on link prefetch and mark the decision viewed before anyone read it.
+// Recorded from the client, not during render: a render-time write would fire on link prefetch.
+// Feedback-only counts as read once on screen; shared outputs only once decrypted (OTTER-999).
 export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionViewedAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string() }))
+    .params(z.object({ studyId: z.string(), decrypted: z.boolean().optional() }))
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
+    .handler(async ({ params: { studyId, decrypted }, session, db, submittedByOrgId }) => {
         // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
         if (!isSessionOrgMember(session, submittedByOrgId)) return
 
@@ -319,13 +317,12 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
         if (!raw) return
         const state = projectStudyState(raw)
         if (!isOutputsDecided(state) || state.resultsViewed) return
+        // An errored run stays Code errored however it is read.
+        if (state.resultsErrored) return
+        if (state.resultsApproved && !decrypted) return
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        // Two overlapping visits can both insert; accepted, see docs/study-screens-logic.md (OTTER-698).
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
-            .execute()
+        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id })
         await markStudyOpened(db, { studyId, userId: session.user.id })
     })

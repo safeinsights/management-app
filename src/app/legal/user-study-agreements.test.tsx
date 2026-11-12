@@ -171,6 +171,16 @@ describe('UserStudyAgreements', () => {
         await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent(title))
     })
 
+    it('shows the title link in plain black rather than link navy', async () => {
+        const title = `Plain ${faker.string.alpha(6)}`
+        await seedAcknowledgedAgreement(title, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveStyle({ color: '#000000' })
+    })
+
     it("lists a test study of the user's org as exempt, with no document to open", async () => {
         const title = `Test ${faker.string.alpha(6)}`
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -213,11 +223,12 @@ describe('UserStudyAgreements', () => {
         )
     })
 
-    it('renders the empty state for a user who has acknowledged nothing', async () => {
+    it('renders a singular heading over the plural empty state for a user who has acknowledged nothing', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
 
         renderWithProviders(<UserStudyAgreements />)
 
+        expect(screen.getByRole('heading', { name: 'Study Agreement' })).toBeDefined()
         await waitFor(() =>
             expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
         )

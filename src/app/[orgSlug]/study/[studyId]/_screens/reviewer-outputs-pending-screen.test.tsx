@@ -3,6 +3,7 @@ import {
     db,
     describe,
     expect,
+    insertTestJobStatus,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -43,10 +44,7 @@ const setupApproved = async (jobStatuses: StudyJobStatus[]) => {
     const job = await db.selectFrom('studyJob').select('id').where('studyId', '=', dbStudy.id).executeTakeFirstOrThrow()
     const base = Date.now()
     for (const [i, status] of jobStatuses.entries()) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ status, studyJobId: job.id, createdAt: new Date(base + (i + 1) * 1000) })
-            .execute()
+        await insertTestJobStatus(job.id, status, { at: new Date(base + (i + 1) * 1000) })
     }
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

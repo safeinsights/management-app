@@ -4,6 +4,8 @@ import {
     expect,
     fireEvent,
     insertTestCodeResubmissionNote,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -50,6 +52,8 @@ type Variant = {
     guardedAgainst: [string, StudyJobStatus[]][]
     /** The post-decryption nav the rule table gives this screen. */
     nav: { editCodeVariant: 'outline' | 'filled'; backToMyStudies: boolean }
+    /** Decrypting marks the outputs reviewed, except on an errored run (OTTER-999). */
+    reviewedOnDecrypt: boolean
 }
 
 const VARIANTS: Variant[] = [
@@ -67,6 +71,7 @@ const VARIANTS: Variant[] = [
             ['a job carrying both files decisions', ['RUN-COMPLETE', 'FILES-APPROVED', 'FILES-REJECTED']],
         ],
         nav: { editCodeVariant: 'outline', backToMyStudies: true },
+        reviewedOnDecrypt: true,
     },
     {
         screen: 'outputs-errored-shared',
@@ -80,6 +85,7 @@ const VARIANTS: Variant[] = [
         ],
         // The errored share is not a conclusion: Edit code is the forward action, so no exit is offered.
         nav: { editCodeVariant: 'filled', backToMyStudies: false },
+        reviewedOnDecrypt: false,
     },
 ]
 
@@ -105,8 +111,6 @@ const renderScreen = async (
             }),
         }),
     )
-    // Opening the page records the decision as viewed, a write that has to land before the test ends.
-    await waitForPendingMutations()
     return rendered
 }
 
@@ -118,7 +122,17 @@ const decrypt = async () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'View' }))
     await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+    // Decrypting records the outputs reviewed, a write that has to land before the test ends.
+    await waitForPendingMutations()
 }
+
+const reviewedRows = (jobId: string) =>
+    db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('studyJobId', '=', jobId)
+        .where('status', '=', 'RESULTS-VIEWED')
+        .execute()
 
 // The run status plus FILES-APPROVED and a RESULTS decision comment — the state that routes here.
 const setupShared = async (variant: Variant, { withNote = false }: { withNote?: boolean } = {}) => {
@@ -126,29 +140,14 @@ const setupShared = async (variant: Variant, { withNote = false }: { withNote?: 
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        jobStatus: 'CODE-SUBMITTED',
+        jobStatus: 'INITIATED',
     })
 
-    // Pin timestamps: rows written in one test transaction tie on now(), which would make the
-    // banner date and entry order non-deterministic.
-    await db
-        .updateTable('jobStatusChange')
-        .set({ createdAt: SUBMITTED_AT })
-        .where('studyJobId', '=', job.id)
-        .where('status', '=', 'CODE-SUBMITTED')
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: user.id, createdAt: APPROVED_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: variant.runStatus, createdAt: RUN_AT })
-        .execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'FILES-APPROVED', userId: user.id, createdAt: DECIDED_AT })
-        .execute()
+    // Pin timestamps so the banner date and entry order are deterministic.
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, 'CODE-APPROVED', { at: APPROVED_AT, userId: user.id })
+    await insertTestJobStatus(job.id, variant.runStatus, { at: RUN_AT })
+    await insertTestJobStatus(job.id, 'FILES-APPROVED', { at: DECIDED_AT, userId: user.id })
     await db
         .insertInto('studyReviewComment')
         .values({
@@ -240,6 +239,17 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         expect(alert).toHaveAttribute('data-variant', locked.variant)
         expect(alert).toHaveTextContent(locked.title)
         expect(alert).toHaveTextContent(locked.body)
+    })
+
+    it('marks the outputs reviewed only once they are decrypted, never for an errored run', async () => {
+        const { org, study, raw, job } = await setupShared(variant)
+        await renderScreen(variant, study, raw, org.slug)
+        await waitForPendingMutations()
+        expect(await reviewedRows(job.id)).toHaveLength(0)
+
+        await decrypt()
+
+        expect(await reviewedRows(job.id)).toHaveLength(variant.reviewedOnDecrypt ? 1 : 0)
     })
 
     it('does not render the sibling screen’s banner title', async () => {
@@ -404,8 +414,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             studyStatus: 'DRAFT',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: variant.runStatus }).execute()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatuses(job.id, [variant.runStatus, 'FILES-APPROVED'])
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -424,9 +433,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
             researcherId: user.id,
             jobStatus: 'CODE-SUBMITTED',
         })
-        for (const status of statuses) {
-            await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
-        }
+        await insertTestJobStatuses(job.id, statuses)
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const raw = await requireRawState(dbStudy.id)
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })

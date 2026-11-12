@@ -1,4 +1,5 @@
 import type { StudyStatus } from '@/database/types'
+import { SUBMITTED_PROPOSAL_REVIEW_STATUSES } from '@/lib/job-status-rules'
 
 export const REVIEW_FEEDBACK_MAX_CHARACTERS = 1800
 
@@ -16,11 +17,7 @@ export function proposalReviewHeading(reviewVersion: number): string {
     return reviewVersion > 1 ? `Review proposal v${reviewVersion}.0` : 'Review proposal'
 }
 
-export const SUBMITTED_PROPOSAL_REVIEW_STATUSES = [
-    'APPROVED',
-    'CHANGE-REQUESTED',
-    'REJECTED',
-] as const satisfies readonly StudyStatus[]
+export { SUBMITTED_PROPOSAL_REVIEW_STATUSES }
 
 export function isSubmittedProposalReviewStatus(status: StudyStatus): boolean {
     return SUBMITTED_PROPOSAL_REVIEW_STATUSES.includes(status as (typeof SUBMITTED_PROPOSAL_REVIEW_STATUSES)[number])

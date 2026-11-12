@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import posthog from 'posthog-js'
 import { POSTHOG_HOST, POSTHOG_SURFACE } from '@/lib/constants'
 import { expireParentDomainPostHogCookie } from '@/lib/posthog-cookie'
+import { IS_DEV } from '@/lib/config'
 
 let initialized = false
 
@@ -23,7 +24,7 @@ export function usePostHogInit(projectToken: string) {
                 if (event) event.properties = { ...event.properties, surface: POSTHOG_SURFACE }
                 return event
             },
-            debug: process.env.NODE_ENV === 'development',
+            debug: IS_DEV,
         })
     }, [projectToken])
 }

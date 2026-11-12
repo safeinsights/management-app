@@ -1,12 +1,12 @@
 'use client'
 
 import { type FC } from 'react'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { Badge, HoverCard, Text } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Test study'
-const NOTE = `A test study does not have ${legalDocumentCollectionLabels.SLA}.`
+const NOTE = `This is a test study. It does not require a ${legalDocumentTypeLabels.SLA}.`
 
 export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null

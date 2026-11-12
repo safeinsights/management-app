@@ -75,7 +75,7 @@ export const TableSkeleton = ({
 
     if (paperWrapper) {
         return (
-            <Paper shadow="xs" p="xl" data-testid="table-skeleton">
+            <Paper shadow="xs" px="lg" py="xxl" data-testid="table-skeleton">
                 {content}
             </Paper>
         )
@@ -86,7 +86,7 @@ export const TableSkeleton = ({
 
 export default function DashboardSkeleton() {
     return (
-        <Stack p="xl" gap="lg" data-testid="dashboard-skeleton">
+        <Stack px="md" py="xxl" gap="xxl" data-testid="dashboard-skeleton">
             <DashboardHeaderSkeleton />
             <TableSkeleton />
         </Stack>

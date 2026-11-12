@@ -28,5 +28,5 @@ Sentry.init({
 
     enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-    ...sentryDeployOptionsFromEnv(),
+    ...sentryDeployOptionsFromEnv(process.env),
 })

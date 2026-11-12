@@ -16,6 +16,7 @@ import {
     MantineColorsTuple,
     Modal,
     Notification,
+    PinInput,
     Radio,
     rem,
     Table,
@@ -325,6 +326,11 @@ export const theme = createTheme({
         // Same blue as the checkboxes, which share forms with radios (code-env-form).
         Radio: Radio.extend({
             defaultProps: { color: semanticColor('surface.selected') },
+        }),
+        // Mantine's digit boxes have a fixed width and never wrap, so a six-digit code overflows a phone-width
+        // card. A flex basis instead of a width lets them shrink.
+        PinInput: PinInput.extend({
+            styles: { pinInput: { flex: '0 1 var(--pin-input-size)', width: 'auto', minWidth: 0 } },
         }),
         // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
         Divider: Divider.extend({

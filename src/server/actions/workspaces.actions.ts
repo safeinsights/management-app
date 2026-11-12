@@ -4,7 +4,7 @@ import { getStudyFilesPath } from '@/server/workspace-files'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
 import { withStudySubject } from './study-subject'
 import {
     copyStarterCodeIntoWorkspace,
@@ -13,7 +13,12 @@ import {
     type WorkspaceLaunchStatus,
 } from '../coder'
 import { CODER_DISABLED } from '@/server/config'
-import { latestActivityPerWorkspaceFile, latestCodeSubmissionAt, latestSubmittedJobForStudy } from '@/server/db/queries'
+import {
+    latestActivityPerWorkspaceFile,
+    latestCodeSubmissionAt,
+    latestJobQuery,
+    latestSubmittedJobForStudy,
+} from '@/server/db/queries'
 import { ensureRoundJobForLaunch, markStudyOpened } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
@@ -134,7 +139,7 @@ const requireIdeOwner = async (db: DBExecutor, studyId: string, userId: string) 
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow()
 
-    if (ideOwnerId !== userId) throw new Error('The IDE for this study is locked to another researcher')
+    if (ideOwnerId !== userId) throw new ActionFailure('The IDE for this study is locked to another researcher')
 }
 
 // Kept out of the polled status action: the baseline reset and build POST must run once per
@@ -305,12 +310,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             }
         }
 
-        const studyJob = await db
-            .selectFrom('studyJob')
-            .select(['createdAt'])
-            .where('studyId', '=', studyId)
-            .orderBy('id', 'desc')
-            .executeTakeFirst()
+        const studyJob = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
 
         if (!studyJob) return null
 

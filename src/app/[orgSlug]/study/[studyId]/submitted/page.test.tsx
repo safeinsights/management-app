@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
-import { db } from '@/database'
 import type { StudyJobStatus } from '@/database/types'
 import {
+    insertTestJobStatus,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockDataPartnerSessionWithLabStudy,
@@ -14,8 +14,7 @@ import {
 import { Routes } from '@/lib/routes'
 import StudySubmittedRoute from './page'
 
-const insertStatus = (studyJobId: string, status: StudyJobStatus) =>
-    db.insertInto('jobStatusChange').values({ studyJobId, status }).execute()
+const insertStatus = (studyJobId: string, status: StudyJobStatus) => insertTestJobStatus(studyJobId, status)
 
 // A study whose code was submitted and then decided, so /submitted is the approved proposal reached by
 // walking back from the code step.

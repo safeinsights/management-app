@@ -86,6 +86,7 @@ services:
             - ./services/editor:/app/services/editor
             - editor_node_modules:/app/services/editor/node_modules
             - ./src/lib/collaboration-documents.ts:/app/src/lib/collaboration-documents.ts
+            - ./src/lib/job-status-rules.ts:/app/src/lib/job-status-rules.ts
         command: ['node', '--watch', 'server.ts']
         networks:
             - mgmnt-app

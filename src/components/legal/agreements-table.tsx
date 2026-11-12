@@ -9,6 +9,7 @@ import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { Link } from '@/components/links'
 import { studyAgreementDisplayTitle } from '@/schema/legal-document'
 import { SORT_ICONS } from '@/components/data-table-sort-icons'
+import { semanticColor } from '@/theme/tokens'
 import { Group, Stack, Text, Tooltip } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
@@ -78,9 +79,19 @@ export const agreementDateColumns = <T extends AgreementRow>(exemptionFor?: Exem
 ]
 
 // Fit-content, so only the title text is clickable, not the blank cell after a short title.
+// Plain text at rest per the design; only the hover underline marks it as a link.
 const StudyTitleCell: FC<{ title: string; href: Route }> = ({ title, href }) => (
     <Tooltip label={title} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
-        <Link href={href} underline="hover" truncate="end" display="block" w="fit-content" maw="100%" fz="sm">
+        <Link
+            href={href}
+            c={semanticColor('text.black')}
+            underline="hover"
+            truncate="end"
+            display="block"
+            w="fit-content"
+            maw="100%"
+            fz="sm"
+        >
             {title}
         </Link>
     </Tooltip>
@@ -123,6 +134,8 @@ export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => R
 
 type BaseProps<T> = {
     label: string
+    // Defaults to `label`; lets the heading name one document while the empty state names the collection.
+    title?: string
     idAccessor: string
     columns: DataTableColumn<T>[]
     // For a table that lists something other than the reader's own acknowledgements.
@@ -213,7 +226,7 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
 }
 
 export const AgreementsPanel = <T, Column extends string>(props: Props<T, Column>) => (
-    <LegalPanel title={props.label}>
+    <LegalPanel title={props.title ?? props.label}>
         <AgreementsTable {...props} />
     </LegalPanel>
 )
