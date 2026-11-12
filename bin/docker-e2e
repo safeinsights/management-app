@@ -364,14 +364,8 @@ write_host_env() {
         echo "DATABASE_URL=postgres://si:si@localhost:$db_port/si_e2e"
         echo "S3_ENDPOINT=http://localhost:$s3_port"
         echo "S3_BROWSER_ENDPOINT=http://localhost:$s3_port"
-        echo "AWS_ACCESS_KEY_ID=si-local-s3"
-        echo "AWS_SECRET_ACCESS_KEY=si-local-s3"
-        echo "BUCKET_NAME=mgmt-app-local"
-        echo "AWS_REGION=us-east-1"
-        echo "E2E_FAKE_CLERK=1"
-        echo "E2E_CI_TIMEOUTS=1"
         echo "PLAYWRIGHT_CLI_SESSION=$project"
-        grep -v '^#' bin/lib/e2e-blank.env
+        grep -v '^#' bin/lib/e2e.env
     } >"$HOST_ENV_FILE"
 }
 
