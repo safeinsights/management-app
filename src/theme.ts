@@ -22,6 +22,7 @@ import {
     Table,
     Tabs,
     Typography,
+    v8CssVariablesResolver,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -447,6 +448,8 @@ export const theme = createTheme({
     primaryShade: 5,
     respectReducedMotion: true,
     primaryColor: 'navy',
+    // Mantine 9 defaults to md (8px); icon-only buttons and other radius-less components were 4px.
+    defaultRadius: 'sm',
     // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {
         xxs: '0.25rem',
@@ -482,9 +485,12 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => {
     // Every --si-* variable comes from src/theme/tokens.ts, which is also what components read
     // through semanticColor(). One definition, two consumers.
     const overrides = mantineColorOverrides(theme)
+    // Mantine 9 resolves every ramp's `light` variant from shades 1/2/9; the 8.x resolver keeps the
+    // primary-shade alpha and text colour the subtle buttons and badges were designed against.
+    const v8 = v8CssVariablesResolver(theme)
     return {
-        variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
-        light: overrides,
-        dark: overrides,
+        variables: { ...v8.variables, ...semanticCssVariables(theme), ...typographyCssVariables },
+        light: { ...v8.light, ...overrides },
+        dark: { ...v8.dark, ...overrides },
     }
 }

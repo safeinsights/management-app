@@ -251,8 +251,12 @@ describe('light variant pairs', () => {
         expect(resolved.light[`--mantine-color-${ramp}-light-hover`]).toBe(hover)
     })
 
-    it('leaves the brand ramp on Mantine defaults', () => {
-        expect(resolved.light).not.toHaveProperty('--mantine-color-navy-light-color')
+    // Mantine 9 would resolve these from navy-1/2/9: a darker text and an opaque background.
+    it('keeps the brand ramp light variant on the primary shade, as in Mantine 8', () => {
+        expect(resolved.light['--mantine-color-navy-light']).toBe('rgba(1, 33, 94, 0.1)')
+        expect(resolved.light['--mantine-color-navy-light-hover']).toBe('rgba(1, 33, 94, 0.12)')
+        expect(resolved.light['--mantine-color-navy-light-color']).toBe('var(--mantine-color-navy-5)')
+        expect(resolved.variables['--mantine-radius-default']).toBe('0.25rem')
     })
 
     // error, dimmed and placeholder were shadowed for the same reason; they move with the new ones.
