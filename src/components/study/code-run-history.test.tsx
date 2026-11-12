@@ -476,6 +476,9 @@ describe('CodeRunHistory decryption focus and announcements', () => {
         const [first, second] = rows()
         await expandRow(first)
         await expandRow(second)
+        // A row shows its own key field only once the latest key has been tried on it.
+        await within(first).findByText(WRONG_KEY_ALERT)
+        await within(second).findByText(WRONG_KEY_ALERT)
 
         enterRowKey(first, oldKey.privateKeyString)
         await waitFor(() => expect(outputsTitleIn(first)).toHaveFocus())
