@@ -386,6 +386,7 @@ describe('CodeRunHistory expanded row', () => {
         await expandRow(oldA)
         await expandRow(oldB)
         await within(oldA).findByText(WRONG_KEY_ALERT)
+        await within(oldB).findByText(WRONG_KEY_ALERT)
 
         enterRowKey(oldA, 'not-a-real-key')
 
