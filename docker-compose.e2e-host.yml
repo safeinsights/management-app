@@ -8,8 +8,6 @@ services:
             # The host browser loads the presigned S3 URLs, and it cannot resolve seaweedfs-e2e.
             # bin/docker-e2e sets it to SeaweedFS's host port before it starts the session.
             - S3_BROWSER_ENDPOINT=${E2E_HOST_S3_URL:-}
-            # Set by a one-shot --host-run, whose session ends with it: other runs must not join it.
-            - E2E_ONESHOT=${E2E_ONESHOT:-}
 
     # The host test process writes fixtures directly (tests/e2e.seed.ts, tests/artifact.helpers.ts).
     db-e2e:

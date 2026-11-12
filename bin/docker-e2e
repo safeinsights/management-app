@@ -53,8 +53,8 @@ usage() {
     echo "                        The session publishes the app, Postgres and SeaweedFS on 127.0.0.1 at free"
     echo "                        ports and writes them to $HOST_ENV_FILE. The in-container browser"
     echo "                        cannot reach SeaweedFS then, so plain runs and --ui are refused in it."
-    echo "  --host-run            Fresh database and app server, then 'playwright test' on this machine. Uses"
-    echo "                        the --host session; without a session it starts one and ends it afterwards."
+    echo "  --host-run            In a --host session: fresh database and app server, then 'playwright test'"
+    echo "                        on this machine."
     echo "                        Runs chromium + a11y (as in Docker) unless the arguments name a --project or --ui."
     echo "                        Host-only projects: webkit, firefox, chrome, msedge; --project='*' runs all."
     echo "                        A second host run in this checkout waits for the first."
@@ -77,9 +77,9 @@ usage() {
     echo "  $0 --up                                   # Start a session"
     echo "  $0 --exec -- pnpm exec playwright-cli open http://localhost:4100/account/signin"
     echo "  $0 --down                                 # End the session"
+    echo "  $0 --up --host                            # Start a session for browsers on this machine"
     echo "  $0 --host-run                             # Whole suite (chromium + a11y) on this machine"
     echo "  $0 --host-run -- --project='*'            # Whole suite in every host browser"
-    echo "  $0 --up --host                            # Start a session for browsers on this machine"
     echo "  $0 --host-run -- --project=webkit --headed tests/signin.spec.ts"
     echo "  $0 --host-run -- --ui                     # Playwright UI on this machine, every host browser"
     echo "  $0 --host-exec -- pnpm exec playwright-cli open --browser webkit --headed <app url>"
@@ -215,13 +215,12 @@ if [ "$action" = prune ]; then
     exit 0
 fi
 
-# --up --host recreates db-e2e and seaweedfs-e2e with host ports, and a one-shot --host-run removes the
-# stack at its end, so neither may start on another run's stack. 75 tells the one-shot it owns nothing.
+# --up --host recreates db-e2e and seaweedfs-e2e with host ports, so it may not start on another run's stack.
 if [ "$action" = up ] && [ "$host" = true ] && [ -n "$(running_container db-e2e)" ] &&
-    { [ -z "$(running_container e2e-session)" ] || [ -n "${E2E_ONESHOT:-}" ]; }; then
-    echo "Error: another ./bin/docker-e2e run or session is using the stack of this checkout." >&2
+    [ -z "$(running_container e2e-session)" ]; then
+    echo "Error: another ./bin/docker-e2e run is using the stack of this checkout." >&2
     echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
-    exit 75
+    exit 1
 fi
 
 # One one-shot run per checkout: its running runner container is the lock. Checked after argument
@@ -258,27 +257,6 @@ if [ "$action" = exec ] && [ -z "$session" ]; then
 fi
 case $action in
     host-run | host-exec)
-        # Like a plain run without a session: a one-shot --host-run brings its own session and ends it.
-        if [ -z "$session" ] && [ "$action" = host-run ]; then
-            echo "No session is running for this checkout; starting a host-browser session for this run."
-            self="$repo_root/bin/docker-e2e"
-            export E2E_ONESHOT=1
-            trap '"$self" --down >/dev/null 2>&1 || true' EXIT
-            trap 'exit 130' INT
-            trap 'exit 143' TERM
-            up_flags=()
-            if [ "$clean" = true ]; then up_flags+=(--clean); fi
-            if [ "$rebuild" = true ]; then up_flags+=(--rebuild); fi
-            status=0
-            "$self" --up --host ${up_flags[@]+"${up_flags[@]}"} || status=$?
-            if [ "$status" -eq 75 ]; then
-                trap - EXIT
-                exit 1
-            fi
-            if [ "$status" -ne 0 ]; then exit "$status"; fi
-            "$self" --host-run -- ${extra_args[@]+"${extra_args[@]}"} || status=$?
-            exit "$status"
-        fi
         if [ -z "$session" ]; then
             echo "Error: no session is running for this checkout. Start one with ./bin/docker-e2e --up --host." >&2
             exit 1
@@ -286,13 +264,6 @@ case $action in
         if [ "$host_session" = false ]; then
             echo "Error: the session of this checkout is not in host-browser mode." >&2
             echo "       End it with ./bin/docker-e2e --down, then start one with ./bin/docker-e2e --up --host." >&2
-            exit 1
-        fi
-        if [ "${E2E_ONESHOT:-}" != 1 ] &&
-            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$session" | grep -x 'E2E_ONESHOT=1' >/dev/null; then
-            echo "Error: a one-shot ./bin/docker-e2e --host-run is active for this checkout; its session ends with it." >&2
-            echo "       Wait for it to finish, or run ./bin/docker-e2e --down if it was killed." >&2
-            echo "       Use ./bin/docker-e2e --up --host for several runs." >&2
             exit 1
         fi
         ;;
