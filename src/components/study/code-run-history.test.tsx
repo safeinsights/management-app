@@ -527,7 +527,8 @@ describe('CodeRunHistory expanded row', () => {
         const labelA = within(oldA).getByText(/^Security key for Code run/)
         expect(labelA).toBeVisible()
         expect(keyInput(oldA)).not.toHaveAttribute('aria-label')
-        expect(labelA.textContent).not.toEqual(within(oldB).getByText(/^Security key for Code run/).textContent)
+        const labelB = await within(oldB).findByText(/^Security key for Code run/)
+        expect(labelA.textContent).not.toEqual(labelB.textContent)
 
         fireEvent.click(within(oldA).getByRole('button', { name: 'View files' }))
         expect(await within(oldA).findByText('Enter your security key to decrypt the outputs.')).toBeVisible()
