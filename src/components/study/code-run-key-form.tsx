@@ -2,7 +2,6 @@
 
 import { Stack, Text } from '@mantine/core'
 import { FC } from 'react'
-import { CodeRunCard } from '@/components/study/code-run-card'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { StudyJobStatus } from '@/database/types'
 import type { JobFileInfo } from '@/lib/types'
@@ -42,11 +41,4 @@ export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, description, 
             onKeyAccepted={onKeyAccepted}
         />
     </Stack>
-)
-
-// The reviewer's key form for the latest run. Researchers keep SecurityKeyForm.
-export const CodeRunKeyForm: FC<CodeRunKeyFieldsProps> = (props) => (
-    <CodeRunCard job={props.job}>
-        <CodeRunKeyFields {...props} />
-    </CodeRunCard>
 )

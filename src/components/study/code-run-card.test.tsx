@@ -1,5 +1,6 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, hydrateServerHtml, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { CodeRunCard } from '@/components/study/code-run-card'
+import { EMPTY_CELL } from '@/lib/dates'
 
 describe('CodeRunCard', () => {
     it('titles the card with the date the run finished and renders its sections below the title', () => {
@@ -25,6 +26,19 @@ describe('CodeRunCard', () => {
             </CodeRunCard>,
         )
 
-        expect(screen.getByRole('heading', { name: 'Code run date unknown' })).toBeInTheDocument()
+        const heading = screen.getByRole('heading', { name: 'Code run date unknown' })
+        expect(heading).toHaveTextContent(`Code run • ${EMPTY_CELL}`)
+    })
+
+    // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
+    it('hydrates without a mismatch when the run ended after UTC midnight', async () => {
+        const { recoverableErrors } = hydrateServerHtml(
+            <CodeRunCard job={{ statusChanges: [{ status: 'JOB-ERRORED', createdAt: '2026-09-24T01:30:00Z' }] }}>
+                <p>Section</p>
+            </CodeRunCard>,
+        )
+
+        expect(await screen.findByRole('heading', { name: 'Code run Sep 23, 2026' })).toBeInTheDocument()
+        expect(recoverableErrors).toEqual([])
     })
 })

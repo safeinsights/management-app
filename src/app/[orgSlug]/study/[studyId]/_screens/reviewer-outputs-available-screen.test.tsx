@@ -298,7 +298,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
 
-    it('sits below the key card, then stays open below the Decision card once the outputs are decrypted', async () => {
+    it('sits below the key card, then stays open, opened row included, below the Decision card once the outputs are decrypted', async () => {
         const { org, study, job, raw } = await setupAvailable('RUN-COMPLETE', [
             { ranAt: dayjs().subtract(3, 'day').toDate() },
             { ranAt: dayjs().subtract(6, 'day').toDate(), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
@@ -314,6 +314,9 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
         expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
         fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+        const [row] = await within(history).findAllByRole('button', { name: /^Code run / })
+        fireEvent.click(row)
+        expect(row).toHaveAttribute('aria-expanded', 'true')
 
         await unlock()
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
@@ -326,6 +329,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
         expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
+        expect(row).toHaveAttribute('aria-expanded', 'true')
         // OTTER-1062: Code run card, Decision card, history, then Previous step.
         expect(isBefore(screen.getByTestId('code-run-card'), screen.getByTestId('outputs-decision-section'))).toBe(true)
         expect(isBefore(screen.getByTestId('outputs-decision-section'), history)).toBe(true)
