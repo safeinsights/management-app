@@ -29,7 +29,7 @@ const CopiedLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => (
 
 // Plain text on purpose: the card rules out a mailto: link.
 // The address may break only after the @; the domain, period, icon and "Copied" stay one unbreakable run.
-// nowrap stops a break at beta-team's hyphen; the <wbr> sits outside it since Firefox and Safari ignore one inside.
+// nowrap stops a break at beta-team's hyphen; the inline-flex group is itself the break opportunity after the @.
 const [localPart, domain] = SUPPORT_EMAIL.split('@')
 
 const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) => (
@@ -40,7 +40,6 @@ const CopyEmail: FC<{ copied: boolean; copy: () => void }> = ({ copied, copy }) 
         <Text component="span" fw={fontWeight.semibold} className="nowrap">
             {localPart}@
         </Text>
-        <wbr />
         <Group component="span" display="inline-flex" gap={0} wrap="nowrap" align="center">
             <Text component="span" fw={fontWeight.semibold}>
                 {domain}
