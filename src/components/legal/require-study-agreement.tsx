@@ -34,7 +34,9 @@ export const useStudyAgreementStatus = (studyId: string) => {
     return { status: data, isUnreadable: isError }
 }
 
-const usePendingStudyAgreement = (studyId: string) => {
+type StudyRouteProps = { studyId: string; orgSlug: string }
+
+const usePendingStudyAgreement = ({ studyId, orgSlug }: StudyRouteProps) => {
     const { status } = useStudyAgreementStatus(studyId)
     const router = useRouter()
 
@@ -44,12 +46,12 @@ const usePendingStudyAgreement = (studyId: string) => {
         invalidateKey: legalDocumentQueryKeys.studyAgreement(studyId),
     })
 
-    // Cancel goes to the dashboard: this blocks one study, not the app.
-    return { versionId, onCancel: () => router.push(Routes.dashboard), ...consent }
+    // Cancel goes to the org dashboard: this blocks one study, not the app.
+    return { versionId, onCancel: () => router.push(Routes.orgDashboard({ orgSlug })), ...consent }
 }
 
 // Blocks a member of either party who owes this study's agreement. Mounted in the study layout, so
 // it covers every route of the study for both roles.
-export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => (
-    <StudyAgreementModal {...usePendingStudyAgreement(studyId)} />
+export const RequireStudyAgreement = (props: StudyRouteProps) => (
+    <StudyAgreementModal {...usePendingStudyAgreement(props)} />
 )
