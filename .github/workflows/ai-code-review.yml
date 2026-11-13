@@ -1,0 +1,23 @@
+# SECURITY (OTTER-545): runs on `pull_request`, but this job checks nothing out and runs nothing from
+# the PR itself. It calls the org's reusable review workflow, which checks the merge commit out with
+# `persist-credentials: false`, runs Codex in a read-only sandbox, and posts one comment with the job's
+# ephemeral GITHUB_TOKEN. No repository secrets: `id-token: write` lets the called job exchange its
+# OIDC token for the Bedrock role in si-devops (safeinsights/iac, github-code-review/), which can only
+# call the two allowed models. Forks never receive an OIDC token and the called workflow skips them,
+# so external contributors' PRs are not reviewed; drafts and bot-authored PRs are skipped too.
+# Pinned to the ci-workflows release commit, tag in the comment; Dependabot bumps the SHA.
+name: AI code review
+on:
+    pull_request:
+        types: [opened, ready_for_review, reopened]
+
+permissions:
+    contents: read
+
+jobs:
+    review:
+        permissions:
+            contents: read
+            pull-requests: write
+            id-token: write
+        uses: safeinsights/ci-workflows/.github/workflows/ai-code-review.yaml@1e3e7f0a9fd39fa71bccf5aaa7c802464071bc9c # v4.1.0
