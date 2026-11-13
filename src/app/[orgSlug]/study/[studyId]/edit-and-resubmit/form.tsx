@@ -2,7 +2,6 @@
 
 import { FC, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
-import { Stack } from '@mantine/core'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
 import type { NavAction } from '@/lib/study-screen'
 import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
@@ -16,6 +15,7 @@ import {
     type MemberOption,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/proposal-fields-section'
 import { EditResubmitFooter } from './footer'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 // Co-editable by the whole lab; once any member resubmits the study leaves CHANGE-REQUESTED and
 // the rest must be kicked out.
@@ -70,9 +70,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <Stack gap="xxl">
-                {header}
-
+            <StudyPageLayout header={header}>
                 <ProposalFieldsSection
                     studyId={studyId}
                     form={form}
@@ -106,7 +104,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     studyTitle={studyTitle}
                     previousStep={previousStep}
                 />
-            </Stack>
+            </StudyPageLayout>
         </StudyKickOutProvider>
     )
 }

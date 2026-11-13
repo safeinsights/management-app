@@ -1,6 +1,5 @@
 'use client'
 
-import { Stack } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -15,6 +14,7 @@ import type { StepNav } from '@/lib/study-screen'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -79,23 +79,20 @@ export function ProposalSubmitted({
     const banner = bannerCopy ? <StatusBanner copy={bannerCopy} study={study} entries={entries} /> : null
 
     return (
-        <Stack p="xl" gap="xl">
-            <StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />
-            <Stack gap="xxl">
-                {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
-                    longer needs the "Initial request 2.0" counter (OTTER-762). */}
-                <ProposalRequest
-                    study={study}
-                    orgSlug={orgSlug}
-                    stepLabel={SUBMIT_PROPOSAL_STEP.label}
-                    heading={SUBMIT_PROPOSAL_STEP.heading}
-                    banner={banner}
-                    initialExpanded={false}
-                />
-                <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
-                <FeedbackAndNotesSection entries={entries} />
-                <StepNavigation nav={nav} />
-            </Stack>
-        </Stack>
+        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />}>
+            {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
+                longer needs the "Initial request 2.0" counter (OTTER-762). */}
+            <ProposalRequest
+                study={study}
+                orgSlug={orgSlug}
+                stepLabel={SUBMIT_PROPOSAL_STEP.label}
+                heading={SUBMIT_PROPOSAL_STEP.heading}
+                banner={banner}
+                initialExpanded={false}
+            />
+            <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
+            <FeedbackAndNotesSection entries={entries} />
+            <StepNavigation nav={nav} />
+        </StudyPageLayout>
     )
 }

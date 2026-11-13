@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { getProposalFeedbackForStudyAction } from '@/server/actions/review-feedback.actions'
@@ -45,36 +44,34 @@ export default async function StudyEditAndResubmitRoute(props: {
     const initialNote = study.proposalResubmissionNoteDraft ?? ''
 
     return (
-        <Stack p="xl" gap="xl">
-            <EditResubmitProvider
-                studyId={studyId}
+        <EditResubmitProvider
+            studyId={studyId}
+            initialNote={initialNote}
+            draftData={{
+                title: study.title ?? '',
+                piName: study.piName,
+                piUserId: study.piUserId ?? '',
+                datasets: study.datasets ?? undefined,
+                researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
+                projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
+                impact: study.impact ? JSON.stringify(study.impact) : undefined,
+                additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
+            }}
+        >
+            <EditResubmitForm
+                header={<StudyPageHeader study={study} step={EDIT_PROPOSAL_STEP} />}
+                orgName={study.orgName}
+                members={memberOptions}
+                researcherName={study.createdBy}
+                researcherId={study.researcherId}
+                enclaveOrgSlug={study.orgSlug}
+                feedbackEntries={entries}
+                noteVersion={noteVersion}
                 initialNote={initialNote}
-                draftData={{
-                    title: study.title ?? '',
-                    piName: study.piName,
-                    piUserId: study.piUserId ?? '',
-                    datasets: study.datasets ?? undefined,
-                    researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
-                    projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
-                    impact: study.impact ? JSON.stringify(study.impact) : undefined,
-                    additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
-                }}
-            >
-                <EditResubmitForm
-                    header={<StudyPageHeader study={study} step={EDIT_PROPOSAL_STEP} />}
-                    orgName={study.orgName}
-                    members={memberOptions}
-                    researcherName={study.createdBy}
-                    researcherId={study.researcherId}
-                    enclaveOrgSlug={study.orgSlug}
-                    feedbackEntries={entries}
-                    noteVersion={noteVersion}
-                    initialNote={initialNote}
-                    studyTitle={study.title}
-                    isDraftCreator={isDraftCreator}
-                    previousStep={editProposalPreviousStep({ orgSlug, studyId })}
-                />
-            </EditResubmitProvider>
-        </Stack>
+                studyTitle={study.title}
+                isDraftCreator={isDraftCreator}
+                previousStep={editProposalPreviousStep({ orgSlug, studyId })}
+            />
+        </EditResubmitProvider>
     )
 }

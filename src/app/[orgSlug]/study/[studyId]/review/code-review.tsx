@@ -9,12 +9,13 @@ import { reviewerCodeNeedsReviewBanner } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
 import type { StepNav } from '@/lib/study-screen'
 import { jobAnalysisForJob, latestJobForStudyOrNull } from '@/server/db/queries'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import type { CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -56,8 +57,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={step} />
+            <StudyPageLayout header={<StudyPageHeader study={study} step={step} />}>
                 <CollapsibleSubmittedCodeSection
                     orgSlug={orgSlug}
                     study={study}
@@ -79,7 +79,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
                     latestJobStatus={latestJobStatus}
                     nav={nav}
                 />
-            </Stack>
+            </StudyPageLayout>
         </Box>
     )
 }

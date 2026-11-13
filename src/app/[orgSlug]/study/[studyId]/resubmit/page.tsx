@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { notFound } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EDIT_CODE_STEP } from '@/components/study/proposal-step-header'
@@ -13,6 +13,7 @@ import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
 import { researcherPageGuard } from '../researcher-page-guard'
 import { currentDb } from '@/server/request-context'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 export const metadata: Metadata = { title: 'Edit study code' }
 
@@ -40,8 +41,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={EDIT_CODE_STEP} />
+            <StudyPageLayout header={<StudyPageHeader study={study} step={EDIT_CODE_STEP} />}>
                 <EditCodeResubmitProvider
                     studyId={studyId}
                     orgName={study.orgName}
@@ -56,7 +56,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                         viewOutputs={nav.secondary}
                     />
                 </EditCodeResubmitProvider>
-            </Stack>
+            </StudyPageLayout>
         </Box>
     )
 }

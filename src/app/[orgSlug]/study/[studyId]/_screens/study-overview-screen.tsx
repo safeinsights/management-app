@@ -4,11 +4,11 @@ import { StudyDetails } from '@/components/study/study-details'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
-        <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} />
+        <StudyPageLayout header={<StudyPageHeader study={study} />}>
             <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
@@ -44,6 +44,6 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                     <Text c="dimmed">Status will be available after code is uploaded.</Text>
                 </Stack>
             </Paper>
-        </Stack>
+        </StudyPageLayout>
     )
 }
