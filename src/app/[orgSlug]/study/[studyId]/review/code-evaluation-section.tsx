@@ -19,7 +19,7 @@ import {
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -33,7 +33,7 @@ export const criterionFieldId = (key: CodeReviewCriteriaKey) => `criteria-${key}
 
 export const CRITERIA_SECTION_ERROR_ID = 'code-evaluation-criteria'
 
-const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
+const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore a ${legalDocumentTypeLabels.SLA} does not exist for this study.`
 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>

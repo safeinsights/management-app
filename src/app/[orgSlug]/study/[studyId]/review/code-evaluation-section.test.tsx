@@ -126,7 +126,9 @@ describe('CodeEvaluationSection', () => {
         expect(within(row).queryByTestId('criteria-agreement-link')).toBeNull()
 
         await user.hover(within(row).getByTestId('criteria-agreement-term'))
-        expect(await screen.findByRole('tooltip')).toHaveTextContent(/This is a test study/i)
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(
+            'This is a test study. Therefore a Study Agreement does not exist for this study.',
+        )
     })
 
     it('links the agreements criterion without the test study note for an ordinary study', () => {

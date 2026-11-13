@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { Stack, Table, Text, Title, VisuallyHidden } from '@mantine/core'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fontWeight } from '@/theme/tokens'
 import { SettingsCard } from './settings-card'
 
@@ -71,7 +71,7 @@ function TestLabsDescription() {
     return (
         <>
             Add Research Labs as Test Labs to test your enclave and system functionality. Studies submitted to you from
-            your Test Labs do not require {legalDocumentCollectionLabels.SLA}.
+            your Test Labs do not require a {legalDocumentTypeLabels.SLA}.
         </>
     )
 }

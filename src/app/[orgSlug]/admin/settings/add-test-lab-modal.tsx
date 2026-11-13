@@ -5,7 +5,7 @@ import { Alert, Button, Group, Loader, MultiSelect, Stack, Text, Title, Tooltip,
 import { CaretUpDownIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modals/app-modal'
 import { ErrorAlert } from '@/components/errors'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fontWeight } from '@/theme/tokens'
 
 const SELECTION_REQUIRED = 'Select at least one Research Lab to continue'
@@ -121,7 +121,7 @@ function PickerStep({ isVisible, picker, isLoading, onCancel }: PickerStepProps)
         <Stack>
             <LabSelect picker={picker} isLoading={isLoading} />
             <Text size="sm">
-                New studies submitted to you from your Test Labs will not require {legalDocumentCollectionLabels.SLA}.
+                New studies submitted to you from your Test Labs will not require a {legalDocumentTypeLabels.SLA}.
             </Text>
             <IrreversibleWarning />
             <Group>

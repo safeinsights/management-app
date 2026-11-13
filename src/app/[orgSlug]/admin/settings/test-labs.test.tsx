@@ -61,6 +61,16 @@ describe('TestLabs', () => {
             expect(screen.getByText('No Test Labs added yet')).toBeInTheDocument()
         })
         expect(screen.queryByRole('table')).toBeNull()
+        expect(screen.getByText(/do not require a Study Agreement\.$/)).toBeInTheDocument()
+    })
+
+    it('says in the picker that Test Lab studies need no Study Agreement', async () => {
+        await renderForDataPartner()
+        await openPicker()
+
+        expect(
+            screen.getByText('New studies submitted to you from your Test Labs will not require a Study Agreement.'),
+        ).toBeInTheDocument()
     })
 
     it('renders nothing for a research lab', async () => {
