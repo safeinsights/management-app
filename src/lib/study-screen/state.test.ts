@@ -280,7 +280,10 @@ describe('nextCodeRoundInDraft', () => {
 
     it('is not set for a change-requested job that reached round 2', () => {
         const s = projectStudyState(
-            raw({ status: 'APPROVED', jobs: [job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], 2)] }),
+            raw({
+                status: 'APPROVED',
+                jobs: [job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], 2)],
+            }),
         )
         expect(s.nextCodeRoundInDraft).toBe(false)
     })
