@@ -1,0 +1,119 @@
+# Deploys PR previews and reaps stale ones, replacing the Jenkins multibranch job's "Deploy" stage
+# for PR branches and its "Reap PR previews" stage (SHRMP-343). Deploys on push to main and on v*
+# tags stay on Jenkins until the main-deploy pipeline is decided.
+#
+# SECURITY (OTTER-545): this job runs PR-controlled code (the deploy bundle runs `pnpm install` and
+# the Next build of the PR's commit, with the job's environment spread into the build) while
+# holding the AWS deploy role via OIDC, the job's GITHUB_TOKEN and the MgmntAppBuildVars secret.
+# That is no more than the Jenkins agent exposed with its instance role and GitHub App token:
+# anyone who can push a branch to this repo (Dependabot included, if its runs can read the
+# repository variable) can deploy a preview with it. On pull_request the PR's copy of this file
+# runs, so the gate below is an overlap control, not a security one; keep the dev-deploy
+# environment free of anything previews do not need. The job runs only for pull requests whose
+# head branch is in this repository (fork PRs get no OIDC token on a public repo anyway, and are
+# skipped rather than failed), and `actions/checkout` sets `persist-credentials: false`. The role
+# itself can only assume SafeInsights-DevDeploy in the Dev account, read the bundle and the
+# MgmntAppBuildVars secret, and push editor images (iac cicd/management-app/stack.ts).
+#
+# Overlap with Jenkins: PR events run only while repository variable PR_PREVIEWS_ON_ACTIONS is
+# 'true' (a repository variable: an environment variable does not resolve in a job `if`), so
+# Jenkins and Actions never deploy the same PR concurrently. Cutover = set the variable to true and
+# disable PR discovery on the Jenkins job. Merged PRs are skipped here: the Jenkins main build tears
+# their preview down with --mergedPRNumber, and the nightly reaper is the backstop; when main
+# deploys move to Actions, drop the `merged` clause below and add the push path. Teardown on close
+# of an unmerged PR is new (Jenkins had no close path; GitHub skips pull_request events for
+# conflicting PRs, and the reaper covers those). The reaper is not gated: it only deletes previews
+# whose PR is closed or no longer exists, and keeps them on any ambiguous GitHub answer.
+#
+# timeout-minutes is the real ceiling: the deploy chains into SafeInsights-DevDeploy, and role
+# chaining caps that session at one hour whatever the OIDC session length.
+#
+# Admin setup, once: environment `dev-deploy` with no branch restriction (previews deploy from any
+# branch), its variable AWS_DEPLOY_ROLE_ARN = the GithubDeployRoleArn output of
+# ManagementAppCDStack, and repository variable PR_PREVIEWS_ON_ACTIONS.
+#
+# Flags per event follow iac cicd/README.md, "Calling deploy.mjs from GitHub Actions". Third-party
+# actions are pinned to commit SHAs (with the version tag in a trailing comment) so a compromised
+# upstream tag cannot silently change what runs here; Dependabot keeps the SHAs current.
+name: Deploy preview
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened, closed]
+    schedule:
+        # About 2-3am Central, when the Jenkins reaper ran (H 2 * * * local).
+        - cron: '0 8 * * *'
+    workflow_dispatch: {}
+
+# One group per PR, never cancelled: a cancelled run could leave a half-applied Lambda or database
+# update, and GitHub already collapses intermediate pushes by keeping one pending run per group.
+# A close event shares the group, so teardown waits for a running deploy.
+concurrency:
+    group: ${{ github.event_name == 'pull_request' && format('preview-pr-{0}', github.event.pull_request.number) || 'reap' }}
+    cancel-in-progress: false
+
+jobs:
+    deploy:
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && vars.PR_PREVIEWS_ON_ACTIONS == 'true' && !github.event.pull_request.merged)
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        environment: dev-deploy
+        permissions:
+            contents: read
+            id-token: write
+            statuses: write
+            pull-requests: read
+        steps:
+            # Only so pnpm/action-setup can read `packageManager`; the bundle downloads the release itself.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+            - name: Resolve deploy mode
+              id: mode
+              env:
+                  EVENT: ${{ github.event_name }}
+                  ACTION: ${{ github.event.action }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  # The head commit, not the merge commit: the preview URL is posted as a status on it.
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  if [ "$EVENT" = pull_request ] && ! [[ "$PR_NUMBER" =~ ^[0-9]+$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                      echo "::error::unexpected PR number '$PR_NUMBER' or head sha '$HEAD_SHA'"
+                      exit 1
+                  fi
+                  case "$EVENT/$ACTION" in
+                      pull_request/closed) args="--closedPRNumber=$PR_NUMBER" ;;
+                      pull_request/*) args="--releaseSha=$HEAD_SHA --prNumber=$PR_NUMBER" ;;
+                      schedule/ | workflow_dispatch/) args="--reap" ;;
+                      *)
+                          echo "::error::no deploy mode for event $EVENT/$ACTION"
+                          exit 1
+                          ;;
+                  esac
+                  echo "args=$args" >> "$GITHUB_OUTPUT"
+            - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+                  aws-region: us-east-1
+                  # The deploy assumes SafeInsights-DevDeploy itself; role chaining caps that at 1h.
+                  role-duration-seconds: 7200
+                  role-session-name: management-app-${{ github.run_id }}
+            - name: Fetch the deploy bundle
+              run: |
+                  aws s3 sync s3://si-mgmt-app-build/scripts "$RUNNER_TEMP/deploy"
+                  for zip in "$RUNNER_TEMP"/deploy/*.zip; do
+                      unzip -o -q "$zip" -d "$RUNNER_TEMP/deploy"
+                  done
+            - name: Deploy
+              working-directory: ${{ runner.temp }}/deploy
+              env:
+                  ARGS: ${{ steps.mode.outputs.args }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              # $ARGS is unquoted on purpose: it holds flags built above from numeric and hex event fields.
+              run: |
+                  # shellcheck disable=SC2086
+                  node deploy.mjs --environment Dev $ARGS
