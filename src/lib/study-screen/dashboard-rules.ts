@@ -26,6 +26,8 @@ export const DASHBOARD_RULES: DashboardRule[] = [
         action: (ctx) => ({ href: Routes.studyEdit(ctx), secondaryAction: 'delete-draft' }),
     },
 
+    // Must precede the code-draft rule: /code renders a decided round view-only (OTTER-1073).
+    { when: (s) => s.nextCodeRoundInDraft, action: (ctx) => ({ href: Routes.studyResubmit(ctx) }) },
     {
         when: (s) => s.status === 'APPROVED' && s.hasAnyJob && !s.hasSubmittedCode,
         action: (ctx) => ({ href: Routes.studyCode(ctx) }),

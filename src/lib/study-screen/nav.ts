@@ -3,7 +3,7 @@ import type { StudyStatus } from '@/database/types'
 import { Routes, type NavOrigin } from '@/lib/routes'
 import type { ResearcherScreenId, ReviewerScreenId, ScreenId } from './screens'
 import type { StudyRole, StudyState } from './state.types'
-import { canResearcherResubmitCode } from './eligibility'
+import { canResearcherResubmitCode, isCodeResubmissionInDraft } from './eligibility'
 import { isOutputsDecided } from './state'
 
 // In-content step navigation (OTTER-673). The spec ("Otter - Front-End Logic" § Navigation) reduces
@@ -128,11 +128,13 @@ const studyOverviewNav: NavRule = (state, ctx) =>
 
 // Code submission and decisions rewrite study.status, so a submitted job is checked first: forward
 // returns to the code step, or to Edit code when the step back came from it and the round is still
-// open. Before code, forward is Step 3, the fix, or the exit, by proposal decision.
+// open, or when Edit code already reopened a round (OTTER-1073). Before code, forward is Step 3, the
+// fix, or the exit, by proposal decision.
 const proposalFeedbackNav: NavRule = (state, ctx) => {
     const back = proposalPreviousStep(ctx)
     if (state.hasSubmittedCode) {
-        const returnsToEditCode = ctx.from === 'edit-code' && canResearcherResubmitCode(state)
+        const returnsToEditCode =
+            (ctx.from === 'edit-code' && canResearcherResubmitCode(state)) || isCodeResubmissionInDraft(state)
         const params = { orgSlug: ctx.orgSlug, studyId: ctx.studyId }
         return {
             back,
