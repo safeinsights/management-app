@@ -3,7 +3,8 @@ import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import type { StudyRow } from './dashboard-row.types'
 import type { StudyRole } from './state.types'
 import { dashboardRawStateFromRow, isStudyUnread, lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
-import { projectStudyState, resolveDashboardAction, resolvePillStatus } from '@/lib/study-screen'
+import { projectStudyState, resolveDashboardAction, resolvePillId, resolvePillStatus } from '@/lib/study-screen'
+import { Routes } from '@/lib/routes'
 
 const row = (overrides: Partial<StudyRow>): StudyRow => ({
     id: '019000000000-0000-0000-0000-000000000001',
@@ -51,21 +52,27 @@ describe('dashboardRawStateFromRow', () => {
         expect(state.hasAnyJob).toBe(false)
     })
 
-    // The dashboard reflects the CURRENT round, not the prior round's results, so a fresh IDE
-    // launch after a closed round links to upload rather than the old results.
-    it('fresh INITIATED job after a closed round → link routes to /code (upload), not /view', () => {
-        const state = projectStudyState(
-            dashboardRawStateFromRow(row({ status: 'APPROVED', jobStatusChanges: [{ status: 'INITIATED' }] })),
-        )
+    // The dashboard reflects the CURRENT round, not the prior round's results: a fresh round after a
+    // closed one is a code draft that opens Edit code, where it is resubmitted with a note (OTTER-1073).
+    const ctx = { orgSlug: 'lab', studyId: '01900000-0000-7000-8000-000000000001' }
+    const initiated = (latestStudyJobRound: number) =>
+        rowStudyState(row({ status: 'APPROVED', jobStatusChanges: [{ status: 'INITIATED' }], latestStudyJobRound }))
+
+    it('fresh INITIATED job after a closed round → Code draft linking to /resubmit, not /view or /code', () => {
+        const state = initiated(2)
         expect(state.hasAnyJob).toBe(true)
         expect(state.hasSubmittedCode).toBe(false)
         expect(state.resultsApproved).toBe(false)
+        expect(state.nextCodeRoundInDraft).toBe(true)
+        expect(resolvePillId('researcher', state)).toBe('code-draft')
+        expect(resolveDashboardAction('researcher', state, ctx).href).toBe(Routes.studyResubmit(ctx))
+    })
 
-        const action = resolveDashboardAction('researcher', state, {
-            orgSlug: 'lab',
-            studyId: '01900000-0000-7000-8000-000000000001',
-        })
-        expect(action.href).toContain('/code')
+    it('first-round INITIATED job → Code draft linking to /code (upload)', () => {
+        const state = initiated(1)
+        expect(state.nextCodeRoundInDraft).toBe(false)
+        expect(resolvePillId('researcher', state)).toBe('code-draft')
+        expect(resolveDashboardAction('researcher', state, ctx).href).toBe(Routes.studyCode(ctx))
     })
 })
 
