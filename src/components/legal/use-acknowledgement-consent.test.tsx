@@ -55,9 +55,7 @@ describe('useAcknowledgementConsent', () => {
             </>,
         )
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
 
         await screen.findByRole('dialog')
         await userEvent.click(screen.getByRole('checkbox'))

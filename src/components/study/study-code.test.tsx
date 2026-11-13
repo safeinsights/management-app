@@ -1889,7 +1889,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => {
-                expect(screen.getByText(/Study agreements are being prepared/i)).toBeInTheDocument()
+                expect(screen.getByText(/Study Agreement is being prepared/)).toBeInTheDocument()
                 expect(submitCodeButton()).toBeDisabled()
             })
         })
@@ -1899,7 +1899,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => expect(submitCodeButton()).toBeEnabled())
-            expect(screen.queryByText(/Study agreements are being prepared/i)).toBeNull()
+            expect(screen.queryByText(/Study Agreement is being prepared/)).toBeNull()
         })
     })
 

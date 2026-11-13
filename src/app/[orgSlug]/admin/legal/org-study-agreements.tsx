@@ -4,8 +4,8 @@ import type { FC } from '@/common'
 import type { OrgType } from '@/database/types'
 import type { ActionSuccessType } from '@/lib/types'
 import {
-    legalDocumentCollectionLabels,
     legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
     studyAgreementCounterpartyLabels,
     type OrgStudyAgreementSort,
 } from '@/schema/legal-document'
@@ -55,7 +55,7 @@ export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ 
 
     return (
         <AgreementsPanel
-            label={legalDocumentCollectionLabels.SLA}
+            label={legalDocumentTypeLabels.SLA}
             idAccessor="studyId"
             columns={columns}
             sorting={SORTING}

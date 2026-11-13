@@ -183,6 +183,7 @@ describe('OrgStudyAgreements', () => {
         renderWithProviders(<OrgStudyAgreements orgSlug={org.slug} orgType="enclave" />)
 
         await waitFor(() => expect(screen.getByText('No Study Agreement yet.')).toBeDefined())
+        expect(screen.getByRole('heading', { name: 'Study Agreement' })).toBeDefined()
         expect(
             screen.getByText('Once a study reaches the agreement stage, its Study Agreement will appear here.'),
         ).toBeDefined()
