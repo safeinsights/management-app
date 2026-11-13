@@ -6,6 +6,7 @@ import {
     canResearcherChangeCodeFiles,
     canResearcherResubmitCode,
     canResearcherSubmitCodeForReview,
+    isCodeResubmissionInDraft,
 } from './eligibility'
 
 const job = rawJob
@@ -161,5 +162,28 @@ describe('canResearcherChangeCodeFiles', () => {
         expect(canChangeFiles([job(ID, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED'])])).toBe(
             true,
         )
+    })
+})
+
+describe('isCodeResubmissionInDraft', () => {
+    const DECIDED = ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE']
+    const inDraft = (jobs: RawJob[]) => isCodeResubmissionInDraft(projectStudyState(stateFor(jobs)))
+
+    it('true for a round Edit code opened after shared outputs or after feedback only', () => {
+        for (const decision of ['FILES-APPROVED', 'FILES-REJECTED']) {
+            expect(inDraft([job(ID, [...DECIDED, decision]), job(ID2, ['INITIATED'], 2)])).toBe(true)
+        }
+    })
+
+    it('false while the decided round has no later round open', () => {
+        expect(inDraft([job(ID, [...DECIDED, 'FILES-APPROVED'])])).toBe(false)
+    })
+
+    it('false for a first-round draft', () => {
+        expect(inDraft([job(ID, ['INITIATED'])])).toBe(false)
+    })
+
+    it('false when nothing before the open round is resubmittable', () => {
+        expect(inDraft([job(ID2, ['INITIATED'], 2)])).toBe(false)
     })
 })

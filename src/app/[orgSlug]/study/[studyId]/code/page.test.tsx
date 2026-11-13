@@ -5,6 +5,7 @@ import {
     cleanupWorkspaceDirs,
     createWorkspaceDir,
     db,
+    insertTestJobStatuses,
     insertTestStudyJobData,
     insertTestStudyOnly,
     mockDataPartnerSessionWithLabStudy,
@@ -22,6 +23,7 @@ import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import { resolvePillId } from '@/lib/study-screen'
 import { studyCodeStateFor } from '@/server/study-code-gate'
+import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import StudyCodeUploadRoute from './page'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
@@ -177,6 +179,42 @@ describe('StudyCodeUploadRoute', () => {
 
             const after = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
             expect(after).toHaveLength(before.length)
+        })
+    })
+
+    // The dashboard links this state to /resubmit; /code catches Back, bookmarks and stale tabs.
+    describe('a round reopened by Edit code after the outputs decision (OTTER-1073)', () => {
+        const seedDecided = async (decision: StudyJobStatus) => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertTestJobStatuses(job.id, ['CODE-APPROVED', 'RUN-COMPLETE', decision])
+            return { org, study }
+        }
+
+        it.each([
+            ['an upload after shared outputs', 'FILES-APPROVED', ensureRoundJobForUpload],
+            ['an upload after feedback only', 'FILES-REJECTED', ensureRoundJobForUpload],
+            ['an IDE launch after shared outputs', 'FILES-APPROVED', ensureRoundJobForLaunch],
+        ] as const)('sends %s to Edit code', async (_, decision, openRound) => {
+            const { org, study } = await seedDecided(decision)
+            await openRound(db, study.id)
+
+            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+            expect(mockRedirect).toHaveBeenCalledWith(Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
+        })
+
+        it('stays on the view-only page while no later round is open', async () => {
+            const { org, study } = await seedDecided('FILES-APPROVED')
+
+            await renderRoute(org.slug, study.id)
+
+            expect(mockRedirect).not.toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /submit code for review/i })).not.toBeInTheDocument()
         })
     })
 
