@@ -15,16 +15,6 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// For empty states and the remaining plural surfaces (admin legal tabs and headings, mailer); the /legal
-// tabs and cards name one document. Agreement types add a bare 's'; tos/pn are already collective.
-export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = {
-    TOS: legalDocumentTypeLabels.TOS,
-    PN: legalDocumentTypeLabels.PN,
-    SLA: `${legalDocumentTypeLabels.SLA}s`,
-    DOPA: `${legalDocumentTypeLabels.DOPA}s`,
-    ROPA: `${legalDocumentTypeLabels.ROPA}s`,
-}
-
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -127,7 +117,11 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
+        ctx.addIssue({
+            code: 'custom',
+            path: ['studyId'],
+            message: `${legalDocumentTypeLabels.SLA} must belong to a study`,
+        })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })

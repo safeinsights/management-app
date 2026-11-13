@@ -3,7 +3,7 @@ import { findLegalDocument } from '@/server/db/legal-document'
 import { APP_BASE_URL } from './config'
 import { Routes } from '@/lib/routes'
 import { formatInstantAsUtcDayLabel } from '@/lib/dates'
-import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_AGREEMENTS_EMAIL } from './mailgun'
@@ -295,7 +295,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
     await deliverToEach(studyId, await getStudyLabAudience(studyId), {
-        subject: `Acknowledge ${legalDocumentCollectionLabels.SLA}`,
+        subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
         template: 'vb - sla ready for acknowledgment',
         vars: {
             ...baseStudyVars(study),

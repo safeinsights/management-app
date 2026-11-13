@@ -134,8 +134,6 @@ export const studyTitleColumn = <T extends StudyTitleRow>(hrefFor: (row: T) => R
 
 type BaseProps<T> = {
     label: string
-    // Defaults to `label`; lets the heading name one document while the empty state names the collection.
-    title?: string
     idAccessor: string
     columns: DataTableColumn<T>[]
     // For a table that lists something other than the reader's own acknowledgements.
@@ -226,7 +224,7 @@ const AgreementsTable = <T, Column extends string>(props: Props<T, Column>) => {
 }
 
 export const AgreementsPanel = <T, Column extends string>(props: Props<T, Column>) => (
-    <LegalPanel title={props.title ?? props.label}>
+    <LegalPanel title={props.label}>
         <AgreementsTable {...props} />
     </LegalPanel>
 )

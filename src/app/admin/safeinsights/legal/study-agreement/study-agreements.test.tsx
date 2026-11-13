@@ -91,6 +91,7 @@ describe('StudyAgreements', () => {
         await waitFor(() => expect(screen.getByText(title)).toBeDefined())
         const row = screen.getByText(title).closest('tr')!
 
+        expect(screen.getByRole('heading', { name: 'Study Agreement' })).toBeDefined()
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).getByText(dataPartner.name)).toBeDefined()
         expect(within(row).getByText('Jul 27, 2026')).toBeDefined()
@@ -199,9 +200,11 @@ describe('StudyAgreements', () => {
 
         renderWithProviders(<StudyAgreements />)
 
-        fireEvent.click(screen.getByRole('button', { name: 'Upload signed study agreement' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Upload a signed Study Agreement' }))
 
-        await waitFor(() => expect(screen.getByText('Upload a signed study agreement')).toBeDefined())
+        await waitFor(() =>
+            expect(screen.getByRole('dialog', { name: 'Upload a signed Study Agreement' })).toBeDefined(),
+        )
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
         expect(screen.getByText('Signed Study Agreement')).toBeDefined()
