@@ -10,9 +10,10 @@ type OutputsFilesViewerProps = {
     jobId: string
     decryptedFiles: JobFileInfo[]
     variant?: 'card' | 'embedded'
+    autoFocusTitle?: boolean
 }
 
-export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decryptedFiles, variant }) => {
+export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decryptedFiles, variant, autoFocusTitle }) => {
     const files = useOutputsFiles({ jobId, decryptedFiles })
     const previewFile = files.viewing ? { name: files.viewing.name, contents: files.viewing.contents } : null
 
@@ -25,6 +26,7 @@ export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decrypt
                 onDownload={files.onDownload}
                 onDownloadAll={files.onDownloadAll}
                 variant={variant}
+                autoFocusTitle={autoFocusTitle}
             />
             <FileOrImagePreviewModal
                 file={previewFile}

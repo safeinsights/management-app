@@ -1,6 +1,7 @@
 'use client'
 
 import dayjs from 'dayjs'
+import type { ReactNode } from 'react'
 import { useIsHydrated } from '@/hooks/use-is-hydrated'
 import { DISPLAY_FORMAT } from '@/lib/dates'
 
@@ -8,7 +9,7 @@ type LocalDateTimeProps = {
     value: Date | string | number
     format?: string
     /** Lead-in shown with the date, outside the time element, e.g. a " • " separator or " on ". */
-    prefix?: string
+    prefix?: ReactNode
 }
 
 // The server renders in UTC, so the text waits for the browser's zone; the server HTML carries

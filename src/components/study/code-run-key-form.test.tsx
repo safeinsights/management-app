@@ -38,7 +38,7 @@ describe('CodeRunKeyForm', () => {
     it('titles the card with the date the run finished', async () => {
         renderWithProviders(<CodeRunKeyForm job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
 
-        expect(await screen.findByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'Code run Mar 05, 2026' })).toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: /security key/i })).not.toBeInTheDocument()
     })
 
@@ -63,16 +63,17 @@ describe('CodeRunKeyForm', () => {
             <CodeRunKeyForm job={lateRun} description={DESCRIPTION} onDecrypted={onDecrypted} />,
         )
 
-        expect(await screen.findByRole('heading', { name: 'Code run • Sep 23, 2026' })).toBeInTheDocument()
+        expect(await screen.findByRole('heading', { name: 'Code run Sep 23, 2026' })).toBeInTheDocument()
         expect(recoverableErrors).toEqual([])
     })
 
-    it('falls back to a dash when the run has no finish time', async () => {
+    it('falls back to a dash, read as an unknown date, when the run has no finish time', async () => {
         renderWithProviders(
             <CodeRunKeyForm job={{ ...job, statusChanges: [] }} description={DESCRIPTION} onDecrypted={onDecrypted} />,
         )
 
-        expect(await screen.findByRole('heading', { name: `Code run • ${EMPTY_CELL}` })).toBeInTheDocument()
+        const heading = await screen.findByRole('heading', { name: 'Code run date unknown' })
+        expect(heading).toHaveTextContent(`Code run • ${EMPTY_CELL}`)
     })
 
     it('keeps the empty-key error from the shared key form', async () => {

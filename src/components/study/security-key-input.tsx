@@ -7,12 +7,14 @@ import { resizableTextareaProps } from '@/components/textarea-resize'
 type SecurityKeyInputProps = Omit<TextareaProps, 'autoComplete' | 'aria-required' | 'aria-label'>
 
 export const SecurityKeyInput = forwardRef<HTMLTextAreaElement, SecurityKeyInputProps>(
-    ({ error, disabled, ...props }, ref) => (
+    ({ error, disabled, label, ...props }, ref) => (
         <Textarea
             ref={ref}
             autoComplete="off"
             aria-required
-            aria-label="Security key"
+            // Cards that draw their own "Security key" heading pass no label, but the field still needs a name.
+            aria-label={label ? undefined : 'Security key'}
+            label={label}
             disabled={disabled}
             error={
                 error ? (

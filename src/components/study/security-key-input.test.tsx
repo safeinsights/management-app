@@ -44,6 +44,18 @@ describe('SecurityKeyInput', () => {
         expect(alert.closest(`#${describedBy}`)).not.toBeNull()
     })
 
+    it('is named "Security key" without a label, and by its visible label with one', () => {
+        const { unmount } = renderWithProviders(<SecurityKeyInput />)
+        expect(screen.getByRole('textbox')).toHaveAccessibleName('Security key')
+        unmount()
+
+        renderWithProviders(<SecurityKeyInput label="Security key for Code run Mar 05, 2026" />)
+        const textbox = screen.getByRole('textbox')
+        expect(textbox).toHaveAccessibleName('Security key for Code run Mar 05, 2026')
+        expect(textbox).not.toHaveAttribute('aria-label')
+        expect(screen.getByText('Security key for Code run Mar 05, 2026')).toBeVisible()
+    })
+
     it('supports the native disabled attribute', () => {
         renderWithProviders(<SecurityKeyInput disabled />)
         expect(screen.getByRole('textbox')).toBeDisabled()

@@ -81,7 +81,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText(
                 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
@@ -100,7 +100,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(alert).toHaveTextContent('Enter your security key below to access the outputs and see what went wrong.')
         expect(alert).not.toHaveTextContent('The code ran in the secure enclave')
         expect(alert).not.toHaveTextContent(NO_ERROR_LOG_TEXT)
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
     })
 
     it('hides the outputs table, decision section and submit until a key validates', async () => {
@@ -225,7 +225,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent('There is no error log for this run.')
         expect(alert).toHaveTextContent('Enter your security key below')
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -369,7 +369,7 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
             }),
         )
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 

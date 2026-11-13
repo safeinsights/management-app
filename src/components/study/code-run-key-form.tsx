@@ -2,10 +2,9 @@
 
 import { Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC } from 'react'
-import { LocalDateTime } from '@/components/local-date-time'
+import { CodeRunTitle } from '@/components/study/code-run-title'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { StudyJobStatus } from '@/database/types'
-import { EMPTY_CELL } from '@/lib/dates'
 import { codeRunEndedAt } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -25,7 +24,7 @@ export const CodeRunKeyForm: FC<CodeRunKeyFormProps> = ({ job, description, onDe
         <Paper p="xxl" data-testid="security-key-form">
             <Stack gap="lg">
                 <Title fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')} order={3}>
-                    Code run{runEndedAt ? <LocalDateTime value={runEndedAt} prefix=" • " /> : ` • ${EMPTY_CELL}`}
+                    <CodeRunTitle value={runEndedAt} />
                 </Title>
                 <Divider />
                 <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>

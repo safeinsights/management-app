@@ -1,6 +1,6 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, type ReactNode } from 'react'
 import { LostKeyPopover } from '@/components/study/lost-key-popover'
 import { SecurityKeyInput } from '@/components/study/security-key-input'
 import { SecurityKeyViewButton } from '@/components/study/security-key-view-button'
@@ -13,6 +13,8 @@ interface SecurityKeyFieldsProps {
     onDecrypted: (files: JobFileInfo[]) => void
     onKeyAccepted?: (privateKey: string) => void
     buttonLabel?: string
+    /** A visible label, for a page that shows several key fields at once. */
+    label?: ReactNode
     autoFocus?: boolean
     withLostKeyHelp?: boolean
     value?: string
@@ -26,6 +28,7 @@ export const SecurityKeyFields: FC<SecurityKeyFieldsProps> = ({
     onDecrypted,
     onKeyAccepted,
     buttonLabel,
+    label,
     autoFocus = true,
     withLostKeyHelp = true,
     value: heldValue,
@@ -44,6 +47,7 @@ export const SecurityKeyFields: FC<SecurityKeyFieldsProps> = ({
         <>
             <SecurityKeyInput
                 ref={inputRef}
+                label={label}
                 autoFocus={autoFocus}
                 placeholder="Enter your security key"
                 value={value}

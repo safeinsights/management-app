@@ -1,13 +1,26 @@
 'use client'
 
-import { ActionIcon, Alert, Badge, Collapse, Divider, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core'
+import {
+    Alert,
+    Badge,
+    Collapse,
+    Divider,
+    Group,
+    Loader,
+    Paper,
+    Stack,
+    Text,
+    Title,
+    UnstyledButton,
+} from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
-import { LocalDateTime } from '@/components/local-date-time'
+import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
+import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
 import { FeedbackEntries } from '@/components/study/feedback-and-notes'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
@@ -15,6 +28,7 @@ import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
 import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, decryptJobFiles } from '@/hooks/use-decrypt-files'
 import { APP_SHELL } from '@/lib/constants'
+import { formatInstant } from '@/lib/dates'
 import { toOutputsFeedbackEntry } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -60,11 +74,27 @@ async function decryptPriorRun(
     }
 }
 
+// One message for the latest run and every earlier run it tried, rather than one per row.
+export function decryptedSummary(results: RunOutputs[]): string {
+    const count = (...statuses: RunOutputs['status'][]) =>
+        results.filter((outputs) => statuses.includes(outputs.status)).length
+    const needKey = count('wrong-key')
+    const failed = count('integrity', 'fetch-failed')
+    return [
+        'Outputs decrypted.',
+        needKey ? `${needKey} previous ${needKey === 1 ? 'run needs' : 'runs need'} a different key.` : '',
+        failed ? `${failed} previous ${failed === 1 ? 'run' : 'runs'} could not be opened.` : '',
+    ]
+        .filter(Boolean)
+        .join(' ')
+}
+
 // Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
 // is dropped: it is only ever an argument here, never state, a ref or storage.
 export function usePriorRunOutputs(runs: PriorCodeRun[]) {
     const queryClient = useQueryClient()
     const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
+    const [announcement, announce] = useAnnouncement()
     // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
     const isMounted = useRef(false)
     useEffect(() => {
@@ -79,11 +109,18 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
 
     return {
         byRun,
+        announcement,
         decryptWith: (privateKey: string) => {
             setByRun(Object.fromEntries(runs.map((run) => [run.id, { status: 'decrypting' } as const])))
-            for (const run of runs) {
-                void decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => setRun(run.id, outputs))
-            }
+            const decrypts = runs.map((run) =>
+                decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => {
+                    setRun(run.id, outputs)
+                    return outputs
+                }),
+            )
+            void Promise.all(decrypts).then((results) => {
+                if (isMounted.current) announce(decryptedSummary(results))
+            })
         },
         unlockRun: (runId: string, files: JobFileInfo[]) => setRun(runId, { status: 'unlocked', files }),
     }
@@ -124,7 +161,11 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
     const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
-    const caretRefs = useRef(new Map<string, HTMLButtonElement>())
+    const [announcement, announce] = useAnnouncement()
+    // The row whose own key just opened it, so its table takes focus once. Any later toggle clears
+    // it: a remounted table (a row reopened, or on Mantine 9 a section shown again) must not take it.
+    const [focusRunId, setFocusRunId] = useState<string | null>(null)
+    const toggleRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
     const movesFocus = useRef(false)
 
@@ -132,32 +173,52 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     useEffect(() => {
         if (!movesFocus.current) return
         movesFocus.current = false
-        if (showAll) caretRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
+        if (showAll) toggleRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
         else showAllRef.current?.focus()
     }, [showAll, runs])
 
     return {
         isOpen,
-        toggle,
+        toggle: () => {
+            announce('')
+            setFocusRunId(null)
+            toggle()
+        },
+        announcement,
+        focusRunId,
+        announceUnlocked: (runId: string) => {
+            const run = runs.find((candidate) => candidate.id === runId)
+            setFocusRunId(runId)
+            if (run) announce(`Outputs decrypted for Code run ${formatInstant(run.ranAt)}.`)
+        },
         showAll,
         visibleRuns: showAll ? runs : runs.slice(0, VISIBLE_RUNS),
         keyDrafts,
         setKeyDraft: (id: string, value: string) => setKeyDrafts((current) => ({ ...current, [id]: value })),
         expandedIds,
         showAllRef,
+        // Focus lands on one row, which says nothing about how many runs the list now holds.
         toggleShowAll: () => {
             movesFocus.current = true
+            setFocusRunId(null)
+            announce(
+                showAll
+                    ? `Showing ${VISIBLE_RUNS} of ${runs.length} previous runs`
+                    : `Showing all ${runs.length} previous runs`,
+            )
             setShowAll((current) => !current)
         },
-        toggleRow: (id: string) =>
+        toggleRow: (id: string) => {
+            setFocusRunId(null)
             setExpandedIds((current) => {
                 const next = new Set(current)
                 if (!next.delete(id)) next.add(id)
                 return next
-            }),
-        registerCaret: (id: string, element: HTMLButtonElement | null) => {
-            if (element) caretRefs.current.set(id, element)
-            else caretRefs.current.delete(id)
+            })
+        },
+        registerToggle: (id: string, element: HTMLButtonElement | null) => {
+            if (element) toggleRefs.current.set(id, element)
+            else toggleRefs.current.delete(id)
         },
     }
 }
@@ -169,6 +230,8 @@ type RowOutputsProps = {
     onUnlocked: (runId: string, files: JobFileInfo[]) => void
     keyDraft: string
     onKeyDraftChange: (runId: string, value: string) => void
+    /** True right after this row's own key opened it, so its table takes focus. */
+    isFocusTarget: boolean
 }
 
 const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -192,7 +255,10 @@ const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
     if (!isVisible) return null
     return (
+        // Static on purpose: the reviewer opened this row, so nothing needs announcing. Mantine's
+        // Alert would otherwise be role="alert", which a screen reader reads out as soon as it appears.
         <Alert
+            role="note"
             variant="light"
             radius={0}
             bg={semanticColor('warning.bg.light')}
@@ -226,6 +292,11 @@ const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
                 job={run}
                 type="reviewer"
                 buttonLabel="View files"
+                label={
+                    <>
+                        Security key for <CodeRunTitle value={run.ranAt} />
+                    </>
+                }
                 autoFocus={false}
                 withLostKeyHelp={false}
                 value={keyDraft}
@@ -245,9 +316,18 @@ const RunOutputsMessage: FC<{ isVisible: boolean; children: string }> = ({ isVis
     )
 }
 
-const UnlockedOutputs: FC<{ jobId: string; outputs: RunOutputs | undefined }> = ({ jobId, outputs }) => {
+type UnlockedOutputsProps = { jobId: string; outputs: RunOutputs | undefined; isFocusTarget: boolean }
+
+const UnlockedOutputs: FC<UnlockedOutputsProps> = ({ jobId, outputs, isFocusTarget }) => {
     if (outputs?.status !== 'unlocked') return null
-    return <OutputsFilesViewer jobId={jobId} decryptedFiles={outputs.files} variant="embedded" />
+    return (
+        <OutputsFilesViewer
+            jobId={jobId}
+            decryptedFiles={outputs.files}
+            variant="embedded"
+            autoFocusTitle={isFocusTarget}
+        />
+    )
 }
 
 const DecryptingLoader: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -268,7 +348,7 @@ const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 }
 
 const RunOutputsSection: FC<RowOutputsProps> = (props) => {
-    const { run, outputs, isLatestDecrypted } = props
+    const { run, outputs, isLatestDecrypted, isFocusTarget } = props
     const status = outputs?.status
 
     return (
@@ -276,7 +356,7 @@ const RunOutputsSection: FC<RowOutputsProps> = (props) => {
             <OutputsTitle isVisible={status !== 'unlocked'} />
             <LockedOutputs isVisible={!isLatestDecrypted} />
             <DecryptingLoader isVisible={isLatestDecrypted && status === 'decrypting'} />
-            <UnlockedOutputs jobId={run.id} outputs={outputs} />
+            <UnlockedOutputs jobId={run.id} outputs={outputs} isFocusTarget={isFocusTarget} />
             <RunKeyEntry {...props} isVisible={isLatestDecrypted && needsOwnKey(outputs)} />
             <RunOutputsMessage isVisible={isLatestDecrypted && status === 'integrity'}>
                 {ARCHIVE_INTEGRITY_MESSAGE}
@@ -332,9 +412,22 @@ type CodeRunHistoryRowProps = Omit<RowOutputsProps, 'outputs'> & {
     outputs: PriorRunOutputs['byRun']
     isExpanded: boolean
     onToggle: (id: string) => void
-    registerCaret: (id: string, element: HTMLButtonElement | null) => void
+    registerToggle: (id: string, element: HTMLButtonElement | null) => void
 }
 
+// The badges are the toggle's description, so a collapsed row is heard with its status.
+const RunBadges: FC<{ id: string; labels: string[] }> = ({ id, labels }) => (
+    <Group component="span" gap="sm" id={id}>
+        {labels.map((label) => (
+            <Badge key={label} component="span" color="grey" variant="light">
+                {label}
+            </Badge>
+        ))}
+    </Group>
+)
+
+// Accordion pattern: the heading wraps a button that spans the whole header. Mantine's Accordion
+// is not used because its panel always carries role="region".
 const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     run,
     outputs,
@@ -342,13 +435,15 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     onUnlocked,
     keyDraft,
     onKeyDraftChange,
+    isFocusTarget,
     isExpanded,
     onToggle,
-    registerCaret,
+    registerToggle,
 }) => {
-    const titleId = useId()
+    const nameId = useId()
+    const badgesId = useId()
     const bodyId = useId()
-    const headerRef = useRef<HTMLDivElement>(null)
+    const headerRef = useRef<HTMLHeadingElement>(null)
     const reduceMotion = useReducedMotion() ?? false
 
     const toggle = () => {
@@ -358,29 +453,29 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
 
     return (
         <Paper withBorder p="lg" data-testid="code-run-history-row">
-            <Group ref={headerRef} justify="space-between" wrap="nowrap">
-                <Group gap="sm">
-                    <Title id={titleId} order={4} fz="lg" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
-                        Code run
-                        <LocalDateTime value={run.ranAt} prefix=" • " />
-                    </Title>
-                    {codeRunBadges(run.statusChanges).map((label) => (
-                        <Badge key={label} color="grey" variant="light">
-                            {label}
-                        </Badge>
-                    ))}
-                </Group>
-                <ActionIcon
-                    ref={(element) => registerCaret(run.id, element)}
-                    variant="subtle"
+            <Title ref={headerRef} order={4} fz="lg" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
+                <UnstyledButton
+                    ref={(element) => registerToggle(run.id, element)}
+                    w="100%"
+                    fz="lg"
+                    fw={fontWeight.semibold}
                     onClick={toggle}
-                    aria-labelledby={titleId}
                     aria-expanded={isExpanded}
                     aria-controls={bodyId}
+                    aria-labelledby={nameId}
+                    aria-describedby={badgesId}
                 >
-                    <ToggleChevron isExpanded={isExpanded} />
-                </ActionIcon>
-            </Group>
+                    <Group component="span" justify="space-between" wrap="nowrap">
+                        <Group component="span" gap="sm">
+                            <span id={nameId}>
+                                <CodeRunTitle value={run.ranAt} />
+                            </span>
+                            <RunBadges id={badgesId} labels={codeRunBadges(run.statusChanges)} />
+                        </Group>
+                        <ToggleChevron isExpanded={isExpanded} />
+                    </Group>
+                </UnstyledButton>
+            </Title>
             <Collapse expanded={isExpanded} id={bodyId}>
                 <RowBody
                     isVisible={isExpanded}
@@ -390,6 +485,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                     onUnlocked={onUnlocked}
                     keyDraft={keyDraft}
                     onKeyDraftChange={onKeyDraftChange}
+                    isFocusTarget={isFocusTarget}
                 />
             </Collapse>
         </Paper>
@@ -415,6 +511,7 @@ const ShowAllRuns: FC<ShowAllRunsProps> = ({ isVisible, showAll, total, onToggle
                 ref={buttonRef}
                 label={showAll ? 'View less' : 'View all runs'}
                 isExpanded={showAll}
+                withAriaExpanded={false}
                 onClick={onToggle}
                 withChevron={false}
                 size="md"
@@ -442,6 +539,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
     // A submitted key has done its job, so its text is not held any longer than the input needed it.
     const unlockRun = (runId: string, files: JobFileInfo[]) => {
         history.setKeyDraft(runId, '')
+        history.announceUnlocked(runId)
         outputs?.unlockRun(runId, files)
     }
 
@@ -459,9 +557,11 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                     onClick={history.toggle}
                     controls={listId}
                     withChevron={false}
+                    withAriaExpanded={false}
                     size="md"
                 />
             </Group>
+            <PoliteStatus announcement={history.announcement} />
             <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
                     {history.visibleRuns.map((run) => (
@@ -473,9 +573,10 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
                             onUnlocked={unlockRun}
                             keyDraft={history.keyDrafts[run.id] ?? ''}
                             onKeyDraftChange={history.setKeyDraft}
+                            isFocusTarget={history.focusRunId === run.id}
                             isExpanded={history.expandedIds.has(run.id)}
                             onToggle={history.toggleRow}
-                            registerCaret={history.registerCaret}
+                            registerToggle={history.registerToggle}
                         />
                     ))}
                     <ShowAllRuns

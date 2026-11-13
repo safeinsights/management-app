@@ -115,7 +115,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText(
                 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
@@ -300,12 +300,13 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
 
+        // The table takes the focus the key form held, and one polite message covers every run.
+        expect(within(screen.getByTestId('outputs-files-section')).getByText('Output files')).toHaveFocus()
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
+
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
-        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toHaveAttribute(
-            'aria-expanded',
-            'true',
-        )
+        expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
         expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
         expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
     })

@@ -34,7 +34,7 @@ describe('DecryptAndViewOutputs', () => {
 
         await screen.findByRole('button', { name: 'View files' })
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
@@ -46,7 +46,7 @@ describe('DecryptAndViewOutputs', () => {
     it('renders nothing when the job holds no artifact a key could open', async () => {
         renderWithProviders(<DecryptAndViewOutputs job={job} priorRuns={[]} isVisible={false} />)
 
-        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
@@ -61,8 +61,10 @@ describe('DecryptAndViewOutputs', () => {
         await waitFor(() => {
             expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
         })
-        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
         expect(screen.getByText('summary.csv')).toBeInTheDocument()
+        expect(screen.getByText('Output files')).toHaveFocus()
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
     })
 })

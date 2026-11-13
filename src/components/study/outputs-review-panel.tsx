@@ -4,6 +4,7 @@ import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
 import { Box, Button, Stack } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
+import { PoliteStatus } from '@/components/polite-status'
 import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
@@ -125,6 +126,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                             decryptedFiles={reviewableFiles ?? NO_FILES}
                         />
                         <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
+                        <PoliteStatus announcement={priorOutputs.announcement} />
                         <LockedNav isVisible={isLocked} nav={nav.locked} />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}
@@ -216,7 +218,8 @@ const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: Jo
     decryptedFiles,
 }) => {
     if (!isVisible) return null
-    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
+    // Mounts only once the reviewer's key has decrypted, so it takes the focus the key form held.
+    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} autoFocusTitle />
 }
 
 const ReviewBody: FC<ReviewBodyProps> = ({

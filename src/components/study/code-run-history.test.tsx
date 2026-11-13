@@ -22,7 +22,7 @@ import type { StudyJobStatus } from '@/database/types'
 import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
 import { lexicalJson } from '@/lib/lexical'
 import { latestJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
-import { CodeRunHistory } from './code-run-history'
+import { CodeRunHistory, decryptedSummary, type RunOutputs } from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 const run = (
@@ -49,7 +49,9 @@ const RUNS = [
 const viewButton = () => screen.getByRole('button', { name: /^(View|Hide) code run history$/ })
 const rows = () => screen.getAllByTestId('code-run-history-row')
 const firstRow = () => rows()[0]
-const caret = (date: string) => screen.getByRole('button', { name: `Code run • ${date}` })
+const rowToggle = (date: string) => screen.getByRole('button', { name: `Code run ${date}` })
+
+const historyStatus = () => within(screen.getByTestId('code-run-history')).getAllByRole('status')[0]
 
 const openHistory = async () => {
     await userEvent.click(viewButton())
@@ -72,8 +74,9 @@ describe('CodeRunHistory', () => {
     it('starts collapsed with a View code run history button', () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
 
-        expect(viewButton()).toHaveTextContent('View code run history')
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        // The label already says which way it toggles; aria-expanded would make it read twice.
+        expect(viewButton()).not.toHaveAttribute('aria-expanded')
         expect(firstRow()).not.toBeVisible()
     })
 
@@ -82,16 +85,16 @@ describe('CodeRunHistory', () => {
 
         await openHistory()
 
-        expect(viewButton()).toHaveTextContent('Hide code run history')
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'true')
+        expect(viewButton()).toHaveAccessibleName('Hide code run history')
+        expect(viewButton()).not.toHaveAttribute('aria-expanded')
         expect(viewButton()).toHaveAttribute('type', 'button')
-        expect(rows().map((row) => within(row).getByRole('heading').textContent)).toEqual([
-            'Code run • Mar 05, 2026',
-            'Code run • Feb 10, 2026',
-            'Code run • Jan 20, 2026',
+        expect(rows().map((row) => within(row).getByRole('button').textContent)).toEqual([
+            'Code run • Mar 05, 2026Outputs and feedback',
+            'Code run • Feb 10, 2026Outputs and feedback',
+            'Code run • Jan 20, 2026Outputs and feedback',
         ])
         for (const date of ['Mar 05, 2026', 'Feb 10, 2026', 'Jan 20, 2026']) {
-            expect(caret(date)).toHaveAttribute('aria-expanded', 'false')
+            expect(rowToggle(date)).toHaveAttribute('aria-expanded', 'false')
         }
 
         await userEvent.click(viewButton())
@@ -141,23 +144,72 @@ describe('CodeRunHistory', () => {
         expect(firstRow()).toHaveTextContent('Outputs and feedback')
     })
 
+    it('builds each row as a heading around one toggle whose name stays put and whose description is its status', async () => {
+        renderWithProviders(
+            <CodeRunHistory
+                runs={[run('run-3', '2026-03-05T12:00:00Z', ['CODE-SUBMITTED', 'JOB-ERRORED', 'FILES-REJECTED'])]}
+            />,
+        )
+        await openHistory()
+
+        const toggle = rowToggle('Mar 05, 2026')
+        expect(within(firstRow()).getByRole('heading', { level: 4 })).toContainElement(toggle)
+        expect(toggle).toHaveAccessibleDescription(/Code errored/)
+        expect(toggle).toHaveAccessibleDescription(/Feedback only/)
+        expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+        await userEvent.click(toggle)
+
+        expect(rowToggle('Mar 05, 2026')).toBe(toggle)
+        expect(toggle).toHaveAttribute('aria-expanded', 'true')
+        const panel = document.getElementById(toggle.getAttribute('aria-controls')!)
+        expect(panel).toContainElement(within(firstRow()).getByTestId('code-run-history-row-body'))
+        expect(firstRow().querySelector('[role="region"]')).toBeNull()
+    })
+
+    it('toggles a row from anywhere on its header, not just the caret', async () => {
+        renderWithProviders(<CodeRunHistory runs={RUNS} />)
+        await openHistory()
+
+        await userEvent.click(within(firstRow()).getByText('Outputs and feedback'))
+
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('keeps collapsed rows and the collapsed section out of the accessibility tree', async () => {
+        renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
+
+        expect(screen.queryAllByRole('button', { name: /^Code run / })).toHaveLength(0)
+
+        await openHistory()
+        expect(within(firstRow()).queryByText('Reviewer feedback')).toBeNull()
+
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        expect(screen.getAllByRole('button', { name: /^Code run / })).toHaveLength(5)
+        await userEvent.click(screen.getByRole('button', { name: 'View less' }))
+        expect(screen.getAllByRole('button', { name: /^Code run / })).toHaveLength(3)
+
+        await userEvent.click(viewButton())
+        await waitFor(() => expect(screen.queryAllByRole('button', { name: /^Code run / })).toHaveLength(0))
+    })
+
     it('expands rows independently and turns each caret', async () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
         await openHistory()
 
-        await userEvent.click(caret('Mar 05, 2026'))
-        await userEvent.click(caret('Jan 20, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Jan 20, 2026'))
 
-        expect(caret('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
-        expect(caret('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Mar 05, 2026').querySelector('[data-rotated]')).not.toBeNull()
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).not.toBeNull()
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
-        expect(caret('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'false')
-        expect(caret('Mar 05, 2026').querySelector('[data-rotated]')).toBeNull()
-        expect(caret('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).toBeNull()
+        expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('shows every run with no View all runs when there are three', async () => {
@@ -186,59 +238,64 @@ describe('CodeRunHistory', () => {
 
         expect(rows()).toHaveLength(5)
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
-        expect(caret('Jun 15, 2026')).toHaveFocus()
+        expect(rowToggle('Jun 15, 2026')).toHaveFocus()
+        expect(historyStatus()).toHaveTextContent('Showing all 5 previous runs')
+        // The label already says which way it toggles, as on the section toggle.
+        expect(screen.getByRole('button', { name: 'View less' })).not.toHaveAttribute('aria-expanded')
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
         expect(rows()).toHaveLength(3)
-        expect(screen.getByText('Showing 3 of 5 previous runs')).toBeInTheDocument()
+        expect(screen.getByText('Showing 3 of 5 previous runs', { selector: 'p' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'View all runs' })).toHaveFocus()
+        expect(historyStatus()).toHaveTextContent('Showing 3 of 5 previous runs')
+        expect(historyStatus()).toHaveAttribute('aria-live', 'polite')
     })
 
     it('restores expanded rows, including hidden ones, after View less and View all runs', async () => {
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('Sep 15, 2026'))
-        await userEvent.click(caret('May 15, 2026'))
+        await userEvent.click(rowToggle('Sep 15, 2026'))
+        await userEvent.click(rowToggle('May 15, 2026'))
 
         await userEvent.click(screen.getByRole('button', { name: 'View less' }))
 
-        expect(caret('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'true')
 
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
 
-        expect(caret('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(caret('Jun 15, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Jun 15, 2026')).toHaveAttribute('aria-expanded', 'false')
     })
 
     it('restores the list length and expanded rows after Hide and View', async () => {
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('May 15, 2026'))
+        await userEvent.click(rowToggle('May 15, 2026'))
 
         await userEvent.click(viewButton())
         await userEvent.click(viewButton())
 
         expect(rows()).toHaveLength(5)
         expect(screen.getByText('Showing 5 of 5 previous runs')).toBeInTheDocument()
-        expect(caret('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('May 15, 2026')).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('starts over collapsed, with three rows and none expanded, when mounted again', async () => {
         const { unmount } = renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
         await openHistory()
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
-        await userEvent.click(caret('Sep 15, 2026'))
+        await userEvent.click(rowToggle('Sep 15, 2026'))
         unmount()
 
         renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
 
-        expect(viewButton()).toHaveAttribute('aria-expanded', 'false')
+        expect(viewButton()).toHaveAccessibleName('View code run history')
         await openHistory()
         expect(rows()).toHaveLength(3)
-        expect(caret('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'false')
+        expect(rowToggle('Sep 15, 2026')).toHaveAttribute('aria-expanded', 'false')
     })
 
     // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
@@ -320,10 +377,10 @@ const setupRuns = async () => {
     return { oldKey }
 }
 
-const rowCaret = (row: HTMLElement) => within(row).getByRole('button', { name: /^Code run •/ })
+const rowToggleIn = (row: HTMLElement) => within(row).getByRole('button', { name: /^Code run / })
 
 const expandRow = async (row: HTMLElement) => {
-    await userEvent.click(rowCaret(row))
+    await userEvent.click(rowToggleIn(row))
     await waitFor(() => expect(within(row).getByTestId('code-run-history-row-body')).toBeVisible())
 }
 
@@ -336,12 +393,128 @@ const unlockLatest = async () => {
     await screen.findByTestId('outputs-files-section')
 }
 
-const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: 'Security key' })
+const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: /^Security key for Code run / })
 
 const enterRowKey = (row: HTMLElement, key: string) => {
     fireEvent.change(keyInput(row), { target: { value: key } })
     fireEvent.click(within(row).getByRole('button', { name: 'View files' }))
 }
+
+describe('decryptedSummary', () => {
+    it.each<{ results: RunOutputs[]; message: string }>([
+        { results: [], message: 'Outputs decrypted.' },
+        { results: [{ status: 'unlocked', files: [] }, { status: 'no-files' }], message: 'Outputs decrypted.' },
+        {
+            results: [{ status: 'wrong-key' }, { status: 'integrity' }, { status: 'fetch-failed' }],
+            message: 'Outputs decrypted. 1 previous run needs a different key. 2 previous runs could not be opened.',
+        },
+        { results: [{ status: 'integrity' }], message: 'Outputs decrypted. 1 previous run could not be opened.' },
+        {
+            results: [{ status: 'wrong-key' }, { status: 'wrong-key' }],
+            message: 'Outputs decrypted. 2 previous runs need a different key.',
+        },
+    ])('says "$message"', ({ results, message }) => {
+        expect(decryptedSummary(results)).toBe(message)
+    })
+})
+
+const outputsTitleIn = (container: HTMLElement) => within(container).getByText('Output files', { selector: 'p' })
+
+describe('CodeRunHistory decryption focus and announcements', () => {
+    it('focuses the latest outputs and announces one message for every run the key was tried on', async () => {
+        await setupRuns()
+        await openHistory()
+        await unlockLatest()
+
+        expect(outputsTitleIn(screen.getByTestId('outputs-files-section'))).toHaveFocus()
+        const message = await screen.findByText('Outputs decrypted. 2 previous runs need a different key.')
+        expect(message.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
+        expect(screen.queryByText(/^Outputs decrypted for Code run/)).toBeNull()
+        // Runs the latest key opened do not pull focus away from it.
+        await expandRow(rows()[0])
+        expect(await within(rows()[0]).findByText('matching.csv')).toBeVisible()
+        expect(outputsTitleIn(rows()[0])).not.toHaveFocus()
+    })
+
+    it('focuses a row’s outputs and announces it when its own key opens it, only once', async () => {
+        const { oldKey } = await setupRuns()
+        await openHistory()
+        await unlockLatest()
+        const oldA = rows()[1]
+        await expandRow(oldA)
+        await within(oldA).findByText(WRONG_KEY_ALERT)
+
+        enterRowKey(oldA, oldKey.privateKeyString)
+
+        expect(await within(oldA).findByText('old-a.csv')).toBeVisible()
+        await waitFor(() => expect(outputsTitleIn(oldA)).toHaveFocus())
+        expect(historyStatus()).toHaveTextContent(/^Outputs decrypted for Code run \w{3} \d{2}, \d{4}\.$/)
+
+        await userEvent.click(rowToggleIn(oldA))
+        await expandRow(oldA)
+        expect(await within(oldA).findByText('old-a.csv')).toBeVisible()
+        expect(rowToggleIn(oldA)).toHaveFocus()
+    })
+
+    it('announces again when a second run from the same day is opened with its own key', async () => {
+        const oldKey = await generateKeyPair()
+        const sameDay = dayjs().subtract(6, 'day')
+        const { study, latest, priorJobs } = await setupLatest(() => [
+            { ranAt: sameDay.hour(14).toDate() },
+            { ranAt: sameDay.hour(10).toDate() },
+        ])
+        for (const [index, job] of priorJobs.entries()) {
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ name: `same-day-${index}.csv`, content: 'b\n2' }],
+                encryptedFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
+            })
+        }
+        await renderHistoryFor(study.id, latest)
+        await openHistory()
+        await unlockLatest()
+        const [first, second] = rows()
+        await expandRow(first)
+        await expandRow(second)
+        // A row shows its own key field only once the latest key has been tried on it.
+        await within(first).findByText(WRONG_KEY_ALERT)
+        await within(second).findByText(WRONG_KEY_ALERT)
+
+        enterRowKey(first, oldKey.privateKeyString)
+        await waitFor(() => expect(outputsTitleIn(first)).toHaveFocus())
+        const firstAnnouncement = historyStatus().firstChild
+        const firstText = historyStatus().textContent
+        enterRowKey(second, oldKey.privateKeyString)
+        await waitFor(() => expect(outputsTitleIn(second)).toHaveFocus())
+
+        expect(historyStatus().firstChild).not.toBe(firstAnnouncement)
+        expect(historyStatus()).toHaveTextContent((firstText ?? '').trim())
+        // Equal text is skipped by VoiceOver in Safari even in a new node, so the raw text must differ.
+        expect(historyStatus().textContent).not.toBe(firstText)
+    })
+
+    // Mantine 9 keeps a hidden section mounted and re-runs its effects when it is shown again.
+    it.each([false, true])(
+        'does not move focus to a row’s outputs again after Hide and View (reduced motion: %s)',
+        async (reducedMotion) => {
+            stubReducedMotion(reducedMotion)
+            const { oldKey } = await setupRuns()
+            await openHistory()
+            await unlockLatest()
+            const oldA = rows()[1]
+            await expandRow(oldA)
+            await within(oldA).findByText(WRONG_KEY_ALERT)
+            enterRowKey(oldA, oldKey.privateKeyString)
+            await waitFor(() => expect(outputsTitleIn(rows()[1])).toHaveFocus())
+
+            await userEvent.click(viewButton())
+            await userEvent.click(viewButton())
+            await waitFor(() => expect(within(rows()[1]).getByText('old-a.csv')).toBeVisible())
+
+            expect(viewButton()).toHaveFocus()
+        },
+    )
+})
 
 describe('CodeRunHistory expanded row', () => {
     it('shows the locked state and the run’s own feedback before the latest run is decrypted', async () => {
@@ -371,6 +544,9 @@ describe('CodeRunHistory expanded row', () => {
         expect(await within(matching).findByText('matching.csv')).toBeVisible()
         expect(within(matching).queryByText('latest.csv')).toBeNull()
         expect(await within(oldA).findByText(WRONG_KEY_ALERT)).toBeVisible()
+        // Inside a row the reviewer chose to open, so it is read in place rather than announced.
+        expect(within(oldA).getByText(WRONG_KEY_ALERT).closest('.mantine-Alert-root')).toHaveAttribute('role', 'note')
+        expect(within(oldA).queryByRole('alert')).toBeNull()
         expect(within(oldA).getByPlaceholderText('Enter your security key')).toBeVisible()
         expect(within(oldA).queryByText('old-a.csv')).toBeNull()
         expect(within(oldA).getByText('feedback for old-a.csv')).toBeVisible()
@@ -388,9 +564,22 @@ describe('CodeRunHistory expanded row', () => {
         await within(oldA).findByText(WRONG_KEY_ALERT)
         await within(oldB).findByText(WRONG_KEY_ALERT)
 
+        // Several key fields can be open at once, so each names its own run with a visible label.
+        const labelA = within(oldA).getByText(/^Security key for Code run/)
+        expect(labelA).toBeVisible()
+        expect(keyInput(oldA)).not.toHaveAttribute('aria-label')
+        const labelB = await within(oldB).findByText(/^Security key for Code run/)
+        expect(labelA.textContent).not.toEqual(labelB.textContent)
+
+        fireEvent.click(within(oldA).getByRole('button', { name: 'View files' }))
+        expect(await within(oldA).findByText('Enter your security key to decrypt the outputs.')).toBeVisible()
+        expect(keyInput(oldA)).toHaveAttribute('aria-invalid', 'true')
+        expect(keyInput(oldA)).toHaveAccessibleDescription(/Enter your security key to decrypt the outputs\./)
+
         enterRowKey(oldA, 'not-a-real-key')
 
         expect(await within(oldA).findByText(/Invalid key/)).toBeVisible()
+        expect(keyInput(oldA)).toHaveAccessibleDescription(/Invalid key/)
         expect(within(oldB).queryByText(/Invalid key/)).toBeNull()
 
         fireEvent.change(keyInput(oldB), { target: { value: 'draft for b' } })
@@ -411,7 +600,7 @@ describe('CodeRunHistory expanded row', () => {
             await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
             await expandRow(rows()[3])
             const typed = 'unsubmitted-key-draft'
-            fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: 'Security key' }), {
+            fireEvent.change(await within(rows()[3]).findByRole('textbox', { name: /^Security key for Code run / }), {
                 target: { value: typed },
             })
 
@@ -490,7 +679,7 @@ describe('CodeRunHistory expanded row', () => {
 
 describe('CodeRunHistory row scrolling', () => {
     const placeHeader = (top: number, height = 40) => {
-        const header = caret('Mar 05, 2026').parentElement!
+        const header = rowToggle('Mar 05, 2026').parentElement!
         header.getBoundingClientRect = () => ({ top, bottom: top + height }) as DOMRect
     }
 
@@ -508,7 +697,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(100)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).not.toHaveBeenCalled()
     })
@@ -517,7 +706,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(700)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'smooth' })
     })
@@ -526,7 +715,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(100, 690)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 36, behavior: 'smooth' })
     })
@@ -535,7 +724,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup()
         placeHeader(30)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: -34, behavior: 'smooth' })
     })
@@ -543,10 +732,10 @@ describe('CodeRunHistory row scrolling', () => {
     it('scrolls back to a header above the viewport when the row collapses', async () => {
         const scrollBy = await setup()
         placeHeader(100)
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
         placeHeader(-60)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: -124, behavior: 'smooth' })
     })
@@ -555,7 +744,7 @@ describe('CodeRunHistory row scrolling', () => {
         const scrollBy = await setup({ reducedMotion: true })
         placeHeader(700)
 
-        await userEvent.click(caret('Mar 05, 2026'))
+        await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'auto' })
     })

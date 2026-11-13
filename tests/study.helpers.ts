@@ -366,10 +366,10 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
     await expect(page.getByText(/Outputs are available for review/)).toBeVisible()
-    await expect(page.getByRole('heading', { name: /^Code run •/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Code run / })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key', exact: true })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -402,10 +402,10 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await viewStudyDetails(page, studyTitle)
     await page.waitForURL(onStudyPage(ENCLAVE_SLUG, Routes.studyReview))
 
-    await expect(page.getByRole('heading', { name: /^Code run •/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^Code run / })).toBeVisible()
 
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key', exact: true })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(privateKey)
 
@@ -523,7 +523,7 @@ export async function verifyErroredOutputsSharedDisplay(page: Page, studyTitle: 
 
     await expect(page.getByRole('heading', { level: 2, name: 'Verify outputs' })).toBeVisible()
     await expect(page.getByText(/Code run errored\. Decrypt to view your outputs and feedback/i)).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Security key', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
 
     // Both post-decryption actions stay out of the DOM until a key has been validated.
@@ -547,7 +547,7 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 
-    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key' })
+    const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key', exact: true })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
 
@@ -558,7 +558,7 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     // Post-decryption: success banner, the outputs table, and all three nav actions.
     await expect(page.getByText(/Outputs and feedback available/i)).toBeVisible()
     await expect(page.getByTestId('outputs-files-section')).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Security key' })).toBeHidden()
+    await expect(page.getByRole('textbox', { name: 'Security key', exact: true })).toBeHidden()
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Edit code/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeVisible()

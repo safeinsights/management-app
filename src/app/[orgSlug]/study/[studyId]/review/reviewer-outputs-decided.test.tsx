@@ -290,7 +290,7 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { name: /^code run •/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
@@ -303,7 +303,7 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, await requireRawState(study.id), org.slug)
 
-        expect(screen.getByRole('heading', { name: 'Code run • Mar 05, 2026' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Code run Mar 05, 2026' })).toBeInTheDocument()
     })
 
     // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
@@ -312,7 +312,7 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
@@ -322,7 +322,7 @@ describe('ReviewerOutputsDecided', () => {
         const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /^code run •/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
