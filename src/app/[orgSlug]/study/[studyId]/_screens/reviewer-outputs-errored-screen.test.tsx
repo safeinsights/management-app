@@ -107,7 +107,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         const { org, study, raw } = await setupWithArtifact()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
     })
@@ -127,7 +127,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         expect(
             await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
         ).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
     })
 
     // OTTER-675: an artifact exists but the fetch returns nothing (no registered public key). A
@@ -145,7 +145,7 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
         await unlock()
 
         expect(await screen.findByText('No encrypted outputs available to decrypt.')).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
     })
 
@@ -300,15 +300,17 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
         await renderScreen({ study, raw }, org.slug)
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
+        // An empty run card would imply the run produced nothing to show.
+        expect(screen.queryByTestId('code-run-card')).toBeNull()
     })
 
     it('lets the reviewer record a decision without a key', async () => {
         const { org, study, raw } = await setupErrored()
         await renderScreen({ study, raw }, org.slug)
 
-        expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
-        expect(screen.getByTestId('outputs-submit-decision')).toBeEnabled()
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toBeEnabled()
     })
 
     it('offers only share-feedback-only, with sharing disabled and explained', async () => {
@@ -388,7 +390,7 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
         await renderScreen({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         return { org, study, job }
     }
 
@@ -396,9 +398,24 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
         await setupDecrypted([{ name: 'run.log', content: 'boom' }])
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
+        expect(latestRunOutputs()).toBeInTheDocument()
         expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
         expect(screen.getByTestId('outputs-submit-decision')).toBeInTheDocument()
+    })
+
+    // OTTER-1062: Code run card with its header, then the Decision card holding Submit decision,
+    // then only Previous step.
+    it('keeps the Code run header and puts Submit decision in the Decision card', async () => {
+        await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toBeInTheDocument()
+        const nav = screen.getByTestId('step-navigation')
+        expect(within(nav).queryByTestId('outputs-submit-decision')).toBeNull()
+        expect(card.compareDocumentPosition(decision) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(decision.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('replaces the errored banner with the review-before-sharing warning', async () => {
@@ -545,7 +562,7 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 
         expect(screen.getByRole('button', { name: 'latest.log' })).toBeInTheDocument()
@@ -553,3 +570,6 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         expect(screen.queryByRole('button', { name: 'earlier.log' })).toBeNull()
     })
 })
+
+// History rows render their own outputs section, so look inside the latest run's card.
+const latestRunOutputs = () => within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')
