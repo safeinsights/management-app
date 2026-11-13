@@ -166,7 +166,7 @@ const LatestRunSection: FC<LatestRunSectionProps> = ({ job, decryptedFiles, onDe
 }
 
 // The card stays across decryption, so the run's header does not drop when the key form gives way
-// to the outputs. Hidden with no key step: an empty card would imply the run produced nothing.
+// to the outputs. Hidden with no key step, since the card would have nothing to hold.
 const LatestRunCard: FC<LatestRunSectionProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     if (!isVisible) return null
     return (

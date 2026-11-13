@@ -327,9 +327,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(screen.getByTestId('code-run-history')).toBe(history)
         expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
         // OTTER-1062: Code run card, Decision card, history, then Previous step.
-        expect(isBefore(screen.getByTestId('code-run-card'), screen.getByTestId('outputs-decision-section'))).toBe(
-            true,
-        )
+        expect(isBefore(screen.getByTestId('code-run-card'), screen.getByTestId('outputs-decision-section'))).toBe(true)
         expect(isBefore(screen.getByTestId('outputs-decision-section'), history)).toBe(true)
         expect(isBefore(history, screen.getByTestId('step-navigation'))).toBe(true)
     })

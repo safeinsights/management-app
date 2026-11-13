@@ -301,7 +301,6 @@ describe('ReviewerOutputsErroredScreen with no error log', () => {
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
         expect(screen.queryByTestId('code-run-outputs')).toBeNull()
-        // An empty run card would imply the run produced nothing to show.
         expect(screen.queryByTestId('code-run-card')).toBeNull()
     })
 
