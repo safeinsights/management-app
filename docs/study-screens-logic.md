@@ -240,7 +240,9 @@ holds no encrypted artifact describing the run's outcome, for the same reason: a
 be closed out having produced nothing, and returning here would ask for a key no key holder could
 satisfy. It is the same gate as the errored screen, on the same predicate. A decided job whose sole
 encrypted artifact is a scan log therefore loses the re-decrypt too, because that form promises the
-run's outputs and a submission-time scan log is not one.
+run's outputs and a submission-time scan log is not one. Only the key form goes: the `Code run`
+card stays, with the latest run's `Reviewer feedback` inside it, so the decision's feedback is never
+hidden behind the key. Earlier runs' feedback is shown only in their code run history rows.
 
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state

@@ -20,16 +20,15 @@ import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
 import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
+import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
-import { FeedbackEntries } from '@/components/study/feedback-and-notes'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
 import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, decryptJobFiles } from '@/hooks/use-decrypt-files'
 import { APP_SHELL } from '@/lib/constants'
 import { formatInstant } from '@/lib/dates'
-import { toOutputsFeedbackEntry } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
@@ -371,30 +370,6 @@ const RunOutputsSection: FC<RowOutputsProps> = (props) => {
     )
 }
 
-// Every expanded row shows this section, so "no feedback" never reads as a failure to load it.
-// Older rejections recorded the decision without a comment.
-const RunFeedback: FC<{ feedback: PriorCodeRun['feedback'] }> = ({ feedback }) => {
-    if (feedback.length > 0) {
-        return (
-            <FeedbackEntries
-                entries={feedback.map(toOutputsFeedbackEntry)}
-                alwaysExpandLatest
-                testId="code-run-feedback"
-            />
-        )
-    }
-    return (
-        <Stack gap="sm" data-testid="code-run-feedback">
-            <Text fw={fontWeight.bold} fz="sm">
-                Reviewer feedback
-            </Text>
-            <Text fz="sm" c={semanticColor('text.secondary')}>
-                No feedback was shared for this run.
-            </Text>
-        </Stack>
-    )
-}
-
 // Mounted only while the row is open, so a closed row neither fetches its archives nor relies on
 // Collapse keeping it alive (it unmounts when reduced motion is on).
 const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
@@ -403,7 +378,7 @@ const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...p
         <Stack gap="lg" pt="lg" data-testid="code-run-history-row-body">
             <Divider />
             <RunOutputsSection {...props} />
-            <RunFeedback feedback={props.run.feedback} />
+            <CodeRunFeedback feedback={props.run.feedback} />
         </Stack>
     )
 }

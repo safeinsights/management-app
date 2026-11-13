@@ -81,6 +81,7 @@ export const getOutputsDecisionFeedbackAction = new Action('getOutputsDecisionFe
                 'studyReviewComment.body',
                 'studyReviewComment.createdAt',
                 'studyReviewComment.round',
+                'studyReviewComment.studyJobId',
                 'author.fullName as authorName',
             ])
             .where('studyReviewComment.studyId', '=', studyId)

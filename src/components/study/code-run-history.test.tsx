@@ -343,7 +343,15 @@ const setupLatest = async (priorRunsFor: (userId: string) => PriorCodeRunOptions
 
 const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<typeof latestJobForStudy>>) => {
     const priorRuns = await priorCodeRunsForStudy(studyId, latest.id)
-    renderWithProviders(<DecryptAndViewOutputs job={latest} priorRuns={priorRuns} isVisible />)
+    renderWithProviders(
+        <DecryptAndViewOutputs
+            job={latest}
+            priorRuns={priorRuns}
+            hasDecryptableOutputs
+            latestFeedback={[]}
+            feedbackLoadError={false}
+        />,
+    )
     await screen.findByRole('button', { name: 'View files' })
 }
 
@@ -390,7 +398,7 @@ const unlockLatest = async () => {
         target: { value: await readTestSupportFile('private_key.pem') },
     })
     fireEvent.click(within(form).getByRole('button', { name: 'View files' }))
-    await screen.findByTestId('outputs-files-section')
+    await within(screen.getByTestId('code-run-card')).findByTestId('code-run-outputs')
 }
 
 const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: /^Security key for Code run / })
@@ -426,7 +434,9 @@ describe('CodeRunHistory decryption focus and announcements', () => {
         await openHistory()
         await unlockLatest()
 
-        expect(outputsTitleIn(screen.getByTestId('outputs-files-section'))).toHaveFocus()
+        expect(
+            outputsTitleIn(within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')),
+        ).toHaveFocus()
         const message = await screen.findByText('Outputs decrypted. 2 previous runs need a different key.')
         expect(message.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite')
         expect(screen.queryByText(/^Outputs decrypted for Code run/)).toBeNull()

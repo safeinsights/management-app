@@ -3046,6 +3046,8 @@ describe('getOutputsDecisionFeedbackAction', () => {
         expect(rows).toHaveLength(2)
         expect(rows[0].id).toBe(newer.id)
         expect(rows[1].id).toBe(older.id)
+        expect(rows[0].studyJobId).toBe(newerJob.id)
+        expect(rows[1].studyJobId).toBe(job.id)
         expect(rows.every((r) => r.entryType === 'REVIEWER-FEEDBACK')).toBe(true)
         expect(rows.every((r) => typeof r.authorName === 'string' && r.authorName.length > 0)).toBe(true)
     })

@@ -1,7 +1,6 @@
 import { semanticColor } from '@/theme/tokens'
 import { Box, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -35,6 +34,11 @@ function outputsDecisionAttribution(
             latestStatusAt(statusChanges, 'FILES-REJECTED'),
     }
 }
+
+// Earlier runs show their own decisions in the code run history, so the latest run's card holds
+// only the decisions on that run.
+const latestRunFeedback = (entries: OutputsDecisionFeedbackEntry[], jobId: string) =>
+    entries.filter((entry) => entry.studyJobId === jobId)
 
 export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)
@@ -78,8 +82,13 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                         />
                     }
                 />
-                <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecryptAndViewOutputs job={job} priorRuns={priorRuns} isVisible={hasDecryptableOutputs} />
+                <DecryptAndViewOutputs
+                    job={job}
+                    priorRuns={priorRuns}
+                    hasDecryptableOutputs={hasDecryptableOutputs}
+                    latestFeedback={latestRunFeedback(feedbackEntries, job.id)}
+                    feedbackLoadError={feedbackLoadError}
+                />
                 <StepNavigation nav={nav} />
             </Stack>
         </Box>
