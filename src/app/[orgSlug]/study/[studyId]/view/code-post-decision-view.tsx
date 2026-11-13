@@ -1,7 +1,6 @@
 'use client'
 
 import { type FC } from 'react'
-import { Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
@@ -17,6 +16,7 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { FileActivityByName } from '@/components/study/submitted-code-table-view'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 interface CodePostDecisionViewProps {
     study: Submitted<SelectedStudy>
@@ -66,26 +66,18 @@ export function CodePostDecisionView({
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
     return (
-        <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />
+        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
+            <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading} banner={banner} />
 
-            <Stack gap="xxl">
-                <ProposalStepHeader
-                    stepLabel={SUBMIT_CODE_STEP.label}
-                    heading={SUBMIT_CODE_STEP.heading}
-                    banner={banner}
-                />
+            <SubmittedCodeFilesSection
+                jobId={job.id}
+                files={codeFiles}
+                activityByName={activityByName}
+                dataPartnerName={reviewingOrgName}
+            />
 
-                <SubmittedCodeFilesSection
-                    jobId={job.id}
-                    files={codeFiles}
-                    activityByName={activityByName}
-                    dataPartnerName={reviewingOrgName}
-                />
-
-                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <StepNavigation nav={nav} />
-            </Stack>
-        </Stack>
+            <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
+            <StepNavigation nav={nav} />
+        </StudyPageLayout>
     )
 }

@@ -1,5 +1,5 @@
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -9,6 +9,7 @@ import { researcherOutputsPendingBanner } from '@/lib/study-banners'
 import { projectStudyState } from '@/lib/study-screen'
 import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 export async function OutputsPendingScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardSubmittedJob(study, { noJobMessage: 'This study has no submitted code yet.' })
@@ -20,15 +21,14 @@ export async function OutputsPendingScreen({ study, raw, nav }: Pick<ScreenCompo
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
+            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
                     stepLabel={VERIFY_OUTPUTS_STEP.label}
                     heading={VERIFY_OUTPUTS_STEP.heading}
                     banner={<DatedStatusBanner copy={banner} at={approvedAt} />}
                 />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </StudyPageLayout>
         </Box>
     )
 }

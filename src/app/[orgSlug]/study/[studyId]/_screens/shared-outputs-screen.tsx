@@ -1,6 +1,6 @@
 import { semanticColor } from '@/theme/tokens'
 import { notFound } from 'next/navigation'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { StudyPageHeader } from '@/components/study/study-page-header'
@@ -15,6 +15,7 @@ import {
 } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 /**
  * The reviewer released the outputs with "Share outputs and feedback". The researcher decrypts,
@@ -66,8 +67,7 @@ export async function SharedOutputsScreen({
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
+            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <SharedOutputsPanel
                     studyId={study.id}
                     decidedAt={decidedAt}
@@ -78,7 +78,7 @@ export async function SharedOutputsScreen({
                     }
                     nav={phasedNav}
                 />
-            </Stack>
+            </StudyPageLayout>
         </Box>
     )
 }

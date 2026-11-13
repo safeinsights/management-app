@@ -1,7 +1,6 @@
 'use client'
 
 import { type FC } from 'react'
-import { Stack } from '@mantine/core'
 import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
@@ -16,6 +15,7 @@ import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 interface CodePostSubmissionViewProps {
     study: SelectedStudy
@@ -85,27 +85,19 @@ export function CodePostSubmissionView({
     )
 
     return (
-        <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />
+        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
+            <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading} banner={banner} />
 
-            <Stack gap="xxl">
-                <ProposalStepHeader
-                    stepLabel={SUBMIT_CODE_STEP.label}
-                    heading={SUBMIT_CODE_STEP.heading}
-                    banner={banner}
-                />
+            <SubmittedCodeFilesSection
+                jobId={job.id}
+                files={codeFiles}
+                activityByName={activityByName}
+                dataPartnerName={reviewingOrgName}
+            />
 
-                <SubmittedCodeFilesSection
-                    jobId={job.id}
-                    files={codeFiles}
-                    activityByName={activityByName}
-                    dataPartnerName={reviewingOrgName}
-                />
+            <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
 
-                <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
-
-                <StepNavigation nav={nav} />
-            </Stack>
-        </Stack>
+            <StepNavigation nav={nav} />
+        </StudyPageLayout>
     )
 }

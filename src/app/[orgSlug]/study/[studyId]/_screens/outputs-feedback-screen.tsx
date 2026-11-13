@@ -1,5 +1,5 @@
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
@@ -10,6 +10,7 @@ import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 
 export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardOutputsFeedbackScreen({
@@ -30,8 +31,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />
+            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <MarkOutputsDecisionViewed studyId={study.id} />
                 <ProposalStepHeader
                     stepLabel={VERIFY_OUTPUTS_STEP.label}
@@ -40,7 +40,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </StudyPageLayout>
         </Box>
     )
 }
