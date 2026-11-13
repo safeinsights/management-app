@@ -21,7 +21,9 @@ describe('LegalTabs', () => {
 
         fireEvent.click(screen.getByRole('tab', { name: 'Study Agreement' }))
 
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Upload signed Study Agreement' })).toBeDefined())
+        await waitFor(() =>
+            expect(screen.getByRole('button', { name: 'Upload a signed Study Agreement' })).toBeDefined(),
+        )
         expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     })
 })

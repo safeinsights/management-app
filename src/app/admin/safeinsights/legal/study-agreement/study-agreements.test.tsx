@@ -200,9 +200,11 @@ describe('StudyAgreements', () => {
 
         renderWithProviders(<StudyAgreements />)
 
-        fireEvent.click(screen.getByRole('button', { name: 'Upload signed Study Agreement' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Upload a signed Study Agreement' }))
 
-        await waitFor(() => expect(screen.getByText('Upload a signed Study Agreement')).toBeDefined())
+        await waitFor(() =>
+            expect(screen.getByRole('dialog', { name: 'Upload a signed Study Agreement' })).toBeDefined(),
+        )
         expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
         expect(screen.getByLabelText('Signed on')).toBeDefined()
         expect(screen.getByText('Signed Study Agreement')).toBeDefined()

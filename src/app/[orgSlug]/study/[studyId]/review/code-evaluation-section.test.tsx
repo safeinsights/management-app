@@ -127,7 +127,7 @@ describe('CodeEvaluationSection', () => {
 
         await user.hover(within(row).getByTestId('criteria-agreement-term'))
         expect(await screen.findByRole('tooltip')).toHaveTextContent(
-            'This is a test study. Therefore a Study Agreement does not exist for this study.',
+            'This is a test study. It does not require a Study Agreement.',
         )
     })
 

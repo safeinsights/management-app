@@ -179,7 +179,9 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(await screen.findByText(/you will be notified when your agreement is ready/)).toBeInTheDocument()
+        expect(
+            await screen.findByText(/you will be notified when your Study Agreement is ready for acknowledgement\.$/),
+        ).toBeInTheDocument()
     })
 
     it('drops the notify note in the informative tone', async () => {

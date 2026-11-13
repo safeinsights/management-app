@@ -221,7 +221,7 @@ describe('UserStudyAgreements', () => {
         await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
     })
 
-    it('renders a singular heading over the plural empty state for a user who has acknowledged nothing', async () => {
+    it('names the heading and the empty state the same for a user who has acknowledged nothing', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
 
         renderWithProviders(<UserStudyAgreements />)

@@ -50,8 +50,8 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({
 
     return (
         <StatusAlert variant="action" title={PREPARING_TITLE}>
-            {signatories} If you are included in this study, you will be notified when your agreement is ready for
-            acknowledgement.
+            {signatories} If you are included in this study, you will be notified when your{' '}
+            {legalDocumentTypeLabels.SLA} is ready for acknowledgement.
         </StatusAlert>
     )
 }

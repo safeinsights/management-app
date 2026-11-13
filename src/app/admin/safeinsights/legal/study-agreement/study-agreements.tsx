@@ -55,7 +55,7 @@ export const StudyAgreements: FC = () => {
         <Stack>
             <Flex justify="space-between" align="center">
                 <Title order={2}>{legalDocumentTypeLabels.SLA}</Title>
-                <Button onClick={openUpload}>Upload signed {legalDocumentTypeLabels.SLA}</Button>
+                <Button onClick={openUpload}>Upload a signed {legalDocumentTypeLabels.SLA}</Button>
             </Flex>
             <AppModal
                 isOpen={uploadOpened}

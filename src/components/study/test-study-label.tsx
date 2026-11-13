@@ -6,7 +6,7 @@ import { Badge, HoverCard, Text } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
 
 const LABEL = 'Test study'
-const NOTE = `This is a test study. It does not require a ${legalDocumentTypeLabels.SLA}.`
+export const TEST_STUDY_NOTE = `This is a test study. It does not require a ${legalDocumentTypeLabels.SLA}.`
 
 export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
@@ -19,7 +19,7 @@ export const TestStudyLabel: FC<{ isVisible: boolean }> = ({ isVisible }) => {
                 </Badge>
             </HoverCard.Target>
             <HoverCard.Dropdown>
-                <Text size="sm">{NOTE}</Text>
+                <Text size="sm">{TEST_STUDY_NOTE}</Text>
             </HoverCard.Dropdown>
         </HoverCard>
     )

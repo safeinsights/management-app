@@ -117,7 +117,11 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
+        ctx.addIssue({
+            code: 'custom',
+            path: ['studyId'],
+            message: `${legalDocumentTypeLabels.SLA} must belong to a study`,
+        })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
