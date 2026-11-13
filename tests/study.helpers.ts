@@ -377,7 +377,7 @@ export async function reviewerDecryptsAvailableOutputs(page: Page, studyTitle: s
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
-    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByTestId('code-run-card').getByTestId('code-run-outputs')).toBeVisible()
     await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
@@ -413,7 +413,7 @@ export async function reviewerDecryptsErrorLogs(page: Page, studyTitle: string):
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
-    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByTestId('code-run-card').getByTestId('code-run-outputs')).toBeVisible()
     await expect(page.getByText('Review the outputs before sharing')).toBeVisible()
 }
 
