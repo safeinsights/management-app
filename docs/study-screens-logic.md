@@ -124,6 +124,11 @@ correctly reads "under review again." Counting handles both shapes and is permut
   collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
   reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
   neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
+- `nextCodeRoundInDraft` = the newest job, **`INITIATED` included**, is `INITIATED` on a round
+  above 1: Edit code reopened the code after a `FILES-*` decision closed the round, and nothing is
+  submitted on the new round yet. Read off the newest job rather than `latestJob`, so the dashboard
+  row (which carries only that job) and `/view` agree. Only `openStudyJob` numbers an `INITIATED` job
+  past round 1; a change request raises the round of the job it was made on (OTTER-1073).
 
 ---
 
@@ -373,6 +378,9 @@ gated by `canResearcherResubmitCode`, which requires a resubmission note. Both r
 server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submitStudyCodeAction`, and
 `requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
 pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
+The one exception: while a round reopened by Edit code is in draft (`isCodeResubmissionInDraft`:
+`nextCodeRoundInDraft` and `canResearcherResubmitCode`), `/code` redirects to `/resubmit`, where that
+round is resubmitted, instead of showing the decided round view-only (OTTER-1073).
 
 `Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
 routes this exit to one fixed destination, never back to the entry point, so neither the page nor
@@ -390,15 +398,21 @@ faithful to the old `useStudyHref`.
 | --- | ------------------------------------------------------------------------------------------ | ---------------------------------- |
 | 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal` (+ `delete-draft`) |
 | 2   | `isDraft`                                                                                  | `studyEdit` (+ `delete-draft`)     |
-| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`                        |
-| 4   | `hasAnyJob`                                                                                | `studyView`                        |
-| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`                        |
-| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted`                   |
-| 7   | fallback                                                                                   | `studyView`                        |
+| 3   | `nextCodeRoundInDraft`                                                                     | `studyResubmit`                    |
+| 4   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`                        |
+| 5   | `hasAnyJob`                                                                                | `studyView`                        |
+| 6   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`                        |
+| 7   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted`                   |
+| 8   | fallback                                                                                   | `studyView`                        |
 
 Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
 draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
 redirect-free so Step 2's Previous button remains a working escape hatch.
+
+Rule 3 precedes the code-draft rule. The dashboard reads the current round, so a round Edit code
+reopened after an outputs decision is still a **Code draft**, but `/code` serves the decided round
+view-only and its Submit is the first submission, not a resubmission with a note. The row opens Edit
+code instead (OTTER-1073).
 
 ---
 
