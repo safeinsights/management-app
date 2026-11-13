@@ -14,7 +14,7 @@ import { lexicalJson } from '@/lib/lexical'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
-import { type CodeRunFeedbackRow } from './code-run-feedback'
+import { type CodeRunFeedbackRow } from '@/components/study/code-run-feedback'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
 
 const feedbackRow = (text: string): CodeRunFeedbackRow => ({

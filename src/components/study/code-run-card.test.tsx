@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { renderWithProviders, screen } from '@/tests/unit.helpers'
-import { CodeRunCard } from './code-run-card'
+import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { CodeRunCard } from '@/components/study/code-run-card'
 
 describe('CodeRunCard', () => {
     it('titles the card with the date the run finished and renders its sections below the title', () => {

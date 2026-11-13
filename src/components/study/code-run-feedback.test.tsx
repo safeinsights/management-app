@@ -1,7 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { faker, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, faker, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { CodeRunFeedback, type CodeRunFeedbackRow } from './code-run-feedback'
+import { CodeRunFeedback, type CodeRunFeedbackRow } from '@/components/study/code-run-feedback'
 
 const feedbackRow = (overrides: Partial<CodeRunFeedbackRow> = {}): CodeRunFeedbackRow => ({
     id: faker.string.uuid(),
