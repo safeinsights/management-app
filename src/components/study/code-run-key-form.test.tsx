@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+    type Mock,
     insertTestJobStatus,
     fireEvent,
     insertTestStudyJobData,
@@ -11,7 +16,7 @@ import {
 } from '@/tests/unit.helpers'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
-import { CodeRunKeyFields } from './code-run-key-form'
+import { CodeRunKeyFields } from '@/components/study/code-run-key-form'
 
 const DESCRIPTION =
     'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'

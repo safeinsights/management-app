@@ -80,7 +80,6 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     // Same value as requiresKey, named separately so a later change to UnlockedPhase's null
     // guard cannot quietly turn "has a key step" into a sharing permission.
     const canShareOutputs = requiresKey
-    const stepNav = isLocked ? nav.locked : nav.unlocked
 
     // Both wrappers sit above the locked/unlocked split, so a reviewer who has not yet entered
     // their security key is closed out of a decided round as well.
@@ -134,7 +133,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                             the history and drop what the reviewer had opened. */}
                         <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
                         <PoliteStatus announcement={priorOutputs.announcement} />
-                        <StepNavigation nav={stepNav} />
+                        <StepNavigation nav={isLocked ? nav.locked : nav.unlocked} />
                     </Stack>
                 </Box>
             </OutputsReviewFeedbackProviderShare>
