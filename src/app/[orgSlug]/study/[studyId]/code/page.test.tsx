@@ -8,6 +8,7 @@ import {
     insertTestJobStatuses,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    insertTestUser,
     mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
@@ -184,11 +185,12 @@ describe('StudyCodeUploadRoute', () => {
 
     // The dashboard links this state to /resubmit; /code catches Back, bookmarks and stale tabs.
     describe('a round reopened by Edit code after the outputs decision (OTTER-1073)', () => {
-        const seedDecided = async (decision: StudyJobStatus) => {
+        const seedDecided = async (decision: StudyJobStatus, { byAnotherMember = false } = {}) => {
             const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const author = byAnotherMember ? (await insertTestUser({ org })).user : user
             const { study, job } = await insertTestStudyJobData({
                 org,
-                researcherId: user.id,
+                researcherId: author.id,
                 studyStatus: 'APPROVED',
                 jobStatus: 'CODE-SUBMITTED',
             })
@@ -200,9 +202,18 @@ describe('StudyCodeUploadRoute', () => {
             ['an upload after shared outputs', 'FILES-APPROVED', ensureRoundJobForUpload],
             ['an upload after feedback only', 'FILES-REJECTED', ensureRoundJobForUpload],
             ['an IDE launch after shared outputs', 'FILES-APPROVED', ensureRoundJobForLaunch],
+            ['an IDE launch after feedback only', 'FILES-REJECTED', ensureRoundJobForLaunch],
         ] as const)('sends %s to Edit code', async (_, decision, openRound) => {
             const { org, study } = await seedDecided(decision)
             await openRound(db, study.id)
+
+            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+            expect(mockRedirect).toHaveBeenCalledWith(Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
+        })
+
+        it('sends a lab member who is not the author to Edit code too', async () => {
+            const { org, study } = await seedDecided('FILES-APPROVED', { byAnotherMember: true })
+            await ensureRoundJobForUpload(db, study.id)
 
             await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
             expect(mockRedirect).toHaveBeenCalledWith(Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))

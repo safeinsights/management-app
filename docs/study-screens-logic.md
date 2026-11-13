@@ -127,7 +127,7 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `nextCodeRoundInDraft` = the newest job, **`INITIATED` included**, is `INITIATED` on a round
   above 1: Edit code reopened the code after a `FILES-*` decision closed the round, and nothing is
   submitted on the new round yet. Read off the newest job rather than `latestJob`, so the dashboard
-  row (which carries only that job) and `/view` agree. Only `openStudyJob` numbers an `INITIATED` job
+  row (which carries only that job) and `/code` agree. Only `openStudyJob` numbers an `INITIATED` job
   past round 1; a change request raises the round of the job it was made on (OTTER-1073).
 
 ---
@@ -317,21 +317,22 @@ table a pure function of state. The one exception is a step back from an edit pa
 page it lands on has the same state as when it is reached from the status page, but its `Next step`
 must return to the edit page. So Edit proposal and Edit code step back with `?from=edit-proposal` or
 `?from=edit-code`, and `/edit` and `/submitted` read it into `NavCtx.from`. It lasts one hop, and a
-page ignores it once the edit page would no longer render.
+page ignores it once the edit page would no longer render. A round Edit code reopened needs no
+origin: while it is in draft, `/submitted` returns to `/resubmit` from any entry (OTTER-1073).
 
 **Researcher table:**
 
-| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                                                                                     |
-| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                                                                                              |
-| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code` (`from=edit-code` and `canResearcherResubmitCode`: → `/resubmit`); CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
-| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                                                                                             |
-| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                                                                                      |
-| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                                                                                     |
-| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                                                                                             |
-| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                                                                                      |
-| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                                                                                              |
-| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                                                                                           |
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                                                                                                                     |
+| -------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                                                                                                                              |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code` (`from=edit-code` and `canResearcherResubmitCode`, or `isCodeResubmissionInDraft`: → `/resubmit`); CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                                                                                                                             |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                                                                                                                      |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                                                                                                                     |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                                                                                                                             |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                                                                                                                      |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                                                                                                                              |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                                                                                                                           |
 
 **Reviewer table:**
 

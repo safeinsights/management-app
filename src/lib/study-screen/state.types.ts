@@ -66,7 +66,7 @@ export type StudyState = {
     // every other fact: the status log is append-only, so the furthest stage present is the current one.
     executionStage: ExecutionStage | null
     // Edit code reopened the code after an outputs decision and nothing is submitted on the new round
-    // yet. Read off the newest job, INITIATED included, so the dashboard row and /view agree (OTTER-1073).
+    // yet. Read off the newest job, INITIATED included, so the dashboard row and /code agree (OTTER-1073).
     nextCodeRoundInDraft: boolean
     hasSavedEdits: boolean
     hasSavedCodeEdits: boolean

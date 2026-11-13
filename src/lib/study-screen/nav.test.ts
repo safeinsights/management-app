@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Routes } from '@/lib/routes'
 import type { StudyState } from './state.types'
 import type { ResearcherScreenId, ReviewerScreenId } from './screens'
 import {
@@ -182,6 +183,21 @@ describe('resolveStepNav — proposal phase', () => {
             testId: 'cta-next-step',
         })
         expect(solids(nav)).toBe(1)
+    })
+
+    // OTTER-1073: a round Edit code reopened is in draft, so Next step returns to it from any origin.
+    it('returns to Edit code while a reopened round is in draft, without an Edit code origin', () => {
+        const s = state({
+            ...submitted,
+            status: 'APPROVED',
+            hasSubmittedCode: true,
+            codeDecision: 'CODE-APPROVED',
+            hasResults: true,
+            resultsApproved: true,
+            nextCodeRoundInDraft: true,
+        })
+        const nav = resolveStepNav('proposal-feedback', s, ctx)
+        expect(nav.forward?.href).toBe(Routes.studyResubmit(ctx))
     })
 
     it('ignores an Edit code origin once the round can no longer be resubmitted', () => {
