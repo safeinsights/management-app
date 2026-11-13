@@ -45,8 +45,10 @@ describe('job state parity with the projection before OTTER-973', () => {
         // Intended difference: submissionRound had no reader and is gone; studyJob.round replaces it.
         const { submissionRound: _, ...legacy } = legacyProjectStudyState(raw)
         const current = projectStudyState(raw)
+        // Intended difference: nextCodeRoundInDraft is new (OTTER-1073).
+        const { nextCodeRoundInDraft: __, ...comparable } = current
 
-        expect(current).toEqual(legacy)
+        expect(comparable).toEqual(legacy)
         for (const role of ['researcher', 'reviewer'] as const) {
             expect(resolveScreen(role, current)).toEqual(resolveScreen(role, legacy as StudyState))
         }
