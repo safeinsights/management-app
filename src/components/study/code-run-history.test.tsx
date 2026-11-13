@@ -483,11 +483,14 @@ describe('CodeRunHistory decryption focus and announcements', () => {
         enterRowKey(first, oldKey.privateKeyString)
         await waitFor(() => expect(outputsTitleIn(first)).toHaveFocus())
         const firstAnnouncement = historyStatus().firstChild
+        const firstText = historyStatus().textContent
         enterRowKey(second, oldKey.privateKeyString)
         await waitFor(() => expect(outputsTitleIn(second)).toHaveFocus())
 
         expect(historyStatus().firstChild).not.toBe(firstAnnouncement)
-        expect(historyStatus()).toHaveTextContent(firstAnnouncement?.textContent ?? '')
+        expect(historyStatus()).toHaveTextContent((firstText ?? '').trim())
+        // Equal text is skipped by VoiceOver in Safari even in a new node, so the raw text must differ.
+        expect(historyStatus().textContent).not.toBe(firstText)
     })
 
     // Mantine 9 keeps a hidden section mounted and re-runs its effects when it is shown again.

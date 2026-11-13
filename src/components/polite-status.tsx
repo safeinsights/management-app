@@ -6,10 +6,15 @@ import { VisuallyHidden } from '@mantine/core'
 export type Announcement = { text: string; id: number }
 
 // Each announce() is a new event even when its text repeats, so two runs with the same date are
-// both read out.
+// both read out. VoiceOver in Safari skips text equal to the previous message even in a new node,
+// so every other message ends in a no-break space, which is not spoken.
 export function useAnnouncement() {
     const [announcement, setAnnouncement] = useState<Announcement>({ text: '', id: 0 })
-    const announce = (text: string) => setAnnouncement((current) => ({ text, id: current.id + 1 }))
+    const announce = (text: string) =>
+        setAnnouncement((current) => {
+            const id = current.id + 1
+            return { text: id % 2 ? text : `${text}\u00A0`, id }
+        })
     return [announcement, announce] as const
 }
 
