@@ -80,7 +80,7 @@ export default function UserStudiesDashboard() {
 
     if (!session) {
         return (
-            <Stack px="md" py="xxl" gap="xxl">
+            <Stack px="md" py="xxl" gap="xl">
                 <DashboardHeaderSkeleton />
                 <Paper shadow="xs" px="lg" py="xxl">
                     <TableSkeleton paperWrapper={false} />
@@ -94,26 +94,28 @@ export default function UserStudiesDashboard() {
     // Narrower page and card gutters than other pages give the studies table its 928px at a
     // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack px="md" py="xxl" gap="xxl">
+        <Stack px="md" py="xxl" gap="xl">
             <PageHeader title="My studies" />
-            <JoinedOrgBanner />
-            <Stack gap="md">
-                <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
-                <Paper shadow="xs" px="lg" py="xxl">
-                    <StudiesTable
-                        key={audience}
-                        audience={audience}
-                        scope="user"
-                        orgSlug=""
-                        title={isReviewer ? 'Studies for review' : 'All studies'}
-                        description={
-                            isReviewer
-                                ? 'Studies you are reviewing, across every organization you belong to. Open a study to view its details, review submitted materials, and submit your decision.'
-                                : 'Studies you have taken part in, across every organization you belong to. Open a study to check its status, view details, or take your next step.'
-                        }
-                        showRefresher
-                    />
-                </Paper>
+            <Stack gap="xxl">
+                <JoinedOrgBanner />
+                <Stack gap="md">
+                    <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
+                    <Paper shadow="xs" px="lg" py="xxl">
+                        <StudiesTable
+                            key={audience}
+                            audience={audience}
+                            scope="user"
+                            orgSlug=""
+                            title={isReviewer ? 'Studies for review' : 'All studies'}
+                            description={
+                                isReviewer
+                                    ? 'Studies you are reviewing, across every organization you belong to. Open a study to view its details, review submitted materials, and submit your decision.'
+                                    : 'Studies you have taken part in, across every organization you belong to. Open a study to check its status, view details, or take your next step.'
+                            }
+                            showRefresher
+                        />
+                    </Paper>
+                </Stack>
             </Stack>
         </Stack>
     )
