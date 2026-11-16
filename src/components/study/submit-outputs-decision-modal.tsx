@@ -1,13 +1,22 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC, type ReactNode, useState } from 'react'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
+import { LabName } from '@/components/study/lab-name'
 import type { OutputsDecision } from '@/lib/outputs-review'
 
-export const confirmationBody = (decision: OutputsDecision, labName: string): string =>
-    decision === 'share-outputs'
-        ? `You are sharing the output files and your feedback with ${labName}. You will not be able to make changes after submitting.`
-        : `You are sharing your feedback only. The output files will not be shared with ${labName}. You will not be able to make changes after submitting.`
+export const confirmationBody = (decision: OutputsDecision, labName: string): ReactNode =>
+    decision === 'share-outputs' ? (
+        <>
+            You are sharing the output files and your feedback with <LabName>{labName}</LabName>. You will not be able
+            to make changes after submitting.
+        </>
+    ) : (
+        <>
+            You are sharing your feedback only. The output files will not be shared with <LabName>{labName}</LabName>.
+            You will not be able to make changes after submitting.
+        </>
+    )
 
 type SubmitOutputsDecisionModalProps = {
     /** null is the closed state; a separate `isOpen` flag could disagree with it. */

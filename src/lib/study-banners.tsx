@@ -1,12 +1,15 @@
+import type { ReactNode } from 'react'
+import { LabName } from '@/components/study/lab-name'
 import { STATUS_ALERT_VARIANT, type StatusAlertVariant } from '@/components/study/status-alert'
 import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import type { SharedOutputsScreenId } from '@/lib/study-screen'
 
-export type BannerCopy = {
+// Reviewer bodies set the lab name in semibold, so theirs can hold an element.
+export type BannerCopy<Body extends ReactNode = string> = {
     variant: StatusAlertVariant
     title: string
-    body: string
+    body: Body
 }
 
 export type BannerParams = {
@@ -188,31 +191,49 @@ export type ReviewerBannerParams = {
 const attributedTo = (action: string, reviewerName?: string | null) =>
     reviewerName ? `${action} by ${reviewerName}` : action
 
-export function reviewerProposalNeedsReviewBanner({ researchLab, version = 1 }: ReviewerBannerParams): BannerCopy {
+export function reviewerProposalNeedsReviewBanner({
+    researchLab,
+    version = 1,
+}: ReviewerBannerParams): BannerCopy<ReactNode> {
     return {
         variant: STATUS_ALERT_VARIANT.action,
         title:
             version > 1 ? `Revised proposal submitted by ${researchLab}` : `New proposal submitted by ${researchLab}`,
-        body: `${researchLab} is requesting permission to run their code in your secure enclave. Review the proposal below and share your decision and feedback.`,
+        body: (
+            <>
+                <LabName>{researchLab}</LabName> is requesting permission to run their code in your secure enclave.
+                Review the proposal below and share your decision and feedback.
+            </>
+        ),
     }
 }
 
 export function reviewerProposalDecisionBanner(
     decision: ReviewDecision,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy {
+): BannerCopy<ReactNode> {
     switch (decision) {
         case 'APPROVE':
             return {
                 variant: STATUS_ALERT_VARIANT.informative,
                 title: attributedTo('Proposal approved', reviewerName),
-                body: `This proposal has been approved. An email notification will be sent when ${researchLab} moves to the next step.`,
+                body: (
+                    <>
+                        This proposal has been approved. An email notification will be sent when{' '}
+                        <LabName>{researchLab}</LabName> moves to the next step.
+                    </>
+                ),
             }
         case 'NEEDS-CLARIFICATION':
             return {
                 variant: STATUS_ALERT_VARIANT.informative,
                 title: attributedTo('Revision requested', reviewerName),
-                body: `A revision has been requested. An email notification will be sent when ${researchLab} resubmits the proposal.`,
+                body: (
+                    <>
+                        A revision has been requested. An email notification will be sent when{' '}
+                        <LabName>{researchLab}</LabName> resubmits the proposal.
+                    </>
+                ),
             }
         case 'REJECT':
             return {
@@ -234,7 +255,7 @@ export function reviewerCodeNeedsReviewBanner({ researchLab, version = 1 }: Revi
 export function reviewerCodeDecisionBanner(
     decision: ReviewDecision,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy {
+): BannerCopy<ReactNode> {
     switch (decision) {
         case 'APPROVE':
             return {
@@ -246,7 +267,12 @@ export function reviewerCodeDecisionBanner(
             return {
                 variant: STATUS_ALERT_VARIANT.informative,
                 title: attributedTo('Revision requested', reviewerName),
-                body: `A revision has been requested. An email notification will be sent when ${researchLab} resubmits their code.`,
+                body: (
+                    <>
+                        A revision has been requested. An email notification will be sent when{' '}
+                        <LabName>{researchLab}</LabName> resubmits their code.
+                    </>
+                ),
             }
         case 'REJECT':
             return {
@@ -265,31 +291,51 @@ type ReviewerOutputsDecisionFlags = {
 export function reviewerOutputsDecisionBanner(
     { resultsErrored, resultsApproved }: ReviewerOutputsDecisionFlags,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy {
+): BannerCopy<ReactNode> {
     if (resultsErrored && resultsApproved) {
         return {
             variant: STATUS_ALERT_VARIANT.informative,
             title: attributedTo('Code errored. Outputs and feedback shared', reviewerName),
-            body: `The study code failed to process. Outputs and feedback have been shared with ${researchLab}. We will notify you when they resubmit.`,
+            body: (
+                <>
+                    The study code failed to process. Outputs and feedback have been shared with{' '}
+                    <LabName>{researchLab}</LabName>. We will notify you when they resubmit.
+                </>
+            ),
         }
     }
     if (resultsErrored) {
         return {
             variant: STATUS_ALERT_VARIANT.informative,
             title: attributedTo('Code errored. Feedback shared', reviewerName),
-            body: `The study code failed to process. Feedback has been shared with ${researchLab} without the outputs. We will notify you when they resubmit.`,
+            body: (
+                <>
+                    The study code failed to process. Feedback has been shared with <LabName>{researchLab}</LabName>{' '}
+                    without the outputs. We will notify you when they resubmit.
+                </>
+            ),
         }
     }
     if (resultsApproved) {
         return {
             variant: STATUS_ALERT_VARIANT.informative,
             title: attributedTo('Outputs and feedback shared', reviewerName),
-            body: `The outputs from the latest code run were reviewed and shared with ${researchLab} along with your feedback.`,
+            body: (
+                <>
+                    The outputs from the latest code run were reviewed and shared with <LabName>{researchLab}</LabName>{' '}
+                    along with your feedback.
+                </>
+            ),
         }
     }
     return {
         variant: STATUS_ALERT_VARIANT.informative,
         title: attributedTo('Feedback shared', reviewerName),
-        body: `Feedback has been shared with ${researchLab} without the outputs. We will notify you when they resubmit.`,
+        body: (
+            <>
+                Feedback has been shared with <LabName>{researchLab}</LabName> without the outputs. We will notify you
+                when they resubmit.
+            </>
+        ),
     }
 }
