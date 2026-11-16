@@ -14,10 +14,11 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
-import { CaretDownIcon, CaretRightIcon, LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
+import { ToggleChevron } from '@/components/icons'
 import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { CodeRunTitle } from '@/components/study/code-run-title'
@@ -416,12 +417,6 @@ const RunBadges: FC<{ id: string; labels: string[] }> = ({ id, labels }) => (
     </Group>
 )
 
-// Points down while open; the shared ToggleChevron turns up, which suits the section toggles.
-const RowChevron: FC<{ isExpanded: boolean }> = ({ isExpanded }) => {
-    const Icon = isExpanded ? CaretDownIcon : CaretRightIcon
-    return <Icon size={12} weight="bold" data-testid={isExpanded ? 'chevron-down' : 'chevron-right'} />
-}
-
 // Accordion pattern: the heading wraps a button that spans the whole header. Mantine's Accordion
 // is not used because its panel always carries role="region".
 const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
@@ -468,7 +463,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                             </span>
                             <RunBadges id={badgesId} labels={codeRunBadges(run.statusChanges)} />
                         </Group>
-                        <RowChevron isExpanded={isExpanded} />
+                        <ToggleChevron isExpanded={isExpanded} openTo="down" />
                     </Group>
                 </UnstyledButton>
             </Title>

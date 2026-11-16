@@ -203,13 +203,13 @@ describe('CodeRunHistory', () => {
         expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
         expect(rowToggle('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
         expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(within(rowToggle('Mar 05, 2026')).getByTestId('chevron-down')).toBeInTheDocument()
-        expect(within(rowToggle('Feb 10, 2026')).getByTestId('chevron-right')).toBeInTheDocument()
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated="down"]')).not.toBeNull()
+        expect(rowToggle('Feb 10, 2026').querySelector('[data-rotated]')).toBeNull()
 
         await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'false')
-        expect(within(rowToggle('Mar 05, 2026')).getByTestId('chevron-right')).toBeInTheDocument()
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).toBeNull()
         expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
     })
 

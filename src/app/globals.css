@@ -86,13 +86,17 @@ thead[data-sticky] > tr > th::before {
     background-color: var(--si-color-surface-raised);
 }
 
-/* A quarter-turn anticlockwise while data-rotated is set, e.g. a disclosure chevron. */
+/* A quarter-turn anticlockwise while data-rotated is set, or clockwise when it is 'down', e.g. a disclosure chevron. */
 .rotatable {
     transition: transform 200ms ease;
 }
 
 .rotatable[data-rotated] {
     transform: rotate(-90deg);
+}
+
+.rotatable[data-rotated='down'] {
+    transform: rotate(90deg);
 }
 
 /* Figma icon/light-default, darkening to icon/light-hover. */
