@@ -2,12 +2,7 @@
 
 import type { FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentCollectionLabels,
-    legalDocumentTypeLabels,
-    type UserStudyAgreementSort,
-} from '@/schema/legal-document'
+import { legalDocumentQueryKeys, legalDocumentTypeLabels, type UserStudyAgreementSort } from '@/schema/legal-document'
 import { fetchUserStudyAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import { agreementDateColumns, AgreementsPanel, studyTitleColumn } from '@/components/legal/agreements-table'
@@ -39,8 +34,7 @@ const SORTING = {
 
 export const UserStudyAgreements: FC = () => (
     <AgreementsPanel
-        label={legalDocumentCollectionLabels.SLA}
-        title={legalDocumentTypeLabels.SLA}
+        label={legalDocumentTypeLabels.SLA}
         idAccessor="studyId"
         columns={columns}
         sorting={SORTING}

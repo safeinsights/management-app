@@ -19,7 +19,7 @@ import {
 } from '@/hooks/use-code-review-evaluation-map'
 import { CODE_EVALUATION_CRITERIA_ERROR } from '@/lib/proposal-review'
 import { Routes } from '@/lib/routes'
-import { legalDocumentCollectionLabels } from '@/schema/legal-document'
+import { TEST_STUDY_NOTE } from '@/components/study/test-study-label'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = [
@@ -32,8 +32,6 @@ const OPTIONS: readonly { value: 'yes' | 'no' | 'not-sure'; label: string }[] = 
 export const criterionFieldId = (key: CodeReviewCriteriaKey) => `criteria-${key}`
 
 export const CRITERIA_SECTION_ERROR_ID = 'code-evaluation-criteria'
-
-const TEST_STUDY_AGREEMENT_NOTE = `This is a test study. Therefore ${legalDocumentCollectionLabels.SLA} do not exist for this study.`
 
 type CodeEvaluationSectionProps = {
     form: UseFormReturnType<{ criteria: CodeReviewCriteriaDraft }>
@@ -129,12 +127,12 @@ function AgreementTerm({ isTestStudy }: { isTestStudy: boolean }) {
 
     return (
         <>
-            <InfoTooltip label={TEST_STUDY_AGREEMENT_NOTE}>
+            <InfoTooltip label={TEST_STUDY_NOTE}>
                 <Text span inherit td="underline dashed" data-testid="criteria-agreement-term">
                     Study Agreement
                 </Text>
             </InfoTooltip>
-            <VisuallyHidden> ({TEST_STUDY_AGREEMENT_NOTE})</VisuallyHidden>
+            <VisuallyHidden> ({TEST_STUDY_NOTE})</VisuallyHidden>
         </>
     )
 }

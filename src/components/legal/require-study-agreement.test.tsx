@@ -160,7 +160,8 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(await screen.findByText(/are being prepared/)).toBeInTheDocument()
+        expect(await screen.findByText('Study Agreement is being prepared')).toBeInTheDocument()
+        expect(screen.getByText(/have signed the Study Agreement\. If you are included/)).toBeInTheDocument()
     })
 
     it('names both signatories, lab first, so the reader knows who is holding it up', async () => {
@@ -178,7 +179,9 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(await screen.findByText(/you will be notified when your agreement is ready/)).toBeInTheDocument()
+        expect(
+            await screen.findByText(/you will be notified when your Study Agreement is ready for acknowledgement\.$/),
+        ).toBeInTheDocument()
     })
 
     it('drops the notify note in the informative tone', async () => {
@@ -187,7 +190,8 @@ describe('StudyAgreementPreparingNotice', () => {
         renderNotice(study.id, { tone: 'informative' })
 
         expect(await screen.findByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
-        expect(screen.getByText(/have signed the study agreements\.$/)).toBeInTheDocument()
+        expect(screen.getByText('Study Agreement is being prepared')).toBeInTheDocument()
+        expect(screen.getByText(/have signed the Study Agreement\.$/)).toBeInTheDocument()
         expect(screen.queryByText(/you will be notified/)).toBeNull()
     })
 
