@@ -24,14 +24,25 @@ const RESULTS_PRIORITY: StudyState['resultsDisplayStatus'][] = [
 // APPROVED is permanent and wins if several ever coexist on the job.
 const CODE_DECISION_PRIORITY: CodeDecisionStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'CODE-CHANGES-REQUESTED']
 
+// Highest round, then newest id: the order of latestJobQuery.
+const newestJob = (jobs: ReadonlyArray<RawJob>): RawJob | undefined =>
+    jobs.length === 0
+        ? undefined
+        : jobs.reduce((a, b) => (b.round > a.round || (b.round === a.round && b.id > a.id) ? b : a))
+
 // Exported so consumers read a display fact from the SAME job the projection decided on.
 export function latestJob(jobs: ReadonlyArray<RawJob>): RawJob | undefined {
-    if (jobs.length === 0) return undefined
     // The rule of latestJobQuery({ submitted: true }): submitted jobs win so a baseline-only INITIATED
     // job cannot mask the code decision, then the highest round, then the newest id.
     const submitted = jobs.filter((j) => j.currentStatus !== 'INITIATED')
-    const pool = submitted.length > 0 ? submitted : jobs
-    return pool.reduce((a, b) => (b.round > a.round || (b.round === a.round && b.id > a.id) ? b : a))
+    return newestJob(submitted.length > 0 ? submitted : jobs)
+}
+
+// Only openStudyJob numbers a job past round 1 while it is INITIATED, and it does so only after a FILES-*
+// decision closed the round before it; a change request raises the round of the job it was made on.
+const isNextCodeRoundInDraft = (jobs: ReadonlyArray<RawJob>): boolean => {
+    const newest = newestJob(jobs)
+    return !!newest && newest.currentStatus === 'INITIATED' && newest.round > 1
 }
 
 export function projectStudyState(raw: RawStudyState): StudyState {
@@ -82,6 +93,7 @@ export function projectStudyState(raw: RawStudyState): StudyState {
         resultsDisplayStatus,
         resultsViewed: jobStatuses.has('RESULTS-VIEWED'),
         executionStage,
+        nextCodeRoundInDraft: isNextCodeRoundInDraft(raw.jobs),
         hasSavedEdits: !!raw.proposalResubmissionNoteDraft,
         hasSavedCodeEdits: !!raw.codeResubmissionNoteDraft,
     }

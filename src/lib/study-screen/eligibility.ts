@@ -6,6 +6,11 @@ import type { StudyState } from './state.types'
 export const canResearcherResubmitCode = (s: StudyState): boolean =>
     s.codeDecision === 'CODE-CHANGES-REQUESTED' || isOutputsDecided(s)
 
+// The round Edit code reopened is resubmitted from /resubmit, never from /code, which still shows the
+// decided round's submission. The eligibility check keeps a stray state from landing on a 404.
+export const isCodeResubmissionInDraft = (s: StudyState): boolean =>
+    s.nextCodeRoundInDraft && canResearcherResubmitCode(s)
+
 // /code's Submit is one-shot per round, which is what its confirmation modal promises. Keyed on
 // hasSubmittedCode rather than codeAwaitingDecision so a decided round stays closed too: once a
 // round has been submitted the way on is /resubmit, which requires a resubmission note (OTTER-693).

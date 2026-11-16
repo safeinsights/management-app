@@ -240,6 +240,55 @@ describe('latestJob', () => {
     })
 })
 
+describe('nextCodeRoundInDraft', () => {
+    const DECIDED = ['INITIATED', 'CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-RUNNING', 'RUN-COMPLETE']
+    const nextRoundDraft = (statuses: readonly string[]) =>
+        projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses), job(ID2, ['INITIATED'], 2)] }))
+
+    it('is set when Edit code opened a round after shared outputs, and the decided round still drives the rest', () => {
+        const s = nextRoundDraft([...DECIDED, 'FILES-APPROVED'])
+        expect(s.nextCodeRoundInDraft).toBe(true)
+        expect(s.hasSubmittedCode).toBe(true)
+        expect(s.resultsApproved).toBe(true)
+    })
+
+    it('is set when Edit code opened a round after feedback only', () => {
+        const s = nextRoundDraft([...DECIDED, 'FILES-REJECTED'])
+        expect(s.nextCodeRoundInDraft).toBe(true)
+        expect(s.resultsRejected).toBe(true)
+    })
+
+    it('is set for the dashboard row, which carries only the newest job', () => {
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID2, ['INITIATED'], 2)] }))
+        expect(s.nextCodeRoundInDraft).toBe(true)
+    })
+
+    it('is not set for a first-round draft', () => {
+        const s = projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, ['INITIATED'])] }))
+        expect(s.nextCodeRoundInDraft).toBe(false)
+    })
+
+    it('is not set once the later round is submitted', () => {
+        const s = projectStudyState(
+            raw({
+                status: 'APPROVED',
+                jobs: [job(ID1, [...DECIDED, 'FILES-APPROVED']), job(ID2, ['INITIATED', 'CODE-SUBMITTED'], 2)],
+            }),
+        )
+        expect(s.nextCodeRoundInDraft).toBe(false)
+    })
+
+    it('is not set for a change-requested job that reached round 2', () => {
+        const s = projectStudyState(
+            raw({
+                status: 'APPROVED',
+                jobs: [job(ID1, ['CODE-SUBMITTED', 'CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'], 2)],
+            }),
+        )
+        expect(s.nextCodeRoundInDraft).toBe(false)
+    })
+})
+
 describe('runErrored', () => {
     const runErrored = (statuses: string[]) =>
         projectStudyState(raw({ status: 'APPROVED', jobs: [job(ID1, statuses)] })).runErrored

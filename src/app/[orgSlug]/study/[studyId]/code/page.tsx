@@ -5,7 +5,12 @@ import { SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { getDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
-import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
+import {
+    canResearcherSubmitCodeForReview,
+    codeSubmissionNav,
+    isCodeResubmissionInDraft,
+    projectStudyState,
+} from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { Routes } from '@/lib/routes'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
@@ -40,7 +45,11 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     // OTTER-693: a submitted round is view-only, because the confirmation modal promised it would be.
     // study.status stays APPROVED through submission, so the answer lives on the job statuses.
     const raw = await rawStudyStateForStudy(studyId, currentDb())
-    const isEditable = !!raw && canResearcherSubmitCodeForReview(projectStudyState(raw))
+    const state = raw ? projectStudyState(raw) : null
+    if (state && isCodeResubmissionInDraft(state)) {
+        redirect(Routes.studyResubmit({ orgSlug, studyId }))
+    }
+    const isEditable = !!state && canResearcherSubmitCodeForReview(state)
 
     // OTTER-693: the Data Partner's template has to be in the workspace before the table renders.
     // Best-effort: the copy reads from S3, and a study whose starter code is missing should still

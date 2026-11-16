@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { DashboardState } from './state.types'
 import { resolveDashboardAction } from './resolve'
 import { studyState } from './state.fixture'
+import { Routes } from '@/lib/routes'
 
 // DashboardState is StudyState minus the facts the dashboard query doesn't fetch, so the shared
 // fixture satisfies it.
@@ -28,6 +29,21 @@ describe('resolveDashboardAction (researcher)', () => {
             ctx,
         )
         expect(a.href).toContain('/code')
+    })
+    it('APPROVED, a later round in draft after the outputs decision → /resubmit (OTTER-1073)', () => {
+        const a = resolveDashboardAction(
+            'researcher',
+            dstate({
+                status: 'APPROVED',
+                isDraft: false,
+                hasAnyJob: true,
+                hasSubmittedCode: false,
+                nextCodeRoundInDraft: true,
+            }),
+            ctx,
+        )
+        expect(a.href).toBe(Routes.studyResubmit(ctx))
+        expect(a.secondaryAction).toBeUndefined()
     })
     it('job activity with code submitted → /view', () => {
         const a = resolveDashboardAction(
