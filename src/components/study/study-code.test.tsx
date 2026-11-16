@@ -1445,11 +1445,14 @@ describe('StudyCode component', () => {
             return rendered
         }
 
+        // By name: the click hovers Launch IDE, whose hover card is a dialog too.
+        const findLaunchModal = () => screen.findByRole('dialog', { name: 'Setting up the SafeInsights IDE' })
+
         it('opens on launch with the countdown, the bar and the sync copy', async () => {
             stillProvisioning()
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
             expect(dialog).toHaveTextContent('Launching the IDE in a new tab')
             expect(dialog).toHaveTextContent(/Ready in \d+ minutes/)
@@ -1463,10 +1466,14 @@ describe('StudyCode component', () => {
             const openSpy = vi.spyOn(window, 'open')
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Close' }))
 
-            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            await waitFor(() =>
+                expect(
+                    screen.queryByRole('dialog', { name: 'Setting up the SafeInsights IDE' }),
+                ).not.toBeInTheDocument(),
+            )
             // The card's rule: a launch the researcher walked away from must not steal a tab.
             expect(openSpy).not.toHaveBeenCalled()
             openSpy.mockRestore()

@@ -11,7 +11,7 @@ interface SecurityKeyFormProps {
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-// The researcher's key card for shared outputs. Reviewers use CodeRunKeyForm.
+// The researcher's key card for shared outputs. Reviewers use CodeRunKeyFields.
 export const SecurityKeyForm: FC<SecurityKeyFormProps> = ({ job, onDecrypted }) => (
     <Paper p="xxl" data-testid="security-key-form">
         <Stack gap="lg">

@@ -23,7 +23,7 @@ const renderForDataPartner = async () => {
     return org
 }
 
-const labPicker = () => screen.getByRole('textbox', { name: 'Research Labs' })
+const labPicker = () => screen.getByRole('combobox', { name: 'Research Labs' })
 const continueButton = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Add as Test Lab' })
 
 const openPicker = async () => {

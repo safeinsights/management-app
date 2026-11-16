@@ -13,6 +13,7 @@ import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
+import { EMPTY_CELL } from '@/lib/dates'
 import { UserGlobalDocument } from './user-global-document'
 
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -76,7 +77,7 @@ describe('UserGlobalDocument', () => {
         renderWithProviders(<UserGlobalDocument type="TOS" />)
 
         await waitFor(() => expect(screen.getByText('These are the terms')).toBeDefined())
-        expect(screen.getByText('Acknowledged on: —')).toBeDefined()
+        expect(screen.getByText(`Acknowledged on: ${EMPTY_CELL}`)).toBeDefined()
     })
 
     it('reports the document as unavailable when nothing is published', async () => {

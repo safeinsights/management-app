@@ -18,6 +18,9 @@ type CollapseToggleLinkProps = {
     c?: MantineColor
     controls?: string
     withChevron?: boolean
+    /** Off for a toggle whose label already names the state it switches to, which a screen reader
+     * would otherwise read twice ("Hide, expanded"). */
+    withAriaExpanded?: boolean
     size?: MantineSize
 }
 
@@ -33,6 +36,7 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
         c = semanticColor('brand.default'),
         controls,
         withChevron = true,
+        withAriaExpanded = true,
         size = 'sm',
     },
     ref,
@@ -53,7 +57,7 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             onClick={onClick}
             display="inline-flex"
             w="fit-content"
-            aria-expanded={isExpanded}
+            aria-expanded={withAriaExpanded ? isExpanded : undefined}
             aria-controls={controls}
             data-testid={testId}
             ref={ref}

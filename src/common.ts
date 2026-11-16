@@ -3,12 +3,7 @@
 import { type FC, type FocusEvent, type ReactNode, createElement, useState, useMemo, useEffect } from 'react'
 import { z } from 'zod'
 import { zod4Resolver } from 'mantine-form-zod-resolver'
-import {
-    useForm as mantineUseForm,
-    type UseFormInput,
-    type UseFormReturnType,
-    type _TransformValues,
-} from '@mantine/form'
+import { useForm as mantineUseForm, type UseFormInput, type UseFormReturnType } from '@mantine/form'
 import { Button, Flex } from '@mantine/core'
 import { Link, ButtonLink } from './components/links'
 import { InputError } from '@/components/errors'
@@ -21,11 +16,10 @@ const withErrorIcon = (error: unknown) =>
 
 // Project-wide `useForm`, applying `validateInputOnBlur: true` (OTTER-647). Import from here, not
 // `@mantine/form`, or the default is silently bypassed.
-export function useForm<
-    Values extends Record<string, unknown> = Record<string, unknown>,
-    TransformValues extends _TransformValues<Values> = (values: Values) => Values,
->(input: UseFormInput<Values, TransformValues> = {}): UseFormReturnType<Values, TransformValues> {
-    return mantineUseForm<Values, TransformValues>({
+export function useForm<Values extends Record<string, unknown> = Record<string, unknown>, TransformedValues = Values>(
+    input: UseFormInput<Values, TransformedValues> = {},
+): UseFormReturnType<Values, TransformedValues> {
+    return mantineUseForm<Values, TransformedValues>({
         validateInputOnBlur: true,
         ...input,
         // Deliberately after the spread, the one exception to "caller options win": the caller's

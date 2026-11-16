@@ -1,5 +1,5 @@
-import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
-import { Box, Group, Input } from '@mantine/core'
+import { type FC, type FocusEvent, type ReactNode, useContext, useRef } from 'react'
+import { Box, Group, Input, InputWrapperContext } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
 import { ERROR_LINE_MIN_HEIGHT, InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
@@ -53,8 +53,44 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: bool
     return <Box id={fieldErrorId(fieldId)}>{message}</Box>
 }
 
-// Mantine inputs render their own `Input.Wrapper`, whose `aria-describedby` overwrites any
-// hand-passed one, so the association has to be computed by that inner wrapper (OTTER-737).
+// `Input.Wrapper` hands the input (or Radio.Group's role="radiogroup" fieldset) its aria ids through
+// this context, listing only the label, description and error it renders itself, and overwrites a
+// hand-passed `aria-describedby`. Ours render outside the wrapper, so they are set here instead.
+const AriaOverride: FC<{ labelledBy?: string; describedBy?: string; children: ReactNode }> = ({
+    labelledBy,
+    describedBy,
+    children,
+}) => {
+    const ctx = useContext(InputWrapperContext)
+    return (
+        <InputWrapperContext value={{ ...ctx, labelId: labelledBy ?? ctx.labelId, describedBy }}>
+            {children}
+        </InputWrapperContext>
+    )
+}
+
+// `description` is the ids to use, or `true` for the input's own derived id (OTTER-737).
+const DescribedBy: FC<{ hasError: boolean; description?: string | true; children: ReactNode }> = ({
+    hasError,
+    description,
+    children,
+}) => {
+    const id = useContext(InputWrapperContext).inputId
+    if (!id) return children
+    const descriptionIds = description === true ? fieldDescriptionId(id) : description
+    const describedBy = [hasError ? fieldErrorId(id) : null, descriptionIds].filter(Boolean).join(' ') || undefined
+    return <AriaOverride describedBy={describedBy}>{children}</AriaOverride>
+}
+
+// For a Radio.Group whose title and helper text render outside it: `<Radio.Group {...radioGroupAria(…)}>`.
+export const radioGroupAria = (labelledBy: string, describedBy?: string) => ({
+    inputContainer: (children: ReactNode) => (
+        <AriaOverride labelledBy={labelledBy} describedBy={describedBy}>
+            {children}
+        </AriaOverride>
+    ),
+})
+
 // `error` must be a node, not a boolean, or Mantine omits it from `aria-describedby` (OTTER-647).
 export const nativeFieldProps = (
     error: ReactNode,
@@ -65,15 +101,19 @@ export const nativeFieldProps = (
     }: { required?: boolean; description?: ReactNode; describedBy?: string } = {},
 ) => ({
     error,
-    // Truthy only so the inner wrapper folds the description id into `describedBy`; it is
-    // never rendered (see inputWrapperOrder).
-    description: describedBy || description,
-    ...(describedBy ? { descriptionProps: { id: describedBy } } : {}),
     // `aria-required` rather than `required`, to keep native browser validation UI from
     // competing with Mantine's messages.
     'aria-required': required || undefined,
     // Mantine types this prop as mutable, so `as const` would not assign.
     inputWrapperOrder: ['input'] as ('input' | 'error' | 'label' | 'description')[],
+    inputContainer: (children: ReactNode) => (
+        <DescribedBy
+            hasError={!!error && typeof error !== 'boolean'}
+            description={describedBy || !!description || undefined}
+        >
+            {children}
+        </DescribedBy>
+    ),
 })
 
 interface ValidatableForm {

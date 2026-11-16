@@ -6,9 +6,9 @@
 #   --deps      install dependencies into the node_modules volume
 #   --prepare   give the run a fresh copy of the seeded template DB, build the app when its
 #               fingerprint changed, and make sure the standalone server answers on :4100
-#   command     test [playwright args] | ui [playwright args] | session | any other command
+#   command     test [playwright args] | ui [playwright args] | hold | session | any other command
 #
-# test and ui hold a lock for the whole prepare + run, because Playwright empties test-results/e2e
+# test, ui and hold take a lock for the whole prepare + run, because Playwright empties test-results/e2e
 # at the start of every run and a rebuild restarts the server under a running suite.
 
 set -euo pipefail
@@ -227,8 +227,10 @@ fi
 if [ "$deps" = true ]; then install_deps; fi
 
 case $command in
-    test | ui) take_playwright_lock ;;
+    test | ui | hold) take_playwright_lock ;;
 esac
+# The host run ended while this holder waited for the lock. Its stdin carries no data, only EOF.
+if [ "$command" = hold ] && read -r -t 0; then exit 0; fi
 
 if [ "$prepare" = true ]; then
     # A session's server would keep connections and caches of the dropped database.
@@ -246,6 +248,11 @@ case $command in
         shift
         echo $$ >"$UI_PID_FILE"
         exec pnpm exec playwright test --ui-host=0.0.0.0 --ui-port=9323 "$@"
+        ;;
+    hold)
+        # ./bin/docker-e2e --host-run: Playwright runs on the host, so keep the lock until stdin closes.
+        echo '[docker-e2e] lock held for the host run'
+        cat >/dev/null
         ;;
     session)
         # The TTL counts from container start, like the timeout around Postgres and SeaweedFS.

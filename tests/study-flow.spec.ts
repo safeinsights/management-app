@@ -768,12 +768,12 @@ test('Incomplete required fields are flagged when the researcher moves on', asyn
         // is still a real target for the click and the focus jump below.
         await expect(study.datasetsField(page)).toHaveAttribute('placeholder', /^\s*$/)
         await expect(study.datasetsField(page)).toHaveAttribute('data-type', 'visible')
-        await expect(page.getByRole('textbox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
+        await expect(page.getByRole('combobox', { name: 'Principal Investigator' })).toHaveAttribute('placeholder', '')
 
         // Its own required fields still flag on blur (OTTER-647), now with per-field wording.
         await study.datasetsField(page).click()
         await page.keyboard.press('Escape')
-        await page.getByRole('textbox', { name: 'Principal Investigator' }).click()
+        await page.getByRole('combobox', { name: 'Principal Investigator' }).click()
         await expect(page.getByText('Select a dataset of interest before continuing.').first()).toBeVisible()
         await page.keyboard.press('Escape')
         // Leave the field before clicking Submit: its error appearing on blur shifts Submit down

@@ -1,6 +1,6 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, ReactNode } from 'react'
 import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
@@ -100,7 +100,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
         // the submit-time focus jump would find nothing (see focusFirstInvalid).
         <Box id={DECISION_GROUP_ID}>
             {/* No blur validation: the message renders above the options, so raising it on blur
-                would push the navigation row down mid-click. */}
+                would push Submit decision down mid-click. */}
             <Radio.Group
                 value={value ?? ''}
                 onChange={(next) => onChange(next as OutputsDecision)}
@@ -137,6 +137,14 @@ export type OutputsDecisionSectionProps = {
     decisionError: string | undefined
     /** False when the run produced no artifacts, so sharing them is not an option (OTTER-524). */
     canShareOutputs?: boolean
+    /** The form's submit, shown in the card under the options (OTTER-1062). */
+    submitAction?: ReactNode
+}
+
+// A Group, because a Stack child stretches to the full card width.
+const SubmitRow: FC<{ action?: ReactNode }> = ({ action }) => {
+    if (!action) return null
+    return <Group>{action}</Group>
 }
 
 export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
@@ -150,6 +158,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     onSelect,
     decisionError,
     canShareOutputs = true,
+    submitAction,
 }) => {
     const websocketProvider = useYjsWebsocket()
     // Shared with the decision hook, which broadcasts the submission on this document, and with the
@@ -196,6 +205,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     labName={labName}
                     canShareOutputs={canShareOutputs}
                 />
+                <SubmitRow action={submitAction} />
             </Stack>
         </Paper>
     )
