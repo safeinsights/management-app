@@ -10,7 +10,7 @@ import { MANTINE_VARIANT } from '@/components/study/step-navigation'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { SUBMIT_CODE_ERROR_ID } from '@/components/study/submit-code-error'
 import type { NavAction } from '@/lib/study-screen'
-import { resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
+import { CODE_MODAL_PLACEMENT, resubmitCodeModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { useProposalSubmitAttempt } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import { RESUBMISSION_NOTE_FIELD_ID, RESUBMIT_CODE_BUTTON_ID } from '@/schema/resubmission-note'
 import { useEditCodeResubmit } from '@/contexts/edit-code-resubmit'
@@ -194,6 +194,7 @@ export const EditStudyCodeFooter: FC<EditStudyCodeFooterProps> = ({
                 onConfirm={handleConfirmResubmit}
                 isSubmitting={isSubmitting}
                 {...resubmitCodeModalCopy(orgName)}
+                {...CODE_MODAL_PLACEMENT}
             />
         </>
     )
