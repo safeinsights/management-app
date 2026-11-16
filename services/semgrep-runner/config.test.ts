@@ -36,6 +36,13 @@ describe('parseRunnerConfig', () => {
             /SEMGREP_RULES_BUCKET_OWNER/,
         )
         expect(() => parseRunnerConfig({ ...env, SEMGREP_RULES_BUCKET_OWNER: '4327' })).toThrow()
+        expect(() =>
+            parseRunnerConfig({
+                ...env,
+                SEMGREP_RULES_BUCKET_OWNER: undefined,
+                S3_ENDPOINT: 'https://s3-fips.us-east-1.amazonaws.com',
+            }),
+        ).toThrow(/SEMGREP_RULES_BUCKET_OWNER/)
     })
 
     it('skips the owner check against a local S3 endpoint', () => {

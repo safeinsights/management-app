@@ -6,6 +6,10 @@ import { RULESET_ENVS, type RulesetEnv } from './protocol.ts'
 // its one reader of process.env: its settings, and the environment its Semgrep processes inherit.
 export const processEnv = (): NodeJS.ProcessEnv => process.env
 
+function isLocalEndpoint(endpoint?: string): boolean {
+    return Boolean(endpoint) && !new URL(endpoint!).hostname.endsWith('.amazonaws.com')
+}
+
 const configSchema = z
     .object({
         SEMGREP_RULES_BUCKET: z.string().min(1),
@@ -17,8 +21,8 @@ const configSchema = z
         S3_ENDPOINT: z.url().optional(),
     })
     // A local S3 stand-in has no account owner; real AWS always gets the owner check.
-    .refine((env) => env.S3_ENDPOINT || env.SEMGREP_RULES_BUCKET_OWNER, {
-        message: 'SEMGREP_RULES_BUCKET_OWNER is required without S3_ENDPOINT',
+    .refine((env) => isLocalEndpoint(env.S3_ENDPOINT) || env.SEMGREP_RULES_BUCKET_OWNER, {
+        message: 'SEMGREP_RULES_BUCKET_OWNER is required unless S3_ENDPOINT is a local stand-in',
         path: ['SEMGREP_RULES_BUCKET_OWNER'],
     })
 
@@ -32,11 +36,6 @@ export type RulesetStorage = {
 
 export type RunnerConfig = Omit<RulesetStorage, 's3'> & { s3Endpoint?: string; forcePathStyle: boolean }
 
-// AWS S3, also at a custom AWS endpoint, uses the default virtual-hosted style; only a local stand-in needs path style.
-function needsPathStyle(endpoint?: string): boolean {
-    return Boolean(endpoint) && !new URL(endpoint!).hostname.endsWith('.amazonaws.com')
-}
-
 export function parseRunnerConfig(env: Record<string, string | undefined> = processEnv()): RunnerConfig {
     const config = configSchema.parse({ ...env, S3_ENDPOINT: env.S3_ENDPOINT || undefined })
     return {
@@ -44,6 +43,7 @@ export function parseRunnerConfig(env: Record<string, string | undefined> = proc
         rulesetEnv: config.SEMGREP_RULESET_ENV,
         rulesBucketOwner: config.SEMGREP_RULES_BUCKET_OWNER,
         s3Endpoint: config.S3_ENDPOINT,
-        forcePathStyle: needsPathStyle(config.S3_ENDPOINT),
+        // AWS S3, also at a custom AWS endpoint, uses the default virtual-hosted style; only a local stand-in needs path style.
+        forcePathStyle: isLocalEndpoint(config.S3_ENDPOINT),
     }
 }
