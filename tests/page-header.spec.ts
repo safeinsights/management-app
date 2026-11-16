@@ -57,7 +57,9 @@ const expectHeaderSpacing = async (page: Page, url: string) => {
     await expect(async () => {
         const { aboveEyebrow, belowHeader } = await pageEyebrow(page).evaluate((eyebrow) => {
             const main = eyebrow.closest('main')
-            const header = eyebrow.parentElement
+            // Set up study wraps the header to cap its width, so climb to the block the first section follows.
+            let header = eyebrow.parentElement
+            while (header && !header.nextElementSibling) header = header.parentElement
             const firstSection = header?.nextElementSibling
             if (!main || !header || !firstSection) return { aboveEyebrow: NaN, belowHeader: NaN }
 
@@ -84,9 +86,10 @@ test.describe('page header spacing', () => {
         const { studyId } = await seedProposalPendingReview(studyFeatures.uniqueTitle('header-spacing'))
 
         await expectHeaderSpacing(page, Routes.studyReview({ orgSlug: ENCLAVE_SLUG, studyId }))
-        await withRole(browser, 'researcher', (researcherPage) =>
-            expectHeaderSpacing(researcherPage, Routes.studySubmitted({ orgSlug: LAB_SLUG, studyId })),
-        )
+        await withRole(browser, 'researcher', async (researcherPage) => {
+            await expectHeaderSpacing(researcherPage, Routes.studyRequest({ orgSlug: LAB_SLUG }))
+            await expectHeaderSpacing(researcherPage, Routes.studySubmitted({ orgSlug: LAB_SLUG, studyId }))
+        })
     })
 
     test('sits 40px from the top and 32px above the first card on the dashboards', async ({ page }) => {

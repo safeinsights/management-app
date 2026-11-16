@@ -13,6 +13,7 @@ import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
 import { PageHeader } from '@/components/page-header'
 import { SET_UP_STUDY_STEP } from '@/components/study/proposal-step-header'
+import { StudyPageLayout } from '@/components/study/study-page-layout'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
@@ -128,11 +129,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
 
     return (
         // Figma's content container and page title widths (OTTER-880); the padding sits outside the cap.
-        <Box p="xl">
-            <Stack gap="xl" maw={1036}>
+        <StudyPageLayout
+            header={
                 <Box maw={760}>
                     <PageHeader eyebrow={eyebrow} title={headingTitle} step={SET_UP_STUDY_STEP} />
                 </Box>
+            }
+        >
+            <Stack gap="xl" maw={1036}>
                 <SetupForm
                     form={form}
                     titleValue={titleValue}
@@ -167,6 +171,6 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({
                     yOffset="25dvh"
                 />
             </Stack>
-        </Box>
+        </StudyPageLayout>
     )
 }
