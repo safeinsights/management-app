@@ -57,7 +57,7 @@ type OutputsFilesSectionProps = {
     onView: (row: OutputFileRowData) => void
     onDownload: (row: OutputFileRowData) => void
     onDownloadAll: () => void
-    /** Embedded sits inside a code run history row, which already draws the card and divider. */
+    /** Embedded sits inside a code run card or history row, which already draws the card and divider. */
     variant?: 'card' | 'embedded'
     /** Set where this section replaces a key form the user just submitted. */
     autoFocusTitle?: boolean

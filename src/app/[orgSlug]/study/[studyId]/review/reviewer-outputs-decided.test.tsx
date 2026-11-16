@@ -12,6 +12,7 @@ import {
     renderWithProviders,
     requireRawState,
     screen,
+    within,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
@@ -159,7 +160,7 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByText('No decision found')).toBeInTheDocument()
     })
 
-    it('renders the Feedback and notes section with reviewer feedback entries', async () => {
+    it('shows the reviewer feedback inside the Code run card instead of a Feedback and notes card', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await db
             .insertInto('studyReviewComment')
@@ -177,8 +178,46 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
-        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByTestId('latest-run-feedback')).toHaveTextContent('Reviewer feedback (v1.0)')
+    })
+
+    // Earlier runs keep their feedback in the code run history, so it must not show twice.
+    it('shows only the latest run feedback in the Code run card', async () => {
+        const { org, user, study, job, raw } = await setupDecided({
+            priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }],
+        })
+        const priorJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .where('id', '!=', job.id)
+            .executeTakeFirstOrThrow()
+        const decision = (studyJobId: string, round: number, text: string) => ({
+            studyId: study.id,
+            studyJobId,
+            authorId: user.id,
+            reviewKind: 'RESULTS' as const,
+            entryType: 'DECISION' as const,
+            decision: 'APPROVE' as const,
+            body: JSON.parse(lexicalJson(text)),
+            round,
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values([
+                decision(priorJob.id, 1, 'Run 1 outputs look clean.'),
+                decision(job.id, 2, 'Run 2 outputs are cleared to share.'),
+            ])
+            .execute()
+
+        await renderView(study, raw, org.slug)
+
+        const feedback = within(screen.getByTestId('code-run-card')).getByTestId('latest-run-feedback')
+        expect(await within(feedback).findByText('Run 2 outputs are cleared to share.')).toBeInTheDocument()
+        expect(screen.queryByText('Run 1 outputs look clean.')).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
     })
 
     // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
@@ -230,7 +269,7 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        const entry = screen.getByTestId('feedback-entries')
+        const entry = screen.getByTestId('latest-run-feedback')
         expect(entry).toHaveTextContent(user.fullName)
         expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
         expect(screen.getByTestId('status-alert')).toHaveTextContent(`Outputs and feedback shared by ${user.fullName}`)
@@ -278,11 +317,12 @@ describe('ReviewerOutputsDecided', () => {
         expect(alert).not.toHaveTextContent(/shared by /)
     })
 
-    it('hides the Feedback and notes section when there are no entries', async () => {
+    it('says no feedback was shared when the decision has no comment', async () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
 
         expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+        expect(screen.getByTestId('latest-run-feedback')).toHaveTextContent('No feedback was shared for this run.')
     })
 
     it('renders the code run key section with the view-again copy', async () => {
@@ -312,18 +352,37 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     // OTTER-524: an errored run can be closed out with nothing to decrypt, so asking for a key
     // would pose a demand no key can satisfy.
-    it('omits the security-key section when the decided run left nothing to decrypt', async () => {
-        const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
+    // The card stays, so the feedback is not hidden together with the key form.
+    it('omits the security-key section but keeps the feedback when the decided run left nothing to decrypt', async () => {
+        const { org, user, study, job, raw } = await setupDecided({
+            jobStatus: 'JOB-ERRORED',
+            filesDecision: 'FILES-REJECTED',
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('The script timed out while loading data.')),
+                round: 1,
+            })
+            .execute()
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /^code run /i })).not.toBeInTheDocument()
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+        expect(await within(card).findByText('The script timed out while loading data.')).toBeInTheDocument()
     })
 
     it('renders Previous step as a subtle-variant link', async () => {

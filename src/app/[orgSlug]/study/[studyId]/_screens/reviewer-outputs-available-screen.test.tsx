@@ -122,7 +122,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
             ),
         ).toBeInTheDocument()
         expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
         expect(screen.queryByTestId('outputs-decision-section')).toBeNull()
         expect(screen.queryByTestId('outputs-submit-decision')).toBeNull()
     })
@@ -142,7 +142,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         fireEvent.click(screen.getByRole('button', { name: 'View files' }))
 
         expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
-        expect(screen.queryByTestId('outputs-files-section')).toBeNull()
+        expect(screen.queryByTestId('code-run-outputs')).toBeNull()
     })
 
     it('links Previous step to the read-only code page for this study', async () => {
@@ -188,7 +188,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         await doRender({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and
         // poisons every later test, so wait for the activity query to settle.
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
@@ -199,9 +199,28 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
 
         expect(screen.queryByRole('heading', { name: /security key/i })).toBeNull()
-        expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument()
+        expect(latestRunOutputs()).toBeInTheDocument()
         expect(screen.getByTestId('outputs-decision-section')).toBeInTheDocument()
         expect(screen.getByTestId('outputs-submit-decision')).toBeInTheDocument()
+    })
+
+    // OTTER-1062: the run's card keeps its header once the key form gives way to the outputs.
+    it('keeps the Code run header above the decrypted outputs', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
+        expect(within(card).getByTestId('code-run-outputs')).toHaveTextContent('Output files')
+    })
+
+    it('puts Submit decision in the Decision card and leaves only Previous step in the navigation', async () => {
+        await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+
+        const decision = screen.getByTestId('outputs-decision-section')
+        expect(within(decision).getByTestId('outputs-submit-decision')).toHaveTextContent('Submit decision')
+        const nav = screen.getByTestId('step-navigation')
+        expect(within(nav).queryByTestId('outputs-submit-decision')).toBeNull()
+        expect(within(nav).getByRole('link', { name: /Previous step/ })).toBeInTheDocument()
     })
 
     it('replaces the available banner with the review-before-sharing warning', async () => {
@@ -279,7 +298,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(screen.queryByTestId('code-run-history')).toBeNull()
     })
 
-    it('sits below the key card, then stays open below the outputs once they are decrypted', async () => {
+    it('sits below the key card, then stays open, opened row included, below the Decision card once the outputs are decrypted', async () => {
         const { org, study, job, raw } = await setupAvailable('RUN-COMPLETE', [
             { ranAt: dayjs().subtract(3, 'day').toDate() },
             { ranAt: dayjs().subtract(6, 'day').toDate(), outcome: 'JOB-ERRORED', decision: 'FILES-REJECTED' },
@@ -295,22 +314,31 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
         expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
         fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+        const [row] = await within(history).findAllByRole('button', { name: /^Code run / })
+        fireEvent.click(row)
+        expect(row).toHaveAttribute('aria-expanded', 'true')
 
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
 
         // The table takes the focus the key form held, and one polite message covers every run.
-        expect(within(screen.getByTestId('outputs-files-section')).getByText('Output files')).toHaveFocus()
+        expect(within(latestRunOutputs()).getByText('Output files')).toHaveFocus()
         expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
 
         // The same node, still open: decrypting must not remount the history.
         expect(screen.getByTestId('code-run-history')).toBe(history)
         expect(within(history).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
-        expect(isBefore(screen.getByTestId('outputs-files-section'), history)).toBe(true)
-        expect(isBefore(history, screen.getByTestId('outputs-decision-section'))).toBe(true)
+        expect(row).toHaveAttribute('aria-expanded', 'true')
+        // OTTER-1062: Code run card, Decision card, history, then Previous step.
+        expect(isBefore(screen.getByTestId('code-run-card'), screen.getByTestId('outputs-decision-section'))).toBe(true)
+        expect(isBefore(screen.getByTestId('outputs-decision-section'), history)).toBe(true)
+        expect(isBefore(history, screen.getByTestId('step-navigation'))).toBe(true)
     })
 })
+
+// History rows render their own outputs section, so look inside the latest run's card.
+const latestRunOutputs = () => within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')
 
 const isBefore = (first: Element, second: Element) =>
     !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -347,7 +375,7 @@ describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
         await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
         await unlock()
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 
         expect(screen.getByRole('button', { name: 'latest.csv' })).toBeInTheDocument()
