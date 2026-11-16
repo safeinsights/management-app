@@ -24,6 +24,10 @@ export const FIELD_TITLES = {
 export const isLexicalOverLimit = (value: string, maxCharacters: number) =>
     countCharactersFromLexical(value) > maxCharacters
 
+// The one plural title, so its error reads "exceed… Shorten them".
+export const proposalOverLimitError = (fieldTitle: string, maxCharacters: number) =>
+    overCharacterLimitError(fieldTitle, maxCharacters, { plural: fieldTitle === FIELD_TITLES.additionalNotes })
+
 // superRefine rather than chained refines so a blank field reports only that it is empty.
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {
@@ -34,7 +38,7 @@ const lexicalField = (fieldTitle: string, requiredError: string | null, maxChara
         if (isLexicalOverLimit(val, maxCharacters)) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: overCharacterLimitError(fieldTitle, maxCharacters),
+                message: proposalOverLimitError(fieldTitle, maxCharacters),
             })
         }
     })

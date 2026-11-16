@@ -10,10 +10,10 @@ import { CharacterCounter } from '@/components/character-counter'
 import { Editor } from '@/components/editable-text/editor'
 import { proposalTextFieldDocName, type ProposalTextFieldKey } from '@/lib/collaboration-documents'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
-import { liveLimitError, overCharacterLimitError } from '@/lib/field-limits'
+import { liveLimitError } from '@/lib/field-limits'
 import { type EditableTextField } from './field-config'
 import { textFieldInputId } from './field-ids'
-import { isLexicalOverLimit, type ProposalFormValues } from './schema'
+import { isLexicalOverLimit, proposalOverLimitError, type ProposalFormValues } from './schema'
 
 type Props = {
     studyId: string
@@ -114,7 +114,7 @@ export const ProposalTextFieldEntry: FC<{
     const isOverLimit = useMemo(() => isLexicalOverLimit(value, field.maxCharacters), [value, field.maxCharacters])
     const error = liveLimitError(
         isOverLimit,
-        overCharacterLimitError(field.label, field.maxCharacters),
+        proposalOverLimitError(field.label, field.maxCharacters),
         form.errors[field.id],
     )
 
