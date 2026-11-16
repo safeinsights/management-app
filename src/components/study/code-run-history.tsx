@@ -14,11 +14,10 @@ import {
     UnstyledButton,
 } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
-import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretDownIcon, CaretRightIcon, LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
-import { ToggleChevron } from '@/components/icons'
 import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { CodeRunTitle } from '@/components/study/code-run-title'
@@ -73,6 +72,9 @@ async function decryptPriorRun(
     }
 }
 
+// The reviewer chose not to share this run's outputs, so the history never fetches or shows them.
+const isFeedbackOnly = (run: PriorCodeRun) => run.statusChanges.some((change) => change.status === 'FILES-REJECTED')
+
 // One message for the latest run and every earlier run it tried, rather than one per row.
 export function decryptedSummary(results: RunOutputs[]): string {
     const count = (...statuses: RunOutputs['status'][]) =>
@@ -110,8 +112,9 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
         byRun,
         announcement,
         decryptWith: (privateKey: string) => {
-            setByRun(Object.fromEntries(runs.map((run) => [run.id, { status: 'decrypting' } as const])))
-            const decrypts = runs.map((run) =>
+            const sharedRuns = runs.filter((run) => !isFeedbackOnly(run))
+            setByRun(Object.fromEntries(sharedRuns.map((run) => [run.id, { status: 'decrypting' } as const])))
+            const decrypts = sharedRuns.map((run) =>
                 decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => {
                     setRun(run.id, outputs)
                     return outputs
@@ -166,15 +169,22 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
     const [focusRunId, setFocusRunId] = useState<string | null>(null)
     const toggleRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
+    const titleRef = useRef<HTMLHeadingElement>(null)
     const movesFocus = useRef(false)
+    const reduceMotion = useReducedMotion() ?? false
 
-    // The rows View all runs reveals only exist after the render it causes.
+    // The rows View all runs reveals only exist after the render it causes. View less shortens the
+    // list under the reviewer, so the section title is scrolled back into view after focus moves.
     useEffect(() => {
         if (!movesFocus.current) return
         movesFocus.current = false
-        if (showAll) toggleRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
-        else showAllRef.current?.focus()
-    }, [showAll, runs])
+        if (showAll) {
+            toggleRefs.current.get(runs[VISIBLE_RUNS]?.id)?.focus()
+            return
+        }
+        showAllRef.current?.focus()
+        revealRow(titleRef.current, false, reduceMotion)
+    }, [showAll, runs, reduceMotion])
 
     return {
         isOpen,
@@ -196,6 +206,7 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
         setKeyDraft: (id: string, value: string) => setKeyDrafts((current) => ({ ...current, [id]: value })),
         expandedIds,
         showAllRef,
+        titleRef,
         // Focus lands on one row, which says nothing about how many runs the list now holds.
         toggleShowAll: () => {
             movesFocus.current = true
@@ -346,9 +357,10 @@ const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const RunOutputsSection: FC<RowOutputsProps> = (props) => {
+const RunOutputsSection: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     const { run, outputs, isLatestDecrypted, isFocusTarget } = props
     const status = outputs?.status
+    if (!isVisible) return null
 
     return (
         <Stack gap="md">
@@ -377,7 +389,10 @@ const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...p
     return (
         <Stack gap="lg" pt="lg" data-testid="code-run-history-row-body">
             <Divider />
-            <RunOutputsSection {...props} />
+            <RunOutputsMessage isVisible={isFeedbackOnly(props.run)}>
+                Output files were not shared for this run.
+            </RunOutputsMessage>
+            <RunOutputsSection {...props} isVisible={!isFeedbackOnly(props.run)} />
             <CodeRunFeedback feedback={props.run.feedback} />
         </Stack>
     )
@@ -400,6 +415,12 @@ const RunBadges: FC<{ id: string; labels: string[] }> = ({ id, labels }) => (
         ))}
     </Group>
 )
+
+// Points down while open; the shared ToggleChevron turns up, which suits the section toggles.
+const RowChevron: FC<{ isExpanded: boolean }> = ({ isExpanded }) => {
+    const Icon = isExpanded ? CaretDownIcon : CaretRightIcon
+    return <Icon size={12} weight="bold" data-testid={isExpanded ? 'chevron-down' : 'chevron-right'} />
+}
 
 // Accordion pattern: the heading wraps a button that spans the whole header. Mantine's Accordion
 // is not used because its panel always carries role="region".
@@ -447,7 +468,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                             </span>
                             <RunBadges id={badgesId} labels={codeRunBadges(run.statusChanges)} />
                         </Group>
-                        <ToggleChevron isExpanded={isExpanded} />
+                        <RowChevron isExpanded={isExpanded} />
                     </Group>
                 </UnstyledButton>
             </Title>
@@ -508,7 +529,7 @@ const NO_OUTPUTS: PriorRunOutputs['byRun'] = {}
 // `runs` never holds the latest run, which has its own card above; with no earlier runs there is
 // no history to show.
 export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLatestDecrypted = false }) => {
-    const history = useCodeRunHistory(runs)
+    const { titleRef, ...history } = useCodeRunHistory(runs)
     const listId = useId()
 
     // A submitted key has done its job, so its text is not held any longer than the input needed it.
@@ -523,7 +544,7 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
     return (
         <Paper withBorder p="lg" bg={semanticColor('surface.page')} data-testid="code-run-history">
             <Group justify="space-between" wrap="nowrap">
-                <Title order={3} fz="md" fw={fontWeight.regular} c={semanticColor('text.secondary')}>
+                <Title ref={titleRef} order={3} fz="md" fw={fontWeight.regular} c={semanticColor('text.secondary')}>
                     Code run history ({runs.length})
                 </Title>
                 <CollapseToggleLink
