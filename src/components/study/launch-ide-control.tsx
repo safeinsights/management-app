@@ -15,7 +15,7 @@ const ENABLED_HOVER_CARD =
 
 const UNAVAILABLE_TITLE = 'IDE unavailable'
 const unavailableBody = (ideOwnerName: string | null) =>
-    `${ideOwnerName ?? 'Another researcher'} is using the IDE for this study. Only the first researcher to launch it can use it. The IDE will not be available to you for this study.`
+    `${ideOwnerName ?? 'Another researcher'} is using the IDE for this study. Only the first researcher to launch it can use it, so the IDE will not be available to you for this study.`
 
 /**
  * Shown under the button only while the IDE is unclaimed, which is the one moment the warning is
