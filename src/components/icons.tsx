@@ -21,6 +21,8 @@ export const InfoIcon = forwardRef<HTMLButtonElement, InfoIconProps>(({ size, ..
 })
 InfoIcon.displayName = 'InfoIcon'
 
-export function ToggleChevron({ isExpanded }: { isExpanded: boolean }) {
-    return <CaretRightIcon size={12} weight="bold" className="rotatable" data-rotated={isExpanded || undefined} />
+export function ToggleChevron({ isExpanded, openTo = 'up' }: { isExpanded: boolean; openTo?: 'up' | 'down' }) {
+    return (
+        <CaretRightIcon size={12} weight="bold" className="rotatable" data-rotated={isExpanded ? openTo : undefined} />
+    )
 }

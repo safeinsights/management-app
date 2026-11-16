@@ -193,7 +193,7 @@ describe('CodeRunHistory', () => {
         await waitFor(() => expect(screen.queryAllByRole('button', { name: /^Code run / })).toHaveLength(0))
     })
 
-    it('expands rows independently and turns each caret', async () => {
+    it('expands rows independently and points each open caret down', async () => {
         renderWithProviders(<CodeRunHistory runs={RUNS} />)
         await openHistory()
 
@@ -203,7 +203,8 @@ describe('CodeRunHistory', () => {
         expect(rowToggle('Mar 05, 2026')).toHaveAttribute('aria-expanded', 'true')
         expect(rowToggle('Feb 10, 2026')).toHaveAttribute('aria-expanded', 'false')
         expect(rowToggle('Jan 20, 2026')).toHaveAttribute('aria-expanded', 'true')
-        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated]')).not.toBeNull()
+        expect(rowToggle('Mar 05, 2026').querySelector('[data-rotated="down"]')).not.toBeNull()
+        expect(rowToggle('Feb 10, 2026').querySelector('[data-rotated]')).toBeNull()
 
         await userEvent.click(rowToggle('Mar 05, 2026'))
 
@@ -655,6 +656,36 @@ describe('CodeRunHistory expanded row', () => {
         expect(within(missingRow).queryByText(WRONG_KEY_ALERT)).toBeNull()
     })
 
+    it('never decrypts or shows a Feedback only run’s outputs, before or after the latest run unlocks', async () => {
+        const {
+            study,
+            latest,
+            priorJobs: [feedbackOnly],
+        } = await setupLatest((userId) => [
+            { ranAt: daysAgo(3), decision: 'FILES-REJECTED', feedback: { authorId: userId, text: 'kept back' } },
+        ])
+        await seedEncryptedArtifact(feedbackOnly.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'withheld.csv', content: 'd\n4' }],
+        })
+        await renderHistoryFor(study.id, latest)
+        await openHistory()
+        await expandRow(rows()[0])
+        const row = rows()[0]
+
+        expect(within(row).getByText('Output files were not shared for this run.')).toBeVisible()
+        expect(within(row).queryByText(LOCKED_MESSAGE)).toBeNull()
+        expect(within(row).getByText('kept back')).toBeVisible()
+
+        await unlockLatest()
+
+        expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
+        expect(within(row).getByText('Output files were not shared for this run.')).toBeVisible()
+        expect(within(row).queryByText('withheld.csv')).toBeNull()
+        expect(within(row).queryByPlaceholderText('Enter your security key')).toBeNull()
+        expect(within(row).queryByLabelText('Decrypting outputs')).toBeNull()
+    })
+
     it('always shows a Reviewer feedback section, saying when a run has none', async () => {
         renderWithProviders(<CodeRunHistory runs={[run('quiet', '2026-03-05T12:00:00Z')]} />)
         await openHistory()
@@ -748,6 +779,21 @@ describe('CodeRunHistory row scrolling', () => {
         await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: -124, behavior: 'smooth' })
+    })
+
+    it('View less scrolls the history title back into view when the shorter list leaves it above', async () => {
+        stubReducedMotion(false)
+        const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
+        renderWithProviders(<CodeRunHistory runs={runsOf(5)} />)
+        await openHistory()
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        const title = screen.getByRole('heading', { name: 'Code run history (5)' })
+        title.getBoundingClientRect = () => ({ top: -278, bottom: -250 }) as DOMRect
+
+        await userEvent.click(screen.getByRole('button', { name: 'View less' }))
+
+        expect(scrollBy).toHaveBeenCalledWith({ top: -342, behavior: 'smooth' })
+        expect(screen.getByRole('button', { name: 'View all runs' })).toHaveFocus()
     })
 
     it('jumps instead of animating when reduced motion is preferred', async () => {
