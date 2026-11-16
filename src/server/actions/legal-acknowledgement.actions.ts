@@ -7,7 +7,10 @@ import {
     type StudyAgreementStatus,
     type GlobalLegalDocument,
     type PendingAcknowledgement,
+    type PendingGlobalAcknowledgement,
 } from '@/schema/legal-document'
+import type { DBExecutor } from '@/database'
+import type { UserSession } from '@/lib/types'
 import { bodyForVersion } from '@/server/legal-document'
 import { studyAgreementStatusFor } from '@/server/study-agreement'
 import { Action, ActionFailure } from './action'
@@ -40,49 +43,60 @@ export const acknowledgeLegalDocumentAction = new Action('acknowledgeLegalDocume
         return { acknowledged: true }
     })
 
-// The next group the signed-in user still owes, against the versions in force (as the SI-admin audit
-// reports). Outstanding tos and pn come together; a ropa/dopa comes alone, the next arriving on the
-// refetch that acknowledging triggers.
+// The versions in force (as the SI-admin audit reports) the user has not acknowledged, in owed order.
+const outstandingVersions = async (db: DBExecutor, session: UserSession) => {
+    const owed = await latestOwedVersions(db, session)
+    if (!owed) return []
+
+    const acknowledged = await db
+        .selectFrom('legalDocumentAcknowledgement')
+        .innerJoin(
+            'legalDocumentVersion',
+            'legalDocumentVersion.id',
+            'legalDocumentAcknowledgement.legalDocumentVersionId',
+        )
+        .select(['legalDocumentVersion.legalDocumentId', 'legalDocumentVersion.id as versionId'])
+        .where('legalDocumentAcknowledgement.userId', '=', session.user.id)
+        .where(
+            'legalDocumentVersion.legalDocumentId',
+            'in',
+            owed.map((version) => version.legalDocumentId),
+        )
+        .execute()
+
+    const acknowledgedVersionIds = new Set(acknowledged.map((ack) => ack.versionId))
+    // Separates "has been updated" from "is now available" for the gate copy.
+    const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
+
+    return owed
+        .filter((version) => !acknowledgedVersionIds.has(version.versionId))
+        .map((version) => ({ ...version, isUpdate: acknowledgedDocumentIds.has(version.legalDocumentId) }))
+}
+
+const globalAcknowledgements = (outstanding: Awaited<ReturnType<typeof outstandingVersions>>) =>
+    outstanding.flatMap(({ type, versionId, isUpdate }): PendingGlobalAcknowledgement[] =>
+        isGlobalLegalDocumentType(type) ? [{ type, versionId, isUpdate }] : [],
+    )
+
+// The tos/pn the signed-in user still owes, which the full-page step after login asks about.
+export const fetchPendingGlobalAcknowledgementsAction = new Action('fetchPendingGlobalAcknowledgementsAction')
+    .middleware(globalDocumentScope)
+    .requireAbilityTo('acknowledge', 'LegalDocument')
+    .handler(async ({ db, session }) => globalAcknowledgements(await outstandingVersions(db, session)))
+
+// The next group the signed-in user still owes. Outstanding tos and pn come together; a ropa/dopa
+// comes alone, the next arriving on the refetch that acknowledging triggers.
 export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextPendingLegalAcknowledgementAction')
     .middleware(globalDocumentScope)
     .requireAbilityTo('acknowledge', 'LegalDocument')
     .handler(async ({ db, session }): Promise<PendingAcknowledgement[]> => {
-        const owed = await latestOwedVersions(db, session)
-        if (!owed) return []
+        const outstanding = await outstandingVersions(db, session)
 
-        const acknowledged = await db
-            .selectFrom('legalDocumentAcknowledgement')
-            .innerJoin(
-                'legalDocumentVersion',
-                'legalDocumentVersion.id',
-                'legalDocumentAcknowledgement.legalDocumentVersionId',
-            )
-            .select(['legalDocumentVersion.legalDocumentId', 'legalDocumentVersion.id as versionId'])
-            .where('legalDocumentAcknowledgement.userId', '=', session.user.id)
-            .where(
-                'legalDocumentVersion.legalDocumentId',
-                'in',
-                owed.map((version) => version.legalDocumentId),
-            )
-            .execute()
-
-        const acknowledgedVersionIds = new Set(acknowledged.map((ack) => ack.versionId))
-        // Separates "has been updated" from "is now available" for the modal copy.
-        const acknowledgedDocumentIds = new Set(acknowledged.map((ack) => ack.legalDocumentId))
-        const isUpdate = (version: { legalDocumentId: string }) => acknowledgedDocumentIds.has(version.legalDocumentId)
-
-        // owed is ordered, so the first outstanding one decides which group to ask about.
-        const outstanding = owed.filter((version) => !acknowledgedVersionIds.has(version.versionId))
+        // outstanding is ordered, so the first one decides which group to ask about.
         const [next] = outstanding
         if (!next) return []
 
-        if (isGlobalLegalDocumentType(next.type)) {
-            return outstanding.flatMap((version) =>
-                isGlobalLegalDocumentType(version.type)
-                    ? [{ type: version.type, versionId: version.versionId, isUpdate: isUpdate(version) }]
-                    : [],
-            )
-        }
+        if (isGlobalLegalDocumentType(next.type)) return globalAcknowledgements(outstanding)
 
         // Only ropa/dopa carry an org. Looked up for the returned document alone.
         const orgName = next.orgId
@@ -94,7 +108,7 @@ export const fetchNextPendingLegalAcknowledgementAction = new Action('fetchNextP
             {
                 type: next.type,
                 versionId: next.versionId,
-                isUpdate: isUpdate(next),
+                isUpdate: next.isUpdate,
                 orgName,
                 ...(await bodyForVersion({ type: next.type, filePath: next.filePath, fileName: next.fileName })),
             },
