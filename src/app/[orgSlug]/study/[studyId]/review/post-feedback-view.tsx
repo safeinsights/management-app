@@ -119,7 +119,6 @@ export function PostFeedbackView({
         />
     )
     const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
-    const feedbackBeforeDetails = isCode && reviewVersion > 1
 
     return (
         <Box bg={semanticColor('surface.page')}>
@@ -134,9 +133,7 @@ export function PostFeedbackView({
                     stepLabel={stepLabel}
                     heading={heading}
                     banner={banner}
-                >
-                    <FeedbackAndNotesSection isVisible={feedbackBeforeDetails} entries={entries} alwaysExpandLatest />
-                </CollapsibleSubmittedCodeSection>
+                />
                 <ProposalSection
                     isVisible={!isCode}
                     study={study}
@@ -155,11 +152,7 @@ export function PostFeedbackView({
                         </Stack>
                     }
                 />
-                <FeedbackAndNotesSection
-                    isVisible={!feedbackBeforeDetails}
-                    entries={entries}
-                    alwaysExpandLatest={isCode}
-                />
+                <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <StepNavigation nav={nav} />
             </Stack>
         </Box>

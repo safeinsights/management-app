@@ -225,7 +225,7 @@ describe('CodeReview', () => {
             expect(section).toHaveTextContent('Debshilla Basu Mallick')
         })
 
-        it('positions Feedback and notes between STEP 2 and Submission details', async () => {
+        it('positions Feedback and notes between Submission details and Code evaluation', async () => {
             renderWithProviders(
                 await CodeReview({
                     orgSlug: ORG_SLUG,
@@ -239,8 +239,8 @@ describe('CodeReview', () => {
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
             const evaluation = screen.getByTestId('code-evaluation-section')
-            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(stepHeader.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
             expect(feedback.compareDocumentPosition(evaluation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
