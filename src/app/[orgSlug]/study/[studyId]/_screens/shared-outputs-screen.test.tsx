@@ -781,6 +781,11 @@ describe('SharedOutputsScreen code run history', () => {
 
         const rowKey = await within(earlier).findByRole('textbox', { name: /^Security key for Code run/ })
         expect(within(earlier).queryByText('Enter security key above to decrypt and review output files.')).toBeNull()
+        expect(
+            within(earlier).getByText(
+                'This run’s outputs were encrypted with your previous security key. Enter that key to view them.',
+            ),
+        ).toBeVisible()
         fireEvent.change(rowKey, { target: { value: oldKey.privateKeyString } })
         fireEvent.click(within(earlier).getByRole('button', { name: 'View files' }))
         expect(await within(earlier).findByRole('button', { name: 'earlier.csv' })).toBeInTheDocument()

@@ -372,8 +372,7 @@ const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
-    if (!isVisible) return null
+const WrongKeyAlert: FC<{ children: string }> = ({ children }) => {
     return (
         // Static on purpose: the user opened this row, so nothing needs announcing. Mantine's Alert
         // would otherwise be role="alert", which a screen reader reads out as soon as it appears.
@@ -568,7 +567,7 @@ const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, 
     if (!isVisible) return null
     return (
         <Stack gap="md">
-            <WrongKeyAlert isVisible={props.outputs?.status === 'wrong-key'}>
+            <WrongKeyAlert>
                 This run’s outputs were encrypted with your previous security key. Enter that key to view them.
             </WrongKeyAlert>
             <ReviewerRunKeyFields {...props} isVisible={props.role === 'reviewer'} />

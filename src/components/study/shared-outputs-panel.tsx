@@ -51,9 +51,15 @@ function useUnlockSharedOutputs(studyId: string) {
 // Earlier runs wait for the key above, unless no key can open the latest run here: one shared before
 // the researcher replaced their key has no wraps for the key on file. Its rows then take their own keys.
 function useEarlierRunsKeyGiven(jobId: string, isLatestDecrypted: boolean) {
-    // The latest run's key form reads the same cache entry, so this fetches nothing extra.
-    const { data, isSuccess } = useTanStackQuery(encryptedFilesQuery(jobId, 'researcher'))
-    return isLatestDecrypted || (isSuccess && data.length === 0)
+    // Shares the key form's cache entry, so this fetches nothing extra. Only emptiness matters, so
+    // it never refetches: the ciphertext would otherwise download again on every window focus.
+    const { data: hasNoWraps } = useTanStackQuery({
+        ...encryptedFilesQuery(jobId, 'researcher'),
+        select: (files) => files.length === 0,
+        refetchOnWindowFocus: false,
+        refetchInterval: false,
+    })
+    return isLatestDecrypted || hasNoWraps === true
 }
 
 export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
