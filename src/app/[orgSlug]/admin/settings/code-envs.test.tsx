@@ -99,6 +99,20 @@ describe('CodeEnvs', async () => {
         })
     })
 
+    it('shows no Example Data section in the form', async () => {
+        renderWithProviders(<CodeEnvs />)
+
+        fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
+        })
+        expect(screen.getByText('Environment Variables')).toBeInTheDocument()
+        expect(screen.queryByText('Example Data')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Data Path')).not.toBeInTheDocument()
+        expect(screen.queryByText('Data Source Type')).not.toBeInTheDocument()
+    })
+
     // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
     // said which row was at fault.
     it('rejects a malformed env var name on the field itself', async () => {

@@ -1,7 +1,4 @@
 import { z } from 'zod'
-import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
-
-const dataSourceTypeKeys = Object.keys(DATA_SOURCE_TYPES) as [DataSourceType, ...DataSourceType[]]
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const MAX_FILE_SIZE_STR = '10MB'
@@ -23,8 +20,6 @@ const codeEnvSettingsSchema = z.object({
             return names.length === new Set(names).size
         }, 'Environment variable names must be unique'),
 })
-
-const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
 
 export const identifierRegex = /^[a-z0-9_]+$/
 
@@ -68,12 +63,6 @@ const codeEnvFieldsSchema = z.object({
     url: dockerImageRefSchema,
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.default({ environment: [] }),
-    sampleDataPath: z
-        .string()
-        .max(250)
-        .refine((val) => val === '' || pathnameRegex.test(val), 'Must be a valid file path (e.g. data/sample.csv)')
-        .optional(),
-    dataSourceType: z.enum(dataSourceTypeKeys).nullable().optional(),
     dataSourceIds: z.array(z.uuid()).default([]),
     existingStarterCodeFileNames: z.array(z.string()).default([]),
 })
@@ -104,7 +93,6 @@ export const createOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
         .refine((files) => files.every(fileWithSizeRefine), {
             error: `Each starter code file must be non-empty and less than ${MAX_FILE_SIZE_STR}`,
         }),
-    sampleDataUploaded: z.boolean().optional(),
 })
 
 export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
@@ -114,7 +102,6 @@ export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
             error: `Each starter code file must be less than ${MAX_FILE_SIZE_STR}`,
         })
         .optional(),
-    sampleDataUploaded: z.boolean().optional(),
 })
 
 const rejectDuplicateEnvVarName = (
