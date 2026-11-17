@@ -1,4 +1,4 @@
-import { sql } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import { db, describe, expect, insertTestStudyOnly, it } from '@/tests/unit.helpers'
 import { stripDataSourceTypeFromSnapshots } from './migrations/1794943088360_drop_sample_data_from_org_code_env'
 
@@ -11,7 +11,11 @@ const SNAPSHOT = {
 }
 
 const rawSnapshot = async (studyId: string) => {
-    const row = await db.selectFrom('study').select('codeEnvSnapshot').where('id', '=', studyId).executeTakeFirstOrThrow()
+    const row = await db
+        .selectFrom('study')
+        .select('codeEnvSnapshot')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
     return row.codeEnvSnapshot as Record<string, unknown> | null
 }
 
@@ -25,7 +29,7 @@ describe('drop_sample_data_from_org_code_env migration', () => {
         )
         await db.updateTable('study').set({ codeEnvSnapshot: null }).where('id', '=', withoutSnapshot.id).execute()
 
-        await stripDataSourceTypeFromSnapshots(db)
+        await stripDataSourceTypeFromSnapshots(db as unknown as Kysely<unknown>)
 
         expect(await rawSnapshot(withKey.id)).toEqual(SNAPSHOT)
         expect(await rawSnapshot(withoutSnapshot.id)).toBeNull()
