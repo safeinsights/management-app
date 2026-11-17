@@ -8,6 +8,7 @@ import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-
 import { CodeRunKeyFields } from '@/components/study/code-run-key-form'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
+import { codeRunEndedAt } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
 
@@ -36,6 +37,7 @@ const LatestOutputs: FC<LatestOutputsProps> = ({ isVisible, job, decryptedFiles,
         return (
             <CodeRunKeyFields
                 job={job}
+                type="reviewer"
                 description="The outputs are encrypted. Enter your security key to view them again."
                 onDecrypted={onDecrypted}
                 onKeyAccepted={onKeyAccepted}
@@ -61,7 +63,7 @@ export const DecryptAndViewOutputs: FC<DecryptAndViewOutputsProps> = ({
 
     return (
         <>
-            <CodeRunCard job={job}>
+            <CodeRunCard date={codeRunEndedAt(job.statusChanges)}>
                 <LatestOutputs
                     isVisible={hasDecryptableOutputs}
                     job={job}

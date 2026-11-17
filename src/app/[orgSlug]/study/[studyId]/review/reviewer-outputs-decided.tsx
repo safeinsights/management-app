@@ -7,6 +7,7 @@ import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import { latestRunFeedback } from '@/lib/outputs-review'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
@@ -35,11 +36,6 @@ function outputsDecisionAttribution(
             latestStatusAt(statusChanges, 'FILES-REJECTED'),
     }
 }
-
-// Earlier runs show their own decisions in the code run history, so the latest run's card holds
-// only the decisions on that run.
-const latestRunFeedback = (entries: OutputsDecisionFeedbackEntry[], jobId: string) =>
-    entries.filter((entry) => entry.studyJobId === jobId)
 
 export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutputsDecidedProps) {
     const job = await latestSubmittedJobForStudy(study.id)

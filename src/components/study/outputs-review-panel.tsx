@@ -19,7 +19,12 @@ import { useOutputsDecision } from '@/hooks/use-outputs-decision'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
-import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
+import {
+    codeRunEndedAt,
+    hasOutputsDecision,
+    isOutputsReviewEditable,
+    OUTPUTS_DECIDED_NOTICE,
+} from '@/lib/outputs-review'
 import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
@@ -154,6 +159,7 @@ const LatestRunSection: FC<LatestRunSectionProps> = ({ job, decryptedFiles, onDe
         return (
             <CodeRunKeyFields
                 job={job}
+                type="reviewer"
                 description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
                 onDecrypted={onDecrypted}
                 onKeyAccepted={onKeyAccepted}
@@ -169,7 +175,7 @@ const LatestRunSection: FC<LatestRunSectionProps> = ({ job, decryptedFiles, onDe
 const LatestRunCard: FC<LatestRunSectionProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     if (!isVisible) return null
     return (
-        <CodeRunCard job={props.job}>
+        <CodeRunCard date={codeRunEndedAt(props.job.statusChanges)}>
             <LatestRunSection {...props} />
         </CodeRunCard>
     )

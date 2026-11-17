@@ -3,19 +3,19 @@
 import { Stack, Text } from '@mantine/core'
 import { FC } from 'react'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
-import type { StudyJobStatus } from '@/database/types'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface CodeRunKeyFieldsProps {
-    job: { id: string; statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }> }
+    job: { id: string }
+    type: 'researcher' | 'reviewer'
     description: string
     onDecrypted: (files: JobFileInfo[]) => void
     onKeyAccepted?: (privateKey: string) => void
 }
 
 // The Output files section of the latest run's card, before its outputs are decrypted.
-export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, description, onDecrypted, onKeyAccepted }) => (
+export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, type, description, onDecrypted, onKeyAccepted }) => (
     <Stack gap="lg" data-testid="security-key-form">
         <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
             Output files
@@ -31,11 +31,10 @@ export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, description, 
                 {description}
             </Text>
         </Stack>
-        {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
-            keys, so the researcher key set would come back empty. */}
+        {/* Researchers decrypt via wrapped keys, reviewers via the zip manifest: the wrong type reads as "Invalid key". */}
         <SecurityKeyFields
             job={job}
-            type="reviewer"
+            type={type}
             buttonLabel="View files"
             onDecrypted={onDecrypted}
             onKeyAccepted={onKeyAccepted}
