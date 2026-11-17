@@ -109,7 +109,6 @@ const codeEnvFromOrgAndId = async ({
             'orgCodeEnv.id',
             'orgCodeEnv.starterCodeFileNames',
             'orgCodeEnv.url',
-            'orgCodeEnv.identifier',
             'org.slug as orgSlug',
             'org.id as orgId',
         ])

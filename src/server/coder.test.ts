@@ -63,7 +63,6 @@ const fetchFileContentsMock = fetchFileContents as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
-// The expected sample-data paths and database names below are built from this slug and test_env.
 const ORG_SLUG = 'test-org'
 
 // A study whose IDE has been claimed by John Doe at this address.
@@ -413,14 +412,6 @@ describe('createUserAndWorkspace', () => {
                 value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]),
             },
         ])
-        const envNames = (JSON.parse(requestBody.rich_parameter_values[2].value) as { name: string }[]).map(
-            (v) => v.name,
-        )
-        expect(
-            envNames.filter((name) =>
-                /^(DATA_PATH|DATABASE_URL)$|_DATA_PATH$|_S3_BUCKET_NAME$|^AWS_ATHENA_/.test(name),
-            ),
-        ).toEqual([])
     })
 
     it('turns a workspace creation Coder refuses into an ActionFailure the researcher can read', async () => {

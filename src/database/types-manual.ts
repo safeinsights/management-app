@@ -13,9 +13,9 @@ export type OrgCodeEnvSettings = {
 export type CommandLines = Record<string, string>
 
 // A study's own copy of the code env chosen for its language, so later edits to the
-// org's code envs cannot change what the study runs. Keys match the orgCodeEnv columns. The identifier
-// and starter code file names are left out and read from the code env as it is now, because an edit
-// replaces the starter code files in S3.
+// org's code envs cannot change what the study runs. Keys match the orgCodeEnv columns. The starter code
+// file names are left out and read from the code env as it is now, because an edit replaces the files in
+// S3. The identifier is left out too; it only labels logs.
 export type CodeEnvSnapshot = {
     id: string
     language: Language
