@@ -414,7 +414,6 @@ function useKeyAttempt(
     const [error, setError] = useState<string>()
     const [isPending, setIsPending] = useState(false)
     const pending = useRef(false)
-    const isMounted = useIsMounted()
 
     // The input is disabled while a key is tried, so focus can only return once it is enabled again.
     useEffect(() => {
@@ -439,7 +438,8 @@ function useKeyAttempt(
             outcome = 'fetch-failed'
         }
         pending.current = false
-        if (!isMounted.current) return
+        // No mount check: Hide keeps this form in an Activity, which runs effect cleanups but keeps
+        // state, so a skipped update would leave the form disabled when the history opens again.
         setIsPending(false)
         if (outcome !== 'accepted') setError(KEY_ATTEMPT_ERRORS[outcome])
     }
@@ -483,10 +483,7 @@ const KeyAttemptFields: FC<KeyAttemptFieldsProps> = ({ label, description, withL
     )
 }
 
-type HistoryKeyEntryProps = Omit<KeyAttemptOptions, 'attempt'> & {
-    isVisible: boolean
-    attempt: KeyAttemptOptions['attempt']
-}
+type HistoryKeyEntryProps = KeyAttemptOptions & { isVisible: boolean }
 
 // When the latest run shared feedback only, no key was entered above, so earlier runs that shared
 // outputs are opened from here.
@@ -543,13 +540,17 @@ const ResearcherRunKeyFields: FC<RowOutputsProps & { isVisible: boolean }> = ({ 
     return <ResearcherRunKeyAttempt {...props} />
 }
 
-const ResearcherRunKeyAttempt: FC<RowOutputsProps> = ({ run, role, onUnlocked, keyDraft, onKeyDraftChange }) => {
+function useResearcherRunKeyAttempt(runId: string, onUnlocked: RowOutputsProps['onUnlocked']) {
     const queryClient = useQueryClient()
-    const attempt = async (privateKey: string) => {
-        const outputs = await decryptPriorRun(queryClient, run.id, privateKey, 'researcher')
-        if (outputs.status === 'unlocked') onUnlocked(run.id, outputs.files)
+    return async (privateKey: string) => {
+        const outputs = await decryptPriorRun(queryClient, runId, privateKey, 'researcher')
+        if (outputs.status === 'unlocked') onUnlocked(runId, outputs.files)
         return keyAttemptOutcome([outputs])
     }
+}
+
+const ResearcherRunKeyAttempt: FC<RowOutputsProps> = ({ run, role, onUnlocked, keyDraft, onKeyDraftChange }) => {
+    const attempt = useResearcherRunKeyAttempt(run.id, onUnlocked)
     return (
         <KeyAttemptFields
             label={<RunKeyLabel run={run} role={role} />}
@@ -843,7 +844,7 @@ type CodeRunHistoryProps = {
     role?: CodeRunRole
     /** From usePriorRunOutputs, owned by the page so the latest run's key form can feed it. */
     outputs?: PriorRunOutputs
-    /** True once the latest run is decrypted, or when it had nothing to decrypt. */
+    /** True once the latest run is decrypted, or when it has nothing that a key entered above could open. */
     isLatestDecrypted?: boolean
     /** A key input above the rows, for when the latest run shared feedback only and an earlier one shared outputs. */
     withHistoryKey?: boolean

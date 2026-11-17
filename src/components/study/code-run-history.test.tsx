@@ -16,8 +16,7 @@ import {
     waitFor,
     within,
 } from '@/tests/unit.helpers'
-import { previousKeyPair, seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
-import { generateKeyPair } from 'si-encryption/util/keypair'
+import { previousKeyPair, seedEncryptedArtifact, seedJobFileRow, unrelatedKeyPair } from '@/tests/artifact.helpers'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
@@ -1064,7 +1063,7 @@ const setupResearcherHistory = async (runs: ResearcherPriorRun[]) => {
 }
 
 const oldResearcherKey = async () => {
-    const key = await generateKeyPair()
+    const key = await previousKeyPair()
     return { key, wrapFor: { publicKey: key.exportedPublicKey, fingerprint: key.fingerprint } }
 }
 
@@ -1117,7 +1116,7 @@ describe('CodeRunHistory security key for earlier runs', () => {
         fireEvent.change(historyKeyInput(), { target: { value: 'typing' } })
         expect(within(historyKeyPanel()!).queryByText('Enter your security key to decrypt the outputs.')).toBeNull()
 
-        const unrelated = await generateKeyPair()
+        const unrelated = await unrelatedKeyPair()
         enterHistoryKey(unrelated.privateKeyString)
 
         expect(await within(historyKeyPanel()!).findByText(/Invalid key/)).toBeVisible()
@@ -1213,6 +1212,23 @@ describe('CodeRunHistory security key for earlier runs', () => {
         )
         expect(stored.join()).not.toContain(typed)
         expect(document.cookie).not.toContain(typed)
+    })
+
+    it('lets a key be tried again after the history was hidden while one was being tried', async () => {
+        await setupMixedHistory()
+        await openHistory()
+
+        enterHistoryKey((await unrelatedKeyPair()).privateKeyString)
+        // Synchronous, so the history hides while the key is still being tried.
+        fireEvent.click(viewButton())
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        // The hidden form still settles: by text, because role queries skip hidden content.
+        await waitFor(() => expect(within(historyKeyPanel()!).getByText(/Invalid key/)).toBeInTheDocument())
+
+        await openHistory()
+
+        expect(historyKeyInput()).toBeEnabled()
+        expect(within(historyKeyPanel()!).getByRole('button', { name: 'View files' })).toBeEnabled()
     })
 
     it('starts over with an empty input when mounted again', async () => {

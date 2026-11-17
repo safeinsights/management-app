@@ -19,8 +19,7 @@ import {
     waitForPendingMutations,
     within,
 } from '@/tests/unit.helpers'
-import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
-import { generateKeyPair } from 'si-encryption/util/keypair'
+import { previousKeyPair, seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { notFound, useParams } from 'next/navigation'
 import { type FC, type ReactElement, useState } from 'react'
 import type { StudyJobStatus } from '@/database/types'
@@ -174,6 +173,8 @@ type SetupOptions = {
     priorRuns?: (authorId: string) => PriorCodeRunOptions[]
     /** Reuses a signed-in researcher, for a second study the same person opens. */
     session?: Pick<Session, 'org' | 'user'>
+    /** Wraps the latest run for this key instead of the one on file, as for a run shared before a key reset. */
+    latestWrapFor?: { publicKey: ArrayBuffer; fingerprint: string }
 }
 
 // The run status plus FILES-APPROVED and a RESULTS decision comment — the state that routes here.
@@ -185,6 +186,7 @@ const setupShared = async (
         files = [{ name: 'summary.csv', content: 'a,b\n1,2' }],
         priorRuns,
         session,
+        latestWrapFor,
     }: SetupOptions = {},
 ) => {
     const { org, user } = session ?? (await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' }))
@@ -228,7 +230,12 @@ const setupShared = async (
         })
     }
 
-    await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files, sharedWith: user.id })
+    await seedEncryptedArtifact(job.id, {
+        fileType: 'ENCRYPTED-RESULT',
+        files,
+        sharedWith: user.id,
+        wrapFor: latestWrapFor,
+    })
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     const raw = await requireRawState(dbStudy.id)
@@ -695,7 +702,7 @@ describe('SharedOutputsScreen code run history', () => {
             ],
             priorRuns: () => [{ ranAt: MIDDLE_RUN_AT }, { ranAt: EARLIER_RUN_AT }],
         })
-        const oldKey = await generateKeyPair()
+        const oldKey = await previousKeyPair()
         await seedEncryptedArtifact(priorJobs[0].id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [
@@ -752,6 +759,31 @@ describe('SharedOutputsScreen code run history', () => {
         await openHistory()
 
         expect(screen.queryByTestId('code-run-history-key')).toBeNull()
+    })
+
+    it('gives earlier runs their own key when the latest run was shared before the key was replaced', async () => {
+        const oldKey = await previousKeyPair()
+        const wrapFor = { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint }
+        const { org, user, study, raw, priorJobs } = await setupShared(VARIANTS[0], {
+            priorRuns: () => [{ ranAt: EARLIER_RUN_AT }],
+            latestWrapFor: wrapFor,
+        })
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'earlier.csv', content: 'earlier' }],
+            sharedWith: user.id,
+            wrapFor,
+        })
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        await openHistory()
+        const [earlier] = historyRows()
+        await expandHistoryRow(earlier)
+
+        const rowKey = await within(earlier).findByRole('textbox', { name: /^Security key for Code run/ })
+        expect(within(earlier).queryByText('Enter security key above to decrypt and review output files.')).toBeNull()
+        fireEvent.change(rowKey, { target: { value: oldKey.privateKeyString } })
+        fireEvent.click(within(earlier).getByRole('button', { name: 'View files' }))
+        expect(await within(earlier).findByRole('button', { name: 'earlier.csv' })).toBeInTheDocument()
     })
 })
 

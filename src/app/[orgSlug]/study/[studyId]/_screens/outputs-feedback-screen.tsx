@@ -13,8 +13,12 @@ import { isFeedbackOnlyRun, latestRunFeedback } from '@/lib/outputs-review'
 import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
+import type { PriorCodeRun } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 import { PageLayout } from '@/components/page-layout'
+
+// The history asks for its own key only when an earlier run shared outputs it could open.
+const hasSharedOutputs = (runs: PriorCodeRun[]) => runs.some((run) => !isFeedbackOnlyRun(run.statusChanges))
 
 export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardOutputsFeedbackScreen({
@@ -53,7 +57,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
                     // Keyed by job so history state can never carry over to another study's page.
                     key={job.id}
                     runs={priorRuns}
-                    withHistoryKey={priorRuns.some((run) => !isFeedbackOnlyRun(run.statusChanges))}
+                    withHistoryKey={hasSharedOutputs(priorRuns)}
                 />
                 <StepNavigation nav={nav} />
             </PageLayout>

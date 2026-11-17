@@ -1,6 +1,7 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
+import { useTanStackQuery } from '@/common'
 import { PoliteStatus } from '@/components/polite-status'
 import { CodeRunCard } from '@/components/study/code-run-card'
 import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
@@ -10,6 +11,7 @@ import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
+import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
 import type { PhasedBannerCopy } from '@/lib/study-banners'
 import type { PhasedStepNav } from '@/lib/study-screen'
@@ -46,6 +48,14 @@ function useUnlockSharedOutputs(studyId: string) {
     return { decryptedFiles, isLocked, onDecrypted }
 }
 
+// Earlier runs wait for the key above, unless no key can open the latest run here: one shared before
+// the researcher replaced their key has no wraps for the key on file. Its rows then take their own keys.
+function useEarlierRunsKeyGiven(jobId: string, isLatestDecrypted: boolean) {
+    // The latest run's key form reads the same cache entry, so this fetches nothing extra.
+    const { data, isSuccess } = useTanStackQuery(encryptedFilesQuery(jobId, 'researcher'))
+    return isLatestDecrypted || (isSuccess && data.length === 0)
+}
+
 export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
     decidedAt,
     banner,
@@ -58,6 +68,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
 }) => {
     const { decryptedFiles, isLocked, onDecrypted } = useUnlockSharedOutputs(studyId)
     const priorOutputs = usePriorRunOutputs(priorRuns, 'researcher')
+    const earlierRunsKeyGiven = useEarlierRunsKeyGiven(job.id, decryptedFiles !== null)
     const { variant, title, body } = isLocked ? banner.locked : banner.unlocked
     const phaseNav = isLocked ? nav.locked : nav.unlocked
 
@@ -88,7 +99,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
                 role="researcher"
                 runs={priorRuns}
                 outputs={priorOutputs}
-                isLatestDecrypted={decryptedFiles !== null}
+                isLatestDecrypted={earlierRunsKeyGiven}
             />
             <PoliteStatus announcement={priorOutputs.announcement} />
             <StepNavigation nav={phaseNav} />

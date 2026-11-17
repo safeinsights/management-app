@@ -39,7 +39,7 @@ const keyPairToEnter = async (prefix: string) => {
     return { exportedPublicKey: publicKey, privateKeyString: Buffer.from(privateKey).toString('base64'), fingerprint }
 }
 
-/** A key the user held before the one on file, as for a run encrypted before their key was replaced. */
+/** A key the user held before the one on file, as for a run encrypted or shared before their key was replaced. */
 export const previousKeyPair = () => keyPairToEnter('previous_')
 
 /** A well-formed key that no test artifact is encrypted or wrapped for. */
