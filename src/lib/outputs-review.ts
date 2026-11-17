@@ -46,9 +46,7 @@ export const codeRunEndedAt = (
 export const researcherRunDate = (
     statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
 ): Date | string | null =>
-    latestStatusAt(statusChanges, 'FILES-APPROVED') ??
-    latestStatusAt(statusChanges, 'FILES-REJECTED') ??
-    codeRunEndedAt(statusChanges)
+    latestStatusAt(statusChanges, 'FILES-APPROVED') ?? latestStatusAt(statusChanges, 'FILES-REJECTED')
 
 // The reviewer chose not to share this run's outputs, so they are never fetched or shown.
 export const isFeedbackOnlyRun = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>

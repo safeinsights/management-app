@@ -342,6 +342,24 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
     })
 })
 
+describe('ReviewerOutputsAvailableScreen code run history rows', () => {
+    // OTTER-1070 configures the shared history for the research lab only.
+    it('lists no code files in a row, even for a run that has them', async () => {
+        const { org, study, raw } = await setupAvailable('RUN-COMPLETE', [
+            { ranAt: dayjs().subtract(3, 'day').toDate(), codeFiles: ['main.R'] },
+        ])
+        await renderScreen({ study, raw }, org.slug)
+        const history = screen.getByTestId('code-run-history')
+        fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
+        const [row] = await within(history).findAllByTestId('code-run-history-row')
+        fireEvent.click(within(row).getByRole('button', { name: /^Code run / }))
+
+        expect(await within(row).findByText('Output files')).toBeVisible()
+        expect(within(row).queryByText(/^Code files/)).toBeNull()
+        expect(within(row).queryByText('main.R')).toBeNull()
+    })
+})
+
 // History rows render their own outputs section, so look inside the latest run's card.
 const latestRunOutputs = (root: HTMLElement = document.body) =>
     within(within(root).getByTestId('code-run-card')).getByTestId('code-run-outputs')

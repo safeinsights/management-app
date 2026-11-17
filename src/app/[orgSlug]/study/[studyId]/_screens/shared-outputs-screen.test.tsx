@@ -20,6 +20,7 @@ import {
     within,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 import { notFound, useParams } from 'next/navigation'
 import { type FC, type ReactElement, useState } from 'react'
 import type { StudyJobStatus } from '@/database/types'
@@ -609,6 +610,152 @@ describe('SharedOutputsScreen with earlier runs', () => {
     })
 })
 
+const history = () => screen.getByTestId('code-run-history')
+const historyRows = () => within(history()).getAllByTestId('code-run-history-row')
+const openHistory = async () => {
+    fireEvent.click(within(history()).getByRole('button', { name: 'View code run history' }))
+    await waitFor(() => expect(historyRows()[0]).toBeVisible())
+}
+const expandHistoryRow = async (row: HTMLElement) => {
+    fireEvent.click(within(row).getByRole('button', { name: /^Code run / }))
+    await waitFor(() => expect(within(row).getByTestId('code-run-history-row-body')).toBeVisible())
+}
+
+// OTTER-1070: earlier runs open below the latest run's card, through the same history the data
+// partner uses.
+describe('SharedOutputsScreen code run history', () => {
+    // The card names three researcher statuses; both share screens carry the first two.
+    const STATUS_CASES = [
+        ['code errored', VARIANTS[1], false],
+        ['outputs need review', VARIANTS[0], false],
+        ['outputs reviewed', VARIANTS[0], true],
+    ] as const
+
+    it.each(STATUS_CASES)('lists the earlier runs below the card for %s', async (_status, variant, viewed) => {
+        const { org, study, raw, job } = await setupShared(variant, {
+            priorRuns: () => [{ ranAt: EARLIER_RUN_AT, codeFiles: ['earlier.R'] }],
+        })
+        if (viewed) await insertTestJobStatus(job.id, 'RESULTS-VIEWED', { at: VIEWED_AT })
+        await renderScreen(variant, study, viewed ? await requireRawState(study.id) : raw, org.slug)
+
+        expect(within(history()).getByRole('heading', { name: 'Code run history (1)' })).toBeInTheDocument()
+        expect(isBefore(card(), history())).toBe(true)
+        expect(isBefore(history(), screen.getByTestId('step-navigation'))).toBe(true)
+        await openHistory()
+        await expandHistoryRow(historyRows()[0])
+        expect(within(historyRows()[0]).getByText('Code files v1')).toBeVisible()
+        expect(within(historyRows()[0]).getByText('earlier.R')).toBeVisible()
+    })
+
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupShared(VARIANTS[0])
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('dates an earlier run by the decision on it, as the card above is dated', async () => {
+        const { org, study, raw } = await setupShared(VARIANTS[0], {
+            priorRuns: () => [{ ranAt: EARLIER_RUN_AT, decidedAt: MIDDLE_RUN_AT }],
+        })
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        await openHistory()
+
+        expect(
+            within(history()).getByRole('button', { name: `Code run ${formatDate(MIDDLE_RUN_AT)}` }),
+        ).toBeInTheDocument()
+        expect(within(card()).getByRole('heading', { name: `Code run ${formatDate(DECIDED_AT)}` })).toBeVisible()
+    })
+
+    it('leaves out an earlier run that was never decided', async () => {
+        const { org, study, priorJobs } = await setupShared(VARIANTS[0], {
+            priorRuns: (authorId) => [
+                { ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Feedback on the undecided run.' } },
+                { ranAt: MIDDLE_RUN_AT },
+            ],
+        })
+        await db
+            .deleteFrom('jobStatusChange')
+            .where('studyJobId', '=', priorJobs[0].id)
+            .where('status', '=', 'FILES-APPROVED')
+            .execute()
+        await renderScreen(VARIANTS[0], study, await requireRawState(study.id), org.slug)
+        await openHistory()
+
+        expect(within(history()).getByRole('heading', { name: 'Code run history (1)' })).toBeInTheDocument()
+        expect(historyRows()).toHaveLength(1)
+        await expandHistoryRow(historyRows()[0])
+        expect(screen.queryByText('Feedback on the undecided run.')).toBeNull()
+    })
+
+    it('stays open below the card through decryption, and the latest key opens the runs it fits', async () => {
+        const { org, user, study, raw, priorJobs } = await setupShared(VARIANTS[0], {
+            files: [
+                { name: 'latest.csv', content: 'latest' },
+                { name: 'latest-2.csv', content: 'latest' },
+            ],
+            priorRuns: () => [{ ranAt: MIDDLE_RUN_AT }, { ranAt: EARLIER_RUN_AT }],
+        })
+        const oldKey = await generateKeyPair()
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [
+                { name: 'middle.csv', content: 'middle' },
+                { name: 'middle-2.csv', content: 'middle' },
+            ],
+            sharedWith: user.id,
+        })
+        await seedEncryptedArtifact(priorJobs[1].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'earlier.csv', content: 'earlier' }],
+            sharedWith: user.id,
+            wrapFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
+        })
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        const before = history()
+        await openHistory()
+        const [middle, earlier] = historyRows()
+        await expandHistoryRow(middle)
+        await expandHistoryRow(earlier)
+        expect(within(middle).getByText('Enter security key above to decrypt and review output files.')).toBeVisible()
+
+        await decrypt()
+
+        expect(history()).toBe(before)
+        expect(within(history()).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
+        expect(isBefore(card(), history())).toBe(true)
+        expect(await within(middle).findByRole('button', { name: 'middle.csv' })).toBeInTheDocument()
+        expect(within(card()).getByTestId('outputs-download-all')).toHaveAttribute('data-variant', 'subtle')
+        expect(within(middle).getByTestId('outputs-download-all')).toHaveAttribute('data-variant', 'subtle')
+        expect(
+            await within(earlier).findByText(
+                'This run’s outputs were encrypted with your previous security key. Enter that key to view them.',
+            ),
+        ).toBeVisible()
+
+        fireEvent.change(within(earlier).getByRole('textbox', { name: /^Security key for Code run/ }), {
+            target: { value: oldKey.privateKeyString },
+        })
+        fireEvent.click(within(earlier).getByRole('button', { name: 'View files' }))
+        expect(await within(earlier).findByRole('button', { name: 'earlier.csv' })).toBeInTheDocument()
+    })
+
+    it('never asks for a separate history key, because the key above applies', async () => {
+        const { org, user, study, raw, priorJobs } = await setupShared(VARIANTS[0], {
+            priorRuns: () => [{ ranAt: EARLIER_RUN_AT }],
+        })
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'earlier.csv', content: 'earlier' }],
+            sharedWith: user.id,
+        })
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        await openHistory()
+
+        expect(screen.queryByTestId('code-run-history-key')).toBeNull()
+    })
+})
+
 // Stands in for client navigation: the second study's page replaces the first in the same tree.
 const StudySwitcher: FC<{ first: ReactElement; second: ReactElement }> = ({ first, second }) => {
     const [showSecond, setShowSecond] = useState(false)
@@ -649,5 +796,38 @@ describe('SharedOutputsScreen across studies', () => {
             'Feedback that belongs to the second study.',
         )
         expect(screen.queryByText(variant.feedbackBody)).toBeNull()
+    })
+
+    it("does not carry one study's code run history state into another", async () => {
+        const first = await setupShared(variant, {
+            priorRuns: (authorId) => [{ ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'First study run.' } }],
+        })
+        const second = await setupShared(variant, {
+            session: first,
+            priorRuns: (authorId) => [
+                { ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Second study run.' } },
+                { ranAt: MIDDLE_RUN_AT },
+            ],
+        })
+        ;(useParams as Mock).mockReturnValue({ orgSlug: first.org.slug, studyId: first.study.id })
+        renderWithProviders(
+            <StudySwitcher
+                first={await screenElement(variant, first.study, first.raw, first.org.slug)}
+                second={await screenElement(variant, second.study, second.raw, second.org.slug)}
+            />,
+        )
+        await openHistory()
+        await expandHistoryRow(historyRows()[0])
+        expect(within(historyRows()[0]).getByText('First study run.')).toBeVisible()
+        ;(useParams as Mock).mockReturnValue({ orgSlug: second.org.slug, studyId: second.study.id })
+        fireEvent.click(screen.getByRole('button', { name: 'Open the second study' }))
+
+        expect(within(history()).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
+        expect(within(history()).getByRole('button', { name: 'View code run history' })).toBeInTheDocument()
+        expect(screen.queryByText('First study run.')).toBeNull()
+        await openHistory()
+        for (const row of historyRows()) {
+            expect(within(row).getByRole('button', { name: /^Code run / })).toHaveAttribute('aria-expanded', 'false')
+        }
     })
 })

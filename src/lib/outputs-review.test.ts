@@ -235,8 +235,9 @@ describe('researcherRunDate', () => {
         ).toBe(approvedAt)
     })
 
-    it('falls back to when the run ended while it is undecided', () => {
-        expect(researcherRunDate([{ status: 'RUN-COMPLETE', createdAt: ranAt }])).toBe(ranAt)
+    // The research lab never sees an undecided run, so it has no date to show.
+    it('is null while the run is undecided', () => {
+        expect(researcherRunDate([{ status: 'RUN-COMPLETE', createdAt: ranAt }])).toBeNull()
         expect(researcherRunDate([])).toBeNull()
     })
 })
