@@ -116,6 +116,8 @@ export const Routes = {
         StudyParams.extend({ userId: z.string().optional() }),
     ),
 
+    accountAgreements: '/account/agreements' as Route,
+
     accountKeys: '/account/keys' as Route,
 
     accountMfa: '/account/mfa' as Route,

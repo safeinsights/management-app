@@ -211,6 +211,7 @@ export const YourFilesSection: FC<YourFilesSectionProps> = ({
                 onClose={ide.clearLaunchError}
                 onRetry={ide.launchWorkspace}
                 supportRef={ide.launchErrorEventId}
+                reason={ide.launchFailureReason}
             />
         </>
     )

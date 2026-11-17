@@ -357,6 +357,7 @@ export function CodeEnvForm({ image, isLastUsable = false, onCompleteAction }: C
                 />
                 <TextInput
                     label="URL to code environment"
+                    description="Registry reference without http:// or https://"
                     withAsterisk
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}

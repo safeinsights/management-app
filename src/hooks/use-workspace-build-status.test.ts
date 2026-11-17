@@ -29,6 +29,7 @@ const status = (overrides: Partial<WorkspaceLaunchStatus> = {}): WorkspaceLaunch
     ready: false,
     failed: false,
     reason: 'building',
+    failureMessage: null,
     cursors: { build: 2, agent: 5 },
     url: null,
     ...overrides,
