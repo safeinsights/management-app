@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { getDraftStudyAction } from '@/server/actions/study-proposal.actions'
@@ -21,6 +20,7 @@ import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
 import { fetchVideoDurationMinutes } from '@/server/vimeo'
 import { researcherPageGuard } from '../researcher-page-guard'
 import { currentDb } from '@/server/request-context'
+import { PageLayout } from '@/components/page-layout'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study code' }
@@ -71,8 +71,7 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     const isFirstVisit = !hasViewedFaq
 
     return (
-        <Stack p="xl" gap="xl">
-            <StudyPageHeader study={result} step={SUBMIT_CODE_STEP} />
+        <PageLayout header={<StudyPageHeader study={result} step={SUBMIT_CODE_STEP} />}>
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}
@@ -84,6 +83,6 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
                 isEditable={isEditable}
                 nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />
-        </Stack>
+        </PageLayout>
     )
 }

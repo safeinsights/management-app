@@ -1,6 +1,7 @@
 import { semanticColor } from '@/theme/tokens'
 import type { ReactNode } from 'react'
 import { Box, Paper, Stack } from '@mantine/core'
+import { PageLayout } from '@/components/page-layout'
 
 // Presentational only: each section arrives as a slot, so this renders in isolation (e.g. Ladle).
 export type ProposalReviewLayoutViewProps = {
@@ -28,8 +29,7 @@ export function ProposalReviewLayoutView({
     return (
         <Box bg={semanticColor('surface.page')}>
             {listener}
-            <Stack px="xl" gap="xxl" py="xl">
-                {header}
+            <PageLayout header={header}>
                 {proposal}
                 {feedbackAndNotes}
                 <Paper p="xxl">
@@ -39,7 +39,7 @@ export function ProposalReviewLayoutView({
                     </Stack>
                 </Paper>
                 {actions}
-            </Stack>
+            </PageLayout>
             {modals}
         </Box>
     )
