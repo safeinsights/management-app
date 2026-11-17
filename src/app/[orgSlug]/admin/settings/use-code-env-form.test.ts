@@ -26,8 +26,6 @@ const mockCodeEnv = {
     url: testImageRef('python:3.11'),
     isTesting: false,
     starterCodeFileNames: ['main.py'],
-    sampleDataPath: null,
-    dataSourceType: null,
     settings: { environment: [] },
     createdAt: new Date(),
     latestScanStatus: null,
