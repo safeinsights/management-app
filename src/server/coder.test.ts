@@ -461,6 +461,38 @@ describe('createUserAndWorkspace', () => {
         expect((failure as ActionFailure).error).toMatch(/image reference is invalid/)
     })
 
+    // Our Coder token or config being off is not something the researcher can act on.
+    it('keeps the generic failure when Coder rejects our credentials', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const respond = (status: number, body: unknown) =>
+                Promise.resolve({
+                    ok: status < 400,
+                    status,
+                    json: vi.fn().mockResolvedValue(body),
+                    text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : JSON.stringify(body)),
+                })
+            if (url.includes('/users?')) return respond(200, mockUsersEmailQueryResponse)
+            if (init?.method === 'POST' && url.includes('/members/')) {
+                return respond(403, { message: 'API key expired', detail: 'session token is invalid' })
+            }
+            if (url.includes('/templates')) return respond(200, [{ id: 'template1', name: 'aws-fargate' }])
+            if (url.includes('/organizations')) return respond(200, [{ id: 'org1', name: 'coder' }])
+            return respond(404, 'Not found')
+        })
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            return Promise.resolve('https://api.coder.com')
+        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        await insertStudyCodeEnv(orgId)
+
+        const failure = await createUserAndWorkspace(studyId).catch((err: unknown) => err)
+
+        // Not an ActionFailure, so the action layer shows "Something went wrong" rather than Coder's text.
+        expect(failure).not.toBeInstanceOf(ActionFailure)
+        expect((failure as Error).message).toMatch(/^Failed to create user and workspace/)
+    })
+
     it('should include DATABASE_URL env vars for athena data source type', async () => {
         const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
         const mockFetch = global.fetch as unknown as Mock

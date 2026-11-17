@@ -305,8 +305,14 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
             errorMessage: 'Failed to create workspace',
         })
     } catch (error) {
-        // A 4xx here is Coder refusing the request (e.g. template parameter validation), which the researcher can act on.
-        if (error instanceof CoderApiError && error.status >= 400 && error.status < 500) {
+        // A 4xx here is Coder refusing the request (e.g. template parameter validation), which the researcher can
+        // act on. 401/403 mean our token or config is off, so those keep the generic text and support ref.
+        if (
+            error instanceof CoderApiError &&
+            error.status >= 400 &&
+            error.status < 500 &&
+            ![401, 403].includes(error.status)
+        ) {
             throw new ActionFailure(
                 describeLaunchFailure(error.responseText) ?? 'Coder refused to create the workspace',
             )
