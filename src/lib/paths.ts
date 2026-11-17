@@ -91,6 +91,8 @@ const NON_ORG_PREFIXES = [
     'researcher',
     'user-key',
     'legal',
+    'terms-of-service',
+    'privacy-notice',
     'support',
     'admin',
     '404',

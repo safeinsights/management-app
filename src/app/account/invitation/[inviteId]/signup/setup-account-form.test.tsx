@@ -101,6 +101,9 @@ const fillValidForm = async () => {
 const participationCheckbox = () =>
     screen.getByRole('checkbox', { name: /Research Organization Participation Agreement/ })
 
+// Only the published ToS is named once the documents load; before that the label names both.
+const findLoadedTermsCheckbox = () => screen.findByRole('checkbox', { name: 'I agree to the Terms of Service.' })
+
 const createAccountButton = () => screen.getByRole('button', { name: 'Create account' })
 
 describe('SetupAccountForm legal documents', () => {
@@ -111,7 +114,9 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findLoadedTermsCheckbox()).toBeDefined()
+        // Linked to its own page, not shown inline.
+        expect(screen.queryByText(TERMS_BODY)).not.toBeInTheDocument()
         // The participation agreement is a pdf, shown as a link the invitee agrees to.
         expect(await screen.findByRole('link', { name: 'Research Organization Participation Agreement' })).toBeDefined()
         await fillValidForm()
@@ -126,7 +131,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findLoadedTermsCheckbox()).toBeDefined()
         expect(
             screen.queryByRole('link', { name: 'Research Organization Participation Agreement' }),
         ).not.toBeInTheDocument()
@@ -144,7 +149,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findLoadedTermsCheckbox()).toBeDefined()
         await fillNameAndPassword()
         await userEvent.click(screen.getByRole('checkbox', { name: /Terms of Service/ }))
 
@@ -154,8 +159,7 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // Empty documents fall back to a placeholder that contradicts what is published, so a tick
-    // against it must not create an account.
+    // A failed load leaves no versions to record, so a tick must not create an account.
     it('refuses to submit when the documents cannot be loaded, and says so', async () => {
         fetchFileContents.mockImplementation(async () => {
             throw new Error('S3 is unavailable')

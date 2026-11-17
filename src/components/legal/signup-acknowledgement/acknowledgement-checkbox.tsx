@@ -1,25 +1,61 @@
 'use client'
 
-import { type GlobalLegalDocument, legalDocumentTypeLabels } from '@/schema/legal-document'
-import { Anchor, Stack } from '@mantine/core'
-import { FC } from 'react'
-import { LegalMarkdownSections } from '../markdown-sections'
+import {
+    type GlobalLegalDocument,
+    type GlobalLegalDocumentType,
+    globalLegalDocumentTypes,
+    legalDocumentTypeLabels,
+} from '@/schema/legal-document'
+import { Anchor } from '@mantine/core'
+import type { FC, ReactNode } from 'react'
+import { Routes } from '@/lib/routes'
 import { ParticipationData } from '@/server/actions/participation-agreement.actions'
-import { PlaceholderLabel } from './placeholder-tos-pn'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-export const TosPnPreview: FC<{ documents: GlobalLegalDocument[] }> = ({ documents }) => (
-    <Stack gap="sm" mt="md">
-        <LegalMarkdownSections documents={documents} labelSize="sm" />
-    </Stack>
+const GLOBAL_DOCUMENT_ROUTES: Record<GlobalLegalDocumentType, string> = {
+    TOS: Routes.termsOfService,
+    PN: Routes.privacyNotice,
+}
+
+// A new tab, so reading a document does not lose the half-filled form.
+const AgreementLink: FC<{ href: string; children: ReactNode }> = ({ href, children }) => (
+    <Anchor
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        c={semanticColor('link.default')}
+        fz="sm"
+        fw={fontWeight.bold}
+        underline="always"
+    >
+        {children}
+    </Anchor>
 )
 
-export const globalDocAgreementLabel = (documents: GlobalLegalDocument[]) => {
-    if (documents.length === 0) {
-        return <PlaceholderLabel />
-    }
-    return `I agree to the ${documents.map((document) => legalDocumentTypeLabels[document.type]).join(' and ')}.`
+const GlobalDocumentLink: FC<{ type: GlobalLegalDocumentType; index: number }> = ({ type, index }) => {
+    const separator = index > 0 ? ' and ' : null
+
+    return (
+        <>
+            {separator}
+            <AgreementLink href={GLOBAL_DOCUMENT_ROUTES[type]}>{legalDocumentTypeLabels[type]}</AgreementLink>
+        </>
+    )
 }
+
+// With nothing published the label still names both, and each link opens that page's empty state.
+const agreedTypes = (documents: GlobalLegalDocument[]): readonly GlobalLegalDocumentType[] =>
+    documents.length ? documents.map((document) => document.type) : globalLegalDocumentTypes
+
+export const globalDocAgreementLabel = (documents: GlobalLegalDocument[]) => (
+    <>
+        I agree to the{' '}
+        {agreedTypes(documents).map((type, index) => (
+            <GlobalDocumentLink key={type} type={type} index={index} />
+        ))}
+        .
+    </>
+)
 
 export const participationAgreementLabel = (document: ParticipationData | null) => {
     if (!document) return null
@@ -27,18 +63,7 @@ export const participationAgreementLabel = (document: ParticipationData | null) 
         <>
             I agree to the{' '}
             {/* Not PdfLink: its label never wraps, which pushes the form past a phone's width (OTTER-951). */}
-            <Anchor
-                href={document.url}
-                target="_blank"
-                rel="noreferrer"
-                c={semanticColor('link.default')}
-                fz="sm"
-                fw={fontWeight.bold}
-                underline="always"
-            >
-                {legalDocumentTypeLabels[document.type]}
-            </Anchor>
-            .
+            <AgreementLink href={document.url}>{legalDocumentTypeLabels[document.type]}</AgreementLink>.
         </>
     )
 }
