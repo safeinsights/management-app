@@ -1,10 +1,12 @@
 vulnerabilities:
-    # No fixed braces release exists (3.0.3 is latest); it is only reached via
-    # micromatch in dev tooling, never the production bundle. Re-check on expiry.
-    - id: CVE-2026-93687
+    # picomatch <=4.0.7 ReDoS on repeated extglobs: no fixed release exists (4.0.7 is
+    # latest). Only build tooling uses it (Sentry's rollup/vite plugins, vitest, eslint), with
+    # fixed globs, never user input. Re-check on expiry and bump the override in
+    # pnpm-workspace.yaml once a fix ships.
+    - id: CVE-2026-112366
       paths:
           - pnpm-lock.yaml
-      expired_at: 2026-11-05
+      expired_at: 2026-12-01
 licenses:
     # libvips ships via @img/sharp-libvips-* and @img/sharp-* packages
     # (transitive of `sharp`, an optionalDependency of Next.js) and is

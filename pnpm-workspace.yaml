@@ -31,7 +31,8 @@ overrides:
     glob: ^14.0.2
     # minimatch <11.0.1: CVE-2026-118764 (DoS expanding **/.. segments).
     minimatch: ^11.0.1
-    picomatch: ^4.0.4
+    # picomatch: newest release. CVE-2026-112366 is still open in it, see .trivyignore.yaml.
+    picomatch: ^4.0.7
     # postcss <8.5.23: GHSA-r28c-9q8g-f849 (path traversal via sourceMappingURL auto-loading), then
     # GHSA-fxqj-rqcc-2cmp, an incomplete fix of the follow-up GHSA-6g55-p6wh-862q: an
     # attacker-controlled sourceMappingURL still reads arbitrary .map files when `from` is unset.
