@@ -5,8 +5,8 @@ import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { isEnclaveOrg } from '@/lib/types'
 import { PageHeader } from '@/components/page-header'
+import { PageLayout } from '@/components/page-layout'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,8 +26,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     // Narrower page and card gutters than other pages give the studies table its 928px at a
     // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack px="md" py="xxl" gap="xxl">
-            <PageHeader eyebrow={org.name} title="Dashboard" />
+        <PageLayout px="md" pb="xxl" header={<PageHeader eyebrow={org.name} title="Dashboard" />}>
             <JoinedOrgBanner />
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
@@ -43,6 +42,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 showRefresher
                 paperWrapper
             />
-        </Stack>
+        </PageLayout>
     )
 }

@@ -125,13 +125,17 @@ describe('StatusAlert', () => {
         expect(getComputedStyle(icon as Element).color).toBe('#7e241e')
     })
 
-    it('stays a plain alert with no live region unless announcing is requested', () => {
+    it('is a region named by its title, not a live region, unless announcing is requested', () => {
         renderWithProviders(
             <StatusAlert variant="action" title="Action needed">
                 Take action now
             </StatusAlert>,
         )
-        expect(screen.getByTestId('status-alert')).not.toHaveAttribute('aria-live')
+        const banner = screen.getByRole('region', { name: 'Action needed' })
+        expect(banner).toBe(screen.getByTestId('status-alert'))
+        expect(banner).not.toHaveAttribute('aria-live')
+        // Mantine's role="alert" would interrupt the route-title announcement on page load.
+        expect(screen.queryByRole('alert')).toBeNull()
     })
 
     it('announces politely — never assertively — and atomically when asked to', () => {

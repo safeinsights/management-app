@@ -2,7 +2,7 @@
 
 import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
-import { Box, Button, Stack } from '@mantine/core'
+import { Box, Button } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { PoliteStatus } from '@/components/polite-status'
 import { CodeRunCard } from '@/components/study/code-run-card'
@@ -23,6 +23,7 @@ import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } f
 import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
+import { PageLayout } from '@/components/page-layout'
 
 // Module-level so the no-key path hands the same array identity down on every render.
 const NO_FILES: JobFileInfo[] = []
@@ -102,8 +103,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     enabled={isRoundOpen}
                 />
                 <Box bg={semanticColor('surface.page')}>
-                    <Stack px="xl" gap="xxl" py="xl">
-                        {header}
+                    <PageLayout header={header}>
                         <ProposalStepHeader
                             stepLabel={REVIEW_OUTPUTS_STEP.label}
                             heading={REVIEW_OUTPUTS_STEP.heading}
@@ -134,7 +134,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                         <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
                         <PoliteStatus announcement={priorOutputs.announcement} />
                         <StepNavigation nav={isLocked ? nav.locked : nav.unlocked} />
-                    </Stack>
+                    </PageLayout>
                 </Box>
             </OutputsReviewFeedbackProviderShare>
         </StudyKickOutProvider>

@@ -11,6 +11,31 @@ describe('test users seed', () => {
         expect(TEST_PUBLIC_KEY_PEM.trim()).toEqual(filePem.trim())
     })
 
+    describe('org names', () => {
+        afterEach(() => {
+            delete process.env.ALLOW_TESTING_DATA
+        })
+
+        it('restores the OpenStax casing over a slug-derived name', async () => {
+            process.env.ALLOW_TESTING_DATA = 'TRUE'
+            await seed(db)
+            await db.updateTable('org').set({ name: 'Openstax' }).where('slug', '=', 'openstax').execute()
+            await seed(db)
+
+            const orgs = await db
+                .selectFrom('org')
+                .select(['slug', 'name'])
+                .where('slug', 'in', ['openstax', 'openstax-lab'])
+                .orderBy('slug')
+                .execute()
+
+            expect(orgs).toEqual([
+                { slug: 'openstax', name: 'OpenStax' },
+                { slug: 'openstax-lab', name: 'OpenStax Lab' },
+            ])
+        })
+    })
+
     // This seed once ran against production, so both guards must keep failing closed.
     describe('safety guards', () => {
         // Individual deletes rather than a process.env snapshot: a snapshot taken at collection time

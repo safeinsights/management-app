@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Alert, Stack, Text } from '@mantine/core'
+import { Alert, Text } from '@mantine/core'
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { LocalDateTime } from '@/components/local-date-time'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -47,7 +47,8 @@ const announceProps = { role: 'status', 'aria-live': 'polite', 'aria-atomic': 't
 
 export function StatusAlert({ variant, title, children, announce = false }: StatusAlertProps) {
     const { bg, accent, Icon } = VARIANTS[variant]
-    const liveRegion = announce ? announceProps : {}
+    // Not Mantine's default role="alert": it would talk over the route-title announcement on every page load.
+    const ariaProps = announce ? announceProps : ({ role: 'region' } as const)
     return (
         <Alert
             variant="light"
@@ -57,16 +58,16 @@ export function StatusAlert({ variant, title, children, announce = false }: Stat
             icon={<Icon size={20} weight="fill" />}
             data-testid="status-alert"
             data-variant={variant}
-            {...liveRegion}
-        >
-            <Stack gap="xs">
-                <Text fz="sm" fw={fontWeight.bold} c={accent}>
+            title={
+                <Text span fz="sm" fw={fontWeight.bold} c={accent}>
                     {title}
                 </Text>
-                <Text fz="sm" c={semanticColor('text.primary')}>
-                    {children}
-                </Text>
-            </Stack>
+            }
+            {...ariaProps}
+        >
+            <Text fz="sm" c={semanticColor('text.primary')}>
+                {children}
+            </Text>
         </Alert>
     )
 }

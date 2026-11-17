@@ -19,6 +19,7 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
+import { PageLayout } from '@/components/page-layout'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -122,8 +123,7 @@ export function PostFeedbackView({
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={{ label: stepLabel, heading }} />
+            <PageLayout header={<StudyPageHeader study={study} step={{ label: stepLabel, heading }} />}>
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}
@@ -154,7 +154,7 @@ export function PostFeedbackView({
                 />
                 <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

@@ -1,5 +1,5 @@
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
 import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
@@ -14,6 +14,7 @@ import { latestSubmittedJobForStudy, priorCodeRunsForStudy, type LatestJobForStu
 import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
+import { PageLayout } from '@/components/page-layout'
 
 type ReviewerOutputsDecidedProps = {
     study: SelectedStudy
@@ -67,8 +68,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />
+            <PageLayout header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
                     stepLabel={REVIEW_OUTPUTS_STEP.label}
                     heading={REVIEW_OUTPUTS_STEP.heading}
@@ -90,7 +90,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                     feedbackLoadError={feedbackLoadError}
                 />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }
