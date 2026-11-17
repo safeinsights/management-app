@@ -75,7 +75,8 @@ describe('DecryptAndViewOutputs', () => {
 
         const card = screen.getByTestId('code-run-card')
         const feedback = within(card).getByTestId('latest-run-feedback')
-        expect(feedback).toHaveTextContent('Reviewer feedback (v1.0)')
+        expect(feedback).toHaveTextContent('Reviewer feedback')
+        expect(feedback).not.toHaveTextContent('(v')
         expect(await within(feedback).findByText('Run 2 outputs are clean.')).toBeInTheDocument()
         const keyForm = within(card).getByTestId('security-key-form')
         expect(keyForm.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

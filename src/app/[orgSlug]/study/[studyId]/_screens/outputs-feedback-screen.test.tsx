@@ -9,6 +9,7 @@ import {
     insertTestOrg,
     insertTestStudyJobData,
     it,
+    type PriorCodeRunOptions,
     type Mock,
     mockSessionWithTestData,
     renderWithProviders,
@@ -17,6 +18,7 @@ import {
     userEvent,
     vi,
     waitForPendingMutations,
+    within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
@@ -36,6 +38,14 @@ const SUBMITTED_AT = new Date('2026-07-01T12:00:00Z')
 const ERRORED_AT = new Date('2026-07-15T12:00:00Z')
 const FIRST_DECIDED_AT = new Date('2026-07-20T12:00:00Z')
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
+const VIEWED_AT = new Date('2026-09-10T12:00:00Z')
+const EARLIER_RUN_AT = new Date('2026-04-01T12:00:00Z')
+const NO_OUTPUTS_TEXT = 'No output files were shared for this code run.'
+
+const formatDate = (date: Date) => dayjs(date).format('MMM DD, YYYY')
+const card = () => screen.getByTestId('code-run-card')
+const isBefore = (first: Element, second: Element) =>
+    !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
 // The status writer replays rows by date, so every row of a dated history carries one.
 const daysBefore = (date: Date, days: number) => new Date(date.getTime() - days * 24 * 60 * 60 * 1000)
 
@@ -67,12 +77,19 @@ const renderScreen = async (study: ScreenComponentProps['study'], raw: RawStudyS
     return rendered
 }
 
-const setupFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
+type SetupOptions = {
+    withNote?: boolean
+    /** Earlier, already-decided runs; written before the latest one, as the fixture requires. */
+    priorRuns?: (authorId: string) => PriorCodeRunOptions[]
+}
+
+const setupFeedbackOnly = async ({ withNote = false, priorRuns }: SetupOptions = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
         jobStatus: 'INITIATED',
+        priorRuns: priorRuns?.(user.id),
     })
 
     await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: SUBMITTED_AT, userId: user.id })
@@ -153,6 +170,20 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
     return { org, user, study, raw, job, dataPartner, commentId: comment.id }
 }
+
+// The researcher has opened the decision, so the status reads "outputs reviewed".
+const setupViewedFeedbackOnly = async () => {
+    const setup = await setupFeedbackOnly()
+    await insertTestJobStatus(setup.job.id, 'RESULTS-VIEWED', { at: VIEWED_AT })
+    return { ...setup, raw: await requireRawState(setup.study.id) }
+}
+
+// The three researcher statuses the card names: outputs need review, outputs reviewed, code errored.
+const RESEARCHER_STATUSES = [
+    ['outputs need review', setupFeedbackOnly],
+    ['outputs reviewed', setupViewedFeedbackOnly],
+    ['code errored', setupErroredFeedbackOnly],
+] as const
 
 // Two outputs decisions across two jobs, with a code resubmission note between them: the shape the
 // card reported, where the code round had climbed to 2 before the first outputs decision was made.
@@ -360,14 +391,63 @@ describe('OutputsFeedbackScreen', () => {
         })
     })
 
-    describe('feedback and notes (clean run)', () => {
+    describe.each(RESEARCHER_STATUSES)('code run card (%s)', (_label, setup) => {
+        it('titles the card with the decision date and states that no outputs were shared', async () => {
+            const { org, study, raw } = await setup()
+            await renderScreen(study, raw, org.slug)
+
+            expect(
+                within(card()).getByRole('heading', { name: `Code run ${formatDate(DECIDED_AT)}` }),
+            ).toBeInTheDocument()
+            expect(within(card()).getByText('Output files')).toBeInTheDocument()
+            expect(within(card()).getByText(NO_OUTPUTS_TEXT)).toBeInTheDocument()
+            expect(screen.queryByText(/^Security key/)).toBeNull()
+            expect(screen.queryByText(/Enter your security key/)).toBeNull()
+            expect(screen.queryByRole('textbox', { name: 'Security key' })).toBeNull()
+            expect(screen.queryByRole('button', { name: 'View files' })).toBeNull()
+            expect(screen.queryByTestId('code-run-outputs')).toBeNull()
+        })
+
+        it("shows the latest run's reviewer feedback in the card, after the static text", async () => {
+            const { org, user, study, raw } = await setup()
+            await renderScreen(study, raw, org.slug)
+
+            expect(screen.queryByText(/feedback and notes/i)).toBeNull()
+            expect(screen.queryByTestId('feedback-and-notes-section')).toBeNull()
+            const feedback = within(card()).getByTestId('latest-run-feedback')
+            expect(isBefore(within(card()).getByText(NO_OUTPUTS_TEXT), feedback)).toBe(true)
+            expect(feedback).toHaveTextContent('Reviewer feedback')
+            expect(feedback).not.toHaveTextContent('(v')
+            expect(feedback).toHaveTextContent(user.fullName)
+            expect(feedback).toHaveTextContent(formatDate(DECIDED_AT))
+            expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
+        })
+    })
+
+    it('follows the latest decision when an earlier run shared its outputs', async () => {
+        const { org, study, raw } = await setupFeedbackOnly({
+            priorRuns: (authorId) => [
+                { ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Outputs shared on the earlier run.' } },
+            ],
+        })
+        await renderScreen(study, raw, org.slug)
+
+        expect(within(card()).getByText(NO_OUTPUTS_TEXT)).toBeInTheDocument()
+        expect(screen.queryByRole('textbox', { name: 'Security key' })).toBeNull()
+        expect(within(card()).getByTestId('latest-run-feedback')).toHaveTextContent(
+            'Remove the row-level output before resharing.',
+        )
+        expect(screen.queryByText('Outputs shared on the earlier run.')).toBeNull()
+    })
+
+    describe('reviewer feedback (clean run)', () => {
         // OTTER-766: the note belongs to the code step, so it stays on the code screens.
         it("renders this study's outputs feedback and no resubmission note", async () => {
             const { org, user, study, raw } = await setupFeedbackOnly({ withNote: true })
             await renderScreen(study, raw, org.slug)
 
-            const section = screen.getByTestId('feedback-and-notes-section')
-            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+            const section = screen.getByTestId('latest-run-feedback')
+            expect(section).toHaveTextContent('Reviewer feedback')
             expect(section).toHaveTextContent('Remove the row-level output before resharing.')
             expect(section).not.toHaveTextContent('Resubmission note')
             expect(section).not.toHaveTextContent('Adjusted the aggregation query.')
@@ -424,14 +504,14 @@ describe('OutputsFeedbackScreen', () => {
         })
     })
 
-    describe('feedback and notes (errored run)', () => {
+    describe('reviewer feedback (errored run)', () => {
         it("renders this study's outputs feedback and no resubmission note", async () => {
             const { org, user, study, raw } = await setupErroredFeedbackOnly({ withNote: true })
             await renderScreen(study, raw, org.slug)
 
-            const section = screen.getByTestId('feedback-and-notes-section')
-            expect(section).toHaveTextContent('Feedback and notes')
-            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+            const section = screen.getByTestId('latest-run-feedback')
+            expect(section).not.toHaveTextContent('Feedback and notes')
+            expect(section).toHaveTextContent('Reviewer feedback')
             expect(section).toHaveTextContent('The run timed out before the aggregation completed.')
             expect(section).not.toHaveTextContent('Resubmission note')
             expect(section).not.toHaveTextContent('Raised the timeout to 60s.')
@@ -441,36 +521,33 @@ describe('OutputsFeedbackScreen', () => {
         })
     })
 
-    // The card's own replication: two code rounds and two outputs rounds on one study.
-    describe('feedback and notes across two outputs rounds (OTTER-766)', () => {
-        it('numbers the outputs feedback v1.0 and v2.0, ignoring the code rounds', async () => {
+    // Two code rounds and two outputs rounds on one study: the earlier round belongs to the code run
+    // history (OTTER-1070), not this card.
+    describe('reviewer feedback across two outputs rounds', () => {
+        it("shows only the latest run's feedback", async () => {
             const { org, study, raw } = await setupTwoOutputsRounds()
             await renderScreen(study, raw, org.slug)
 
-            const section = screen.getByTestId('feedback-and-notes-section')
-            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
-            expect(section).toHaveTextContent('First round: remove the row-level output.')
-            expect(section).toHaveTextContent('Reviewer feedback (v2.0)')
-            expect(section).toHaveTextContent('Second round: the totals still disclose a cell count.')
-            expect(section).not.toHaveTextContent('Resubmission note')
-            expect(section).not.toHaveTextContent('Aggregated the counts as asked.')
-            expect(screen.getAllByTestId('entry-divider')).toHaveLength(1)
+            const feedback = within(card()).getByTestId('latest-run-feedback')
+            expect(feedback).toHaveTextContent('Reviewer feedback')
+            expect(feedback).not.toHaveTextContent('(v')
+            expect(feedback).toHaveTextContent('Second round: the totals still disclose a cell count.')
+            expect(screen.queryByText('First round: remove the row-level output.')).toBeNull()
+            expect(feedback).not.toHaveTextContent('Aggregated the counts as asked.')
+            expect(screen.queryAllByTestId('entry-divider')).toHaveLength(0)
         })
 
-        it('expands the latest entry and lets the prior round toggle open', async () => {
+        it('expands the latest entry and lets it collapse again', async () => {
             const { org, study, raw, firstCommentId, secondCommentId } = await setupTwoOutputsRounds()
             const spy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000)
             try {
                 await renderScreen(study, raw, org.slug)
 
-                expect(screen.getByTestId(`feedback-toggle-${secondCommentId}`)).toHaveAttribute(
-                    'aria-expanded',
-                    'true',
-                )
-                const prior = screen.getByTestId(`feedback-toggle-${firstCommentId}`)
-                expect(prior).toHaveAttribute('aria-expanded', 'false')
-                await userEvent.click(prior)
-                expect(prior).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.queryByTestId(`feedback-toggle-${firstCommentId}`)).toBeNull()
+                const latest = screen.getByTestId(`feedback-toggle-${secondCommentId}`)
+                expect(latest).toHaveAttribute('aria-expanded', 'true')
+                await userEvent.click(latest)
+                expect(latest).toHaveAttribute('aria-expanded', 'false')
             } finally {
                 spy.mockRestore()
             }

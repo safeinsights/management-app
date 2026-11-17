@@ -3,9 +3,9 @@ import { CodeRunCard } from '@/components/study/code-run-card'
 import { EMPTY_CELL } from '@/lib/dates'
 
 describe('CodeRunCard', () => {
-    it('titles the card with the date the run finished and renders its sections below the title', () => {
+    it('titles the card with the given date and renders its sections below the title', () => {
         renderWithProviders(
-            <CodeRunCard job={{ statusChanges: [{ status: 'RUN-COMPLETE', createdAt: '2026-03-05T12:00:00Z' }] }}>
+            <CodeRunCard date="2026-03-05T12:00:00Z">
                 <p>First section</p>
                 <p>Second section</p>
             </CodeRunCard>,
@@ -19,9 +19,9 @@ describe('CodeRunCard', () => {
         ).toBeTruthy()
     })
 
-    it('reads a run with no finish time as an unknown date', () => {
+    it('reads a missing date as an unknown date', () => {
         renderWithProviders(
-            <CodeRunCard job={{ statusChanges: [] }}>
+            <CodeRunCard date={null}>
                 <p>Section</p>
             </CodeRunCard>,
         )
@@ -31,9 +31,9 @@ describe('CodeRunCard', () => {
     })
 
     // Tests run in America/Chicago, where a run ending after UTC midnight is still the day before.
-    it('hydrates without a mismatch when the run ended after UTC midnight', async () => {
+    it('hydrates without a mismatch when the date is after UTC midnight', async () => {
         const { recoverableErrors } = hydrateServerHtml(
-            <CodeRunCard job={{ statusChanges: [{ status: 'JOB-ERRORED', createdAt: '2026-09-24T01:30:00Z' }] }}>
+            <CodeRunCard date="2026-09-24T01:30:00Z">
                 <p>Section</p>
             </CodeRunCard>,
         )

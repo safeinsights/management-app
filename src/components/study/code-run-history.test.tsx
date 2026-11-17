@@ -696,7 +696,7 @@ describe('CodeRunHistory expanded row', () => {
         expect(within(firstRow()).getByText('No feedback was shared for this run.')).toBeVisible()
     })
 
-    it('labels a decision with its version, as the decided page does', async () => {
+    it('labels a decision without a version, as the decided page does', async () => {
         const decided = {
             ...run('decided', '2026-03-05T12:00:00Z'),
             feedback: [
@@ -714,7 +714,8 @@ describe('CodeRunHistory expanded row', () => {
 
         await expandRow(firstRow())
 
-        expect(within(firstRow()).getByText('Reviewer feedback (v2.0)')).toBeVisible()
+        expect(within(firstRow()).getByText('Reviewer feedback')).toBeVisible()
+        expect(within(firstRow()).queryByText(/\(v2\.0\)/)).toBeNull()
     })
 })
 

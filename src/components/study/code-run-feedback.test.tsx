@@ -16,7 +16,8 @@ describe('CodeRunFeedback', () => {
         renderWithProviders(<CodeRunFeedback feedback={[feedbackRow()]} testId="latest-run-feedback" />)
 
         const section = screen.getByTestId('latest-run-feedback')
-        expect(section).toHaveTextContent('Reviewer feedback (v2.0)')
+        expect(section).toHaveTextContent('Reviewer feedback')
+        expect(section).not.toHaveTextContent('(v')
         expect(section).toHaveTextContent('Jessica Walters')
         expect(await screen.findByText('Outputs look clean.')).toBeInTheDocument()
     })
