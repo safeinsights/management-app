@@ -1,8 +1,6 @@
 vulnerabilities:
-    # picomatch <=4.0.7 ReDoS on repeated extglobs: no fixed release exists (4.0.7 is
-    # latest). Only build tooling uses it (Sentry's rollup/vite plugins, vitest, eslint), with
-    # fixed globs, never user input. Re-check on expiry and bump the override in
-    # pnpm-workspace.yaml once a fix ships.
+    # No fixed picomatch release yet. Only build tooling uses it (Sentry's rollup/vite plugins,
+    # vitest, eslint), with fixed globs, never user input. On expiry, check for a fix.
     - id: CVE-2026-112366
       paths:
           - pnpm-lock.yaml
