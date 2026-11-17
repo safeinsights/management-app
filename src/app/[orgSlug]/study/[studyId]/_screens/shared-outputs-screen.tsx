@@ -5,7 +5,7 @@ import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
-import { latestRunFeedback } from '@/lib/outputs-review'
+import { latestRunFeedback, OUTPUTS_KEY_DESCRIPTIONS } from '@/lib/outputs-review'
 import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import {
     isErroredOutputsSharedOutcome,
@@ -43,8 +43,8 @@ const isShareScreen = (screen: ScreenId): screen is SharedOutputsScreenId => scr
 // Same rule table as the status badge, so the sentence and the badge never disagree.
 const researcherKeyDescription = (state: StudyState): string =>
     resolvePillId('researcher', state) === 'outputs-reviewed'
-        ? 'The outputs are encrypted. Enter your security key to view them again.'
-        : 'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'
+        ? OUTPUTS_KEY_DESCRIPTIONS.viewed
+        : OUTPUTS_KEY_DESCRIPTIONS.awaitingView
 
 const NOT_FOUND = { title: 'Outputs not found', message: 'This study has no shared outputs to display yet.' }
 

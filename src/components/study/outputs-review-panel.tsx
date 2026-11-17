@@ -24,6 +24,7 @@ import {
     hasOutputsDecision,
     isOutputsReviewEditable,
     OUTPUTS_DECIDED_NOTICE,
+    OUTPUTS_KEY_DESCRIPTIONS,
 } from '@/lib/outputs-review'
 import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
@@ -160,7 +161,7 @@ const LatestRunSection: FC<LatestRunSectionProps> = ({ job, decryptedFiles, onDe
             <CodeRunKeyFields
                 job={job}
                 type="reviewer"
-                description="Output files are encrypted. Enter your security key to access outputs from this and previous code runs."
+                description={OUTPUTS_KEY_DESCRIPTIONS.awaitingView}
                 onDecrypted={onDecrypted}
                 onKeyAccepted={onKeyAccepted}
             />

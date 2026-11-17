@@ -79,6 +79,13 @@ export const OUTPUTS_DECISION_FAILURE = {
         'Reload the page and try again. You will be asked for your security key again, so copy your feedback somewhere safe first.',
 } as const
 
+// The status sentence under "Security key" on both roles' code run cards.
+export const OUTPUTS_KEY_DESCRIPTIONS = {
+    awaitingView:
+        'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.',
+    viewed: 'The outputs are encrypted. Enter your security key to view them again.',
+} as const
+
 export const OUTPUTS_FILE_NAME_MAX_LENGTH = 50
 
 export type OutputFileOrder = { fileType: FileType; name: string }
