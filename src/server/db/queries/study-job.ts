@@ -100,13 +100,24 @@ export async function priorCodeRunsForStudy(studyId: string, latestJobId: string
         .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
         .select((eb) => [
             'studyJob.id',
+            'studyJob.round',
             eb.fn.max('jobStatusChange.createdAt').as('ranAt'),
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange as statusChange')
-                    .select('statusChange.status')
+                    .select(['statusChange.status', 'statusChange.createdAt'])
                     .whereRef('statusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile as codeFile')
+                    .select(['codeFile.id', 'codeFile.name', 'codeFile.fileType'])
+                    .whereRef('codeFile.studyJobId', '=', 'studyJob.id')
+                    .where('codeFile.fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    // Explicit, because sorting the enum column follows its declaration order (OTTER-812).
+                    .orderBy((fileEb) => fileEb('codeFile.fileType', '=', 'MAIN-CODE'), 'desc')
+                    .orderBy('codeFile.name', 'asc'),
+            ).as('codeFiles'),
             jsonArrayFrom(
                 eb
                     .selectFrom('studyReviewComment')

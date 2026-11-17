@@ -90,6 +90,10 @@ async function proveKey(
     }
 }
 
+export async function fingerprintOfPrivateKey(pem: string): Promise<string> {
+    return fingerprintPublicKeyFromPrivateKey(await privateKeyFromBuffer(pemToArrayBuffer(pem)))
+}
+
 export async function decryptJobFiles(
     encryptedFiles: EncryptedJobFile[],
     privateKey: string,
@@ -99,8 +103,7 @@ export async function decryptJobFiles(
     let privateKeyBuffer: ArrayBuffer
     try {
         privateKeyBuffer = pemToArrayBuffer(privateKey)
-        const key = await privateKeyFromBuffer(privateKeyBuffer)
-        fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
+        fingerprint = await fingerprintOfPrivateKey(privateKey)
     } catch (err) {
         throw new KeyParseError('Invalid key data, check that key was copied successfully', { cause: err })
     }

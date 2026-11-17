@@ -30,8 +30,10 @@ const run = (
     statuses: StudyJobStatus[] = ['CODE-SUBMITTED', 'RUN-COMPLETE', 'FILES-APPROVED'],
 ) => ({
     id,
+    round: 1,
     ranAt: new Date(ranAt),
-    statusChanges: statuses.map((status) => ({ status })),
+    statusChanges: statuses.map((status) => ({ status, createdAt: ranAt })),
+    codeFiles: [] as Array<{ id: string; name: string; fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' }>,
     feedback: [],
 })
 

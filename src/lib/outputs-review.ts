@@ -2,7 +2,7 @@ import type { FileType, ReviewDecision, StudyJobStatus } from '@/database/types'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { APPROVED_LOG_TYPES } from '@/lib/file-type-helpers'
 import { DECISION_NOTICES } from '@/lib/review-decision'
-import { ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { latestStatusAt, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
 
 export type OutputsDecision = 'share-outputs' | 'share-feedback-only'
 
@@ -40,6 +40,19 @@ export const codeRunEndedAt = (
         .reduce<
             Date | string | null
         >((latest, c) => (latest && new Date(latest) >= new Date(c.createdAt) ? latest : c.createdAt), null)
+
+// The research lab sees a run once the reviewer decides on it, so its card, banner and history rows
+// are dated by that decision. Approved first: an errored run that was shared routes to a share screen.
+export const researcherRunDate = (
+    statusChanges: ReadonlyArray<{ status: StudyJobStatus; createdAt: Date | string }>,
+): Date | string | null =>
+    latestStatusAt(statusChanges, 'FILES-APPROVED') ??
+    latestStatusAt(statusChanges, 'FILES-REJECTED') ??
+    codeRunEndedAt(statusChanges)
+
+// The reviewer chose not to share this run's outputs, so they are never fetched or shown.
+export const isFeedbackOnlyRun = (statusChanges: ReadonlyArray<{ status: StudyJobStatus }>): boolean =>
+    statusChanges.some((change) => change.status === 'FILES-REJECTED')
 
 export const hasReviewableOutputs = (jobStatuses: readonly string[]): boolean =>
     includesStatus(jobStatuses, OUTPUTS_REVIEWABLE_JOB_STATUSES)
