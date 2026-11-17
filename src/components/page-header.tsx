@@ -45,6 +45,7 @@ const Eyebrow: FC<{ text?: string | null }> = ({ text }) => {
                 fw={fontWeight.semibold}
                 c={semanticColor('text.secondary')}
                 tt="uppercase"
+                lh="var(--si-line-height-normal)"
                 mih="1lh"
                 // The header stack sizes its children to their content, so without a cap a long name never truncates.
                 maw="100%"
