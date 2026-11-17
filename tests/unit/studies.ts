@@ -465,7 +465,8 @@ export const isUnreadOnMyStudies = async (studyId: string) => {
 export type PriorCodeRunOptions = {
     ranAt: Date
     outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
-    decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+    // null leaves the run undecided, a state the research lab must never be shown.
+    decision?: 'FILES-APPROVED' | 'FILES-REJECTED' | null
     feedback?: { authorId: string; text: string }
     // The first is the main file, the rest supplemental.
     codeFiles?: string[]
@@ -490,7 +491,7 @@ export const insertTestPriorCodeRun = async (
     const job = await insertTestJob(studyId, { createdAt: submittedAt })
     await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
     await insertTestJobStatus(job.id, outcome, { at: ranAt })
-    await insertTestJobStatus(job.id, decision, { at: decidedAt })
+    if (decision) await insertTestJobStatus(job.id, decision, { at: decidedAt })
     if (codeFiles.length) {
         await db
             .insertInto('studyJobFile')

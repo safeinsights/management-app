@@ -75,7 +75,10 @@ export function useSecurityKeyForm({
     const failInvalid = useCallback(() => setError(SECURITY_KEY_ERRORS.invalid), [])
 
     const failDecrypt = useCallback(
-        (err: Error) => setError(err instanceof ArchiveIntegrityError ? SECURITY_KEY_ERRORS.integrity : SECURITY_KEY_ERRORS.invalid),
+        (err: Error) =>
+            setError(
+                err instanceof ArchiveIntegrityError ? SECURITY_KEY_ERRORS.integrity : SECURITY_KEY_ERRORS.invalid,
+            ),
         [],
     )
 

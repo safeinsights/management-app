@@ -668,18 +668,17 @@ describe('SharedOutputsScreen code run history', () => {
     })
 
     it('leaves out an earlier run that was never decided', async () => {
-        const { org, study, priorJobs } = await setupShared(VARIANTS[0], {
+        const { org, study, raw } = await setupShared(VARIANTS[0], {
             priorRuns: (authorId) => [
-                { ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Feedback on the undecided run.' } },
+                {
+                    ranAt: EARLIER_RUN_AT,
+                    decision: null,
+                    feedback: { authorId, text: 'Feedback on the undecided run.' },
+                },
                 { ranAt: MIDDLE_RUN_AT },
             ],
         })
-        await db
-            .deleteFrom('jobStatusChange')
-            .where('studyJobId', '=', priorJobs[0].id)
-            .where('status', '=', 'FILES-APPROVED')
-            .execute()
-        await renderScreen(VARIANTS[0], study, await requireRawState(study.id), org.slug)
+        await renderScreen(VARIANTS[0], study, raw, org.slug)
         await openHistory()
 
         expect(within(history()).getByRole('heading', { name: 'Code run history (1)' })).toBeInTheDocument()
