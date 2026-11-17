@@ -18,15 +18,16 @@
 # Overlap with Jenkins: PR events run only while repository variable PR_PREVIEWS_ON_ACTIONS is
 # 'true' (a repository variable: an environment variable does not resolve in a job `if`), so
 # Jenkins and Actions never deploy the same PR concurrently. Cutover = set the variable to true and
-# disable PR discovery on the Jenkins job. Merged PRs are skipped here: the Jenkins main build tears
-# their preview down with --mergedPRNumber, and the nightly reaper is the backstop; when main
-# deploys move to Actions, drop the `merged` clause below and add the push path. Teardown on close
-# of an unmerged PR is new (Jenkins had no close path; GitHub skips pull_request events for
-# conflicting PRs, and the reaper covers those). The reaper is not gated: it only deletes previews
-# whose PR is closed or no longer exists, and keeps them on any ambiguous GitHub answer.
+# disable PR discovery on the Jenkins job. Every close tears the preview down, merged or not
+# (SHRMP-358 item 7); that also covers squash merges, which the Jenkins main build's
+# `Merge pull request #N` parse misses. While that build still runs its own merged-PR teardown the
+# two can overlap, and the nightly reaper covers whichever loses. Merge-to-main and release deploys
+# move to CodePipeline in si-devops (SHRMP-358 item 8), not here. GitHub skips pull_request events
+# for conflicting PRs; the reaper covers those too. The reaper is not gated: it only deletes
+# previews whose PR is closed or no longer exists, and keeps them on any ambiguous GitHub answer.
 #
-# timeout-minutes is the real ceiling: the deploy chains into SafeInsights-DevDeploy, and role
-# chaining caps that session at one hour whatever the OIDC session length.
+# timeout-minutes matches the credentials: the OIDC session and the chained SafeInsights-DevDeploy
+# session each last one hour, so a deploy must finish within it.
 #
 # Admin setup, once: environment `dev-deploy` with no branch restriction (previews deploy from any
 # branch), its variable AWS_DEPLOY_ROLE_ARN = the GithubDeployRoleArn output of
@@ -54,7 +55,7 @@ concurrency:
 
 jobs:
     deploy:
-        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && vars.PR_PREVIEWS_ON_ACTIONS == 'true' && !github.event.pull_request.merged)
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && vars.PR_PREVIEWS_ON_ACTIONS == 'true')
         runs-on: ubuntu-latest
         timeout-minutes: 60
         environment: dev-deploy
@@ -99,8 +100,6 @@ jobs:
               with:
                   role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
                   aws-region: us-east-1
-                  # The deploy assumes SafeInsights-DevDeploy itself; role chaining caps that at 1h.
-                  role-duration-seconds: 7200
                   role-session-name: management-app-${{ github.run_id }}
             - name: Fetch the deploy bundle
               run: |
