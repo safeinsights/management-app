@@ -5,11 +5,10 @@ import type { ReviewDecision, StudyStatus } from '@/database/types'
 import type { CodeDecisionStatus } from '@/lib/study-job-status'
 import type { SharedOutputsScreenId } from '@/lib/study-screen'
 
-// Reviewer bodies set the lab name in semibold, so theirs can hold an element.
-export type BannerCopy<Body extends ReactNode = string> = {
+export type BannerCopy = {
     variant: StatusAlertVariant
     title: string
-    body: Body
+    body: ReactNode
 }
 
 export type BannerParams = {
@@ -191,10 +190,7 @@ export type ReviewerBannerParams = {
 const attributedTo = (action: string, reviewerName?: string | null) =>
     reviewerName ? `${action} by ${reviewerName}` : action
 
-export function reviewerProposalNeedsReviewBanner({
-    researchLab,
-    version = 1,
-}: ReviewerBannerParams): BannerCopy<ReactNode> {
+export function reviewerProposalNeedsReviewBanner({ researchLab, version = 1 }: ReviewerBannerParams): BannerCopy {
     return {
         variant: STATUS_ALERT_VARIANT.action,
         title:
@@ -211,7 +207,7 @@ export function reviewerProposalNeedsReviewBanner({
 export function reviewerProposalDecisionBanner(
     decision: ReviewDecision,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy<ReactNode> {
+): BannerCopy {
     switch (decision) {
         case 'APPROVE':
             return {
@@ -255,7 +251,7 @@ export function reviewerCodeNeedsReviewBanner({ researchLab, version = 1 }: Revi
 export function reviewerCodeDecisionBanner(
     decision: ReviewDecision,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy<ReactNode> {
+): BannerCopy {
     switch (decision) {
         case 'APPROVE':
             return {
@@ -291,7 +287,7 @@ type ReviewerOutputsDecisionFlags = {
 export function reviewerOutputsDecisionBanner(
     { resultsErrored, resultsApproved }: ReviewerOutputsDecisionFlags,
     { researchLab, reviewerName }: ReviewerBannerParams,
-): BannerCopy<ReactNode> {
+): BannerCopy {
     if (resultsErrored && resultsApproved) {
         return {
             variant: STATUS_ALERT_VARIANT.informative,

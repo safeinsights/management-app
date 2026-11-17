@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import {
     type BannerCopy,
@@ -189,8 +188,7 @@ const REVIEWER = 'Test Reviewer'
 
 // Reviewer bodies set the lab name in its own element, so they are compared as rendered text. Read
 // from the paragraph because the container also holds Mantine's style tag.
-const bodyText = (copy: BannerCopy<ReactNode>) =>
-    renderWithProviders(<p>{copy.body}</p>).container.querySelector('p')?.textContent
+const bodyText = (copy: BannerCopy) => renderWithProviders(<p>{copy.body}</p>).container.querySelector('p')?.textContent
 
 describe('reviewerProposalNeedsReviewBanner', () => {
     it('names the lab in the first-review title, and in semibold in the body', () => {
