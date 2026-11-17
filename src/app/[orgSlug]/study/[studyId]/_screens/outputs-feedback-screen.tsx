@@ -10,7 +10,7 @@ import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComponentProps, 'study' | 'raw' | 'nav'>) {
     const result = await guardOutputsFeedbackScreen({
@@ -31,7 +31,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <MarkOutputsDecisionViewed studyId={study.id} />
                 <ProposalStepHeader
                     stepLabel={VERIFY_OUTPUTS_STEP.label}
@@ -40,7 +40,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
                 />
                 <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
                 <StepNavigation nav={nav} />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

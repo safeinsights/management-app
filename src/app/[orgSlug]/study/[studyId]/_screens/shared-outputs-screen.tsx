@@ -15,7 +15,7 @@ import {
 } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 /**
  * The reviewer released the outputs with "Share outputs and feedback". The researcher decrypts,
@@ -67,7 +67,7 @@ export async function SharedOutputsScreen({
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <SharedOutputsPanel
                     studyId={study.id}
                     decidedAt={decidedAt}
@@ -78,7 +78,7 @@ export async function SharedOutputsScreen({
                     }
                     nav={phasedNav}
                 />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

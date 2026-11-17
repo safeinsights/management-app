@@ -16,7 +16,7 @@ import type { LatestJobForStudy } from '@/server/db/queries'
 import type { FileActivityByName } from '@/components/study/submitted-code-table-view'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 interface CodePostDecisionViewProps {
     study: Submitted<SelectedStudy>
@@ -66,7 +66,7 @@ export function CodePostDecisionView({
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
     return (
-        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
+        <PageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
             <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading} banner={banner} />
 
             <SubmittedCodeFilesSection
@@ -78,6 +78,6 @@ export function CodePostDecisionView({
 
             <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
             <StepNavigation nav={nav} />
-        </StudyPageLayout>
+        </PageLayout>
     )
 }

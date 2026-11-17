@@ -23,7 +23,7 @@ import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } f
 import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 // Module-level so the no-key path hands the same array identity down on every render.
 const NO_FILES: JobFileInfo[] = []
@@ -103,7 +103,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     enabled={isRoundOpen}
                 />
                 <Box bg={semanticColor('surface.page')}>
-                    <StudyPageLayout header={header}>
+                    <PageLayout header={header}>
                         <ProposalStepHeader
                             stepLabel={REVIEW_OUTPUTS_STEP.label}
                             heading={REVIEW_OUTPUTS_STEP.heading}
@@ -134,7 +134,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                         <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
                         <PoliteStatus announcement={priorOutputs.announcement} />
                         <StepNavigation nav={isLocked ? nav.locked : nav.unlocked} />
-                    </StudyPageLayout>
+                    </PageLayout>
                 </Box>
             </OutputsReviewFeedbackProviderShare>
         </StudyKickOutProvider>

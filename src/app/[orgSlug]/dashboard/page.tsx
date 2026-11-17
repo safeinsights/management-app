@@ -5,8 +5,8 @@ import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { isEnclaveOrg } from '@/lib/types'
 import { PageHeader } from '@/components/page-header'
+import { PageLayout } from '@/components/page-layout'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,25 +26,22 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     // Narrower page and card gutters than other pages give the studies table its 928px at a
     // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack px="md" py="xxl" gap="xl">
-            <PageHeader eyebrow={org.name} title="Dashboard" />
-            <Stack gap="xxl">
-                <JoinedOrgBanner />
-                <StudiesTable
-                    audience={isEnclave ? 'reviewer' : 'researcher'}
-                    scope="org"
-                    orgSlug={orgSlug}
-                    title={isEnclave ? 'Studies for review' : 'All studies'}
-                    description={
-                        isEnclave
-                            ? 'Track and review studies submitted to your organization. Open a study to view its details, review submitted materials, and submit your decision.'
-                            : 'Track every study your organization has created, from draft to completed. Open a study to check its status, view details, or take your next step.'
-                    }
-                    showNewStudyButton={!isEnclave}
-                    showRefresher
-                    paperWrapper
-                />
-            </Stack>
-        </Stack>
+        <PageLayout px="md" pb="xxl" header={<PageHeader eyebrow={org.name} title="Dashboard" />}>
+            <JoinedOrgBanner />
+            <StudiesTable
+                audience={isEnclave ? 'reviewer' : 'researcher'}
+                scope="org"
+                orgSlug={orgSlug}
+                title={isEnclave ? 'Studies for review' : 'All studies'}
+                description={
+                    isEnclave
+                        ? 'Track and review studies submitted to your organization. Open a study to view its details, review submitted materials, and submit your decision.'
+                        : 'Track every study your organization has created, from draft to completed. Open a study to check its status, view details, or take your next step.'
+                }
+                showNewStudyButton={!isEnclave}
+                showRefresher
+                paperWrapper
+            />
+        </PageLayout>
     )
 }

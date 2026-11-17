@@ -12,7 +12,7 @@ import { ResearchDetailsSection } from '@/components/researcher-profile/research
 import { ArrowLeftIcon } from '@phosphor-icons/react'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 import type { OrgType } from '@/database/types'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 interface ResearcherProfileViewProps {
     header: ReactNode
@@ -29,7 +29,7 @@ export function ResearcherProfileView({ header, orgSlug, studyId, profileData, o
     const backHref = orgType === 'lab' ? Routes.studySubmitted(studyParams) : Routes.studyReview(studyParams)
 
     return (
-        <StudyPageLayout header={header} gap="xl">
+        <PageLayout header={header} gap="xl">
             <Link href={backHref} c={semanticColor('link.default')}>
                 <Group gap="xxs" display="inline-flex">
                     <ArrowLeftIcon size={16} />
@@ -45,6 +45,6 @@ export function ResearcherProfileView({ header, orgSlug, studyId, profileData, o
             <EducationSection data={profileData} refetch={noop} readOnly />
             <PositionsSection data={profileData} refetch={noop} readOnly />
             <ResearchDetailsSection data={profileData} refetch={noop} readOnly />
-        </StudyPageLayout>
+        </PageLayout>
     )
 }

@@ -15,7 +15,7 @@ import {
     type MemberOption,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/proposal-fields-section'
 import { EditResubmitFooter } from './footer'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 // Co-editable by the whole lab; once any member resubmits the study leaves CHANGE-REQUESTED and
 // the rest must be kicked out.
@@ -70,7 +70,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
             editableStatuses={RESUBMIT_EDITABLE_STATUSES}
             redirectTarget="studySubmitted"
         >
-            <StudyPageLayout header={header}>
+            <PageLayout header={header}>
                 <ProposalFieldsSection
                     studyId={studyId}
                     form={form}
@@ -104,7 +104,7 @@ export const EditResubmitForm: FC<EditResubmitFormProps> = ({
                     studyTitle={studyTitle}
                     previousStep={previousStep}
                 />
-            </StudyPageLayout>
+            </PageLayout>
         </StudyKickOutProvider>
     )
 }

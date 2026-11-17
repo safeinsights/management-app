@@ -14,7 +14,7 @@ import type { StepNav } from '@/lib/study-screen'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -79,7 +79,7 @@ export function ProposalSubmitted({
     const banner = bannerCopy ? <StatusBanner copy={bannerCopy} study={study} entries={entries} /> : null
 
     return (
-        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />}>
+        <PageLayout header={<StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />}>
             {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
                 longer needs the "Initial request 2.0" counter (OTTER-762). */}
             <ProposalRequest
@@ -93,6 +93,6 @@ export function ProposalSubmitted({
             <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
             <FeedbackAndNotesSection entries={entries} />
             <StepNavigation nav={nav} />
-        </StudyPageLayout>
+        </PageLayout>
     )
 }

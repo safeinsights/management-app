@@ -10,7 +10,7 @@ import { StudyPageHeader } from '@/components/study/study-page-header'
 import { STUDY_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { countCharacters } from '@/lib/field-limits'
 import { STUDY_TITLE_MAX_CHARACTERS } from '@/schema/study-request'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 export const metadata: Metadata = { title: 'Study proposal' }
 
@@ -48,7 +48,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
-        <StudyPageLayout header={<StudyPageHeader study={result} step={STUDY_PROPOSAL_STEP} />}>
+        <PageLayout header={<StudyPageHeader study={result} step={STUDY_PROPOSAL_STEP} />}>
             <ProposalProvider
                 studyId={studyId}
                 draftData={{
@@ -72,6 +72,6 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     isDraftCreator={isDraftCreator}
                 />
             </ProposalProvider>
-        </StudyPageLayout>
+        </PageLayout>
     )
 }

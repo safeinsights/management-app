@@ -13,7 +13,7 @@ import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
 import { researcherPageGuard } from '../researcher-page-guard'
 import { currentDb } from '@/server/request-context'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 export const metadata: Metadata = { title: 'Edit study code' }
 
@@ -41,7 +41,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={EDIT_CODE_STEP} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={EDIT_CODE_STEP} />}>
                 <EditCodeResubmitProvider
                     studyId={studyId}
                     orgName={study.orgName}
@@ -56,7 +56,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                         viewOutputs={nav.secondary}
                     />
                 </EditCodeResubmitProvider>
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

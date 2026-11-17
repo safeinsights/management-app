@@ -10,7 +10,7 @@ import { isAwaitingOutputsReviewOutcome, projectStudyState } from '@/lib/study-s
 import { guardSubmittedJob } from './submitted-job-guard'
 import type { ScreenComponentProps } from './types'
 import { semanticColor } from '@/theme/tokens'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 export async function OutputsAwaitingReviewScreen({
     study,
@@ -31,14 +31,14 @@ export async function OutputsAwaitingReviewScreen({
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
                     stepLabel={VERIFY_OUTPUTS_STEP.label}
                     heading={VERIFY_OUTPUTS_STEP.heading}
                     banner={<DatedStatusBanner copy={copy} at={completedAt} />}
                 />
                 <StepNavigation nav={nav} />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

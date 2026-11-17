@@ -6,7 +6,7 @@ import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/prop
 import { StepNavigation } from '@/components/study/step-navigation'
 import type { StepNav } from '@/lib/study-screen'
 import { OutputsStatusAlert } from './outputs-status-alert'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 export type SecondaryAnalysisViewProps = {
     /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
@@ -19,14 +19,14 @@ export type SecondaryAnalysisViewProps = {
 export function SecondaryAnalysisView({ header, stageStatus, stageStartedAt, nav }: SecondaryAnalysisViewProps) {
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={header}>
+            <PageLayout header={header}>
                 <ProposalStepHeader
                     stepLabel={REVIEW_OUTPUTS_STEP.label}
                     heading={REVIEW_OUTPUTS_STEP.heading}
                     banner={<OutputsStatusAlert stageStatus={stageStatus} startedAt={stageStartedAt} />}
                 />
                 <StepNavigation nav={nav} />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

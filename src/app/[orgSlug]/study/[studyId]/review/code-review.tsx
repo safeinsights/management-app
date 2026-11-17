@@ -15,7 +15,7 @@ import type { SelectedStudy } from '@/server/actions/study.actions'
 import { CodeReviewClient } from './code-review-client'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 type CodeReviewProps = {
     orgSlug: string
@@ -57,7 +57,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={step} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={step} />}>
                 <CollapsibleSubmittedCodeSection
                     orgSlug={orgSlug}
                     study={study}
@@ -79,7 +79,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
                     latestJobStatus={latestJobStatus}
                     nav={nav}
                 />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }

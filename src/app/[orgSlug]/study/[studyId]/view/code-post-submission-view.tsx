@@ -15,7 +15,7 @@ import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeSubmittedBanner } from '@/lib/study-banners'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 interface CodePostSubmissionViewProps {
     study: SelectedStudy
@@ -85,7 +85,7 @@ export function CodePostSubmissionView({
     )
 
     return (
-        <StudyPageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
+        <PageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
             <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading} banner={banner} />
 
             <SubmittedCodeFilesSection
@@ -98,6 +98,6 @@ export function CodePostSubmissionView({
             <FeedbackSection isVisible={isResubmission && feedbackEntries.length > 0} entries={feedbackEntries} />
 
             <StepNavigation nav={nav} />
-        </StudyPageLayout>
+        </PageLayout>
     )
 }

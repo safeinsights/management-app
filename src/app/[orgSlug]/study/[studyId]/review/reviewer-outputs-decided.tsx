@@ -14,7 +14,7 @@ import { latestSubmittedJobForStudy, priorCodeRunsForStudy, type LatestJobForStu
 import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
-import { StudyPageLayout } from '@/components/study/study-page-layout'
+import { PageLayout } from '@/components/page-layout'
 
 type ReviewerOutputsDecidedProps = {
     study: SelectedStudy
@@ -68,7 +68,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <StudyPageLayout header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}>
+            <PageLayout header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
                     stepLabel={REVIEW_OUTPUTS_STEP.label}
                     heading={REVIEW_OUTPUTS_STEP.heading}
@@ -90,7 +90,7 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                     feedbackLoadError={feedbackLoadError}
                 />
                 <StepNavigation nav={nav} />
-            </StudyPageLayout>
+            </PageLayout>
         </Box>
     )
 }
