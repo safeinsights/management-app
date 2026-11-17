@@ -19,19 +19,18 @@ export function selectCodeEnvSnapshot(db: DBExecutor, studyId: string) {
     return latestCodeEnvForStudyQuery(db, studyId).select([
         'orgCodeEnv.id',
         'orgCodeEnv.language',
-        'orgCodeEnv.dataSourceType',
         'orgCodeEnv.url',
         'orgCodeEnv.settings',
         'orgCodeEnv.commandLines',
     ])
 }
 
-// The parts of a code env that name things an edit replaces: the sample database (named from the
-// identifier) and the starter code and sample data in S3. They are never frozen.
+// The parts of a code env that name things an edit replaces: the starter code files in S3. They are
+// never frozen.
 const currentCodeEnvResources = (db: DBExecutor, codeEnvId: string) =>
     db
         .selectFrom('orgCodeEnv')
-        .select(['identifier', 'starterCodeFileNames', 'sampleDataPath'])
+        .select(['identifier', 'starterCodeFileNames'])
         .where('id', '=', codeEnvId)
         .executeTakeFirst()
 

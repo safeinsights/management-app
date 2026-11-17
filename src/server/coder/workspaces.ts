@@ -7,12 +7,10 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
-    pathForSampleData,
     pathForStarterCode,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
-import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } from '../aws'
-import { env, getConfigValue } from '../config'
+import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
@@ -189,52 +187,6 @@ async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     }
 }
 
-async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchCodeEnvForStudyId>>) {
-    const environment = [...(codeEnv.settings?.environment || [])]
-    const dataPath = completePathForSampleData({
-        orgSlug: codeEnv.slug,
-        codeEnvId: codeEnv.id,
-        sampleDataPath: codeEnv.sampleDataPath ?? undefined,
-    })
-    const prefix = codeEnv.identifier.toUpperCase().replace(/-/g, '_')
-
-    environment.push({ name: 'DATA_PATH', value: dataPath })
-    environment.push({ name: `${prefix}_DATA_PATH`, value: dataPath })
-
-    const bucketName = s3BucketName()
-    const bucketPrefix = pathForSampleData({
-        orgSlug: codeEnv.slug,
-        codeEnvId: codeEnv.id,
-        sampleDataPath: codeEnv.sampleDataPath ?? undefined,
-    })
-    const bucketRegion = env.AWS_REGION || 'us-east-1'
-    environment.push({ name: `${prefix}_S3_BUCKET_NAME`, value: bucketName })
-    environment.push({ name: `${prefix}_S3_BUCKET_PREFIX`, value: bucketPrefix })
-    environment.push({ name: `${prefix}_S3_BUCKET_REGION`, value: bucketRegion })
-
-    if (codeEnv.dataSourceType === 'athena') {
-        const dbName = toAthenaDbName(codeEnv.slug, codeEnv.identifier)
-        const resultsBucket = await getConfigValue('ATHENA_RESULTS_BUCKET_NAME', false)
-        const athenaOutputPath = resultsBucket ? `s3://${resultsBucket}/query-results/` : dataPath
-        const dbUrl = `athena://athena.${bucketRegion}.amazonaws.com:443/${dbName}?s3_location=${athenaOutputPath}`
-        environment.push({ name: 'DATABASE_URL', value: dbUrl })
-        environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
-        environment.push({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: athenaOutputPath })
-        environment.push({ name: 'AWS_ATHENA_WORK_GROUP', value: await getConfigValue('CODER_ATHENA_WORK_GROUP') })
-        environment.push({ name: 'AWS_ATHENA_DATABASE_NAME', value: dbName })
-        environment.push({ name: 'AWS_REGION', value: bucketRegion })
-    } else if (codeEnv.dataSourceType === 'postgres') {
-        const dbName = toPgDbName(codeEnv.slug, codeEnv.identifier)
-        const pgHost = await getConfigValue('CODER_SAMPLE_DATA_POSTGRES_HOST')
-        const pgUser = await getConfigValue('CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER')
-        const dbUrl = `postgres://${pgUser}@${pgHost}/${dbName}`
-        environment.push({ name: 'DATABASE_URL', value: dbUrl })
-        environment.push({ name: `${prefix}_DATABASE_URL`, value: dbUrl })
-    }
-
-    return environment
-}
-
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
     const user = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
     const workspaceName = generateWorkspaceName(studyId)
@@ -258,7 +210,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
                 studyId,
                 username: user.username,
                 containerImage: codeEnv.url,
-                environment: await buildWorkspaceEnvironment(codeEnv),
+                environment: [...(codeEnv.settings?.environment || [])],
             })
         }
         throw error

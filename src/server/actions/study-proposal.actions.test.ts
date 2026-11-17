@@ -222,7 +222,6 @@ describe('Request Study Actions', () => {
             expect(await studySnapshot(studyId)).toEqual({
                 id: chosen.id,
                 language: 'R',
-                dataSourceType: null,
                 url: 'example.com/r:chosen',
                 settings: { environment: [{ name: 'K', value: 'chosen' }] },
                 commandLines: { r: 'Rscript --chosen %f' },
@@ -238,7 +237,6 @@ describe('Request Study Actions', () => {
                     settings: { environment: [{ name: 'K', value: 'edited' }] },
                     identifier: 'renamed',
                     starterCodeFileNames: ['edited.R'],
-                    sampleDataPath: 'edited-data',
                 })
                 .where('id', '=', chosen.id)
                 .execute()
@@ -255,10 +253,9 @@ describe('Request Study Actions', () => {
                 url: 'example.com/r:chosen',
                 commandLines: { r: 'Rscript --chosen %f' },
                 settings: { environment: [{ name: 'K', value: 'chosen' }] },
-                // Not frozen: they name the sample database and the S3 files the edit replaced.
+                // Not frozen: read as they are now, because the edit replaced the starter code files in S3.
                 identifier: 'renamed',
                 starterCodeFileNames: ['edited.R'],
-                sampleDataPath: 'edited-data',
                 slug: enclave.slug,
                 orgId: enclave.id,
             })

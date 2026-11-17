@@ -79,14 +79,13 @@ const insertClaimedStudy = async ({ email = 'john@example.com' }: { email?: stri
 // The R code env the study runs: its org's newest one for the study's language.
 const insertStudyCodeEnv = async (
     orgId: string,
-    options: Pick<InsertTestCodeEnvOptions, 'dataSourceType' | 'environment' | 'starterCodeFileNames' | 'url'> = {},
+    options: Pick<InsertTestCodeEnvOptions, 'environment' | 'starterCodeFileNames' | 'url'> = {},
 ) => {
     const codeEnv = await insertTestCodeEnv({
         orgId,
         language: 'R',
         identifier: 'test_env',
         url: options.url ?? 'test-image:latest',
-        dataSourceType: options.dataSourceType,
         environment: options.environment,
         starterCodeFileNames: options.starterCodeFileNames ?? ['main.R'],
     })
@@ -387,7 +386,7 @@ describe('createUserAndWorkspace', () => {
         })
         const { studyId, orgId } = await insertClaimedStudy()
         // A row saved before the scheme was rejected: Coder must still get a plain reference.
-        const codeEnvId = await insertStudyCodeEnv(orgId, {
+        await insertStudyCodeEnv(orgId, {
             environment: [{ name: 'VAR1', value: 'value1' }],
             url: ' https://test-image:latest ',
         })
@@ -411,22 +410,17 @@ describe('createUserAndWorkspace', () => {
             { name: 'container_image', value: 'test-image:latest' },
             {
                 name: 'environment',
-                value: JSON.stringify([
-                    { name: 'VAR1', value: 'value1' },
-                    {
-                        name: 'DATA_PATH',
-                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`,
-                    },
-                    {
-                        name: 'TEST_ENV_DATA_PATH',
-                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`,
-                    },
-                    { name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
-                    { name: 'TEST_ENV_S3_BUCKET_PREFIX', value: `code-env/test-org/${codeEnvId}/sample-data` },
-                    { name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' },
-                ]),
+                value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]),
             },
         ])
+        const envNames = (JSON.parse(requestBody.rich_parameter_values[2].value) as { name: string }[]).map(
+            (v) => v.name,
+        )
+        expect(
+            envNames.filter((name) =>
+                /^(DATA_PATH|DATABASE_URL)$|_DATA_PATH$|_S3_BUCKET_NAME$|^AWS_ATHENA_/.test(name),
+            ),
+        ).toEqual([])
     })
 
     it('turns a workspace creation Coder refuses into an ActionFailure the researcher can read', async () => {
@@ -491,169 +485,6 @@ describe('createUserAndWorkspace', () => {
         // Not an ActionFailure, so the action layer shows "Something went wrong" rather than Coder's text.
         expect(failure).not.toBeInstanceOf(ActionFailure)
         expect((failure as Error).message).toMatch(/^Failed to create user and workspace/)
-    })
-
-    it('should include DATABASE_URL env vars for athena data source type', async () => {
-        const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
-        const mockFetch = global.fetch as unknown as Mock
-        mockFetch.mockImplementation((url: string) => {
-            if (url.includes('/users?')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
-                })
-            }
-            if (url.includes('/workspaces/') || url.includes('@')) {
-                return Promise.resolve({
-                    ok: false,
-                    status: 404,
-                    text: vi.fn().mockResolvedValue('Not found'),
-                })
-            }
-            if (url.includes('/templates')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
-                })
-            }
-            if (url.includes('/members/')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
-                })
-            }
-            if (url.includes('/organizations')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
-                })
-            }
-            return Promise.resolve({
-                ok: false,
-                status: 404,
-                text: vi.fn().mockResolvedValue('Not found'),
-            })
-        })
-
-        process.env.AWS_REGION = 'us-west-2'
-        getConfigValueMock.mockImplementation((key: string) => {
-            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
-            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
-            if (key === 'CODER_ATHENA_WORK_GROUP') return Promise.resolve('my-workgroup')
-            if (key === 'ATHENA_RESULTS_BUCKET_NAME') return Promise.resolve(null)
-            return Promise.resolve('https://api.coder.com')
-        })
-        const { studyId, orgId } = await insertClaimedStudy()
-        const codeEnvId = await insertStudyCodeEnv(orgId, { dataSourceType: 'athena' })
-        fetchFileContentsMock.mockResolvedValue({
-            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
-        })
-
-        await createUserAndWorkspace(studyId)
-
-        const createWorkspaceCall = mockFetch.mock.calls.find(
-            (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
-        )
-        const requestBody = JSON.parse(createWorkspaceCall![1].body)
-        const envVars = JSON.parse(
-            requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
-        )
-
-        const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`
-        const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test_org_test_env?s3_location=${dataPath}`
-        expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: expectedDbUrl })
-        expect(envVars).toContainEqual({ name: 'TEST_ENV_DATABASE_URL', value: expectedDbUrl })
-        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_S3_STAGING_DIR', value: dataPath })
-        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_WORK_GROUP', value: 'my-workgroup' })
-        expect(envVars).toContainEqual({ name: 'AWS_ATHENA_DATABASE_NAME', value: 'test_org_test_env' })
-        expect(envVars).toContainEqual({ name: 'AWS_REGION', value: 'us-west-2' })
-        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
-        expect(envVars).toContainEqual({
-            name: 'TEST_ENV_S3_BUCKET_PREFIX',
-            value: `code-env/test-org/${codeEnvId}/sample-data`,
-        })
-        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-west-2' })
-    })
-
-    it('should include DATABASE_URL env vars for postgres data source type', async () => {
-        const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
-        const mockFetch = global.fetch as unknown as Mock
-        mockFetch.mockImplementation((url: string) => {
-            if (url.includes('/users?')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
-                })
-            }
-            if (url.includes('/workspaces/') || url.includes('@')) {
-                return Promise.resolve({
-                    ok: false,
-                    status: 404,
-                    text: vi.fn().mockResolvedValue('Not found'),
-                })
-            }
-            if (url.includes('/templates')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
-                })
-            }
-            if (url.includes('/members/')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
-                })
-            }
-            if (url.includes('/organizations')) {
-                return Promise.resolve({
-                    ok: true,
-                    json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
-                })
-            }
-            return Promise.resolve({
-                ok: false,
-                status: 404,
-                text: vi.fn().mockResolvedValue('Not found'),
-            })
-        })
-
-        getConfigValueMock.mockImplementation((key: string) => {
-            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
-            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
-            if (key === 'CODER_SAMPLE_DATA_POSTGRES_HOST') return Promise.resolve('pg-host.example.com:5432')
-            if (key === 'CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER') return Promise.resolve('readonly_user')
-            return Promise.resolve('https://api.coder.com')
-        })
-        const { studyId, orgId } = await insertClaimedStudy()
-        const codeEnvId = await insertStudyCodeEnv(orgId, { dataSourceType: 'postgres' })
-        fetchFileContentsMock.mockResolvedValue({
-            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
-        })
-
-        await createUserAndWorkspace(studyId)
-
-        const createWorkspaceCall = mockFetch.mock.calls.find(
-            (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
-        )
-        const requestBody = JSON.parse(createWorkspaceCall![1].body)
-        const envVars = JSON.parse(
-            requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
-        )
-
-        expect(envVars).toContainEqual({
-            name: 'DATABASE_URL',
-            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
-        })
-        expect(envVars).toContainEqual({
-            name: 'TEST_ENV_DATABASE_URL',
-            value: 'postgres://readonly_user@pg-host.example.com:5432/test_org_test_env',
-        })
-        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
-        expect(envVars).toContainEqual({
-            name: 'TEST_ENV_S3_BUCKET_PREFIX',
-            value: `code-env/test-org/${codeEnvId}/sample-data`,
-        })
-        expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' })
     })
 
     it('should throw error when user creation fails', async () => {
