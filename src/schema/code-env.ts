@@ -38,9 +38,19 @@ const digest = String.raw`@[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-fA-F0-9]{32,}`
 
 const dockerImageRefRegex = new RegExp(`^${domain}?${pathComponent}(?:/${pathComponent})*(?:${tag})?(?:${digest})?$`)
 
+const imageRefSchemeRegex = /^[a-z][a-z0-9+.-]*:\/\//i
+
+// Rows saved before the schema rejected a scheme still carry one, so the Coder parameter is normalised too.
+export const normalizeImageRef = (value: string) => value.trim().replace(imageRefSchemeRegex, '')
+
 export const dockerImageRefSchema = z
     .string()
+    .trim()
     .nonempty('Image reference is required')
+    .refine((val) => !imageRefSchemeRegex.test(val), {
+        error: 'Remove the http:// or https:// prefix. Enter only the image reference, e.g. harbor.safeinsights.org/org/image:tag',
+        abort: true,
+    })
     .regex(dockerImageRefRegex, 'Must be a valid Docker image reference (e.g., registry.example.com/org/image:tag)')
 
 const fileWithSizeRefine = (file: File) => file && file.size > 0 && file.size < MAX_FILE_SIZE

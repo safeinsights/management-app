@@ -14,6 +14,7 @@ import {
     shaHash,
 } from './coder'
 import logger from '@/lib/logger'
+import { ActionFailure } from '@/lib/errors'
 import { getConfigValue } from './config'
 import {
     db,
@@ -78,13 +79,13 @@ const insertClaimedStudy = async ({ email = 'john@example.com' }: { email?: stri
 // The R code env the study runs: its org's newest one for the study's language.
 const insertStudyCodeEnv = async (
     orgId: string,
-    options: Pick<InsertTestCodeEnvOptions, 'dataSourceType' | 'environment' | 'starterCodeFileNames'> = {},
+    options: Pick<InsertTestCodeEnvOptions, 'dataSourceType' | 'environment' | 'starterCodeFileNames' | 'url'> = {},
 ) => {
     const codeEnv = await insertTestCodeEnv({
         orgId,
         language: 'R',
         identifier: 'test_env',
-        url: 'test-image:latest',
+        url: options.url ?? 'test-image:latest',
         dataSourceType: options.dataSourceType,
         environment: options.environment,
         starterCodeFileNames: options.starterCodeFileNames ?? ['main.R'],
@@ -385,7 +386,11 @@ describe('createUserAndWorkspace', () => {
             return Promise.resolve('https://api.coder.com')
         })
         const { studyId, orgId } = await insertClaimedStudy()
-        const codeEnvId = await insertStudyCodeEnv(orgId, { environment: [{ name: 'VAR1', value: 'value1' }] })
+        // A row saved before the scheme was rejected: Coder must still get a plain reference.
+        const codeEnvId = await insertStudyCodeEnv(orgId, {
+            environment: [{ name: 'VAR1', value: 'value1' }],
+            url: ' https://test-image:latest ',
+        })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
@@ -422,6 +427,38 @@ describe('createUserAndWorkspace', () => {
                 ]),
             },
         ])
+    })
+
+    it('turns a workspace creation Coder refuses into an ActionFailure the researcher can read', async () => {
+        const refusal = JSON.stringify({
+            message: 'Unable to validate parameters',
+            validations: [{ field: 'container_image', detail: 'Container image must have no URL scheme' }],
+        })
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const respond = (status: number, body: unknown) =>
+                Promise.resolve({
+                    ok: status < 400,
+                    status,
+                    json: vi.fn().mockResolvedValue(body),
+                    text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : JSON.stringify(body)),
+                })
+            if (url.includes('/users?')) return respond(200, mockUsersEmailQueryResponse)
+            if (init?.method === 'POST' && url.includes('/members/')) return respond(400, refusal)
+            if (url.includes('/templates')) return respond(200, [{ id: 'template1', name: 'aws-fargate' }])
+            if (url.includes('/organizations')) return respond(200, [{ id: 'org1', name: 'coder' }])
+            return respond(404, 'Not found')
+        })
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            return Promise.resolve('https://api.coder.com')
+        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        await insertStudyCodeEnv(orgId)
+
+        const failure = await createUserAndWorkspace(studyId).catch((err: unknown) => err)
+
+        expect(failure).toBeInstanceOf(ActionFailure)
+        expect((failure as ActionFailure).error).toMatch(/image reference is invalid/)
     })
 
     it('should include DATABASE_URL env vars for athena data source type', async () => {

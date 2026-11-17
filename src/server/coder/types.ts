@@ -96,6 +96,8 @@ export interface WorkspaceLaunchStatus {
     ready: boolean
     failed: boolean
     reason: string
+    /** `reason` reworded for the researcher; null unless `failed`. */
+    failureMessage: string | null
     cursors: { build: number | null; agent: number | null }
     url: string | null
 }

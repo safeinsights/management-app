@@ -52,7 +52,7 @@ Object.defineProperty(window, 'open', {
 import { ensureWorkspaceAction, getWorkspaceLaunchStatusAction } from '@/server/actions/workspaces.actions'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
-import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
+import { ActionFailure, UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 import { notifications } from '@mantine/notifications'
 import { captureException } from '@sentry/nextjs'
 
@@ -67,6 +67,7 @@ const readyStatus = (url = 'https://workspace.example.com'): WorkspaceLaunchStat
     ready: true,
     failed: false,
     reason: 'workspace ready',
+    failureMessage: null,
     cursors: { build: 3, agent: 4 },
     url,
 })
@@ -79,11 +80,12 @@ const provisioningStatus = (): WorkspaceLaunchStatus => ({
     ready: false,
     failed: false,
     reason: 'build status=running, no agent yet',
+    failureMessage: null,
     cursors: { build: 1, agent: null },
     url: null,
 })
 
-const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => ({
+const failedStatus = (reason = 'terraform exploded', failureMessage: string | null = null): WorkspaceLaunchStatus => ({
     buildStatus: 'failed',
     buildLogLines: [],
     agentStatus: null,
@@ -91,6 +93,7 @@ const failedStatus = (reason = 'terraform exploded'): WorkspaceLaunchStatus => (
     ready: false,
     failed: true,
     reason,
+    failureMessage,
     cursors: { build: null, agent: null },
     url: null,
 })
@@ -312,6 +315,45 @@ describe('useWorkspaceLauncher', () => {
                 expect(result.current.error?.message).toBe('terraform exploded')
                 expect(result.current.isLaunching).toBe(false)
             })
+        })
+
+        it('exposes the reworded reason of a failed build as failureReason', async () => {
+            coderStatusMock.mockResolvedValue(
+                failedStatus('CannotPullContainerError', 'The image could not be pulled.'),
+            )
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.failureReason).toBe('The image could not be pulled.'))
+        })
+
+        it('exposes the message of a workspace creation Coder refused as failureReason', async () => {
+            createWorkspaceMock.mockRejectedValue(new ActionFailure('The image reference is invalid.'))
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.failureReason).toBe('The image reference is invalid.'))
+        })
+
+        it('has no failureReason for an unexpected error', async () => {
+            createWorkspaceMock.mockRejectedValue(new Error('Failed to create workspace'))
+
+            const { result } = renderHook(() => useWorkspaceLauncher({ studyId }), {
+                wrapper: createTestQueryWrapper(),
+            })
+
+            act(() => result.current.launchWorkspace())
+
+            await waitFor(() => expect(result.current.error).not.toBeNull())
+            expect(result.current.failureReason).toBeNull()
         })
 
         // OTTER-832: the failure modal is the only surface, so each path captures without a toast.
