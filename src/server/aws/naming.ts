@@ -10,13 +10,3 @@ export const toDbName = (orgSlug: string, identifier: string) => {
 
 export const toAthenaDbName = toDbName
 export const toPgDbName = toDbName
-
-export function sanitizeColumnName(raw: string): string {
-    let name = raw
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '')
-    if (!name || /^\d/.test(name)) name = `col_${name}`
-    return name
-}

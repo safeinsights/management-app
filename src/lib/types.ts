@@ -163,16 +163,6 @@ export const minimalCodeEnvInfoSchema = minimalOrgInfoSchema.extend({
 
 export type MinimalCodeEnvInfo = z.infer<typeof minimalCodeEnvInfoSchema>
 
-export const DATA_SOURCE_TYPES = {
-    parquet: 'Parquet',
-    avro: 'Avro',
-    postgres: 'PostgreSQL',
-    csv: 'CSV',
-    athena: 'Athena',
-} as const
-
-export type DataSourceType = keyof typeof DATA_SOURCE_TYPES
-
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 export const INACTIVITY_TIMEOUT_MS = 8 * 60 * 60 * 1000
