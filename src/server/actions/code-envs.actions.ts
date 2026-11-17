@@ -7,18 +7,8 @@ import { Action, ActionFailure } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
-import {
-    deleteFolderContents,
-    createSignedUploadUrl,
-    triggerScanForCodeEnv,
-    deleteAthenaDatabase,
-    deleteAllAthenaTables,
-    deleteTestDataBucketPrefix,
-    toAthenaDbName,
-    deletePgDatabase,
-    toPgDbName,
-} from '@/server/aws'
-import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
+import { deleteFolderContents, createSignedUploadUrl, triggerScanForCodeEnv } from '@/server/aws'
+import { pathForStarterCode, pathForStarterCodePrefix } from '@/lib/paths'
 import { dockerImageRefSchema, identifierRegex } from '@/schema/code-env'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
@@ -367,16 +357,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         const codeEnv = await db
             .selectFrom('orgCodeEnv')
             .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-            .select([
-                'orgCodeEnv.id',
-                'orgCodeEnv.sampleDataPath',
-                'orgCodeEnv.language',
-                'orgCodeEnv.isTesting',
-                'orgCodeEnv.orgId',
-                'orgCodeEnv.dataSourceType',
-                'orgCodeEnv.identifier',
-                'org.slug as orgSlug',
-            ])
+            .select(['orgCodeEnv.id', 'orgCodeEnv.language', 'orgCodeEnv.isTesting', 'orgCodeEnv.orgId'])
             .where('org.slug', '=', orgSlug)
             .where('orgCodeEnv.id', '=', codeEnvId)
             .executeTakeFirstOrThrow()
@@ -404,19 +385,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             )
         }
 
-        if (!SIMULATE_CODE_BUILD) {
-            if (codeEnv.dataSourceType === 'athena') {
-                const dbName = toAthenaDbName(codeEnv.orgSlug, codeEnv.identifier)
-                await deleteAllAthenaTables(dbName)
-                await deleteAthenaDatabase(dbName)
-                await deleteTestDataBucketPrefix(`${codeEnv.orgSlug}/${codeEnv.identifier}`)
-            } else if (codeEnv.dataSourceType === 'postgres') {
-                await deletePgDatabase(toPgDbName(codeEnv.orgSlug, codeEnv.identifier))
-            }
-        }
-
         await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId: codeEnv.id }))
-        await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: codeEnv.id }))
 
         await db
             .deleteFrom('orgCodeEnv')

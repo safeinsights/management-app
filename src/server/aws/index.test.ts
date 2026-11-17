@@ -4,38 +4,11 @@ import {
     buildTriggerBuildImageCommandInput,
     buildTriggerScanForStudyJobCommandInput,
     s3KeyPrefix,
-    testDataBucketName,
-    toAthenaDbName,
-    toPgDbName,
     withS3Prefix,
 } from '.'
 
 // The pure builders are tested directly: vitest cannot intercept `@aws-sdk/*` across the
 // externalised CJS boundary. Same reason CODEBUILD_WEBHOOK_SECRET is set in env.
-
-describe('toAthenaDbName', () => {
-    it('should replace dashes with underscores', () => {
-        expect(toAthenaDbName('my-org', 'my-env')).toBe('my_org_my_env')
-    })
-
-    it('should leave names without dashes unchanged', () => {
-        expect(toAthenaDbName('myorg', 'myenv')).toBe('myorg_myenv')
-    })
-
-    it('should handle multiple consecutive dashes', () => {
-        expect(toAthenaDbName('org--name', 'env--id')).toBe('org__name_env__id')
-    })
-})
-
-describe('toPgDbName', () => {
-    it('should replace dashes with underscores', () => {
-        expect(toPgDbName('my-org', 'my-env')).toBe('my_org_my_env')
-    })
-
-    it('should produce the same result as toAthenaDbName', () => {
-        expect(toPgDbName('org-name', 'env-id')).toBe(toAthenaDbName('org-name', 'env-id'))
-    })
-})
 
 describe('buildTriggerBuildImageCommandInput', () => {
     const originalEnv = process.env
@@ -272,27 +245,5 @@ describe('S3_KEY_PREFIX', () => {
         const byName = (name: string) => input.environmentVariablesOverride.find((v) => v.name === name)?.value
         expect(byName('S3_PATH')).toBe('staging/studies/org-xyz/study-abc/jobs/job-456/code')
         expect(byName('ARTIFACTS_PATH')).toBe('staging/scan-artifacts/jobs/job-456')
-    })
-})
-
-describe('testDataBucketName', () => {
-    const originalEnv = process.env.TEST_DATA_BUCKET_NAME
-
-    afterEach(() => {
-        if (originalEnv !== undefined) {
-            process.env.TEST_DATA_BUCKET_NAME = originalEnv
-        } else {
-            delete process.env.TEST_DATA_BUCKET_NAME
-        }
-    })
-
-    it('should return null when not configured', () => {
-        delete process.env.TEST_DATA_BUCKET_NAME
-        expect(testDataBucketName()).toBeNull()
-    })
-
-    it('should return the bucket name when configured', () => {
-        process.env.TEST_DATA_BUCKET_NAME = 'safeinsights-test-data-s3-dev'
-        expect(testDataBucketName()).toBe('safeinsights-test-data-s3-dev')
     })
 })
