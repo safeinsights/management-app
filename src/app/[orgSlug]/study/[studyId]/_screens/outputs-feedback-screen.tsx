@@ -6,9 +6,10 @@ import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
+import { ResearcherCodeRunHistory } from '@/components/study/researcher-code-run-history'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { latestRunFeedback } from '@/lib/outputs-review'
+import { isFeedbackOnlyRun, latestRunFeedback } from '@/lib/outputs-review'
 import { researcherOutputsFeedbackBanner } from '@/lib/study-banners'
 import { isFeedbackOnlyOutcome, projectStudyState } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
@@ -24,11 +25,10 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
             title: 'Feedback not found',
             message: 'This study does not have outputs feedback to display yet.',
         },
-        decisionStatus: 'FILES-REJECTED',
     })
     if (!('job' in result)) return result
 
-    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const { job, entries, feedbackLoadError, dataPartner, decidedAt, priorRuns } = result
     const state = projectStudyState(raw)
     const banner = researcherOutputsFeedbackBanner({ runErrored: state.runErrored }, { dataPartner })
 
@@ -49,6 +49,12 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
                         testId="latest-run-feedback"
                     />
                 </CodeRunCard>
+                <ResearcherCodeRunHistory
+                    // Keyed by job so history state can never carry over to another study's page.
+                    key={job.id}
+                    runs={priorRuns}
+                    withHistoryKey={priorRuns.some((run) => !isFeedbackOnlyRun(run.statusChanges))}
+                />
                 <StepNavigation nav={nav} />
             </PageLayout>
         </Box>
