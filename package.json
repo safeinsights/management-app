@@ -56,13 +56,11 @@
     "dependencies": {
         "@anthropic-ai/sdk": "^1.6.0",
         "@aws-sdk/client-codebuild": "^3.1049.0",
-        "@aws-sdk/client-glue": "^3.1049.0",
         "@aws-sdk/client-s3": "^3.1049.0",
         "@aws-sdk/client-secrets-manager": "^3.1049.0",
         "@aws-sdk/client-sqs": "^3.1049.0",
         "@aws-sdk/credential-providers": "^3.1049.0",
         "@aws-sdk/lib-storage": "^3.1049.0",
-        "@aws-sdk/rds-signer": "^3.1049.0",
         "@aws-sdk/s3-presigned-post": "^3.1049.0",
         "@aws-sdk/s3-request-presigner": "^3.1049.0",
         "@casl/ability": "^7.1.1",

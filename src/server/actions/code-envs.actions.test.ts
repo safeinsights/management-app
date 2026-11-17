@@ -35,10 +35,6 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         deleteS3File: vi.fn().mockResolvedValue(undefined),
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
-        deleteAthenaDatabase: vi.fn().mockResolvedValue(undefined),
-        deleteAllAthenaTables: vi.fn().mockResolvedValue(undefined),
-        deleteTestDataBucketPrefix: vi.fn().mockResolvedValue(undefined),
-        deletePgDatabase: vi.fn().mockResolvedValue(undefined),
     }
 })
 
@@ -1330,11 +1326,6 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
             environment: [{ name: 'DB_PASSWORD', value: 'confidential-env-value' }],
             isTesting: true,
         })
-        await db
-            .updateTable('orgCodeEnv')
-            .set({ sampleDataPath: 'confidential-sample' })
-            .where('id', '=', env.id)
-            .execute()
         await mockSessionWithTestData({ isAdmin: true })
         const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
         return { otherOrg, env, warnSpy }
@@ -1355,7 +1346,6 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
             'confidential_ident',
             'confidential-starter.R',
             'confidential-env-value',
-            'confidential-sample',
             ...extra,
         ]) {
             expect(JSON.stringify(result)).not.toContain(content)

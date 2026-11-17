@@ -33,11 +33,6 @@ export const pathForStarterCodePrefix = (parts: MinimalCodeEnvInfo) => `${pathFo
 export const pathForStarterCode = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
     `${pathForStarterCodePrefix(parts)}/${parts.fileName}`
 
-export const pathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string | null }) => {
-    const base = `${pathForCodeEnv(parts)}/sample-data`
-    return parts.sampleDataPath ? `${base}/${parts.sampleDataPath}` : base
-}
-
 export const pathForJobScanArtifacts = (parts: { studyJobId: string }) => `scan-artifacts/jobs/${parts.studyJobId}`
 
 export const pathForCodeEnvScanArtifacts = (parts: { codeEnvId: string }) =>
