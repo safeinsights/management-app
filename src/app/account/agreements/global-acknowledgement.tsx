@@ -1,16 +1,22 @@
 'use client'
 
-import { Button, Checkbox, Group, Stack, Text, VisuallyHidden } from '@mantine/core'
+import { Button, Checkbox, Group, Paper, Stack, Text, Title, VisuallyHidden } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
+import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
 import type { FC } from 'react'
+import { AcknowledgementError } from '@/components/legal/blocking-modal'
+import { useAcknowledgementConsent } from '@/components/legal/use-acknowledgement-consent'
 import { LinkWithIcon } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { legalDocumentTypeLabels, type PendingGlobalAcknowledgement } from '@/schema/legal-document'
-import { fontWeight } from '@/theme/tokens'
-import { AcknowledgementError, BlockingModal } from '../blocking-modal'
+import {
+    legalDocumentQueryKeys,
+    legalDocumentTypeLabels,
+    type PendingGlobalAcknowledgement,
+} from '@/schema/legal-document'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type Props = {
-    isVisible: boolean
     documents: PendingGlobalAcknowledgement[]
     isChecked: boolean
     onCheckedChange: (checked: boolean) => void
@@ -68,49 +74,57 @@ const globalAcknowledgementCheckboxLabel = (documents: PendingGlobalAcknowledgem
 }
 
 // The Terms of Service and Privacy Notice gate. It asks once for every outstanding one and links to
-// each rather than embedding it. Not dismissable, and with no Sign out, per the UX review.
-export const GlobalAcknowledgementModal: FC<Props> = ({
-    isVisible,
+// each rather than embedding it. No Sign out, per the UX review.
+export const GlobalAcknowledgement: FC<Props> = ({
     documents,
     isChecked,
     onCheckedChange,
     onContinue,
     isSubmitting,
     error,
-}) => {
-    if (!isVisible || !documents.length) return null
+}) => (
+    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={511} my={{ base: 'md', lg: 0 }}>
+        <Stack>
+            <Title order={1} fz="h3">
+                Welcome to SafeInsights!
+            </Title>
 
-    return (
-        <BlockingModal
-            size={511}
-            title={
-                <Text span fz="h3" fw={fontWeight.bold}>
-                    Welcome to SafeInsights!
-                </Text>
-            }
-        >
-            <Stack>
-                <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
+            <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
 
-                <Checkbox
-                    checked={isChecked}
-                    onChange={(event) => onCheckedChange(event.currentTarget.checked)}
-                    label={
-                        <Text span fz="sm" fw={fontWeight.semibold}>
-                            {globalAcknowledgementCheckboxLabel(documents)}
-                        </Text>
-                    }
-                />
+            <Checkbox
+                checked={isChecked}
+                onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+                label={
+                    <Text span fz="sm" fw={fontWeight.semibold}>
+                        {globalAcknowledgementCheckboxLabel(documents)}
+                    </Text>
+                }
+            />
 
-                <AcknowledgementError error={error} />
+            <AcknowledgementError error={error} />
 
-                <Group>
-                    {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
-                    <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
-                        Continue
-                    </Button>
-                </Group>
-            </Stack>
-        </BlockingModal>
-    )
+            <Group>
+                {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
+                <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
+                    Continue
+                </Button>
+            </Group>
+        </Stack>
+    </Paper>
+)
+
+// Replace, not push: Back should not return to a step that has just been answered.
+const useGlobalAcknowledgementStep = (documents: PendingGlobalAcknowledgement[], destination: Route) => {
+    const router = useRouter()
+
+    return useAcknowledgementConsent({
+        versionIds: documents.map((document) => document.versionId),
+        invalidateKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
+        onAcknowledged: () => router.replace(destination),
+    })
 }
+
+export const GlobalAcknowledgementStep: FC<{ documents: PendingGlobalAcknowledgement[]; destination: Route }> = ({
+    documents,
+    destination,
+}) => <GlobalAcknowledgement documents={documents} {...useGlobalAcknowledgementStep(documents, destination)} />

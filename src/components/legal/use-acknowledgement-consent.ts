@@ -10,6 +10,7 @@ type Props = {
     versionIds: string[]
     /** The query the acknowledgement settles, refetched once it is recorded. */
     invalidateKey: readonly unknown[]
+    onAcknowledged?: () => void
 }
 
 // In turn, stopping at the first refusal so its reason reaches the modal.
@@ -24,7 +25,7 @@ const acknowledgeEach = async (versionIds: string[]) => {
 
 // Shared by the two blocking gates: recording consent must not drift between the global Terms of
 // Service and a study's agreement, since the ack row is the compliance artifact in both.
-export const useAcknowledgementConsent = ({ versionIds, invalidateKey }: Props) => {
+export const useAcknowledgementConsent = ({ versionIds, invalidateKey, onAcknowledged }: Props) => {
     const queryClient = useQueryClient()
     const [consentedKey, setConsentedKey] = useState<string | null>(null)
     const versionsKey = versionIds.join(',')
@@ -42,6 +43,7 @@ export const useAcknowledgementConsent = ({ versionIds, invalidateKey }: Props) 
                 // route, so without this they serve pre-ack rows until their staleTime lapses.
                 ...agreementTableQueryKeyPrefixes.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
             ])
+            onAcknowledged?.()
         },
     })
 

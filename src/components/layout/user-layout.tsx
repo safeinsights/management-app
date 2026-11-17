@@ -10,6 +10,7 @@ import { connection } from 'next/server'
 import { env } from '@/server/config'
 import PostHogUserProvider from '../posthog-user-provider'
 import { requireUserKey } from '@/server/user-key-gate'
+import { requireGlobalAcknowledgement } from '@/server/global-acknowledgement-gate'
 import { Routes } from '@/lib/routes'
 
 type Props = {
@@ -30,6 +31,7 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
         redirect(Routes.accountMfa)
     }
     await requireUserKey()
+    await requireGlobalAcknowledgement()
 
     // Without `dynamic` Clerk drops the CSP nonce from clerk.browser.js (OTTER-679).
     return (
