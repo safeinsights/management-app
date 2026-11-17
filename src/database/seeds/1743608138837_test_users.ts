@@ -19,16 +19,25 @@ p8qFdnFg4jKe8JyAafRMUOENG9+LxskQsXVi8jDGIhKf6Ix+ubjr+J4E6CBJcTDG
 UdB9nPRag5tVlOVm412S8aUCAwEAAQ==
 -----END PUBLIC KEY-----`
 
-const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
-
 // Fixed UUIDs so concurrent CI runs sharing a Clerk instance don't stomp on each other.
-export const ORGS: { slug: string; type: 'enclave' | 'lab'; id: string }[] = [
-    { slug: 'safe-insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
-    { slug: 'safe-insights-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
-    { slug: 'openstax', type: 'enclave', id: '00000000-0000-4000-8000-000000000103' },
-    { slug: 'openstax-lab', type: 'lab', id: '00000000-0000-4000-8000-000000000104' },
-    { slug: 'single-lang-r-enclave', type: 'enclave', id: '00000000-0000-4000-8000-000000000105' },
-    { slug: 'reviewer-is-org-admin', type: 'enclave', id: '00000000-0000-4000-8000-000000000106' },
+// Names are spelled out because deriving them from the slug gave "Openstax" (OTTER-996).
+export const ORGS: { slug: string; name: string; type: 'enclave' | 'lab'; id: string }[] = [
+    { slug: 'safe-insights', name: 'Safe-Insights', type: 'enclave', id: '00000000-0000-4000-8000-000000000101' },
+    { slug: 'safe-insights-lab', name: 'Safe-Insights Lab', type: 'lab', id: '00000000-0000-4000-8000-000000000102' },
+    { slug: 'openstax', name: 'OpenStax', type: 'enclave', id: '00000000-0000-4000-8000-000000000103' },
+    { slug: 'openstax-lab', name: 'OpenStax Lab', type: 'lab', id: '00000000-0000-4000-8000-000000000104' },
+    {
+        slug: 'single-lang-r-enclave',
+        name: 'Single-Lang R Enclave',
+        type: 'enclave',
+        id: '00000000-0000-4000-8000-000000000105',
+    },
+    {
+        slug: 'reviewer-is-org-admin',
+        name: 'Reviewer Admin Enclave',
+        type: 'enclave',
+        id: '00000000-0000-4000-8000-000000000106',
+    },
 ]
 
 type TestCodeEnv = {
@@ -137,15 +146,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const orgIdBySlug = new Map<string, string>()
 
     for (const org of ORGS) {
-        const name =
-            org.slug === 'single-lang-r-enclave'
-                ? 'Single-Lang R Enclave'
-                : org.slug === 'reviewer-is-org-admin'
-                  ? 'Reviewer Admin Enclave'
-                  : org.type === 'lab'
-                    ? `${titleize(org.slug.replace(/-lab$/, ''))} Lab`
-                    : titleize(org.slug)
-
         const email =
             org.slug === 'single-lang-r-enclave'
                 ? 'single-lang-r-enclave@example.com'
@@ -166,7 +166,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
 
         const persisted = await db
             .insertInto('org')
-            .values({ id: org.id, slug: org.slug, name, email, type: org.type, settings, description })
+            .values({ id: org.id, slug: org.slug, name: org.name, email, type: org.type, settings, description })
             .onConflict((oc) =>
                 oc.column('slug').doUpdateSet((eb) => ({
                     slug: eb.ref('excluded.slug'),
