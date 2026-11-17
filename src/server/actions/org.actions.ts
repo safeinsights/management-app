@@ -114,7 +114,7 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
     })
 
 // Invites and memberships go with the org. Studies, legal documents and code environments need a purge
-// the cascade can't do (code envs own Athena/Postgres databases and S3 data), so they block it (OTTER-986).
+// the cascade can't do (code envs own starter code in S3), so they block it (OTTER-986).
 const orgHasRecords = async (db: DBExecutor, orgId: string) => {
     const [study, legalDocument, codeEnv] = await Promise.all([
         db
