@@ -18,10 +18,10 @@ test.describe('Terms of Service acknowledgement', () => {
         // Scoped to the modal: nothing waits for the page behind it, which the a11y spec covers.
         await expectNoA11yViolations(page, 'Terms of Service update modal', { include: '[role="dialog"]' })
 
-        // Linked, not embedded: the document opens on its own /legal tab.
+        // Linked, not embedded: the document opens on its own public page.
         await expect(modal.getByText(SEEDED_TOS_V2_BODY)).toBeHidden()
         const link = modal.getByRole('link', { name: /^Terms of Service/ })
-        await expect(link).toHaveAttribute('href', `${Routes.legal}?tab=TOS`)
+        await expect(link).toHaveAttribute('href', Routes.termsOfService)
         await expect(link).toHaveAttribute('target', '_blank')
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.
