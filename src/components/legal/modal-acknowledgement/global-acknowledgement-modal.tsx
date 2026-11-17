@@ -4,10 +4,10 @@ import { Button, Checkbox, Group, Stack, Text, VisuallyHidden } from '@mantine/c
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FC } from 'react'
 import { LinkWithIcon } from '@/components/links'
-import { Routes } from '@/lib/routes'
 import { legalDocumentTypeLabels, type PendingGlobalAcknowledgement } from '@/schema/legal-document'
 import { fontWeight } from '@/theme/tokens'
 import { AcknowledgementError, BlockingModal } from '../blocking-modal'
+import { globalDocumentRoute } from '../global-document-route'
 
 type Props = {
     isVisible: boolean
@@ -29,7 +29,7 @@ const isUpdateOfAll = (documents: PendingGlobalAcknowledgement[]) => documents.e
 // A new tab, so reading the document does not lose the gate the user is answering.
 const DocumentLink: FC<{ document: PendingGlobalAcknowledgement }> = ({ document }) => (
     <LinkWithIcon
-        href={`${Routes.legal}?tab=${document.type}`}
+        href={globalDocumentRoute(document.type)}
         target="_blank"
         rel="noopener"
         fz="md"

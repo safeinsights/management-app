@@ -8,14 +8,9 @@ import {
 } from '@/schema/legal-document'
 import { Anchor } from '@mantine/core'
 import type { FC, ReactNode } from 'react'
-import { Routes } from '@/lib/routes'
 import { ParticipationData } from '@/server/actions/participation-agreement.actions'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-
-const GLOBAL_DOCUMENT_ROUTES: Record<GlobalLegalDocumentType, string> = {
-    TOS: Routes.termsOfService,
-    PN: Routes.privacyNotice,
-}
+import { globalDocumentRoute } from '../global-document-route'
 
 // A new tab, so reading a document does not lose the half-filled form.
 const AgreementLink: FC<{ href: string; children: ReactNode }> = ({ href, children }) => (
@@ -38,7 +33,7 @@ const GlobalDocumentLink: FC<{ type: GlobalLegalDocumentType; index: number }> =
     return (
         <>
             {separator}
-            <AgreementLink href={GLOBAL_DOCUMENT_ROUTES[type]}>{legalDocumentTypeLabels[type]}</AgreementLink>
+            <AgreementLink href={globalDocumentRoute(type)}>{legalDocumentTypeLabels[type]}</AgreementLink>
         </>
     )
 }

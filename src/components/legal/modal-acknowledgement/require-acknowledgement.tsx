@@ -26,7 +26,7 @@ const isGlobalDocument = (document: PendingAcknowledgement): document is Pending
 
 const isAgreement = (document: PendingAcknowledgement): document is PendingLegalDocument => !isGlobalDocument(document)
 
-// The gate links to /legal in a new tab, so that page has to stay readable while it is owed.
+// /legal stays readable while a document is owed, so the user can still review what they signed.
 const isLegalPage = (pathname: string) => pathname === Routes.legal || pathname.startsWith(`${Routes.legal}/`)
 
 // One group at a time keeps the ack rows, the copy and the ticked box a single unit: tos and pn

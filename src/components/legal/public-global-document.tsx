@@ -1,4 +1,4 @@
-import { Container, Text, Title } from '@mantine/core'
+import { Box, Container, Text, Title } from '@mantine/core'
 import type { FC } from 'react'
 import { actionResult } from '@/lib/utils'
 import {
@@ -31,11 +31,13 @@ export async function PublicGlobalDocument({ type }: { type: GlobalLegalDocument
     const documents = actionResult(await fetchGlobalLegalDocumentsAction())
 
     return (
-        <Container size="md" py="xl">
-            <DocumentBody
-                document={documents.find((document) => document.type === type)}
-                label={legalDocumentTypeLabels[type]}
-            />
-        </Container>
+        <Box component="main">
+            <Container size="md" py="xl">
+                <DocumentBody
+                    document={documents.find((document) => document.type === type)}
+                    label={legalDocumentTypeLabels[type]}
+                />
+            </Container>
+        </Box>
     )
 }
