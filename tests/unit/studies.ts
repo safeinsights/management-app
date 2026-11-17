@@ -467,19 +467,43 @@ export type PriorCodeRunOptions = {
     outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
     decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
     feedback?: { authorId: string; text: string }
+    // The first is the main file, the rest supplemental.
+    codeFiles?: string[]
+    // Defaults to a minute after the run ended.
+    decidedAt?: Date
 }
 
 // An earlier, already-reviewed code run. The writer numbers a job after every job already on the
 // study, so it must be written before the current run is opened (see `priorRuns` on insertTestStudyJobData).
 export const insertTestPriorCodeRun = async (
     studyId: string,
-    { ranAt, outcome = 'RUN-COMPLETE', decision = 'FILES-APPROVED', feedback }: PriorCodeRunOptions,
+    {
+        ranAt,
+        outcome = 'RUN-COMPLETE',
+        decision = 'FILES-APPROVED',
+        feedback,
+        codeFiles = [],
+        decidedAt = new Date(ranAt.getTime() + 60_000),
+    }: PriorCodeRunOptions,
 ) => {
     const submittedAt = new Date(ranAt.getTime() - 60_000)
     const job = await insertTestJob(studyId, { createdAt: submittedAt })
     await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
     await insertTestJobStatus(job.id, outcome, { at: ranAt })
-    await insertTestJobStatus(job.id, decision, { at: new Date(ranAt.getTime() + 60_000) })
+    await insertTestJobStatus(job.id, decision, { at: decidedAt })
+    if (codeFiles.length) {
+        await db
+            .insertInto('studyJobFile')
+            .values(
+                codeFiles.map((name, index) => ({
+                    studyJobId: job.id,
+                    name,
+                    path: `test-org/${job.id}/code/${name}`,
+                    fileType: index === 0 ? ('MAIN-CODE' as const) : ('SUPPLEMENTAL-CODE' as const),
+                })),
+            )
+            .execute()
+    }
     if (feedback) {
         await db
             .insertInto('studyReviewComment')
