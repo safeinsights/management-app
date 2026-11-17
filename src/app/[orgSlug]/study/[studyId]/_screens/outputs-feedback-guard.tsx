@@ -47,8 +47,8 @@ export async function guardOutputsFeedbackScreen({
 
     const { entries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const decidedAt = researcherRunDate(datedStatusChanges(job.statusChanges))
-    // Every earlier round closes with a decision; the filter only keeps an undecided run from ever
-    // reaching the research lab.
+    // Only jobs from before resubmits reused the round's job can lack a decision; the research lab
+    // never saw those runs, so they stay out of its history.
     const priorRuns = (await priorCodeRunsForStudy(study.id, job.id)).filter((run) =>
         hasOutputsDecision(run.statusChanges.map((change) => change.status)),
     )

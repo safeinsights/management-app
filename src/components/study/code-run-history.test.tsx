@@ -32,7 +32,7 @@ import {
     type RunOutputs,
 } from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
-import { ResearcherCodeRunHistory } from './researcher-code-run-history'
+import { ResearcherCodeRunHistory } from '@/components/study/researcher-code-run-history'
 
 const run = (
     id: string,

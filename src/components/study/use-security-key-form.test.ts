@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
-import { encryptedFilesQuery } from './use-security-key-form'
+import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
 
 describe('encryptedFilesQuery', () => {
     it('caches a fetch for an earlier key apart from the current key and from the reviewer fetch', () => {
