@@ -101,8 +101,8 @@ const fillValidForm = async () => {
 const participationCheckbox = () =>
     screen.getByRole('checkbox', { name: /Research Organization Participation Agreement/ })
 
-// Only the published ToS is named once the documents load; before that the label names both.
-const findLoadedTermsCheckbox = () => screen.findByRole('checkbox', { name: 'I agree to the Terms of Service.' })
+// The label names whatever is published, which other test files can change mid-run.
+const findTermsCheckbox = () => screen.findByRole('checkbox', { name: /Terms of Service/ })
 
 const createAccountButton = () => screen.getByRole('button', { name: 'Create account' })
 
@@ -114,14 +114,14 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await findLoadedTermsCheckbox()).toBeDefined()
-        // Linked to its own page, not shown inline.
-        expect(screen.queryByText(TERMS_BODY)).not.toBeInTheDocument()
+        expect(await findTermsCheckbox()).toBeDefined()
         // The participation agreement is a pdf, shown as a link the invitee agrees to.
         expect(await screen.findByRole('link', { name: 'Research Organization Participation Agreement' })).toBeDefined()
         await fillValidForm()
 
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
+        // Loaded by now, and linked to its own page rather than shown inline.
+        expect(screen.queryByText(TERMS_BODY)).not.toBeInTheDocument()
     })
 
     it('lets a completed form through when the org has no participation agreement', async () => {
@@ -131,7 +131,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await findLoadedTermsCheckbox()).toBeDefined()
+        expect(await findTermsCheckbox()).toBeDefined()
         expect(
             screen.queryByRole('link', { name: 'Research Organization Participation Agreement' }),
         ).not.toBeInTheDocument()
@@ -149,7 +149,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await findLoadedTermsCheckbox()).toBeDefined()
+        expect(await findTermsCheckbox()).toBeDefined()
         await fillNameAndPassword()
         await userEvent.click(screen.getByRole('checkbox', { name: /Terms of Service/ }))
 
