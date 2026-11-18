@@ -211,14 +211,16 @@ const eslintConfig = [
     },
     // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
     // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
-    // client-inlined NEXT_PUBLIC reads in src/lib/config.ts, the instrumentation hooks and the seeds'
-    // fail-closed checks, which the migrator bundle runs without @/server/config.
+    // Semgrep runner's own config module, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts,
+    // the instrumentation hooks and the seeds' fail-closed checks, which the migrator bundle runs
+    // without @/server/config.
     {
         files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
         ignores: [
             '**/*.test.{ts,tsx}',
             'src/server/request-context.ts',
             'src/server/config.ts',
+            'services/semgrep-runner/config.ts',
             'src/lib/config.ts',
             'src/instrumentation.ts',
             'src/instrumentation-client.ts',

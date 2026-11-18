@@ -1,5 +1,6 @@
 packages:
     - services/editor
+    - services/semgrep-runner
 allowBuilds:
     '@clerk/shared': true
     '@sentry/cli': true
