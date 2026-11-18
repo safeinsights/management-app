@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTanStackQuery } from '@/common'
-import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, useDecryptFiles } from '@/hooks/use-decrypt-files'
+import { useQueryClient, useTanStackQuery } from '@/common'
+import {
+    ARCHIVE_INTEGRITY_MESSAGE,
+    ArchiveIntegrityError,
+    fingerprintOfPrivateKey,
+    useDecryptFiles,
+} from '@/hooks/use-decrypt-files'
 import type { JobFileInfo } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
@@ -38,8 +43,6 @@ type UseSecurityKeyFormOptions = {
 
 // Shared with the code run history's up-front decrypt, so a row and its own key form read one
 // cache entry rather than each downloading the archives.
-// A researcher's earlier run can be wrapped for a key they have since replaced, so the history asks
-// by the fingerprint of the key entered rather than the one on file.
 export const encryptedFilesQuery = (jobId: string, type: 'researcher' | 'reviewer', fingerprint?: string) => ({
     // Role is part of the key so a dual-role user is not served the other role's cache.
     queryKey: ['encrypted-files', jobId, type, fingerprint ?? 'current'],
@@ -51,6 +54,30 @@ export const encryptedFilesQuery = (jobId: string, type: 'researcher' | 'reviewe
         return actionResult(response)
     },
 })
+
+// A failed fetch says nothing about the key, so it must not read as "Invalid key".
+class EncryptedFilesFetchError extends Error {}
+
+// A run shared before the researcher replaced their key is wrapped only for the old key, so the
+// wraps are asked for by the fingerprint of the key entered, not the key on file.
+export async function fetchResearcherEncryptedFiles(
+    queryClient: ReturnType<typeof useQueryClient>,
+    jobId: string,
+    privateKey: string,
+) {
+    const fingerprint = await fingerprintOfPrivateKey(privateKey)
+    try {
+        return await queryClient.fetchQuery(encryptedFilesQuery(jobId, 'researcher', fingerprint))
+    } catch (err) {
+        throw new EncryptedFilesFetchError('The encrypted outputs could not be loaded', { cause: err })
+    }
+}
+
+const decryptErrorMessage = (err: Error) => {
+    if (err instanceof ArchiveIntegrityError) return SECURITY_KEY_ERRORS.integrity
+    if (err instanceof EncryptedFilesFetchError) return SECURITY_KEY_ERRORS.noFiles
+    return SECURITY_KEY_ERRORS.invalid
+}
 
 export function useSecurityKeyForm({
     job,
@@ -65,25 +92,24 @@ export function useSecurityKeyForm({
     const setValue = onValueChange ?? setOwnValue
     const [error, setError] = useState<string>()
     const inputRef = useRef<HTMLTextAreaElement>(null)
+    const queryClient = useQueryClient()
+    const isResearcher = type === 'researcher'
 
-    const {
-        data: encryptedFiles,
-        isLoading: isLoadingFiles,
-        isSuccess,
-    } = useTanStackQuery(encryptedFilesQuery(job.id, type))
+    // A researcher's archives depend on the key entered, so they are fetched on submit instead.
+    const { data: encryptedFiles, isLoading: isLoadingFiles } = useTanStackQuery({
+        ...encryptedFilesQuery(job.id, type),
+        enabled: !isResearcher,
+    })
 
     const failInvalid = useCallback(() => setError(SECURITY_KEY_ERRORS.invalid), [])
 
-    const failDecrypt = useCallback(
-        (err: Error) =>
-            setError(
-                err instanceof ArchiveIntegrityError ? SECURITY_KEY_ERRORS.integrity : SECURITY_KEY_ERRORS.invalid,
-            ),
-        [],
-    )
+    const failDecrypt = useCallback((err: Error) => setError(decryptErrorMessage(err)), [])
 
     const { decrypt, isPending } = useDecryptFiles({
         encryptedFiles,
+        loadEncryptedFiles: isResearcher
+            ? (privateKey) => fetchResearcherEncryptedFiles(queryClient, job.id, privateKey)
+            : undefined,
         jobId: job.id,
         onSuccess: (files, privateKey) => {
             // A key is only proven by ciphertext it actually opened. useDecryptFiles resolves with
@@ -121,16 +147,16 @@ export function useSecurityKeyForm({
         // programmatic call.
         if (isLoadingFiles) return
 
-        // A researcher is only sent outputs wrapped for their registered key, so an empty answer
-        // means no key they hold opens them. A failed fetch, or a reviewer's empty answer, is not a bad key.
-        if (!encryptedFiles?.length) {
-            setError(type === 'researcher' && isSuccess ? SECURITY_KEY_ERRORS.invalid : SECURITY_KEY_ERRORS.noFiles)
+        // A reviewer's empty answer, or a failed fetch, is not a bad key. A researcher's empty answer
+        // is: it holds only the wraps for the key entered, and decrypting nothing fails as invalid.
+        if (!isResearcher && !encryptedFiles?.length) {
+            setError(SECURITY_KEY_ERRORS.noFiles)
             return
         }
 
         setError(undefined)
         decrypt(trimmed)
-    }, [isPending, isLoadingFiles, encryptedFiles, isSuccess, type, value, decrypt])
+    }, [isPending, isLoadingFiles, isResearcher, encryptedFiles, value, decrypt])
 
     return {
         value,

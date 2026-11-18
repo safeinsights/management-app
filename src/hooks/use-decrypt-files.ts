@@ -136,10 +136,12 @@ export function useDecryptFiles(options: {
     encryptedFiles: EncryptedJobFile[] | undefined
     /** The job these archives were fetched for. Checked against what each archive claims. */
     jobId: string
+    /** Fetches the archives on submit instead, for archives that depend on the key entered. */
+    loadEncryptedFiles?: (privateKey: string) => Promise<EncryptedJobFile[]>
     onSuccess: (files: JobFileInfo[], privateKey: string) => void
     onError?: (err: Error) => void
 }) {
-    const { encryptedFiles, jobId, onSuccess, onError } = options
+    const { encryptedFiles, jobId, loadEncryptedFiles, onSuccess, onError } = options
 
     const form = useForm({
         mode: 'uncontrolled' as const,
@@ -170,8 +172,9 @@ export function useDecryptFiles(options: {
         // in the page after the form has gone.
         gcTime: 0,
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!encryptedFiles) return []
-            return decryptJobFiles(encryptedFiles, privateKey, jobId)
+            const files = loadEncryptedFiles ? await loadEncryptedFiles(privateKey) : encryptedFiles
+            if (!files) return []
+            return decryptJobFiles(files, privateKey, jobId)
         },
         onSuccess: (files, { privateKey }) => onSuccess(files, privateKey),
         onError: handleError,

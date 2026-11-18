@@ -18,7 +18,7 @@ import {
 } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
 import { DownloadSimpleIcon, LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react'
+import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
@@ -372,7 +372,8 @@ const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
-const WrongKeyAlert: FC<{ children: string }> = ({ children }) => {
+const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
+    if (!isVisible) return null
     return (
         // Static on purpose: the user opened this row, so nothing needs announcing. Mantine's Alert
         // would otherwise be role="alert", which a screen reader reads out as soon as it appears.
@@ -454,21 +455,15 @@ function useKeyAttempt(
     }
 }
 
-type KeyAttemptFieldsProps = KeyAttemptOptions & {
-    label: ReactNode
-    description?: string
-    withLostKeyHelp: boolean
-}
-
-const KeyAttemptFields: FC<KeyAttemptFieldsProps> = ({ label, description, withLostKeyHelp, ...options }) => {
+const HistoryKeyFields: FC<KeyAttemptOptions> = (options) => {
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const { error, isPending, onChange, submit } = useKeyAttempt(options, inputRef)
     return (
         <>
             <SecurityKeyInput
                 ref={inputRef}
-                label={label}
-                description={description}
+                label="Security key"
+                description="Output files are encrypted. Enter your security key to access outputs from previous code runs."
                 autoFocus={false}
                 placeholder="Enter your security key"
                 value={options.value}
@@ -477,7 +472,7 @@ const KeyAttemptFields: FC<KeyAttemptFieldsProps> = ({ label, description, withL
                 disabled={isPending}
             />
             <SecurityKeyViewButton isDecrypting={isPending} idleLabel="View files" onClick={() => void submit()} />
-            <LostKeyPopover isVisible={withLostKeyHelp} />
+            <LostKeyPopover isVisible />
         </>
     )
 }
@@ -491,12 +486,7 @@ const HistoryKeyEntry: FC<HistoryKeyEntryProps> = ({ isVisible, ...options }) =>
     return (
         <Paper withBorder p="lg" data-testid="code-run-history-key">
             <Stack gap="md">
-                <KeyAttemptFields
-                    {...options}
-                    label="Security key"
-                    description="Output files are encrypted. Enter your security key to access outputs from previous code runs."
-                    withLostKeyHelp
-                />
+                <HistoryKeyFields {...options} />
             </Stack>
         </Paper>
     )
@@ -508,70 +498,35 @@ const RunKeyLabel: FC<{ run: PriorCodeRun; role: CodeRunRole }> = ({ run, role }
     </>
 )
 
-const ReviewerRunKeyFields: FC<RowOutputsProps & { isVisible: boolean }> = ({
+// A run whose outputs need a key of their own: one the key above did not open, or every run when
+// the latest run had nothing to decrypt and so no key was entered above. Only a key that failed
+// earns the previous-key alert.
+const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
     isVisible,
     run,
     role,
+    outputs,
     onUnlocked,
     keyDraft,
     onKeyDraftChange,
 }) => {
     if (!isVisible) return null
     return (
-        <SecurityKeyFields
-            job={run}
-            type="reviewer"
-            buttonLabel="View files"
-            label={<RunKeyLabel run={run} role={role} />}
-            autoFocus={false}
-            withLostKeyHelp={false}
-            value={keyDraft}
-            onValueChange={(value) => onKeyDraftChange(run.id, value)}
-            onDecrypted={(files) => onUnlocked(run.id, files)}
-        />
-    )
-}
-
-// A researcher's run is fetched by the fingerprint of the key entered, so a run shared for an
-// earlier key opens with that key.
-const ResearcherRunKeyFields: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
-    if (!isVisible) return null
-    return <ResearcherRunKeyAttempt {...props} />
-}
-
-function useResearcherRunKeyAttempt(runId: string, onUnlocked: RowOutputsProps['onUnlocked']) {
-    const queryClient = useQueryClient()
-    return async (privateKey: string) => {
-        const outputs = await decryptPriorRun(queryClient, runId, privateKey, 'researcher')
-        if (outputs.status === 'unlocked') onUnlocked(runId, outputs.files)
-        return keyAttemptOutcome([outputs])
-    }
-}
-
-const ResearcherRunKeyAttempt: FC<RowOutputsProps> = ({ run, role, onUnlocked, keyDraft, onKeyDraftChange }) => {
-    const attempt = useResearcherRunKeyAttempt(run.id, onUnlocked)
-    return (
-        <KeyAttemptFields
-            label={<RunKeyLabel run={run} role={role} />}
-            withLostKeyHelp={false}
-            value={keyDraft}
-            onValueChange={(value) => onKeyDraftChange(run.id, value)}
-            attempt={attempt}
-        />
-    )
-}
-
-// A run whose outputs need a key of their own: one the key above did not open, or every run when
-// the latest run had nothing to decrypt and so no key was entered above.
-const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
-    if (!isVisible) return null
-    return (
         <Stack gap="md">
-            <WrongKeyAlert>
+            <WrongKeyAlert isVisible={outputs?.status === 'wrong-key'}>
                 This run’s outputs were encrypted with your previous security key. Enter that key to view them.
             </WrongKeyAlert>
-            <ReviewerRunKeyFields {...props} isVisible={props.role === 'reviewer'} />
-            <ResearcherRunKeyFields {...props} isVisible={props.role === 'researcher'} />
+            <SecurityKeyFields
+                job={run}
+                type={role}
+                buttonLabel="View files"
+                label={<RunKeyLabel run={run} role={role} />}
+                autoFocus={false}
+                withLostKeyHelp={false}
+                value={keyDraft}
+                onValueChange={(value) => onKeyDraftChange(run.id, value)}
+                onDecrypted={(files) => onUnlocked(run.id, files)}
+            />
         </Stack>
     )
 }

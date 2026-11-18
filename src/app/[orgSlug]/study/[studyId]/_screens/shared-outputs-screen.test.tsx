@@ -140,12 +140,12 @@ const isBefore = (first: Element, second: Element) =>
     !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
 
 // Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
-const decrypt = async (root: HTMLElement) => {
+const decrypt = async (root: HTMLElement, privateKey?: string) => {
     const view = within(root)
     await view.findByRole('button', { name: 'View files' })
     // By name: the feedback section on this screen contributes a second textbox.
     fireEvent.change(view.getByRole('textbox', { name: 'Security key' }), {
-        target: { value: await readTestSupportFile('private_key.pem') },
+        target: { value: privateKey ?? (await readTestSupportFile('private_key.pem')) },
     })
     fireEvent.click(view.getByRole('button', { name: 'View files' }))
     await waitFor(() =>
@@ -761,7 +761,7 @@ describe('SharedOutputsScreen code run history', () => {
         expect(screen.queryByTestId('code-run-history-key')).toBeNull()
     })
 
-    it('gives earlier runs their own key when the latest run was shared before the key was replaced', async () => {
+    it('opens the latest run with the key it was shared for before a key reset, and earlier runs with it', async () => {
         const oldKey = await previousKeyPair()
         const wrapFor = { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint }
         const { org, user, study, raw, priorJobs } = await setupShared(VARIANTS[0], {
@@ -774,21 +774,20 @@ describe('SharedOutputsScreen code run history', () => {
             sharedWith: user.id,
             wrapFor,
         })
-        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        const { container } = await renderScreen(VARIANTS[0], study, raw, org.slug)
         await openHistory()
         const [earlier] = historyRows()
         await expandHistoryRow(earlier)
+        expect(within(earlier).getByText('Enter security key above to decrypt and review output files.')).toBeVisible()
 
-        const rowKey = await within(earlier).findByRole('textbox', { name: /^Security key for Code run/ })
-        expect(within(earlier).queryByText('Enter security key above to decrypt and review output files.')).toBeNull()
+        await decrypt(container, oldKey.privateKeyString)
+
+        expect(await within(earlier).findByRole('button', { name: 'earlier.csv' })).toBeInTheDocument()
         expect(
-            within(earlier).getByText(
+            within(earlier).queryByText(
                 'This run’s outputs were encrypted with your previous security key. Enter that key to view them.',
             ),
-        ).toBeVisible()
-        fireEvent.change(rowKey, { target: { value: oldKey.privateKeyString } })
-        fireEvent.click(within(earlier).getByRole('button', { name: 'View files' }))
-        expect(await within(earlier).findByRole('button', { name: 'earlier.csv' })).toBeInTheDocument()
+        ).toBeNull()
     })
 })
 

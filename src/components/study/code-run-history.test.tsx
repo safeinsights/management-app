@@ -578,6 +578,41 @@ describe('CodeRunHistory expanded row', () => {
         expect(await within(empty).findByText('This run produced no output files.')).toBeVisible()
     })
 
+    // With nothing to decrypt on the latest run the reviewer entered no key, so no key has failed.
+    it('asks for a key without the previous-key alert when the latest run had nothing to decrypt', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { study, priorJobs } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+            priorRuns: [{ ranAt: daysAgo(3) }],
+        })
+        const latest = await latestJobForStudy(study.id)
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'earlier.csv', content: 'b\n2' }],
+        })
+        const priorRuns = await priorCodeRunsForStudy(study.id, latest.id)
+        const { container } = renderWithProviders(
+            <DecryptAndViewOutputs
+                job={latest}
+                priorRuns={priorRuns}
+                hasDecryptableOutputs={false}
+                latestFeedback={[]}
+                feedbackLoadError={false}
+            />,
+        )
+        await openHistory(container)
+        const [earlier] = rows(container)
+        await expandRow(earlier)
+
+        expect(keyInput(earlier)).toBeVisible()
+        expect(within(earlier).queryByText(WRONG_KEY_ALERT)).toBeNull()
+        expect(within(earlier).queryByText(LOCKED_MESSAGE)).toBeNull()
+        await waitFor(() => expect(within(earlier).getByRole('button', { name: 'View files' })).toBeEnabled())
+        enterRowKey(earlier, await readTestSupportFile('private_key.pem'))
+        expect(await within(earlier).findByText('earlier.csv')).toBeVisible()
+    })
+
     it('unlocks only the row its old key was entered in, with errors kept to that row', async () => {
         const { oldKey, container } = await setupRuns()
         await openHistory(container)
