@@ -30,13 +30,20 @@ const supportKeyPair = async (prefix: string): Promise<KeyPair> => {
 // The pair tests type in as the security key.
 const testKeyPair = () => supportKeyPair('')
 
-const enclaveKeyPair = () => supportKeyPair('enclave_')
+/** The key artifacts are encrypted for, standing in for the enclave. The user does not hold it. */
+export const enclaveKeyPair = () => supportKeyPair('enclave_')
 
-/** A valid key pair that is not the test pair, for runs encrypted with another key and for wrong-key cases. */
-export const otherKeyPair = async () => {
-    const { publicKey, privateKey, fingerprint } = await supportKeyPair('other_')
+// Shaped like generateKeyPair(), for keys a test types into the security key field.
+const typedKeyPair = async (prefix: string) => {
+    const { publicKey, privateKey, fingerprint } = await supportKeyPair(prefix)
     return { exportedPublicKey: publicKey, privateKeyString: Buffer.from(privateKey).toString('base64'), fingerprint }
 }
+
+/** A key the user held before the one on file, as for a run encrypted before their key was replaced. */
+export const previousKeyPair = () => typedKeyPair('previous_')
+
+/** A well-formed key that no test artifact is encrypted or wrapped for. */
+export const unrelatedKeyPair = () => typedKeyPair('invalid_')
 
 /**
  * A row with no encrypted body is a real shape, not a shortcut: the containerizer stores a

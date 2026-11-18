@@ -15,7 +15,7 @@ import {
     waitFor,
     within,
 } from '@/tests/unit.helpers'
-import { otherKeyPair, seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
+import { previousKeyPair, seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
 import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
@@ -362,7 +362,7 @@ const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<type
 // Newest first: a run the reviewer's current key opens, two encrypted with an older key, and one
 // that produced nothing, placed so the oldest old-key run sits beyond the first three.
 const setupRuns = async () => {
-    const oldKey = await otherKeyPair()
+    const oldKey = await previousKeyPair()
     const encryptedFor = { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint }
     const runs = [
         { days: 3, file: 'matching.csv' },
@@ -470,7 +470,7 @@ describe('CodeRunHistory decryption focus and announcements', () => {
     })
 
     it('announces again when a second run from the same day is opened with its own key', async () => {
-        const oldKey = await otherKeyPair()
+        const oldKey = await previousKeyPair()
         const sameDay = dayjs().subtract(6, 'day')
         const { study, latest, priorJobs } = await setupLatest(() => [
             { ranAt: sameDay.hour(14).toDate() },
