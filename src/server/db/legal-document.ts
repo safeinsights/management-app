@@ -165,6 +165,8 @@ const displayTitle = (title: string, id: string) => sql`coalesce(nullif(${sql.re
 const orgStudyAgreementOrderBy = {
     studyId: sql.ref('study.id'),
     studyTitle: displayTitle('study.title', 'study.id'),
+    // A test study's cell reads "Test study" whatever was signed, so its date must not order it.
+    signedAt: sql`case when ${sql.ref('study.isTestStudy')} then null else ${sql.ref('agreement.signedAt')} end`,
 } satisfies Record<OrgStudyAgreementSort['columnAccessor'], unknown>
 
 // Names the wrapping subquery's output aliases, not the source columns.
@@ -370,22 +372,6 @@ export const orgStudyAgreements = (
                         .as('agreement'),
                 (join) => join.onTrue(),
             )
-            // The viewing org's own acknowledgement, not the counterparty's: this table answers
-            // whether our side has signed off. Tied to the version the lateral above picked, so an
-            // ack of a superseded version does not read as an ack of the current one.
-            .leftJoinLateral(
-                (eb) =>
-                    eb
-                        .selectFrom('legalDocumentAcknowledgement')
-                        .innerJoin('orgUser', 'orgUser.userId', 'legalDocumentAcknowledgement.userId')
-                        .select('legalDocumentAcknowledgement.ackedAt as ackedAt')
-                        .whereRef('legalDocumentAcknowledgement.legalDocumentVersionId', '=', 'agreement.versionId')
-                        .where('orgUser.orgId', '=', orgId)
-                        .orderBy('legalDocumentAcknowledgement.ackedAt', 'desc')
-                        .limit(1)
-                        .as('orgAck'),
-                (join) => join.onTrue(),
-            )
             .select([
                 'study.id as studyId',
                 'study.title as studyTitle',
@@ -393,12 +379,14 @@ export const orgStudyAgreements = (
                 'study.isTestStudy as isTestStudy',
                 'agreement.versionId',
                 'agreement.signedAt',
-                'orgAck.ackedAt',
             ])
             .where('study.deletedAt', 'is', null)
             .where(party, '=', orgId)
             // Second arm: once signed, a study stays listed whatever its status becomes.
             .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.versionId', 'is not', null)]))
+            // Nulls already sort last, which puts unsigned studies after the dates; this puts the
+            // test studies after those, whichever way the dates run.
+            .$if(sort.columnAccessor === 'signedAt', (qb) => qb.orderBy('study.isTestStudy', 'asc'))
             .orderBy(orgStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
             // Newest first among equal titles, matching the table's default.
             .orderBy(orgStudyAgreementOrderBy.studyId, orderedBy('desc'))

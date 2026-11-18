@@ -13,7 +13,7 @@ import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
-import { Stack, Text } from '@mantine/core'
+import { Divider, Stack, Text } from '@mantine/core'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
@@ -60,6 +60,7 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
 
     return (
         <LegalPanel title={label}>
+            <Divider mb="lg" />
             <AgreementBody
                 isLoading={isLoading}
                 isError={isError}
