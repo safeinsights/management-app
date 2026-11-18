@@ -717,7 +717,7 @@ describe('SharedOutputsScreen code run history', () => {
             sharedWith: user.id,
             wrapFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
         })
-        await renderScreen(VARIANTS[0], study, raw, org.slug)
+        const { container } = await renderScreen(VARIANTS[0], study, raw, org.slug)
         const before = history()
         await openHistory()
         const [middle, earlier] = historyRows()
@@ -725,7 +725,7 @@ describe('SharedOutputsScreen code run history', () => {
         await expandHistoryRow(earlier)
         expect(within(middle).getByText('Enter security key above to decrypt and review output files.')).toBeVisible()
 
-        await decrypt()
+        await decrypt(container)
 
         expect(history()).toBe(before)
         expect(within(history()).getByRole('button', { name: 'Hide code run history' })).toBeInTheDocument()
