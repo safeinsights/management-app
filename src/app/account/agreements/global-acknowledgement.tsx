@@ -84,31 +84,35 @@ export const GlobalAcknowledgement: FC<Props> = ({
     error,
 }) => (
     <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={511} my={{ base: 'md', lg: 0 }}>
-        <Stack>
-            <Title order={1} fz="h3">
-                Welcome to SafeInsights!
-            </Title>
+        <Stack gap="xl">
+            <Stack gap="lg">
+                <Title order={1} fz="h3" ta="center">
+                    Welcome to SafeInsights!
+                </Title>
 
-            <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
+                <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
+            </Stack>
 
-            <Checkbox
-                checked={isChecked}
-                onChange={(event) => onCheckedChange(event.currentTarget.checked)}
-                label={
-                    <Text span fz="sm" fw={fontWeight.semibold}>
-                        {globalAcknowledgementCheckboxLabel(documents)}
-                    </Text>
-                }
-            />
+            <Stack>
+                <Checkbox
+                    checked={isChecked}
+                    onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+                    label={
+                        <Text span fz="sm" fw={fontWeight.semibold}>
+                            {globalAcknowledgementCheckboxLabel(documents)}
+                        </Text>
+                    }
+                />
 
-            <AcknowledgementError error={error} />
+                <AcknowledgementError error={error} />
 
-            <Group>
-                {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
-                <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
-                    Continue
-                </Button>
-            </Group>
+                <Group>
+                    {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
+                    <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
+                        Continue
+                    </Button>
+                </Group>
+            </Stack>
         </Stack>
     </Paper>
 )

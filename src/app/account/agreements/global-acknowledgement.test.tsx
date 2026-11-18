@@ -28,7 +28,7 @@ const renderGate = (documents: PendingGlobalAcknowledgement[], overrides: { isCh
     )
     // What a sighted reader sees: the links' screen-reader note is covered on its own.
     const visibleText = () =>
-        screen.getByRole('heading').parentElement?.textContent?.replaceAll(' (opens in a new tab)', '')
+        screen.getByRole('heading').closest('.mantine-Paper-root')?.textContent?.replaceAll(' (opens in a new tab)', '')
     return { onCheckedChange, onContinue, visibleText }
 }
 
@@ -38,6 +38,12 @@ describe('GlobalAcknowledgement', () => {
 
         expect(screen.getByRole('heading', { level: 1, name: 'Welcome to SafeInsights!' })).toBeDefined()
         expect(screen.getAllByRole('heading')).toHaveLength(1)
+    })
+
+    it('centres the heading', () => {
+        renderGate([TOS])
+
+        expect(screen.getByRole('heading', { name: 'Welcome to SafeInsights!' })).toHaveStyle({ textAlign: 'center' })
     })
 
     it.each([
