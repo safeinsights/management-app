@@ -9,10 +9,9 @@ import {
     screen,
     waitFor,
 } from '@/tests/unit.helpers'
-import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { seedEncryptedArtifact, unrelatedKeyPair } from '@/tests/artifact.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import { SecurityKeyFields } from './security-key-fields'
 
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
@@ -302,7 +301,7 @@ describe('SecurityKeyFields', () => {
 
     // A well-formed key the archive was not encrypted for is a wrong key, not a tampered archive.
     it('reports a key that is not a recipient as invalid', async () => {
-        const { privateKeyString } = await generateKeyPair()
+        const { privateKeyString } = await unrelatedKeyPair()
         renderWithProviders(<SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })
