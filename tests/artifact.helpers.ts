@@ -27,10 +27,20 @@ const testKeyPair = async (): Promise<KeyPair> => {
     return { publicKey, privateKey, fingerprint: await fingerprintKeyData(publicKey) }
 }
 
-const enclaveKeyPair = async (): Promise<KeyPair> => {
+// An RSA-4096 key takes a random 0.1 to 1 s to generate, several times that on a busy CI runner, so
+// each test file generates its spare keys once. A key per test made the decrypt tests time out.
+const memoized = <T>(make: () => Promise<T>) => {
+    let value: Promise<T> | undefined
+    return () => (value ??= make())
+}
+
+const enclaveKeyPair = memoized(async (): Promise<KeyPair> => {
     const { exportedPublicKey, exportedPrivateKey, fingerprint } = await generateKeyPair()
     return { publicKey: exportedPublicKey, privateKey: exportedPrivateKey, fingerprint }
-}
+})
+
+/** A valid key pair that is not the test pair, for runs encrypted with another key and for wrong-key cases. */
+export const otherKeyPair = memoized(generateKeyPair)
 
 /**
  * A row with no encrypted body is a real shape, not a shortcut: the containerizer stores a

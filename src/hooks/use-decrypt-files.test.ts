@@ -8,10 +8,10 @@ import {
     renderHook,
     waitFor,
 } from '@/tests/unit.helpers'
+import { otherKeyPair } from '@/tests/artifact.helpers'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
@@ -68,7 +68,7 @@ const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) =
 }
 
 const archiveForAnotherKey = async () => {
-    const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+    const { exportedPublicKey: publicKey, fingerprint } = await otherKeyPair()
     const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
     await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
     return { archive: await writer.generate(), fingerprint }
@@ -107,7 +107,7 @@ describe('useDecryptFiles', () => {
     // share time, mirroring what fetchEncryptedJobFilesAction returns.
     it('reads a current archive as a researcher with wraps served alongside it', async () => {
         const me = await recipient()
-        const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+        const { exportedPublicKey: publicKey, fingerprint } = await otherKeyPair()
         const writer = new ResultsWriter([{ publicKey, fingerprint }, me], { jobId: JOB_ID })
         await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
 
