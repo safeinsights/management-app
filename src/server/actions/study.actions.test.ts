@@ -3079,7 +3079,8 @@ describe('getOutputsDecisionFeedbackAction', () => {
 
         expect(rows).toHaveLength(1)
         expect(rows[0].entryType).toBe('REVIEWER-FEEDBACK')
-        expect(rows[0].version).toBe(1)
+        expect(rows[0].round).toBe(1)
+        expect(rows[0]).not.toHaveProperty('version')
     })
 
     it('denies a viewer from an unrelated org', async () => {

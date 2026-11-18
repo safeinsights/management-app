@@ -180,7 +180,9 @@ describe('ReviewerOutputsDecided', () => {
 
         expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         const card = screen.getByTestId('code-run-card')
-        expect(within(card).getByTestId('latest-run-feedback')).toHaveTextContent('Reviewer feedback (v1.0)')
+        const feedback = within(card).getByTestId('latest-run-feedback')
+        expect(feedback).toHaveTextContent('Reviewer feedback')
+        expect(feedback).not.toHaveTextContent('(v')
     })
 
     // Earlier runs keep their feedback in the code run history, so it must not show twice.
@@ -220,8 +222,8 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
     })
 
-    // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
-    it('omits the code resubmission note and keeps the first outputs decision at v1.0', async () => {
+    // OTTER-766: the note belongs to the code step. OTTER-883: outputs decisions carry no version.
+    it('omits the code resubmission note and labels the outputs decision without a version', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await insertTestCodeResubmissionNote({
             studyId: study.id,
@@ -246,7 +248,8 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.getByText('Reviewer feedback')).toBeInTheDocument()
+        expect(screen.queryByText(/Reviewer feedback \(v/)).toBeNull()
         expect(screen.queryByText(/fixed the aggregation/)).not.toBeInTheDocument()
         expect(screen.queryByText(/resubmission note/i)).not.toBeInTheDocument()
     })

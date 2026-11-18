@@ -10,6 +10,7 @@ import {
     screen,
     waitFor,
     waitForPendingMutations,
+    within,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
@@ -21,6 +22,8 @@ import { SharedOutputsPanel } from './shared-outputs-panel'
 
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
+const KEY_DESCRIPTION =
+    'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'
 
 const LOCKED_HEADING = 'Code run errored. Decrypt to view your outputs and feedback'
 const UNLOCKED_HEADING = 'Resolve the code error to proceed'
@@ -86,17 +89,26 @@ describe('SharedOutputsPanel', () => {
                 decidedAt={DECIDED_AT}
                 banner={banner}
                 job={job}
+                keyDescription={KEY_DESCRIPTION}
                 feedbackSection={<FeedbackProbe />}
                 nav={NAV}
             />,
         )
 
+    const card = () => screen.getByTestId('code-run-card')
+
+    const isBefore = (first: Element, second: Element) =>
+        !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+    const enterKey = async (value: string) => {
+        await screen.findByRole('button', { name: 'View files' })
+        fireEvent.change(screen.getByRole('textbox'), { target: { value } })
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+    }
+
     const decrypt = async () => {
-        const privateKeyPem = await readTestSupportFile('private_key.pem')
-        await screen.findByRole('button', { name: 'View' })
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+        await enterKey(await readTestSupportFile('private_key.pem'))
+        await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
         // Decrypting fires the reviewed write; let it settle before the test ends.
         await waitForPendingMutations()
     }
@@ -142,6 +154,7 @@ describe('SharedOutputsPanel', () => {
                     decidedAt={null}
                     banner={BANNER}
                     job={job}
+                    keyDescription={KEY_DESCRIPTION}
                     feedbackSection={<FeedbackProbe />}
                     nav={NAV}
                 />,
@@ -151,14 +164,29 @@ describe('SharedOutputsPanel', () => {
             expect(alert).not.toHaveTextContent('•')
         })
 
-        it('renders the security key form with the base component copy, uncustomised', async () => {
+        it('renders the key fields in the code run card with the given sentence, then the feedback', async () => {
             renderPanel()
-            await screen.findByRole('button', { name: 'View' })
-            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: /^Security key/ })).toBeInTheDocument()
+            await screen.findByRole('button', { name: 'View files' })
+            expect(within(card()).getByRole('heading', { name: 'Code run Aug 05, 2026' })).toBeInTheDocument()
+            const keyFields = within(card()).getByTestId('security-key-form')
+            expect(within(keyFields).getByText(/^Security key/)).toContainElement(
+                within(keyFields).getByLabelText('required'),
+            )
+            expect(within(keyFields).getByText(KEY_DESCRIPTION)).toBeInTheDocument()
+            expect(screen.queryByText(/issued to you during sign-up/)).toBeNull()
+            expect(isBefore(keyFields, within(card()).getByTestId('feedback-probe'))).toBe(true)
+        })
+
+        it('keeps the empty-key and invalid-key errors of the shared key fields', async () => {
+            renderPanel()
+            fireEvent.click(await screen.findByRole('button', { name: 'View files' }))
+            expect(await screen.findByText('Enter your security key to decrypt the outputs.')).toBeInTheDocument()
+
+            await enterKey('not a key')
             expect(
-                screen.getByText('This key is required to access the outputs. It was issued to you during sign-up.'),
+                await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
             ).toBeInTheDocument()
+            expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
         })
 
         // The outputs are encrypted to the enclave, so the researcher's key opens them only through
@@ -171,8 +199,8 @@ describe('SharedOutputsPanel', () => {
 
         it('shows the feedback section and no outputs table', () => {
             renderPanel()
-            expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
-            expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
+            expect(within(card()).getByTestId('feedback-probe')).toBeInTheDocument()
+            expect(screen.queryByTestId('code-run-outputs')).not.toBeInTheDocument()
         })
 
         it('offers only Previous step — Edit code and Back to my studies are absent', () => {
@@ -222,27 +250,38 @@ describe('SharedOutputsPanel', () => {
             expect(after).not.toHaveAttribute('aria-live', 'assertive')
         })
 
-        it('keeps the feedback section mounted across the swap', async () => {
+        it('keeps the feedback section mounted and below the outputs across the swap', async () => {
             renderPanel()
             expect(mountCount.current).toBe(1)
-            await decrypt()
+            await enterKey(await readTestSupportFile('private_key.pem'))
             expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
+            await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
+            await waitForPendingMutations()
+
+            const probe = within(card()).getByTestId('feedback-probe')
+            expect(isBefore(within(card()).getByTestId('code-run-outputs'), probe)).toBe(true)
             expect(mountCount.current).toBe(1)
+        })
+
+        it('moves focus to the Output files title that replaces the key fields', async () => {
+            renderPanel()
+            await decrypt()
+            await waitFor(() => expect(within(card()).getByText('Output files')).toHaveFocus())
         })
 
         it('removes the security key form entirely, leaving no input or button behind', async () => {
             renderPanel()
             await decrypt()
             expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: /^Security key/ })).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Security key/)).not.toBeInTheDocument()
             expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'View files' })).not.toBeInTheDocument()
         })
 
         it('renders the reused outputs table with its header and all three columns', async () => {
             renderPanel()
             await decrypt()
-            expect(screen.getByTestId('outputs-files-section')).toHaveTextContent('Output files')
+            expect(within(card()).getByTestId('code-run-outputs')).toHaveTextContent('Output files')
             const table = screen.getByTestId('outputs-files-table')
             expect(table).toHaveTextContent('File name')
             expect(table).toHaveTextContent('Last activity')

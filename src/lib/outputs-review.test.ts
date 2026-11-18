@@ -4,10 +4,12 @@ import {
     codeRunEndedAt,
     compareOutputFiles,
     isOutputsReviewEditable,
+    latestRunFeedback,
     OUTPUTS_DECISION_ERRORS,
     OUTPUTS_DECISIONS,
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     OUTPUTS_FILE_NAME_MAX_LENGTH,
+    toOutputsFeedbackEntry,
     toOutputsReviewDecision,
     type OutputFileOrder,
 } from './outputs-review'
@@ -175,5 +177,25 @@ describe('codeRunEndedAt', () => {
                 { status: 'JOB-ERRORED', createdAt: erroredAt },
             ]),
         ).toBe(completedAt)
+    })
+})
+
+describe('latestRunFeedback', () => {
+    it("keeps only the given job's entries", () => {
+        const entries = [
+            { id: 'a', studyJobId: 'job-1' },
+            { id: 'b', studyJobId: 'job-2' },
+            { id: 'c', studyJobId: null },
+            { id: 'd', studyJobId: 'job-2' },
+        ]
+        expect(latestRunFeedback(entries, 'job-2').map((e) => e.id)).toEqual(['b', 'd'])
+    })
+})
+
+describe('toOutputsFeedbackEntry', () => {
+    it('labels the decision as reviewer feedback without a version', () => {
+        const entry = toOutputsFeedbackEntry({ id: 'a', round: 2, studyJobId: 'job-1' })
+        expect(entry).toEqual({ id: 'a', round: 2, studyJobId: 'job-1', entryType: 'REVIEWER-FEEDBACK' })
+        expect(entry).not.toHaveProperty('version')
     })
 })

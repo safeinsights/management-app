@@ -1,10 +1,11 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
+import { CodeRunCard } from '@/components/study/code-run-card'
+import { CodeRunKeyFields } from '@/components/study/code-run-key-form'
 import { useMarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { ProposalStepHeader, VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
-import { SecurityKeyForm } from '@/components/study/security-key-form'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -18,6 +19,8 @@ type SharedOutputsPanelProps = {
     // vary, since a remount drops the announcement.
     banner: PhasedBannerCopy
     job: { id: string }
+    /** The status sentence under "Security key"; the screen picks it from the researcher's status. */
+    keyDescription: string
     /** A node, not a render, so the phase flip cannot remount it and reset expand/collapse state. */
     feedbackSection: ReactNode
     /** One nav per phase, like `banner`: the panel picks, it does not derive. */
@@ -42,6 +45,7 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
     decidedAt,
     banner,
     job,
+    keyDescription,
     feedbackSection,
     nav,
     studyId,
@@ -63,33 +67,32 @@ export const SharedOutputsPanel: FC<SharedOutputsPanelProps> = ({
                 heading={VERIFY_OUTPUTS_STEP.heading}
                 banner={bannerAlert}
             />
-            {feedbackSection}
-            <LockedPhase isVisible={isLocked} job={job} onDecrypted={onDecrypted} />
-            <UnlockedPhase decryptedFiles={decryptedFiles} jobId={job.id} />
+            <CodeRunCard date={decidedAt}>
+                <LatestRunOutputs
+                    job={job}
+                    description={keyDescription}
+                    decryptedFiles={decryptedFiles}
+                    onDecrypted={onDecrypted}
+                />
+                {feedbackSection}
+            </CodeRunCard>
             <StepNavigation nav={phaseNav} />
         </>
     )
 }
 
-type LockedPhaseProps = {
-    isVisible: boolean
+type LatestRunOutputsProps = {
     job: { id: string }
+    description: string
+    /** null until a key has successfully decrypted. */
+    decryptedFiles: JobFileInfo[] | null
     onDecrypted: (files: JobFileInfo[]) => void
 }
 
-// Unmounted rather than hidden so the input leaves the tab order once used (OTTER-696 AC).
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, onDecrypted }) => {
-    if (!isVisible) return null
-    return <SecurityKeyForm job={job} onDecrypted={onDecrypted} />
-}
-
-type UnlockedPhaseProps = {
-    /** null until a key has successfully decrypted. */
-    decryptedFiles: JobFileInfo[] | null
-    jobId: string
-}
-
-const UnlockedPhase: FC<UnlockedPhaseProps> = ({ decryptedFiles, jobId }) => {
-    if (decryptedFiles === null) return null
-    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
+// The key fields unmount rather than hide, so the input leaves the tab order once used (OTTER-696 AC).
+const LatestRunOutputs: FC<LatestRunOutputsProps> = ({ job, description, decryptedFiles, onDecrypted }) => {
+    if (decryptedFiles === null) {
+        return <CodeRunKeyFields job={job} type="researcher" description={description} onDecrypted={onDecrypted} />
+    }
+    return <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} variant="embedded" autoFocusTitle />
 }
