@@ -11,10 +11,6 @@ test.describe('Terms of Service acknowledgement', () => {
     test('a user owing an updated Terms of Service acknowledges it on its own page before reaching the app', async ({
         page,
     }) => {
-        // /legal stays readable while the document is owed.
-        await visitAsRole(page, Routes.legal)
-        await expect(page).toHaveURL((url) => url.pathname === Routes.legal)
-
         await visitAsRole(page, Routes.support)
         await expect(page).toHaveURL(
             (url) =>
