@@ -95,7 +95,7 @@ describe('SharedOutputsPanel', () => {
             />,
         )
 
-    const card = () => screen.getByTestId('code-run-card')
+    const card = (root = document.body) => within(root).getByTestId('code-run-card')
 
     const isBefore = (first: Element, second: Element) =>
         !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -110,7 +110,7 @@ describe('SharedOutputsPanel', () => {
 
     const decrypt = async (root: HTMLElement) => {
         await enterKey(root, await readTestSupportFile('private_key.pem'))
-        await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
+        await waitFor(() => expect(within(card(root)).getByTestId('code-run-outputs')).toBeInTheDocument())
         // Decrypting fires the reviewed write; let it settle before the test ends.
         await waitForPendingMutations()
     }
@@ -181,7 +181,7 @@ describe('SharedOutputsPanel', () => {
 
         it('keeps the empty-key and invalid-key errors of the shared key fields', async () => {
             const { container } = renderPanel()
-            fireEvent.click(await screen.findByRole('button', { name: 'View files' }))
+            fireEvent.click(await within(container).findByRole('button', { name: 'View files' }))
             expect(await screen.findByText('Enter your security key to decrypt the outputs.')).toBeInTheDocument()
 
             await enterKey(container, 'not a key')
@@ -257,7 +257,7 @@ describe('SharedOutputsPanel', () => {
             expect(mountCount.current).toBe(1)
             await enterKey(container, await readTestSupportFile('private_key.pem'))
             expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
-            await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
+            await waitFor(() => expect(within(card(container)).getByTestId('code-run-outputs')).toBeInTheDocument())
             await waitForPendingMutations()
 
             const probe = within(card()).getByTestId('feedback-probe')

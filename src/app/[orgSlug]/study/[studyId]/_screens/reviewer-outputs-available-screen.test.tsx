@@ -310,11 +310,12 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
         const { container } = await renderScreen({ study, raw }, org.slug)
-        await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
+        const view = within(container)
+        await within(view.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
-        const history = screen.getByTestId('code-run-history')
+        const history = view.getByTestId('code-run-history')
         expect(within(history).getByRole('heading', { name: 'Code run history (2)' })).toBeInTheDocument()
-        expect(isBefore(screen.getByTestId('security-key-form'), history)).toBe(true)
+        expect(isBefore(view.getByTestId('security-key-form'), history)).toBe(true)
         fireEvent.click(within(history).getByRole('button', { name: 'View code run history' }))
         const [row] = await within(history).findAllByRole('button', { name: /^Code run / })
         fireEvent.click(row)

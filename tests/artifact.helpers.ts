@@ -6,7 +6,6 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { tamper, type TamperOpts } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import { readTestSupportFile } from './unit.helpers'
 
 // Kept out of unit.helpers so the si-encryption import only loads for suites that seed artifacts.
@@ -20,27 +19,24 @@ const artifactPath = (jobId: string, name: string) => `test-org/${jobId}/results
 
 type KeyPair = { publicKey: ArrayBuffer; privateKey: ArrayBuffer; fingerprint: string }
 
-// The pair tests type in as the security key.
-const testKeyPair = async (): Promise<KeyPair> => {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const privateKey = pemToArrayBuffer(await readTestSupportFile('private_key.pem'))
+// Checked-in pairs, because generating an RSA-4096 key takes a random 0.1 to 1 s, several times that
+// on a busy CI runner, and made the decrypt tests time out.
+const supportKeyPair = async (prefix: string): Promise<KeyPair> => {
+    const publicKey = pemToArrayBuffer(await readTestSupportFile(`${prefix}public_key.pem`))
+    const privateKey = pemToArrayBuffer(await readTestSupportFile(`${prefix}private_key.pem`))
     return { publicKey, privateKey, fingerprint: await fingerprintKeyData(publicKey) }
 }
 
-// An RSA-4096 key takes a random 0.1 to 1 s to generate, several times that on a busy CI runner, so
-// each test file generates its spare keys once. A key per test made the decrypt tests time out.
-const memoized = <T>(make: () => Promise<T>) => {
-    let value: Promise<T> | undefined
-    return () => (value ??= make())
-}
+// The pair tests type in as the security key.
+const testKeyPair = () => supportKeyPair('')
 
-const enclaveKeyPair = memoized(async (): Promise<KeyPair> => {
-    const { exportedPublicKey, exportedPrivateKey, fingerprint } = await generateKeyPair()
-    return { publicKey: exportedPublicKey, privateKey: exportedPrivateKey, fingerprint }
-})
+const enclaveKeyPair = () => supportKeyPair('enclave_')
 
 /** A valid key pair that is not the test pair, for runs encrypted with another key and for wrong-key cases. */
-export const otherKeyPair = memoized(generateKeyPair)
+export const otherKeyPair = async () => {
+    const { publicKey, privateKey, fingerprint } = await supportKeyPair('other_')
+    return { exportedPublicKey: publicKey, privateKeyString: Buffer.from(privateKey).toString('base64'), fingerprint }
+}
 
 /**
  * A row with no encrypted body is a real shape, not a shortcut: the containerizer stores a
