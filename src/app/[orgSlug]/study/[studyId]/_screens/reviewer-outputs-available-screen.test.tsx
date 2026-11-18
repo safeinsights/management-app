@@ -137,11 +137,12 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
-        await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
 
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+        fireEvent.change(view.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
 
         expect(await screen.findByText(textIncludes('Invalid key. Check that you copied'))).toBeInTheDocument()
         expect(screen.queryByTestId('code-run-outputs')).toBeNull()
@@ -188,13 +189,14 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         const { org, study, job, raw } = await setupAvailable()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files })
         const { container } = await doRender({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
         await unlock(container)
-        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
+        await waitFor(() => expect(latestRunOutputs(container)).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and
         // poisons every later test, so wait for the activity query to settle.
-        await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
-        return { org, study, job }
+        await waitFor(() => expect(view.getAllByText('No activity yet').length).toBeGreaterThan(0))
+        return { org, study, job, container }
     }
 
     it('swaps the key form for the outputs table, decision section and submit button', async () => {
@@ -271,10 +273,10 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     })
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
-        const { study } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
+        const { study, container } = await setupDecrypted([{ name: 'results.csv', content: 'a,b\n1,2' }])
         const labName = study.submittingLabName
 
-        fireEvent.click(screen.getByTestId('outputs-submit-decision'))
+        fireEvent.click(within(container).getByTestId('outputs-submit-decision'))
 
         expect(await screen.findByText(textIncludes(`Enter your feedback for ${labName}`))).toBeInTheDocument()
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
@@ -341,7 +343,8 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
 })
 
 // History rows render their own outputs section, so look inside the latest run's card.
-const latestRunOutputs = () => within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')
+const latestRunOutputs = (root: HTMLElement = document.body) =>
+    within(within(root).getByTestId('code-run-card')).getByTestId('code-run-outputs')
 
 const isBefore = (first: Element, second: Element) =>
     !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)

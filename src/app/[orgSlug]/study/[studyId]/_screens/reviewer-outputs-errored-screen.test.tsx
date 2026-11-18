@@ -120,11 +120,12 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
             fileType: 'ENCRYPTED-CODE-RUN-LOG',
             files: [{ name: 'run.log', content: 'boom' }],
         })
-        await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        const { container } = await renderScreen({ study, raw }, org.slug)
+        const view = within(container)
+        await view.findByRole('button', { name: 'View files' })
 
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
-        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+        fireEvent.change(view.getByRole('textbox'), { target: { value: 'not-a-real-key' } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
 
         expect(
             await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
@@ -389,10 +390,10 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
         const { org, study, job, raw } = await setupErrored()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files })
         const { container } = await renderScreen({ study, raw }, org.slug)
-        await screen.findByRole('button', { name: 'View files' })
+        await within(container).findByRole('button', { name: 'View files' })
         await unlock(container)
-        await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
-        return { org, study, job }
+        await waitFor(() => expect(latestRunOutputs(container)).toBeInTheDocument())
+        return { org, study, job, container }
     }
 
     it('swaps the key form for the outputs table and decision section', async () => {
@@ -479,10 +480,10 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 
     it('flags both empty fields and opens no modal on a blank submit', async () => {
-        const { study } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        const { study, container } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
         const labName = study.submittingLabName
 
-        fireEvent.click(screen.getByTestId('outputs-submit-decision'))
+        fireEvent.click(within(container).getByTestId('outputs-submit-decision'))
 
         expect(await screen.findByText(`Enter your feedback for ${labName} before submitting.`)).toBeInTheDocument()
         expect(screen.getByText('Select an option before submitting')).toBeInTheDocument()
@@ -490,10 +491,11 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     })
 
     it('records a view against the file when its name is clicked', async () => {
-        const { job } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
-        await waitFor(() => expect(screen.getByText('No activity yet')).toBeInTheDocument())
+        const { job, container } = await setupDecrypted([{ name: 'run.log', content: 'boom' }])
+        const view = within(container)
+        await waitFor(() => expect(view.getByText('No activity yet')).toBeInTheDocument())
 
-        fireEvent.click(screen.getByRole('button', { name: 'run.log' }))
+        fireEvent.click(view.getByRole('button', { name: 'run.log' }))
 
         // The cell is refetched when the recording settles, so the row is already there after this.
         await waitFor(() => expect(screen.queryByText('No activity yet')).toBeNull())
@@ -573,4 +575,5 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
 })
 
 // History rows render their own outputs section, so look inside the latest run's card.
-const latestRunOutputs = () => within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')
+const latestRunOutputs = (root: HTMLElement = document.body) =>
+    within(within(root).getByTestId('code-run-card')).getByTestId('code-run-outputs')
