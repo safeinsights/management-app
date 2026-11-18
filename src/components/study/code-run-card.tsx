@@ -1,5 +1,5 @@
 import { FC, ReactNode } from 'react'
-import { Divider, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { CodeRunTitle } from '@/components/study/code-run-title'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -20,4 +20,10 @@ export const CodeRunCard: FC<CodeRunCardProps> = ({ date, children }) => (
             <Stack gap="xxl">{children}</Stack>
         </Stack>
     </Paper>
+)
+
+export const CodeRunSectionTitle: FC<{ children: ReactNode }> = ({ children }) => (
+    <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+        {children}
+    </Text>
 )

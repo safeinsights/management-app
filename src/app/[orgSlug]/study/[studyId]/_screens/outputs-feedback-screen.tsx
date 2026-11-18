@@ -1,7 +1,7 @@
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { semanticColor } from '@/theme/tokens'
 import { FC } from 'react'
 import { Box, Stack, Text } from '@mantine/core'
-import { CodeRunCard } from '@/components/study/code-run-card'
+import { CodeRunCard, CodeRunSectionTitle } from '@/components/study/code-run-card'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { DatedStatusBanner } from '@/components/study/dated-status-banner'
 import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
@@ -59,9 +59,7 @@ export async function OutputsFeedbackScreen({ study, raw, nav }: Pick<ScreenComp
 // shared (OTTER-1060).
 const NoSharedOutputs: FC = () => (
     <Stack gap="lg">
-        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-            Output files
-        </Text>
+        <CodeRunSectionTitle>Output files</CodeRunSectionTitle>
         <Text fz="md" c={semanticColor('text.primary')}>
             No output files were shared for this code run.
         </Text>

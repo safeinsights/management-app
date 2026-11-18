@@ -2,6 +2,7 @@
 
 import { Stack, Text } from '@mantine/core'
 import { FC } from 'react'
+import { CodeRunSectionTitle } from '@/components/study/code-run-card'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -17,9 +18,7 @@ interface CodeRunKeyFieldsProps {
 // The Output files section of the latest run's card, before its outputs are decrypted.
 export const CodeRunKeyFields: FC<CodeRunKeyFieldsProps> = ({ job, type, description, onDecrypted, onKeyAccepted }) => (
     <Stack gap="lg" data-testid="security-key-form">
-        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-            Output files
-        </Text>
+        <CodeRunSectionTitle>Output files</CodeRunSectionTitle>
         <Stack gap="xs">
             <Text fz="md" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                 Security key{' '}

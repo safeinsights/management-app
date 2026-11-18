@@ -20,6 +20,7 @@ import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
 import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
+import { CodeRunSectionTitle } from '@/components/study/code-run-card'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
@@ -351,11 +352,7 @@ const needsOwnKey = (outputs: RunOutputs | undefined) => !outputs || outputs.sta
 // The unlocked table carries its own "Output files" title and Download all button.
 const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    return (
-        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-            Output files
-        </Text>
-    )
+    return <CodeRunSectionTitle>Output files</CodeRunSectionTitle>
 }
 
 const RunOutputsSection: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
