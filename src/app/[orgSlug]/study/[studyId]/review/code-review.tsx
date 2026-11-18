@@ -70,7 +70,7 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
                     }
                     initiallyExpanded={!isResubmission}
                 >
-                    <FeedbackAndNotesSection isVisible={isResubmission} entries={entries} alwaysExpandLatest />
+                    <FeedbackAndNotesSection isVisible={isResubmission} entries={entries} compact />
                 </CollapsibleSubmittedCodeSection>
                 <CodeReviewClient
                     orgSlug={orgSlug}
