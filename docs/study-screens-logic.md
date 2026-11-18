@@ -362,7 +362,9 @@ before that.
 approved proposal, past the code step Edit code was opened from (OTTER-673); the footer flushes the
 note draft before following it. It adds an outline `View outputs` → `/view` only when
 `isOutputsDecided`: the round was reopened from the outputs step, so `/view` serves the latest outputs
-screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837).
+screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837). Once
+`canResearcherResubmitCode` is false (Back after resubmitting, a teammate's resubmit, a stale link)
+the page redirects to `/view` instead of rendering (OTTER-949).
 
 `/edit-and-resubmit` (Edit proposal) takes its `Previous step` from `editProposalPreviousStep(ctx)`:
 → `/edit?from=edit-proposal`, Step 1. The footer saves the proposal and note drafts before following
