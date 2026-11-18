@@ -1,10 +1,11 @@
 'use client'
 
-import { Button, Checkbox, Group, Paper, Stack, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Button, Checkbox, Group, Stack, Text, Title, VisuallyHidden } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import type { FC } from 'react'
+import { FocusedCard } from '@/components/layout/focused-card'
 import { AcknowledgementError } from '@/components/legal/blocking-modal'
 import { useAcknowledgementConsent } from '@/components/legal/use-acknowledgement-consent'
 import { LinkWithIcon } from '@/components/links'
@@ -14,7 +15,7 @@ import {
     legalDocumentTypeLabels,
     type PendingGlobalAcknowledgement,
 } from '@/schema/legal-document'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 
 type Props = {
     documents: PendingGlobalAcknowledgement[]
@@ -83,7 +84,7 @@ export const GlobalAcknowledgement: FC<Props> = ({
     isSubmitting,
     error,
 }) => (
-    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={511} my={{ base: 'md', lg: 0 }}>
+    <FocusedCard maw={511} my={{ base: 'md', lg: 0 }}>
         <Stack gap="xl">
             <Stack gap="lg">
                 <Title order={1} fz="h3" ta="center">
@@ -114,7 +115,7 @@ export const GlobalAcknowledgement: FC<Props> = ({
                 </Group>
             </Stack>
         </Stack>
-    </Paper>
+    </FocusedCard>
 )
 
 // Replace, not push: Back should not return to a step that has just been answered.
