@@ -78,4 +78,60 @@ describe('FeedbackAndNotesSection', () => {
         const { container } = renderWithProviders(<FeedbackAndNotesSection entries={[]} />)
         expect(container.querySelector('[data-testid="feedback-and-notes-section"]')).toBeNull()
     })
+
+    describe('compact', () => {
+        const fourEntries = [
+            { ...noteEntry, id: 'note-v3', version: 3 },
+            { ...reviewerEntry, id: 'reviewer-v2', version: 2 },
+            noteEntry,
+            reviewerEntry,
+        ]
+
+        it('shows only the latest 2 entries with a toggle for the earlier ones', () => {
+            renderWithProviders(<FeedbackAndNotesSection entries={fourEntries} compact />)
+
+            expect(screen.getByTestId('feedback-entry-note-v3')).toBeInTheDocument()
+            expect(screen.getByTestId('feedback-entry-reviewer-v2')).toBeInTheDocument()
+            expect(screen.queryByTestId('feedback-entry-note-v2')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('feedback-entry-reviewer-v1')).not.toBeInTheDocument()
+            expect(screen.getByTestId('feedback-show-all')).toHaveTextContent('View all notes and feedback')
+        })
+
+        it('has no toggle with only 2 entries', () => {
+            renderWithProviders(<FeedbackAndNotesSection entries={[noteEntry, reviewerEntry]} compact />)
+
+            expect(screen.queryByTestId('feedback-show-all')).not.toBeInTheDocument()
+        })
+
+        it('reveals the earlier entries and focuses the third, then hides them and focuses the toggle', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<FeedbackAndNotesSection entries={fourEntries} compact />)
+
+            await user.click(screen.getByTestId('feedback-show-all'))
+
+            expect(screen.getByTestId('feedback-entry-note-v2')).toHaveFocus()
+            expect(screen.getByTestId('feedback-entry-reviewer-v1')).toBeInTheDocument()
+            expect(screen.getByTestId('feedback-show-all')).toHaveTextContent('Hide earlier notes and feedback')
+
+            await user.click(screen.getByTestId('feedback-show-all'))
+
+            expect(screen.queryByTestId('feedback-entry-note-v2')).not.toBeInTheDocument()
+            expect(screen.getByTestId('feedback-show-all')).toHaveFocus()
+            expect(screen.getByTestId('feedback-show-all')).toHaveTextContent('View all notes and feedback')
+        })
+
+        it('clamps collapsed entries to 2 lines', () => {
+            renderWithProviders(<FeedbackAndNotesSection entries={fourEntries} compact />)
+
+            const body = screen.getByTestId('feedback-body-note-v3')
+            expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
+        })
+
+        it('starts collapsed even when the newest entry is reviewer feedback', () => {
+            renderWithProviders(<FeedbackAndNotesSection entries={[reviewerEntry, noteEntry]} compact />)
+
+            const body = screen.getByTestId('feedback-body-reviewer-v1')
+            expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
+        })
+    })
 })
