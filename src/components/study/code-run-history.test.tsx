@@ -343,7 +343,7 @@ const setupLatest = async (priorRunsFor: (userId: string) => PriorCodeRunOptions
 
 const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<typeof latestJobForStudy>>) => {
     const priorRuns = await priorCodeRunsForStudy(studyId, latest.id)
-    renderWithProviders(
+    const { container } = renderWithProviders(
         <DecryptAndViewOutputs
             job={latest}
             priorRuns={priorRuns}
@@ -353,6 +353,7 @@ const renderHistoryFor = async (studyId: string, latest: Awaited<ReturnType<type
         />,
     )
     await screen.findByRole('button', { name: 'View files' })
+    return container
 }
 
 // Newest first: a run the reviewer's current key opens, two encrypted with an older key, and one
@@ -381,8 +382,8 @@ const setupRuns = async () => {
         })
     }
 
-    await renderHistoryFor(study.id, latest)
-    return { oldKey }
+    const container = await renderHistoryFor(study.id, latest)
+    return { oldKey, container }
 }
 
 const rowToggleIn = (row: HTMLElement) => within(row).getByRole('button', { name: /^Code run / })
@@ -392,13 +393,13 @@ const expandRow = async (row: HTMLElement) => {
     await waitFor(() => expect(within(row).getByTestId('code-run-history-row-body')).toBeVisible())
 }
 
-const unlockLatest = async () => {
-    const form = screen.getByTestId('security-key-form')
-    fireEvent.change(within(form).getByRole('textbox'), {
-        target: { value: await readTestSupportFile('private_key.pem') },
-    })
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const unlockLatest = async (root: HTMLElement) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    const form = within(root).getByTestId('security-key-form')
+    fireEvent.change(within(form).getByRole('textbox'), { target: { value: privateKey } })
     fireEvent.click(within(form).getByRole('button', { name: 'View files' }))
-    await within(screen.getByTestId('code-run-card')).findByTestId('code-run-outputs')
+    await within(within(root).getByTestId('code-run-card')).findByTestId('code-run-outputs')
 }
 
 const keyInput = (row: HTMLElement) => within(row).getByRole('textbox', { name: /^Security key for Code run / })
@@ -430,9 +431,9 @@ const outputsTitleIn = (container: HTMLElement) => within(container).getByText('
 
 describe('CodeRunHistory decryption focus and announcements', () => {
     it('focuses the latest outputs and announces one message for every run the key was tried on', async () => {
-        await setupRuns()
+        const { container } = await setupRuns()
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
 
         expect(
             outputsTitleIn(within(screen.getByTestId('code-run-card')).getByTestId('code-run-outputs')),
@@ -447,9 +448,9 @@ describe('CodeRunHistory decryption focus and announcements', () => {
     })
 
     it('focuses a row’s outputs and announces it when its own key opens it, only once', async () => {
-        const { oldKey } = await setupRuns()
+        const { oldKey, container } = await setupRuns()
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
         const oldA = rows()[1]
         await expandRow(oldA)
         await within(oldA).findByText(WRONG_KEY_ALERT)
@@ -480,9 +481,9 @@ describe('CodeRunHistory decryption focus and announcements', () => {
                 encryptedFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
             })
         }
-        await renderHistoryFor(study.id, latest)
+        const container = await renderHistoryFor(study.id, latest)
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
         const [first, second] = rows()
         await expandRow(first)
         await expandRow(second)
@@ -508,9 +509,9 @@ describe('CodeRunHistory decryption focus and announcements', () => {
         'does not move focus to a row’s outputs again after Hide and View (reduced motion: %s)',
         async (reducedMotion) => {
             stubReducedMotion(reducedMotion)
-            const { oldKey } = await setupRuns()
+            const { oldKey, container } = await setupRuns()
             await openHistory()
-            await unlockLatest()
+            await unlockLatest(container)
             const oldA = rows()[1]
             await expandRow(oldA)
             await within(oldA).findByText(WRONG_KEY_ALERT)
@@ -542,9 +543,9 @@ describe('CodeRunHistory expanded row', () => {
     })
 
     it('opens every run the latest key fits as soon as it decrypts, and asks for the old key elsewhere', async () => {
-        await setupRuns()
+        const { container } = await setupRuns()
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
 
         const [matching, oldA, empty] = rows()
         await expandRow(matching)
@@ -564,9 +565,9 @@ describe('CodeRunHistory expanded row', () => {
     })
 
     it('unlocks only the row its old key was entered in, with errors kept to that row', async () => {
-        const { oldKey } = await setupRuns()
+        const { oldKey, container } = await setupRuns()
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
         await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
         const [, oldA, , oldB] = rows()
         await expandRow(oldA)
@@ -604,9 +605,9 @@ describe('CodeRunHistory expanded row', () => {
         'keeps unsubmitted key text through View less and Hide, in memory only (reduced motion: %s)',
         async (reducedMotion) => {
             stubReducedMotion(reducedMotion)
-            await setupRuns()
+            const { container } = await setupRuns()
             await openHistory()
-            await unlockLatest()
+            await unlockLatest(container)
             await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
             await expandRow(rows()[3])
             const typed = 'unsubmitted-key-draft'
@@ -641,9 +642,9 @@ describe('CodeRunHistory expanded row', () => {
         })
         // A file row whose archive was never stored, so fetching it fails.
         await seedJobFileRow(missing.id, 'ENCRYPTED-RESULT', 'missing.zip')
-        await renderHistoryFor(study.id, latest)
+        const container = await renderHistoryFor(study.id, latest)
         await openHistory()
-        await unlockLatest()
+        await unlockLatest(container)
 
         const [tamperedRow, missingRow] = rows()
         await expandRow(tamperedRow)
@@ -667,7 +668,7 @@ describe('CodeRunHistory expanded row', () => {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'withheld.csv', content: 'd\n4' }],
         })
-        await renderHistoryFor(study.id, latest)
+        const container = await renderHistoryFor(study.id, latest)
         await openHistory()
         await expandRow(rows()[0])
         const row = rows()[0]
@@ -676,7 +677,7 @@ describe('CodeRunHistory expanded row', () => {
         expect(within(row).queryByText(LOCKED_MESSAGE)).toBeNull()
         expect(within(row).getByText('kept back')).toBeVisible()
 
-        await unlockLatest()
+        await unlockLatest(container)
 
         expect(await screen.findByText('Outputs decrypted.')).toBeInTheDocument()
         expect(within(row).getByText('Output files were not shared for this run.')).toBeVisible()

@@ -139,14 +139,18 @@ const card = () => screen.getByTestId('code-run-card')
 const isBefore = (first: Element, second: Element) =>
     !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-const decrypt = async () => {
-    await screen.findByRole('button', { name: 'View files' })
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const decrypt = async (root: HTMLElement) => {
+    const view = within(root)
+    await view.findByRole('button', { name: 'View files' })
     // By name: the feedback section on this screen contributes a second textbox.
-    fireEvent.change(screen.getByRole('textbox', { name: 'Security key' }), {
+    fireEvent.change(view.getByRole('textbox', { name: 'Security key' }), {
         target: { value: await readTestSupportFile('private_key.pem') },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
-    await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
+    fireEvent.click(view.getByRole('button', { name: 'View files' }))
+    await waitFor(() =>
+        expect(within(view.getByTestId('code-run-card')).getByTestId('code-run-outputs')).toBeInTheDocument(),
+    )
     // Decrypting records the outputs reviewed, a write that has to land before the test ends.
     await waitForPendingMutations()
 }
@@ -290,11 +294,11 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
 
     it('marks the outputs reviewed only once they are decrypted, never for an errored run', async () => {
         const { org, study, raw, job } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug)
+        const { container } = await renderScreen(variant, study, raw, org.slug)
         await waitForPendingMutations()
         expect(await reviewedRows(job.id)).toHaveLength(0)
 
-        await decrypt()
+        await decrypt(container)
 
         expect(await reviewedRows(job.id)).toHaveLength(variant.reviewedOnDecrypt ? 1 : 0)
     })
@@ -312,8 +316,8 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
 
     it('renders the post-decryption banner with this screen’s copy and variant', async () => {
         const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug)
-        await decrypt()
+        const { container } = await renderScreen(variant, study, raw, org.slug)
+        await decrypt(container)
 
         const dataPartner = org.name
         const { locked, unlocked } = copyFor(variant.screen, dataPartner)
@@ -421,8 +425,8 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
 
     it('swaps the key area for the outputs table inside the card and keeps the feedback below it', async () => {
         const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug)
-        await decrypt()
+        const { container } = await renderScreen(variant, study, raw, org.slug)
+        await decrypt(container)
 
         expect(screen.queryByRole('textbox', { name: 'Security key' })).toBeNull()
         const outputs = within(card()).getByTestId('code-run-outputs')
@@ -493,8 +497,8 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
 
     it("resolves this screen's post-decryption nav from the step-nav table", async () => {
         const { org, study, raw } = await setupShared(variant)
-        await renderScreen(variant, study, raw, org.slug)
-        await decrypt()
+        const { container } = await renderScreen(variant, study, raw, org.slug)
+        await decrypt(container)
 
         expect(screen.getByTestId('step-navigation')).toBeInTheDocument()
         expect(screen.getByTestId('cta-previous-step')).toHaveAttribute('data-variant', 'subtle')
@@ -575,8 +579,8 @@ describe('SharedOutputsScreen with earlier runs', () => {
             sharedWith: user.id,
         })
 
-        await renderScreen(variant, study, raw, org.slug)
-        await decrypt()
+        const { container } = await renderScreen(variant, study, raw, org.slug)
+        await decrypt(container)
 
         expect(within(card()).getByRole('button', { name: 'latest.csv' })).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: 'results.csv' })).toHaveLength(1)
@@ -628,13 +632,13 @@ describe('SharedOutputsScreen across studies', () => {
         })
         ;(useParams as Mock).mockReturnValue({ orgSlug: first.org.slug, studyId: first.study.id })
 
-        renderWithProviders(
+        const { container } = renderWithProviders(
             <StudySwitcher
                 first={await screenElement(variant, first.study, first.raw, first.org.slug)}
                 second={await screenElement(variant, second.study, second.raw, second.org.slug)}
             />,
         )
-        await decrypt()
+        await decrypt(container)
         expect(within(card()).getByRole('button', { name: 'first-study.csv' })).toBeInTheDocument()
         ;(useParams as Mock).mockReturnValue({ orgSlug: second.org.slug, studyId: second.study.id })
         fireEvent.click(screen.getByRole('button', { name: 'Open the second study' }))

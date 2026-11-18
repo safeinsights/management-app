@@ -100,14 +100,16 @@ describe('SharedOutputsPanel', () => {
     const isBefore = (first: Element, second: Element) =>
         !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-    const enterKey = async (value: string) => {
-        await screen.findByRole('button', { name: 'View files' })
-        fireEvent.change(screen.getByRole('textbox'), { target: { value } })
-        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+    // Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+    const enterKey = async (root: HTMLElement, value: string) => {
+        const view = within(root)
+        await view.findByRole('button', { name: 'View files' })
+        fireEvent.change(view.getByRole('textbox'), { target: { value } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
     }
 
-    const decrypt = async () => {
-        await enterKey(await readTestSupportFile('private_key.pem'))
+    const decrypt = async (root: HTMLElement) => {
+        await enterKey(root, await readTestSupportFile('private_key.pem'))
         await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
         // Decrypting fires the reviewed write; let it settle before the test ends.
         await waitForPendingMutations()
@@ -178,11 +180,11 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('keeps the empty-key and invalid-key errors of the shared key fields', async () => {
-            renderPanel()
+            const { container } = renderPanel()
             fireEvent.click(await screen.findByRole('button', { name: 'View files' }))
             expect(await screen.findByText('Enter your security key to decrypt the outputs.')).toBeInTheDocument()
 
-            await enterKey('not a key')
+            await enterKey(container, 'not a key')
             expect(
                 await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
             ).toBeInTheDocument()
@@ -192,8 +194,8 @@ describe('SharedOutputsPanel', () => {
         // The outputs are encrypted to the enclave, so the researcher's key opens them only through
         // the wraps the researcher key set carries.
         it("asks for the RESEARCHER key set, not the reviewer's", async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
@@ -216,8 +218,8 @@ describe('SharedOutputsPanel', () => {
 
     describe('after decryption', () => {
         it('swaps to the unlocked copy and variant with the same decision date', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'action')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
@@ -226,11 +228,11 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('renders a success unlocked banner when that is the copy it is given', async () => {
-            renderPanel({
+            const { container } = renderPanel({
                 ...BANNER,
                 unlocked: { ...BANNER.unlocked, variant: STATUS_ALERT_VARIANT.success },
             })
-            await decrypt()
+            await decrypt(container)
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'success')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
@@ -238,10 +240,10 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('announces the swap in the SAME polite live region rather than remounting it', async () => {
-            renderPanel()
+            const { container } = renderPanel()
             const before = screen.getByTestId('status-alert')
             expect(before).toHaveAttribute('aria-live', 'polite')
-            await decrypt()
+            await decrypt(container)
             const after = screen.getByTestId('status-alert')
             // Same DOM node: swapping two banner components would drop the announcement.
             expect(after).toBe(before)
@@ -251,9 +253,9 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('keeps the feedback section mounted and below the outputs across the swap', async () => {
-            renderPanel()
+            const { container } = renderPanel()
             expect(mountCount.current).toBe(1)
-            await enterKey(await readTestSupportFile('private_key.pem'))
+            await enterKey(container, await readTestSupportFile('private_key.pem'))
             expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
             await waitFor(() => expect(within(card()).getByTestId('code-run-outputs')).toBeInTheDocument())
             await waitForPendingMutations()
@@ -264,14 +266,14 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('moves focus to the Output files title that replaces the key fields', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             await waitFor(() => expect(within(card()).getByText('Output files')).toHaveFocus())
         })
 
         it('removes the security key form entirely, leaving no input or button behind', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
             expect(screen.queryByText(/^Security key/)).not.toBeInTheDocument()
             expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
@@ -279,8 +281,8 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('renders the reused outputs table with its header and all three columns', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             expect(within(card()).getByTestId('code-run-outputs')).toHaveTextContent('Output files')
             const table = screen.getByTestId('outputs-files-table')
             expect(table).toHaveTextContent('File name')
@@ -290,8 +292,8 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('renders the given nav in full once decrypted, keeping Previous step', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             expect(previous).toHaveAttribute('href', PREVIOUS_HREF)

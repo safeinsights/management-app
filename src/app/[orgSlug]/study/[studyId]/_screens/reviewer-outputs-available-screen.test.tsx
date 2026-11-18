@@ -80,9 +80,11 @@ const renderScreenSingleUser = async ({ study, raw }: ScreenInputs, orgSlug: str
         </QueryClientProvider>,
     )
 
-const unlock = async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const unlock = async (root: HTMLElement) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    fireEvent.change(within(root).getByRole('textbox'), { target: { value: privateKey } })
+    fireEvent.click(within(root).getByRole('button', { name: 'View files' }))
 }
 
 const textIncludes = (needle: string) => (_: string, element: Element | null) =>
@@ -185,9 +187,9 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
     ) => {
         const { org, study, job, raw } = await setupAvailable()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-RESULT', files: files })
-        await doRender({ study, raw }, org.slug)
+        const { container } = await doRender({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
+        await unlock(container)
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         // A DB query still in flight at test end races the per-test transaction rollback and
         // poisons every later test, so wait for the activity query to settle.
@@ -307,7 +309,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'results.csv', content: 'a,b\n1,2' }],
         })
-        await renderScreen({ study, raw }, org.slug)
+        const { container } = await renderScreen({ study, raw }, org.slug)
         await within(screen.getByTestId('security-key-form')).findByRole('button', { name: 'View files' })
 
         const history = screen.getByTestId('code-run-history')
@@ -318,7 +320,7 @@ describe('ReviewerOutputsAvailableScreen code run history', () => {
         fireEvent.click(row)
         expect(row).toHaveAttribute('aria-expanded', 'true')
 
-        await unlock()
+        await unlock(container)
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet').length).toBeGreaterThan(0))
 
@@ -372,9 +374,9 @@ describe('ReviewerOutputsAvailableScreen with an earlier run', () => {
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        const { container } = await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
+        await unlock(container)
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 

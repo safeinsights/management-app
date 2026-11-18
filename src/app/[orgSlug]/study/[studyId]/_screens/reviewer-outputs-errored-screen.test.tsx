@@ -51,9 +51,11 @@ const renderScreen = async ({ study, raw }: ScreenInputs, orgSlug: string) =>
         }),
     )
 
-const unlock = async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: await readTestSupportFile('private_key.pem') } })
-    fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+// Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+const unlock = async (root: HTMLElement) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    fireEvent.change(within(root).getByRole('textbox'), { target: { value: privateKey } })
+    fireEvent.click(within(root).getByRole('button', { name: 'View files' }))
 }
 
 const setupWithArtifact = async (priorRuns: PriorCodeRunOptions[] = []) => {
@@ -139,10 +141,10 @@ describe('ReviewerOutputsErroredScreen before decryption', () => {
             files: [{ name: 'run.log', content: 'boom' }],
         })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
-        await renderScreen({ study, raw }, org.slug)
+        const { container } = await renderScreen({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
 
-        await unlock()
+        await unlock(container)
 
         expect(await screen.findByText('No encrypted outputs available to decrypt.')).toBeInTheDocument()
         expect(screen.queryByTestId('code-run-outputs')).toBeNull()
@@ -386,9 +388,9 @@ describe('ReviewerOutputsErroredScreen after decryption', () => {
     const setupDecrypted = async (files: { name: string; content: string }[]) => {
         const { org, study, job, raw } = await setupErrored()
         await seedEncryptedArtifact(job.id, { fileType: 'ENCRYPTED-CODE-RUN-LOG', files: files })
-        await renderScreen({ study, raw }, org.slug)
+        const { container } = await renderScreen({ study, raw }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
+        await unlock(container)
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         return { org, study, job }
     }
@@ -558,9 +560,9 @@ describe('ReviewerOutputsErroredScreen with an earlier run', () => {
         const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
 
-        await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
+        const { container } = await renderScreen({ study, raw: await requireRawState(dbStudy.id) }, org.slug)
         await screen.findByRole('button', { name: 'View files' })
-        await unlock()
+        await unlock(container)
         await waitFor(() => expect(latestRunOutputs()).toBeInTheDocument())
         await waitFor(() => expect(screen.getAllByText('No activity yet')).toHaveLength(2))
 
