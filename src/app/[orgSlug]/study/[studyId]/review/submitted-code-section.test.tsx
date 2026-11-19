@@ -25,12 +25,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
-import {
-    JobAnalysisPanels,
-    splitPreviewBlocks,
-    splitVisibleFiles,
-    truncateFileName,
-} from './submitted-code-interactive'
+import { JobAnalysisPanels, splitPreviewBlocks } from './submitted-code-interactive'
+import { splitVisibleFiles, truncateFileName } from './study-code-viewer'
 import { fetchFileContents } from '@/server/storage'
 
 vi.mock('@/server/storage', async () => {
