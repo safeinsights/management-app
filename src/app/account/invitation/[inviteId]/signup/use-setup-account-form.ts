@@ -66,7 +66,7 @@ export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
     const { setActive, signIn } = useSignIn()
     const router = useRouter()
 
-    // Public: the form must show these before an account exists.
+    // Public: the invitee agrees to these versions before an account exists.
     const {
         data: tosPn = [],
         isPending: isLoadingTosPn,

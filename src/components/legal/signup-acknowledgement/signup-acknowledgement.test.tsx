@@ -1,39 +1,39 @@
 import { describedError, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { AcknowledgementCheckbox } from '../acknowledgement-checkbox'
-import { globalDocAgreementLabel, participationAgreementLabel, TosPnPreview } from './acknowledgement-checkbox'
+import { Routes } from '@/lib/routes'
+import { globalDocAgreementLabel, participationAgreementLabel } from './acknowledgement-checkbox'
 
-describe('Placeholders', () => {
-    it('shows Terms of Service popover when clicked', async () => {
-        const user = userEvent.setup()
-        renderWithProviders(
-            <AcknowledgementCheckbox label={globalDocAgreementLabel([])} checked={false} onChange={vi.fn()} />,
-        )
+const renderGlobalLabel = (documents: Parameters<typeof globalDocAgreementLabel>[0]) =>
+    renderWithProviders(
+        <AcknowledgementCheckbox label={globalDocAgreementLabel(documents)} checked={false} onChange={vi.fn()} />,
+    )
 
-        await user.click(screen.getByText('Terms of Service'))
-        expect(
-            screen.getByText(/Once implemented, SafeInsights Terms of Service will detail acceptable use/),
-        ).toBeInTheDocument()
+describe('globalDocAgreementLabel', () => {
+    // Links rather than inline text, so the signup page stays short.
+    it.each([
+        ['Terms of Service', Routes.termsOfService],
+        ['Privacy Notice', Routes.privacyNotice],
+    ])('links %s to its standalone page in a new tab', (name, href) => {
+        renderGlobalLabel([])
+
+        const link = screen.getByRole('link', { name })
+        expect(link).toHaveAttribute('href', href)
+        expect(link).toHaveAttribute('target', '_blank')
+        expect(link.style.color).toBe('var(--si-color-link-default)')
     })
 
-    it('shows Privacy Notice popover when clicked', async () => {
-        const user = userEvent.setup()
-        renderWithProviders(
-            <AcknowledgementCheckbox label={globalDocAgreementLabel([])} checked={false} onChange={vi.fn()} />,
-        )
+    it('names both documents before any is published, so the links still lead somewhere', () => {
+        renderGlobalLabel([])
 
-        await user.click(screen.getByText('Privacy Notice'))
-        expect(
-            screen.getByText(/Once implemented, SafeInsights Privacy Notice will detail the ways/),
-        ).toBeInTheDocument()
+        expect(screen.getByLabelText('I agree to the Terms of Service and Privacy Notice.')).toBeInTheDocument()
     })
 
-    it.each(['Terms of Service', 'Privacy Notice'])('paints the %s link in the link color', (name) => {
-        renderWithProviders(
-            <AcknowledgementCheckbox label={globalDocAgreementLabel([])} checked={false} onChange={vi.fn()} />,
-        )
+    it('names only what is published', () => {
+        renderGlobalLabel([{ type: 'TOS', versionId: 'tos-v1', format: 'markdown', content: '# Terms' }])
 
-        expect(screen.getByText(name).style.color).toBe('var(--si-color-link-default)')
+        expect(screen.getByLabelText('I agree to the Terms of Service.')).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Privacy Notice' })).not.toBeInTheDocument()
     })
 })
 
@@ -161,14 +161,6 @@ describe('AcknowledgementCheckbox', () => {
                 content: '# Privacy\n\nThe real notice.',
             },
         ]
-
-        it('renders the documents', () => {
-            renderWithProviders(<TosPnPreview documents={documents} />)
-
-            expect(screen.getByText('The real terms.')).toBeInTheDocument()
-            expect(screen.getByText('The real notice.')).toBeInTheDocument()
-            expect(screen.queryByText(/Once implemented/)).not.toBeInTheDocument()
-        })
 
         it('names both documents in the agreement label', () => {
             renderWithProviders(

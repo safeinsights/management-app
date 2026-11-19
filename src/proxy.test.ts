@@ -240,6 +240,17 @@ describe('proxy session marshaling failures', () => {
         // mark rather than inferring the refusal from its own (stale) client state.
         expect(location).toContain(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
     })
+
+    // The signup form links invitees here before they have an account.
+    it.each(['/terms-of-service', '/privacy-notice'])('lets a signed-out visitor read %s', async (path) => {
+        const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
+
+        const { proxy } = await import('./proxy')
+        const res = await (proxy as unknown as ProxyHandler)(auth, new NextRequest(`https://app.test${path}`))
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('location')).toBeNull()
+    })
 })
 
 describe('proxy second-factor check', () => {
