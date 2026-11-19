@@ -1,5 +1,5 @@
 // OTTER-556: a late CODE-SCANNED webhook can land as statusChanges[0], so reading the topmost row
-// would 404 a resubmittable study. The page gates on canResearcherResubmitCode instead.
+// would wrongly turn away a resubmittable study. The page gates on canResearcherResubmitCode instead.
 import { describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
 import type { StudyJobStatus } from '@/database/types'
@@ -149,7 +149,10 @@ describe('ResubmitStudyCodePage', () => {
         expect(screen.queryByRole('button', { name: 'View outputs' })).not.toBeInTheDocument()
     })
 
-    it('returns notFound when no resubmittable status exists in the job history', async () => {
+    it('sends the researcher to the study page when no resubmittable status exists in the job history', async () => {
+        vi.mocked(redirect).mockImplementation(() => {
+            throw new Error('NEXT_REDIRECT')
+        })
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -158,11 +161,10 @@ describe('ResubmitStudyCodePage', () => {
         })
         await insertStatus(job.id, 'CODE-SCANNED')
 
-        const page = await ResubmitStudyCodePage({
-            params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }),
-        })
-
-        expect(page).toBeUndefined()
+        await expect(
+            ResubmitStudyCodePage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) }),
+        ).rejects.toThrow('NEXT_REDIRECT')
+        expect(redirect).toHaveBeenCalledWith(Routes.studyView({ orgSlug: org.slug, studyId: study.id }))
     })
 })
 
