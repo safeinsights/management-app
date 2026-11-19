@@ -92,6 +92,7 @@ describe('SharedOutputsPanel', () => {
                 keyDescription={KEY_DESCRIPTION}
                 feedbackSection={<FeedbackProbe />}
                 nav={NAV}
+                priorRuns={[]}
             />,
         )
 
@@ -159,6 +160,7 @@ describe('SharedOutputsPanel', () => {
                     keyDescription={KEY_DESCRIPTION}
                     feedbackSection={<FeedbackProbe />}
                     nav={NAV}
+                    priorRuns={[]}
                 />,
             )
             const alert = screen.getByTestId('status-alert')

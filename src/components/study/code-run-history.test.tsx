@@ -1,4 +1,5 @@
 import {
+    db,
     describe,
     expect,
     fireEvent,
@@ -15,14 +16,23 @@ import {
     waitFor,
     within,
 } from '@/tests/unit.helpers'
-import { previousKeyPair, seedEncryptedArtifact, seedJobFileRow } from '@/tests/artifact.helpers'
+import { previousKeyPair, seedEncryptedArtifact, seedJobFileRow, unrelatedKeyPair } from '@/tests/artifact.helpers'
+import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import dayjs from 'dayjs'
 import type { StudyJobStatus } from '@/database/types'
 import { ARCHIVE_INTEGRITY_MESSAGE } from '@/hooks/use-decrypt-files'
 import { lexicalJson } from '@/lib/lexical'
+import { studyCodeURL } from '@/lib/paths'
 import { latestJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
-import { CodeRunHistory, decryptedSummary, type RunOutputs } from './code-run-history'
+import {
+    CodeRunHistory,
+    decryptedSummary,
+    historyKeySummary,
+    keyAttemptOutcome,
+    type RunOutputs,
+} from './code-run-history'
 import { DecryptAndViewOutputs } from './decrypt-and-view-outputs'
+import { ResearcherCodeRunHistory } from '@/components/study/researcher-code-run-history'
 
 const run = (
     id: string,
@@ -30,8 +40,10 @@ const run = (
     statuses: StudyJobStatus[] = ['CODE-SUBMITTED', 'RUN-COMPLETE', 'FILES-APPROVED'],
 ) => ({
     id,
+    round: 1,
     ranAt: new Date(ranAt),
-    statusChanges: statuses.map((status) => ({ status })),
+    statusChanges: statuses.map((status) => ({ status, createdAt: ranAt })),
+    codeFiles: [] as Array<{ id: string; name: string; fileType: 'MAIN-CODE' | 'SUPPLEMENTAL-CODE' }>,
     feedback: [],
 })
 
@@ -566,6 +578,41 @@ describe('CodeRunHistory expanded row', () => {
         expect(await within(empty).findByText('This run produced no output files.')).toBeVisible()
     })
 
+    // With nothing to decrypt on the latest run the reviewer entered no key, so no key has failed.
+    it('asks for a key without the previous-key alert when the latest run had nothing to decrypt', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { study, priorJobs } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'RUN-COMPLETE',
+            priorRuns: [{ ranAt: daysAgo(3) }],
+        })
+        const latest = await latestJobForStudy(study.id)
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'earlier.csv', content: 'b\n2' }],
+        })
+        const priorRuns = await priorCodeRunsForStudy(study.id, latest.id)
+        const { container } = renderWithProviders(
+            <DecryptAndViewOutputs
+                job={latest}
+                priorRuns={priorRuns}
+                hasDecryptableOutputs={false}
+                latestFeedback={[]}
+                feedbackLoadError={false}
+            />,
+        )
+        await openHistory(container)
+        const [earlier] = rows(container)
+        await expandRow(earlier)
+
+        expect(keyInput(earlier)).toBeVisible()
+        expect(within(earlier).queryByText(WRONG_KEY_ALERT)).toBeNull()
+        expect(within(earlier).queryByText(LOCKED_MESSAGE)).toBeNull()
+        await waitFor(() => expect(within(earlier).getByRole('button', { name: 'View files' })).toBeEnabled())
+        enterRowKey(earlier, await readTestSupportFile('private_key.pem'))
+        expect(await within(earlier).findByText('earlier.csv')).toBeVisible()
+    })
+
     it('unlocks only the row its old key was entered in, with errors kept to that row', async () => {
         const { oldKey, container } = await setupRuns()
         await openHistory(container)
@@ -809,5 +856,477 @@ describe('CodeRunHistory row scrolling', () => {
         await userEvent.click(rowToggle('Mar 05, 2026'))
 
         expect(scrollBy).toHaveBeenCalledWith({ top: 100, behavior: 'auto' })
+    })
+})
+
+describe('historyKeySummary', () => {
+    it.each<{ results: RunOutputs[]; message: string }>([
+        { results: [{ status: 'unlocked', files: [] }], message: 'Outputs decrypted for 1 previous run.' },
+        {
+            results: [{ status: 'unlocked', files: [] }, { status: 'unlocked', files: [] }, { status: 'wrong-key' }],
+            message: 'Outputs decrypted for 2 previous runs. 1 previous run needs a different key.',
+        },
+        {
+            results: [{ status: 'unlocked', files: [] }, { status: 'fetch-failed' }],
+            message: 'Outputs decrypted for 1 previous run. 1 previous run could not be opened.',
+        },
+    ])('says "$message"', ({ results, message }) => {
+        expect(historyKeySummary(results)).toBe(message)
+    })
+})
+
+describe('keyAttemptOutcome', () => {
+    it.each<{ results: RunOutputs[]; outcome: string }>([
+        { results: [{ status: 'wrong-key' }, { status: 'unlocked', files: [] }], outcome: 'accepted' },
+        {
+            results: [{ status: 'wrong-key' }, { status: 'integrity' }, { status: 'fetch-failed' }],
+            outcome: 'integrity',
+        },
+        { results: [{ status: 'wrong-key' }, { status: 'fetch-failed' }], outcome: 'fetch-failed' },
+        { results: [{ status: 'wrong-key' }], outcome: 'wrong-key' },
+        { results: [], outcome: 'wrong-key' },
+    ])('is $outcome', ({ results, outcome }) => {
+        expect(keyAttemptOutcome(results)).toBe(outcome)
+    })
+})
+
+type ResearcherRunOptions = {
+    round?: number
+    ranAt?: string
+    decidedAt?: string
+    decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+    codeFiles?: string[]
+}
+
+const researcherRun = (
+    id: string,
+    {
+        round = 1,
+        ranAt = '2026-03-05T12:00:00Z',
+        decidedAt = '2026-03-07T12:00:00Z',
+        decision = 'FILES-APPROVED',
+        codeFiles = [],
+    }: ResearcherRunOptions = {},
+) => ({
+    id,
+    round,
+    ranAt: new Date(ranAt),
+    statusChanges: [
+        { status: 'CODE-SUBMITTED' as const, createdAt: ranAt },
+        { status: 'RUN-COMPLETE' as const, createdAt: ranAt },
+        { status: decision, createdAt: decidedAt },
+    ],
+    codeFiles: codeFiles.map((name, index) => ({
+        id: `${id}-${name}`,
+        name,
+        fileType: index === 0 ? ('MAIN-CODE' as const) : ('SUPPLEMENTAL-CODE' as const),
+    })),
+    feedback: [],
+})
+
+const isBefore = (first: Element, second: Element) =>
+    !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+const codeFilesIn = (row: HTMLElement) => within(row).queryByTestId('code-run-history-code-files')
+
+describe('CodeRunHistory for the research lab', () => {
+    it('dates a row by the decision on it, where the data partner dates it by the run end', async () => {
+        const runs = [researcherRun('decided', { ranAt: '2026-03-05T12:00:00Z', decidedAt: '2026-03-07T12:00:00Z' })]
+        const { unmount } = renderWithProviders(<CodeRunHistory role="researcher" runs={runs} />)
+        await openHistory()
+        expect(rowToggle('Mar 07, 2026')).toBeInTheDocument()
+        unmount()
+
+        renderWithProviders(<CodeRunHistory runs={runs} />)
+        await openHistory()
+        expect(rowToggle('Mar 05, 2026')).toBeInTheDocument()
+    })
+
+    it('lists each run’s own code files under its own version, with download as the only action', async () => {
+        const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+        const runs = [
+            researcherRun('v3', { round: 3, decidedAt: '2026-03-09T12:00:00Z', codeFiles: ['third.R', 'shared.R'] }),
+            researcherRun('v2', { round: 2, decidedAt: '2026-03-08T12:00:00Z', codeFiles: ['second.R', 'shared.R'] }),
+            researcherRun('v1', { round: 1, decidedAt: '2026-03-07T12:00:00Z', codeFiles: ['first.R'] }),
+        ]
+        renderWithProviders(<CodeRunHistory role="researcher" runs={runs} />)
+        await openHistory()
+        for (const row of rows()) await expandRow(row)
+
+        const [v3, v2, v1] = rows()
+        const fileNames = (row: HTMLElement) =>
+            within(codeFilesIn(row)!)
+                .getAllByRole('row')
+                .slice(1)
+                .map((tableRow) => within(tableRow).getAllByRole('cell')[0].textContent)
+        expect(within(v3).getByText('Code files v3')).toBeVisible()
+        expect(within(v2).getByText('Code files v2')).toBeVisible()
+        expect(within(v1).getByText('Code files v1')).toBeVisible()
+        expect(fileNames(v3)).toEqual(['third.R', 'shared.R'])
+        expect(fileNames(v2)).toEqual(['second.R', 'shared.R'])
+        expect(fileNames(v1)).toEqual(['first.R'])
+        expect(within(codeFilesIn(v2)!).getByRole('columnheader', { name: 'File name' })).toBeVisible()
+        expect(within(codeFilesIn(v2)!).getByRole('columnheader', { name: 'Actions' })).toBeVisible()
+        expect(
+            within(codeFilesIn(v2)!)
+                .getAllByRole('button')
+                .map((button) => button.getAttribute('aria-label')),
+        ).toEqual(['Download second.R', 'Download shared.R'])
+        expect(within(codeFilesIn(v2)!).queryByRole('button', { name: /star|edit|delete|main/i })).toBeNull()
+
+        await userEvent.click(within(v2).getByRole('button', { name: 'Download shared.R' }))
+
+        expect(open).toHaveBeenCalledWith(studyCodeURL('v2', 'shared.R'))
+    })
+
+    it('orders a row as Code files, Output files, then Reviewer feedback', async () => {
+        renderWithProviders(<CodeRunHistory role="researcher" runs={[researcherRun('only', { codeFiles: ['a.R'] })]} />)
+        await openHistory()
+        await expandRow(firstRow())
+
+        const row = firstRow()
+        const codeFiles = within(row).getByText('Code files v1')
+        const outputs = within(row).getByText('Output files')
+        const feedback = within(row).getByText('Reviewer feedback')
+        expect(isBefore(within(row).getByRole('separator'), codeFiles)).toBe(true)
+        expect(isBefore(codeFiles, outputs)).toBe(true)
+        expect(isBefore(outputs, feedback)).toBe(true)
+    })
+
+    it('shows the code files and the Output files title for a locked run and a feedback-only run', async () => {
+        const runs = [
+            researcherRun('shared', { codeFiles: ['shared.R'], decidedAt: '2026-03-08T12:00:00Z' }),
+            researcherRun('withheld', { codeFiles: ['withheld.R'], decision: 'FILES-REJECTED' }),
+        ]
+        renderWithProviders(<CodeRunHistory role="researcher" runs={runs} />)
+        await openHistory()
+        const [shared, withheld] = rows()
+        await expandRow(shared)
+        await expandRow(withheld)
+
+        expect(within(shared).getByText('shared.R')).toBeVisible()
+        expect(within(shared).getByText('Output files')).toBeVisible()
+        expect(within(shared).getByText(LOCKED_MESSAGE)).toBeVisible()
+        expect(within(withheld).getByText('withheld.R')).toBeVisible()
+        expect(within(withheld).getByText('Output files')).toBeVisible()
+        expect(within(withheld).getByText('Output files were not shared for this run.')).toBeVisible()
+        expect(within(withheld).queryByText(LOCKED_MESSAGE)).toBeNull()
+        expect(within(withheld).queryByRole('textbox')).toBeNull()
+        expect(within(withheld).queryByText(WRONG_KEY_ALERT)).toBeNull()
+    })
+
+    it('says when a run has no code files', async () => {
+        renderWithProviders(<CodeRunHistory role="researcher" runs={[researcherRun('empty')]} />)
+        await openHistory()
+        await expandRow(firstRow())
+
+        expect(within(firstRow()).getByText('No code files were uploaded.')).toBeVisible()
+    })
+
+    it('keeps the data partner rows free of code files, with the Output files title on feedback-only rows', async () => {
+        const runs = [researcherRun('withheld', { codeFiles: ['withheld.R'], decision: 'FILES-REJECTED' })]
+        renderWithProviders(<CodeRunHistory runs={runs} />)
+        await openHistory()
+        await expandRow(firstRow())
+
+        expect(codeFilesIn(firstRow())).toBeNull()
+        expect(within(firstRow()).queryByText(/^Code files/)).toBeNull()
+        expect(within(firstRow()).getByText('Output files')).toBeVisible()
+        expect(within(firstRow()).getByText('Output files were not shared for this run.')).toBeVisible()
+    })
+
+    it('keeps the list and expanded rows through Hide and View, as on the data partner side', async () => {
+        const runs = [
+            researcherRun('a', { decidedAt: '2026-03-09T12:00:00Z' }),
+            researcherRun('b', { decidedAt: '2026-03-08T12:00:00Z' }),
+        ]
+        renderWithProviders(<CodeRunHistory role="researcher" runs={runs} />)
+        await openHistory()
+        await expandRow(rows()[1])
+
+        await userEvent.click(viewButton())
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        await openHistory()
+
+        expect(viewButton()).toHaveAccessibleName('Hide code run history')
+        expect(rowToggle('Mar 08, 2026')).toHaveAttribute('aria-expanded', 'true')
+        expect(rowToggle('Mar 09, 2026')).toHaveAttribute('aria-expanded', 'false')
+    })
+})
+
+const historyKeyPanel = () => screen.queryByTestId('code-run-history-key')
+const historyKeyInput = () => within(historyKeyPanel()!).getByRole('textbox', { name: 'Security key' })
+const historyTitle = () => screen.getByRole('heading', { name: /^Code run history/ })
+
+const enterHistoryKey = (key: string) => {
+    fireEvent.change(historyKeyInput(), { target: { value: key } })
+    fireEvent.click(within(historyKeyPanel()!).getByRole('button', { name: 'View files' }))
+}
+
+type ResearcherPriorRun = {
+    days: number
+    files?: string[]
+    decision?: 'FILES-APPROVED' | 'FILES-REJECTED'
+    wrapFor?: { publicKey: ArrayBuffer; fingerprint: string }
+}
+
+// A research lab member's study whose latest run shared feedback only. Earlier runs are shared for
+// the member's current key unless they name an earlier one.
+const setupResearcherHistory = async (runs: ResearcherPriorRun[]) => {
+    const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+    const { study, job, priorJobs } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        jobStatus: 'RUN-COMPLETE',
+        priorRuns: runs.map(({ days, decision }) => ({
+            ranAt: daysAgo(days),
+            decision,
+            feedback: { authorId: user.id, text: `feedback ${days}` },
+        })),
+    })
+    for (const [index, { files, wrapFor }] of runs.entries()) {
+        if (!files) continue
+        await seedEncryptedArtifact(priorJobs[index].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: files.map((name) => ({ name, content: 'x\n1' })),
+            sharedWith: user.id,
+            wrapFor,
+        })
+    }
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
+    return { user, priorJobs, priorRuns }
+}
+
+const oldResearcherKey = async () => {
+    const key = await previousKeyPair()
+    return { key, wrapFor: { publicKey: key.exportedPublicKey, fingerprint: key.fingerprint } }
+}
+
+// Newest first: two runs for the current key (one beyond the first three rows), one for an old key,
+// and one feedback-only run.
+const setupMixedHistory = async () => {
+    const old = await oldResearcherKey()
+    const setup = await setupResearcherHistory([
+        { days: 3, files: ['current-a.csv', 'current-a2.csv'] },
+        { days: 6, decision: 'FILES-REJECTED' },
+        { days: 9, files: ['old-b.csv'], wrapFor: old.wrapFor },
+        { days: 12, files: ['current-c.csv'] },
+    ])
+    const { unmount } = renderWithProviders(<ResearcherCodeRunHistory runs={setup.priorRuns} withHistoryKey />)
+    return { ...setup, oldKey: old.key, unmount }
+}
+
+describe('CodeRunHistory security key for earlier runs', () => {
+    it('shows the input above the rows in both list lengths, and locks shared rows until a key opens them', async () => {
+        await setupMixedHistory()
+        await openHistory()
+
+        expect(historyKeyInput()).toBeVisible()
+        expect(within(historyKeyPanel()!).getByText(/access outputs from previous code runs/)).toBeVisible()
+        expect(isBefore(historyKeyPanel()!, rows()[0])).toBe(true)
+        const [shared, withheld] = rows()
+        await expandRow(shared)
+        await expandRow(withheld)
+        expect(within(shared).getByText(LOCKED_MESSAGE)).toBeVisible()
+        expect(within(withheld).getByText('Output files were not shared for this run.')).toBeVisible()
+        expect(within(withheld).queryByText(LOCKED_MESSAGE)).toBeNull()
+
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+
+        expect(rows()).toHaveLength(4)
+        expect(isBefore(historyKeyPanel()!, rows()[0])).toBe(true)
+    })
+
+    it('asks for a key when empty and rejects one that opens no run, leaving every row locked', async () => {
+        await setupMixedHistory()
+        await openHistory()
+        await expandRow(rows()[0])
+
+        fireEvent.click(within(historyKeyPanel()!).getByRole('button', { name: 'View files' }))
+        expect(
+            await within(historyKeyPanel()!).findByText('Enter your security key to decrypt the outputs.'),
+        ).toBeVisible()
+        await waitFor(() => expect(historyKeyInput()).toHaveFocus())
+
+        fireEvent.change(historyKeyInput(), { target: { value: 'typing' } })
+        expect(within(historyKeyPanel()!).queryByText('Enter your security key to decrypt the outputs.')).toBeNull()
+
+        const unrelated = await unrelatedKeyPair()
+        enterHistoryKey(unrelated.privateKeyString)
+
+        expect(await within(historyKeyPanel()!).findByText(/Invalid key/)).toBeVisible()
+        expect(within(rows()[0]).getByText(LOCKED_MESSAGE)).toBeVisible()
+        expect(within(rows()[0]).queryByTestId('code-run-outputs')).toBeNull()
+        expect(screen.queryByText(/Outputs decrypted/)).toBeNull()
+    })
+
+    it('opens every run the key fits, leaves the rest their own key, and removes itself', async () => {
+        const { oldKey } = await setupMixedHistory()
+        await openHistory()
+        const [currentA, , oldB] = rows()
+        await expandRow(currentA)
+        await expandRow(oldB)
+
+        enterHistoryKey(await readTestSupportFile('private_key.pem'))
+
+        await waitFor(() => expect(historyKeyPanel()).toBeNull())
+        await waitFor(() => expect(historyTitle()).toHaveFocus())
+        expect(historyStatus()).toHaveTextContent(
+            'Outputs decrypted for 2 previous runs. 1 previous run needs a different key.',
+        )
+        expect(await within(currentA).findByText('current-a.csv')).toBeVisible()
+        expect(within(currentA).getByTestId('outputs-download-all')).toHaveAttribute('data-variant', 'subtle')
+        expect(within(currentA).queryByText(LOCKED_MESSAGE)).toBeNull()
+        expect(within(oldB).getByText(WRONG_KEY_ALERT)).toBeVisible()
+        expect(within(oldB).getByPlaceholderText('Enter your security key')).toBeVisible()
+        expect(within(oldB).queryByText(LOCKED_MESSAGE)).toBeNull()
+
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        await expandRow(rows()[3])
+        expect(await within(rows()[3]).findByText('current-c.csv')).toBeVisible()
+
+        enterRowKey(oldB, oldKey.privateKeyString)
+        expect(await within(oldB).findByText('old-b.csv')).toBeVisible()
+        expect(within(rows()[3]).getByText('current-c.csv')).toBeVisible()
+    })
+
+    it('shows every row in exactly one state while the key is tried and once it is accepted', async () => {
+        await setupMixedHistory()
+        await openHistory()
+        const [currentA, , oldB] = rows()
+        await expandRow(currentA)
+        await expandRow(oldB)
+
+        enterHistoryKey(await readTestSupportFile('private_key.pem'))
+
+        expect(within(historyKeyPanel()!).getByRole('button', { name: 'Decrypting' })).toBeDisabled()
+        for (const row of [currentA, oldB]) {
+            expect(within(row).getByText(LOCKED_MESSAGE)).toBeVisible()
+            expect(within(row).queryByTestId('code-run-outputs')).toBeNull()
+            expect(within(row).queryByText(WRONG_KEY_ALERT)).toBeNull()
+        }
+
+        await waitFor(() => expect(historyKeyPanel()).toBeNull())
+        expect(await within(currentA).findByTestId('code-run-outputs')).toBeVisible()
+        expect(within(currentA).queryByText(LOCKED_MESSAGE)).toBeNull()
+        expect(within(currentA).queryByText(WRONG_KEY_ALERT)).toBeNull()
+        expect(within(oldB).getByText(WRONG_KEY_ALERT)).toBeVisible()
+        expect(within(oldB).queryByText(LOCKED_MESSAGE)).toBeNull()
+        expect(within(oldB).queryByTestId('code-run-outputs')).toBeNull()
+    })
+
+    it('opens a run shared for an earlier key with that key, and only that run', async () => {
+        const { oldKey } = await setupMixedHistory()
+        await openHistory()
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        const [currentA, , oldB, currentC] = rows()
+        for (const row of [currentA, oldB, currentC]) await expandRow(row)
+
+        enterHistoryKey(oldKey.privateKeyString)
+
+        await waitFor(() => expect(historyKeyPanel()).toBeNull())
+        expect(await within(oldB).findByText('old-b.csv')).toBeVisible()
+        expect(within(currentA).getByText(WRONG_KEY_ALERT)).toBeVisible()
+        expect(within(currentC).getByText(WRONG_KEY_ALERT)).toBeVisible()
+    })
+
+    it('keeps unsubmitted text through View all, View less and Hide, in memory only', async () => {
+        await setupMixedHistory()
+        await openHistory()
+        const typed = 'unsubmitted-history-key'
+        fireEvent.change(historyKeyInput(), { target: { value: typed } })
+
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        await userEvent.click(screen.getByRole('button', { name: 'View less' }))
+        await userEvent.click(viewButton())
+        await openHistory()
+
+        expect(historyKeyInput()).toHaveValue(typed)
+        const stored = [localStorage, sessionStorage].flatMap((storage) =>
+            Object.keys(storage).map((key) => storage.getItem(key)),
+        )
+        expect(stored.join()).not.toContain(typed)
+        expect(document.cookie).not.toContain(typed)
+    })
+
+    it('lets a key be tried again after the history was hidden while one was being tried', async () => {
+        await setupMixedHistory()
+        await openHistory()
+
+        enterHistoryKey((await unrelatedKeyPair()).privateKeyString)
+        // Synchronous, so the history hides while the key is still being tried.
+        fireEvent.click(viewButton())
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        // The hidden form still settles: by text, because role queries skip hidden content.
+        await waitFor(() => expect(within(historyKeyPanel()!).getByText(/Invalid key/)).toBeInTheDocument())
+
+        await openHistory()
+
+        expect(historyKeyInput()).toBeEnabled()
+        expect(within(historyKeyPanel()!).getByRole('button', { name: 'View files' })).toBeEnabled()
+    })
+
+    it('starts over with an empty input when mounted again', async () => {
+        const { priorRuns, unmount } = await setupMixedHistory()
+        await openHistory()
+        await userEvent.click(screen.getByRole('button', { name: 'View all runs' }))
+        enterHistoryKey(await readTestSupportFile('private_key.pem'))
+        await waitFor(() => expect(historyKeyPanel()).toBeNull())
+        unmount()
+
+        renderWithProviders(<ResearcherCodeRunHistory runs={priorRuns} withHistoryKey />)
+        expect(viewButton()).toHaveAccessibleName('View code run history')
+        await openHistory()
+
+        expect(historyKeyInput()).toHaveValue('')
+        expect(rows()).toHaveLength(3)
+        for (const row of rows()) expect(rowToggleIn(row)).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('is not shown when the page does not ask for it', async () => {
+        const { priorRuns } = await setupResearcherHistory([{ days: 3, files: ['a.csv'] }])
+        renderWithProviders(<ResearcherCodeRunHistory runs={priorRuns} withHistoryKey={false} />)
+        await openHistory()
+
+        expect(historyKeyPanel()).toBeNull()
+    })
+
+    it('reports a tampered run instead of calling the key wrong', async () => {
+        const { priorJobs, user, priorRuns } = await setupResearcherHistory([{ days: 3 }])
+        await seedEncryptedArtifact(priorJobs[0].id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'tampered.csv', content: 'c\n3' }],
+            sharedWith: user.id,
+            tamperWith: { drop: ['tampered.csv'] },
+        })
+        renderWithProviders(<ResearcherCodeRunHistory runs={priorRuns} withHistoryKey />)
+        await openHistory()
+
+        enterHistoryKey(await readTestSupportFile('private_key.pem'))
+
+        expect(await within(historyKeyPanel()!).findByText(ARCHIVE_INTEGRITY_MESSAGE)).toBeVisible()
+        expect(within(historyKeyPanel()!).queryByText(/Invalid key/)).toBeNull()
+    })
+
+    it('says the outputs could not be loaded when every fetch fails, not that the key is wrong', async () => {
+        const { priorJobs, priorRuns } = await setupResearcherHistory([{ days: 3 }])
+        // Wrapped for the test key, but its archive was never stored, so fetching it fails.
+        const { id } = await seedJobFileRow(priorJobs[0].id, 'ENCRYPTED-RESULT', 'missing.zip')
+        const fingerprint = await fingerprintKeyData(pemToArrayBuffer(await readTestSupportFile('public_key.pem')))
+        await db
+            .insertInto('studyJobFileRecipientKey')
+            .values({ studyJobFileId: id, filePath: 'missing.csv', fingerprint, crypt: 'unused' })
+            .execute()
+        renderWithProviders(<ResearcherCodeRunHistory runs={priorRuns} withHistoryKey />)
+        await openHistory()
+
+        enterHistoryKey(await readTestSupportFile('private_key.pem'))
+
+        expect(
+            await within(historyKeyPanel()!).findByText(
+                'The outputs could not be loaded. Refresh the page to try again.',
+            ),
+        ).toBeVisible()
+        expect(within(historyKeyPanel()!).queryByText(/Invalid key/)).toBeNull()
     })
 })
