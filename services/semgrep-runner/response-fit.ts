@@ -1,14 +1,17 @@
-import type { RunnerResponse, ScanResponse, TestResponse } from './protocol.ts'
+import type { ScanResponse, TestResponse } from './protocol.ts'
+
+// A gate response is capped by its own failure limits and never needs fitting.
+type FittedResponse = ScanResponse | TestResponse
 
 // A synchronous Lambda response is limited to 6 MB.
 export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
-export const responseBytes = (response: RunnerResponse) => Buffer.byteLength(JSON.stringify(response))
+export const responseBytes = (response: FittedResponse) => Buffer.byteLength(JSON.stringify(response))
 
-const fits = (response: RunnerResponse) => responseBytes(response) <= MAX_RESPONSE_BYTES
+const fits = (response: FittedResponse) => responseBytes(response) <= MAX_RESPONSE_BYTES
 
 // The longest leading part of a list that lets the response fit; none when even an empty list does not.
-function keepLeading<T, R extends RunnerResponse>(items: T[], build: (kept: T[]) => R): R {
+function keepLeading<T, R extends FittedResponse>(items: T[], build: (kept: T[]) => R): R {
     let fitting = 0
     let tooLarge = items.length
     while (tooLarge - fitting > 1) {
@@ -20,7 +23,7 @@ function keepLeading<T, R extends RunnerResponse>(items: T[], build: (kept: T[])
 }
 
 // The status line stays: the management app reads the outcome from it.
-function truncateLog<R extends RunnerResponse>(response: R): R {
+function truncateLog<R extends FittedResponse>(response: R): R {
     const [status, ...rest] = response.log.split('\n')
     return keepLeading(rest, (kept) => ({
         ...response,
@@ -30,7 +33,7 @@ function truncateLog<R extends RunnerResponse>(response: R): R {
 }
 
 // Each step leaves out more until the response fits; the status line alone always does.
-function fitResponse<R extends RunnerResponse>(response: R, steps: ((response: R) => R)[]): R {
+function fitResponse<R extends FittedResponse>(response: R, steps: ((response: R) => R)[]): R {
     let fitted = response
     for (const step of steps) {
         if (fits(fitted)) return fitted

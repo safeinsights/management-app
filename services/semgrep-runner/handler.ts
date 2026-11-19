@@ -1,6 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3'
 import { parseRunnerConfig, type RulesetStorage } from './config.ts'
-import { runnerRequestSchema, type RunnerResponse } from './protocol.ts'
+import { runnerRequestSchema, type RunnerRequest, type RunnerResponse } from './protocol.ts'
 import { runRequest } from './run.ts'
 import { spawnCommand } from './semgrep-command.ts'
 
@@ -28,14 +28,26 @@ export function deadlineSignal(context: LambdaContext): AbortSignal {
     return AbortSignal.timeout(remaining - DEADLINE_MARGIN_MS)
 }
 
-function logRun(response: RunnerResponse, startedAt: number) {
+export const usesRulesBucket = (request: RunnerRequest) => request.mode === 'scan' || request.mode === 'gate'
+
+function runSummary(response: RunnerResponse) {
+    if (response.mode === 'gate') {
+        const failures = response.checks.map((check) => [
+            check.name,
+            check.failures.length + (check.failuresOmitted ?? 0),
+        ])
+        return { passed: response.passed, failures: Object.fromEntries(failures) }
+    }
+    return { outcome: response.outcome, findings: response.mode === 'test' ? response.findings.length : undefined }
+}
+
+export function logRun(response: RunnerResponse, startedAt: number) {
     // Counts only: file names and code can be student data.
     console.warn(
         JSON.stringify({
             mode: response.mode,
-            outcome: response.outcome,
+            ...runSummary(response),
             error: response.error,
-            findings: response.mode === 'test' ? response.findings.length : undefined,
             durationMs: Date.now() - startedAt,
         }),
     )
@@ -47,7 +59,7 @@ export async function handler(event: unknown, context: LambdaContext): Promise<R
     const response = await runRequest(request, {
         semgrep: spawnCommand,
         signal: deadlineSignal(context),
-        storage: request.mode === 'scan' ? rulesetStorage() : undefined,
+        storage: usesRulesBucket(request) ? rulesetStorage() : undefined,
     })
     logRun(response, startedAt)
     return response
