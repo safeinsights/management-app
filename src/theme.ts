@@ -19,6 +19,7 @@ import {
     PinInput,
     Radio,
     rem,
+    Scroller,
     Table,
     Tabs,
     Typography,
@@ -407,6 +408,25 @@ export const theme = createTheme({
         }),
         // Figma puts 32px between a tab strip and its panel's card.
         TabsPanel: Tabs.Panel.extend({ defaultProps: { pt: 'xl' } }),
+        // Figma "Tabs solid- pills": the tabs sit flush on one sunken strip.
+        Tabs: Tabs.extend({
+            styles: (_theme, props) =>
+                props.variant === 'pills' ? { list: { gap: 0, backgroundColor: semanticColor('surface.sunken') } } : {},
+        }),
+        // Figma draws scroll controls as solid squares the height of a tab, not Mantine's gradient fade.
+        Scroller: Scroller.extend({
+            defaultProps: { controlSize: rem(40) },
+            styles: {
+                control: {
+                    justifyContent: 'center',
+                    background: semanticColor('surface.sunken'),
+                    color: semanticColor('icon.dark'),
+                    borderRadius: 'var(--mantine-radius-xs)',
+                },
+                // Keeps an item scrolled into view by keyboard focus clear of the control overlaying the edge.
+                container: { scrollPaddingInline: 'var(--scroller-control-size)' },
+            },
+        }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
             // toast would otherwise present an unlabelled dismiss control. Matches how the modals in
