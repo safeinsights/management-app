@@ -155,8 +155,12 @@ export async function getCoderWorkspaceLaunchStatus(
     const jobStatus: JobStatus = build?.job?.status ?? 'unknown'
     const failedWorkspaceStatuses: WorkspaceStatus[] = ['failed', 'canceled']
     const failedJobStatuses: JobStatus[] = ['failed']
-    const failed =
+    const buildFailed =
         failedWorkspaceStatuses.includes(buildStatus) || (jobStatus != null && failedJobStatuses.includes(jobStatus))
+    // A build that succeeds says nothing about the container: on Fargate a refused image pull still
+    // builds, and the agent timing out is the only sign of it Coder gives.
+    const agentTimedOut = buildStatus === 'running' && readiness.agentStatus?.status === 'timeout'
+    const failed = buildFailed || agentTimedOut
 
     const reason = failed ? (build?.job?.error ?? readiness.reason) : readiness.reason
     logger.info(`${logCtx} buildStatus=${buildStatus}: ${reason}`)
