@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import logger from '@/lib/logger'
+import { PROMOTE_CHANGE_NOTE_MAX } from '@/schema/semgrep-ruleset'
 import { rulesetVersionNumber, type RulesetRequest } from '@/lib/semgrep-rulesets/schemas'
 import { rulesetPersonSchema, rulesetVersionSchema, type GateResponse } from '../../../services/semgrep-runner/protocol'
 import { semgrepRulesetConfig, type SemgrepRulesetConfig } from './config'
@@ -20,9 +21,6 @@ const base = z.object({
     requestedBy: rulesetPersonSchema,
     requestedAt: z.iso.datetime(),
 })
-
-// The change note is capped below the manifest's 2000 to leave room for the "Promoted from" prefix.
-export const PROMOTE_CHANGE_NOTE_MAX = 1900
 
 export const semgrepRulesetChangePayloadSchema = z.discriminatedUnion('kind', [
     base.extend({ kind: z.enum(['publish', 'rollback']), version: rulesetVersionSchema }),
