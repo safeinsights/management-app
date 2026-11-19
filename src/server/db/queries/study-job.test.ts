@@ -229,4 +229,41 @@ describe('priorCodeRunsForStudy', () => {
 
         expect(await priorCodeRunsForStudy(study.id, latestJob.id)).toEqual([])
     })
+
+    it("returns each run's round and only its own code files, main file first", async () => {
+        const {
+            study,
+            latestJob,
+            priorJobs: [first, second],
+        } = await setupStudy([
+            { ranAt: daysAgo(6), codeFiles: ['main.R', 'b-helper.R', 'a-helper.R'] },
+            { ranAt: daysAgo(3), codeFiles: ['z-main.R', 'a-helper.R'] },
+        ])
+        // An output file on the same job is not code.
+        await seedJobFileRow(first.id, 'ENCRYPTED-RESULT', 'results.zip')
+
+        const runs = await priorCodeRunsForStudy(study.id, latestJob.id)
+        const runFor = (id: string) => runs.find((run) => run.id === id)!
+
+        expect(runFor(first.id).round).toBe(1)
+        expect(runFor(second.id).round).toBe(2)
+        expect(runFor(first.id).codeFiles.map((file) => file.name)).toEqual(['main.R', 'a-helper.R', 'b-helper.R'])
+        expect(runFor(second.id).codeFiles.map((file) => [file.name, file.fileType])).toEqual([
+            ['z-main.R', 'MAIN-CODE'],
+            ['a-helper.R', 'SUPPLEMENTAL-CODE'],
+        ])
+    })
+
+    it("dates each of a run's statuses, so the research lab can date it by its decision", async () => {
+        const ranAt = daysAgo(4)
+        const decidedAt = daysAgo(2)
+        const { study, latestJob } = await setupStudy([{ ranAt, decidedAt }])
+
+        const [run] = await priorCodeRunsForStudy(study.id, latestJob.id)
+        const dateOf = (status: StudyJobStatus) =>
+            new Date(run.statusChanges.find((change) => change.status === status)!.createdAt).getTime()
+
+        expect(dateOf('RUN-COMPLETE')).toBe(ranAt.getTime())
+        expect(dateOf('FILES-APPROVED')).toBe(decidedAt.getTime())
+    })
 })

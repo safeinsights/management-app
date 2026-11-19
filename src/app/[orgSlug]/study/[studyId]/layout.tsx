@@ -7,11 +7,11 @@ import { type ReactNode } from 'react'
 // At the segment boundary rather than on the two pages the design names, so no route of a blocked
 // study is reachable.
 export default function StudyIdLayout({ children }: { children: ReactNode }) {
-    const { studyId } = useParams<{ studyId: string }>()
+    const { orgSlug, studyId } = useParams<{ orgSlug: string; studyId: string }>()
 
     return (
         <>
-            <RequireStudyAgreement studyId={studyId} />
+            <RequireStudyAgreement studyId={studyId} orgSlug={orgSlug} />
             {children}
         </>
     )

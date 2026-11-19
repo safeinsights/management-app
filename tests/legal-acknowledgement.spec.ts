@@ -11,10 +11,6 @@ test.describe('Terms of Service acknowledgement', () => {
     test('a user owing an updated Terms of Service acknowledges it on its own page before reaching the app', async ({
         page,
     }) => {
-        // The step links here in a new tab, so it stays readable while the document is owed.
-        await visitAsRole(page, Routes.legal)
-        await expect(page).toHaveURL((url) => url.pathname === Routes.legal)
-
         await visitAsRole(page, Routes.support)
         await expect(page).toHaveURL(
             (url) =>
@@ -29,10 +25,10 @@ test.describe('Terms of Service acknowledgement', () => {
 
         await expectNoA11yViolations(page, 'Terms of Service acknowledgement step')
 
-        // Linked, not embedded: the document opens on its own /legal tab.
+        // Linked, not embedded: the document opens on its own public page.
         await expect(step.getByText(SEEDED_TOS_V2_BODY)).toBeHidden()
         const link = step.getByRole('link', { name: /^Terms of Service/ })
-        await expect(link).toHaveAttribute('href', `${Routes.legal}?tab=TOS`)
+        await expect(link).toHaveAttribute('href', Routes.termsOfService)
         await expect(link).toHaveAttribute('target', '_blank')
 
         // The Privacy Notice is already acknowledged, so it is not dragged into this prompt.

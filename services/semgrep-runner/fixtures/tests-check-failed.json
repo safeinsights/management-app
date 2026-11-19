@@ -1,0 +1,142 @@
+{
+    "config_missing_tests": [],
+    "config_missing_fixtests": [],
+    "config_with_errors": [],
+    "results": {
+        "rules/secrets.yaml": {
+            "checks": {
+                "secret-google-api-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [28, 30],
+                            "reported_lines": [28, 30]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-stripe-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [26],
+                            "reported_lines": [26]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-github-token": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [16, 18],
+                            "reported_lines": [16, 18]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-gitlab-token": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [20],
+                            "reported_lines": [20]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-private-key": {
+                    "passed": false,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [8],
+                            "reported_lines": [6, 8]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-slack": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [22, 24],
+                            "reported_lines": [22, 24]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-aws-access-key-id": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [10, 12],
+                            "reported_lines": [10, 12]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-ai-api-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [32, 34, 36],
+                            "reported_lines": [32, 34, 36]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-connection-string-password": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [42],
+                            "reported_lines": [42]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-jwt": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [44],
+                            "reported_lines": [44]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-azure-storage-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [40],
+                            "reported_lines": [40]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-aws-secret-access-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [14],
+                            "reported_lines": [14]
+                        }
+                    },
+                    "errors": []
+                },
+                "secret-sendgrid-key": {
+                    "passed": true,
+                    "matches": {
+                        "src/secrets.r": {
+                            "expected_lines": [38],
+                            "reported_lines": [38]
+                        }
+                    },
+                    "errors": []
+                }
+            }
+        }
+    },
+    "fixtest_results": {}
+}

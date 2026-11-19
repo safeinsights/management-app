@@ -547,17 +547,20 @@ export async function verifyOutputsSharedDisplay(page: Page, studyTitle: string)
     await expect(page.getByRole('link', { name: /Edit code/i })).toBeHidden()
     await expect(page.getByRole('link', { name: /Back to my studies/i })).toBeHidden()
 
+    // Scoped to the latest run's card: the code run history repeats these names once a study has 2+ runs.
+    const codeRunCard = page.getByTestId('code-run-card')
+    await expect(codeRunCard.getByRole('heading', { name: /^Code run / })).toBeVisible()
     const privateKeyTextarea = page.getByRole('textbox', { name: 'Security key', exact: true })
     await expect(privateKeyTextarea).toBeVisible()
     await privateKeyTextarea.fill(await readTestSupportFile('private_key.pem'))
 
-    const viewButton = page.getByRole('button', { name: 'View', exact: true })
+    const viewButton = codeRunCard.getByRole('button', { name: 'View files', exact: true })
     await expect(viewButton).toBeEnabled()
     await viewButton.click()
 
     // Post-decryption: success banner, the outputs table, and all three nav actions.
     await expect(page.getByText(/Outputs and feedback available/i)).toBeVisible()
-    await expect(page.getByTestId('outputs-files-section')).toBeVisible()
+    await expect(page.getByTestId('code-run-card').getByTestId('code-run-outputs')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Security key', exact: true })).toBeHidden()
     await expect(page.getByRole('link', { name: /Previous step/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /Edit code/i })).toBeVisible()

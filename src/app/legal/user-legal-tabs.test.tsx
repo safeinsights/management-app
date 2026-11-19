@@ -40,7 +40,6 @@ describe('UserLegalTabs', () => {
         expect(screen.queryByText('You have not acknowledged any Study Agreement yet')).toBeNull()
     })
 
-    // The Terms of Service gate links here with ?tab=, so the reader lands on the document it named.
     it.each(['TOS', 'PN'] as const)('opens on the tab a ?tab=%s link names', async (type) => {
         await mockSessionWithTestData()
         mockPathname(`${Routes.legal}?tab=${type}`)

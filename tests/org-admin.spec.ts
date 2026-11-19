@@ -84,7 +84,16 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
-        await expect(page.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        // Still signed out, so this also checks the page is public.
+        const termsPage = await page.context().newPage()
+        await goto(termsPage, Routes.termsOfService)
+        await expect(termsPage.getByText(SEEDED_TOS_V2_BODY)).toBeVisible()
+        await termsPage.close()
+
+        await expect(page.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute(
+            'href',
+            Routes.termsOfService,
+        )
         await page.getByRole('checkbox', { name: 'I agree to the Terms of Service and Privacy Notice.' }).check()
 
         const submitBtn = page.getByRole('button', { name: /create account/i })

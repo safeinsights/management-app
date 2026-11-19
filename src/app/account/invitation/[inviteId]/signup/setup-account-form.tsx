@@ -7,7 +7,6 @@ import { FocusedCard } from '@/components/layout/focused-card'
 import {
     globalDocAgreementLabel,
     participationAgreementLabel,
-    TosPnPreview,
 } from '@/components/legal/signup-acknowledgement/acknowledgement-checkbox'
 import { useSetupAccountForm, type InviteData } from './use-setup-account-form'
 
@@ -116,7 +115,6 @@ export const SetupAccountForm: FC<InviteData> = (invite) => {
 
                     <Stack>
                         <LegalDocumentsError isVisible={tosPnError} />
-                        <TosPnPreview documents={tosPn} />
                         <AcknowledgementCheckbox
                             label={globalDocAgreementLabel(tosPn)}
                             checked={form.values.termsAccepted}

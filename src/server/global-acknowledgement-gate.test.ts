@@ -46,18 +46,14 @@ describe('requireGlobalAcknowledgement', () => {
         expect(redirect).toHaveBeenCalledWith(globalAcknowledgementUrl(Routes.dashboard))
     })
 
-    // The step links to /legal in a new tab.
-    it.each([Routes.legal, `${Routes.legal}?tab=TOS`])(
-        'leaves %s readable while the document is owed',
-        async (path) => {
-            await userOwingTos()
-            await requestPath(path)
+    it('gates /legal like any other app page', async () => {
+        await userOwingTos()
+        await requestPath(Routes.legal)
 
-            await requireGlobalAcknowledgement()
+        await requireGlobalAcknowledgement()
 
-            expect(redirect).not.toHaveBeenCalled()
-        },
-    )
+        expect(redirect).toHaveBeenCalledWith(globalAcknowledgementUrl(Routes.legal))
+    })
 
     it('lets a user through once they have acknowledged', async () => {
         const { user, tos } = await userOwingTos()

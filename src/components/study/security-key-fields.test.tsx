@@ -9,10 +9,9 @@ import {
     screen,
     waitFor,
 } from '@/tests/unit.helpers'
-import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
+import { previousKeyPair, seedEncryptedArtifact, unrelatedKeyPair } from '@/tests/artifact.helpers'
 import { type Org } from '@/schema/org'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import { SecurityKeyFields } from './security-key-fields'
 
 const EMPTY_ERROR = 'Enter your security key to decrypt the outputs.'
@@ -174,6 +173,28 @@ describe('SecurityKeyFields', () => {
             await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
         })
 
+        // Shared before the researcher replaced their key, so it is wrapped only for the old one.
+        it('opens outputs wrapped for a key the researcher has since replaced, with that key', async () => {
+            const oldKey = await previousKeyPair()
+            job = await insertJob()
+            await seedEncryptedArtifact(job.id, {
+                fileType: 'ENCRYPTED-RESULT',
+                files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+                sharedWith: userId,
+                wrapFor: { publicKey: oldKey.exportedPublicKey, fingerprint: oldKey.fingerprint },
+            })
+            renderWithProviders(<SecurityKeyFields job={job} type="researcher" onDecrypted={onDecrypted} />)
+
+            await screen.findByRole('button', { name: 'View' })
+            enterKey(await readTestSupportFile('private_key.pem'))
+            clickView()
+            expect(await screen.findByText(INVALID_ERROR)).toBeInTheDocument()
+
+            enterKey(oldKey.privateKeyString)
+            clickView()
+            await waitFor(() => expect(onDecrypted).toHaveBeenCalled())
+        })
+
         it('requests the reviewer key set when acting as a reviewer', async () => {
             renderWithProviders(<SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
@@ -262,7 +283,7 @@ describe('SecurityKeyFields', () => {
 
             await screen.findByRole('button', { name: 'View' })
 
-            enterKey('some-key')
+            enterKey(await readTestSupportFile('private_key.pem'))
             clickView()
 
             expect(await screen.findByText(emptyListError)).toBeInTheDocument()
@@ -276,7 +297,7 @@ describe('SecurityKeyFields', () => {
 
             await screen.findByRole('button', { name: 'View' })
 
-            enterKey('some-key')
+            enterKey(await readTestSupportFile('private_key.pem'))
             clickView()
 
             expect(await screen.findByText(NO_FILES_ERROR)).toBeInTheDocument()
@@ -302,7 +323,7 @@ describe('SecurityKeyFields', () => {
 
     // A well-formed key the archive was not encrypted for is a wrong key, not a tampered archive.
     it('reports a key that is not a recipient as invalid', async () => {
-        const { privateKeyString } = await generateKeyPair()
+        const { privateKeyString } = await unrelatedKeyPair()
         renderWithProviders(<SecurityKeyFields job={job} type="reviewer" onDecrypted={onDecrypted} />)
 
         await screen.findByRole('button', { name: 'View' })

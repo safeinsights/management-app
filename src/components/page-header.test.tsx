@@ -64,6 +64,12 @@ describe('PageHeader', () => {
         expect(screen.getByTestId('page-header-eyebrow')).toHaveAttribute('data-truncate', 'end')
     })
 
+    it('sets the eyebrow line height from the design token rather than the Mantine default', () => {
+        renderWithProviders(<PageHeader eyebrow="Genius Research Lab" title="Manage team" />)
+
+        expect(screen.getByTestId('page-header-eyebrow').style.lineHeight).toBe('var(--si-line-height-normal)')
+    })
+
     it('offers no tooltip while nothing is cut off', async () => {
         renderWithProviders(<PageHeader eyebrow="Genius Research Lab" title="Manage team" />)
 

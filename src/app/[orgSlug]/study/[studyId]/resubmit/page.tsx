@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { semanticColor } from '@/theme/tokens'
 import { Box } from '@mantine/core'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { EDIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { canResearcherResubmitCode, codeResubmissionNav, projectStudyState } from '@/lib/study-screen'
@@ -13,6 +13,7 @@ import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
 import { researcherPageGuard } from '../researcher-page-guard'
 import { currentDb } from '@/server/request-context'
+import { Routes } from '@/lib/routes'
 import { PageLayout } from '@/components/page-layout'
 
 export const metadata: Metadata = { title: 'Edit study code' }
@@ -30,7 +31,8 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
     const raw = await rawStudyStateForStudy(studyId, currentDb())
     if (!raw) return notFound()
     const state = projectStudyState(raw)
-    if (!canResearcherResubmitCode(state)) return notFound()
+    // OTTER-949: Back after resubmitting, or a stale link, lands here once the round is closed.
+    if (!canResearcherResubmitCode(state)) redirect(Routes.studyView({ orgSlug, studyId }))
     const nav = codeResubmissionNav(state, { orgSlug, studyId })
 
     const feedbackResult = await getCodeReviewFeedbackAction({ studyId })

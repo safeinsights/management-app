@@ -1,6 +1,7 @@
 'use client'
 
 import {
+    ActionIcon,
     Alert,
     Badge,
     Collapse,
@@ -9,26 +10,39 @@ import {
     Loader,
     Paper,
     Stack,
+    Table,
     Text,
     Title,
+    Tooltip,
     UnstyledButton,
 } from '@mantine/core'
 import { useDisclosure, useReducedMotion } from '@mantine/hooks'
-import { LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { DownloadSimpleIcon, LockIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, type RefObject, useEffect, useId, useRef, useState } from 'react'
 import { useQueryClient } from '@/common'
 import { captureError } from '@/components/errors'
 import { ToggleChevron } from '@/components/icons'
 import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
+import { CodeRunSectionTitle } from '@/components/study/code-run-card'
 import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { CodeRunTitle } from '@/components/study/code-run-title'
 import { CollapseToggleLink } from '@/components/study/collapse-toggle-link'
+import { LostKeyPopover } from '@/components/study/lost-key-popover'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { SecurityKeyFields } from '@/components/study/security-key-fields'
-import { encryptedFilesQuery } from '@/components/study/use-security-key-form'
-import { ARCHIVE_INTEGRITY_MESSAGE, ArchiveIntegrityError, decryptJobFiles } from '@/hooks/use-decrypt-files'
+import { SecurityKeyInput } from '@/components/study/security-key-input'
+import { SecurityKeyViewButton } from '@/components/study/security-key-view-button'
+import { encryptedFilesQuery, SECURITY_KEY_ERRORS } from '@/components/study/use-security-key-form'
+import {
+    ARCHIVE_INTEGRITY_MESSAGE,
+    ArchiveIntegrityError,
+    decryptJobFiles,
+    fingerprintOfPrivateKey,
+} from '@/hooks/use-decrypt-files'
 import { APP_SHELL } from '@/lib/constants'
 import { formatInstant } from '@/lib/dates'
+import { isFeedbackOnlyRun, researcherRunDate } from '@/lib/outputs-review'
+import { studyCodeURL } from '@/lib/paths'
 import type { JobFileInfo } from '@/lib/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 import type { PriorCodeRun } from '@/server/db/queries'
@@ -46,18 +60,32 @@ export type RunOutputs =
     | { status: 'no-files' }
     | { status: 'fetch-failed' }
 
+// The reviewer (data partner) and the researcher (research lab) share this history; the role picks
+// how a run's outputs are fetched and what an expanded row holds.
+export type CodeRunRole = 'reviewer' | 'researcher'
+
 async function decryptPriorRun(
     queryClient: ReturnType<typeof useQueryClient>,
     jobId: string,
     privateKey: string,
+    role: CodeRunRole,
 ): Promise<RunOutputs> {
+    let fingerprint: string | undefined
+    if (role === 'researcher') {
+        try {
+            fingerprint = await fingerprintOfPrivateKey(privateKey)
+        } catch {
+            return { status: 'wrong-key' }
+        }
+    }
     let encryptedFiles
     try {
-        encryptedFiles = await queryClient.fetchQuery(encryptedFilesQuery(jobId, 'reviewer'))
+        encryptedFiles = await queryClient.fetchQuery(encryptedFilesQuery(jobId, role, fingerprint))
     } catch {
         return { status: 'fetch-failed' }
     }
-    if (!encryptedFiles.length) return { status: 'no-files' }
+    // A researcher is sent only the wraps for the key entered, so nothing back means it is not a recipient.
+    if (!encryptedFiles.length) return { status: role === 'researcher' ? 'wrong-key' : 'no-files' }
 
     try {
         const files = await decryptJobFiles(encryptedFiles, privateKey, jobId)
@@ -73,31 +101,49 @@ async function decryptPriorRun(
     }
 }
 
-// The reviewer chose not to share this run's outputs, so the history never fetches or shows them.
-const isFeedbackOnly = (run: PriorCodeRun) => run.statusChanges.some((change) => change.status === 'FILES-REJECTED')
+const countOutputs = (results: RunOutputs[], ...statuses: RunOutputs['status'][]) =>
+    results.filter((outputs) => statuses.includes(outputs.status)).length
 
-// One message for the latest run and every earlier run it tried, rather than one per row.
-export function decryptedSummary(results: RunOutputs[]): string {
-    const count = (...statuses: RunOutputs['status'][]) =>
-        results.filter((outputs) => statuses.includes(outputs.status)).length
-    const needKey = count('wrong-key')
-    const failed = count('integrity', 'fetch-failed')
+const unopenedRunsSentences = (results: RunOutputs[]): string[] => {
+    const needKey = countOutputs(results, 'wrong-key')
+    const failed = countOutputs(results, 'integrity', 'fetch-failed')
     return [
-        'Outputs decrypted.',
         needKey ? `${needKey} previous ${needKey === 1 ? 'run needs' : 'runs need'} a different key.` : '',
         failed ? `${failed} previous ${failed === 1 ? 'run' : 'runs'} could not be opened.` : '',
     ]
-        .filter(Boolean)
-        .join(' ')
 }
 
-// Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
-// is dropped: it is only ever an argument here, never state, a ref or storage.
-export function usePriorRunOutputs(runs: PriorCodeRun[]) {
-    const queryClient = useQueryClient()
-    const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
-    const [announcement, announce] = useAnnouncement()
-    // Decrypts are not awaited, so one can land after the page is gone (a unit test tearing down).
+const joinSentences = (sentences: string[]) => sentences.filter(Boolean).join(' ')
+
+// One message for the latest run and every earlier run it tried, rather than one per row.
+export function decryptedSummary(results: RunOutputs[]): string {
+    return joinSentences(['Outputs decrypted.', ...unopenedRunsSentences(results)])
+}
+
+// The history's own key opens only earlier runs, so the message counts them rather than claiming
+// the latest run was decrypted.
+export function historyKeySummary(results: RunOutputs[]): string {
+    const opened = countOutputs(results, 'unlocked')
+    return joinSentences([
+        `Outputs decrypted for ${opened} previous ${opened === 1 ? 'run' : 'runs'}.`,
+        ...unopenedRunsSentences(results),
+    ])
+}
+
+type KeyAttemptOutcome = 'accepted' | 'wrong-key' | 'integrity' | 'fetch-failed'
+
+// One opened run proves the key. Otherwise a failed fetch proves nothing about it, so it is not
+// reported as a wrong key.
+export function keyAttemptOutcome(results: RunOutputs[]): KeyAttemptOutcome {
+    const has = (status: RunOutputs['status']) => results.some((outputs) => outputs.status === status)
+    if (has('unlocked')) return 'accepted'
+    if (has('integrity')) return 'integrity'
+    if (has('fetch-failed')) return 'fetch-failed'
+    return 'wrong-key'
+}
+
+// Decrypts are not awaited by their caller, so one can land after the page is gone.
+function useIsMounted() {
     const isMounted = useRef(false)
     useEffect(() => {
         isMounted.current = true
@@ -105,18 +151,29 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
             isMounted.current = false
         }
     }, [])
+    return isMounted
+}
+
+// Earlier runs are tried with the key that opened the latest one while it is in hand, then the key
+// is dropped: it is only ever an argument here, never state, a ref or storage.
+export function usePriorRunOutputs(runs: PriorCodeRun[], role: CodeRunRole = 'reviewer') {
+    const queryClient = useQueryClient()
+    const [byRun, setByRun] = useState<Record<string, RunOutputs>>({})
+    const [announcement, announce] = useAnnouncement()
+    const isMounted = useIsMounted()
     const setRun = (runId: string, outputs: RunOutputs) => {
         if (isMounted.current) setByRun((current) => ({ ...current, [runId]: outputs }))
     }
+    const sharedRuns = () => runs.filter((run) => !isFeedbackOnlyRun(run.statusChanges))
 
     return {
         byRun,
         announcement,
         decryptWith: (privateKey: string) => {
-            const sharedRuns = runs.filter((run) => !isFeedbackOnly(run))
-            setByRun(Object.fromEntries(sharedRuns.map((run) => [run.id, { status: 'decrypting' } as const])))
-            const decrypts = sharedRuns.map((run) =>
-                decryptPriorRun(queryClient, run.id, privateKey).then((outputs) => {
+            const shared = sharedRuns()
+            setByRun(Object.fromEntries(shared.map((run) => [run.id, { status: 'decrypting' } as const])))
+            const decrypts = shared.map((run) =>
+                decryptPriorRun(queryClient, run.id, privateKey, role).then((outputs) => {
                     setRun(run.id, outputs)
                     return outputs
                 }),
@@ -124,6 +181,17 @@ export function usePriorRunOutputs(runs: PriorCodeRun[]) {
             void Promise.all(decrypts).then((results) => {
                 if (isMounted.current) announce(decryptedSummary(results))
             })
+        },
+        // Writes nothing, so no row shows a result until the caller knows whether the key opened any.
+        tryKey: async (privateKey: string): Promise<Record<string, RunOutputs>> => {
+            const shared = sharedRuns()
+            const results = await Promise.all(
+                shared.map((run) => decryptPriorRun(queryClient, run.id, privateKey, role)),
+            )
+            return Object.fromEntries(shared.map((run, index) => [run.id, results[index]]))
+        },
+        commit: (results: Record<string, RunOutputs>) => {
+            if (isMounted.current) setByRun((current) => ({ ...current, ...results }))
         },
         unlockRun: (runId: string, files: JobFileInfo[]) => setRun(runId, { status: 'unlocked', files }),
     }
@@ -157,13 +225,23 @@ const codeRunBadges = (statusChanges: PriorCodeRun['statusChanges']): string[] =
     ].filter((label): label is string => !!label)
 }
 
-// Hide and View less only change what is shown; what the reviewer opened and typed lives here so
-// it comes back, and is lost on refresh or navigation because it is never written to storage.
-function useCodeRunHistory(runs: PriorCodeRun[]) {
+// The research lab sees a run once the reviewer decides on it, so its rows use that date, the same
+// one its latest run's card shows.
+const runDate = (run: PriorCodeRun, role: CodeRunRole): Date | null => {
+    if (role === 'reviewer') return run.ranAt
+    const decidedAt = researcherRunDate(run.statusChanges)
+    return decidedAt ? new Date(decidedAt) : null
+}
+
+// Hide and View less only change what is shown; what the user opened and typed lives here so it
+// comes back, and is lost on refresh or navigation because it is never written to storage.
+function useCodeRunHistory(runs: PriorCodeRun[], role: CodeRunRole, outputs: PriorRunOutputs | undefined) {
     const [isOpen, { toggle }] = useDisclosure(false)
     const [showAll, setShowAll] = useState(false)
     const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
     const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
+    const [historyKeyDraft, setHistoryKeyDraft] = useState('')
+    const [historyKeyAccepted, setHistoryKeyAccepted] = useState(false)
     const [announcement, announce] = useAnnouncement()
     // The row whose own key just opened it, so its table takes focus once. Any later toggle clears
     // it: a remounted table (a row reopened, or on Mantine 9 a section shown again) must not take it.
@@ -187,6 +265,11 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
         revealRow(titleRef.current, false, reduceMotion)
     }, [showAll, runs, reduceMotion])
 
+    // The accepted key's input unmounts under the user, so focus goes to the section it opened.
+    useEffect(() => {
+        if (historyKeyAccepted) titleRef.current?.focus()
+    }, [historyKeyAccepted])
+
     return {
         isOpen,
         toggle: () => {
@@ -199,7 +282,22 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
         announceUnlocked: (runId: string) => {
             const run = runs.find((candidate) => candidate.id === runId)
             setFocusRunId(runId)
-            if (run) announce(`Outputs decrypted for Code run ${formatInstant(run.ranAt)}.`)
+            if (run) announce(`Outputs decrypted for Code run ${formatInstant(runDate(run, role))}.`)
+        },
+        historyKeyDraft,
+        setHistoryKeyDraft,
+        historyKeyAccepted,
+        // Rows change only once the key has opened at least one run, so none shows a result early.
+        attemptHistoryKey: async (privateKey: string): Promise<KeyAttemptOutcome> => {
+            if (!outputs) return 'fetch-failed'
+            const results = await outputs.tryKey(privateKey)
+            const outcome = keyAttemptOutcome(Object.values(results))
+            if (outcome !== 'accepted') return outcome
+            outputs.commit(results)
+            setHistoryKeyAccepted(true)
+            setHistoryKeyDraft('')
+            announce(historyKeySummary(Object.values(results)))
+            return outcome
         },
         showAll,
         visibleRuns: showAll ? runs : runs.slice(0, VISIBLE_RUNS),
@@ -236,13 +334,24 @@ function useCodeRunHistory(runs: PriorCodeRun[]) {
 
 type RowOutputsProps = {
     run: PriorCodeRun
+    role: CodeRunRole
     outputs: RunOutputs | undefined
-    isLatestDecrypted: boolean
+    /** True once a key that applies to the history was accepted: the latest run's, or the history's own. */
+    keyGiven: boolean
     onUnlocked: (runId: string, files: JobFileInfo[]) => void
     keyDraft: string
     onKeyDraftChange: (runId: string, value: string) => void
     /** True right after this row's own key opened it, so its table takes focus. */
     isFocusTarget: boolean
+}
+
+type RowOutputsView = 'locked' | 'decrypting' | 'unlocked' | 'needs-key' | 'integrity' | 'no-files' | 'fetch-failed'
+
+// One view per row, so a row can never show the lock and a result at once.
+function rowOutputsView(outputs: RunOutputs | undefined, keyGiven: boolean): RowOutputsView {
+    if (!keyGiven) return 'locked'
+    if (!outputs || outputs.status === 'wrong-key') return 'needs-key'
+    return outputs.status
 }
 
 const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
@@ -266,8 +375,8 @@ const LockedOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
 const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible, children }) => {
     if (!isVisible) return null
     return (
-        // Static on purpose: the reviewer opened this row, so nothing needs announcing. Mantine's
-        // Alert would otherwise be role="alert", which a screen reader reads out as soon as it appears.
+        // Static on purpose: the user opened this row, so nothing needs announcing. Mantine's Alert
+        // would otherwise be role="alert", which a screen reader reads out as soon as it appears.
         <Alert
             role="note"
             variant="light"
@@ -283,11 +392,119 @@ const WrongKeyAlert: FC<{ isVisible: boolean; children: string }> = ({ isVisible
     )
 }
 
-// A run whose outputs need a key of their own: one the latest key did not open, or every run when
-// the latest run had nothing to decrypt and so no key was entered above.
+const KEY_ATTEMPT_ERRORS: Record<Exclude<KeyAttemptOutcome, 'accepted'>, string> = {
+    'wrong-key': SECURITY_KEY_ERRORS.invalid,
+    integrity: SECURITY_KEY_ERRORS.integrity,
+    'fetch-failed': SECURITY_KEY_ERRORS.fetchFailed,
+}
+
+type KeyAttemptOptions = {
+    value: string
+    onValueChange: (value: string) => void
+    attempt: (privateKey: string) => Promise<KeyAttemptOutcome>
+}
+
+// A key form for a set of runs rather than one job's archives. The key is only ever an argument to
+// `attempt`; the typed text is held by the caller so it survives Hide and View less. Takes the input
+// ref instead of returning it: a hook result that carries a ref cannot be read during render.
+function useKeyAttempt(
+    { value, onValueChange, attempt }: KeyAttemptOptions,
+    inputRef: RefObject<HTMLTextAreaElement | null>,
+) {
+    const [error, setError] = useState<string>()
+    const [isPending, setIsPending] = useState(false)
+    const pending = useRef(false)
+
+    // The input is disabled while a key is tried, so focus can only return once it is enabled again.
+    useEffect(() => {
+        if (error && !isPending) inputRef.current?.focus()
+    }, [error, isPending, inputRef])
+
+    const submit = async () => {
+        if (pending.current) return
+        const trimmed = value.trim()
+        if (!trimmed) {
+            setError(SECURITY_KEY_ERRORS.empty)
+            inputRef.current?.focus()
+            return
+        }
+        pending.current = true
+        setIsPending(true)
+        setError(undefined)
+        let outcome: KeyAttemptOutcome
+        try {
+            outcome = await attempt(trimmed)
+        } catch {
+            outcome = 'fetch-failed'
+        }
+        pending.current = false
+        // No mount check: Hide keeps this form in an Activity, which runs effect cleanups but keeps
+        // state, so a skipped update would leave the form disabled when the history opens again.
+        setIsPending(false)
+        if (outcome !== 'accepted') setError(KEY_ATTEMPT_ERRORS[outcome])
+    }
+
+    return {
+        error,
+        isPending,
+        onChange: (next: string) => {
+            onValueChange(next)
+            setError(undefined)
+        },
+        submit,
+    }
+}
+
+const HistoryKeyFields: FC<KeyAttemptOptions> = (options) => {
+    const inputRef = useRef<HTMLTextAreaElement>(null)
+    const { error, isPending, onChange, submit } = useKeyAttempt(options, inputRef)
+    return (
+        <>
+            <SecurityKeyInput
+                ref={inputRef}
+                label="Security key"
+                description="Output files are encrypted. Enter your security key to access outputs from previous code runs."
+                autoFocus={false}
+                placeholder="Enter your security key"
+                value={options.value}
+                onChange={(event) => onChange(event.currentTarget.value)}
+                error={error}
+                disabled={isPending}
+            />
+            <SecurityKeyViewButton isDecrypting={isPending} idleLabel="View files" onClick={() => void submit()} />
+            <LostKeyPopover isVisible />
+        </>
+    )
+}
+
+type HistoryKeyEntryProps = KeyAttemptOptions & { isVisible: boolean }
+
+// When the latest run shared feedback only, no key was entered above, so earlier runs that shared
+// outputs are opened from here.
+const HistoryKeyEntry: FC<HistoryKeyEntryProps> = ({ isVisible, ...options }) => {
+    if (!isVisible) return null
+    return (
+        <Paper withBorder p="lg" data-testid="code-run-history-key">
+            <Stack gap="md">
+                <HistoryKeyFields {...options} />
+            </Stack>
+        </Paper>
+    )
+}
+
+const RunKeyLabel: FC<{ run: PriorCodeRun; role: CodeRunRole }> = ({ run, role }) => (
+    <>
+        Security key for <CodeRunTitle value={runDate(run, role)} />
+    </>
+)
+
+// A run whose outputs need a key of their own: one the key above did not open, or every run when
+// the latest run had nothing to decrypt and so no key was entered above. Only a key that failed
+// earns the previous-key alert.
 const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
     isVisible,
     run,
+    role,
     outputs,
     onUnlocked,
     keyDraft,
@@ -301,13 +518,9 @@ const RunKeyEntry: FC<RowOutputsProps & { isVisible: boolean }> = ({
             </WrongKeyAlert>
             <SecurityKeyFields
                 job={run}
-                type="reviewer"
+                type={role}
                 buttonLabel="View files"
-                label={
-                    <>
-                        Security key for <CodeRunTitle value={run.ranAt} />
-                    </>
-                }
+                label={<RunKeyLabel run={run} role={role} />}
                 autoFocus={false}
                 withLostKeyHelp={false}
                 value={keyDraft}
@@ -327,10 +540,15 @@ const RunOutputsMessage: FC<{ isVisible: boolean; children: string }> = ({ isVis
     )
 }
 
-type UnlockedOutputsProps = { jobId: string; outputs: RunOutputs | undefined; isFocusTarget: boolean }
+type UnlockedOutputsProps = {
+    isVisible: boolean
+    jobId: string
+    outputs: RunOutputs | undefined
+    isFocusTarget: boolean
+}
 
-const UnlockedOutputs: FC<UnlockedOutputsProps> = ({ jobId, outputs, isFocusTarget }) => {
-    if (outputs?.status !== 'unlocked') return null
+const UnlockedOutputs: FC<UnlockedOutputsProps> = ({ isVisible, jobId, outputs, isFocusTarget }) => {
+    if (!isVisible || outputs?.status !== 'unlocked') return null
     return (
         <OutputsFilesViewer
             jobId={jobId}
@@ -346,39 +564,100 @@ const DecryptingLoader: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     return <Loader size="sm" aria-label="Decrypting outputs" />
 }
 
-const needsOwnKey = (outputs: RunOutputs | undefined) => !outputs || outputs.status === 'wrong-key'
-
 // The unlocked table carries its own "Output files" title and Download all button.
 const OutputsTitle: FC<{ isVisible: boolean }> = ({ isVisible }) => {
     if (!isVisible) return null
-    return (
-        <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
-            Output files
-        </Text>
-    )
+    return <CodeRunSectionTitle>Output files</CodeRunSectionTitle>
 }
 
 const RunOutputsSection: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
-    const { run, outputs, isLatestDecrypted, isFocusTarget } = props
-    const status = outputs?.status
     if (!isVisible) return null
+    const view = rowOutputsView(props.outputs, props.keyGiven)
 
     return (
         <Stack gap="md">
-            <OutputsTitle isVisible={status !== 'unlocked'} />
-            <LockedOutputs isVisible={!isLatestDecrypted} />
-            <DecryptingLoader isVisible={isLatestDecrypted && status === 'decrypting'} />
-            <UnlockedOutputs jobId={run.id} outputs={outputs} isFocusTarget={isFocusTarget} />
-            <RunKeyEntry {...props} isVisible={isLatestDecrypted && needsOwnKey(outputs)} />
-            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'integrity'}>
-                {ARCHIVE_INTEGRITY_MESSAGE}
-            </RunOutputsMessage>
-            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'no-files'}>
-                This run produced no output files.
-            </RunOutputsMessage>
-            <RunOutputsMessage isVisible={isLatestDecrypted && status === 'fetch-failed'}>
+            <OutputsTitle isVisible={view !== 'unlocked'} />
+            <LockedOutputs isVisible={view === 'locked'} />
+            <DecryptingLoader isVisible={view === 'decrypting'} />
+            <UnlockedOutputs
+                isVisible={view === 'unlocked'}
+                jobId={props.run.id}
+                outputs={props.outputs}
+                isFocusTarget={props.isFocusTarget}
+            />
+            <RunKeyEntry {...props} isVisible={view === 'needs-key'} />
+            <RunOutputsMessage isVisible={view === 'integrity'}>{ARCHIVE_INTEGRITY_MESSAGE}</RunOutputsMessage>
+            <RunOutputsMessage isVisible={view === 'no-files'}>This run produced no output files.</RunOutputsMessage>
+            <RunOutputsMessage isVisible={view === 'fetch-failed'}>
                 This run’s outputs could not be loaded. Refresh the page to try again.
             </RunOutputsMessage>
+        </Stack>
+    )
+}
+
+const FeedbackOnlyOutputs: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return (
+        <Stack gap="md">
+            <OutputsTitle isVisible />
+            <RunOutputsMessage isVisible>Output files were not shared for this run.</RunOutputsMessage>
+        </Stack>
+    )
+}
+
+const CodeFileRow: FC<{ jobId: string; name: string }> = ({ jobId, name }) => (
+    <Table.Tr>
+        <Table.Td>{name}</Table.Td>
+        <Table.Td>
+            <Tooltip label="Download" events={{ hover: true, focus: true, touch: true }}>
+                <ActionIcon
+                    variant="subtle"
+                    color="grey"
+                    aria-label={`Download ${name}`}
+                    onClick={() => window.open(studyCodeURL(jobId, name))}
+                >
+                    <DownloadSimpleIcon size={20} />
+                </ActionIcon>
+            </Tooltip>
+        </Table.Td>
+    </Table.Tr>
+)
+
+const CodeFilesTable: FC<{ jobId: string; files: PriorCodeRun['codeFiles'] }> = ({ jobId, files }) => {
+    if (!files.length) {
+        return (
+            <Text fz="sm" c={semanticColor('text.secondary')}>
+                No code files were uploaded.
+            </Text>
+        )
+    }
+    return (
+        <Table>
+            <Table.Thead>
+                <Table.Tr>
+                    <Table.Th>File name</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+                {files.map((file) => (
+                    <CodeFileRow key={file.id} jobId={jobId} name={file.name} />
+                ))}
+            </Table.Tbody>
+        </Table>
+    )
+}
+
+// A resubmission replaces a job's code files, so these are the files this run executed. Download
+// is the only action: the run is history, nothing in it can change.
+const RunCodeFiles: FC<{ isVisible: boolean; run: PriorCodeRun }> = ({ isVisible, run }) => {
+    if (!isVisible) return null
+    return (
+        <Stack gap="md" data-testid="code-run-history-code-files">
+            <Text fz="lg" fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                Code files v{run.round}
+            </Text>
+            <CodeFilesTable jobId={run.id} files={run.codeFiles} />
         </Stack>
     )
 }
@@ -387,13 +666,13 @@ const RunOutputsSection: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVis
 // Collapse keeping it alive (it unmounts when reduced motion is on).
 const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     if (!isVisible) return null
+    const isFeedbackOnly = isFeedbackOnlyRun(props.run.statusChanges)
     return (
         <Stack gap="lg" pt="lg" data-testid="code-run-history-row-body">
             <Divider />
-            <RunOutputsMessage isVisible={isFeedbackOnly(props.run)}>
-                Output files were not shared for this run.
-            </RunOutputsMessage>
-            <RunOutputsSection {...props} isVisible={!isFeedbackOnly(props.run)} />
+            <RunCodeFiles isVisible={props.role === 'researcher'} run={props.run} />
+            <FeedbackOnlyOutputs isVisible={isFeedbackOnly} />
+            <RunOutputsSection {...props} isVisible={!isFeedbackOnly} />
             <CodeRunFeedback feedback={props.run.feedback} />
         </Stack>
     )
@@ -421,8 +700,9 @@ const RunBadges: FC<{ id: string; labels: string[] }> = ({ id, labels }) => (
 // is not used because its panel always carries role="region".
 const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
     run,
+    role,
     outputs,
-    isLatestDecrypted,
+    keyGiven,
     onUnlocked,
     keyDraft,
     onKeyDraftChange,
@@ -459,7 +739,7 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                     <Group component="span" justify="space-between" wrap="nowrap">
                         <Group component="span" gap="sm">
                             <span id={nameId}>
-                                <CodeRunTitle value={run.ranAt} />
+                                <CodeRunTitle value={runDate(run, role)} />
                             </span>
                             <RunBadges id={badgesId} labels={codeRunBadges(run.statusChanges)} />
                         </Group>
@@ -471,8 +751,9 @@ const CodeRunHistoryRow: FC<CodeRunHistoryRowProps> = ({
                 <RowBody
                     isVisible={isExpanded}
                     run={run}
+                    role={role}
                     outputs={outputs[run.id]}
-                    isLatestDecrypted={isLatestDecrypted}
+                    keyGiven={keyGiven}
                     onUnlocked={onUnlocked}
                     keyDraft={keyDraft}
                     onKeyDraftChange={onKeyDraftChange}
@@ -513,19 +794,30 @@ const ShowAllRuns: FC<ShowAllRunsProps> = ({ isVisible, showAll, total, onToggle
 
 type CodeRunHistoryProps = {
     runs: PriorCodeRun[]
+    /** Researcher rows list their code files, open with the researcher's keys and are dated by the decision. */
+    role?: CodeRunRole
     /** From usePriorRunOutputs, owned by the page so the latest run's key form can feed it. */
     outputs?: PriorRunOutputs
-    /** True once the latest run is decrypted, or when it had nothing to decrypt. */
+    /** True once the latest run is decrypted, or when it has nothing that a key entered above could open. */
     isLatestDecrypted?: boolean
+    /** A key input above the rows, for when the latest run shared feedback only and an earlier one shared outputs. */
+    withHistoryKey?: boolean
 }
 
 const NO_OUTPUTS: PriorRunOutputs['byRun'] = {}
 
 // `runs` never holds the latest run, which has its own card above; with no earlier runs there is
 // no history to show.
-export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLatestDecrypted = false }) => {
-    const { titleRef, ...history } = useCodeRunHistory(runs)
+export const CodeRunHistory: FC<CodeRunHistoryProps> = ({
+    runs,
+    role = 'reviewer',
+    outputs,
+    isLatestDecrypted = false,
+    withHistoryKey = false,
+}) => {
+    const { titleRef, ...history } = useCodeRunHistory(runs, role, outputs)
     const listId = useId()
+    const keyGiven = isLatestDecrypted || history.historyKeyAccepted
 
     // A submitted key has done its job, so its text is not held any longer than the input needed it.
     const unlockRun = (runId: string, files: JobFileInfo[]) => {
@@ -539,7 +831,14 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
     return (
         <Paper withBorder p="lg" bg={semanticColor('surface.page')} data-testid="code-run-history">
             <Group justify="space-between" wrap="nowrap">
-                <Title ref={titleRef} order={3} fz="md" fw={fontWeight.regular} c={semanticColor('text.secondary')}>
+                <Title
+                    ref={titleRef}
+                    order={3}
+                    tabIndex={-1}
+                    fz="md"
+                    fw={fontWeight.regular}
+                    c={semanticColor('text.secondary')}
+                >
                     Code run history ({runs.length})
                 </Title>
                 <CollapseToggleLink
@@ -555,12 +854,19 @@ export const CodeRunHistory: FC<CodeRunHistoryProps> = ({ runs, outputs, isLates
             <PoliteStatus announcement={history.announcement} />
             <Collapse expanded={history.isOpen} id={listId}>
                 <Stack gap="md" pt="lg">
+                    <HistoryKeyEntry
+                        isVisible={withHistoryKey && !history.historyKeyAccepted}
+                        value={history.historyKeyDraft}
+                        onValueChange={history.setHistoryKeyDraft}
+                        attempt={history.attemptHistoryKey}
+                    />
                     {history.visibleRuns.map((run) => (
                         <CodeRunHistoryRow
                             key={run.id}
                             run={run}
+                            role={role}
                             outputs={outputs?.byRun ?? NO_OUTPUTS}
-                            isLatestDecrypted={isLatestDecrypted}
+                            keyGiven={keyGiven}
                             onUnlocked={unlockRun}
                             keyDraft={history.keyDrafts[run.id] ?? ''}
                             onKeyDraftChange={history.setKeyDraft}

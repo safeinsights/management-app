@@ -15,6 +15,8 @@
     "scripts": {
         "build:app": "./bin/build-app",
         "build:editor": "./services/editor/build",
+        "build:semgrep-runner": "./services/semgrep-runner/build",
+        "semgrep-runner:local": "./services/semgrep-runner/local/run-local",
         "ci:server": "./bin/ci-server",
         "dev": "env -u AWS_PROFILE next dev -p 4000",
         "dev:local": "concurrently --kill-others-on-fail --kill-signal SIGKILL pnpm:dev pnpm:s3:local pnpm:editor:local",
@@ -100,7 +102,7 @@
         "mailgun.js": "^14.1.1",
         "mantine-datatable": "^9.4.0",
         "mantine-form-zod-resolver": "^1.3.0",
-        "next": "^16.4.3",
+        "next": "^16.4.6",
         "papaparse": "^5.5.3",
         "pg": "^8.21.0",
         "posthog-js": "^1.422.5",

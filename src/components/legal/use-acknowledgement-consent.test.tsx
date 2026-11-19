@@ -50,7 +50,7 @@ describe('useAcknowledgementConsent', () => {
 
         renderWithProviders(
             <>
-                <RequireStudyAgreement studyId={study.id} />
+                <RequireStudyAgreement studyId={study.id} orgSlug="unused-by-this-test" />
                 <UserStudyAgreements />
             </>,
         )

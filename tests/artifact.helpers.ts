@@ -6,7 +6,6 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { tamper, type TamperOpts } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import { readTestSupportFile } from './unit.helpers'
 
 // Kept out of unit.helpers so the si-encryption import only loads for suites that seed artifacts.
@@ -20,17 +19,31 @@ const artifactPath = (jobId: string, name: string) => `test-org/${jobId}/results
 
 type KeyPair = { publicKey: ArrayBuffer; privateKey: ArrayBuffer; fingerprint: string }
 
-// The pair tests type in as the security key.
-const testKeyPair = async (): Promise<KeyPair> => {
-    const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
-    const privateKey = pemToArrayBuffer(await readTestSupportFile('private_key.pem'))
+// Checked-in pairs, because generating an RSA-4096 key takes a random 0.1 to 1 s, several times that
+// on a busy CI runner, and made the decrypt tests time out.
+const supportKeyPair = async (prefix: string): Promise<KeyPair> => {
+    const publicKey = pemToArrayBuffer(await readTestSupportFile(`${prefix}public_key.pem`))
+    const privateKey = pemToArrayBuffer(await readTestSupportFile(`${prefix}private_key.pem`))
     return { publicKey, privateKey, fingerprint: await fingerprintKeyData(publicKey) }
 }
 
-const enclaveKeyPair = async (): Promise<KeyPair> => {
-    const { exportedPublicKey, exportedPrivateKey, fingerprint } = await generateKeyPair()
-    return { publicKey: exportedPublicKey, privateKey: exportedPrivateKey, fingerprint }
+// The user's key on file, the one tests enter as the security key.
+const registeredKeyPair = () => supportKeyPair('')
+
+/** The key artifacts are encrypted for, standing in for the enclave. The user does not hold it. */
+export const enclaveKeyPair = () => supportKeyPair('enclave_')
+
+// Shaped like generateKeyPair(), for keys a test enters in the security key field.
+const keyPairToEnter = async (prefix: string) => {
+    const { publicKey, privateKey, fingerprint } = await supportKeyPair(prefix)
+    return { exportedPublicKey: publicKey, privateKeyString: Buffer.from(privateKey).toString('base64'), fingerprint }
 }
+
+/** A key the user held before the one on file, as for a run encrypted or shared before their key was replaced. */
+export const previousKeyPair = () => keyPairToEnter('previous_')
+
+/** A well-formed key that no test artifact is encrypted or wrapped for. */
+export const unrelatedKeyPair = () => keyPairToEnter('invalid_')
 
 /**
  * A row with no encrypted body is a real shape, not a shortcut: the containerizer stores a
@@ -68,6 +81,9 @@ type SeedEncryptedArtifactOptions = {
     tamperWith?: TamperOpts
     // Another key than the one tests type in, as for a run encrypted before the reviewer's key changed.
     encryptedFor?: { publicKey: ArrayBuffer; fingerprint: string }
+    // With sharedWith: wrap for this key instead of the registered one, as for a run shared before the
+    // researcher's key changed. The registered key stays on file.
+    wrapFor?: { publicKey: ArrayBuffer; fingerprint: string }
 }
 
 /**
@@ -83,10 +99,11 @@ export async function seedEncryptedArtifact(
         sharedWith,
         tamperWith,
         encryptedFor,
+        wrapFor,
     }: SeedEncryptedArtifactOptions,
 ) {
     const enclaveKey = sharedWith ? await enclaveKeyPair() : undefined
-    const recipient = enclaveKey ?? encryptedFor ?? (await testKeyPair())
+    const recipient = enclaveKey ?? encryptedFor ?? (await registeredKeyPair())
     const writer = new ResultsWriter([{ publicKey: recipient.publicKey, fingerprint: recipient.fingerprint }], {
         jobId,
     })
@@ -96,14 +113,21 @@ export async function seedEncryptedArtifact(
 
     const row = await seedJobFileRow(jobId, fileType, name)
     await storeS3File({ orgSlug: 'test-org' }, stored.stream(), artifactPath(jobId, name))
-    if (sharedWith && enclaveKey) await shareWithResearcher(sharedWith, row.id, zip, enclaveKey)
+    if (sharedWith && enclaveKey) await shareWithResearcher(sharedWith, row.id, zip, enclaveKey, wrapFor)
 }
 
 // What a reviewer's approval does: each file's key is wrapped for the researcher's registered key,
-// here the test pair.
-async function shareWithResearcher(researcherId: string, studyJobFileId: string, zip: Blob, enclaveKey: KeyPair) {
-    const researcherKey = await testKeyPair()
-    const registered = { publicKey: Buffer.from(researcherKey.publicKey), fingerprint: researcherKey.fingerprint }
+// unless an earlier key is named.
+async function shareWithResearcher(
+    researcherId: string,
+    studyJobFileId: string,
+    zip: Blob,
+    enclaveKey: KeyPair,
+    wrapFor?: { publicKey: ArrayBuffer; fingerprint: string },
+) {
+    const registeredKey = await registeredKeyPair()
+    const researcherKey = wrapFor ?? registeredKey
+    const registered = { publicKey: Buffer.from(registeredKey.publicKey), fingerprint: registeredKey.fingerprint }
     await db
         .insertInto('userPublicKey')
         .values({ userId: researcherId, ...registered })

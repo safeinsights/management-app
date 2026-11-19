@@ -39,7 +39,9 @@ describe('CodeRunKeyFields', () => {
     })
 
     it('shows the output files title, required key label and caller copy instead of the sign-up copy', async () => {
-        renderWithProviders(<CodeRunKeyFields job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         await screen.findByRole('button', { name: 'View files' })
         expect(screen.getByText('Output files')).toBeInTheDocument()
@@ -51,7 +53,9 @@ describe('CodeRunKeyFields', () => {
     })
 
     it('keeps the empty-key error from the shared key form', async () => {
-        renderWithProviders(<CodeRunKeyFields job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         fireEvent.click(await screen.findByRole('button', { name: 'View files' }))
 
@@ -60,7 +64,9 @@ describe('CodeRunKeyFields', () => {
     })
 
     it('hands the decrypted files to the caller on a valid key', async () => {
-        renderWithProviders(<CodeRunKeyFields job={job} description={DESCRIPTION} onDecrypted={onDecrypted} />)
+        renderWithProviders(
+            <CodeRunKeyFields job={job} type="reviewer" description={DESCRIPTION} onDecrypted={onDecrypted} />,
+        )
 
         await screen.findByRole('button', { name: 'View files' })
         fireEvent.change(screen.getByRole('textbox'), {
@@ -70,5 +76,38 @@ describe('CodeRunKeyFields', () => {
 
         await waitFor(() => expect(onDecrypted).toHaveBeenCalledOnce())
         expect(onDecrypted.mock.calls[0][0]).toEqual([expect.objectContaining({ path: 'run.log' })])
+    })
+
+    // Researchers open the outputs through the keys re-wrapped for them, not the zip manifest.
+    it('decrypts with the researcher key set when given the researcher type', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
+        const { study, job: dbJob } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        await seedEncryptedArtifact(dbJob.id, {
+            fileType: 'ENCRYPTED-RESULT',
+            files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+            sharedWith: user.id,
+        })
+        const researcherJob = (await latestJobForStudy(study.id))!
+        renderWithProviders(
+            <CodeRunKeyFields
+                job={researcherJob}
+                type="researcher"
+                description={DESCRIPTION}
+                onDecrypted={onDecrypted}
+            />,
+        )
+
+        await screen.findByRole('button', { name: 'View files' })
+        fireEvent.change(screen.getByRole('textbox'), {
+            target: { value: await readTestSupportFile('private_key.pem') },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'View files' }))
+
+        await waitFor(() => expect(onDecrypted).toHaveBeenCalledOnce())
+        expect(onDecrypted.mock.calls[0][0]).toEqual([expect.objectContaining({ path: 'summary.csv' })])
     })
 })

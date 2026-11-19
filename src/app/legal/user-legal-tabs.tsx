@@ -9,7 +9,7 @@ import { UserStudyAgreements } from './user-study-agreements'
 import { UserParticipationAgreements } from './user-participation-agreements'
 import { UserGlobalDocument } from './user-global-document'
 
-// `?tab=` lets a link, such as the Terms of Service gate's, open the page on the document it names.
+// `?tab=` lets a link open the page on the document it names.
 const useInitialTab = () => useTypedSearchParams(z.object({ tab: legalDocumentTypeSchema.catch('SLA') })).tab
 
 // All five regardless of membership, so the strip's shape does not depend on the user's orgs.
