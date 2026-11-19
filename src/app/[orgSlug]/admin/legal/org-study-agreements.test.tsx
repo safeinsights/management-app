@@ -241,11 +241,12 @@ describe('OrgStudyAgreements', () => {
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
         await rowFor(unsigned)
 
-        fireEvent.click(tableHeader('Effective on'))
-        await expectRowOrder([earlier, later, unsigned])
-
+        // A newly clicked column keeps the direction in force, and the default sort is descending.
         fireEvent.click(tableHeader('Effective on'))
         await expectRowOrder([later, earlier, unsigned])
+
+        fireEvent.click(tableHeader('Effective on'))
+        await expectRowOrder([earlier, later, unsigned])
     })
 
     it('clamps the Study ID to its column and shows it in full in a tooltip', async () => {
