@@ -123,7 +123,9 @@ function CodeFileTabsRow({
             startControlProps={{ 'aria-label': 'Scroll files left' }}
             endControlProps={{ 'aria-label': 'Scroll files right' }}
         >
-            <Tabs.List w="max-content">{tabs}</Tabs.List>
+            <Tabs.List w="max-content" aria-label="Code files">
+                {tabs}
+            </Tabs.List>
         </Scroller>
     )
 }

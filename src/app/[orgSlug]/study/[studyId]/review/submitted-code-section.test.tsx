@@ -802,11 +802,11 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         return refreshFixtureJob(fixture)
     }
 
-    it('renders a "Code files" heading above the file tabs', async () => {
+    it('renders a "Code files" heading above the file tabs, which share its name', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)
         const heading = screen.getByText('Code files')
-        const tabs = screen.getByRole('tablist')
+        const tabs = screen.getByRole('tablist', { name: 'Code files' })
         expect(heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
