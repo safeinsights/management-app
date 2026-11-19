@@ -108,7 +108,9 @@ export function evaluateIntegrity(listed: string[], stored: string[]): GateCheck
 
 const describeType = (type: unknown) => (typeof type === 'string' ? type : JSON.stringify(type))
 
-function validateErrors(stdout: string): { type?: unknown; message?: unknown }[] | null {
+type ValidateError = { type?: unknown; message?: unknown; long_msg?: unknown; short_msg?: unknown }
+
+function validateErrors(stdout: string): ValidateError[] | null {
     try {
         const errors = (JSON.parse(stdout) as { errors?: unknown }).errors
         return Array.isArray(errors) && errors.length > 0 ? errors : null
@@ -123,7 +125,12 @@ export function evaluateRules(validate: CommandResult, tests: SemgrepTestsResult
     if (validate.code !== 0) {
         const errors = validateErrors(validate.stdout)
         if (errors) {
-            for (const error of errors) failures.push(`${describeType(error.type)}: ${String(error.message ?? '')}`)
+            // A schema error carries long_msg and short_msg; the others carry message.
+            for (const error of errors) {
+                failures.push(
+                    `${describeType(error.type)}: ${String(error.message ?? error.long_msg ?? error.short_msg ?? '')}`,
+                )
+            }
         } else {
             failures.push(`semgrep --validate failed (exit ${validate.code})`)
         }
