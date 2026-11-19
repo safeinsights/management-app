@@ -30,7 +30,7 @@ export const SCAN_FLAGS = [
     '0',
 ]
 
-// Test mode runs two Semgrep processes at once, and a warm Lambda keeps /tmp between invocations. Each
+// Test and gate modes run Semgrep processes in parallel, and a warm Lambda keeps /tmp between invocations. Each
 // process gets its own settings and log inside the workspace, so they neither race nor outlive the run.
 function runEnv(work: Workspace, name: string): Record<string, string> {
     return {
@@ -65,6 +65,15 @@ export function testInvocation(work: Workspace): CommandInvocation {
         file: SEMGREP_PYTHON,
         env: runEnv(work, 'test'),
         args: [SEMGREP_TEST_SHIM, '--test', '--json', ...COMMON_FLAGS, '--config', work.rules, SUBMISSION_ROOT],
+    }
+}
+
+// --validate also loads Semgrep's lint pack for the rule files. The only --config is still the local folder.
+export function validateInvocation(work: Workspace): CommandInvocation {
+    return {
+        file: SEMGREP_BIN,
+        env: runEnv(work, 'validate'),
+        args: ['scan', '--validate', '--json', ...COMMON_FLAGS, '--config', work.rules],
     }
 }
 

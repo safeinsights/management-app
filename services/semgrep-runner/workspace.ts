@@ -96,18 +96,20 @@ export type PrefixDownload = {
     include?: (relative: string) => boolean
 }
 
-async function listKeys(s3: S3Client, download: PrefixDownload): Promise<string[]> {
+export type PrefixListing = Pick<PrefixDownload, 'bucket' | 'prefix' | 'signal' | 'expectedBucketOwner'>
+
+export async function listPrefixKeys(s3: S3Client, listing: PrefixListing): Promise<string[]> {
     const keys: string[] = []
     let ContinuationToken: string | undefined
     do {
         const page = await s3.send(
             new ListObjectsV2Command({
-                Bucket: download.bucket,
-                Prefix: download.prefix,
+                Bucket: listing.bucket,
+                Prefix: listing.prefix,
                 ContinuationToken,
-                ExpectedBucketOwner: download.expectedBucketOwner,
+                ExpectedBucketOwner: listing.expectedBucketOwner,
             }),
-            { abortSignal: download.signal },
+            { abortSignal: listing.signal },
         )
         for (const object of page.Contents ?? []) if (object.Key) keys.push(object.Key)
         ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined
@@ -146,7 +148,7 @@ export const keyPath = (key: string, prefix: string) =>
 export async function downloadPrefix(s3: S3Client, download: PrefixDownload): Promise<number> {
     let keys: string[]
     try {
-        keys = await listKeys(s3, download)
+        keys = await listPrefixKeys(s3, download)
     } catch (error) {
         throw new RunnerFailure(download.failure, { cause: error })
     }

@@ -1,10 +1,26 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import type { RulesetStorage } from './config.ts'
+import {
+    evaluateCoverage,
+    evaluateFixtures,
+    evaluateIntegrity,
+    evaluateRules,
+    gateResult,
+    readGateVersion,
+    skippedChecks,
+    testFilePaths,
+} from './gate.ts'
 import { readJsonReport } from './json-report.ts'
 import {
     isRuleFile,
+    RULESET_RULES_DIR,
+    RULESET_TESTS_DIR,
     rulesetRulesPrefix,
+    rulesetVersionPrefix,
     semgrepTestsResultSchema,
+    type GateRequest,
+    type GateResponse,
     type RunnerError,
     type RunnerRequest,
     type RunnerResponse,
@@ -24,7 +40,7 @@ import {
     semgrepPlaintextLog,
     submissionPath,
 } from './semgrep.ts'
-import { scanInvocation, testInvocation, type SemgrepCommand } from './semgrep-command.ts'
+import { scanInvocation, testInvocation, validateInvocation, type SemgrepCommand } from './semgrep-command.ts'
 import {
     createWorkspace,
     downloadPrefix,
@@ -42,7 +58,11 @@ export type RunnerDeps = {
 
 const DID_NOT_COMPLETE_LOG = semgrepPlaintextLog(null)
 
+export function runRequest(request: GateRequest, deps: RunnerDeps): Promise<GateResponse>
+export function runRequest(request: ScanRequest | TestRequest, deps: RunnerDeps): Promise<ScanResponse | TestResponse>
+export function runRequest(request: RunnerRequest, deps: RunnerDeps): Promise<RunnerResponse>
 export function runRequest(request: RunnerRequest, deps: RunnerDeps): Promise<RunnerResponse> {
+    if (request.mode === 'gate') return runGateMode(request, deps)
     return request.mode === 'scan' ? runScanMode(request, deps) : runTestMode(request, deps)
 }
 
@@ -196,6 +216,75 @@ async function runTestMode(request: TestRequest, deps: RunnerDeps): Promise<Test
         })
     } catch (error) {
         return testFailure(failureCode(error, signal))
+    }
+}
+
+function gateFailure(request: GateRequest, error: RunnerError): GateResponse {
+    return { mode: 'gate', rulesetVersion: request.rulesetVersion, passed: false, checks: [], error }
+}
+
+async function runGateMode(request: GateRequest, deps: RunnerDeps): Promise<GateResponse> {
+    const { storage, semgrep, signal } = deps
+    if (!storage) throw new Error('gate mode needs the rules bucket configuration')
+
+    try {
+        const { manifest, storedFiles } = await readGateVersion(storage, request.rulesetVersion, signal)
+        const integrity = evaluateIntegrity(manifest.files, storedFiles)
+        if (!integrity.passed) return gateResult(request.rulesetVersion, [integrity, ...skippedChecks()])
+
+        return await withWorkspace(async (work) => {
+            const prefix = rulesetVersionPrefix(storage.rulesetEnv, request.rulesetVersion)
+            const download = {
+                bucket: storage.rulesBucket,
+                signal,
+                failure: 'ruleset-download-failed' as const,
+                expectedBucketOwner: storage.rulesBucketOwner,
+            }
+            await downloadPrefix(storage.s3, {
+                ...download,
+                prefix: `${prefix}${RULESET_RULES_DIR}/`,
+                dir: work.rules,
+                include: isRuleFile,
+            })
+            await downloadPrefix(storage.s3, { ...download, prefix: `${prefix}${RULESET_TESTS_DIR}/`, dir: work.src })
+            signal.throwIfAborted()
+
+            const settled = await Promise.allSettled([
+                scanWorkspace(work, deps),
+                semgrep(testInvocation(work), { cwd: work.root, signal }),
+                semgrep(validateInvocation(work), { cwd: work.root, signal }),
+            ])
+            if (signal.aborted) return gateFailure(request, 'deadline')
+            const scan = settledValue(settled[0])
+            const fixtureTest = settledValue(settled[1])
+            const validate = settledValue(settled[2])
+            if (scan.aborted || fixtureTest.aborted || validate.aborted) return gateFailure(request, 'deadline')
+            if (!scan.data) return gateFailure(request, 'semgrep-failed')
+
+            const { tests, testsError } = parseTestsResult(fixtureTest.stdout, work.root)
+            const testFiles = readTestFiles(work.src, testFilePaths(manifest))
+            return gateResult(request.rulesetVersion, [
+                integrity,
+                evaluateRules({ ...validate, stdout: withoutWorkRoot(validate.stdout, work.root) }, tests),
+                evaluateFixtures(tests, testsError),
+                evaluateCoverage({ report: scan.data, testFiles }),
+            ])
+        })
+    } catch (error) {
+        return gateFailure(request, failureCode(error, signal))
+    }
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>): T {
+    if (result.status === 'rejected') throw result.reason
+    return result.value
+}
+
+function readTestFiles(dir: string, paths: string[]): Map<string, string> {
+    try {
+        return new Map(paths.map((file) => [file, fs.readFileSync(path.join(dir, file), 'utf-8')]))
+    } catch (error) {
+        throw new RunnerFailure('workspace-failed', { cause: error })
     }
 }
 
