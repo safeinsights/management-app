@@ -3,7 +3,7 @@
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { useSignOut } from '@/hooks/use-sign-out'
-import { globalAcknowledgementUrl, isLegalPath } from '@/lib/global-acknowledgement-redirect'
+import { globalAcknowledgementUrl } from '@/lib/global-acknowledgement-redirect'
 import { Routes } from '@/lib/routes'
 import {
     isGlobalLegalDocumentType,
@@ -27,7 +27,6 @@ const isAgreement = (document: PendingAcknowledgement): document is PendingLegal
 // together, a ropa/dopa alone.
 function useNextPendingLegalAcknowledgement() {
     const { session } = useSession()
-    const isExempt = isLegalPath(usePathname())
 
     const {
         data,
@@ -36,7 +35,7 @@ function useNextPendingLegalAcknowledgement() {
     } = useQuery({
         queryKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
         queryFn: () => fetchNextPendingLegalAcknowledgementAction(),
-        enabled: Boolean(session) && !isExempt,
+        enabled: Boolean(session),
     })
 
     // An unreadable document leaves the gate open, since the compliance artifact is the ack row
@@ -45,8 +44,7 @@ function useNextPendingLegalAcknowledgement() {
         if (readError) captureException(readError)
     }, [readError])
 
-    // Cached data from an earlier page would otherwise still cover /legal.
-    const documents = isExempt ? NOTHING_PENDING : (data ?? NOTHING_PENDING)
+    const documents = data ?? NOTHING_PENDING
     const agreement = documents.find(isAgreement)
 
     const consent = useAcknowledgementConsent({

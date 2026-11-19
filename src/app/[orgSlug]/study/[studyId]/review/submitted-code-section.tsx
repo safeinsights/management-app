@@ -8,7 +8,8 @@ import {
     FULL_STUDY_CODE_TOGGLE_LABELS,
     StudyCodeToggle,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
-import { JobAnalysisPanels, StudyCodeViewer } from './submitted-code-interactive'
+import { JobAnalysisPanels } from './submitted-code-interactive'
+import { StudyCodeViewer } from './study-code-viewer'
 import { filterAndOrderCodeFiles } from './study-code-files'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
 import { fontWeight } from '@/theme/tokens'

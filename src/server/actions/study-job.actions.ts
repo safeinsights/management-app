@@ -234,6 +234,10 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             // session.orgs cannot answer this: a dual-role lab+enclave user is legitimately both
             // and was handed recipientKeys:{}, failing decrypt as "private key is not valid".
             type: z.enum(['researcher', 'reviewer']),
+            // A researcher may name an earlier key, so a run shared before a key reset still opens.
+            // Wraps are useless without that key's private half, and job viewers can already fetch
+            // the ciphertext through the reviewer branch.
+            fingerprint: z.string().min(1).max(256).optional(),
         }),
     )
     // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
@@ -242,9 +246,11 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
     .requireAbilityTo('view', 'StudyJob')
     .middleware(loadStudyJob)
 
-    .handler(async ({ params: { type }, studyJob, session, db }) => {
+    .handler(async ({ params: { type, fingerprint: requestedFingerprint }, studyJob, session, db }) => {
         const userKey = await getUserPublicKey(session.user.id)
-        if (!userKey) return []
+        // Reviewers decrypt with their registered key, so only a researcher's request may name another.
+        const fingerprint = (type === 'researcher' && requestedFingerprint) || userKey?.fingerprint
+        if (!fingerprint) return []
 
         const encryptedFiles = studyJob.files.filter(
             (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
@@ -277,7 +283,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                 'in',
                 encryptedFiles.map((f) => f.id),
             )
-            .where('fingerprint', '=', userKey.fingerprint)
+            .where('fingerprint', '=', fingerprint)
             .execute()
         if (!wrappedKeys.length) return []
 

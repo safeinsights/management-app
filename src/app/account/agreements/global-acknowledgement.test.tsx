@@ -73,15 +73,15 @@ describe('GlobalAcknowledgement', () => {
         expect(screen.getByRole('checkbox', { name: label })).toBeDefined()
     })
 
-    it('links each document to its /legal tab in a new browser tab', () => {
+    it('links each document to its public page in a new browser tab', () => {
         renderGate([TOS, PN])
 
         const tos = screen.getByRole('link', { name: /^Terms of Service/ })
-        expect(tos.getAttribute('href')).toBe(`${Routes.legal}?tab=TOS`)
+        expect(tos.getAttribute('href')).toBe(Routes.termsOfService)
         expect(tos.getAttribute('target')).toBe('_blank')
 
         const pn = screen.getByRole('link', { name: /^Privacy Notice/ })
-        expect(pn.getAttribute('href')).toBe(`${Routes.legal}?tab=PN`)
+        expect(pn.getAttribute('href')).toBe(Routes.privacyNotice)
         expect(pn.getAttribute('target')).toBe('_blank')
     })
 

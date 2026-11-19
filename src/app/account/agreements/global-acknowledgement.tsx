@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import type { FC } from 'react'
 import { AcknowledgementError } from '@/components/legal/blocking-modal'
 import { useAcknowledgementConsent } from '@/components/legal/use-acknowledgement-consent'
+import { globalDocumentRoute } from '@/components/legal/global-document-route'
 import { LinkWithIcon } from '@/components/links'
-import { Routes } from '@/lib/routes'
 import {
     legalDocumentQueryKeys,
     legalDocumentTypeLabels,
@@ -35,7 +35,7 @@ const isUpdateOfAll = (documents: PendingGlobalAcknowledgement[]) => documents.e
 // A new tab, so reading the document does not lose the gate the user is answering.
 const DocumentLink: FC<{ document: PendingGlobalAcknowledgement }> = ({ document }) => (
     <LinkWithIcon
-        href={`${Routes.legal}?tab=${document.type}`}
+        href={globalDocumentRoute(document.type)}
         target="_blank"
         rel="noopener"
         fz="md"

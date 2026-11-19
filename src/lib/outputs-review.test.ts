@@ -3,12 +3,14 @@ import { ENCRYPTED_TO_APPROVED } from '@/lib/file-type-helpers'
 import {
     codeRunEndedAt,
     compareOutputFiles,
+    isFeedbackOnlyRun,
     isOutputsReviewEditable,
     latestRunFeedback,
     OUTPUTS_DECISION_ERRORS,
     OUTPUTS_DECISIONS,
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     OUTPUTS_FILE_NAME_MAX_LENGTH,
+    researcherRunDate,
     toOutputsFeedbackEntry,
     toOutputsReviewDecision,
     type OutputFileOrder,
@@ -197,5 +199,53 @@ describe('toOutputsFeedbackEntry', () => {
         const entry = toOutputsFeedbackEntry({ id: 'a', round: 2, studyJobId: 'job-1' })
         expect(entry).toEqual({ id: 'a', round: 2, studyJobId: 'job-1', entryType: 'REVIEWER-FEEDBACK' })
         expect(entry).not.toHaveProperty('version')
+    })
+})
+
+describe('researcherRunDate', () => {
+    const ranAt = new Date('2026-03-05T12:00:00Z')
+    const approvedAt = new Date('2026-03-07T12:00:00Z')
+    const rejectedAt = new Date('2026-03-06T12:00:00Z')
+
+    it('dates a shared run by the decision to share it', () => {
+        expect(
+            researcherRunDate([
+                { status: 'RUN-COMPLETE', createdAt: ranAt },
+                { status: 'FILES-APPROVED', createdAt: approvedAt },
+            ]),
+        ).toBe(approvedAt)
+    })
+
+    it('dates a feedback-only run by that decision', () => {
+        expect(
+            researcherRunDate([
+                { status: 'JOB-ERRORED', createdAt: ranAt },
+                { status: 'FILES-REJECTED', createdAt: rejectedAt },
+            ]),
+        ).toBe(rejectedAt)
+    })
+
+    it('prefers the share decision when a job carries both', () => {
+        expect(
+            researcherRunDate([
+                { status: 'FILES-REJECTED', createdAt: rejectedAt },
+                { status: 'FILES-APPROVED', createdAt: approvedAt },
+                { status: 'RUN-COMPLETE', createdAt: ranAt },
+            ]),
+        ).toBe(approvedAt)
+    })
+
+    // The research lab never sees an undecided run, so it has no date to show.
+    it('is null while the run is undecided', () => {
+        expect(researcherRunDate([{ status: 'RUN-COMPLETE', createdAt: ranAt }])).toBeNull()
+        expect(researcherRunDate([])).toBeNull()
+    })
+})
+
+describe('isFeedbackOnlyRun', () => {
+    it('is true only when the reviewer withheld the outputs', () => {
+        expect(isFeedbackOnlyRun([{ status: 'RUN-COMPLETE' }, { status: 'FILES-REJECTED' }])).toBe(true)
+        expect(isFeedbackOnlyRun([{ status: 'RUN-COMPLETE' }, { status: 'FILES-APPROVED' }])).toBe(false)
+        expect(isFeedbackOnlyRun([{ status: 'JOB-ERRORED' }])).toBe(false)
     })
 })

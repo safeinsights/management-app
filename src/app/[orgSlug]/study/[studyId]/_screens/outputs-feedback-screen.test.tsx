@@ -17,10 +17,13 @@ import {
     screen,
     userEvent,
     vi,
+    fireEvent,
+    waitFor,
     waitForPendingMutations,
     within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
+import { type FC, type ReactElement, useState } from 'react'
 import dayjs from 'dayjs'
 import { db } from '@/database'
 import { lexicalJson } from '@/lib/lexical'
@@ -127,12 +130,13 @@ const setupFeedbackOnly = async ({ withNote = false, priorRuns }: SetupOptions =
 }
 
 // Errored run + "Share feedback only" (OTTER-697).
-const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boolean } = {}) => {
+const setupErroredFeedbackOnly = async ({ withNote = false, priorRuns }: SetupOptions = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     const { study: dbStudy, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
         jobStatus: 'INITIATED',
+        priorRuns: priorRuns?.(user.id),
     })
     const dataPartner = await givenDataPartner(dbStudy.id)
 
@@ -172,8 +176,8 @@ const setupErroredFeedbackOnly = async ({ withNote = false }: { withNote?: boole
 }
 
 // The researcher has opened the decision, so the status reads "outputs reviewed".
-const setupViewedFeedbackOnly = async () => {
-    const setup = await setupFeedbackOnly()
+const setupViewedFeedbackOnly = async (options: SetupOptions = {}) => {
+    const setup = await setupFeedbackOnly(options)
     await insertTestJobStatus(setup.job.id, 'RESULTS-VIEWED', { at: VIEWED_AT })
     return { ...setup, raw: await requireRawState(setup.study.id) }
 }
@@ -660,5 +664,116 @@ describe('OutputsFeedbackScreen', () => {
 
             expect(screen.getByText('Feedback not found')).toBeInTheDocument()
         })
+    })
+})
+
+// Stands in for client navigation: the second study's page replaces the first in the same tree.
+const StudySwitcher: FC<{ first: ReactElement; second: ReactElement }> = ({ first, second }) => {
+    const [showSecond, setShowSecond] = useState(false)
+    return (
+        <>
+            <button onClick={() => setShowSecond(true)}>Open the second study</button>
+            {showSecond ? second : first}
+        </>
+    )
+}
+
+const history = () => screen.getByTestId('code-run-history')
+const openHistory = async () => {
+    fireEvent.click(within(history()).getByRole('button', { name: 'View code run history' }))
+    await waitFor(() => expect(within(history()).getAllByTestId('code-run-history-row')[0]).toBeVisible())
+}
+
+// OTTER-1070: when the latest run shared feedback only, earlier runs still open from the history,
+// which then carries its own key input.
+describe('OutputsFeedbackScreen code run history', () => {
+    it.each(RESEARCHER_STATUSES)('lists the earlier runs below the card for %s', async (_status, setup) => {
+        const { org, study, raw } = await setup({
+            priorRuns: (authorId) => [
+                { ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Feedback on the earlier run.' } },
+            ],
+        })
+        await renderScreen(study, raw, org.slug)
+
+        expect(within(history()).getByRole('heading', { name: 'Code run history (1)' })).toBeInTheDocument()
+        expect(isBefore(card(), history())).toBe(true)
+        expect(isBefore(history(), screen.getByTestId('step-navigation'))).toBe(true)
+        await openHistory()
+        const [row] = within(history()).getAllByTestId('code-run-history-row')
+        await userEvent.click(within(row).getByRole('button', { name: /^Code run / }))
+        expect(await within(row).findByText('Feedback on the earlier run.')).toBeVisible()
+        expect(within(row).getByText('Code files v1')).toBeVisible()
+    })
+
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupFeedbackOnly()
+        await renderScreen(study, raw, org.slug)
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('offers a security key above the runs when an earlier run shared its outputs', async () => {
+        const { org, study, raw } = await setupFeedbackOnly({
+            priorRuns: () => [
+                { ranAt: EARLIER_RUN_AT },
+                { ranAt: daysBefore(EARLIER_RUN_AT, 10), decision: 'FILES-REJECTED' },
+            ],
+        })
+        await renderScreen(study, raw, org.slug)
+        await openHistory()
+
+        const keyPanel = await within(history()).findByTestId('code-run-history-key')
+        expect(within(keyPanel).getByRole('textbox', { name: 'Security key' })).toBeInTheDocument()
+        expect(isBefore(keyPanel, within(history()).getAllByTestId('code-run-history-row')[0])).toBe(true)
+    })
+
+    it('offers no security key when every earlier run shared feedback only', async () => {
+        const { org, study, raw } = await setupFeedbackOnly({
+            priorRuns: () => [{ ranAt: EARLIER_RUN_AT, decision: 'FILES-REJECTED' }],
+        })
+        await renderScreen(study, raw, org.slug)
+        await openHistory()
+
+        expect(within(history()).queryByTestId('code-run-history-key')).toBeNull()
+        expect(within(history()).queryByRole('textbox')).toBeNull()
+    })
+
+    it("does not carry one study's history state into another", async () => {
+        const first = await setupFeedbackOnly({
+            priorRuns: (authorId) => [{ ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'First study run.' } }],
+        })
+        const firstElement = await OutputsFeedbackScreen({
+            study: first.study,
+            raw: first.raw,
+            ...screenNavProps('researcher', 'outputs-feedback', first.raw, {
+                orgSlug: first.org.slug,
+                studyId: first.study.id,
+            }),
+        })
+        const second = await setupFeedbackOnly({
+            priorRuns: (authorId) => [{ ranAt: EARLIER_RUN_AT, feedback: { authorId, text: 'Second study run.' } }],
+        })
+        const secondElement = await OutputsFeedbackScreen({
+            study: second.study,
+            raw: second.raw,
+            ...screenNavProps('researcher', 'outputs-feedback', second.raw, {
+                orgSlug: second.org.slug,
+                studyId: second.study.id,
+            }),
+        })
+        renderWithProviders(<StudySwitcher first={firstElement} second={secondElement} />)
+        await waitForPendingMutations()
+        await openHistory()
+        fireEvent.change(within(history()).getByRole('textbox', { name: 'Security key' }), {
+            target: { value: 'typed for the first study' },
+        })
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open the second study' }))
+        await waitForPendingMutations()
+
+        expect(within(history()).getByRole('button', { name: 'View code run history' })).toBeInTheDocument()
+        await openHistory()
+        expect(within(history()).getByRole('textbox', { name: 'Security key' })).toHaveValue('')
+        expect(screen.queryByText('First study run.')).toBeNull()
     })
 })

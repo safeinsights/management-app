@@ -65,12 +65,10 @@ export async function SharedOutputsScreen({
         raw,
         matches: SHARE_SCREENS[descriptor.screen],
         notFound: NOT_FOUND,
-        // The reviewer's decision, not the run: FILES-APPROVED is written when they submit it.
-        decisionStatus: 'FILES-APPROVED',
     })
     if (!('job' in result)) return result
 
-    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const { job, entries, feedbackLoadError, dataPartner, decidedAt, priorRuns } = result
 
     const banner = researcherSharedOutputsBanner(descriptor.screen, { dataPartner })
 
@@ -93,6 +91,7 @@ export async function SharedOutputsScreen({
                         />
                     }
                     nav={phasedNav}
+                    priorRuns={priorRuns}
                 />
             </PageLayout>
         </Box>

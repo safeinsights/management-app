@@ -39,7 +39,7 @@ const keyPairToEnter = async (prefix: string) => {
     return { exportedPublicKey: publicKey, privateKeyString: Buffer.from(privateKey).toString('base64'), fingerprint }
 }
 
-/** A key the user held before the one on file, as for a run encrypted before their key was replaced. */
+/** A key the user held before the one on file, as for a run encrypted or shared before their key was replaced. */
 export const previousKeyPair = () => keyPairToEnter('previous_')
 
 /** A well-formed key that no test artifact is encrypted or wrapped for. */
@@ -81,6 +81,9 @@ type SeedEncryptedArtifactOptions = {
     tamperWith?: TamperOpts
     // Another key than the one tests type in, as for a run encrypted before the reviewer's key changed.
     encryptedFor?: { publicKey: ArrayBuffer; fingerprint: string }
+    // With sharedWith: wrap for this key instead of the registered one, as for a run shared before the
+    // researcher's key changed. The registered key stays on file.
+    wrapFor?: { publicKey: ArrayBuffer; fingerprint: string }
 }
 
 /**
@@ -96,6 +99,7 @@ export async function seedEncryptedArtifact(
         sharedWith,
         tamperWith,
         encryptedFor,
+        wrapFor,
     }: SeedEncryptedArtifactOptions,
 ) {
     const enclaveKey = sharedWith ? await enclaveKeyPair() : undefined
@@ -109,13 +113,21 @@ export async function seedEncryptedArtifact(
 
     const row = await seedJobFileRow(jobId, fileType, name)
     await storeS3File({ orgSlug: 'test-org' }, stored.stream(), artifactPath(jobId, name))
-    if (sharedWith && enclaveKey) await shareWithResearcher(sharedWith, row.id, zip, enclaveKey)
+    if (sharedWith && enclaveKey) await shareWithResearcher(sharedWith, row.id, zip, enclaveKey, wrapFor)
 }
 
-// What a reviewer's approval does: each file's key is wrapped for the researcher's registered key.
-async function shareWithResearcher(researcherId: string, studyJobFileId: string, zip: Blob, enclaveKey: KeyPair) {
-    const researcherKey = await registeredKeyPair()
-    const registered = { publicKey: Buffer.from(researcherKey.publicKey), fingerprint: researcherKey.fingerprint }
+// What a reviewer's approval does: each file's key is wrapped for the researcher's registered key,
+// unless an earlier key is named.
+async function shareWithResearcher(
+    researcherId: string,
+    studyJobFileId: string,
+    zip: Blob,
+    enclaveKey: KeyPair,
+    wrapFor?: { publicKey: ArrayBuffer; fingerprint: string },
+) {
+    const registeredKey = await registeredKeyPair()
+    const researcherKey = wrapFor ?? registeredKey
+    const registered = { publicKey: Buffer.from(registeredKey.publicKey), fingerprint: registeredKey.fingerprint }
     await db
         .insertInto('userPublicKey')
         .values({ userId: researcherId, ...registered })

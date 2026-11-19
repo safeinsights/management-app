@@ -6,7 +6,6 @@ import { globalAcknowledgementUrl } from '@/lib/global-acknowledgement-redirect'
 import { Routes } from '@/lib/routes'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
-    act,
     createTestQueryClient,
     faker,
     insertTestLegalDocument,
@@ -108,17 +107,5 @@ describe('RequireLegalAcknowledgement', () => {
         )
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         expect(router.asPath).toBe(Routes.dashboard)
-    })
-
-    // The step's links open /legal in a new tab, which must not be covered by the same gate.
-    it('leaves the legal page uncovered while a document is owed', async () => {
-        await userOwingRopa()
-
-        renderWithProviders(<RequireLegalAcknowledgement />)
-        expect(await ropaGate()).toBeDefined()
-
-        act(() => mockPathname(Routes.legal))
-
-        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 })
