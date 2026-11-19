@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { generateAndStoreStudyReview } from '@/server/agents/review-agent/runner'
 import * as mailer from '@/server/mailer'
+import { runRulesetChange, semgrepRulesetChangePayloadSchema } from '@/server/semgrep-rulesets/change'
 
 // Method syntax on purpose: it keeps `run` bivariant, so any job fits the general type runJob uses.
 type JobDefinition<S extends z.ZodType = z.ZodType> = {
@@ -43,6 +44,8 @@ const jobs = {
         retry: true,
         run: ({ email, studyId }) => mailer[email](studyId),
     }),
+    // No retry: the request record holds a failure, and its claim would stop a second delivery anyway.
+    'semgrep-ruleset-change': defineJob({ payload: semgrepRulesetChangePayloadSchema, run: runRulesetChange }),
 }
 
 export type JobName = keyof typeof jobs
