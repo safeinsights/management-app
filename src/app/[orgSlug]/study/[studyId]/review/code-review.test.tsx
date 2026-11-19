@@ -225,6 +225,32 @@ describe('CodeReview', () => {
             expect(section).toHaveTextContent('Debshilla Basu Mallick')
         })
 
+        it('shows only the latest 2 Feedback and notes entries until View all is clicked', async () => {
+            const user = userEvent.setup()
+            const fourEntries = [
+                buildEntry({ ...resubmissionNote, id: 'note-v3', version: 3 }),
+                buildEntry({ ...reviewerEntry, id: 'reviewer-v2', version: 2 }),
+                ...resubmissionEntries,
+            ]
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: fourEntries,
+                    nav: {},
+                }),
+            )
+
+            const section = screen.getByTestId('feedback-and-notes-section')
+            expect(section).toHaveTextContent('Resubmission note (v3.0)')
+            expect(section).not.toHaveTextContent('Resubmission note (v2.0)')
+
+            await user.click(screen.getByRole('button', { name: 'View all notes and feedback' }))
+
+            expect(section).toHaveTextContent('Resubmission note (v2.0)')
+            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+        })
+
         it('positions Feedback and notes between Submission details and Code evaluation', async () => {
             renderWithProviders(
                 await CodeReview({
