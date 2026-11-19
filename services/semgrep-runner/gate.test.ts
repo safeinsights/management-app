@@ -79,23 +79,30 @@ describe('evaluateRules', () => {
         expect(evaluateRules(exit(0, '{"errors":[]}'), passingTests()).passed).toBe(true)
     })
 
+    // The shape Semgrep 1.183.0 prints for a rule without a message.
     it('lists each JSON error of a failed --validate run', () => {
         const stdout = JSON.stringify({
             errors: [
-                { type: 'InvalidRuleSchemaError', message: 'rules/a.yaml: missing message' },
-                { type: ['Rule parse error', 'x'], message: 'bad pattern' },
+                {
+                    type: 'InvalidRuleSchemaError',
+                    long_msg: "One of these properties is missing: 'message'",
+                    short_msg: 'Invalid rule schema',
+                    spans: [{ file: 'rules/secrets.yaml' }],
+                },
+                { type: 'Rule parse error', rule_id: 'secret-private-key', message: 'Missing required field message' },
+                { type: ['PartialParsing', []], short_msg: 'partial' },
             ],
         })
-        expect(evaluateRules(exit(7, stdout), passingTests()).failures).toEqual([
-            'InvalidRuleSchemaError: rules/a.yaml: missing message',
-            '["Rule parse error","x"]: bad pattern',
+        expect(evaluateRules(exit(2, stdout), passingTests()).failures).toEqual([
+            "InvalidRuleSchemaError: One of these properties is missing: 'message'",
+            'Rule parse error: Missing required field message',
+            '["PartialParsing",[]]: partial',
         ])
     })
 
+    // Without semgrep.dev, --validate cannot load its lint pack and exits 2 with no JSON.
     it('gives one generic failure when --validate fails without JSON errors', () => {
-        expect(evaluateRules(exit(2, 'Traceback'), passingTests()).failures).toEqual([
-            'semgrep --validate failed (exit 2)',
-        ])
+        expect(evaluateRules(exit(2, ''), passingTests()).failures).toEqual(['semgrep --validate failed (exit 2)'])
     })
 
     it('fails each rule file the fixture test could not load', () => {
