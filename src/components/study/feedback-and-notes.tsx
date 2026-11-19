@@ -31,7 +31,7 @@ function entryTitle(entry: FeedbackEntryShape): string {
     return label
 }
 
-const COLLAPSED_LINE_CLAMP = 3
+const COLLAPSED_LINE_CLAMP = 2
 
 type FeedbackEntryProps = {
     entry: FeedbackEntryShape

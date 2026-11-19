@@ -74,6 +74,13 @@ describe('FeedbackAndNotesSection', () => {
         }
     })
 
+    it('clamps a collapsed entry at two lines and lifts the clamp when expanded (OTTER-957)', () => {
+        renderWithProviders(<FeedbackAndNotesSection entries={[reviewerEntry, noteEntry]} />)
+
+        expect(screen.getByTestId('feedback-body-note-v2').style.getPropertyValue('--text-line-clamp')).toBe('2')
+        expect(screen.getByTestId('feedback-body-reviewer-v1').style.getPropertyValue('--text-line-clamp')).toBe('')
+    })
+
     it('renders nothing when there are no entries', () => {
         const { container } = renderWithProviders(<FeedbackAndNotesSection entries={[]} />)
         expect(container.querySelector('[data-testid="feedback-and-notes-section"]')).toBeNull()
