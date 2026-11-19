@@ -2,7 +2,7 @@
 // runner in the Lambda emulator, prints the response JSON on stdout and a summary on stderr.
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type { RunnerResponse, TestResponse } from '../protocol.ts'
+import type { ScanResponse, TestResponse } from '../protocol.ts'
 
 // The runner's own copy inside the image, so this script picks rule files exactly as the runner does.
 const PROTOCOL_IN_IMAGE = '/var/task/services/semgrep-runner/protocol.ts'
@@ -12,7 +12,7 @@ const [mode, host] = process.argv.slice(2)
 const MAX_REQUEST_BYTES = 6 * 1024 * 1024
 
 type FunctionError = { errorType?: string; errorMessage?: string }
-type Reply = RunnerResponse & FunctionError
+type Reply = (ScanResponse | TestResponse) & FunctionError
 
 function readTree(root: string) {
     return fs
