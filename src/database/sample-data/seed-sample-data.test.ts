@@ -4,14 +4,14 @@ import { isStudyUnread, rowStudyState } from '@/lib/study-screen/dashboard-raw-s
 import { TEST_USERS } from '../seeds/1743608138837_test_users'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { resolvePillId } from '@/lib/study-screen'
-import { DEFAULT_REF_IDS } from './refs'
+import { DEFAULT_REF_IDS, SAMPLE_TARGET } from './refs'
 import { fileId, studyId } from './ids'
 import { SAMPLE_STUDIES } from './studies'
 import { seedSampleData } from './seed-sample-data'
 
 const quiet = () => {}
 
-// Offset numbers: the DB can hold sample studies an older spec wrote, and the seed skips those.
+// Offset numbers: the DB can hold sample studies an older spec wrote under the base numbers.
 const SPECS = SAMPLE_STUDIES.map((s) => ({ ...s, n: s.n + 100 }))
 
 const testUserId = (key: string) => TEST_USERS.find((u) => u.key === key)!.id
@@ -35,7 +35,7 @@ const dashboardRows = async (
 
 describe('seedSampleData', () => {
     beforeAll(async () => {
-        await seedSampleData(db, { uploader: null, rowsOnly: true, specs: SPECS, log: quiet })
+        await seedSampleData(db, { uploader: null, rowsOnly: true, fixtureFallback: true, specs: SPECS, log: quiet })
     })
 
     it.each(['researcher', 'reviewer'] as const)(
@@ -67,29 +67,67 @@ describe('seedSampleData', () => {
         }
     })
 
-    it('writes nothing on a second run, not even opened rows', async () => {
+    it('puts each study back to its spec on a second run, dated from that run', async () => {
         const userId = testUserId('qa-dp')
+        await db.updateTable('study').set({ title: 'Edited by hand' }).where('id', '=', studyId(119)).execute()
         await db
             .deleteFrom('studyLastOpened')
             .where('studyId', '=', studyId(119))
             .where('userId', '=', userId)
             .execute()
+        const later = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
-        const summary = await seedSampleData(db, { uploader: null, rowsOnly: true, specs: SPECS, log: quiet })
+        const summary = await seedSampleData(db, {
+            uploader: null,
+            rowsOnly: true,
+            fixtureFallback: true,
+            specs: SPECS,
+            now: later,
+            log: quiet,
+        })
 
-        expect(summary).toMatchObject({ written: 0, skipped: SPECS.length, failed: 0 })
-        const row = await db
+        expect(summary).toMatchObject({ written: SPECS.length, failed: 0 })
+        const spec = SPECS.find((s) => s.n === 119)!
+        const study = await db
+            .selectFrom('study')
+            .select(['title', 'createdAt'])
+            .where('id', '=', studyId(119))
+            .executeTakeFirstOrThrow()
+        expect(study.title).toBe(spec.title)
+        expect(study.createdAt.getTime()).toBe(later.getTime() - spec.daysAgo * 24 * 60 * 60 * 1000)
+        const opened = await db
             .selectFrom('studyLastOpened')
             .select('id')
             .where('studyId', '=', studyId(119))
             .where('userId', '=', userId)
             .executeTakeFirst()
-        expect(row).toBeUndefined()
+        expect(opened).toBeDefined()
+        const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId(119)).execute()
+        expect(jobs).toHaveLength(1)
+    })
+
+    it('keeps the last rows of a study that fails to rebuild', async () => {
+        const failing = {
+            put: async () => {
+                throw new Error('S3 is having a day')
+            },
+        }
+        const summary = await seedSampleData(db, {
+            uploader: failing,
+            fixtureFallback: true,
+            specs: [SPECS.find((s) => s.n === 119)!],
+            log: quiet,
+        })
+
+        expect(summary).toMatchObject({ written: 0, failed: 1 })
+        expect(
+            await db.selectFrom('study').select('id').where('id', '=', studyId(119)).executeTakeFirst(),
+        ).toBeDefined()
     })
 
     it('skips a study with files when there is no uploader', async () => {
         const spec = { ...SAMPLE_STUDIES[11], n: 251, title: 'No bucket probe' }
-        const summary = await seedSampleData(db, { uploader: null, specs: [spec], log: quiet })
+        const summary = await seedSampleData(db, { uploader: null, fixtureFallback: true, specs: [spec], log: quiet })
 
         expect(summary).toMatchObject({ written: 0, failed: 1 })
         expect(
@@ -127,11 +165,66 @@ describe('seedSampleData', () => {
                 throw new Error('S3 is having a day')
             },
         }
-        const summary = await seedSampleData(db, { uploader: failing, specs: [spec], log: quiet })
+        const summary = await seedSampleData(db, {
+            uploader: failing,
+            fixtureFallback: true,
+            specs: [spec],
+            log: quiet,
+        })
 
         expect(summary).toMatchObject({ written: 0, failed: 1 })
         expect(
             await db.selectFrom('study').select('id').where('id', '=', studyId(250)).executeTakeFirst(),
         ).toBeUndefined()
+    })
+})
+
+describe('seedSampleData target', () => {
+    const spec = { ...SAMPLE_STUDIES[0], n: 260, title: 'Target probe' }
+
+    it('writes nothing without Mars U when the openstax fixtures are not allowed', async () => {
+        const summary = await seedSampleData(db, { uploader: null, rowsOnly: true, specs: [spec], log: quiet })
+
+        expect(summary.written).toBe(0)
+        expect(summary.missing).toEqual(expect.arrayContaining(['mars-u', 'mars-u-lab']))
+        expect(
+            await db.selectFrom('study').select('id').where('id', '=', studyId(260)).executeTakeFirst(),
+        ).toBeUndefined()
+    })
+
+    it('writes to Mars U when it exists, even with the openstax fixtures allowed', async () => {
+        const [enclave, lab] = await db
+            .insertInto('org')
+            .values([
+                {
+                    slug: SAMPLE_TARGET.enclaveSlug,
+                    name: 'Mars University',
+                    email: 'mars@example.com',
+                    type: 'enclave',
+                },
+                { slug: SAMPLE_TARGET.labSlug, name: 'Mars University Lab', email: 'mars@example.com', type: 'lab' },
+            ])
+            .returning('id')
+            .execute()
+
+        const summary = await seedSampleData(db, {
+            uploader: null,
+            rowsOnly: true,
+            fixtureFallback: true,
+            specs: [spec],
+            log: quiet,
+        })
+
+        expect(summary).toMatchObject({ written: 1, failed: 0 })
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId', 'submittedByOrgId', 'researcherId'])
+            .where('id', '=', studyId(260))
+            .executeTakeFirstOrThrow()
+        expect(study).toEqual({
+            orgId: enclave.id,
+            submittedByOrgId: lab.id,
+            researcherId: testUserId('qa-researcher'),
+        })
     })
 })

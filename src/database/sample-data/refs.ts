@@ -23,6 +23,46 @@ export type SampleRefs = {
     lab: { id: string; slug: string }
 }
 
+// The QA org that exists in every environment, production included (OTTER-941). Found by slug
+// and email, not id: those orgs and accounts were made by hand, so their ids differ per env.
+export const SAMPLE_TARGET = {
+    enclaveSlug: 'mars-u',
+    labSlug: 'mars-u-lab',
+    researcherEmail: 'qa-review+researcher@safeinsights.org',
+    reviewerEmail: 'qa-review+dp@safeinsights.org',
+    adminEmail: 'qa-review+admin@safeinsights.org',
+}
+
+export type SampleTarget = typeof SAMPLE_TARGET
+
+export async function resolveTargetRefs(
+    db: Kysely<DB>,
+    target: SampleTarget = SAMPLE_TARGET,
+): Promise<{ refs: SampleRefs } | { missing: string[] }> {
+    const emails = [target.researcherEmail, target.reviewerEmail, target.adminEmail]
+    const [users, orgs] = await Promise.all([
+        db.selectFrom('user').select(['id', 'email']).where('email', 'in', emails).execute(),
+        db.selectFrom('org').select(['id', 'slug']).where('slug', 'in', [target.enclaveSlug, target.labSlug]).execute(),
+    ])
+    const userId = (email: string) => users.find((u) => u.email === email)?.id
+    const org = (slug: string) => orgs.find((o) => o.slug === slug)
+    const missing = [
+        ...emails.filter((e) => !userId(e)),
+        ...[target.enclaveSlug, target.labSlug].filter((s) => !org(s)),
+    ]
+    if (missing.length) return { missing }
+
+    return {
+        refs: {
+            researcherId: userId(target.researcherEmail)!,
+            reviewerId: userId(target.reviewerEmail)!,
+            adminId: userId(target.adminEmail)!,
+            enclave: org(target.enclaveSlug)!,
+            lab: org(target.labSlug)!,
+        },
+    }
+}
+
 // Fixed ids only: a long-lived environment whose test users predate the fixed ids gets no sample data.
 export async function resolveRefs(
     db: Kysely<DB>,
