@@ -4,6 +4,7 @@ import { type RefObject, useEffect, useRef, useState } from 'react'
 import { Box, Divider, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { LocalDateTime } from '@/components/local-date-time'
+import { PoliteStatus, useAnnouncement } from '@/components/polite-status'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import type { Json } from '@/database/types'
 import { CollapseToggleLink } from './collapse-toggle-link'
@@ -139,6 +140,7 @@ function useEarlierEntries(entries: FeedbackEntryShape[], compact: boolean) {
     const toggleRef = useRef<HTMLButtonElement>(null)
     const firstEarlierRef = useRef<HTMLDivElement>(null)
     const movesFocus = useRef(false)
+    const [announcement, announce] = useAnnouncement()
 
     // The entries View all reveals only exist after the render it causes.
     useEffect(() => {
@@ -160,8 +162,15 @@ function useEarlierEntries(entries: FeedbackEntryShape[], compact: boolean) {
         visibleEntries: hasEarlier && !showAll ? entries.slice(0, COMPACT_VISIBLE_ENTRIES) : entries,
         toggleRef,
         focusRefFor: (id: string) => (id === firstEarlierId ? firstEarlierRef : undefined),
+        announcement,
+        // Focus lands on one entry, which says nothing about how many the list now holds.
         toggleShowAll: () => {
             movesFocus.current = true
+            announce(
+                showAll
+                    ? `Showing ${COMPACT_VISIBLE_ENTRIES} of ${entries.length} notes and feedback`
+                    : `Showing all ${entries.length} notes and feedback`,
+            )
             setShowAll((current) => !current)
         },
     }
@@ -180,10 +189,8 @@ export function FeedbackEntries({
     testId?: string
 }) {
     const { isExpanded, toggle } = useExpandedEntries(entries, alwaysExpandLatest, compact)
-    const { visibleEntries, hasEarlier, showAll, toggleRef, focusRefFor, toggleShowAll } = useEarlierEntries(
-        entries,
-        compact,
-    )
+    const { visibleEntries, hasEarlier, showAll, toggleRef, focusRefFor, announcement, toggleShowAll } =
+        useEarlierEntries(entries, compact)
 
     return (
         <Stack gap="md" data-testid={testId}>
@@ -208,6 +215,7 @@ export function FeedbackEntries({
                 onClick={toggleShowAll}
                 testId="feedback-show-all"
             />
+            {hasEarlier && <PoliteStatus announcement={announcement} />}
         </Stack>
     )
 }

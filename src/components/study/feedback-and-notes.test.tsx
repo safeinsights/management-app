@@ -120,6 +120,17 @@ describe('FeedbackAndNotesSection', () => {
             expect(screen.getByTestId('feedback-show-all')).toHaveTextContent('View all notes and feedback')
         })
 
+        it('announces how many entries show after each toggle', async () => {
+            const user = userEvent.setup()
+            renderWithProviders(<FeedbackAndNotesSection entries={fourEntries} compact />)
+
+            await user.click(screen.getByTestId('feedback-show-all'))
+            expect(screen.getByRole('status')).toHaveTextContent('Showing all 4 notes and feedback')
+
+            await user.click(screen.getByTestId('feedback-show-all'))
+            expect(screen.getByRole('status')).toHaveTextContent('Showing 2 of 4 notes and feedback')
+        })
+
         it('clamps collapsed entries to 2 lines', () => {
             renderWithProviders(<FeedbackAndNotesSection entries={fourEntries} compact />)
 
