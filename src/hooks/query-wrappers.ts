@@ -83,12 +83,17 @@ export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
         invalidates?: (variables: TVariables, data: TApiData | undefined) => InvalidatedKeys
+        // False starts the refetch without holding the caller's callbacks until it ends.
+        awaitInvalidation?: boolean
     } & Omit<UseMutationOptions<TApiData, Error, TVariables>, 'mutationFn'>,
 ): UseMutationResult<TApiData, Error, TVariables> {
     const queryClient = useQueryClient()
-    const { invalidates, onSuccess, onError, ...rest } = options
-    const invalidate = (variables: TVariables, data: TApiData | undefined) =>
-        Promise.all((invalidates?.(variables, data) ?? []).map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+    const { invalidates, awaitInvalidation = true, onSuccess, onError, ...rest } = options
+    const invalidate = async (variables: TVariables, data: TApiData | undefined) => {
+        const keys = invalidates?.(variables, data) ?? []
+        const refetches = Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+        if (awaitInvalidation) await refetches
+    }
 
     return useTanStackMutation<TApiData, Error, TVariables>({
         ...rest,

@@ -16,6 +16,7 @@ import { showToast } from '@/components/toast-notifications'
 import { UploadIcon, FileArrowUpIcon, ArrowCircleRightIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
 import { ReadOnlyField } from '@/components/read-only-field'
+import { queryKeys } from '@/lib/query-keys'
 
 const SavedDraftField: FC<{ draftName: string | null }> = ({ draftName }) => {
     if (!draftName) return null
@@ -62,7 +63,8 @@ export function DraftForm({
     const saveDraft = useMutation({
         mutationFn: async (draftFile: File) =>
             actionResult(await createLegalDocumentDraftAction({ type: doctype, file: draftFile })),
-        onSuccess: () => onDraftSaved(),
+        invalidates: () => [queryKeys.legal.versionsForType(doctype)],
+        onSuccess: onDraftSaved,
         onError: (error: unknown) => reportError(error, 'Could not save draft'),
     })
 

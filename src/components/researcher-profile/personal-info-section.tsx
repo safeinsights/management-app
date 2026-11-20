@@ -8,7 +8,6 @@ import { personalInfoSchema, type PersonalInfoValues } from '@/schema/researcher
 
 interface PersonalInfoSectionProps {
     data: ResearcherProfileData | null
-    refetch: () => Promise<unknown>
     readOnly?: boolean
 }
 
@@ -19,8 +18,8 @@ const toPersonalInfoDefaults = (data: ResearcherProfileData | null): PersonalInf
 
 const openWhenIncomplete = ({ firstName, lastName }: PersonalInfoValues) => (firstName && lastName ? null : true)
 
-export function PersonalInfoSection({ data, refetch, readOnly = false }: PersonalInfoSectionProps) {
-    const { form, isEditing, setEditing, isPending, submit } = useProfileSection(data, refetch, {
+export function PersonalInfoSection({ data, readOnly = false }: PersonalInfoSectionProps) {
+    const { form, isEditing, setEditing, isPending, submit } = useProfileSection(data, {
         schema: personalInfoSchema,
         toDefaults: toPersonalInfoDefaults,
         initialEditing: openWhenIncomplete,

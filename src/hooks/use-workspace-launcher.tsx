@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation, useQueryClient, type InvalidatedKeys } from '@/common'
 import { captureError } from '@/components/errors'
 import { showSystemNotification } from '@/components/system-notifications'
 import { ActionFailure, UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
@@ -51,7 +51,10 @@ const notifyPopupBlocked = (url: string) => {
 
 interface UseWorkspaceLauncherOptions {
     studyId: string
+    /** Runs once the workspace url arrives, which is when its files exist. */
     onSuccess?: () => void
+    /** The keys ensuring the workspace changes, refreshed when the ensure call settles. */
+    invalidates?: () => InvalidatedKeys
 }
 
 interface LaunchOptions {
@@ -76,13 +79,18 @@ interface UseWorkspaceLauncherReturn {
     agentLog: string
 }
 
-export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
+export function useWorkspaceLauncher({
+    studyId,
+    onSuccess,
+    invalidates,
+}: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
     const [errorEventId, setErrorEventId] = useState<string | null>(null)
 
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
+        invalidates,
         // The failure modal is the only surface for a failed launch (OTTER-832), so no toast.
         onError: (err) => setErrorEventId(captureError(err) || null),
     })

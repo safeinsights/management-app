@@ -305,11 +305,14 @@ describe('StudyCode component', () => {
             { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
         ])
 
-        expect(notifications.show).toHaveBeenCalledWith(
-            expect.objectContaining({
-                title: 'Code submitted.',
-                'data-toast-kind': 'success',
-            }),
+        // The toast follows the refetch of the study's queries, which the write waits for.
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    title: 'Code submitted.',
+                    'data-toast-kind': 'success',
+                }),
+            ),
         )
     })
 
@@ -2032,11 +2035,14 @@ describe('StudyCode component', () => {
                 { name: 'helper.R', fileType: 'SUPPLEMENTAL-CODE' },
             ])
 
-            expect(notifications.show).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    title: 'Code submitted.',
-                    'data-toast-kind': 'success',
-                }),
+            // The toast follows the refetch of the study's queries, which the write waits for.
+            await waitFor(() =>
+                expect(notifications.show).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        title: 'Code submitted.',
+                        'data-toast-kind': 'success',
+                    }),
+                ),
             )
         })
     })

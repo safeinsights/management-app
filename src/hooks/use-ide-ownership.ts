@@ -1,5 +1,4 @@
-import { useCallback } from 'react'
-import { useQuery, useQueryClient } from '@/common'
+import { useQuery } from '@/common'
 import { getIdeOwnerAction } from '@/server/actions/workspaces.actions'
 import { queryKeys } from '@/lib/query-keys'
 
@@ -9,18 +8,10 @@ import { queryKeys } from '@/lib/query-keys'
  * disagree about who holds it.
  */
 export function useIdeOwnership(studyId: string) {
-    const queryClient = useQueryClient()
-
     const { data: ideOwner } = useQuery({
         queryKey: queryKeys.ideOwner(studyId),
         queryFn: () => getIdeOwnerAction({ studyId }),
     })
-
-    // A launch is also what claims the IDE, so the owner has to be re-read or the launcher's own
-    // pencil keeps rendering as if the study were still unclaimed.
-    const refresh = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.ideOwner(studyId) })
-    }, [queryClient, studyId])
 
     return {
         // Unclaimed reads as editable: the card enables the IDE controls for everyone until the
@@ -30,6 +21,5 @@ export function useIdeOwnership(studyId: string) {
         // button needs the two apart to pick its solid-vs-outline variant.
         isIdeClaimed: ideOwner?.isClaimed === true,
         ideOwnerName: ideOwner?.ownerName ?? null,
-        refresh,
     }
 }

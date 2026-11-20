@@ -24,10 +24,10 @@ const saveResearchDetails = (values: ResearchDetailsValues) =>
         featuredPublicationsUrls: values.featuredPublicationsUrls.filter((v) => v && v.trim()).slice(0, 2),
     })
 
-export function useResearchDetailsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
+export function useResearchDetailsSection(data: ResearcherProfileData | null) {
     const [interestDraft, setInterestDraft] = useState('')
 
-    const { form, isEditing, setEditing, defaults, isPending, submit } = useProfileSection(data, refetch, {
+    const { form, isEditing, setEditing, defaults, isPending, submit } = useProfileSection(data, {
         schema: researchDetailsSchema,
         toDefaults: toResearchDetailsDefaults,
         initialEditing: openWhenIncomplete,

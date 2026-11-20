@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQueryClient, type ActionResponse } from '@/common'
+import { useMutation, type ActionResponse } from '@/common'
 import { errorToString, isActionError } from '@/lib/errors'
 import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import { useState } from 'react'
@@ -26,7 +26,6 @@ const acknowledgeEach = async (versionIds: string[]) => {
 // Shared by the two blocking gates: recording consent must not drift between the global Terms of
 // Service and a study's agreement, since the ack row is the compliance artifact in both.
 export const useAcknowledgementConsent = ({ versionIds, invalidateKey, onAcknowledged }: Props) => {
-    const queryClient = useQueryClient()
     const [consentedKey, setConsentedKey] = useState<string | null>(null)
     const versionsKey = versionIds.join(',')
 
@@ -36,17 +35,10 @@ export const useAcknowledgementConsent = ({ versionIds, invalidateKey, onAcknowl
         error,
     } = useMutation({
         mutationFn: acknowledgeEach,
-        onSuccess: async () => {
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: invalidateKey }),
-                // The ack is also a row in the legal centre's tables. They usually sit on another
-                // route, so without this they serve pre-ack rows until their staleTime lapses.
-                ...queryKeys.legal
-                    .agreementTablePrefixes()
-                    .map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-            ])
-            onAcknowledged?.()
-        },
+        // The ack is also a row in the legal center's tables. They usually sit on another route, so
+        // without them they serve pre-ack rows until their staleTime lapses.
+        invalidates: () => [invalidateKey, ...queryKeys.legal.agreementTablePrefixes()],
+        onSuccess: () => onAcknowledged?.(),
     })
 
     // Keyed to the versions on screen, not a bare boolean: a version published while the modal is

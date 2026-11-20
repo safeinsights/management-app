@@ -39,7 +39,7 @@ function useOrgListInfo(user: ClerkUser): UserInfo | null {
         enabled: Boolean(clerkUserId),
         initialData: clerkUserId ? (serverInfo ?? undefined) : undefined,
         initialDataUpdatedAt: useSessionInfoUpdatedAt(),
-        // The member's own joins call useReloadOrgList. This picks up changes an admin makes, which
+        // The member's own joins invalidate it. This picks up changes an admin makes, which
         // the server enforces at the next request, about as soon as a new session token would.
         staleTime: 60_000,
         // Retry on focus or mount after an initial failure; the cache deduplicates notifications.

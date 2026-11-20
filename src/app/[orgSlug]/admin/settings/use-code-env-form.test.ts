@@ -3,6 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { useParams } from 'next/navigation'
 import {
     actionResult,
+    createTestQueryClient,
     createTestQueryWrapper,
     db,
     insertTestCodeEnv,
@@ -14,6 +15,7 @@ import { pathForStarterCode } from '@/lib/paths'
 import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
 import { storeS3File } from '@/server/aws'
 import { fetchFileContents } from '@/server/storage'
+import { queryKeys } from '@/lib/query-keys'
 import { useCodeEnvForm } from './use-code-env-form'
 
 const mockCodeEnv = {
@@ -232,5 +234,49 @@ describe('useCodeEnvForm', () => {
         await waitForPendingMutations()
         expect((await codeEnvsInOrg())[0].starterCodeFileNames).toEqual(['main.py'])
         expect(await storedText(starterPath)).toBe('existing code')
+    })
+
+    // The history modal keeps its entries for the staleTime, so an edit must mark them stale.
+    it("edit: refreshes the list, the data sources and that environment's history", async () => {
+        const codeEnv = await insertCodeEnv()
+        const queryClient = createTestQueryClient()
+        const keys = [
+            queryKeys.orgCodeEnvs(org.slug),
+            queryKeys.orgDataSources(org.slug),
+            queryKeys.orgCodeEnvHistory(org.slug, codeEnv.id),
+        ]
+        keys.forEach((key) => queryClient.setQueryData(key, []))
+        const { result } = renderHook(() => useCodeEnvForm(codeEnv, vi.fn()), {
+            wrapper: createTestQueryWrapper({ queryClient }),
+        })
+
+        act(() => result.current.onSubmit())
+
+        await waitForPendingMutations()
+        keys.forEach((key) => expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true))
+    })
+
+    it('create: refreshes the list and leaves every history alone', async () => {
+        const other = await insertCodeEnv()
+        const queryClient = createTestQueryClient()
+        const historyKey = queryKeys.orgCodeEnvHistory(org.slug, other.id)
+        queryClient.setQueryData(queryKeys.orgCodeEnvs(org.slug), [])
+        queryClient.setQueryData(historyKey, [])
+        const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
+            wrapper: createTestQueryWrapper({ queryClient }),
+        })
+        act(() => {
+            result.current.form.setFieldValue('identifier', 'new_env')
+            result.current.form.setFieldValue('name', 'New Env')
+            result.current.form.setFieldValue('commandLines', { py: 'python %f' })
+            result.current.form.setFieldValue('url', 'python:3.11')
+            result.current.form.setFieldValue('starterCodes', [new File(['code'], 'main.py')])
+        })
+
+        act(() => result.current.onSubmit())
+
+        await waitForPendingMutations()
+        expect(queryClient.getQueryState(queryKeys.orgCodeEnvs(org.slug))?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(historyKey)?.isInvalidated).toBe(false)
     })
 })

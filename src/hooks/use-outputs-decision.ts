@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { captureException } from '@sentry/nextjs'
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from '@/components/study/outputs-decision-section'
 import { showOutputsDecisionFailure } from '@/components/study/outputs-decision-failure-notice'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
@@ -45,7 +45,6 @@ export function useOutputsDecision({
     tabSessionId,
 }: UseOutputsDecisionOptions) {
     const router = useRouter()
-    const queryClient = useQueryClient()
     const { user } = useUser()
     // The editor's own provider answers whether the feedback reached the service; the broadcast
     // goes out on its own connection, which the action's document delete cannot take with it.
@@ -100,6 +99,7 @@ export function useOutputsDecision({
                 }),
             )
         },
+        invalidates: () => [queryKeys.reviewerOrgStudies(orgSlug)],
         onError: async (error) => {
             // Not reportMutationError: that appends a Sentry reference to copy the card specifies
             // exactly, and an action id is not something the reviewer can act on.
@@ -115,7 +115,6 @@ export function useOutputsDecision({
             showOutputsDecisionFailure({ error, isSaved: isFeedbackSaved() })
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             setConfirming(null)
 
             // Closes the review in the other tabs at once. The editor service relays this only for
@@ -132,10 +131,9 @@ export function useOutputsDecision({
                 broadcastProvider.sendStateless(JSON.stringify(event))
             }
 
-            // push() alone is a no-op since /review is already the URL, leaving the decrypted form
-            // mounted with plaintext on screen; refresh() re-runs the server components.
+            // The action's refresh() re-runs the server components in its own response, which
+            // unmounts the decrypted form so no plaintext stays on screen.
             router.push(Routes.studyReview({ orgSlug, studyId }))
-            router.refresh()
         },
     })
 
