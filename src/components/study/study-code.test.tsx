@@ -1727,6 +1727,8 @@ describe('StudyCode component', () => {
                     .execute()
                 expect(rows).toEqual([{ fileName: 'fresh.R', action: 'UPLOADED' }])
             })
+            // The upload stays pending until the file list it changed has refetched.
+            await waitForPendingMutations()
         })
 
         it('records an IDE edit against the file whose pencil was clicked', async () => {
