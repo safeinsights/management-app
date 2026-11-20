@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/common'
+import { useForm, zodResolver, type FC, useMutation } from '@/common'
 import { Button, Textarea, TextInput, Select } from '@mantine/core'
 import { updateOrgAction, insertOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
@@ -41,21 +41,18 @@ const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
 }
 
 const useUpsertOrg = (org: Org | NewOrg | undefined, onCompleteAction?: () => void) => {
-    const queryClient = useQueryClient()
-
     return useMutation({
         mutationFn: async (data: ValidatedOrg) => {
             if (org && 'id' in org) return await updateOrgAction({ id: org.id, ...data })
             return await insertOrgAction(data)
         },
+        invalidates: () => [queryKeys.orgs()],
+        // Not awaited: refetching every org's counts would hold the dialog open (OTTER-877).
+        awaitInvalidation: false,
         onError: (error: unknown) => {
             reportError(error)
         },
-        // Not awaited: refetching every org's counts would hold the dialog open (OTTER-877).
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.orgs() })
-            onCompleteAction?.()
-        },
+        onSettled: () => onCompleteAction?.(),
     })
 }
 

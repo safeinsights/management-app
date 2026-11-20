@@ -13,6 +13,7 @@ import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
 import noJobStatusWrites from './tests/no-job-status-writes.mjs'
 import noQueryKeyLiterals from './tests/no-query-key-literals.mjs'
+import noDirectInvalidation from './tests/no-direct-invalidation.mjs'
 
 // Shared with the database-handle object below: a later object setting this rule replaces the list.
 const restrictedImportPaths = [
@@ -171,6 +172,7 @@ const eslintConfig = [
                     noRawStyleValues,
                     noJobStatusWrites,
                     noQueryKeyLiterals,
+                    noDirectInvalidation,
                 },
             },
         },
@@ -262,6 +264,20 @@ const eslintConfig = [
         ignores: ['src/lib/query-keys.ts'],
         rules: {
             'custom/noQueryKeyLiterals': 'error',
+        },
+    },
+    // Writes refresh through useMutation({ invalidates }) (OTTER-974). The study events listener (added
+    // later) and the Clerk org reload after sign-in refresh without an action result.
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: [
+            'src/**/*.test.{ts,tsx}',
+            'src/hooks/query-wrappers.ts',
+            'src/hooks/use-study-events.ts',
+            'src/hooks/session.ts',
+        ],
+        rules: {
+            'custom/noDirectInvalidation': 'error',
         },
     },
     // Theme tokens over ad-hoc styling.

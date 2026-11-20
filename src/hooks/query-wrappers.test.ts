@@ -180,6 +180,34 @@ describe('Query Wrappers', () => {
             expect(onSettled).toHaveBeenCalledOnce()
         })
 
+        it('runs the caller onSuccess without waiting for the refetch when awaitInvalidation is false', async () => {
+            const order: string[] = []
+            let fetches = 0
+            const queryFn = () => {
+                fetches++
+                if (fetches === 1) return Promise.resolve('first')
+                order.push('refetch started')
+                return new Promise<string>(() => {})
+            }
+            const { result } = renderHook(
+                () => ({
+                    query: useQuery({ queryKey: key, queryFn }),
+                    mutation: useMutation<string, void>({
+                        mutationFn: () => Promise.resolve('saved'),
+                        invalidates: () => [key],
+                        awaitInvalidation: false,
+                        onSuccess: () => void order.push('onSuccess'),
+                    }),
+                }),
+                { wrapper: createTestQueryWrapper({ queryClient: createTestQueryClient() }) },
+            )
+            await waitFor(() => expect(result.current.query.data).toBe('first'))
+
+            act(() => result.current.mutation.mutate())
+            await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true))
+            expect(order).toEqual(['refetch started', 'onSuccess'])
+        })
+
         it('passes the variables and the result to invalidates', async () => {
             const invalidates = vi.fn(() => [])
             const { result } = renderHook(

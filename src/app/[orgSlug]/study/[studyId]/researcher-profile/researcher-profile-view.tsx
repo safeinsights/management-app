@@ -22,8 +22,6 @@ interface ResearcherProfileViewProps {
     orgType: OrgType
 }
 
-const noop = async () => {}
-
 export function ResearcherProfileView({ header, orgSlug, studyId, profileData, orgType }: ResearcherProfileViewProps) {
     const studyParams = { orgSlug, studyId }
     const backHref = orgType === 'lab' ? Routes.studySubmitted(studyParams) : Routes.studyReview(studyParams)
@@ -41,10 +39,10 @@ export function ResearcherProfileView({ header, orgSlug, studyId, profileData, o
                 Researcher Profile
             </Title>
 
-            <PersonalInfoSection data={profileData} refetch={noop} readOnly />
-            <EducationSection data={profileData} refetch={noop} readOnly />
-            <PositionsSection data={profileData} refetch={noop} readOnly />
-            <ResearchDetailsSection data={profileData} refetch={noop} readOnly />
+            <PersonalInfoSection data={profileData} readOnly />
+            <EducationSection data={profileData} readOnly />
+            <PositionsSection data={profileData} readOnly />
+            <ResearchDetailsSection data={profileData} readOnly />
         </PageLayout>
     )
 }

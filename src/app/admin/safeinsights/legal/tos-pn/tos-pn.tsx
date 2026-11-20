@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient, useState } from '@/common'
+import { useMutation, useQuery, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { ActionSuccessType } from '@/lib/types'
@@ -36,22 +36,17 @@ function UploadModalContents({
     onClose: () => void
 }) {
     const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
-    const queryClient = useQueryClient()
-    const handleDraftSaved = async () => {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.legal.versionsForType(doctype) })
-        setPage('review')
-    }
     const publishDraft = useMutation({
         mutationFn: (versionId: string) => publishLegalDocumentVersionAction({ versionId }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: queryKeys.legal.versionsForType(doctype) })
-            onClose()
-        },
+        invalidates: () => [queryKeys.legal.versionsForType(doctype)],
+        onSuccess: onClose,
         onError: reportMutationError('Could not publish'),
     })
 
     if (page === 'upload' || !draft) {
-        return <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={handleDraftSaved} />
+        return (
+            <DraftForm doctype={doctype} draftName={draft?.fileName ?? null} onDraftSaved={() => setPage('review')} />
+        )
     }
     if (page === 'review') {
         return (

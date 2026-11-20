@@ -6,11 +6,10 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 interface ResearchDetailsSectionProps {
     data: ResearcherProfileData | null
-    refetch: () => Promise<unknown>
     readOnly?: boolean
 }
 
-export function ResearchDetailsSection({ data, refetch, readOnly = false }: ResearchDetailsSectionProps) {
+export function ResearchDetailsSection({ data, readOnly = false }: ResearchDetailsSectionProps) {
     const {
         form,
         isEditing,
@@ -22,7 +21,7 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
         addInterest,
         removeInterest,
         submitWithDraft,
-    } = useResearchDetailsSection(data, refetch)
+    } = useResearchDetailsSection(data)
 
     const hasData = Boolean(defaults.researchInterests?.length) || Boolean(defaults.detailedPublicationsUrl)
 

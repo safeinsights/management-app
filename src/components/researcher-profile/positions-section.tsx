@@ -6,11 +6,10 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 interface PositionsSectionProps {
     data: ResearcherProfileData | null
-    refetch: () => Promise<unknown>
     readOnly?: boolean
 }
 
-export function PositionsSection({ data, refetch, readOnly = false }: PositionsSectionProps) {
+export function PositionsSection({ data, readOnly = false }: PositionsSectionProps) {
     const {
         form,
         editingIndex,
@@ -25,7 +24,7 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
         cancelEdit,
         handleSubmit,
         handleDelete,
-    } = usePositionsSection(data, refetch)
+    } = usePositionsSection(data)
 
     if (readOnly && !hasExistingPositions) return null
 

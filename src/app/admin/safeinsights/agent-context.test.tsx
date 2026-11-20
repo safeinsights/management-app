@@ -84,5 +84,8 @@ describe('AgentContext', () => {
                 .executeTakeFirst()
             expect(row?.content).toBe('fresh content')
         })
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Context saved' })),
+        )
     })
 })

@@ -20,7 +20,7 @@ const toPositionsDefaults = (data: ResearcherProfileData | null): PositionsValue
 
 const hasPositions = ({ positions }: PositionsValues) => positions.some((p) => p.affiliation || p.position)
 
-export function usePositionsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
+export function usePositionsSection(data: ResearcherProfileData | null) {
     const {
         form,
         defaults,
@@ -28,7 +28,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         setEditing: setEditingIndex,
         isPending,
         submit,
-    } = useProfileSection<PositionsValues, number>(data, refetch, {
+    } = useProfileSection<PositionsValues, number>(data, {
         schema: positionsSchema,
         toDefaults: toPositionsDefaults,
         initialEditing: (values) => (hasPositions(values) ? null : 0),

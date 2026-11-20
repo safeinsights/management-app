@@ -11,6 +11,7 @@ import {
 } from '@/server/actions/data-sources.actions'
 import { dataSourceFormSchema, createOrgDataSourceSchema, editOrgDataSourceSchema } from '@/schema/data-source'
 import { ActionSuccessType } from '@/lib/types'
+import { queryKeys } from '@/lib/query-keys'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 type FormValues = z.infer<typeof dataSourceFormSchema>
@@ -87,6 +88,7 @@ export function useDataSourceForm(dataSource: DataSource | undefined, onComplete
             }
             return createOrgDataSourceAction({ orgSlug, ...values })
         },
+        invalidates: () => [queryKeys.orgDataSources(orgSlug), queryKeys.orgCodeEnvs(orgSlug)],
         onSuccess: () => {
             showToast({
                 category: 'success',

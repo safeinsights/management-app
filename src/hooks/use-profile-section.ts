@@ -5,6 +5,7 @@ import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { useForm, useMutation, zodResolver, type ActionResponse, type z } from '@/common'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
+import { queryKeys } from '@/lib/query-keys'
 
 interface ProfileSectionConfig<V, E> {
     schema: z.ZodType<V>
@@ -19,7 +20,6 @@ interface ProfileSectionConfig<V, E> {
 // `editing` is the section's edit state: `true` for single-form sections, the row index for list sections.
 export function useProfileSection<V extends Record<string, unknown>, E = true>(
     data: ResearcherProfileData | null,
-    refetch: () => Promise<unknown>,
     { schema, toDefaults, initialEditing, save, successMessage, skipUnchanged = false }: ProfileSectionConfig<V, E>,
 ) {
     const [editing, setEditing] = useState<E | null>(null)
@@ -53,8 +53,8 @@ export function useProfileSection<V extends Record<string, unknown>, E = true>(
 
     const saveMutation = useMutation({
         mutationFn: save,
-        onSuccess: async () => {
-            await refetch()
+        invalidates: () => [queryKeys.researcherProfile()],
+        onSuccess: () => {
             setEditing(null)
             showToast({ category: 'success', title: 'Saved', message: successMessage })
         },

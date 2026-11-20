@@ -25,6 +25,7 @@ import { ActionSuccessType, type DataSourceType } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
+import { queryKeys } from '@/lib/query-keys'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
@@ -209,6 +210,12 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
             return isEditMode ? handleEdit(values as EditFormValues) : handleCreate(values as CreateFormValues)
         },
+        // Data source rows list their code envs, so they refresh too. A new env has no history yet.
+        invalidates: () => [
+            queryKeys.orgCodeEnvs(orgSlug),
+            queryKeys.orgDataSources(orgSlug),
+            ...(image ? [queryKeys.orgCodeEnvHistory(orgSlug, image.id)] : []),
+        ],
         onSuccess: () => {
             showToast({
                 category: 'success',

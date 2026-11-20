@@ -10,11 +10,10 @@ import {
     it,
     mockSessionWithTestData,
     renderHook,
-    vi,
     waitFor,
 } from '@/tests/unit.helpers'
 import { useProfileSection } from '@/hooks/use-profile-section'
-import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
+import { useResearcherProfile, type ResearcherProfileData } from '@/hooks/use-researcher-profile'
 import { updateEducationAction } from '@/server/actions/researcher-profile.actions'
 import { educationSchema, type EducationValues } from '@/schema/researcher-profile'
 
@@ -25,22 +24,24 @@ const toDefaults = (data: ResearcherProfileData | null): EducationValues => ({
     isCurrentlyPursuing: Boolean(data?.profile.educationIsCurrentlyPursuing),
 })
 
-const renderSection = (initialData: ResearcherProfileData | null, options: { skipUnchanged?: boolean } = {}) => {
-    const refetch = vi.fn(async () => undefined)
-    const hook = renderHook(
-        ({ data }) =>
-            useProfileSection(data, refetch, {
+// Renders the profile query beside the section, as the profile page does, so a save has an
+// active query to refetch.
+const renderSection = (initialData: ResearcherProfileData | null, options: { skipUnchanged?: boolean } = {}) =>
+    renderHook(
+        ({ data }) => {
+            const profile = useResearcherProfile()
+            const section = useProfileSection(data, {
                 schema: educationSchema,
                 toDefaults,
                 initialEditing: (v) => (v.educationalInstitution ? null : true),
                 save: updateEducationAction,
                 successMessage: 'Education updated',
                 ...options,
-            }),
+            })
+            return { ...section, profile }
+        },
         { initialProps: { data: initialData }, wrapper: createTestQueryWrapper() },
     )
-    return { ...hook, refetch }
-}
 
 const withInstitution = (data: ResearcherProfileData, educationInstitution: string): ResearcherProfileData => ({
     ...data,
@@ -115,9 +116,10 @@ describe('useProfileSection', () => {
         expect(result.current.isEditing).toBe(true)
     })
 
-    it('saves, refetches, closes and confirms', async () => {
+    it('saves, refetches the profile before it closes, and confirms', async () => {
         const { user, data } = await profileWithEducation()
-        const { result, refetch } = renderSection(data)
+        const { result } = renderSection(data)
+        await waitFor(() => expect(result.current.profile.data?.profile.educationInstitution).toBe('MIT'))
 
         act(() => {
             result.current.setEditing(true)
@@ -127,7 +129,7 @@ describe('useProfileSection', () => {
         })
 
         await waitFor(() => expect(result.current.isEditing).toBe(false))
-        expect(refetch).toHaveBeenCalled()
+        expect(result.current.profile.data?.profile.educationInstitution).toBe('Stanford')
         expect(notifications.show).toHaveBeenCalledWith(
             expect.objectContaining({ title: 'Saved', message: 'Education updated' }),
         )
@@ -141,7 +143,7 @@ describe('useProfileSection', () => {
 
     it('closes without saving when skipUnchanged is set and nothing changed', async () => {
         const { data } = await profileWithEducation()
-        const { result, refetch } = renderSection(data, { skipUnchanged: true })
+        const { result } = renderSection(data, { skipUnchanged: true })
 
         act(() => {
             result.current.setEditing(true)
@@ -152,6 +154,5 @@ describe('useProfileSection', () => {
 
         expect(result.current.isEditing).toBe(false)
         expect(result.current.isPending).toBe(false)
-        expect(refetch).not.toHaveBeenCalled()
     })
 })

@@ -8,7 +8,6 @@ import { educationSchema, type EducationValues } from '@/schema/researcher-profi
 
 interface EducationSectionProps {
     data: ResearcherProfileData | null
-    refetch: () => Promise<unknown>
     readOnly?: boolean
 }
 
@@ -22,8 +21,8 @@ const toEducationDefaults = (data: ResearcherProfileData | null): EducationValue
 const openWhenIncomplete = ({ educationalInstitution, degree, fieldOfStudy }: EducationValues) =>
     educationalInstitution && degree && fieldOfStudy ? null : true
 
-export function EducationSection({ data, refetch, readOnly = false }: EducationSectionProps) {
-    const { form, isEditing, setEditing, defaults, isPending, submit } = useProfileSection(data, refetch, {
+export function EducationSection({ data, readOnly = false }: EducationSectionProps) {
+    const { form, isEditing, setEditing, defaults, isPending, submit } = useProfileSection(data, {
         schema: educationSchema,
         toDefaults: toEducationDefaults,
         initialEditing: openWhenIncomplete,

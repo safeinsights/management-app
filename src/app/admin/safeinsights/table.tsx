@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@/common'
+import { useMutation, useQuery } from '@/common'
 import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import { reportMutationError } from '@/components/errors'
 import { SuretyGuard } from '@/components/surety-guard'
@@ -91,19 +91,16 @@ const AddMember: FC = () => {
 }
 
 const OrgRow: FC<{ org: Org }> = ({ org }) => {
-    const queryClient = useQueryClient()
     const router = useRouter()
     const [opened, { open, close }] = useDisclosure(false)
 
     const { mutate: deleteOrg } = useMutation({
         mutationFn: deleteOrgAction,
+        invalidates: () => [queryKeys.orgs()],
         onSuccess: () => {
             showToast({ category: 'success', title: 'Success', message: `${org.name} was deleted` })
         },
         onError: reportMutationError('Failed to delete organization'),
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.orgs() })
-        },
     })
 
     return (
