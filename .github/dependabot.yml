@@ -17,6 +17,9 @@ updates:
       schedule:
           interval: 'weekly'
           day: 'monday'
+      # A freshly published action version waits a week before Dependabot proposes it.
+      cooldown:
+          default-days: 7
       open-pull-requests-limit: 5
       groups:
           actions-minor-and-patch:

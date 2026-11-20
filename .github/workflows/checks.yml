@@ -70,15 +70,6 @@ jobs:
             - name: Build Ladle
               run: pnpm run ladle:build
 
-    # SECURITY (OTTER-545): SONAR_TOKEN grants write access to SonarCloud and is
-    # exposed to PR-controlled code. This job is safe ONLY because it does not run
-    # `pnpm install`, build scripts, or any other PR-supplied code before the Sonar step.
-    # Do NOT:
-    #   - add `pnpm install` / build / test steps to this job
-    #   - move SONAR_TOKEN to a job-level or workflow-level `env`
-    #   - reorder steps so PR code executes before the SonarQube scan
-    # If you need to run PR code alongside Sonar, split it into a separate job
-    # that does not have access to SONAR_TOKEN.
     infosec:
         timeout-minutes: 5
         runs-on: ubuntu-latest
@@ -89,8 +80,8 @@ jobs:
               with:
                   persist-credentials: false
             # Trivy downloads its binary (via setup-trivy) and vulnerability DB on
-            # every run, so it flakes the same way the SonarQube scanner did when
-            # those fetches hit a transient upstream outage. trivy-action enables
+            # every run, so it flakes when those fetches hit a transient upstream
+            # outage. trivy-action enables
             # its built-in actions/cache by default; we make that cache effective by
             # (1) pinning the binary `version` so the cache key is stable across runs
             # instead of drifting, and (2) pointing both scan steps at one shared
@@ -115,30 +106,15 @@ jobs:
                   trivyignores: '.trivyignore.yaml'
                   version: v0.70.0
                   cache-dir: ${{ github.workspace }}/.cache/trivy
-            # Cache the SonarScanner CLI and analysis cache (downloaded into
-            # SONAR_USER_HOME by the scan step below). This makes the job resilient
-            # to intermittent failures fetching the scanner from
-            # binaries.sonarsource.com: on a cache hit the binary is reused instead
-            # of re-downloaded. Keyed on the scanner version pin so a bump busts it.
-            - name: Cache SonarQube scanner
-              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: ${{ github.workspace }}/.sonar
-                  key: ${{ runner.os }}-sonar-7006c4492b2e0ee0f816d36501671557c97f5995
-                  restore-keys: |
-                      ${{ runner.os }}-sonar-
-            - name: Run SonarQube SAST Scan
-              # Dependabot-triggered runs get no repository secrets, so the scan would
-              # fail on an empty SONAR_HOST_URL. A dependency bump has no new source to
-              # scan; Trivy above still covers the bumped packages.
-              if: github.actor != 'dependabot[bot]'
-              # SONAR_TOKEN is scoped to this single step (not the job env) so that
-              # any future steps added above cannot accidentally read it. Keep it here.
-              uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
-              env:
-                  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-                  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-                  SONAR_USER_HOME: ${{ github.workspace }}/.sonar
+
+    # SAST with Semgrep CE from ci-workflows; findings at ERROR fail the job. It needs no account
+    # and no secret, so it also runs on fork and Dependabot PRs. `pull-requests: write` is only for
+    # the report comment.
+    semgrep:
+        permissions:
+            contents: read
+            pull-requests: write
+        uses: safeinsights/ci-workflows/.github/workflows/semgrep.yaml@1e3e7f0a9fd39fa71bccf5aaa7c802464071bc9c # v4.1.0
 
     # Unit tests run in their own job (parallel with e2e) AND are sharded across runners
     # via vitest --shard so the suite's wall-clock is ~total/N instead of total. Each shard
