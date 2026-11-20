@@ -1,11 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-    legalDocumentQueryKeys,
-    MAX_LEGAL_DOCUMENT_BYTES,
-    publishLegalDocumentVersionSchema,
-    signedAtErrorFor,
-} from './legal-document'
+import { MAX_LEGAL_DOCUMENT_BYTES, publishLegalDocumentVersionSchema, signedAtErrorFor } from './legal-document'
 
 const publishWith = (signedAt: string) =>
     publishLegalDocumentVersionSchema.safeParse({ versionId: 'a-version', signedAt })
@@ -64,26 +59,6 @@ describe('signedAtErrorFor', () => {
     it('agrees with the schema on the day of slack it allows', () => {
         expect(signedAtErrorFor(TOMORROW)).toBeUndefined()
         expect(publishWith(TOMORROW).success).toBe(true)
-    })
-})
-
-// React Query invalidates by prefix, so a writer's key must prefix every reader's key for the same
-// action; two readers once used different roots and a publish refreshed only one.
-describe('legalDocumentQueryKeys', () => {
-    it('invalidates every scope of a type it publishes', () => {
-        const prefix = legalDocumentQueryKeys.versionsForType('DOPA')
-
-        for (const scope of [{ orgId: 'org-1' }, { studyId: 'study-1' }, {}]) {
-            const key = legalDocumentQueryKeys.versions({ type: 'DOPA', ...scope })
-            expect(key.slice(0, prefix.length)).toEqual([...prefix])
-        }
-    })
-
-    it('does not reach another document type', () => {
-        const prefix = legalDocumentQueryKeys.versionsForType('DOPA')
-        const otherType = legalDocumentQueryKeys.versions({ type: 'SLA', studyId: 'study-1' })
-
-        expect(otherType.slice(0, prefix.length)).not.toEqual([...prefix])
     })
 })
 

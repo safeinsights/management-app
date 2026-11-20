@@ -1,6 +1,5 @@
 import { renderHook, act, createTestQueryClient, QueryClientProvider, type Mock } from '@/tests/unit.helpers'
 import type { ReactNode } from 'react'
-import { CURRENT_USER_INFO_KEY } from '@/hooks/session'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
@@ -10,6 +9,7 @@ import { Routes } from '@/lib/routes'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import posthog from 'posthog-js'
 import { useAlreadySignedIn } from './use-already-signed-in'
+import { queryKeys } from '@/lib/query-keys'
 
 const mockSignedInUser = (email: string | null = 'ada@example.com') =>
     (useUser as Mock).mockReturnValue({
@@ -257,14 +257,14 @@ describe('useAlreadySignedIn', () => {
         ;(useClerk as Mock).mockReturnValue({ signOut: vi.fn().mockResolvedValue(undefined), openUserProfile: vi.fn() })
         mockSignedInUser()
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+        queryClient.setQueryData(queryKeys.currentUserInfo('clerk-user'), { orgs: {} })
 
         const { result } = renderAlreadySignedIn(queryClient)
         await act(async () => {
             await result.current.switchAccount()
         })
 
-        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeUndefined()
+        expect(queryClient.getQueryData(queryKeys.currentUserInfo('clerk-user'))).toBeUndefined()
     })
 
     // The switch button awaits nothing, so a rejection has to be handled here or it escapes as an
@@ -326,7 +326,7 @@ describe('useAlreadySignedIn', () => {
         const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
         mockSignedInUser()
         const queryClient = createTestQueryClient()
-        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+        queryClient.setQueryData(queryKeys.currentUserInfo('clerk-user'), { orgs: {} })
 
         const { result } = renderAlreadySignedIn(queryClient)
         await act(async () => {
@@ -337,7 +337,7 @@ describe('useAlreadySignedIn', () => {
         expect(resetPosthog).not.toHaveBeenCalled()
         expect(result.current.status).toBe('signed-in')
         expect(result.current.isSwitching).toBe(false)
-        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeDefined()
+        expect(queryClient.getQueryData(queryKeys.currentUserInfo('clerk-user'))).toBeDefined()
         const [toast] = (notifications.show as Mock).mock.calls[0]
         expect(toast.title).toBe('Failed to sign out while switching accounts')
         // Exact, so a Sentry reference that offline can never be delivered would fail it.

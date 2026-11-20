@@ -7,6 +7,7 @@ import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
 import { resizableTextareaProps } from '@/components/textarea-resize'
+import { queryKeys } from '@/lib/query-keys'
 
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 type NewOrg = Omit<Org, 'id'>
@@ -52,7 +53,7 @@ const useUpsertOrg = (org: Org | NewOrg | undefined, onCompleteAction?: () => vo
         },
         // Not awaited: refetching every org's counts would hold the dialog open (OTTER-877).
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['orgs'] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.orgs() })
             onCompleteAction?.()
         },
     })

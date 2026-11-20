@@ -3,7 +3,6 @@
 import { useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
 import {
-    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     participationAgreementOrgLabels,
     type ParticipationAgreementType,
@@ -17,6 +16,7 @@ import { PdfDropzone } from '../pdf-dropzone'
 import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { SignedOnInput } from '../signed-on-input'
+import { queryKeys } from '@/lib/query-keys'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
@@ -26,12 +26,12 @@ type Signatory = { orgId: string; orgName: string; versionNumber: number | null 
 const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType; fixed?: Signatory }) => {
     const [orgId, setOrgId] = useState<string | null>(null)
     const { data: signatories = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.participationSignatories(type),
+        queryKey: queryKeys.legal.participationSignatories(type),
         queryFn: () => fetchParticipationSignatoriesAction({ type }),
         enabled: !fixed,
     })
     const { data: agreements = [] } = useQuery({
-        queryKey: legalDocumentQueryKeys.participationAgreements(type),
+        queryKey: queryKeys.legal.participationAgreements(type),
         queryFn: () => fetchParticipationAgreementsAction({ type }),
         enabled: !fixed,
     })
@@ -55,11 +55,6 @@ const useSignatoryChoice = ({ type, fixed }: { type: ParticipationAgreementType;
         signatory: fixed ?? selected,
     }
 }
-
-const invalidateKeysFor = (type: ParticipationAgreementType) => [
-    legalDocumentQueryKeys.participationAgreements(type),
-    legalDocumentQueryKeys.versionsForType(type),
-]
 
 const SignatorySelect: FC<{
     isVisible: boolean
@@ -112,7 +107,7 @@ export const UploadParticipationAgreementForm: FC<{
     const upload = useAgreementUpload({
         subject: chosen,
         scopeFor: (org: Signatory) => ({ type, orgId: org.orgId }),
-        invalidateKeys: invalidateKeysFor(type),
+        invalidateKeys: [queryKeys.legal.participationAgreements(type), queryKeys.legal.versionsForType(type)],
         onComplete: onCompleteAction,
     })
 

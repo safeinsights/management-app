@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@/common'
 import { getIdeOwnerAction } from '@/server/actions/workspaces.actions'
-
-const QUERY_KEY = 'ide-owner'
+import { queryKeys } from '@/lib/query-keys'
 
 /**
  * OTTER-693: a study's IDE locks to the first researcher who launches it. This owns that read and
@@ -13,14 +12,14 @@ export function useIdeOwnership(studyId: string) {
     const queryClient = useQueryClient()
 
     const { data: ideOwner } = useQuery({
-        queryKey: [QUERY_KEY, studyId],
+        queryKey: queryKeys.ideOwner(studyId),
         queryFn: () => getIdeOwnerAction({ studyId }),
     })
 
     // A launch is also what claims the IDE, so the owner has to be re-read or the launcher's own
     // pencil keeps rendering as if the study were still unclaimed.
     const refresh = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEY, studyId] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.ideOwner(studyId) })
     }, [queryClient, studyId])
 
     return {

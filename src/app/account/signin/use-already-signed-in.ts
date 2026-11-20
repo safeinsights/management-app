@@ -7,7 +7,6 @@ import type { Route } from 'next'
 import { reportError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { useQueryClient } from '@/common'
-import { CURRENT_USER_INFO_KEY } from '@/hooks/session'
 import { SIGN_OUT_TIMEOUT_MS } from '@/lib/constants'
 import { DOWNLOAD_PREFIX } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
@@ -16,6 +15,7 @@ import { safeRedirectUrl } from '@/lib/utils'
 import { TimeoutError, withTimeout } from '@/lib/with-timeout'
 import { notifications } from '@mantine/notifications'
 import posthog from 'posthog-js'
+import { queryKeys } from '@/lib/query-keys'
 
 export type AlreadySignedInStatus = 'loading' | 'redirecting' | 'signed-in' | 'signed-out'
 
@@ -175,7 +175,7 @@ export function useAlreadySignedIn(): UseAlreadySignedIn {
             reportError(displayableSignOutError(error), SWITCH_FAILED_TITLE)
         } finally {
             // Signing back in as the same Clerk user would otherwise show the org list cached before.
-            queryClient.removeQueries({ queryKey: CURRENT_USER_INFO_KEY })
+            queryClient.removeQueries({ queryKey: queryKeys.currentUserInfoAll() })
             setIsSwitching(false)
             setStatus('signed-out')
         }

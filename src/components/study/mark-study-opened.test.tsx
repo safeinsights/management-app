@@ -19,6 +19,7 @@ import { captureException } from '@sentry/nextjs'
 import { useParams } from 'next/navigation'
 import logger from '@/lib/logger'
 import { MarkStudyOpened } from './mark-study-opened'
+import { queryKeys } from '@/lib/query-keys'
 
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
@@ -125,16 +126,13 @@ describe('MarkStudyOpened', () => {
         const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
         const queryClient = createTestQueryClient()
-        const tableKeys = [
-            ['researcher-studies', org.slug],
-            ['user-reviewer-studies', user.id],
-        ]
-        const navKey = ['nav-unread', user.id]
+        const tableKeys = [queryKeys.researcherOrgStudies(org.slug), queryKeys.reviewerUserStudies(user.id)]
+        const navKey = queryKeys.navUnread(user.id)
         const prime = () => {
             tableKeys.forEach((key) => queryClient.setQueryData(key, []))
             queryClient.setQueryData(navKey, { myStudies: { researcher: true, reviewer: false }, orgSlugs: [] })
         }
-        const isInvalidated = (key: string[]) => queryClient.getQueryState(key)?.isInvalidated
+        const isInvalidated = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated
         prime()
         onRoute({ orgSlug: org.slug, studyId: study.id })
 

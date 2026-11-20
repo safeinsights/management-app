@@ -21,6 +21,7 @@ import type { SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { OUTPUTS_DECISION_ERRORS, OUTPUTS_FEEDBACK_MAX_CHARACTERS, type OutputsDecision } from '@/lib/outputs-review'
 import type { JobFileInfo } from '@/lib/types'
 import { submitOutputsDecisionAction } from '@/server/actions/study-job.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 type UseOutputsDecisionOptions = {
     orgSlug: string
@@ -114,7 +115,7 @@ export function useOutputsDecision({
             showOutputsDecisionFailure({ error, isSaved: isFeedbackSaved() })
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             setConfirming(null)
 
             // Closes the review in the other tabs at once. The editor service relays this only for

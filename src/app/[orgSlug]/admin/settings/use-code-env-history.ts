@@ -5,6 +5,7 @@ import { codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
 import { isActionError } from '@/lib/errors'
 import { fetchCodeEnvHistoryAction } from '@/server/actions/code-envs.actions'
 import type { CodeEnvHistoryEntry } from './code-env-history-view'
+import { queryKeys } from '@/lib/query-keys'
 
 // safeParse inside queryFn, not parse during render: audit rows outlive the code that wrote them,
 // and a throw from the hook body would take down the whole settings page.
@@ -28,7 +29,7 @@ const toEntry = (entry: {
 
 export const useCodeEnvHistory = (orgSlug: string, codeEnvId: string, enabled: boolean) => {
     const query = useQuery({
-        queryKey: ['codeEnvHistory', orgSlug, codeEnvId],
+        queryKey: queryKeys.orgCodeEnvHistory(orgSlug, codeEnvId),
         enabled,
         // Thrown rather than filtered out: a failed fetch must reach query.isError, not render as
         // "no changes recorded".

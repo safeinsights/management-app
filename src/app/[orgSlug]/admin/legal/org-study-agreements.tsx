@@ -4,7 +4,6 @@ import type { FC } from '@/common'
 import type { OrgType } from '@/database/types'
 import type { ActionSuccessType } from '@/lib/types'
 import {
-    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     studyAgreementCounterpartyLabels,
     type OrgStudyAgreementSort,
@@ -21,6 +20,7 @@ import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Routes } from '@/lib/routes'
 import { Stack, Text } from '@mantine/core'
 import type { DataTableColumn } from 'mantine-datatable'
+import { queryKeys } from '@/lib/query-keys'
 
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
@@ -59,7 +59,7 @@ export const OrgStudyAgreements: FC<{ orgSlug: string; orgType: OrgType }> = ({ 
             idAccessor="studyId"
             columns={columns}
             sorting={SORTING}
-            queryKey={(sort) => legalDocumentQueryKeys.orgStudyAgreements(orgSlug, sort)}
+            queryKey={(sort) => queryKeys.legal.orgStudyAgreements(orgSlug, sort)}
             queryFn={(sort) => fetchOrgStudyAgreementsAction({ orgSlug, sort })}
             emptyState={<NoAgreementsYet />}
         />

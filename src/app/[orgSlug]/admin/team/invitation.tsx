@@ -14,6 +14,7 @@ import { orgAdminInviteUserAction } from '@/server/actions/admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from '@/schema/invite-user'
 import { PendingUsers } from './pending-invites'
 import { InviteFormView } from './invite-form-view'
+import { queryKeys } from '@/lib/query-keys'
 
 interface InviteFormProps {
     orgSlug: string
@@ -44,7 +45,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data) {
-            queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.orgPendingUsers(orgSlug) })
             if (data?.alreadyInvited) {
                 showToast({
                     category: 'success',

@@ -8,9 +8,10 @@ import { PdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
 import { formatInstantAsUtcDay } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
-import { type GlobalLegalDocumentType, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { type GlobalLegalDocumentType, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchUserGlobalDocumentAction } from '@/server/actions/user-legal.actions'
 import { Divider, Text } from '@mantine/core'
+import { queryKeys } from '@/lib/query-keys'
 
 type GlobalDocument = NonNullable<ActionSuccessType<typeof fetchUserGlobalDocumentAction>>
 
@@ -50,7 +51,7 @@ const panelTitle = (isLoading: boolean, document: GlobalDocument | null | undefi
 export const UserGlobalDocument: FC<Props> = ({ type }) => {
     const label = legalDocumentTypeLabels[type]
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: legalDocumentQueryKeys.userGlobalDocument(type),
+        queryKey: queryKeys.legal.userGlobalDocument(type),
         queryFn: () => fetchUserGlobalDocumentAction({ type }),
     })
 

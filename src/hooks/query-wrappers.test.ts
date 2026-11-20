@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, renderHook, waitFor, createTestQueryWrapper } from '@/tests/unit.helpers'
 import { useQuery, useMutation } from './query-wrappers'
 import { type ActionResponse } from '@/lib/types'
+import { queryKeys } from '@/lib/query-keys'
 
 describe('Query Wrappers', () => {
     beforeEach(() => {
@@ -15,7 +16,7 @@ describe('Query Wrappers', () => {
             const { result } = renderHook(
                 () =>
                     useQuery({
-                        queryKey: ['test-error'],
+                        queryKey: queryKeys.study('test-error'),
                         queryFn: mockQueryFn,
                     }),
                 { wrapper: createTestQueryWrapper() },
@@ -31,7 +32,7 @@ describe('Query Wrappers', () => {
             const { result } = renderHook(
                 () =>
                     useQuery({
-                        queryKey: ['test-raw'],
+                        queryKey: queryKeys.study('test-raw'),
                         queryFn: mockQueryFn,
                     }),
                 { wrapper: createTestQueryWrapper() },
@@ -53,7 +54,7 @@ describe('Query Wrappers', () => {
             const { result } = renderHook(
                 () =>
                     useQuery({
-                        queryKey: ['test-complex'],
+                        queryKey: queryKeys.study('test-complex'),
                         queryFn: mockQueryFn,
                     }),
                 { wrapper: createTestQueryWrapper() },

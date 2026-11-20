@@ -9,6 +9,7 @@ import { useTextareaResizeFloor } from '@/hooks/use-textarea-resize-floor'
 import { Stack, Title, Button, Textarea, Text, Group, Paper } from '@mantine/core'
 import { showToast } from '@/components/toast-notifications'
 import { semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 type ContextProps = { name: ContextName; orgId: string | null }
 
@@ -25,7 +26,7 @@ function useAgentContextEditor({ name, orgId, initialContent }: ContextProps & {
         mutationFn: writeAgentContextAction,
         onSuccess: (_, variables) => {
             form.resetDirty({ content: variables.content })
-            queryClient.invalidateQueries({ queryKey: ['agentContext', name, orgId] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.agentContext(name, orgId) })
             showToast({
                 category: 'success',
                 title: 'Context saved',
@@ -69,7 +70,7 @@ function AgentContextEditor({ name, orgId, initialContent }: ContextProps & { in
 
 function AgentContextDataLoader({ name, orgId }: ContextProps) {
     const { data, isLoading, error } = useQuery({
-        queryKey: ['agentContext', name, orgId],
+        queryKey: queryKeys.agentContext(name, orgId),
         queryFn: () => getAgentContextAction({ name, orgId }),
         retry: false,
     })

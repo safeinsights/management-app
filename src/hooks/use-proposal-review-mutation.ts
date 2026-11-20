@@ -14,6 +14,7 @@ import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { useReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { submitProposalReviewAction } from '@/server/actions/proposal-review.actions'
 import { actionResult } from '@/lib/utils'
+import { queryKeys } from '@/lib/query-keys'
 
 export type SubmitReviewArgs = { decision: Decision; feedback: string }
 
@@ -51,7 +52,7 @@ export function useProposalReviewMutation({
             showToast(DECISION_NOTICES.failed)
         },
         onSuccess: (result) => {
-            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.reviewerOrgStudies(orgSlug) })
             showToast(DECISION_NOTICES.submitted)
 
             const submittedByClerkId = user?.id

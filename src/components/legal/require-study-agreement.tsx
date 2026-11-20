@@ -4,19 +4,19 @@ import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { isPermissionDenied } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-acknowledgement.actions'
 import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { StudyAgreementModal } from './study-agreement-modal'
 import { useAcknowledgementConsent } from './use-acknowledgement-consent'
+import { queryKeys } from '@/lib/query-keys'
 
 export const useStudyAgreementStatus = (studyId: string) => {
     const { session } = useSession()
 
     const { data, error, isError } = useQuery({
-        queryKey: legalDocumentQueryKeys.studyAgreement(studyId),
+        queryKey: queryKeys.studyAgreement(studyId),
         queryFn: () => fetchStudyAgreementStatusAction({ studyId }),
         enabled: Boolean(session),
         // The server guards already refuse an unacknowledged user, so a modal landing mid-session on
@@ -43,7 +43,7 @@ const usePendingStudyAgreement = ({ studyId, orgSlug }: StudyRouteProps) => {
     const versionId = status?.state === 'pending' ? status.versionId : undefined
     const consent = useAcknowledgementConsent({
         versionIds: versionId ? [versionId] : [],
-        invalidateKey: legalDocumentQueryKeys.studyAgreement(studyId),
+        invalidateKey: queryKeys.studyAgreement(studyId),
     })
 
     // Cancel goes to the org dashboard: this blocks one study, not the app.

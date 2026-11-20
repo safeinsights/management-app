@@ -9,6 +9,7 @@ import { AppModal } from '@/components/modals/app-modal'
 import { showToast } from '@/components/toast-notifications'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
+import { queryKeys } from '@/lib/query-keys'
 
 const UNTITLED_DRAFT_FALLBACK = 'Untitled Draft'
 
@@ -22,8 +23,8 @@ function useDeleteDraft(study: StudyRow) {
         onSuccess: async () => {
             setIsOpen(false)
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] }),
-                queryClient.invalidateQueries({ queryKey: ['researcher-studies'] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.researcherUserStudies() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() }),
             ])
             showToast({
                 category: 'success',

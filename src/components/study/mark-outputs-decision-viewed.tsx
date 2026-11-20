@@ -3,7 +3,7 @@
 import { type FC, useEffect, useRef } from 'react'
 import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { RESEARCHER_STUDIES_QUERY_KEYS } from '@/components/dashboard/studies-table'
+import { queryKeys } from '@/lib/query-keys'
 import { actionResult } from '@/lib/utils'
 import { markOutputsDecisionViewedAction } from '@/server/actions/study-job.actions'
 
@@ -17,8 +17,8 @@ export function useMarkOutputsDecisionViewed(studyId: string) {
         // would land on the badge this write just superseded.
         onSuccess: async () => {
             await Promise.all(
-                Object.values(RESEARCHER_STUDIES_QUERY_KEYS).map((key) =>
-                    queryClient.invalidateQueries({ queryKey: [key] }),
+                [queryKeys.researcherOrgStudiesAll(), queryKeys.researcherUserStudies()].map((queryKey) =>
+                    queryClient.invalidateQueries({ queryKey }),
                 ),
             )
         },

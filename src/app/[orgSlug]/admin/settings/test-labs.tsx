@@ -19,6 +19,7 @@ import {
     undesignateTestLabAction,
 } from '@/server/actions/test-labs.actions'
 import { TestLabRowView, TestLabsEmptyView, TestLabsTableView, TestLabsView } from './test-labs-view'
+import { queryKeys } from '@/lib/query-keys'
 
 type TestLab = ActionSuccessType<typeof fetchOrgTestLabsAction>[number]
 
@@ -72,14 +73,14 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
 
     // The action refuses a lab org by design; without this the query still fires and retries.
     const designated = useQuery({
-        queryKey: ['orgTestLabs', orgSlug],
+        queryKey: queryKeys.orgTestLabs(orgSlug),
         queryFn: async () => await fetchOrgTestLabsAction({ orgSlug }),
         enabled: isVisible,
     })
 
     // Only while the modal is open: the full lab catalog is of no use to the section itself.
     const eligible = useQuery({
-        queryKey: ['eligibleTestLabs', orgSlug],
+        queryKey: queryKeys.orgEligibleTestLabs(orgSlug),
         queryFn: async () => await fetchEligibleTestLabsAction({ orgSlug }),
         enabled: isModalOpen,
     })
@@ -87,8 +88,8 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
     const designate = useMutation({
         mutationFn: async (researchLabIds: string[]) => await designateTestLabsAction({ orgSlug, researchLabIds }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['orgTestLabs', orgSlug] })
-            await queryClient.invalidateQueries({ queryKey: ['eligibleTestLabs', orgSlug] })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orgTestLabs(orgSlug) })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orgEligibleTestLabs(orgSlug) })
             showToast({ category: 'success', title: 'Success', message: 'Test labs were added successfully' })
             closeModal()
         },
@@ -101,8 +102,8 @@ const useTestLabs = (orgSlug: string, isVisible: boolean) => {
         onError: reportMutationError('Failed to drop test lab'),
         // On failure too, so a row another admin already dropped leaves the table.
         onSettled: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['orgTestLabs', orgSlug] })
-            await queryClient.invalidateQueries({ queryKey: ['eligibleTestLabs', orgSlug] })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orgTestLabs(orgSlug) })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.orgEligibleTestLabs(orgSlug) })
         },
     })
 

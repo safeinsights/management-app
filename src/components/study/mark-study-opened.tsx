@@ -4,8 +4,7 @@ import { type FC, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { captureException } from '@sentry/nextjs'
 import { useMutation, useQueryClient } from '@/common'
-import { STUDIES_TABLE_QUERY_KEYS } from '@/components/dashboard/studies-table'
-import { NAV_UNREAD_QUERY_KEY } from '@/lib/nav/side-nav'
+import { queryKeys } from '@/lib/query-keys'
 import { isPermissionDenied } from '@/lib/errors'
 import { markStudyOpenedAction } from '@/server/actions/study.actions'
 
@@ -21,9 +20,8 @@ function useMarkStudyOpened(studyId: string | undefined) {
         // The dashboard refetches on mount and can read the rows before the leave stamp lands. Only
         // entering refetches the nav: a dashboard reached on leaving patches its own dot.
         onSuccess: async (_, { isEnter }) => {
-            const tableKeys = STUDIES_TABLE_QUERY_KEYS.map((key) => [key])
             await Promise.all(
-                [...tableKeys, ...(isEnter ? [NAV_UNREAD_QUERY_KEY] : [])].map((queryKey) =>
+                [queryKeys.studyTables(), ...(isEnter ? [queryKeys.navUnreadAll()] : [])].map((queryKey) =>
                     queryClient.invalidateQueries({ queryKey }),
                 ),
             )

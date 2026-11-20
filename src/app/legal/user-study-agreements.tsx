@@ -2,12 +2,13 @@
 
 import type { FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels, type UserStudyAgreementSort } from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type UserStudyAgreementSort } from '@/schema/legal-document'
 import { fetchUserStudyAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import { agreementDateColumns, AgreementsPanel, studyTitleColumn } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
 import { Routes } from '@/lib/routes'
+import { queryKeys } from '@/lib/query-keys'
 
 type StudyAgreement = ActionSuccessType<typeof fetchUserStudyAgreementsAction>[number]
 
@@ -38,7 +39,7 @@ export const UserStudyAgreements: FC = () => (
         idAccessor="studyId"
         columns={columns}
         sorting={SORTING}
-        queryKey={legalDocumentQueryKeys.userStudyAgreements}
+        queryKey={queryKeys.legal.userStudyAgreements}
         queryFn={(sort) => fetchUserStudyAgreementsAction({ sort })}
     />
 )

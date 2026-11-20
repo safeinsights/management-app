@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { getMainCodeFileAction, setMainCodeFileAction } from '@/server/actions/workspace-files.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 interface UseMainFileOptions {
     studyId: string
@@ -21,7 +22,7 @@ export function useMainFile({ studyId, fileNames, previousMainFile, onSaved }: U
     const [override, setOverride] = useState<string | null>(null)
 
     const { data: savedMainFile } = useQuery({
-        queryKey: ['main-code-file', studyId],
+        queryKey: queryKeys.mainCodeFile(studyId),
         queryFn: () => getMainCodeFileAction({ studyId }),
     })
 
