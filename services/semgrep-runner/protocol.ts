@@ -43,6 +43,14 @@ export const RULESET_TESTS_DIR = 'tests'
 export const rulesetRulesPrefix = (env: RulesetEnv, version: string) =>
     `rulesets/${env}/${version}/${RULESET_RULES_DIR}/`
 
+export const RULESET_MANIFEST_FILE = 'version.json'
+// Inside tests/: research code that no ERROR or WARNING rule may fire on.
+export const RULESET_CORPUS_DIR = 'corpus'
+export const LEGITIMATE_CODE_MARKER = 'Legitimate research code'
+
+export const rulesetVersionSchema = z.string().regex(/^v[1-9][0-9]{0,8}$/)
+export const rulesetVersionPrefix = (env: RulesetEnv, version: string) => `rulesets/${env}/${version}/`
+
 // Python's Path.suffixes, which Semgrep's rule file test uses.
 function pathSuffixes(file: string): string[] {
     const name = file.slice(file.lastIndexOf('/') + 1)
@@ -85,6 +93,36 @@ export function distinctPaths(items: { path: string }[]): boolean {
 
 const relativePath = z.string().min(1).max(512).refine(isSafeRelativePath, 'unsafe path')
 
+// rules/<a rule file> or tests/<any safe path>: nothing else belongs in a ruleset version.
+export function isRulesetFilePath(path: string): boolean {
+    if (!isSafeRelativePath(path)) return false
+    if (path.startsWith(`${RULESET_RULES_DIR}/`)) return isRuleFile(path.slice(RULESET_RULES_DIR.length + 1))
+    return path.startsWith(`${RULESET_TESTS_DIR}/`) && path.length > RULESET_TESTS_DIR.length + 1
+}
+
+export const rulesetFilePathSchema = z.string().min(1).max(512).refine(isRulesetFilePath, 'not a ruleset file path')
+
+export const hasRuleFile = (paths: string[]) => paths.some((path) => path.startsWith(`${RULESET_RULES_DIR}/`))
+
+export const rulesetPersonSchema = z.object({ userId: z.uuid().nullable(), name: z.string().min(1).max(200) })
+export type RulesetPerson = z.infer<typeof rulesetPersonSchema>
+
+export const rulesetManifestSchema = z.object({
+    schemaVersion: z.literal(1),
+    version: rulesetVersionSchema,
+    env: z.enum(RULESET_ENVS),
+    createdAt: z.iso.datetime(),
+    author: rulesetPersonSchema,
+    changeNote: z.string().min(1).max(2000),
+    source: z.object({ env: z.enum(RULESET_ENVS), version: rulesetVersionSchema }).nullable(),
+    files: z
+        .array(rulesetFilePathSchema)
+        .min(1)
+        .refine((files) => distinctPaths(files.map((path) => ({ path }))), 'duplicate or conflicting paths')
+        .refine(hasRuleFile, 'no rule file'),
+})
+export type RulesetManifest = z.infer<typeof rulesetManifestSchema>
+
 export const testFileSchema = z.object({ path: relativePath, content: z.string() })
 
 const fileList = <T extends z.ZodType<{ path: string }>>(item: T) =>
@@ -104,10 +142,12 @@ export const runnerRequestSchema = z.discriminatedUnion('mode', [
         submission: z.object({ bucket: z.string().min(1), prefix: z.string().min(1) }),
         rulesetVersion: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/),
     }),
+    z.object({ mode: z.literal('gate'), rulesetVersion: rulesetVersionSchema }),
 ])
 export type RunnerRequest = z.infer<typeof runnerRequestSchema>
 export type TestRequest = Extract<RunnerRequest, { mode: 'test' }>
 export type ScanRequest = Extract<RunnerRequest, { mode: 'scan' }>
+export type GateRequest = Extract<RunnerRequest, { mode: 'gate' }>
 
 // Follows what Semgrep's Python fixture test prints, which differs from its .atd interface for errors.
 const testMatchSchema = z.looseObject({
@@ -147,6 +187,7 @@ export type RunnerError =
     | 'workspace-failed'
     | 'semgrep-failed'
     | 'deadline'
+    | 'manifest-invalid'
 
 export type ScanResponse = {
     mode: 'scan'
@@ -177,4 +218,29 @@ export type TestResponse = {
     error?: RunnerError
 }
 
-export type RunnerResponse = ScanResponse | TestResponse
+// The caps keep a gate response far below the 6 MB limit of a synchronous Lambda response.
+export const GATE_CHECKS = ['integrity', 'rules', 'fixtures', 'coverage'] as const
+export const GATE_FAILURES_CAP = 100
+export const GATE_FAILURE_MAX_CHARS = 2000
+
+export const gateCheckSchema = z.object({
+    name: z.enum(GATE_CHECKS),
+    passed: z.boolean(),
+    // Not run, because the integrity check failed.
+    skipped: z.literal(true).optional(),
+    failures: z.array(z.string()),
+    failuresOmitted: z.number().int().positive().optional(),
+})
+export type GateCheck = z.infer<typeof gateCheckSchema>
+
+export const gateResponseSchema = z.object({
+    mode: z.literal('gate'),
+    rulesetVersion: z.string(),
+    // True only when every check passed and error is unset.
+    passed: z.boolean(),
+    checks: z.array(gateCheckSchema),
+    error: z.string().optional(),
+})
+export type GateResponse = z.infer<typeof gateResponseSchema>
+
+export type RunnerResponse = ScanResponse | TestResponse | GateResponse

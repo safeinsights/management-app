@@ -1,5 +1,12 @@
 import { describe, expect, it } from '../../tests/unit.helpers'
-import { isRuleFile, rulesetRulesPrefix, runnerRequestSchema } from './protocol.ts'
+import {
+    gateResponseSchema,
+    isRuleFile,
+    rulesetManifestSchema,
+    rulesetRulesPrefix,
+    rulesetVersionPrefix,
+    runnerRequestSchema,
+} from './protocol.ts'
 
 const rule = { path: 'secrets.yaml', content: 'rules: []' }
 const file = { path: 'secrets.r', content: 'x <- 1' }
@@ -91,5 +98,92 @@ describe('isRuleFile', () => {
 describe('rulesetRulesPrefix', () => {
     it('keeps every rules bucket key inside the environment prefix', () => {
         expect(rulesetRulesPrefix('staging', 'v3')).toBe('rulesets/staging/v3/rules/')
+    })
+})
+
+describe('rulesetVersionPrefix', () => {
+    it('keeps the version inside the environment prefix', () => {
+        expect(rulesetVersionPrefix('dev', 'v12')).toBe('rulesets/dev/v12/')
+    })
+})
+
+describe('rulesetManifestSchema', () => {
+    const manifest = {
+        schemaVersion: 1,
+        version: 'v3',
+        env: 'staging',
+        createdAt: '2026-11-20T10:00:00.000Z',
+        author: { userId: '0195f1a4-6b52-7a3c-9e21-3f4d5c6b7a80', name: 'Ada Admin' },
+        changeNote: 'tighten the secrets rule',
+        source: { env: 'dev', version: 'v5' },
+        files: ['rules/secrets.yaml', 'rules/nested/r.yml', 'tests/secrets.r', 'tests/corpus/a/analysis.R'],
+    }
+    const parses = (overrides: Record<string, unknown>) =>
+        rulesetManifestSchema.safeParse({ ...manifest, ...overrides }).success
+
+    it('accepts a manifest, also without a source and with no user id', () => {
+        expect(parses({})).toBe(true)
+        expect(parses({ source: null, author: { userId: null, name: 'seed' } })).toBe(true)
+    })
+
+    it.each(['v0', 'v01', '1', 'v1.2', 'v1234567890'])('rejects the version %j', (version) => {
+        expect(parses({ version })).toBe(false)
+        expect(parses({ source: { env: 'dev', version } })).toBe(false)
+    })
+
+    it.each([
+        ['a rule path Semgrep would not load', 'rules/secrets.test.yaml'],
+        ['a path outside rules/ and tests/', 'docs/readme.md'],
+        ['tests/ alone', 'tests/'],
+        ['a .. segment', 'tests/../rules/x.yaml'],
+        ['an empty segment', 'tests//a.r'],
+    ])('rejects %s', (_, path) => {
+        expect(parses({ files: ['rules/secrets.yaml', path] })).toBe(false)
+    })
+
+    it('rejects duplicate paths, no rule file, an empty author name and an unknown environment', () => {
+        expect(parses({ files: ['rules/secrets.yaml', 'rules/secrets.yaml'] })).toBe(false)
+        expect(parses({ files: ['tests/secrets.r'] })).toBe(false)
+        expect(parses({ author: { userId: null, name: '' } })).toBe(false)
+        expect(parses({ env: 'qa' })).toBe(false)
+    })
+})
+
+describe('gate protocol', () => {
+    it('parses the gate request arm and refuses a version that is not v<N>', () => {
+        expect(runnerRequestSchema.safeParse({ mode: 'gate', rulesetVersion: 'v7' }).success).toBe(true)
+        expect(runnerRequestSchema.safeParse({ mode: 'gate', rulesetVersion: 'test-1' }).success).toBe(false)
+    })
+
+    it('accepts a passed and a failed gate response', () => {
+        const check = (name: string, passed: boolean) => ({ name, passed, failures: passed ? [] : ['x'] })
+        expect(
+            gateResponseSchema.safeParse({
+                mode: 'gate',
+                rulesetVersion: 'v1',
+                passed: true,
+                checks: ['integrity', 'rules', 'fixtures', 'coverage'].map((name) => check(name, true)),
+            }).success,
+        ).toBe(true)
+        expect(
+            gateResponseSchema.safeParse({
+                mode: 'gate',
+                rulesetVersion: 'v1',
+                passed: false,
+                checks: [
+                    { ...check('integrity', false), failuresOmitted: 3 },
+                    { name: 'rules', passed: false, skipped: true, failures: [] },
+                ],
+            }).success,
+        ).toBe(true)
+        expect(
+            gateResponseSchema.safeParse({
+                mode: 'gate',
+                rulesetVersion: 'v1',
+                passed: false,
+                checks: [],
+                error: 'manifest-invalid',
+            }).success,
+        ).toBe(true)
     })
 })
