@@ -235,7 +235,7 @@ const sortDirection = z.enum(['asc', 'desc'])
 // One enum per table rather than a shared union: an accessor a query does not select would
 // otherwise reach its ORDER BY and throw.
 export const orgStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle']),
+    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt']),
     direction: sortDirection,
 })
 

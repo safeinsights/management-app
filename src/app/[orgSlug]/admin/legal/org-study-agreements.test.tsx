@@ -12,7 +12,6 @@ import {
     tableHeader,
     testUploadFile,
 } from '@/tests/unit.helpers'
-import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import {
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
@@ -58,25 +57,6 @@ const publishAgreement = async (studyId: string, signedAt: string) => {
     return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
 }
 
-// Postgres now() is the transaction clock, so an ack written here cannot carry a chosen date.
-const setAckedAt = (versionId: string, ackedAt: Date) =>
-    db
-        .updateTable('legalDocumentAcknowledgement')
-        .set({ ackedAt })
-        .where('legalDocumentVersionId', '=', versionId)
-        .execute()
-
-// A member of `orgSlug`, not the admin who later reads the table: the column is about the org.
-const acknowledgeAs = async (
-    { slug, type }: { slug: string; type: 'enclave' | 'lab' },
-    versionId: string,
-    ackedAt: Date,
-) => {
-    await mockSessionWithTestData({ orgSlug: slug, orgType: type })
-    actionResult(await acknowledgeLegalDocumentAction({ versionId }))
-    await setAckedAt(versionId, ackedAt)
-}
-
 const rowTitles = () =>
     screen
         .getAllByRole('row')
@@ -91,7 +71,7 @@ const rowFor = async (title: string) => {
 }
 
 describe('OrgStudyAgreements', () => {
-    it('shows an em dash for Effective on and View while nothing is signed', async () => {
+    it('shows Not ready for Effective on and an em dash for View while nothing is signed', async () => {
         const title = `Awaiting ${faker.string.alpha(6)}`
         const { dataPartner, researchLab } = await seedDataPartnerWithStudy(title)
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
@@ -101,8 +81,8 @@ describe('OrgStudyAgreements', () => {
         const row = await rowFor(title)
         expect(within(row).getByText(researchLab.name)).toBeDefined()
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
-        // Effective on, Acknowledged on and View.
-        expect(within(row).getAllByText(EMPTY_CELL)).toHaveLength(3)
+        expect(within(row).getByText('Not ready')).toBeDefined()
+        expect(within(row).getAllByText(EMPTY_CELL)).toHaveLength(1)
     })
 
     it('links a Data Partner admin to the review page of the study', async () => {
@@ -142,8 +122,8 @@ describe('OrgStudyAgreements', () => {
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
 
         const row = await rowFor(title)
-        // Both date columns, since neither an effective nor an acknowledged date can exist.
-        expect(within(row).getAllByText('Test study')).toHaveLength(2)
+        expect(within(row).getByText('Test study')).toBeDefined()
+        expect(within(row).queryByText('Not ready')).toBeNull()
         expect(within(row).queryByRole('link', { name: /PDF/ })).toBeNull()
     })
 
@@ -196,7 +176,7 @@ describe('OrgStudyAgreements', () => {
         const insertStudy = (title: string) =>
             insertTestStudyOnly({ org: dataPartner, submittedByOrg: researchLab, title, withStudyAgreement: false })
         const { study: older } = await insertStudy(olderTitle)
-        // Only the older study is signed, so it would lead if the table still sorted by Effective on.
+        // Only the older study is signed, so it would lead if the table defaulted to Effective on.
         await publishAgreement(older.id, '2026-02-02')
         // Inserted second, so its v7 id sorts after the first's.
         await insertStudy(newerTitle)
@@ -212,7 +192,7 @@ describe('OrgStudyAgreements', () => {
         await waitFor(() => expect(rowTitles()[0]).toContain(olderTitle))
     })
 
-    it('sorts by Study ID and Study title only', async () => {
+    it('sorts by Study ID, Study title and Effective on only', async () => {
         const { dataPartner } = await seedDataPartnerWithStudy(`Awaiting ${faker.string.alpha(6)}`)
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
@@ -221,34 +201,65 @@ describe('OrgStudyAgreements', () => {
 
         expect(isSortableHeader('Study ID')).toBe(true)
         expect(isSortableHeader('Study title')).toBe(true)
-        expect(isSortableHeader('Effective on')).toBe(false)
-        expect(isSortableHeader('Acknowledged on')).toBe(false)
+        expect(isSortableHeader('Effective on')).toBe(true)
+        expect(isSortableHeader('From')).toBe(false)
     })
 
-    it('shows when the viewing org acknowledged the agreement', async () => {
-        const title = `Acked ${faker.string.alpha(6)}`
+    it('has no Acknowledged on column', async () => {
+        const title = `Signed ${faker.string.alpha(6)}`
         const { study, dataPartner } = await seedDataPartnerWithStudy(title)
-        const version = await publishAgreement(study.id, '2026-06-17')
-        await acknowledgeAs(dataPartner, version.id, new Date('2026-06-20T12:00:00Z'))
+        await publishAgreement(study.id, '2026-06-17')
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
 
-        const row = await rowFor(title)
-        expect(within(row).getByText('Jun 20, 2026')).toBeDefined()
+        await rowFor(title)
+        expect(screen.queryByText('Acknowledged on')).toBeNull()
     })
 
-    it('leaves Acknowledged on empty when only the counterparty has acknowledged', async () => {
-        const title = `Theirs ${faker.string.alpha(6)}`
-        const { study, dataPartner, researchLab } = await seedDataPartnerWithStudy(title)
-        const version = await publishAgreement(study.id, '2026-06-17')
-        await acknowledgeAs(researchLab, version.id, new Date('2026-06-20T12:00:00Z'))
+    it('orders by effective date on an Effective on click, keeping an unsigned study last', async () => {
+        const { dataPartner, researchLab } = await insertPartyOrgs()
+        const insertStudy = async (title: string) =>
+            (
+                await insertTestStudyOnly({
+                    org: dataPartner,
+                    submittedByOrg: researchLab,
+                    title,
+                    withStudyAgreement: false,
+                })
+            ).study
+        const earlier = `Earlier ${faker.string.alpha(6)}`
+        const later = `Later ${faker.string.alpha(6)}`
+        const unsigned = `Unsigned ${faker.string.alpha(6)}`
+        await publishAgreement((await insertStudy(earlier)).id, '2026-02-02')
+        await publishAgreement((await insertStudy(later)).id, '2026-05-05')
+        await insertStudy(unsigned)
+        await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
+        const expectRowOrder = (titles: string[]) =>
+            waitFor(() => titles.forEach((title, index) => expect(rowTitles()[index]).toContain(title)))
+
+        renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
+        await rowFor(unsigned)
+
+        // A newly clicked column keeps the direction in force, and the default sort is descending.
+        fireEvent.click(tableHeader('Effective on'))
+        await expectRowOrder([later, earlier, unsigned])
+
+        fireEvent.click(tableHeader('Effective on'))
+        await expectRowOrder([earlier, later, unsigned])
+    })
+
+    it('clamps the Study ID to its column and shows it in full in a tooltip', async () => {
+        const { study, dataPartner } = await seedDataPartnerWithStudy(`Clamped ${faker.string.alpha(6)}`)
         await mockSessionWithTestData({ orgSlug: dataPartner.slug, orgType: 'enclave', isAdmin: true })
 
         renderWithProviders(<OrgStudyAgreements orgSlug={dataPartner.slug} orgType="enclave" />)
 
-        const row = await rowFor(title)
-        expect(within(row).queryByText('Jun 20, 2026')).toBeNull()
-        expect(within(row).getAllByText(EMPTY_CELL)).toHaveLength(1)
+        await waitFor(() => expect(screen.getByText(study.id)).toBeDefined())
+        const idText = screen.getByText(study.id)
+        expect(idText.closest('td')).toHaveStyle({ maxWidth: '0' })
+
+        fireEvent.mouseEnter(idText)
+        await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent(study.id))
     })
 })

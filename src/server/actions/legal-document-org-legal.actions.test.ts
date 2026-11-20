@@ -148,14 +148,53 @@ describe('fetchOrgStudyAgreementsAction', () => {
         expect(ids).toEqual([...ids].sort().reverse())
     })
 
-    it('rejects a sort on a date column', async () => {
+    it('sorts by effective date in both directions, unsigned then test studies last', async () => {
+        const { dataPartner, researchLab } = await insertPartyOrgs()
+        const insertStudy = async (title: string, isTestStudy = false) =>
+            (
+                await insertTestStudyOnly({
+                    org: dataPartner,
+                    submittedByOrg: researchLab,
+                    title,
+                    isTestStudy,
+                    status: 'APPROVED',
+                    withStudyAgreement: false,
+                })
+            ).study
+        // Inserted out of display order, so the id tie-break alone cannot produce it.
+        const signedTest = await insertStudy('Signed test study', true)
+        await insertStudy('Unsigned test study', true)
+        await insertStudy('Unsigned')
+        const later = await insertStudy('Signed later')
+        const earlier = await insertStudy('Signed earlier')
+        // Its cell reads "Test study" whatever was signed, so it sorts with the test studies.
+        await publishAgreementAsSiAdmin({ studyId: signedTest.id }, '2026-03-03')
+        await publishAgreementAsSiAdmin({ studyId: later.id }, '2026-05-05')
+        await publishAgreementAsSiAdmin({ studyId: earlier.id }, '2026-01-01')
+        await asOrgAdmin(dataPartner.slug, 'enclave')
+
+        const titlesSortedBy = async (direction: 'asc' | 'desc') =>
+            actionResult(
+                await fetchOrgStudyAgreementsAction({
+                    orgSlug: dataPartner.slug,
+                    sort: { columnAccessor: 'signedAt', direction },
+                }),
+            ).map((row) => row.studyTitle)
+
+        // Newest first among the test studies, which all show the same cell.
+        const trailing = ['Unsigned', 'Unsigned test study', 'Signed test study']
+        expect(await titlesSortedBy('asc')).toEqual(['Signed earlier', 'Signed later', ...trailing])
+        expect(await titlesSortedBy('desc')).toEqual(['Signed later', 'Signed earlier', ...trailing])
+    })
+
+    it('rejects a sort on a column the table does not sort', async () => {
         const { dataPartner } = await insertStudyWithDistinctOrgs()
         await asOrgAdmin(dataPartner.slug, 'enclave')
 
         const result = await fetchOrgStudyAgreementsAction({
             orgSlug: dataPartner.slug,
             // @ts-expect-error the schema rejects it; this proves the runtime does too.
-            sort: { columnAccessor: 'signedAt', direction: 'desc' },
+            sort: { columnAccessor: 'counterpartyName', direction: 'desc' },
         })
 
         expect(result).toEqual({ error: expect.anything() })

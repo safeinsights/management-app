@@ -11,10 +11,11 @@ import {
 } from '@/schema/legal-document'
 import { fetchOrgStudyAgreementsAction } from '@/server/actions/org-legal.actions'
 import {
-    ackedAtColumn,
     AgreementsPanel,
+    clampedColumn,
     signedAtColumn,
     studyTitleColumn,
+    TruncatedNameCell,
     versionColumn,
 } from '@/components/legal/agreements-table'
 import { testStudyDateCell } from '@/components/study/test-study-label'
@@ -25,20 +26,31 @@ import type { DataTableColumn } from 'mantine-datatable'
 type StudyAgreement = ActionSuccessType<typeof fetchOrgStudyAgreementsAction>[number]
 
 const SORTING = {
-    sortableColumns: ['studyId', 'studyTitle'] as const,
+    sortableColumns: ['studyId', 'studyTitle', 'signedAt'] as const,
     // Study ids are v7 uuids, so descending puts the newest study first.
     defaultSort: { columnAccessor: 'studyId', direction: 'desc' } satisfies OrgStudyAgreementSort,
 }
 
 const studyRoutes: Record<OrgType, typeof Routes.studyView> = { lab: Routes.studyView, enclave: Routes.studyReview }
 
+// "Test study" wins over "Not ready": a test study needs no agreement, so it is not waiting on one.
+const effectiveOnExemption = (row: StudyAgreement) => testStudyDateCell(row) ?? (row.signedAt ? null : 'Not ready')
+
 // The counterparty column is unsortable: it names the same org on most rows.
 const agreementColumns = (orgSlug: string, orgType: OrgType): DataTableColumn<StudyAgreement>[] => [
-    { accessor: 'studyId', title: 'Study ID', sortable: true },
+    clampedColumn(
+        '30%',
+        {
+            accessor: 'studyId',
+            title: 'Study ID',
+            sortable: true,
+            render: ({ studyId }) => <TruncatedNameCell name={studyId} />,
+        },
+        { minWidth: 160 },
+    ),
     studyTitleColumn<StudyAgreement>(({ studyId }) => studyRoutes[orgType]({ orgSlug, studyId })),
     { accessor: 'counterpartyName', title: studyAgreementCounterpartyLabels[orgType] },
-    signedAtColumn<StudyAgreement>(testStudyDateCell),
-    ackedAtColumn<StudyAgreement>(testStudyDateCell),
+    { ...signedAtColumn<StudyAgreement>(effectiveOnExemption), sortable: true },
     versionColumn<StudyAgreement>(),
 ]
 
