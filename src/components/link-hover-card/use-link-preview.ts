@@ -3,6 +3,7 @@
 import { useQuery } from '@/common'
 import { resolveInternalLinkAction } from '@/server/actions/link-preview.actions'
 import { currentOrigin, internalPathname, type LinkPreview } from './link-preview'
+import { queryKeys } from '@/lib/query-keys'
 
 const PREVIEW_STALE_MS = 5 * 60 * 1000
 
@@ -15,7 +16,7 @@ export function useLinkPreview(href: string): LinkPreview {
     const pathname = internalPathname(href, currentOrigin())
 
     const query = useQuery({
-        queryKey: ['link-preview', pathname],
+        queryKey: queryKeys.linkPreview(pathname),
         queryFn: () => resolveInternalLinkAction({ pathname: pathname! }),
         enabled: pathname !== null,
         staleTime: PREVIEW_STALE_MS,

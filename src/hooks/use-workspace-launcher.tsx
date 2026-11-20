@@ -6,6 +6,7 @@ import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWorkspaceBuildStatus } from './use-workspace-build-status'
+import { queryKeys } from '@/lib/query-keys'
 
 const LAUNCH_FAILED_MESSAGE = 'Failed to launch IDE'
 
@@ -75,8 +76,6 @@ interface UseWorkspaceLauncherReturn {
     agentLog: string
 }
 
-const STATUS_QUERY_KEY = 'workspace-build-status'
-
 export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const queryClient = useQueryClient()
 
@@ -133,7 +132,7 @@ export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLaunche
         reportedErrorRef.current = null
         reportedFailureRef.current = false
         setErrorEventId(null)
-        queryClient.removeQueries({ queryKey: [STATUS_QUERY_KEY, studyId] })
+        queryClient.removeQueries({ queryKey: queryKeys.workspaceBuildStatus(studyId) })
     }, [ensure, queryClient, studyId])
 
     const launchWorkspace = useCallback(

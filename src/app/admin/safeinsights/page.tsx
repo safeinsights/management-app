@@ -7,19 +7,20 @@ import { AgentContext } from './agent-context'
 import { getAgentContextAction } from '@/server/actions/agent-context.actions'
 import { CONTEXT_NAMES } from '@/lib/agent-context'
 import { Stack } from '@mantine/core'
+import { queryKeys } from '@/lib/query-keys'
 
 export const metadata: Metadata = { title: 'Organizations' }
 
 export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
     await queryClient.prefetchQuery({
-        queryKey: ['orgs'],
+        queryKey: queryKeys.orgs(),
         queryFn: fetchAdminOrgsWithStatsAction,
     })
     await Promise.all(
         CONTEXT_NAMES.map((name) => {
             return queryClient.prefetchQuery({
-                queryKey: ['agentContext', name, null],
+                queryKey: queryKeys.agentContext(name, null),
                 queryFn: () => getAgentContextAction({ name: name, orgId: null }),
                 retry: false,
             })

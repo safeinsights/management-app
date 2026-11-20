@@ -27,12 +27,12 @@ import { Refresher } from '@/components/refresher'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType, DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
-import { orgDataSourcesQueryKey } from '@/hooks/use-org-data-sources'
 import { CodeViewer, FileViewer } from '@/components/file-viewers'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
 import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
@@ -43,8 +43,8 @@ const NO_CODE_ENVS: CodeEnv[] = []
 const useInvalidateCodeEnvs = (orgSlug: string) => {
     const queryClient = useQueryClient()
     return () => {
-        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
-        queryClient.invalidateQueries({ queryKey: orgDataSourcesQueryKey(orgSlug) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.orgCodeEnvs(orgSlug) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.orgDataSources(orgSlug) })
     }
 }
 
@@ -193,7 +193,7 @@ const CodeEnvRow: React.FC<{
     const handleEditComplete = () => {
         closeEditModal()
         invalidateCodeEnvs()
-        queryClient.invalidateQueries({ queryKey: ['codeEnvHistory', orgSlug, image.id] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.orgCodeEnvHistory(orgSlug, image.id) })
     }
 
     const starterCodeFileNames = (image.starterCodeFileNames ?? []) as string[]
@@ -363,7 +363,7 @@ export const CodeEnvs: React.FC = () => {
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const query = useQuery({
-        queryKey: ['orgCodeEnvs', orgSlug],
+        queryKey: queryKeys.orgCodeEnvs(orgSlug),
         queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
     })
 

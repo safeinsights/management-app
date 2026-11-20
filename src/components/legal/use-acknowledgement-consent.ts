@@ -2,9 +2,9 @@
 
 import { useMutation, useQueryClient, type ActionResponse } from '@/common'
 import { errorToString, isActionError } from '@/lib/errors'
-import { agreementTableQueryKeyPrefixes } from '@/schema/legal-document'
 import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import { useState } from 'react'
+import { queryKeys } from '@/lib/query-keys'
 
 type Props = {
     versionIds: string[]
@@ -41,7 +41,9 @@ export const useAcknowledgementConsent = ({ versionIds, invalidateKey, onAcknowl
                 queryClient.invalidateQueries({ queryKey: invalidateKey }),
                 // The ack is also a row in the legal centre's tables. They usually sit on another
                 // route, so without this they serve pre-ack rows until their staleTime lapses.
-                ...agreementTableQueryKeyPrefixes.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+                ...queryKeys.legal
+                    .agreementTablePrefixes()
+                    .map((queryKey) => queryClient.invalidateQueries({ queryKey })),
             ])
             onAcknowledged?.()
         },

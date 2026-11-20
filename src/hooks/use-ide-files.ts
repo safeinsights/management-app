@@ -23,6 +23,7 @@ import {
 } from '@/server/actions/workspace-files.actions'
 import { submitStudyCodeAction } from '@/server/actions/study-code.actions'
 import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */
 const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
@@ -93,8 +94,8 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const { canEditInIde, isIdeClaimed, ideOwnerName, refresh: refreshIdeOwnership } = useIdeOwnership(studyId)
 
     const onLaunchSuccess = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-        queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
         refreshIdeOwnership()
     }, [queryClient, studyId, refreshIdeOwnership])
 
@@ -116,12 +117,12 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 15000 })
 
     const { data: lastJob } = useQuery({
-        queryKey: ['last-job', studyId],
+        queryKey: queryKeys.lastJob(studyId),
         queryFn: () => getLastSubmissionInfoAction({ studyId }),
     })
 
     const { data: starterCodeInfo } = useQuery({
-        queryKey: ['starter-code-info', studyId],
+        queryKey: queryKeys.starterCodeInfo(studyId),
         queryFn: () => getStarterCodeInfoAction({ studyId }),
     })
 
@@ -181,7 +182,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     )
 
     const invalidateFiles = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
     }, [queryClient, studyId])
 
     const deleteMutation = useMutation({
@@ -225,7 +226,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             if (result && 'error' in result)
                 reportMutationError('Failed to record file edit')(new ActionFailure(result.error, result.eventId))
 
-            queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
             launchWorkspace()
         },
         [studyId, queryClient, launchWorkspace],
@@ -267,7 +268,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         },
         onSettled: () => {
             invalidateFiles()
-            queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
         },
         onError: reportMutationError('Failed to upload files'),
     })
@@ -300,11 +301,11 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
                 fileNames,
             }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
-            queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-            queryClient.invalidateQueries({ queryKey: ['last-job', studyId] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
+            queryClient.invalidateQueries({ queryKey: queryKeys.researcherUserStudies() })
+            queryClient.invalidateQueries({ queryKey: queryKeys.userOrgs() })
+            queryClient.invalidateQueries({ queryKey: queryKeys.workspaceFiles(studyId) })
+            queryClient.invalidateQueries({ queryKey: queryKeys.lastJob(studyId) })
 
             showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE })
 

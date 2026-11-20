@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient, useState } from '@/common'
 import { Paper, Stack, Title, Text, Button, Flex, Group, Anchor } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 import { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type GlobalLegalDocumentType } from '@/schema/legal-document'
 import { AcknowledgementsTable } from './acknowledgements-table'
 import { ConfirmPublishForm, DraftForm, ReviewPrePublishForm } from './upload-modal-pages'
 import { useDisclosure } from '@mantine/hooks'
@@ -18,6 +18,7 @@ import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import { PreviewDocument } from '../preview-document'
 import { formatInstantAsUtcDay } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
+import { queryKeys } from '@/lib/query-keys'
 
 type PublishedVersion = NonNullable<ActionSuccessType<typeof fetchLegalDocumentVersionsAction>['current']>
 
@@ -37,13 +38,13 @@ function UploadModalContents({
     const [page, setPage] = useState<ModalPage>(draft ? 'review' : 'upload')
     const queryClient = useQueryClient()
     const handleDraftSaved = async () => {
-        await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.legal.versionsForType(doctype) })
         setPage('review')
     }
     const publishDraft = useMutation({
         mutationFn: (versionId: string) => publishLegalDocumentVersionAction({ versionId }),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: legalDocumentQueryKeys.versionsForType(doctype) })
+            await queryClient.invalidateQueries({ queryKey: queryKeys.legal.versionsForType(doctype) })
             onClose()
         },
         onError: reportMutationError('Could not publish'),
@@ -99,7 +100,7 @@ export function TosPnPanel({ doctype }: { doctype: GlobalLegalDocumentType }) {
     const [historyOpened, { open: openHistory, close: closeHistory }] = useDisclosure(false)
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: legalDocumentQueryKeys.versions({ type: doctype }),
+        queryKey: queryKeys.legal.versions({ type: doctype }),
         queryFn: () => fetchLegalDocumentVersionsAction({ type: doctype }),
     })
 

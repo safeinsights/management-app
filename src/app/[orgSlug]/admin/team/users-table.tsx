@@ -9,6 +9,7 @@ import { permissionLabelForUser, PERMISSION_LABELS } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { useSession } from '@/hooks/session'
 import { UsersTableView, type TeamSort } from './users-table-view'
+import { queryKeys } from '@/lib/query-keys'
 
 type User = OrgUserReturn
 
@@ -56,7 +57,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         isLoading,
         refetch,
     } = useQuery({
-        queryKey: ['users-listing', orgSlug, sort],
+        queryKey: queryKeys.orgUsers(orgSlug, sort),
         queryFn: () =>
             getUsersForOrgAction({ orgSlug, sort: { columnAccessor: 'fullName', direction: sort.direction } }),
     })

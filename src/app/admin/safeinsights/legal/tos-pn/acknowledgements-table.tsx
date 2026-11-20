@@ -4,7 +4,6 @@ import { useQuery, useState, type FC } from '@/common'
 import { SORT_ICONS } from '@/components/data-table-sort-icons'
 import type { ActionSuccessType } from '@/lib/types'
 import {
-    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     type GlobalLegalDocumentType,
     type LegalDocumentAcknowledgementSort,
@@ -13,6 +12,7 @@ import { fetchLegalDocumentAcknowledgementsAction } from '@/server/actions/legal
 import { Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable'
 import { EMPTY_CELL, formatInstant, formatInstantAsUtcDay } from '@/lib/dates'
+import { queryKeys } from '@/lib/query-keys'
 
 type AcknowledgementRow = ActionSuccessType<typeof fetchLegalDocumentAcknowledgementsAction>['users'][number]
 
@@ -60,7 +60,7 @@ const useAcknowledgements = (type: GlobalLegalDocumentType) => {
     const [sort, setSort] = useState<LegalDocumentAcknowledgementSort>(DEFAULT_SORT)
     const [page, setPage] = useState(1)
     const { data, isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.acknowledgements(type, sort),
+        queryKey: queryKeys.legal.acknowledgements(type, sort),
         queryFn: () => fetchLegalDocumentAcknowledgementsAction({ type, sort }),
     })
 

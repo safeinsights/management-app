@@ -4,7 +4,7 @@ import { ModalsProvider } from '@mantine/modals'
 import { SpyModeProvider, useSpyMode } from '@/components/spy-mode-context'
 import { SessionInfoProvider } from '@/components/layout/session-info-context'
 import { YjsWebsocketProvider } from '@/lib/realtime/yjs-websocket-context'
-import { CURRENT_USER_INFO_KEY, useSession as useAppSession } from '@/hooks/session'
+import { useSession as useAppSession } from '@/hooks/session'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
@@ -14,6 +14,7 @@ import { renderToString } from 'react-dom/server'
 import { vi } from 'vitest'
 import { getMockedLayoutUserInfo } from './layout-user-info'
 import { createTestQueryClient } from './query-client'
+import { queryKeys } from '@/lib/query-keys'
 
 // A test of the client fetch passes `sessionInfo: null`, as the layout does when it has no session.
 type SessionInfoOption = { sessionInfo?: UserInfo | null }
@@ -122,7 +123,7 @@ export const recordOrgListAtPush = (client: QueryClient) => {
     vi.spyOn(RouterMock.memoryRouter, 'push').mockImplementation((...args) => {
         listsAtPush.push(
             client
-                .getQueriesData<UserInfo>({ queryKey: CURRENT_USER_INFO_KEY })
+                .getQueriesData<UserInfo>({ queryKey: queryKeys.currentUserInfoAll() })
                 .flatMap(([, info]) => Object.keys(info?.orgs ?? {})),
         )
         return push(...args)

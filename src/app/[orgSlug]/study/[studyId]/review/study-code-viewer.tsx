@@ -16,6 +16,7 @@ import {
     StudyCodeToggle,
     type StudyCodeToggleLabels,
 } from '@/app/[orgSlug]/study/[studyId]/view/study-code-collapse'
+import { queryKeys } from '@/lib/query-keys'
 
 const MAX_TAB_CHARS = 22
 const MAX_VISIBLE_TABS_BEFORE_OVERFLOW = 4
@@ -183,7 +184,7 @@ function FileTabsRow({
 
 function useStudyCodeFileContents(studyJobId: string, fileName: string | null) {
     return useQuery({
-        queryKey: ['study-job-code-file', studyJobId, fileName],
+        queryKey: queryKeys.jobCodeFile(studyJobId, fileName),
         queryFn: () => fetchStudyJobCodeFileAction({ studyJobId, fileName: fileName as string }),
         enabled: !!fileName,
         staleTime: Infinity,

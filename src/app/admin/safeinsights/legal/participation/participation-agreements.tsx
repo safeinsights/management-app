@@ -4,7 +4,6 @@ import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
 import {
-    legalDocumentQueryKeys,
     legalDocumentTypeLabels,
     participationAgreementOrgLabels,
     type ParticipationAgreementType,
@@ -16,6 +15,7 @@ import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHisto
 import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
 import { UploadParticipationAgreementForm } from './upload-participation-agreement-form'
+import { queryKeys } from '@/lib/query-keys'
 
 type Agreement = ActionSuccessType<typeof fetchParticipationAgreementsAction>[number]
 
@@ -66,7 +66,7 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
         closeHistory,
     } = useAgreementPanelModals<Agreement>()
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.participationAgreements(type),
+        queryKey: queryKeys.legal.participationAgreements(type),
         queryFn: () => fetchParticipationAgreementsAction({ type }),
     })
 

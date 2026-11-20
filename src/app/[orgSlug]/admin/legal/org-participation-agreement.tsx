@@ -3,17 +3,14 @@
 import { useQuery, type FC } from '@/common'
 import { formatDayString } from '@/lib/dates'
 import type { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type ParticipationAgreementType,
-} from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type ParticipationAgreementType } from '@/schema/legal-document'
 import { fetchOrgParticipationAgreementAction } from '@/server/actions/org-legal.actions'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
 import { LoadingMessage } from '@/components/loading'
 import { Stack, Text } from '@mantine/core'
+import { queryKeys } from '@/lib/query-keys'
 
 type Agreement = NonNullable<ActionSuccessType<typeof fetchOrgParticipationAgreementAction>['agreement']>
 
@@ -52,7 +49,7 @@ export const OrgParticipationAgreement: FC<{ orgSlug: string; type: Participatio
     type,
 }) => {
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: legalDocumentQueryKeys.orgParticipationAgreement(orgSlug),
+        queryKey: queryKeys.legal.orgParticipationAgreement(orgSlug),
         queryFn: () => fetchOrgParticipationAgreementAction({ orgSlug }),
     })
 

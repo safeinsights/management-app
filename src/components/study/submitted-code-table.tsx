@@ -6,6 +6,7 @@ import { fetchStudyJobCodeFileAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { FileOrImagePreviewModal } from '@/components/modals/file-or-image-preview-modal'
 import { SubmittedCodeTableView, type FileActivityByName } from './submitted-code-table-view'
+import { queryKeys } from '@/lib/query-keys'
 
 interface SubmittedCodeTableProps {
     jobId: string
@@ -29,7 +30,7 @@ export const SubmittedCodeTable: FC<SubmittedCodeTableProps> = ({
     const [previewFileName, setPreviewFileName] = useState<string | null>(null)
 
     const { data } = useQuery({
-        queryKey: ['study-job-code-file', jobId, previewFileName],
+        queryKey: queryKeys.jobCodeFile(jobId, previewFileName),
         queryFn: () => fetchStudyJobCodeFileAction({ studyJobId: jobId, fileName: previewFileName as string }),
         enabled: !!previewFileName,
         staleTime: Infinity,

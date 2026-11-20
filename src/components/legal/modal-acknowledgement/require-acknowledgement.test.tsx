@@ -4,7 +4,6 @@ import router from 'next-router-mock'
 import { db } from '@/database'
 import { globalAcknowledgementUrl } from '@/lib/global-acknowledgement-redirect'
 import { Routes } from '@/lib/routes'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
     createTestQueryClient,
     faker,
@@ -16,6 +15,7 @@ import {
     userEvent,
 } from '@/tests/unit.helpers'
 import { RequireLegalAcknowledgement } from './require-acknowledgement'
+import { queryKeys } from '@/lib/query-keys'
 
 // A ropa is a pdf, whose body is a signed link; only the AWS boundary is stubbed.
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -78,7 +78,7 @@ describe('RequireLegalAcknowledgement', () => {
     it('does not send a user back to the step on a cached answer from before they acknowledged', async () => {
         await mockSessionWithTestData()
         const queryClient = createTestQueryClient()
-        const key = legalDocumentQueryKeys.nextPendingAcknowledgement()
+        const key = queryKeys.legal.nextPendingAcknowledgement()
         queryClient.setQueryDefaults(key, { refetchOnMount: true })
         queryClient.setQueryData(key, [{ type: 'TOS', versionId: faker.string.uuid(), isUpdate: true }])
         await queryClient.invalidateQueries({ queryKey: key })

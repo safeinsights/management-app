@@ -6,7 +6,8 @@ import { TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { Refresher } from '@/components/refresher'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
-import { NAV_UNREAD_QUERY_KEY, withScopeUnread, type NavUnread } from '@/lib/nav/side-nav'
+import { withScopeUnread, type NavUnread } from '@/lib/nav/side-nav'
+import { queryKeys } from '@/lib/query-keys'
 import { Routes } from '@/lib/routes'
 import { JOB_FINAL_STATUSES } from '@/lib/study-job-status'
 import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
@@ -24,21 +25,11 @@ import { useStudiesTableSort } from './sort'
 import { StudiesTableView } from './studies-table-view'
 import { ACTIVE_PROPOSAL_STATUSES, Audience, Scope, StudiesTableProps, StudyRow as StudyRowType } from './types'
 
-// Key prefixes of the two researcher tables, for writes that change what a researcher row shows.
-export const RESEARCHER_STUDIES_QUERY_KEYS = { user: 'user-researcher-studies', org: 'researcher-studies' } as const
-
-const REVIEWER_STUDIES_QUERY_KEYS = { user: 'user-reviewer-studies', org: 'org-studies' } as const
-
-// Every studies table, for writes that change what any row shows.
-export const STUDIES_TABLE_QUERY_KEYS = [
-    ...Object.values(RESEARCHER_STUDIES_QUERY_KEYS),
-    ...Object.values(REVIEWER_STUDIES_QUERY_KEYS),
-]
-
-function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string): string[] {
-    const keys = audience === 'researcher' ? RESEARCHER_STUDIES_QUERY_KEYS : REVIEWER_STUDIES_QUERY_KEYS
-    if (scope === 'org') return [keys.org, orgSlug]
-    return audience === 'researcher' ? [keys.user] : [keys.user, userId || '']
+function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string) {
+    if (audience === 'researcher') {
+        return scope === 'org' ? queryKeys.researcherOrgStudies(orgSlug) : queryKeys.researcherUserStudies()
+    }
+    return scope === 'org' ? queryKeys.reviewerOrgStudies(orgSlug) : queryKeys.reviewerUserStudies(userId || '')
 }
 
 // A job keeps its earlier rows (INITIATED, CODE-SUBMITTED) once it reaches a final status, so the
@@ -79,7 +70,7 @@ function usePatchNavUnread({
         if (!dataUpdatedAt) return
         const isUnread = studies.some((study) => isStudyUnread(study, audience))
         queryClient.setQueryData<NavUnread>(
-            [...NAV_UNREAD_QUERY_KEY, userId],
+            queryKeys.navUnread(userId),
             (nav) => nav && withScopeUnread(nav, { scope, audience, orgSlug }, isUnread),
         )
     }, [dataUpdatedAt, studies, userId, scope, audience, orgSlug, queryClient])

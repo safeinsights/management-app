@@ -12,6 +12,7 @@ import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getClaimedInviteAction } from '@/server/actions/create-account.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 export type LinkInviteEmailStatus = 'loading' | 'awaiting-code' | 'verifying' | 'failed'
 
@@ -56,7 +57,7 @@ export function useLinkInviteEmail(inviteId: string) {
         isError,
         isLoading,
     } = useQuery({
-        queryKey: ['claimedInvite', inviteId],
+        queryKey: queryKeys.inviteClaim(inviteId),
         queryFn: async () => actionResult(await getClaimedInviteAction({ inviteId })),
         retry: false,
     })

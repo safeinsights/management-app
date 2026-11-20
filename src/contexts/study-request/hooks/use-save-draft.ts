@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
+import { queryKeys } from '@/lib/query-keys'
 
 export interface UseSaveDraftOptions {
     studyId: string | null
@@ -61,10 +62,9 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
         },
         onSuccess({ studyId: newStudyId }) {
             onStudyCreated?.(newStudyId)
-            queryClient.invalidateQueries({ queryKey: ['draft-study', newStudyId] })
-            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-orgs'] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
+            queryClient.invalidateQueries({ queryKey: queryKeys.researcherUserStudies() })
+            queryClient.invalidateQueries({ queryKey: queryKeys.userOrgs() })
         },
         onError: reportMutationError('Failed to save draft'),
     })

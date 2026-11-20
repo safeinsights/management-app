@@ -7,12 +7,12 @@ import { handleMutationErrorsWithForm, reportError } from '@/components/errors'
 import { useSignIn } from '@clerk/nextjs/legacy'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchGlobalLegalDocumentsAction } from '@/server/actions/legal-acknowledgement.actions'
 import { fetchParticipationAgreementFromInviteIdAction } from '@/server/actions/participation-agreement.actions'
 import { onCreateAccountAction, onPendingUserLoginAction } from '@/server/actions/create-account.actions'
 import { Routes } from '@/lib/routes'
 import { markOrgJoined } from '@/lib/joined-org'
+import { queryKeys } from '@/lib/query-keys'
 
 const baseSchema = z.object({
     firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
@@ -72,7 +72,7 @@ export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
         isPending: isLoadingTosPn,
         isError: tosPnError,
     } = useQuery({
-        queryKey: legalDocumentQueryKeys.globalDocuments(),
+        queryKey: queryKeys.legal.globalDocuments(),
         queryFn: () => fetchGlobalLegalDocumentsAction(),
     })
 
@@ -82,7 +82,7 @@ export function useSetupAccountForm({ inviteId, email, orgName }: InviteData) {
         isPending: isPendingParticipationAgreement,
         isError: participationAgreementError,
     } = useQuery({
-        queryKey: legalDocumentQueryKeys.participationAgreementForInvite(inviteId),
+        queryKey: queryKeys.legal.participationAgreementForInvite(inviteId),
         queryFn: () => fetchParticipationAgreementFromInviteIdAction({ inviteId }),
     })
 

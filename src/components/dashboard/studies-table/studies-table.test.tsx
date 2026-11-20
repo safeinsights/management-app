@@ -16,6 +16,7 @@ import { ExternalLinks, Routes } from '@/lib/routes'
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { StudiesTable } from './index'
+import { queryKeys } from '@/lib/query-keys'
 
 // A signed-in member of `audience`'s org, plus the org on the other side of its studies.
 const signInAs = async (audience: 'reviewer' | 'researcher') => {
@@ -397,7 +398,7 @@ describe('Studies Table', () => {
                     .values({ studyId: study.id, userId: orgs.user.id, openedAt })
                     .execute()
             }
-            const navKey = ['nav-unread', orgs.user.id]
+            const navKey = queryKeys.navUnread(orgs.user.id)
             const queryClient = createTestQueryClient()
             queryClient.setQueryData(navKey, {
                 myStudies: { researcher: true, reviewer: false },

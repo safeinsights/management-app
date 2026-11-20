@@ -2,7 +2,7 @@
 
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
-import { NAV_UNREAD_QUERY_KEY, NOTHING_UNREAD, orderNavOrgs, type NavUnread } from '@/lib/nav/side-nav'
+import { NOTHING_UNREAD, orderNavOrgs, type NavUnread } from '@/lib/nav/side-nav'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsAction } from '@/server/actions/org.actions'
 import { fetchNavUnreadAction } from '@/server/actions/study-dashboard.actions'
@@ -11,6 +11,7 @@ import { AppShellNavbar, Burger, Group } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
 import { SideNavView } from './side-nav/side-nav-view'
+import { queryKeys } from '@/lib/query-keys'
 
 type Props = {
     isOpened: boolean
@@ -22,7 +23,7 @@ function useNavUnread(): NavUnread {
     const { session } = useSession()
     const userId = session?.user.id
     const { data = NOTHING_UNREAD } = useQuery({
-        queryKey: [...NAV_UNREAD_QUERY_KEY, userId],
+        queryKey: queryKeys.navUnread(userId),
         queryFn: async () => fetchNavUnreadAction(),
         enabled: Boolean(userId),
         refetchOnWindowFocus: false,
@@ -35,7 +36,7 @@ export const AppNav: React.FC<Props> = ({ isOpened, onToggle }) => {
     const pathname = usePathname()
     const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsAction(),
-        queryKey: ['user-orgs'],
+        queryKey: queryKeys.userOrgs(),
     })
 
     const unread = useNavUnread()

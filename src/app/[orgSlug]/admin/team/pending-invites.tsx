@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@/common'
 import { FC } from 'react'
 import { getPendingUsersAction, reInviteUserAction } from '@/server/actions/admin-users.actions'
 import { PendingInvitesView } from './pending-invites-view'
+import { queryKeys } from '@/lib/query-keys'
 
 interface PendingUsersProps {
     orgSlug: string
@@ -30,7 +31,7 @@ const PendingUserActions: React.FC<{ orgSlug: string; pending: { id: string; ema
         onError: reportMutationError('Failed to revoke invite'),
         onSuccess() {
             showToast({ category: 'success', title: `The invite for ${pending.email} has been revoked` })
-            queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: queryKeys.orgPendingUsers(orgSlug) })
         },
     })
 
@@ -62,7 +63,7 @@ const PendingUserActions: React.FC<{ orgSlug: string; pending: { id: string; ema
 
 export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug }) => {
     const { data: pendingUsers = [], isLoading: isLoadingPending } = useQuery({
-        queryKey: ['pendingUsers', orgSlug],
+        queryKey: queryKeys.orgPendingUsers(orgSlug),
         queryFn: () => getPendingUsersAction({ orgSlug }),
     })
 

@@ -10,6 +10,7 @@ import type { JobFileInfo } from '@/lib/types'
 import { actionResult } from '@/lib/utils'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import * as Sentry from '@sentry/nextjs'
+import { queryKeys } from '@/lib/query-keys'
 
 export const SECURITY_KEY_ERRORS = {
     empty: 'Enter your security key to decrypt the outputs.',
@@ -44,8 +45,7 @@ type UseSecurityKeyFormOptions = {
 // Shared with the code run history's up-front decrypt, so a row and its own key form read one
 // cache entry rather than each downloading the archives.
 export const encryptedFilesQuery = (jobId: string, type: 'researcher' | 'reviewer', fingerprint?: string) => ({
-    // Role is part of the key so a dual-role user is not served the other role's cache.
-    queryKey: ['encrypted-files', jobId, type, fingerprint ?? 'current'],
+    queryKey: queryKeys.jobEncryptedFiles(jobId, type, fingerprint),
     queryFn: async () => {
         const response = await fetchEncryptedJobFilesAction({ jobId, type, fingerprint }).catch((error: unknown) => {
             Sentry.captureException(error)

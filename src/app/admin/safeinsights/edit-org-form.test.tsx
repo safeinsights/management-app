@@ -16,9 +16,10 @@ import {
 } from '@/tests/unit.helpers'
 import { useTanStackQuery, type FC } from '@/common'
 import { EditOrgForm } from './edit-org-form'
+import { queryKeys } from '@/lib/query-keys'
 
 const OrgsListObserver: FC<{ queryFn: () => Promise<unknown[]> }> = ({ queryFn }) => {
-    useTanStackQuery({ queryKey: ['orgs'], queryFn, initialData: [] })
+    useTanStackQuery({ queryKey: queryKeys.orgs(), queryFn, initialData: [] })
     return null
 }
 
