@@ -74,16 +74,35 @@ export function useQuery<TApiData>(
     })
 }
 
+// The keys a write changes. Every query under them is refetched if active, or marked stale.
+export type InvalidatedKeys = readonly (readonly unknown[])[]
+
+// Invalidates on error too, because a failed write can have committed part of its work. The
+// caller's onSuccess / onError runs after active queries refetch, so it sees fresh data.
 export function useMutation<TApiData, TVariables = void>(
     options: {
         mutationFn: (variables: TVariables) => Promise<ActionResponse<TApiData>>
+        invalidates?: (variables: TVariables, data: TApiData | undefined) => InvalidatedKeys
     } & Omit<UseMutationOptions<TApiData, Error, TVariables>, 'mutationFn'>,
 ): UseMutationResult<TApiData, Error, TVariables> {
+    const queryClient = useQueryClient()
+    const { invalidates, onSuccess, onError, ...rest } = options
+    const invalidate = (variables: TVariables, data: TApiData | undefined) =>
+        Promise.all((invalidates?.(variables, data) ?? []).map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+
     return useTanStackMutation<TApiData, Error, TVariables>({
-        ...options,
+        ...rest,
         mutationFn: async (variables: TVariables) => {
             const response = await options.mutationFn(variables)
             return processResponse(response)
+        },
+        onSuccess: async (...args: Parameters<NonNullable<typeof onSuccess>>) => {
+            await invalidate(args[1], args[0])
+            return onSuccess?.(...args)
+        },
+        onError: async (...args: Parameters<NonNullable<typeof onError>>) => {
+            await invalidate(args[1], undefined)
+            return onError?.(...args)
         },
     })
 }
