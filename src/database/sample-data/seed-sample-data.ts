@@ -4,21 +4,24 @@ import { openStudyJob, writeJobStatus } from '../job-status-writer'
 import { buildStudyRows, type BuildContext, type EncryptedArtifact, type StudyRows } from './build-rows'
 import { encryptFiles, orgRecipients, type Recipient } from './encrypt'
 import { personIds, seedExtras } from './extras'
-import { studyId } from './ids'
-import { resolveRefs } from './refs'
+import { resolveRefs, resolveTargetRefs } from './refs'
+import { deleteSampleStudy } from './reset'
 import type { Upload, Uploader } from './s3'
 import type { StudySpec } from './spec'
 import { SAMPLE_STUDIES } from './studies'
 
 // rowsOnly: write studies that have files even with no uploader. Unit tests have no bucket.
+// fixtureFallback: with no Mars U org, seed the fixed-id openstax test orgs instead. Only where
+// the test-users seed runs; a real openstax must never get sample studies.
 export type SeedOptions = {
     uploader: Uploader | null
     rowsOnly?: boolean
+    fixtureFallback?: boolean
     now?: Date
     specs?: StudySpec[]
     log?: (line: string) => void
 }
-export type SeedSummary = { written: number; skipped: number; failed: number; missing: string[] }
+export type SeedSummary = { written: number; failed: number; missing: string[] }
 
 type Recipients = { enclave: Recipient[]; lab: Recipient[] }
 
@@ -87,7 +90,9 @@ async function encryptArtifacts(
     return out
 }
 
-async function insertStudy(trx: Transaction<DB>, rows: StudyRows, encrypted: EncryptedRows) {
+// Delete and insert in one transaction, so a study that fails to rebuild keeps its last rows.
+async function replaceStudy(trx: Transaction<DB>, rows: StudyRows, encrypted: EncryptedRows) {
+    await deleteSampleStudy(trx, rows.study.id)
     await trx.insertInto('study').values(rows.study).execute()
     if (rows.agreement) {
         await trx.insertInto('legalDocument').values(rows.agreement.document).execute()
@@ -150,13 +155,21 @@ async function partyUserIds(db: Kysely<DB>, orgIds: string[]) {
     return rows.map((row) => row.userId)
 }
 
+async function resolveSeedRefs(db: Kysely<DB>, fixtureFallback: boolean) {
+    const target = await resolveTargetRefs(db)
+    if ('refs' in target || !fixtureFallback) return target
+    return await resolveRefs(db)
+}
+
+// Re-entrant: each run puts every sample study back to its spec, dated from now. Anything done
+// to a sample study since the last run is discarded.
 export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Promise<SeedSummary> {
     const log = options.log ?? console.log // eslint-disable-line no-console
-    const summary: SeedSummary = { written: 0, skipped: 0, failed: 0, missing: [] }
+    const summary: SeedSummary = { written: 0, failed: 0, missing: [] }
 
-    const resolved = await resolveRefs(db)
+    const resolved = await resolveSeedRefs(db, options.fixtureFallback ?? false)
     if ('missing' in resolved) {
-        log(`sample-data: skipped, fixed test ids not found: ${resolved.missing.join(', ')}`)
+        log(`sample-data: skipped, not found: ${resolved.missing.join(', ')}`)
         return { ...summary, missing: resolved.missing }
     }
     const { refs } = resolved
@@ -178,11 +191,6 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
     }
 
     for (const spec of options.specs ?? SAMPLE_STUDIES) {
-        const exists = await db.selectFrom('study').select('id').where('id', '=', studyId(spec.n)).executeTakeFirst()
-        if (exists) {
-            summary.skipped++
-            continue
-        }
         try {
             const rows = buildStudyRows(spec, ctx)
             const encrypted = await encryptArtifacts(rows.encrypted, recipients, ctx)
@@ -193,7 +201,7 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
                 throw new Error('it has files and BUCKET_NAME is not set')
             }
             // eslint-disable-next-line no-restricted-syntax -- runs in the migrator, outside any request context
-            await db.transaction().execute((trx) => insertStudy(trx, rows, encrypted))
+            await db.transaction().execute((trx) => replaceStudy(trx, rows, encrypted))
             summary.written++
         } catch (error) {
             summary.failed++
@@ -201,6 +209,6 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
         }
     }
 
-    log(`sample-data: ${summary.written} written, ${summary.skipped} already there, ${summary.failed} failed`)
+    log(`sample-data: ${summary.written} written to ${refs.enclave.slug}, ${summary.failed} failed`)
     return summary
 }
