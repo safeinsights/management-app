@@ -1,12 +1,10 @@
 'use server'
 
 import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { jsonArrayFrom } from '@/database'
 import { throwNotFound } from '@/lib/errors'
-import { Routes } from '@/lib/routes'
 import { createOrgDataSourceSchema, editOrgDataSourceSchema } from '@/schema/data-source'
 
 type DataSourceUrlDetails = {
@@ -65,7 +63,7 @@ export const createOrgDataSourceAction = new Action('createOrgDataSourceAction',
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, name, description, urls } = params
+        const { name, description, urls } = params
 
         const dataSource = await db
             .insertInto('orgDataSource')
@@ -93,8 +91,6 @@ export const createOrgDataSourceAction = new Action('createOrgDataSourceAction',
             dataSourceUrls.push(...data)
         }
 
-        revalidatePath(Routes.adminSettings({ orgSlug }))
-
         return { ...dataSource, urls: dataSourceUrls }
     })
 
@@ -109,7 +105,7 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, dataSourceId, name, description, urls } = params
+        const { dataSourceId, name, description, urls } = params
 
         const updatedDataSource = await db
             .updateTable('orgDataSource')
@@ -176,8 +172,6 @@ export const updateOrgDataSourceAction = new Action('updateOrgDataSourceAction',
             dataSourceUrlResults.push(...data)
         }
 
-        revalidatePath(Routes.adminSettings({ orgSlug }))
-
         return { ...updatedDataSource, urls: dataSourceUrlResults }
     })
 
@@ -191,13 +185,11 @@ export const deleteOrgDataSourceAction = new Action('deleteOrgDataSourceAction',
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, dataSourceId } = params
+        const { dataSourceId } = params
 
         await db
             .deleteFrom('orgDataSource')
             .where('id', '=', dataSourceId)
             .where('orgId', '=', orgId)
             .executeTakeFirstOrThrow(throwNotFound(`Data source with id ${dataSourceId}`))
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
     })
