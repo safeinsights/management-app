@@ -29,6 +29,8 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         "const columns = ['a', 'b']",
         "doSomething(['x'], value)",
         '<AgreementsTable queryKey={(sort) => queryKeys.legal.userStudyAgreements(sort)} />',
+        'useMutation({ mutationFn, invalidates: () => [queryKeys.orgs(), ...keys] })',
+        'useMutation({ mutationFn, invalidates: () => keys })',
     ],
     invalid: [
         { code: "useQuery({ queryKey: ['x'], queryFn })", errors },
@@ -40,5 +42,7 @@ ruleTester.run('noQueryKeyLiterals', noQueryKeyLiterals, {
         { code: "queryClient.getQueryData(['x'])", errors },
         { code: "queryClient.getQueryState(['x'])", errors },
         { code: "<AgreementsTable queryKey={['x']} />", errors },
+        { code: "useMutation({ mutationFn, invalidates: () => [['org', slug]] })", errors },
+        { code: "useMutation({ mutationFn, invalidates: function () { return [queryKeys.orgs(), ['x']] } })", errors },
     ],
 })

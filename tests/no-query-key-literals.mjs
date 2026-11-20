@@ -9,6 +9,18 @@ const propertyName = (property) => {
     return null
 }
 
+// The array elements of what an `invalidates: () => [...]` function returns.
+const returnedKeyLiterals = (fn) => {
+    if (fn.type !== 'ArrowFunctionExpression' && fn.type !== 'FunctionExpression') return []
+    const returned =
+        fn.body.type === 'BlockStatement'
+            ? fn.body.body.filter((statement) => statement.type === 'ReturnStatement').map((r) => r.argument)
+            : [fn.body]
+    return returned
+        .filter((value) => value?.type === 'ArrayExpression')
+        .flatMap((value) => value.elements.filter((element) => element?.type === 'ArrayExpression'))
+}
+
 const noQueryKeyLiterals = {
     meta: {
         type: 'problem',
@@ -26,7 +38,9 @@ const noQueryKeyLiterals = {
 
         return {
             Property(node) {
-                if (propertyName(node) === 'queryKey' && node.value.type === 'ArrayExpression') report(node.value)
+                const name = propertyName(node)
+                if (name === 'queryKey' && node.value.type === 'ArrayExpression') report(node.value)
+                if (name === 'invalidates') returnedKeyLiterals(node.value).forEach(report)
             },
             JSXAttribute(node) {
                 const { value } = node
