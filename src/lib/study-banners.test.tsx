@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
 import {
+    type BannerCopy,
     researcherCodeDecisionBanner,
     researcherCodeSubmittedBanner,
     researcherOutputsAwaitingReviewBanner,
@@ -185,19 +186,24 @@ describe('researcherOutputsFeedbackBanner', () => {
 const RESEARCH_LAB = 'Test Research Lab'
 const REVIEWER = 'Test Reviewer'
 
+// Reviewer bodies set the lab name in its own element, so they are compared as rendered text. Read
+// from the paragraph because the container also holds Mantine's style tag.
+const bodyText = (copy: BannerCopy) => renderWithProviders(<p>{copy.body}</p>).container.querySelector('p')?.textContent
+
 describe('reviewerProposalNeedsReviewBanner', () => {
-    it('names the lab in the first-review title and body', () => {
+    it('names the lab in the first-review title, and in semibold in the body', () => {
         const copy = reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB })
         expect(copy).toMatchObject({ variant: 'action', title: `New proposal submitted by ${RESEARCH_LAB}` })
-        expect(copy.body).toBe(
+        expect(bodyText(copy)).toBe(
             `${RESEARCH_LAB} is requesting permission to run their code in your secure enclave. Review the proposal below and share your decision and feedback.`,
         )
+        expect(screen.getByText(RESEARCH_LAB).style.fontWeight).toBe('var(--si-font-weight-semibold)')
     })
 
     it('switches to the revised title from the second review round onwards, keeping the body', () => {
         const copy = reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB, version: 2 })
         expect(copy.title).toBe(`Revised proposal submitted by ${RESEARCH_LAB}`)
-        expect(copy.body).toBe(reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB }).body)
+        expect(bodyText(copy)).toBe(bodyText(reviewerProposalNeedsReviewBanner({ researchLab: RESEARCH_LAB })))
     })
 })
 
@@ -220,10 +226,10 @@ describe('reviewerProposalDecisionBanner', () => {
 
     it('names the lab in the bodies that reference it', () => {
         const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
-        expect(reviewerProposalDecisionBanner('APPROVE', params).body).toContain(
+        expect(bodyText(reviewerProposalDecisionBanner('APPROVE', params))).toContain(
             `${RESEARCH_LAB} moves to the next step`,
         )
-        expect(reviewerProposalDecisionBanner('NEEDS-CLARIFICATION', params).body).toContain(
+        expect(bodyText(reviewerProposalDecisionBanner('NEEDS-CLARIFICATION', params))).toContain(
             `${RESEARCH_LAB} resubmits the proposal`,
         )
         // The declined body is terminal and deliberately names no one.
@@ -260,7 +266,7 @@ describe('reviewerCodeDecisionBanner', () => {
 
     it('names the lab only in the revision-requested body', () => {
         const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
-        expect(reviewerCodeDecisionBanner('NEEDS-CLARIFICATION', params).body).toContain(
+        expect(bodyText(reviewerCodeDecisionBanner('NEEDS-CLARIFICATION', params))).toContain(
             `${RESEARCH_LAB} resubmits their code`,
         )
         expect(reviewerCodeDecisionBanner('APPROVE', params).body).not.toContain(RESEARCH_LAB)
@@ -306,17 +312,17 @@ describe('reviewerOutputsDecisionBanner', () => {
 
     it('names the lab in every body', () => {
         const params = { researchLab: RESEARCH_LAB, reviewerName: REVIEWER }
-        expect(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: true }, params).body).toContain(
-            RESEARCH_LAB,
-        )
-        expect(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: false }, params).body).toContain(
-            RESEARCH_LAB,
-        )
-        expect(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: true }, params).body).toContain(
-            RESEARCH_LAB,
-        )
-        expect(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: false }, params).body).toContain(
-            RESEARCH_LAB,
-        )
+        expect(
+            bodyText(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: true }, params)),
+        ).toContain(RESEARCH_LAB)
+        expect(
+            bodyText(reviewerOutputsDecisionBanner({ resultsErrored: true, resultsApproved: false }, params)),
+        ).toContain(RESEARCH_LAB)
+        expect(
+            bodyText(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: true }, params)),
+        ).toContain(RESEARCH_LAB)
+        expect(
+            bodyText(reviewerOutputsDecisionBanner({ resultsErrored: false, resultsApproved: false }, params)),
+        ).toContain(RESEARCH_LAB)
     })
 })

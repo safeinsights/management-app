@@ -1,11 +1,12 @@
-import type { FC } from 'react'
+import type { FC, ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import { ReviewConfirmationModal } from '@/components/modals/review-confirmation-modal'
+import { LabName } from '@/components/study/lab-name'
 import type { Decision } from '@/lib/review-decision'
 
 export type DecisionModalConfig = {
     title: string
-    body: (labName: string) => string
+    body: (labName: string) => ReactNode
     confirmLabel: string
     variant: 'default' | 'error'
 }
@@ -15,22 +16,34 @@ export type DecisionModalContent = Record<Decision, DecisionModalConfig>
 export const DECISION_MODAL_CONTENT: DecisionModalContent = {
     approve: {
         title: 'Approve proposal?',
-        body: (lab) =>
-            `Your approval and feedback will be sent to ${lab}. You will not be able to make changes after approving.`,
+        body: (lab) => (
+            <>
+                Your approval and feedback will be sent to <LabName>{lab}</LabName>. You will not be able to make
+                changes after approving.
+            </>
+        ),
         confirmLabel: 'Approve proposal',
         variant: 'default',
     },
     'needs-clarification': {
         title: 'Request revision?',
-        body: (lab) =>
-            `Your feedback will be sent to ${lab} so they can update and resubmit. You'll be notified when the revised proposal is ready for review.`,
+        body: (lab) => (
+            <>
+                Your feedback will be sent to <LabName>{lab}</LabName> so they can update and resubmit. You&apos;ll be
+                notified when the revised proposal is ready for review.
+            </>
+        ),
         confirmLabel: 'Request revision',
         variant: 'default',
     },
     reject: {
         title: 'Decline proposal?',
-        body: (lab) =>
-            `Your decision and feedback will be sent to ${lab}. Declining ends this study and cannot be undone.`,
+        body: (lab) => (
+            <>
+                Your decision and feedback will be sent to <LabName>{lab}</LabName>. Declining ends this study and
+                cannot be undone.
+            </>
+        ),
         confirmLabel: 'Decline and end study',
         variant: 'error',
     },
@@ -41,22 +54,34 @@ export const DECISION_MODAL_CONTENT: DecisionModalContent = {
 export const CODE_DECISION_MODAL_CONTENT: DecisionModalContent = {
     approve: {
         title: 'Approve code?',
-        body: (lab) =>
-            `Your approval and feedback will be sent to ${lab}. You will not be able to make changes after approving.`,
+        body: (lab) => (
+            <>
+                Your approval and feedback will be sent to <LabName>{lab}</LabName>. You will not be able to make
+                changes after approving.
+            </>
+        ),
         confirmLabel: 'Approve code',
         variant: 'default',
     },
     'needs-clarification': {
         title: 'Request revision?',
-        body: (lab) =>
-            `Your feedback will be sent to ${lab} so they can update their code and resubmit. You'll be notified when the revised code is ready for review.`,
+        body: (lab) => (
+            <>
+                Your feedback will be sent to <LabName>{lab}</LabName> so they can update their code and resubmit.
+                You&apos;ll be notified when the revised code is ready for review.
+            </>
+        ),
         confirmLabel: 'Request revision',
         variant: 'default',
     },
     reject: {
         title: 'Decline code?',
-        body: (lab) =>
-            `Your decision and feedback will be sent to ${lab}. Declining ends this study and cannot be undone.`,
+        body: (lab) => (
+            <>
+                Your decision and feedback will be sent to <LabName>{lab}</LabName>. Declining ends this study and
+                cannot be undone.
+            </>
+        ),
         confirmLabel: 'Decline and end study',
         variant: 'error',
     },

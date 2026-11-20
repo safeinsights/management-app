@@ -78,10 +78,10 @@ function FeedbackEntry({ entry, isExpanded, onToggle, lineClamp, focusRef }: Fee
             </Text>
             <Box bg={semanticColor('surface.sunken')} p="lg">
                 <Stack gap="xs">
-                    <Text size="sm" fw={fontWeight.semibold}>
+                    <Text size="sm" fw={fontWeight.bold}>
                         {entry.authorName}
                     </Text>
-                    <Text size="sm" c={semanticColor('text.secondary')}>
+                    <Text size="xs" c={semanticColor('text.secondary')}>
                         <LocalDateTime value={entry.createdAt} />
                     </Text>
                 </Stack>

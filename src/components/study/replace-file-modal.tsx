@@ -27,7 +27,7 @@ export const ReplaceFileModal: FC<ReplaceFileModalProps> = ({ file, onResolve })
                     {file?.name}
                 </Text>{' '}
                 already exists in SafeInsights. Replacing this file will overwrite and permanently delete the current
-                version
+                version.
             </Text>
             <Group justify="space-between">
                 <Button variant="subtle" onClick={() => onResolve('cancel')}>

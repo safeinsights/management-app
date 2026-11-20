@@ -90,7 +90,7 @@ describe('OutputsAwaitingReviewScreen', () => {
         const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
-        expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent(copy.body as string)
         expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })

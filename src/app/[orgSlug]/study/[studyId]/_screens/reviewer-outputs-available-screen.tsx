@@ -1,4 +1,5 @@
 import { AlertNotFound } from '@/components/errors'
+import { LabName } from '@/components/study/lab-name'
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/components/study/status-alert'
@@ -15,7 +16,8 @@ const AvailableBanner = ({ availableAt, labName }: { availableAt: Date | string 
             variant={STATUS_ALERT_VARIANT.action}
             title={statusAlertTitle('Outputs are available for review', availableAt)}
         >
-            Enter your security key to decrypt the outputs, review them, and then share with {labName}.
+            Enter your security key to decrypt the outputs, review them, and then share with{' '}
+            <LabName>{labName}</LabName>.
         </StatusAlert>
     )
 }

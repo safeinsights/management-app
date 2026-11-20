@@ -69,9 +69,8 @@ export async function CodeReview({ orgSlug, study, entries, nav }: CodeReviewPro
                         <CodeReviewStatusBanner labName={labName} version={reviewVersion} submittedAt={submittedAt} />
                     }
                     initiallyExpanded={!isResubmission}
-                >
-                    <FeedbackAndNotesSection isVisible={isResubmission} entries={entries} compact />
-                </CollapsibleSubmittedCodeSection>
+                />
+                <FeedbackAndNotesSection isVisible={isResubmission} entries={entries} compact />
                 <CodeReviewClient
                     orgSlug={orgSlug}
                     study={study}

@@ -16,17 +16,21 @@
 
 .shell {
     --app-footer-height: rem(48px);
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
 }
 
-/* Main gives up the footer's height so a short page still ends with the footer at the viewport
-   bottom; a long page pushes it below the fold. */
+/* Main sizes to its content, in place of Mantine's 100dvh, so a short page leaves the rest of the
+   window to the footer; a long page pushes the footer below the fold. */
 .main {
-    min-height: calc(100dvh - var(--app-footer-height));
+    min-height: auto;
 }
 
 /* Same centered column and nav offset as main, so the stroke and text line up with the page
-   content on screens wider than main's max width. */
+   content on screens wider than main's max width. Grows to fill what main leaves of the window. */
 .footer {
+    flex-grow: 1;
     width: 100%;
     margin-inline: auto;
     padding-inline-start: var(--app-shell-navbar-offset, 0rem);
