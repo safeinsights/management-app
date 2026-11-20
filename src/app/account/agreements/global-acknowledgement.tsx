@@ -1,10 +1,11 @@
 'use client'
 
-import { Button, Checkbox, Group, Paper, Stack, Text, Title, VisuallyHidden } from '@mantine/core'
+import { Button, Checkbox, Group, Stack, Text, Title, VisuallyHidden } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import type { FC } from 'react'
+import { FocusedCard } from '@/components/layout/focused-card'
 import { AcknowledgementError } from '@/components/legal/blocking-modal'
 import { useAcknowledgementConsent } from '@/components/legal/use-acknowledgement-consent'
 import { globalDocumentRoute } from '@/components/legal/global-document-route'
@@ -14,7 +15,7 @@ import {
     legalDocumentTypeLabels,
     type PendingGlobalAcknowledgement,
 } from '@/schema/legal-document'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 
 type Props = {
     documents: PendingGlobalAcknowledgement[]
@@ -83,34 +84,38 @@ export const GlobalAcknowledgement: FC<Props> = ({
     isSubmitting,
     error,
 }) => (
-    <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" maw={511} my={{ base: 'md', lg: 0 }}>
-        <Stack>
-            <Title order={1} fz="h3">
-                Welcome to SafeInsights!
-            </Title>
+    <FocusedCard maw={511} my={{ base: 'md', lg: 0 }}>
+        <Stack gap="xl">
+            <Stack gap="lg">
+                <Title order={1} fz="h3" ta="center">
+                    Welcome to SafeInsights!
+                </Title>
 
-            <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
+                <Text fz="md">{globalAcknowledgementBody(documents)}</Text>
+            </Stack>
 
-            <Checkbox
-                checked={isChecked}
-                onChange={(event) => onCheckedChange(event.currentTarget.checked)}
-                label={
-                    <Text span fz="sm" fw={fontWeight.semibold}>
-                        {globalAcknowledgementCheckboxLabel(documents)}
-                    </Text>
-                }
-            />
+            <Stack>
+                <Checkbox
+                    checked={isChecked}
+                    onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+                    label={
+                        <Text span fz="sm" fw={fontWeight.semibold}>
+                            {globalAcknowledgementCheckboxLabel(documents)}
+                        </Text>
+                    }
+                />
 
-            <AcknowledgementError error={error} />
+                <AcknowledgementError error={error} />
 
-            <Group>
-                {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
-                <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
-                    Continue
-                </Button>
-            </Group>
+                <Group>
+                    {/* Mantine's `loading` blocks pointer clicks but leaves the button keyboard-focusable. */}
+                    <Button onClick={onContinue} disabled={!isChecked || isSubmitting} loading={isSubmitting}>
+                        Continue
+                    </Button>
+                </Group>
+            </Stack>
         </Stack>
-    </Paper>
+    </FocusedCard>
 )
 
 // Replace, not push: Back should not return to a step that has just been answered.
