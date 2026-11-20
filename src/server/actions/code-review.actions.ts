@@ -18,6 +18,7 @@ import { requireStudyAgreement } from '@/server/study-agreement'
 import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
 import { transitionJob } from '@/server/job-transitions'
+import { refresh } from 'next/cache'
 
 // The delay must outlast Hocuspocus MAX_SAVE_INTERVAL_MS so the sweep runs after the worst-case
 // debounced store and disconnect-flush. Job-keyed names are never reused, so the delete is unconditional.
@@ -123,5 +124,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 
+        // Re-renders the decided review page in this response, so the client needs no refresh.
+        refresh()
         return { submitterFullName }
     })
