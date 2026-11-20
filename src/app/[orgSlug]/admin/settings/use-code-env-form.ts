@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
@@ -9,9 +8,7 @@ import {
     createOrgCodeEnvAction,
     updateOrgCodeEnvAction,
     fetchOrgCodeEnvsAction,
-    getSampleDataUploadUrlAction,
     getStarterCodeUploadUrlAction,
-    createAthenaTablesAction,
 } from '@/server/actions/code-envs.actions'
 import {
     ENV_VAR_KEY_ERROR,
@@ -21,7 +18,7 @@ import {
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
 } from '@/schema/code-env'
-import { ActionSuccessType, type DataSourceType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
@@ -40,18 +37,9 @@ async function uploadStarterCodes(orgSlug: string, codeEnvId: string, files: Fil
     await uploadFiles(files.map((file) => [file, presignedUrl]))
 }
 
-async function uploadSampleData(codeEnvId: string, files: File[]): Promise<boolean> {
-    if (files.length === 0) return false
-    const presignedUrl = await getSampleDataUploadUrlAction({ codeEnvId })
-    if (isActionError(presignedUrl)) throw new Error('Failed to get sample data upload URL')
-    await uploadFiles(files.map((file) => [file, presignedUrl]))
-    return true
-}
-
 export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () => void) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const isEditMode = !!image
-    const [sampleDataFiles, setSampleDataFiles] = useState<File[]>([])
 
     const formSchema = isEditMode ? editOrgCodeEnvFormSchema : createOrgCodeEnvFormSchema
 
@@ -66,8 +54,6 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             // `[]`, not undefined: the array type check fails before `.min(1)` runs, so an
             // untouched dropzone would report Zod's internal message (OTTER-647).
             starterCodes: [],
-            sampleDataPath: image?.sampleDataPath || '',
-            dataSourceType: (image?.dataSourceType as DataSourceType | null) || null,
             dataSourceIds: image?.dataSources?.map((ds) => ds.id) || [],
             settings: {
                 environment: image?.settings?.environment || [],
@@ -166,21 +152,12 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         if (isActionError(result)) throw result
 
         await uploadStarterCodes(orgSlug, result.id, starterCodes)
-
-        if (values.sampleDataPath) {
-            await uploadSampleData(result.id, sampleDataFiles)
-            if (values.dataSourceType === 'athena') {
-                await createAthenaTablesAction({ codeEnvId: result.id })
-            }
-        }
         return result
     }
 
     const handleEdit = async (values: EditFormValues) => {
         const { starterCodes, ...rest } = values
         const newStarterCodes = starterCodes?.length ? starterCodes : null
-
-        const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
         const result = await updateOrgCodeEnvAction({
             orgSlug,
@@ -190,13 +167,8 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             // the list" instead of "left the existing files alone".
             starterCodeFileNames: newStarterCodes?.map((f) => f.name),
             starterCodeUploaded: !!newStarterCodes,
-            sampleDataUploaded,
         })
         if (isActionError(result)) throw result
-
-        if (sampleDataUploaded && result.dataSourceType === 'athena') {
-            await createAthenaTablesAction({ codeEnvId: image!.id })
-        }
 
         if (newStarterCodes) {
             await uploadStarterCodes(orgSlug, image!.id, newStarterCodes)
@@ -276,8 +248,6 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         isEditMode,
         isPending,
         onSubmit,
-        sampleDataFiles,
-        setSampleDataFiles,
         starterCodeActions: { setStarterCodes, removeStarterCode },
         commandLineActions: { addCommandLine, updateCommandLine, removeCommandLine },
         envVarActions: { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar },

@@ -29,6 +29,7 @@ const FIELD_LABELS: Record<string, string> = {
     url: 'Image URL',
     isTesting: 'Testing environment',
     settings: 'Environment variables',
+    // Retired fields; audit rows written before OTTER-995 still carry them.
     sampleDataPath: 'Sample data path',
     dataSourceType: 'Data source type',
     starterCodeFileNames: 'Starter code files',
