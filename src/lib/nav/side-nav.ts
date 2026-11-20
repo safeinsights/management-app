@@ -10,10 +10,6 @@ export type NavOrg = {
     isAdmin: boolean
 }
 
-// Which side nav rows carry the unread dot (OTTER-838). The query adds the user id, so writes that
-// change it invalidate by this prefix.
-export const NAV_UNREAD_QUERY_KEY = ['nav-unread']
-
 // My studies has one flag per tab, so either tab's table can patch its own half.
 export type NavUnread = { myStudies: Record<StudyRole, boolean>; orgSlugs: string[] }
 

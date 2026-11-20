@@ -9,12 +9,9 @@ import { AcknowledgementError } from '@/components/legal/blocking-modal'
 import { useAcknowledgementConsent } from '@/components/legal/use-acknowledgement-consent'
 import { globalDocumentRoute } from '@/components/legal/global-document-route'
 import { LinkWithIcon } from '@/components/links'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type PendingGlobalAcknowledgement,
-} from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type PendingGlobalAcknowledgement } from '@/schema/legal-document'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 type Props = {
     documents: PendingGlobalAcknowledgement[]
@@ -119,7 +116,7 @@ const useGlobalAcknowledgementStep = (documents: PendingGlobalAcknowledgement[],
 
     return useAcknowledgementConsent({
         versionIds: documents.map((document) => document.versionId),
-        invalidateKey: legalDocumentQueryKeys.nextPendingAcknowledgement(),
+        invalidateKey: queryKeys.legal.nextPendingAcknowledgement(),
         onAcknowledged: () => router.replace(destination),
     })
 }

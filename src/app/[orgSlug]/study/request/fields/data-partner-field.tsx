@@ -10,6 +10,7 @@ import { ReadOnlyField } from '@/components/read-only-field'
 import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/schema/study-request'
 import { ORG_SELECT_ID } from './field-ids'
+import { queryKeys } from '@/lib/query-keys'
 
 // "Data Partner" with both words capitalized is an intentional product exception, not a typo.
 const LABEL = 'Data Partner'
@@ -26,7 +27,7 @@ function useStudyCapableOrgs() {
     const isSessionReady = isLoaded && !!user
 
     const { data: orgs = [], isLoading } = useQuery({
-        queryKey: ['orgs-with-languages'],
+        queryKey: queryKeys.orgsWithLanguages(),
         queryFn: () => getStudyCapableEnclaveOrgsAction(),
         // The action's ability check needs a resolved Clerk session.
         enabled: isSessionReady,

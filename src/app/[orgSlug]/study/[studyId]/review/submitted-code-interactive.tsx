@@ -14,6 +14,7 @@ import { STUDY_REVIEW_STALE_AFTER_MS, studyReviewState } from '@/lib/study-revie
 import { getJobAnalysisAction, regenerateStudyReviewAction } from '@/server/actions/study-job.actions'
 import type { JobAnalysis, StudyReviewWithMeta } from '@/server/db/queries'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 // Figma 1995:19067: the expanded summary stops growing at this height and scrolls inside.
 const AI_SUMMARY_EXPANDED_MAX_HEIGHT = 616
@@ -175,11 +176,8 @@ function useElapsedSince(since: Date | string, ms: number) {
     }
 }
 
-// A resubmit reuses the job id, so keying on it alone lets the cache serve the previous round as
-// current — the same defect the server-side round rule closes, reintroduced on the client by a 60s
-// staleTime over a singleton query client (OTTER-775 review).
 const jobAnalysisKey = (studyJobId: string, submittedAt: Date | string) =>
-    ['job-analysis', studyJobId, new Date(submittedAt).getTime()] as const
+    queryKeys.jobAnalysis(studyJobId, new Date(submittedAt).getTime())
 
 type JobAnalysisUpdate = JobAnalysis
 
@@ -276,7 +274,7 @@ function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[]
             // restart for a report that has already landed. Either way the row on screen is the
             // one to re-read, and the clock it is judged against must not move.
             if (isActionError(result) || result.status !== 'restarted') {
-                queryClient.invalidateQueries({ queryKey: [...analysisKey] })
+                queryClient.invalidateQueries({ queryKey: analysisKey })
                 return
             }
             // Must be the poll's own key, round included, or this clears an entry nothing reads and

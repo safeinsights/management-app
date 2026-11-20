@@ -13,6 +13,7 @@ import { Language } from '@/database/types'
 import { StudyProposalFormValues } from '@/schema/study-request'
 import { LANGUAGE_FIELD_ID } from './field-ids'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 const LABEL = 'Programming language'
 const GROUP_ID = 'programming-language'
@@ -50,7 +51,7 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
     form.watch('language', ({ value }) => setSelectedLanguage(value))
 
     const { data, isLoading } = useQuery({
-        queryKey: ['languages-for-org', selectedOrgSlug],
+        queryKey: queryKeys.orgLanguages(selectedOrgSlug),
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
         // A stale session can leave orgSlug empty; without this the org lookup throws "no result"
         // and 500s the request page.

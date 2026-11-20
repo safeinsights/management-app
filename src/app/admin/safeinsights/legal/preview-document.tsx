@@ -5,13 +5,13 @@ import { ErrorAlert } from '@/components/errors'
 import { LegalMarkdownContent } from '@/components/legal/markdown-content'
 import { LoadingMessage } from '@/components/loading'
 import { actionResult } from '@/lib/utils'
-import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import { fetchLegalDocumentContentAction } from '@/server/actions/legal-document.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 // A signed URL to a .md opens as raw source or a download, so render the content here instead.
 export function PreviewDocument({ versionId, label }: { versionId: string; label: string }) {
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: legalDocumentQueryKeys.documentContent(versionId),
+        queryKey: queryKeys.legal.documentContent(versionId),
         staleTime: Infinity,
         queryFn: async () => actionResult(await fetchLegalDocumentContentAction({ versionId })).content,
     })

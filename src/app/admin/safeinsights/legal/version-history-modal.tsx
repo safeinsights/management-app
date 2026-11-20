@@ -4,13 +4,14 @@ import { useQuery, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import type { ActionSuccessType } from '@/lib/types'
 import type { LegalDocumentType } from '@/database/types'
-import { legalDocumentFormats, legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentFormats, legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchLegalDocumentVersionsAction } from '@/server/actions/legal-document.actions'
 import { Anchor, Stack } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { EMPTY_CELL, formatDayString, formatInstantAsUtcDay } from '@/lib/dates'
 import { PreviewDocument } from './preview-document'
+import { queryKeys } from '@/lib/query-keys'
 
 type Scope = { type: LegalDocumentType; orgId?: string; studyId?: string }
 
@@ -73,7 +74,7 @@ const columnsFor = (scope: Scope): DataTableColumn<Version>[] => [
 // Fetched on open so a page of agreements does not pull every version and sign every URL up front.
 const useVersionHistory = ({ scope, isOpen }: { scope: Scope; isOpen: boolean }) =>
     useQuery({
-        queryKey: legalDocumentQueryKeys.versions(scope),
+        queryKey: queryKeys.legal.versions(scope),
         queryFn: () => fetchLegalDocumentVersionsAction(scope),
         enabled: isOpen,
     })

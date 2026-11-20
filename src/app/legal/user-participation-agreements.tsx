@@ -2,11 +2,7 @@
 
 import type { FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import {
-    legalDocumentQueryKeys,
-    legalDocumentTypeLabels,
-    type ParticipationAgreementType,
-} from '@/schema/legal-document'
+import { legalDocumentTypeLabels, type ParticipationAgreementType } from '@/schema/legal-document'
 import { fetchUserParticipationAgreementsAction } from '@/server/actions/user-legal.actions'
 import type { DataTableColumn } from 'mantine-datatable'
 import {
@@ -15,6 +11,7 @@ import {
     clampedColumn,
     TruncatedNameCell,
 } from '@/components/legal/agreements-table'
+import { queryKeys } from '@/lib/query-keys'
 
 type ParticipationAgreement = ActionSuccessType<typeof fetchUserParticipationAgreementsAction>[number]
 
@@ -34,7 +31,7 @@ export const UserParticipationAgreements: FC<{ type: ParticipationAgreementType 
         label={legalDocumentTypeLabels[type]}
         idAccessor="orgId"
         columns={columns}
-        queryKey={() => legalDocumentQueryKeys.userParticipationAgreements(type)}
+        queryKey={() => queryKeys.legal.userParticipationAgreements(type)}
         queryFn={() => fetchUserParticipationAgreementsAction({ type })}
     />
 )

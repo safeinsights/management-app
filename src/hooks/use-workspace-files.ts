@@ -1,5 +1,6 @@
 import { useQuery } from '@/common'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 /**
  * Null when nothing has been recorded, which the Last activity column shows as "No activity yet".
@@ -40,7 +41,7 @@ export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspace
         isLoading: isInitialLoad,
         refetch,
     } = useQuery({
-        queryKey: ['workspace-files', studyId],
+        queryKey: queryKeys.workspaceFiles(studyId),
         queryFn: () => listWorkspaceFilesAction({ studyId }),
         enabled,
         refetchInterval: enabled ? (props.refetchInterval ?? false) : false,

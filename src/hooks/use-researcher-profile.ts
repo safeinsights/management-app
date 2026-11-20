@@ -2,10 +2,11 @@
 
 import { useQuery } from '@/common'
 import { getResearcherProfileAction } from '@/server/actions/researcher-profile.actions'
+import { queryKeys } from '@/lib/query-keys'
 
 export function useResearcherProfile() {
     const query = useQuery({
-        queryKey: ['researcher-profile'],
+        queryKey: queryKeys.researcherProfile(),
         queryFn: async () => getResearcherProfileAction(),
     })
 

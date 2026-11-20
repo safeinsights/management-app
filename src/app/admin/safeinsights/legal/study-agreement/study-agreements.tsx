@@ -2,7 +2,7 @@
 
 import { useQuery, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { fetchStudyAgreementsAction } from '@/server/actions/study-agreement.actions'
 import { AppModal } from '@/components/modals/app-modal'
 import { Button, Flex, Stack, Title } from '@mantine/core'
@@ -11,6 +11,7 @@ import { UploadStudyAgreementForm } from './upload-study-agreement-form'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
 import { formatDayString } from '@/lib/dates'
 import { VersionHistoryModal } from '../version-history-modal'
+import { queryKeys } from '@/lib/query-keys'
 
 type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
 
@@ -45,7 +46,7 @@ export const StudyAgreements: FC = () => {
         closeHistory,
     } = useAgreementPanelModals<StudyAgreement>()
     const { data: agreements = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.studyAgreements(),
+        queryKey: queryKeys.legal.studyAgreements(),
         queryFn: fetchStudyAgreementsAction,
     })
 

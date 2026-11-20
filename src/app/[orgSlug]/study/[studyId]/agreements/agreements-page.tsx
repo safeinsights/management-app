@@ -7,6 +7,7 @@ import { useQueryClient } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { queryKeys } from '@/lib/query-keys'
 
 interface AgreementsPageProps {
     isReviewer: boolean
@@ -104,7 +105,7 @@ export function AgreementsPage({
 
     const handleProceed = async () => {
         await ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' })
-        await queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
         router.push(proceedHref as Route)
     }
     const handlePrevious = () => router.push(previousHref as Route)

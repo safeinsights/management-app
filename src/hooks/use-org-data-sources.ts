@@ -4,15 +4,14 @@ import { useParams } from 'next/navigation'
 import { useQuery } from '@/common'
 import { isActionError } from '@/lib/errors'
 import { fetchOrgDataSourcesAction } from '@/server/actions/data-sources.actions'
-
-export const orgDataSourcesQueryKey = (orgSlug: string) => ['orgDataSources', orgSlug]
+import { queryKeys } from '@/lib/query-keys'
 
 export function useOrgDataSources(orgSlugOverride?: string) {
     const params = useParams<{ orgSlug: string }>()
     const orgSlug = orgSlugOverride || params.orgSlug
 
     const query = useQuery({
-        queryKey: orgDataSourcesQueryKey(orgSlug),
+        queryKey: queryKeys.orgDataSources(orgSlug),
         queryFn: () => fetchOrgDataSourcesAction({ orgSlug }),
         enabled: !!orgSlug,
     })

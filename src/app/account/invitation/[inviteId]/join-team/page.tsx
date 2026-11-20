@@ -22,6 +22,7 @@ import {
     onRevokeInviteAction,
 } from '@/server/actions/create-account.actions'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
+import { queryKeys } from '@/lib/query-keys'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -78,7 +79,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ['orgInfoForInvite', inviteId],
+        queryKey: queryKeys.inviteOrgInfo(inviteId),
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 

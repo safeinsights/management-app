@@ -2,7 +2,7 @@
 
 import { useMemo, useQuery, useState, type FC } from '@/common'
 import type { ActionSuccessType } from '@/lib/types'
-import { legalDocumentQueryKeys, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import {
     fetchStudiesAwaitingStudyAgreementAction,
     fetchStudyAgreementsAction,
@@ -13,6 +13,7 @@ import { PdfDropzone } from '../pdf-dropzone'
 import { ConfirmPublishModal, useAgreementUpload } from '../publish-agreement'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { SignedOnInput } from '../signed-on-input'
+import { queryKeys } from '@/lib/query-keys'
 
 type Candidate = ActionSuccessType<typeof fetchStudiesAwaitingStudyAgreementAction>[number]
 type StudyAgreement = ActionSuccessType<typeof fetchStudyAgreementsAction>[number]
@@ -28,7 +29,7 @@ const toOptions = (pairs: [string, string][]) =>
 
 const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
     const { data: candidates = [], isLoading } = useQuery({
-        queryKey: legalDocumentQueryKeys.studiesAwaitingStudyAgreement(),
+        queryKey: queryKeys.legal.studiesAwaitingStudyAgreement(),
         queryFn: fetchStudiesAwaitingStudyAgreementAction,
         enabled,
     })
@@ -75,12 +76,6 @@ const useStudyAgreementCandidates = ({ enabled }: { enabled: boolean }) => {
         selected: candidates.find((c: Candidate) => c.studyId === studyId),
     }
 }
-
-const STUDY_AGREEMENT_INVALIDATE_KEYS = [
-    legalDocumentQueryKeys.studyAgreements(),
-    legalDocumentQueryKeys.studiesAwaitingStudyAgreement(),
-    legalDocumentQueryKeys.versionsForType('SLA'),
-]
 
 const StudyFields: FC<{ details: StudyDetails }> = ({ details }) => (
     <>
@@ -165,7 +160,11 @@ export const UploadStudyAgreementForm: FC<{ onCompleteAction: () => void; agreem
     const upload = useAgreementUpload({
         subject: details,
         scopeFor: (study: StudyDetails) => ({ type: 'SLA' as const, studyId: study.studyId }),
-        invalidateKeys: STUDY_AGREEMENT_INVALIDATE_KEYS,
+        invalidateKeys: [
+            queryKeys.legal.studyAgreements(),
+            queryKeys.legal.studiesAwaitingStudyAgreement(),
+            queryKeys.legal.versionsForType('SLA'),
+        ],
         onComplete: onCompleteAction,
     })
 

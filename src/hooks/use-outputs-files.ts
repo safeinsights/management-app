@@ -17,10 +17,10 @@ import {
 } from '@/server/actions/study-job-file-activity.actions'
 import type { StudyJobFileAction } from '@/database/types'
 import type { JobFileActivity } from '@/server/db/queries'
+import { queryKeys } from '@/lib/query-keys'
 
 // Keyed on the org too: a dual-role user moving between the two sides of one study must not be
 // served the other side's rows from cache (OTTER-783).
-const activityQueryKey = (jobId: string, orgSlug: string) => ['job-file-activity', jobId, orgSlug]
 
 const rowKey = (file: JobFileInfo) => `${file.sourceId}:${file.path}`
 
@@ -43,7 +43,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
     const [isPreparingZip, setIsPreparingZip] = useState(false)
 
     const { data: activity, isError: hasActivityFailed } = useQuery({
-        queryKey: activityQueryKey(jobId, orgSlug),
+        queryKey: queryKeys.jobFileActivity(jobId, orgSlug),
         queryFn: () => fetchJobFileActivityAction({ jobId, orgSlug }),
         // Opts this poll in to the shared reporter, so a reviewer learns that the column is stale
         // rather than reading the last good rows as current (OTTER-726).
@@ -70,7 +70,7 @@ export function useOutputsFiles({ jobId, decryptedFiles }: UseOutputsFilesOption
         onError: (error) => captureException(error),
         // Refetch rather than optimistically patch: the row shows the actor's name and the
         // server's timestamp, neither of which the client can produce accurately.
-        onSettled: () => queryClient.invalidateQueries({ queryKey: activityQueryKey(jobId, orgSlug) }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.jobFileActivity(jobId, orgSlug) }),
     })
 
     const rows = useMemo<OutputFileRowData[]>(() => {

@@ -19,6 +19,7 @@ import { useReverification, useUser } from '@clerk/nextjs'
 import router from 'next-router-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LinkEmailPanel } from './link-email-panel'
+import { queryKeys } from '@/lib/query-keys'
 
 type FakeAddress = {
     id: string
@@ -332,7 +333,7 @@ describe('invite email linking screen', () => {
         await db.deleteFrom('pendingUser').where('id', '=', invite.id).execute()
         // React Query hands the result to its observers on a timer tick, after the refetch settles.
         fakeTimeouts()
-        await act(() => queryClient.refetchQueries({ queryKey: ['claimedInvite', invite.id] }))
+        await act(() => queryClient.refetchQueries({ queryKey: queryKeys.inviteClaim(invite.id) }))
         await advanceTimers(0)
 
         expect(screen.getByText(/Enter the code we sent to/)).toBeDefined()
