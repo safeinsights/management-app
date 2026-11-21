@@ -19,6 +19,7 @@ import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
 import { transitionJob } from '@/server/job-transitions'
 import { refresh } from 'next/cache'
+import { notifyStudyChanged } from '@/server/study-events'
 
 // The delay must outlast Hocuspocus MAX_SAVE_INTERVAL_MS so the sweep runs after the worst-case
 // debounced store and disconnect-flush. Job-keyed names are never reused, so the delete is unconditional.
@@ -57,6 +58,7 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             feedback: z.string(),
             decision: z.enum(['approve', 'needs-clarification']),
             criteria: codeReviewCriteriaSchema,
+            originTabId: z.string().max(64).optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -69,7 +71,8 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
     })
     .requireAbilityTo('review', 'Study')
     .middleware(requireStudyAgreement(({ params }) => params.studyId))
-    .handler(async ({ params: { studyId, orgSlug, feedback, decision, criteria }, study, session, db }) => {
+    .handler(async ({ params, study, session, db }) => {
+        const { studyId, orgSlug, feedback, decision, criteria, originTabId } = params
         const userId = session.user.id
 
         const json = assertDecisionFeedback(feedback, {
@@ -117,10 +120,22 @@ export const submitCodeReviewDecisionAction = new Action('submitCodeReviewDecisi
             await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeApproved({ studyId, userId, studyJobId: claimedJob.id })
         } else {
-            await transitionJob(db, claimedJob.id, 'CODE-CHANGES-REQUESTED', { actor: 'reviewer', userId })
+            await transitionJob(db, claimedJob.id, 'CODE-CHANGES-REQUESTED', {
+                actor: 'reviewer',
+                userId,
+                publish: false,
+            })
             await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
             onStudyCodeChangesRequested({ studyId, userId, studyJobId: claimedJob.id })
         }
+
+        await notifyStudyChanged(db, {
+            studyId,
+            jobId: claimedJob.id,
+            change: 'code-review-submitted',
+            submittedBy: { name: submitterFullName },
+            originTabId,
+        })
 
         purgeCodeReviewFeedbackYjsDocAfterSubmit({ jobId: claimedJob.id })
 

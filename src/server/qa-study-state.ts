@@ -14,6 +14,8 @@ import {
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 import { transitionJob } from '@/server/job-transitions'
+import { withTransaction } from '@/server/request-context'
+import { notifyStudyChanged } from '@/server/study-events'
 
 export const QA_FILE_KEYS = {
     result: 'ENCRYPTED-RESULT',
@@ -129,12 +131,18 @@ export async function setQaStudyState(
 
     let studyStatus = row.status
     if (update.studyStatus) {
-        const updated = await db
-            .updateTable('study')
-            .set({ status: update.studyStatus, lastUpdatedAt: new Date() })
-            .where('id', '=', study.studyId)
-            .returning(['status'])
-            .executeTakeFirstOrThrow()
+        const studyStatusTo = update.studyStatus
+        // One transaction, so open pages hear of the status only once it commits.
+        const updated = await withTransaction(db, async (trx) => {
+            const row = await trx
+                .updateTable('study')
+                .set({ status: studyStatusTo, lastUpdatedAt: new Date() })
+                .where('id', '=', study.studyId)
+                .returning(['status'])
+                .executeTakeFirstOrThrow()
+            await notifyStudyChanged(trx, { studyId: study.studyId, change: 'study-status' })
+            return row
+        })
         studyStatus = updated.status
     }
 

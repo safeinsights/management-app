@@ -21,6 +21,7 @@ import {
     setTestStudyStatus,
     stampStudyOpened,
     studyOpenedAt,
+    captureStudyEvents,
 } from '@/tests/unit.helpers'
 import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
@@ -502,6 +503,25 @@ describe('Study Job Actions', () => {
             expect(await viewedRows(fixture.job.id)).toEqual([
                 { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
             ])
+        })
+
+        test('the decision publishes one outputs event; the first decrypted visit publishes job-status', async () => {
+            const fixture = await setupResultApprovalFixture()
+            const events = captureStudyEvents()
+            await approve(fixture)
+            signInAsResearcher(fixture)
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(events.events).toEqual([
+                expect.objectContaining({
+                    studyId: fixture.study.id,
+                    jobId: fixture.job.id,
+                    change: 'outputs-review-submitted',
+                    submittedBy: { name: expect.stringMatching(/.+/) },
+                }),
+                { studyId: fixture.study.id, jobId: fixture.job.id, change: 'job-status' },
+            ])
+            expect(events.executors.every((executor) => executor.isTransaction)).toBe(true)
         })
 
         test('does not count a visit to shared outputs that are still encrypted', async () => {
