@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { isInvalidPasswordError, ResilientPool, type PoolLike, type PoolFactory } from './resilient-pool'
+import { isInvalidPasswordError, pgPoolFactory, ResilientPool, type PoolLike, type PoolFactory } from './resilient-pool'
 
 function invalidPasswordError() {
     return Object.assign(new Error('password authentication failed for user "u"'), { code: '28P01' })
@@ -129,5 +129,23 @@ describe('isInvalidPasswordError', () => {
         expect(isInvalidPasswordError({ code: '08006' })).toBe(false)
         expect(isInvalidPasswordError(new Error('boom'))).toBe(false)
         expect(isInvalidPasswordError(null)).toBe(false)
+    })
+})
+
+describe('pgPoolFactory', () => {
+    const optionsOf = (pool: PoolLike) => pool.options as Record<string, unknown>
+
+    it('passes TCP keepalive options to the pool', async () => {
+        const pool = pgPoolFactory(undefined, { keepAlive: true, keepAliveInitialDelayMillis: 10_000 })(
+            'postgres://localhost/none',
+        )
+        expect(optionsOf(pool)).toMatchObject({ keepAlive: true, keepAliveInitialDelayMillis: 10_000 })
+        await pool.end()
+    })
+
+    it('leaves keepalive off when not asked for it', async () => {
+        const pool = pgPoolFactory(undefined)('postgres://localhost/none')
+        expect(optionsOf(pool).keepAlive).toBeUndefined()
+        await pool.end()
     })
 })
