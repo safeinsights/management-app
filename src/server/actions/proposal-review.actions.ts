@@ -17,6 +17,7 @@ import { withStudyAccessSubject } from './study-subject'
 import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
 import { refresh } from 'next/cache'
+import { notifyStudyChanged } from '@/server/study-events'
 
 type StudyForApproval = { status: StudyStatus; approvedAt: Date | null; orgId: string; containerLocation: string }
 
@@ -177,11 +178,12 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             decision: z.enum(['approve', 'needs-clarification', 'reject']),
             // Revalidated server-side so a stale tab cannot write into the wrong round.
             reviewVersion: z.number().int().positive(),
+            originTabId: z.string().max(64).optional(),
         }),
     )
     .middleware(withStudyAccessSubject)
     .requireAbilityTo('review', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion }, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, feedback, decision, reviewVersion, originTabId }, session, db }) => {
         const userId = session.user.id
         const json = assertDecisionFeedback(feedback, {
             fieldTitle: REVIEW_FEEDBACK_FIELD_TITLE,
@@ -221,6 +223,13 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
             })
             onStudyNeedsClarification({ studyId, userId })
         }
+
+        await notifyStudyChanged(db, {
+            studyId,
+            change: 'proposal-review-submitted',
+            submittedBy: { name: submitterFullName },
+            originTabId,
+        })
 
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
 

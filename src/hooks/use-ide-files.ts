@@ -24,6 +24,7 @@ import {
 import { submitStudyCodeAction } from '@/server/actions/study-code.actions'
 import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 import { queryKeys } from '@/lib/query-keys'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */
 const UPLOAD_RETRY_MESSAGE = 'Check your connection and try again.'
@@ -81,6 +82,7 @@ function hasChangedSinceLastJob(
 
 export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEFilesOptions) {
     const router = useRouter()
+    const { tabId } = useStudyEvents()
 
     const [viewingFile, setViewingFile] = useState<{ name: string; contents: ArrayBuffer } | null>(null)
     // OTTER-558: `filesChanged` cannot drive the resubmit footer's Cancel toggle, because it
@@ -290,6 +292,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
                 studyId,
                 mainFileName: mainFile,
                 fileNames,
+                originTabId: tabId,
             }),
         invalidates: () => [
             queryKeys.researcherOrgStudiesAll(),

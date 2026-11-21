@@ -12,13 +12,14 @@ import { ProposalReviewLayoutView } from './proposal-review-layout-view'
 import { DecisionConfirmationModal } from './decision-confirmation-modal'
 import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { useState, type FC } from 'react'
+import { type FC } from 'react'
 import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { ProposalSection, proposalReviewStep } from './proposal-section'
 import { DECISION_RADIO_NAME, ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
 import { type StudyForReview } from './review-types'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 const REVIEW_EDITABLE_STATUSES = ['PENDING-REVIEW'] as const
 
@@ -127,9 +128,7 @@ const ReviewActionsBar: FC<ReviewActionsBarProps> = ({ study, isSubmitting, onSu
 // Lives inside <ReviewFeedbackProviderShare> so useProposalReviewMutation can reach the editor's
 // HocuspocusProvider; without the split it would call the hook above its provider and throw.
 function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion }: ProposalReviewViewProps) {
-    // One id per mount, shared by broadcaster and listener so only the broadcasting tab skips the
-    // kick-out flow.
-    const [tabSessionId] = useState(() => crypto.randomUUID())
+    const { tabId: tabSessionId } = useStudyEvents()
 
     const { feedback, decision, handleSubmit, modalOpen, closeModal, handleConfirmSubmit, isSubmitting } =
         useProposalReview({
@@ -144,14 +143,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
     return (
         <ProposalReviewLayoutView
             header={<StudyPageHeader study={study} step={proposalReviewStep(reviewVersion)} />}
-            listener={
-                <ReviewSubmissionListener
-                    orgSlug={orgSlug}
-                    studyId={study.id}
-                    tabSessionId={tabSessionId}
-                    enabled={isEditable}
-                />
-            }
+            listener={<ReviewSubmissionListener orgSlug={orgSlug} studyId={study.id} enabled={isEditable} />}
             proposal={
                 <ProposalSection
                     study={study}

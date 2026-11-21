@@ -1,8 +1,8 @@
-import { vi } from 'vitest'
 import {
     act,
     beforeEach,
     buildFeedback,
+    captureStudyEvents,
     createTestQueryWrapper,
     db,
     describe,
@@ -20,18 +20,8 @@ import {
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
-import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
 import { useCodeReviewMutation, type SubmitCodeReviewArgs } from './use-code-review-mutation'
 import type { CodeReviewCriteria } from './use-code-review-evaluation-map'
-
-vi.mock('@hocuspocus/provider', async () => {
-    const { createHocuspocusMock } = await import('@/tests/hocuspocus.mock')
-    return createHocuspocusMock()
-})
-
-import * as HocuspocusModule from '@hocuspocus/provider'
-
-const constructed = (HocuspocusModule as unknown as { __constructed: HocuspocusProviderHandle[] }).__constructed
 
 const validFeedback = buildFeedback(60)
 const validCriteria: CodeReviewCriteria = {
@@ -59,30 +49,25 @@ describe('useCodeReviewMutation', () => {
 
     beforeEach(() => {
         tabSessionId = faker.string.uuid()
-        constructed.length = 0
         memoryRouter.setCurrentUrl('/start')
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve broadcasts code-review-submitted and redirects to the code step', async () => {
+    it('approve publishes code-review-submitted and redirects to the code step', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
-
-        await waitFor(() => expect(constructed).toHaveLength(1))
-        const handle = constructed[0]
-        // Keyed by study_job.id so future code-resubmits get a fresh room (OTTER-558).
-        expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
             result.current.submitReview(approval)
         })
-        // The broadcast goes out only once the action has resolved, and the lock has to still be on then.
+        // The lock has to still be on once the action has resolved.
         await waitFor(() => {
-            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+            expect(events.events).toHaveLength(1)
             expect(result.current.isSubmitting).toBe(true)
         })
         const approved = await db
@@ -93,11 +78,15 @@ describe('useCodeReviewMutation', () => {
             .executeTakeFirst()
         expect(approved).toBeDefined()
 
-        const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
-        expect(payload.type).toBe('code-review-submitted')
-        expect(payload.studyId).toBe(study.id)
-        expect(payload.submittedByTabId).toBe(tabSessionId)
-        expect(typeof payload.submittedByName).toBe('string')
+        // One event, the decision, from the action's transaction; its own transitions stay quiet.
+        expect(events.events[0]).toMatchObject({
+            studyId: study.id,
+            jobId: job.id,
+            change: 'code-review-submitted',
+            submittedBy: { name: expect.stringMatching(/.+/) },
+            originTabId: tabSessionId,
+        })
+        expect(events.executors[0].isTransaction).toBe(true)
 
         // Bare /review resolves an approved study forward to the outputs step.
         await waitFor(() =>
@@ -105,16 +94,14 @@ describe('useCodeReviewMutation', () => {
         )
     })
 
-    it('needs-clarification broadcasts and requests code changes, leaving the proposal approved', async () => {
+    it('needs-clarification publishes one event and requests code changes, leaving the proposal approved', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
-
-        await waitFor(() => expect(constructed).toHaveLength(1))
-        const handle = constructed[0]
 
         await act(async () => {
             result.current.submitReview({
@@ -124,7 +111,7 @@ describe('useCodeReviewMutation', () => {
             })
         })
         await waitFor(() => {
-            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+            expect(events.events).toHaveLength(1)
             expect(result.current.isSubmitting).toBe(true)
         })
 
@@ -143,19 +130,17 @@ describe('useCodeReviewMutation', () => {
         expect(updated.status).toBe('APPROVED')
     })
 
-    it('action error: no navigation, no broadcast', async () => {
+    it('action error: no navigation, no event', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        const events = captureStudyEvents()
         // Eligibility keys on job status alone (OTTER-552), so recording a decision makes the
         // latest code change a decision rather than a submission, which the claim rejects.
         await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
-
-        await waitFor(() => expect(constructed).toHaveLength(1))
-        const handle = constructed[0]
 
         await act(async () => {
             result.current.submitReview(approval)
@@ -168,20 +153,18 @@ describe('useCodeReviewMutation', () => {
         expect(errorCall).toBeDefined()
         // A refusal reaches the reviewer verbatim, so it must not arrive wearing an "Error:" prefix.
         expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
-        expect(handle.sendStateless).not.toHaveBeenCalled()
+        expect(events.events).toEqual([])
         expect(memoryRouter.asPath).toBe('/start')
     })
 
     it('a double submit records one decision and shows no failure toast', async () => {
-        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        const { org, study } = await setApprovedStudyAndCodeSubmitted()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
-
-        await waitFor(() => expect(constructed).toHaveLength(1))
-        const handle = constructed[0]
 
         // No render between the two calls, as with both clicks of a double-click.
         await act(async () => {
@@ -200,7 +183,7 @@ describe('useCodeReviewMutation', () => {
         expect(notifications.show).not.toHaveBeenCalledWith(
             expect.objectContaining({ title: 'Decision could not be submitted' }),
         )
-        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+        expect(events.events).toHaveLength(1)
     })
 
     it('a failed submit lets the reviewer try again', async () => {
@@ -208,7 +191,7 @@ describe('useCodeReviewMutation', () => {
         await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
 
         const { result } = renderHook(
-            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            () => useCodeReviewMutation({ studyId: study.id, orgSlug: org.slug, tabSessionId }),
             { wrapper: createTestQueryWrapper() },
         )
 

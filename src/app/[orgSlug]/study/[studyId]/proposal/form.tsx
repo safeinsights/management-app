@@ -36,15 +36,10 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     studyTitle,
     isDraftCreator = false,
 }) => {
-    const { studyId, form, websocketProvider, yjsForm, tabSessionId } = useProposal()
+    const { studyId, form, websocketProvider, yjsForm } = useProposal()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    useSubmissionRedirectListener({
-        provider: yjsForm.provider,
-        orgSlug,
-        studyId,
-        currentTabId: tabSessionId,
-    })
+    useSubmissionRedirectListener({ orgSlug, studyId, types: ['proposal-submitted'] })
 
     return (
         <StudyKickOutProvider

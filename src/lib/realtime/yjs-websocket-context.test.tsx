@@ -209,7 +209,6 @@ describe('review page multiplexing', () => {
                     <ReviewSubmissionListener
                         orgSlug="data-org"
                         studyId="00000000-0000-0000-0000-000000000001"
-                        tabSessionId="tab-1"
                         enabled
                     />
                     <ReviewFeedbackSection

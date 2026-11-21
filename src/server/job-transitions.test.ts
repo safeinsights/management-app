@@ -3,6 +3,7 @@ import { db } from '@/database'
 import { sql } from 'kysely'
 import type { StudyJobStatus } from '@/database/types'
 import {
+    captureStudyEvents,
     describe,
     expect,
     insertTestJobStatuses,
@@ -14,6 +15,7 @@ import { flushDeferred } from '@/tests/vitest.setup'
 import logger from '@/lib/logger'
 import { sendDataPartnerCodeErroredEmail } from '@/server/mailer'
 import { withTransaction } from '@/server/request-context'
+import { notifyStudyChanged } from '@/server/study-events'
 import { JobTransitionRefusedError, transitionJob } from './job-transitions'
 
 vi.mock('@/server/mailer', () => ({
@@ -190,5 +192,36 @@ describe('transitionJob JOB-ERRORED email', () => {
 
         expect(sendDataPartnerCodeErroredEmail).not.toHaveBeenCalled()
         expect(await statusesOf(jobId)).not.toContain('JOB-ERRORED')
+    })
+})
+
+describe('transitionJob study events', () => {
+    it('records the events it publishes through the pass-through spy', async () => {
+        const events = captureStudyEvents()
+        await notifyStudyChanged(db, { studyId: '01a1fb45-743f-7745-bd47-adbced0a2312', change: 'study-status' })
+        expect(events.events).toEqual([{ studyId: '01a1fb45-743f-7745-bd47-adbced0a2312', change: 'study-status' }])
+    })
+
+    it('publishes one job-status event on the transaction when it writes a row', async () => {
+        const { job, study } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
+        const events = captureStudyEvents()
+
+        await transitionJob(db, job.id, 'CODE-SCANNED', { actor: 'service' })
+
+        expect(events.events).toEqual([{ studyId: study.id, jobId: job.id, change: 'job-status' }])
+        expect(events.executors.map((executor) => executor.isTransaction)).toEqual([true])
+    })
+
+    it('publishes nothing for a repeated status, a refused move or publish: false', async () => {
+        const { jobId } = await jobAt(['CODE-APPROVED', 'JOB-READY', 'JOB-RUNNING'])
+        const decided = await jobAt(['RUN-COMPLETE', 'FILES-APPROVED'])
+        const quiet = await jobAt(['CODE-SUBMITTED'])
+        const events = captureStudyEvents()
+
+        await transitionJob(db, jobId, 'JOB-RUNNING', { actor: 'enclave' })
+        await transitionJob(db, decided.jobId, 'FILES-REJECTED', { actor: 'reviewer' }).catch(() => undefined)
+        await transitionJob(db, quiet.jobId, 'CODE-SCANNED', { actor: 'service', publish: false })
+
+        expect(events.events).toEqual([])
     })
 })

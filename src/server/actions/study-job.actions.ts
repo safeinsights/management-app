@@ -34,6 +34,7 @@ import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, with
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { transitionJob } from '@/server/job-transitions'
 import { refresh } from 'next/cache'
+import { notifyStudyChanged } from '@/server/study-events'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -76,13 +77,14 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             feedback: z.string(),
             // Empty for 'share-feedback-only': nothing is shared, so there are no keys to re-wrap.
             sharedFiles: z.array(sharedFileSchema),
+            originTabId: z.string().max(64).optional(),
         }),
     )
     .middleware(withReviewerStudyJobSubject)
     .requireAbilityTo('review', 'Study')
     .middleware(requireStudyAgreement(({ studyId }) => studyId))
     .middleware(loadStudyJob)
-    .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
+    .handler(async ({ params: { decision, feedback, sharedFiles, originTabId }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
         const studyJobId = studyJob.studyJobId
@@ -154,6 +156,7 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         await transitionJob(db, studyJobId, shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED', {
             actor: 'reviewer',
             userId,
+            publish: false,
         })
 
         await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
@@ -171,10 +174,16 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         }
 
         const submitterFullName = await fetchUserFullName(userId, db)
+        await notifyStudyChanged(db, {
+            studyId,
+            jobId: studyJobId,
+            change: 'outputs-review-submitted',
+            submittedBy: { name: submitterFullName },
+            originTabId,
+        })
 
         // Re-renders the decided review page in this response, so the client needs no refresh.
         refresh()
-        // Names the reviewer in the notice the other tabs raise, which only the server can supply.
         return { submitterFullName }
     })
 

@@ -1,19 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-    assertStatelessEventConsistent,
     authenticate,
     AuthFailureError,
     hasFilesDecision,
     isDocumentEditable,
-    isStatelessEventValidForDocument,
+    isReadOnlyDocument,
     parseDocumentName,
-    parseStatelessEvent,
     requiredOrgIdForDocument,
     shouldPersistDocument,
+    studyEventsOrgIds,
     type AuthenticateDeps,
     type DbQuery,
-    type StatelessSubmissionEvent,
+    type ParsedDocumentName,
 } from './auth'
 import { ROUND_CLOSING_JOB_STATUSES } from '../../src/lib/job-status-rules.ts'
 
@@ -128,169 +127,6 @@ describe('requiredOrgIdForDocument', () => {
         expect(
             requiredOrgIdForDocument({ kind: 'proposal-text', studyId: STUDY_ID, slug: 'research-questions' }, study),
         ).toBe('lab-org')
-    })
-})
-
-describe('parseStatelessEvent', () => {
-    const baseEvent = {
-        type: 'proposal-submitted',
-        studyId: STUDY_ID,
-        submittedByName: 'Alice Reviewer',
-        submittedByTabId: 'tab-1',
-        submittedByClerkId: 'user_alice',
-    }
-
-    it('accepts a well-formed proposal-submitted event', () => {
-        expect(parseStatelessEvent(JSON.stringify(baseEvent))).toEqual(baseEvent)
-    })
-
-    it('accepts a well-formed proposal-review-submitted event', () => {
-        const event = { ...baseEvent, type: 'proposal-review-submitted' }
-        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
-    })
-
-    it('accepts a well-formed code-review-submitted event', () => {
-        const event = { ...baseEvent, type: 'code-review-submitted' }
-        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
-    })
-
-    it('accepts a well-formed code-submitted event', () => {
-        const event = { ...baseEvent, type: 'code-submitted' }
-        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
-    })
-
-    it('accepts a well-formed outputs-review-submitted event', () => {
-        const event = { ...baseEvent, type: 'outputs-review-submitted' }
-        expect(parseStatelessEvent(JSON.stringify(event))).toEqual(event)
-    })
-
-    it('rejects non-string payload', () => {
-        expect(parseStatelessEvent(42)).toBeNull()
-        expect(parseStatelessEvent(null)).toBeNull()
-    })
-
-    it('rejects invalid JSON', () => {
-        expect(parseStatelessEvent('not json {')).toBeNull()
-    })
-
-    it('rejects unknown event type', () => {
-        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, type: 'forged-event' }))).toBeNull()
-    })
-
-    it('rejects malformed studyId', () => {
-        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, studyId: 'not-a-uuid' }))).toBeNull()
-    })
-
-    it('rejects empty submittedByName', () => {
-        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, submittedByName: '' }))).toBeNull()
-    })
-
-    it('rejects missing submittedByTabId', () => {
-        const { submittedByTabId: _drop, ...incomplete } = baseEvent
-        expect(parseStatelessEvent(JSON.stringify(incomplete))).toBeNull()
-    })
-
-    it('rejects missing submittedByClerkId', () => {
-        const { submittedByClerkId: _drop, ...incomplete } = baseEvent
-        expect(parseStatelessEvent(JSON.stringify(incomplete))).toBeNull()
-    })
-
-    it('rejects empty submittedByClerkId', () => {
-        expect(parseStatelessEvent(JSON.stringify({ ...baseEvent, submittedByClerkId: '' }))).toBeNull()
-    })
-})
-
-describe('isStatelessEventValidForDocument', () => {
-    const event = {
-        type: 'proposal-submitted' as const,
-        studyId: STUDY_ID,
-        submittedByName: 'Alice',
-        submittedByTabId: 'tab-1',
-        submittedByClerkId: 'user_alice',
-    }
-
-    it('accepts proposal-submitted on proposal-fields document', () => {
-        expect(isStatelessEventValidForDocument(event, { kind: 'proposal-fields', studyId: STUDY_ID })).toBe(true)
-    })
-
-    it('rejects proposal-submitted on review-feedback document', () => {
-        expect(
-            isStatelessEventValidForDocument(event, { kind: 'review-feedback', studyId: STUDY_ID, version: 1 }),
-        ).toBe(false)
-    })
-
-    it('accepts proposal-review-submitted on review-feedback', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'proposal-review-submitted' },
-                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-            ),
-        ).toBe(true)
-    })
-
-    it('rejects proposal-review-submitted on proposal-fields', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'proposal-review-submitted' },
-                { kind: 'proposal-fields', studyId: STUDY_ID },
-            ),
-        ).toBe(false)
-    })
-
-    it('accepts code-review-submitted on code-review-feedback', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'code-review-submitted' },
-                { kind: 'code-review-feedback', jobId: JOB_ID },
-            ),
-        ).toBe(true)
-    })
-
-    it('rejects code-review-submitted on review-feedback', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'code-review-submitted' },
-                { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-            ),
-        ).toBe(false)
-    })
-
-    it('accepts outputs-review-submitted on outputs-review-feedback', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'outputs-review-submitted' },
-                { kind: 'outputs-review-feedback', jobId: JOB_ID },
-            ),
-        ).toBe(true)
-    })
-
-    it('accepts code-submitted on code-submission', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'code-submitted' },
-                { kind: 'code-submission', studyId: STUDY_ID },
-            ),
-        ).toBe(true)
-    })
-
-    // Both are lab-owned and study-keyed, so only the kind separates the code page from Step 2.
-    it('rejects code-submitted on proposal-fields', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'code-submitted' },
-                { kind: 'proposal-fields', studyId: STUDY_ID },
-            ),
-        ).toBe(false)
-    })
-
-    // Both are job-keyed, so only the kind separates the outputs round from the code round.
-    it('rejects outputs-review-submitted on code-review-feedback', () => {
-        expect(
-            isStatelessEventValidForDocument(
-                { ...event, type: 'outputs-review-submitted' },
-                { kind: 'code-review-feedback', jobId: JOB_ID },
-            ),
-        ).toBe(false)
     })
 })
 
@@ -682,214 +518,6 @@ describe('isDocumentEditable', () => {
     })
 })
 
-describe('assertStatelessEventConsistent', () => {
-    const baseEvent: StatelessSubmissionEvent = {
-        type: 'proposal-submitted',
-        studyId: STUDY_ID,
-        submittedByName: 'Alice',
-        submittedByTabId: 'tab-1',
-        submittedByClerkId: 'user_alice',
-    }
-
-    it('accepts a proposal-submitted event when sender matches and status is PENDING-REVIEW', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: baseEvent,
-                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: 'PENDING-REVIEW',
-            }),
-        ).toBe(true)
-    })
-
-    // study.status stays APPROVED across the whole code round, so there is no status to gate on.
-    it('accepts a code-submitted event from the connection user without a study status', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: { ...baseEvent, type: 'code-submitted' },
-                parsed: { kind: 'code-submission', studyId: STUDY_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: null,
-            }),
-        ).toBe(true)
-    })
-
-    it('rejects a proposal-submitted event whose sender does not match the connection user', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: baseEvent,
-                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_mallory',
-                studyStatus: 'PENDING-REVIEW',
-            }),
-        ).toBe(false)
-    })
-
-    it('rejects when event.studyId does not match the document studyId resolved at auth time', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: baseEvent,
-                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
-                documentStudyId: '019ddb2a-5f38-74ea-b401-94fd79839072',
-                connectionUserClerkId: 'user_alice',
-                studyStatus: 'PENDING-REVIEW',
-            }),
-        ).toBe(false)
-    })
-
-    it('rejects a proposal-submitted event when DB study is still DRAFT', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: baseEvent,
-                parsed: { kind: 'proposal-fields', studyId: STUDY_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: 'DRAFT',
-            }),
-        ).toBe(false)
-    })
-
-    it('accepts a proposal-review-submitted event when status is APPROVED / CHANGE-REQUESTED / REJECTED', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'proposal-review-submitted' }
-        for (const studyStatus of ['APPROVED', 'CHANGE-REQUESTED', 'REJECTED'] as const) {
-            expect(
-                assertStatelessEventConsistent({
-                    event,
-                    parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                    documentStudyId: STUDY_ID,
-                    connectionUserClerkId: 'user_alice',
-                    studyStatus,
-                }),
-            ).toBe(true)
-        }
-    })
-
-    it('rejects a proposal-review-submitted event on a still-PENDING-REVIEW study', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'proposal-review-submitted' }
-        expect(
-            assertStatelessEventConsistent({
-                event,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: 'PENDING-REVIEW',
-            }),
-        ).toBe(false)
-    })
-
-    it('rejects when type and document kind do not match', () => {
-        expect(
-            assertStatelessEventConsistent({
-                event: baseEvent,
-                parsed: { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: 'APPROVED',
-            }),
-        ).toBe(false)
-    })
-
-    it('accepts code-review-submitted when sender clerkId matches and studyId matches the document', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
-        expect(
-            assertStatelessEventConsistent({
-                event,
-                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_alice',
-                studyStatus: null,
-            }),
-        ).toBe(true)
-    })
-
-    it('rejects code-review-submitted when event.studyId does not match the document studyId', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
-        expect(
-            assertStatelessEventConsistent({
-                event,
-                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
-                documentStudyId: '019ddb2a-5f38-74ea-b401-94fd79839072',
-                connectionUserClerkId: 'user_alice',
-                studyStatus: null,
-            }),
-        ).toBe(false)
-    })
-
-    it('rejects code-review-submitted when sender clerkId does not match', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'code-review-submitted' }
-        expect(
-            assertStatelessEventConsistent({
-                event,
-                parsed: { kind: 'code-review-feedback', jobId: JOB_ID },
-                documentStudyId: STUDY_ID,
-                connectionUserClerkId: 'user_mallory',
-                studyStatus: null,
-            }),
-        ).toBe(false)
-    })
-
-    // OTTER-726: this event closes the review in every other tab, so a reviewer must not be able
-    // to send one until the decision they claim is in the database.
-    describe('outputs-review-submitted', () => {
-        const event: StatelessSubmissionEvent = { ...baseEvent, type: 'outputs-review-submitted' }
-
-        it('accepts the event once the job carries a files decision', () => {
-            expect(
-                assertStatelessEventConsistent({
-                    event,
-                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
-                    documentStudyId: STUDY_ID,
-                    connectionUserClerkId: 'user_alice',
-                    studyStatus: null,
-                    jobDecided: true,
-                }),
-            ).toBe(true)
-        })
-
-        it('rejects the event while the job is still open', () => {
-            expect(
-                assertStatelessEventConsistent({
-                    event,
-                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
-                    documentStudyId: STUDY_ID,
-                    connectionUserClerkId: 'user_alice',
-                    studyStatus: null,
-                    jobDecided: false,
-                }),
-            ).toBe(false)
-        })
-
-        // Fails closed: a caller that cannot resolve the job status must not have its event relayed.
-        it('rejects the event when the job status could not be resolved', () => {
-            expect(
-                assertStatelessEventConsistent({
-                    event,
-                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
-                    documentStudyId: STUDY_ID,
-                    connectionUserClerkId: 'user_alice',
-                    studyStatus: null,
-                }),
-            ).toBe(false)
-        })
-
-        it('rejects the event when the sender is not the connection user', () => {
-            expect(
-                assertStatelessEventConsistent({
-                    event,
-                    parsed: { kind: 'outputs-review-feedback', jobId: JOB_ID },
-                    documentStudyId: STUDY_ID,
-                    connectionUserClerkId: 'user_mallory',
-                    studyStatus: null,
-                    jobDecided: true,
-                }),
-            ).toBe(false)
-        })
-    })
-})
-
 describe('hasFilesDecision', () => {
     const fakeDb = (rows: Array<{ status: string }>): DbQuery => ({
         query: (async () => ({ rows, rowCount: rows.length })) as DbQuery['query'],
@@ -991,5 +619,90 @@ describe('shouldPersistDocument', () => {
         await expect(
             shouldPersistDocument({ kind: 'outputs-review-feedback', jobId: JOB_ID }, fakeDb([{ status: 'x' }])),
         ).resolves.toBe(false)
+    })
+})
+
+describe('study-events documents', () => {
+    const doc = `study-events-${STUDY_ID}`
+    const study = (status: string) => ({ org_id: 'do-org', submitted_by_org_id: 'lab-org', status })
+
+    // Answers the membership query with whether the user's org is among the allowed ones.
+    const depsFor = (userOrgId: string, status: string, isSiAdmin = false) => {
+        const queries: Array<{ text: string; values?: unknown[] }> = []
+        const db = dbFromScripts(async (text, values) => {
+            queries.push({ text, values })
+            if (text.includes('FROM "user"')) return { rows: [{ id: 'user-1' }], rowCount: 1 }
+            if (text.includes('FROM study')) return { rows: [study(status)], rowCount: 1 }
+            const allowed = (values?.[2] as string[]).includes(userOrgId)
+            return allowed || isSiAdmin ? { rows: [{}], rowCount: 1 } : { rows: [], rowCount: 0 }
+        })
+        return { deps: baseDeps({ db }), queries }
+    }
+
+    it('parses the per-study events document', () => {
+        expect(parseDocumentName(doc)).toEqual({ kind: 'study-events', studyId: STUDY_ID })
+        expect(parseDocumentName('study-events-not-a-uuid')).toBeNull()
+    })
+
+    it('admits a lab member on a draft study', async () => {
+        const { deps, queries } = depsFor('lab-org', 'DRAFT')
+        await expect(authenticate({ token: 'tok', documentName: doc }, deps)).resolves.toMatchObject({
+            studyId: STUDY_ID,
+        })
+        expect(queries.find((q) => q.text.includes('FROM org_user'))?.text).toContain('ANY($3)')
+    })
+
+    it('refuses an enclave member on a draft study', async () => {
+        const { deps } = depsFor('do-org', 'DRAFT')
+        await expect(authenticate({ token: 'tok', documentName: doc }, deps)).rejects.toThrow(/no membership/)
+    })
+
+    it.each(['PENDING-REVIEW', 'CHANGE-REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED'])(
+        'admits an enclave member on a %s study',
+        async (status) => {
+            const { deps } = depsFor('do-org', status)
+            await expect(authenticate({ token: 'tok', documentName: doc }, deps)).resolves.toBeDefined()
+        },
+    )
+
+    it('refuses a member of neither org', async () => {
+        const { deps } = depsFor('other-org', 'APPROVED')
+        await expect(authenticate({ token: 'tok', documentName: doc }, deps)).rejects.toThrow(/no membership/)
+    })
+
+    it('admits an SI admin through the admin bypass', async () => {
+        const { deps } = depsFor('safe-insights-org', 'DRAFT', true)
+        await expect(authenticate({ token: 'tok', documentName: doc }, deps)).resolves.toBeDefined()
+    })
+
+    it('lists the enclave org only for a submitted study', () => {
+        expect(studyEventsOrgIds({ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'DRAFT' })).toEqual([
+            'lab-org',
+        ])
+        expect(studyEventsOrgIds({ org_id: 'do-org', submitted_by_org_id: 'lab-org', status: 'APPROVED' })).toEqual([
+            'lab-org',
+            'do-org',
+        ])
+    })
+
+    it('is never editable-gated, never persisted and read-only', async () => {
+        const parsed: ParsedDocumentName = { kind: 'study-events', studyId: STUDY_ID }
+        const db = { query: vi.fn() } as unknown as DbQuery
+        expect(isDocumentEditable(parsed, { status: 'ARCHIVED' })).toBe(true)
+        expect(await shouldPersistDocument(parsed, db)).toBe(false)
+        expect(db.query).not.toHaveBeenCalled()
+        expect(isReadOnlyDocument(parsed)).toBe(true)
+    })
+
+    it.each<ParsedDocumentName>([
+        { kind: 'review-feedback', studyId: STUDY_ID, version: 1 },
+        { kind: 'code-review-feedback', jobId: JOB_ID },
+        { kind: 'outputs-review-feedback', jobId: JOB_ID },
+        { kind: 'proposal-fields', studyId: STUDY_ID },
+        { kind: 'proposal-text', studyId: STUDY_ID, slug: 'impact' },
+        { kind: 'proposal-resubmission-note', studyId: STUDY_ID, version: 1 },
+        { kind: 'code-submission', studyId: STUDY_ID },
+    ])('leaves a $kind document writable', (parsed) => {
+        expect(isReadOnlyDocument(parsed)).toBe(false)
     })
 })

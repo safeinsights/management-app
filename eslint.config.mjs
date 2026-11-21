@@ -266,14 +266,14 @@ const eslintConfig = [
             'custom/noQueryKeyLiterals': 'error',
         },
     },
-    // Writes refresh through useMutation({ invalidates }) (OTTER-974). The study events listener (added
-    // later) and the Clerk org reload after sign-in refresh without an action result.
+    // Writes refresh through useMutation({ invalidates }) (OTTER-974). The study events listener and the
+    // Clerk org reload after sign-in refresh without an action result.
     {
         files: ['src/**/*.{ts,tsx}'],
         ignores: [
             'src/**/*.test.{ts,tsx}',
             'src/hooks/query-wrappers.ts',
-            'src/hooks/use-study-events.ts',
+            'src/hooks/use-study-events.tsx',
             'src/hooks/session.ts',
         ],
         rules: {

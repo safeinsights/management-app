@@ -1,6 +1,5 @@
 import { useParams } from 'next/navigation'
 import { type Mock, describe, expect, it, vi } from 'vitest'
-import { HocuspocusProvider } from '@hocuspocus/provider'
 import { notifications } from '@mantine/notifications'
 import {
     advanceTimers,
@@ -19,6 +18,7 @@ import {
     waitFor,
     waitForPendingMutations,
     writeWorkspaceFiles,
+    captureStudyEvents,
 } from '@/tests/unit.helpers'
 import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { EditCodeResubmitProvider, useEditCodeResubmit } from './context'
@@ -133,10 +133,11 @@ describe('EditCodeResubmitProvider', () => {
         expect(await codeResubmissionNoteDraftOf(study.id)).toBe(note)
     })
 
-    // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
-    it('broadcasts code-submitted from the code room after a successful resubmit', async () => {
+    // OTTER-753: the second researcher is only kicked out if the resubmit publishes the event.
+    it('publishes code-submitted from the server after a successful resubmit', async () => {
         stubJobQueue()
         const { study } = await setupSubmittedCode({ changesRequested: true })
+        const events = captureStudyEvents()
         const root = await createWorkspaceDir('resubmit-broadcast')
         workspaceRoots.push(root)
         await writeWorkspaceFiles(root, study.id, { 'main.r': 'print("fixed")' })
@@ -146,15 +147,16 @@ describe('EditCodeResubmitProvider', () => {
                 <Harness onSaveResult={vi.fn()} />
             </EditCodeResubmitProvider>,
         )
-        const { __instances } = HocuspocusProvider as unknown as { __instances: { sendStateless: Mock }[] }
-        await waitFor(() => expect(__instances).toHaveLength(1))
-
         fireEvent.click(screen.getByRole('button', { name: 'Resubmit' }))
 
-        await waitFor(() => expect(__instances[0].sendStateless).toHaveBeenCalledTimes(1))
-        expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
-            type: 'code-submitted',
+        // The simulated scan that follows publishes its own job-status event.
+        await waitFor(() => expect(events.events.some((event) => event.change === 'code-submitted')).toBe(true))
+        expect(events.events[0]).toMatchObject({
             studyId: study.id,
+            change: 'code-submitted',
+            submittedBy: { name: expect.stringMatching(/.+/) },
+            originTabId: expect.any(String),
         })
+        expect(events.executors[0].isTransaction).toBe(true)
     })
 })

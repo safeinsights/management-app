@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import {
+    captureStudyEvents,
     db,
     insertTestOrg,
     insertTestUser,
@@ -149,6 +150,25 @@ describe('PATCH /api/qa/studies/{studyId}/status', () => {
 
         expect(response.status).toBe(200)
         expect(body).toMatchObject({ studyStatus: 'PENDING-REVIEW', jobStatus: 'JOB-RUNNING' })
+    })
+
+    // Open study pages hear of a QA move the same way they hear of a real one (OTTER-974).
+    it('publishes a study-status and a job-status event, each on its transaction', async () => {
+        await authenticateAsSiAdmin()
+        const { study, job } = await insertQaStudy()
+        const events = captureStudyEvents()
+
+        const response = await patchStatus(
+            study.id,
+            formWith({ studyStatus: 'PENDING-REVIEW', jobStatus: 'JOB-RUNNING' }),
+        )
+
+        expect(response.status).toBe(200)
+        expect(events.events).toEqual([
+            { studyId: study.id, jobId: job.id, change: 'job-status' },
+            { studyId: study.id, change: 'study-status' },
+        ])
+        expect(events.executors.map((executor) => executor.isTransaction)).toEqual([true, true])
     })
 
     // The endpoint encrypts, so the stored object must be a real envelope, not the posted bytes.

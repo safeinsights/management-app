@@ -112,5 +112,6 @@ export async function markCodeSubmitted(
     { studyJobId, userId }: { studyJobId: string; userId: string },
 ) {
     if (!awaitsSubmission((await lockJobState(db, studyJobId)).status)) return
-    await transitionJob(db, studyJobId, 'CODE-SUBMITTED', { actor: 'researcher', userId })
+    // Every caller is a submit action, which publishes its own code-submitted event.
+    await transitionJob(db, studyJobId, 'CODE-SUBMITTED', { actor: 'researcher', userId, publish: false })
 }
