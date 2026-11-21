@@ -9,6 +9,7 @@ import {
     mockSessionWithTestData,
     stampStudyOpened,
     studyOpenedAt,
+    captureStudyEvents,
 } from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
 import { deliver } from '@/server/mailgun'
@@ -199,7 +200,7 @@ describe('resubmitProposalAction', () => {
         expect(remaining).toHaveLength(0)
     })
 
-    it('returns the submitter full name and reviewing org name for the stateless broadcast', async () => {
+    it('publishes one proposal-submitted event naming the submitter, the reviewing org and the tab', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-meta', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -207,11 +208,13 @@ describe('resubmitProposalAction', () => {
             studyStatus: 'CHANGE-REQUESTED',
         })
 
+        const events = captureStudyEvents()
         const result = actionResult(
             await resubmitProposalAction({
                 studyId: study.id,
                 studyInfo: { title: 'Resubmitted' },
                 resubmissionNote: NOTE_50_WORDS,
+                originTabId: 'tab-1',
             }),
         )
 
@@ -223,8 +226,17 @@ describe('resubmitProposalAction', () => {
             .executeTakeFirstOrThrow()
 
         expect(result.submitterFullName).toBe(user.fullName)
-        expect(result.submitterClerkId).toBe(user.clerkId)
         expect(result.orgName).toBe(reviewerOrg.orgName)
+        expect(events.events).toEqual([
+            {
+                studyId: study.id,
+                change: 'proposal-submitted',
+                submittedBy: { name: user.fullName },
+                orgName: reviewerOrg.orgName,
+                originTabId: 'tab-1',
+            },
+        ])
+        expect(events.executors[0].isTransaction).toBe(true)
     })
 
     it('rejects resubmission when study is not CHANGE-REQUESTED', async () => {

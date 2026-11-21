@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR, draftStudyApiSchema } from '@/schema/study-request'
 import { resubmissionNoteToLexicalJson, resubmissionNoteParam } from '@/schema/resubmission-note'
 import { purgeProposalYjsDocsAfterFinalize } from '@/server/study-submission'
+import { notifyStudyChanged } from '@/server/study-events'
 
 const proposalUpdatableFields = [
     'title',
@@ -28,11 +29,12 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
             studyId: z.uuid(),
             studyInfo: draftStudyApiSchema,
             resubmissionNote: resubmissionNoteParam,
+            originTabId: z.string().max(64).optional(),
         }),
     )
     .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo, resubmissionNote, originTabId }, session, orgSlug }) => {
         const userId = session.user.id
 
         // Any member of the submitting lab may resubmit; researcherId stays the original creator
@@ -115,12 +117,19 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
 
         await markStudyOpened(db, { studyId, userId, seenAt: resubmittedAt })
 
-        // Feeds the `proposal-submitted` broadcast; clerkId lets a client skip its own session.
         const submitter = await db
             .selectFrom('user')
-            .select(['fullName', 'clerkId'])
+            .select(['fullName'])
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
+
+        await notifyStudyChanged(db, {
+            studyId,
+            change: 'proposal-submitted',
+            submittedBy: { name: submitter.fullName },
+            orgName: study.orgName,
+            originTabId,
+        })
 
         revalidatePath(Routes.dashboard)
         revalidatePath(Routes.orgDashboard({ orgSlug }))
@@ -132,7 +141,6 @@ export const resubmitProposalAction = new Action('resubmitProposalAction', { per
         return {
             studyId,
             submitterFullName: submitter.fullName,
-            submitterClerkId: submitter.clerkId,
             orgName: study.orgName,
         }
     })

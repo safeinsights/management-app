@@ -27,6 +27,7 @@ import {
 } from '@/schema/study-request'
 import { isDesignatedTestLab } from '@/server/db/test-lab'
 import { markCodeSubmitted, purgeProposalYjsDocsAfterFinalize, triggerCodeScan } from '@/server/study-submission'
+import { notifyStudyChanged } from '@/server/study-events'
 
 // Frozen so a Data Partner editing or replacing a code env later cannot change what the study runs:
 // its image, command lines, variables and data paths all come from this copy.
@@ -200,10 +201,16 @@ const finalizeStudySubmissionInfoSchema = z
     .partial()
 
 export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
-    .params(z.object({ studyId: z.string(), studyInfo: finalizeStudySubmissionInfoSchema.optional() }))
+    .params(
+        z.object({
+            studyId: z.string(),
+            studyInfo: finalizeStudySubmissionInfoSchema.optional(),
+            originTabId: z.string().max(64).optional(),
+        }),
+    )
     .middleware(withStudySubject)
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug, status, afterCommit }) => {
+    .handler(async ({ db, params: { studyId, studyInfo, originTabId }, session, orgSlug, status, afterCommit }) => {
         const userId = session.user.id
 
         // Repeated on the claiming UPDATE below so a caller holding a broader grant (`manage all`)
@@ -290,6 +297,15 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         }
 
         await markStudyOpened(db, { studyId, userId, seenAt: submittedAt })
+
+        await notifyStudyChanged(db, {
+            studyId,
+            jobId: latestJob?.id,
+            change: 'proposal-submitted',
+            submittedBy: { name: submitterFullName },
+            orgName: reviewerOrg.orgName,
+            originTabId,
+        })
 
         onStudyProposalSubmitted({ userId, studyId, isResubmission: status === 'CHANGE-REQUESTED' })
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+    parseStudyEvent,
+    studyEventsDocName,
     codeReviewFeedbackDocName,
     outputsReviewFeedbackDocName,
     parseDocumentName,
@@ -106,5 +108,44 @@ describe('collaboration document naming', () => {
         expect(parseDocumentName(`review-feedback-not-a-uuid`)).toBeNull()
         expect(parseDocumentName(`code-review-feedback-not-a-uuid`)).toBeNull()
         expect(parseDocumentName(`outputs-review-feedback-not-a-uuid`)).toBeNull()
+    })
+})
+
+describe('study events', () => {
+    const studyId = '01a1fb45-743f-7745-bd47-adbced0a2312'
+    const jobId = '01a1fb45-7478-7c69-afd9-057be4c194e9'
+
+    it('names and parses the per-study events document', () => {
+        expect(studyEventsDocName(studyId)).toBe(`study-events-${studyId}`)
+        expect(parseDocumentName(studyEventsDocName(studyId))).toEqual({ kind: 'study-events', studyId })
+        expect(parseDocumentName('study-events-not-a-uuid')).toBeNull()
+    })
+
+    it('parses an event from its JSON text', () => {
+        const event = {
+            type: 'study-changed',
+            studyId,
+            change: 'code-review-submitted',
+            jobId,
+            submittedBy: { name: 'Ada Lovelace' },
+            originTabId: 'tab-1',
+        }
+        expect(parseStudyEvent(JSON.stringify(event))).toEqual(event)
+        expect(parseStudyEvent({ type: 'study-changed', studyId, change: 'resync' })).toEqual({
+            type: 'study-changed',
+            studyId,
+            change: 'resync',
+        })
+    })
+
+    it('refuses anything that is not a well-formed event', () => {
+        expect(parseStudyEvent('not json')).toBeNull()
+        expect(parseStudyEvent({ type: 'other', studyId, change: 'job-status' })).toBeNull()
+        expect(parseStudyEvent({ type: 'study-changed', studyId: 'nope', change: 'job-status' })).toBeNull()
+        expect(parseStudyEvent({ type: 'study-changed', studyId, change: 'made-up' })).toBeNull()
+        expect(parseStudyEvent({ type: 'study-changed', studyId, change: 'job-status', jobId: 'x' })).toBeNull()
+        expect(
+            parseStudyEvent({ type: 'study-changed', studyId, change: 'job-status', originTabId: 'x'.repeat(65) }),
+        ).toBeNull()
     })
 })
