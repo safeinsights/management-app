@@ -16,6 +16,7 @@ import { Action, z } from './action'
 import { withStudyAccessSubject } from './study-subject'
 import { currentDb } from '@/server/request-context'
 import { approveJobCode } from '@/server/job-code-approval'
+import { refresh } from 'next/cache'
 
 type StudyForApproval = { status: StudyStatus; approvedAt: Date | null; orgId: string; containerLocation: string }
 
@@ -222,5 +223,8 @@ export const submitProposalReviewAction = new Action('submitProposalReviewAction
         }
 
         purgeReviewFeedbackYjsDocAfterSubmit({ studyId, version: reviewVersion, beforeAt: submittedAt })
+
+        // Re-renders the decided review page in this response, so the client needs no refresh.
+        refresh()
         return { submitterFullName }
     })

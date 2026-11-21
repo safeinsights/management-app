@@ -33,6 +33,7 @@ import { Action, z } from './action'
 import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
 import { transitionJob } from '@/server/job-transitions'
+import { refresh } from 'next/cache'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -171,6 +172,8 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
 
         const submitterFullName = await fetchUserFullName(userId, db)
 
+        // Re-renders the decided review page in this response, so the client needs no refresh.
+        refresh()
         // Names the reviewer in the notice the other tabs raise, which only the server can supply.
         return { submitterFullName }
     })

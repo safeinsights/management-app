@@ -15,7 +15,6 @@ export function useResearcherProfile() {
     return {
         data,
         isLoading: query.isLoading,
-        refetch: query.refetch,
     }
 }
 

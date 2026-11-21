@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
+import { useForm, useMutation, zodResolver } from '@/common'
 import { handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { SuccessPanel } from '@/components/panel'
@@ -29,7 +29,6 @@ const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
 }
 
 const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, onInvited }) => {
-    const queryClient = useQueryClient()
     const { isLoaded } = useSession()
 
     const studyProposalForm = useForm({
@@ -44,8 +43,8 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
+        invalidates: () => [queryKeys.orgPendingUsers(orgSlug)],
         onSuccess(data) {
-            queryClient.invalidateQueries({ queryKey: queryKeys.orgPendingUsers(orgSlug) })
             if (data?.alreadyInvited) {
                 showToast({
                     category: 'success',

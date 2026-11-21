@@ -1,7 +1,7 @@
 'use client'
 
 import { Stack, Text, ActionIcon, Tooltip } from '@mantine/core'
-import { useQuery, useQueryClient, useMutation } from '@/common'
+import { useQuery, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modals/app-modal'
@@ -21,33 +21,19 @@ type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 // Module-level, so a render that has no data yet does not mint a new array identity each time.
 const NO_DATA_SOURCES: DataSource[] = []
 
-// Code envs list their linked data sources, and deleting a data source cascades its links.
-const useInvalidateDataSources = (orgSlug: string) => {
-    const queryClient = useQueryClient()
-    return () => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.orgDataSources(orgSlug) })
-        queryClient.invalidateQueries({ queryKey: queryKeys.orgCodeEnvs(orgSlug) })
-    }
-}
-
 const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const invalidateDataSources = useInvalidateDataSources(orgSlug)
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
 
     const deleteMutation = useMutation({
         mutationFn: deleteOrgDataSourceAction,
+        // Code envs list their linked data sources, and deleting a data source cascades its links.
+        invalidates: () => [queryKeys.orgDataSources(orgSlug), queryKeys.orgCodeEnvs(orgSlug)],
         onSuccess: () => {
-            invalidateDataSources()
             showToast({ category: 'success', title: 'Success', message: 'Data source was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete data source'),
     })
-
-    const handleEditComplete = () => {
-        closeEditModal()
-        invalidateDataSources()
-    }
 
     return (
         <>
@@ -80,7 +66,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
             />
 
             <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Data Source">
-                <DataSourceForm dataSource={dataSource} onCompleteAction={handleEditComplete} />
+                <DataSourceForm dataSource={dataSource} onCompleteAction={closeEditModal} />
             </AppModal>
         </>
     )
@@ -106,18 +92,12 @@ const DataSourcesTable: React.FC<{ dataSources: DataSource[] }> = ({ dataSources
 
 export const DataSources: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const invalidateDataSources = useInvalidateDataSources(orgSlug)
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const dataSources = useQuery({
         queryKey: queryKeys.orgDataSources(orgSlug),
         queryFn: async () => await fetchOrgDataSourcesAction({ orgSlug }),
     })
-
-    const handleFormComplete = () => {
-        closeAddModal()
-        invalidateDataSources()
-    }
 
     return (
         <>
@@ -128,7 +108,7 @@ export const DataSources: React.FC = () => {
             </DataSourcesView>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Data Source">
-                <DataSourceForm onCompleteAction={handleFormComplete} />
+                <DataSourceForm onCompleteAction={closeAddModal} />
             </AppModal>
         </>
     )

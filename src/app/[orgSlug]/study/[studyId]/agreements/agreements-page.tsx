@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Alert, Button, Divider, Flex, Paper, Stack, Text, Title } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
-import { useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { ackAgreementsAction } from '@/server/actions/study.actions'
 import type { Route } from 'next'
 import { fontWeight, semanticColor } from '@/theme/tokens'
@@ -66,6 +66,17 @@ const REVIEWER_SECTIONS: SectionProps[] = [
     },
 ]
 
+// onSettled: the step moves on even when the ack fails, so a refused ack never strands the reader here.
+function useProceed(studyId: string, isReviewer: boolean, proceedHref: string) {
+    const router = useRouter()
+    const { mutate } = useMutation({
+        mutationFn: () => ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' }),
+        invalidates: () => [queryKeys.researcherOrgStudiesAll()],
+        onSettled: () => router.push(proceedHref as Route),
+    })
+    return () => mutate()
+}
+
 function AgreementSection({ stepLabel, title, description }: SectionProps) {
     return (
         <Paper p="xl">
@@ -98,16 +109,11 @@ export function AgreementsPage({
     previousLabel = 'Previous',
 }: AgreementsPageProps) {
     const router = useRouter()
-    const queryClient = useQueryClient()
+    const handleProceed = useProceed(studyId, isReviewer, proceedHref)
 
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
     const resolvedProceedLabel = proceedLabel ?? (isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4')
 
-    const handleProceed = async () => {
-        await ackAgreementsAction({ studyId, role: isReviewer ? 'reviewer' : 'researcher' })
-        await queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
-        router.push(proceedHref as Route)
-    }
     const handlePrevious = () => router.push(previousHref as Route)
 
     return (

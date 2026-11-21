@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQueryClient, useState, type FC } from '@/common'
+import { useMutation, useState, type FC } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modals/app-modal'
 import { actionResult } from '@/lib/utils'
@@ -28,18 +28,14 @@ const usePublishAgreement = ({
     invalidateKeys: readonly (readonly unknown[])[]
     onComplete: () => void
 }) => {
-    const queryClient = useQueryClient()
-
     return useMutation({
         mutationFn: async ({ scope, signedAt, file }: PublishVariables) => {
             const { version } = actionResult(await createLegalDocumentDraftAction({ ...scope, file }))
             return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt }))
         },
+        invalidates: () => invalidateKeys,
         onError: reportMutationError('Could not publish the agreement'),
-        onSuccess: async () => {
-            await Promise.all(invalidateKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
-            onComplete()
-        },
+        onSuccess: onComplete,
     })
 }
 

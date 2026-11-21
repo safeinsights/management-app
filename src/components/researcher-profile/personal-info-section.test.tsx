@@ -24,9 +24,8 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         await waitFor(() => {
             expect(screen.getByText(user.firstName)).toBeDefined()
@@ -42,9 +41,8 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -64,9 +62,8 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -88,7 +85,6 @@ describe('PersonalInfoSection', () => {
             expect(notifications.show).toHaveBeenCalledWith(
                 expect.objectContaining({ title: 'Saved', 'data-toast-kind': 'success' }),
             )
-            expect(refetch).toHaveBeenCalled()
         })
 
         const updated = await db
@@ -108,12 +104,11 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         const { updateClerkUserName } = await import('@/server/clerk')
         vi.mocked(updateClerkUserName).mockRejectedValueOnce(new Error('Network error'))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -145,9 +140,8 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -166,7 +160,6 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const initialData = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         // Swaps in changed server data mid-edit, as a periodic or window-focus refetch would.
         const Harness = () => {
@@ -182,7 +175,7 @@ describe('PersonalInfoSection', () => {
                     >
                         simulate-refetch
                     </button>
-                    <PersonalInfoSection data={data} refetch={refetch} />
+                    <PersonalInfoSection data={data} />
                 </>
             )
         }
@@ -210,9 +203,8 @@ describe('PersonalInfoSection', () => {
         await insertTestResearcherProfile({ userId: user.id })
 
         const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+        renderWithProviders(<PersonalInfoSection data={data} />)
 
         const editButton = screen.getByRole('button', { name: /edit/i })
         await userEvents.click(editButton)
@@ -227,7 +219,5 @@ describe('PersonalInfoSection', () => {
         await waitFor(() => {
             expect(screen.getByText(originalFirstName)).toBeDefined()
         })
-
-        expect(refetch).not.toHaveBeenCalled()
     })
 })

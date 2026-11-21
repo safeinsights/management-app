@@ -1,12 +1,10 @@
 'use server'
 
 import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { requireDataPartner } from '@/server/actions/org-context'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { ActionFailure } from '@/lib/errors'
-import { Routes } from '@/lib/routes'
 import { designateTestLabs, labsEligibleAsTestLabs, orgTestLabs, undesignateTestLab } from '@/server/db/test-lab'
 
 const orgSlugSchema = z.object({ orgSlug: z.string() })
@@ -37,7 +35,7 @@ export const designateTestLabsAction = new Action('designateTestLabsAction', { p
     .params(designateSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('designate', 'TestLab')
-    .handler(async ({ db, orgId, orgType, session, params: { orgSlug, researchLabIds } }) => {
+    .handler(async ({ db, orgId, orgType, session, params: { researchLabIds } }) => {
         requireDataPartner({ orgId, orgType })
 
         // The ids arrive from the client, so a caller could name an enclave and exempt its own
@@ -54,8 +52,6 @@ export const designateTestLabsAction = new Action('designateTestLabsAction', { p
         }
 
         await designateTestLabs(db, { dataPartnerId: orgId, researchLabIds, createdByUserId: session.user.id })
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
     })
 
 const undesignateSchema = orgSlugSchema.extend({ testLabId: z.uuid() })
@@ -66,13 +62,11 @@ export const undesignateTestLabAction = new Action('undesignateTestLabAction', {
     .params(undesignateSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('undesignate', 'TestLab')
-    .handler(async ({ db, orgId, orgType, params: { orgSlug, testLabId } }) => {
+    .handler(async ({ db, orgId, orgType, params: { testLabId } }) => {
         requireDataPartner({ orgId, orgType })
 
         const dropped = await undesignateTestLab(db, { dataPartnerId: orgId, testLabId })
         if (!dropped) {
             throw new ActionFailure({ testLab: 'was not found' })
         }
-
-        revalidatePath(Routes.adminSettings({ orgSlug }))
     })

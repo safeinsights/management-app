@@ -136,18 +136,19 @@ function AiSummaryEmpty() {
     )
 }
 
+const isRestarted = (result: Awaited<ReturnType<typeof regenerateStudyReviewAction>>) =>
+    !isActionError(result) && result.status === 'restarted'
+
 function useRetryStudyReview(studyJobId: string, analysisKey: readonly unknown[], onRetryStarted: () => void) {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: () => regenerateStudyReviewAction({ studyJobId }),
+        // The server refuses to restart a run that is still alive, and there is nothing to restart
+        // for a report that has already landed. Either way the row on screen is the one to re-read,
+        // and the clock it is judged against must not move.
+        invalidates: (_, result) => (result && !isRestarted(result) ? [analysisKey] : []),
         onSuccess: (result) => {
-            // The server refuses to restart a run that is still alive, and there is nothing to
-            // restart for a report that has already landed. Either way the row on screen is the
-            // one to re-read, and the clock it is judged against must not move.
-            if (isActionError(result) || result.status !== 'restarted') {
-                queryClient.invalidateQueries({ queryKey: analysisKey })
-                return
-            }
+            if (!isRestarted(result)) return
             // Must be the poll's own key, round included, or this clears an entry nothing reads and
             // the panel keeps rendering the failure it just retried.
             queryClient.setQueryData(analysisKey, (prev: JobAnalysisUpdate | undefined) =>

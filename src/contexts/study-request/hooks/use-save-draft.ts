@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { reportMutationError } from '@/components/errors'
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation } from '@/common'
 import { actionResult } from '@/lib/utils'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
@@ -18,8 +18,6 @@ export interface UseSaveDraftReturn {
 }
 
 export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: UseSaveDraftOptions): UseSaveDraftReturn {
-    const queryClient = useQueryClient()
-
     const mutation = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             // OTTER-690: Step 1 is the single writer of `study.title` on a DRAFT. The one place it
@@ -60,11 +58,13 @@ export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: Use
 
             return { studyId: result.studyId }
         },
+        invalidates: () => [
+            queryKeys.researcherOrgStudiesAll(),
+            queryKeys.researcherUserStudies(),
+            queryKeys.userOrgs(),
+        ],
         onSuccess({ studyId: newStudyId }) {
             onStudyCreated?.(newStudyId)
-            queryClient.invalidateQueries({ queryKey: queryKeys.researcherOrgStudiesAll() })
-            queryClient.invalidateQueries({ queryKey: queryKeys.researcherUserStudies() })
-            queryClient.invalidateQueries({ queryKey: queryKeys.userOrgs() })
         },
         onError: reportMutationError('Failed to save draft'),
     })
