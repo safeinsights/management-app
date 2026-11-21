@@ -23,10 +23,12 @@ export type PoolFactory = (connectionString: string) => PoolLike
 
 export type ConnectionStringResolver = () => Promise<string>
 
+type KeepAlive = Pick<PG.PoolConfig, 'keepAlive' | 'keepAliveInitialDelayMillis'>
+
 export const pgPoolFactory =
-    (ssl: PG.PoolConfig['ssl']): PoolFactory =>
+    (ssl: PG.PoolConfig['ssl'], keepAlive: KeepAlive = {}): PoolFactory =>
     (connectionString) =>
-        new PG.Pool({ connectionString, ssl })
+        new PG.Pool({ connectionString, ssl, ...keepAlive })
 
 // A deploy can rotate the DB password while a warm process keeps a pool wired to the old
 // connection string, so every new connection fails until the process is recycled (OTTER-626).

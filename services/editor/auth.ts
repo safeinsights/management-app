@@ -11,14 +11,11 @@ import {
     PROPOSAL_TEXT_SLUGS,
     RESUBMISSION_NOTE_SUFFIX_RE,
     REVIEW_FEEDBACK_PREFIX,
+    STUDY_EVENTS_PREFIX,
     UUID_RE,
     type ProposalTextSlug,
 } from '../../src/lib/collaboration-documents.ts'
-import {
-    ROUND_CLOSING_JOB_STATUSES,
-    SUBMITTED_PROPOSAL_REVIEW_STATUSES,
-    type StudyStatusValue,
-} from '../../src/lib/job-status-rules.ts'
+import { ROUND_CLOSING_JOB_STATUSES, type StudyStatusValue } from '../../src/lib/job-status-rules.ts'
 
 export type { ProposalTextSlug, StudyStatusValue as StudyStatus }
 
@@ -32,6 +29,7 @@ export type ParsedDocumentName =
     | { kind: 'proposal-text'; studyId: string; slug: ProposalTextSlug }
     | { kind: 'proposal-resubmission-note'; studyId: string; version: number }
     | { kind: 'code-submission'; studyId: string }
+    | { kind: 'study-events'; studyId: string }
 
 const VERSION_SUFFIX_RE = /^-v([1-9]\d*)$/
 
@@ -44,6 +42,11 @@ const isJobKeyed = (
     JOB_KEYED_KINDS.includes(parsed.kind)
 
 export function parseDocumentName(name: string): ParsedDocumentName | null {
+    if (name.startsWith(STUDY_EVENTS_PREFIX)) {
+        const studyId = name.slice(STUDY_EVENTS_PREFIX.length)
+        return UUID_RE.test(studyId) ? { kind: 'study-events', studyId } : null
+    }
+
     if (name.startsWith(OUTPUTS_REVIEW_FEEDBACK_PREFIX)) {
         const jobId = name.slice(OUTPUTS_REVIEW_FEEDBACK_PREFIX.length)
         return UUID_RE.test(jobId) ? { kind: 'outputs-review-feedback', jobId } : null
@@ -131,7 +134,37 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
         case 'code-submission':
             // The code actions gate submission (requireResubmittableCode); code-submission only carries presence.
             return true
+        // Nothing is edited there; its access rule lives in studyEventsOrgIds.
+        case 'study-events':
+            return true
     }
+}
+
+// The server's study change events, which clients only receive: their connections are read-only.
+export const isReadOnlyDocument = (parsed: ParsedDocumentName): boolean => parsed.kind === 'study-events'
+
+// Repeats ENCLAVE_VIEWABLE_STUDY_STATUS in src/lib/permissions.ts, which the editor image does not
+// carry: an enclave member may see a study only once it is submitted. A Record, so a new status is a
+// type error until someone decides it.
+const ENCLAVE_SEES_STUDY_EVENTS: Record<StudyStatusValue, boolean> = {
+    DRAFT: false,
+    'PENDING-REVIEW': true,
+    'CHANGE-REQUESTED': true,
+    APPROVED: true,
+    REJECTED: true,
+    ARCHIVED: true,
+}
+
+// The orgs whose members may hear a study's change events, by the app's study-view rule: the lab
+// always, the enclave org only for a submitted study.
+export function studyEventsOrgIds(study: {
+    org_id: string
+    submitted_by_org_id: string
+    status: StudyStatusValue
+}): string[] {
+    return ENCLAVE_SEES_STUDY_EVENTS[study.status] === true
+        ? [study.submitted_by_org_id, study.org_id]
+        : [study.submitted_by_org_id]
 }
 
 // Persist-time gate: returns true when the canonical Yjs state for this
@@ -147,7 +180,7 @@ export function isDocumentEditable(parsed: ParsedDocumentName, snap: StudyEditab
 export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     if (parsed.kind === 'code-review-feedback') return true
     // Nothing to persist: no Yjs content, only awareness and stateless events.
-    if (parsed.kind === 'code-submission') return false
+    if (parsed.kind === 'code-submission' || parsed.kind === 'study-events') return false
 
     if (parsed.kind === 'outputs-review-feedback') {
         return !(await hasFilesDecision(parsed.jobId, db))
@@ -160,8 +193,7 @@ export async function shouldPersistDocument(parsed: ParsedDocumentName, db: Pick
     return isDocumentEditable(parsed, { status })
 }
 
-// True once the job carries a terminal files decision. Shared by the persist gate above and the
-// outputs event gate below, which must not close a peer's review before a decision has landed.
+// True once the job carries a terminal files decision.
 export async function hasFilesDecision(jobId: string, db: Pick<DbQuery, 'query'>): Promise<boolean> {
     const decided = await db.query<{ exists: boolean }>(
         `SELECT 1 FROM job_status_change
@@ -170,117 +202,6 @@ export async function hasFilesDecision(jobId: string, db: Pick<DbQuery, 'query'>
         [jobId, [...ROUND_CLOSING_JOB_STATUSES]],
     )
     return decided.rowCount !== 0
-}
-
-export type EventType =
-    | 'proposal-submitted'
-    | 'proposal-review-submitted'
-    | 'code-review-submitted'
-    | 'outputs-review-submitted'
-    | 'code-submitted'
-
-export type StatelessSubmissionEvent = {
-    type: EventType
-    studyId: string
-    submittedByName: string
-    submittedByTabId: string
-    /**
-     * Clerk user id of the broadcasting client. The server compares this against
-     * the authenticated `connection.context.user.clerkId` so a forged event from
-     * an authorized but uninvolved collaborator is dropped before rebroadcast.
-     */
-    submittedByClerkId: string
-}
-
-// Server-side validation of stateless events the client emits via
-// `provider.sendStateless(...)`. Mirrors the client SubmissionEvent shape but
-// stays in this package so the editor service does not import from `src/`.
-export function parseStatelessEvent(payload: unknown): StatelessSubmissionEvent | null {
-    if (typeof payload !== 'string') return null
-
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(payload)
-    } catch {
-        return null
-    }
-
-    if (!parsed || typeof parsed !== 'object') return null
-    const obj = parsed as Record<string, unknown>
-    const { type, studyId, submittedByName, submittedByTabId, submittedByClerkId } = obj
-
-    if (
-        type !== 'proposal-submitted' &&
-        type !== 'proposal-review-submitted' &&
-        type !== 'code-review-submitted' &&
-        type !== 'outputs-review-submitted' &&
-        type !== 'code-submitted'
-    ) {
-        return null
-    }
-    if (typeof studyId !== 'string' || !UUID_RE.test(studyId)) return null
-    if (typeof submittedByName !== 'string' || submittedByName.length === 0) return null
-    if (typeof submittedByTabId !== 'string' || submittedByTabId.length === 0) return null
-    if (typeof submittedByClerkId !== 'string' || submittedByClerkId.length === 0) return null
-
-    return { type, studyId, submittedByName, submittedByTabId, submittedByClerkId }
-}
-
-// Returns true when the event type is appropriate for the document kind.
-// `proposal-submitted` is broadcast on the proposal-fields doc by the lab
-// submitter; `proposal-review-submitted` is broadcast on the review-feedback
-// doc by the DO submitter; `code-review-submitted` is broadcast on the
-// code-review-feedback doc by the DO submitter; `outputs-review-submitted` is
-// broadcast on the outputs-review-feedback doc by the DO submitter. Anything
-// else is dropped. studyId reconciliation lives in
-// assertStatelessEventConsistent (which has access to the authenticated
-// documentStudyId, the only place a code-review doc's studyId can be resolved
-// from).
-export function isStatelessEventValidForDocument(event: StatelessSubmissionEvent, parsed: ParsedDocumentName): boolean {
-    if (event.type === 'proposal-submitted') return parsed.kind === 'proposal-fields'
-    if (event.type === 'proposal-review-submitted') return parsed.kind === 'review-feedback'
-    if (event.type === 'code-review-submitted') return parsed.kind === 'code-review-feedback'
-    if (event.type === 'outputs-review-submitted') return parsed.kind === 'outputs-review-feedback'
-    if (event.type === 'code-submitted') return parsed.kind === 'code-submission'
-    return false
-}
-
-// Strict consistency check before rebroadcasting a stateless event:
-// 1. payload-vs-document-kind matches (handled by isStatelessEventValidForDocument)
-// 2. event.studyId matches the studyId resolved at connection time
-// 3. sender's clerk id matches the authenticated user on this connection
-// 4. for proposal flows, DB study status is plausible for the claimed event type
-//
-// Without (2)-(3) any authorized collaborator could spoof a kick-out event and
-// redirect the room without an actual submit. Code-review docs do not gate on
-// DB status here; the management-app action layer is the single enforcer of
-// code-review versioning. Outputs-review docs gate on the job's own files
-// decision rather than the study status, which stays APPROVED for the whole
-// outputs round.
-export function assertStatelessEventConsistent(args: {
-    event: StatelessSubmissionEvent
-    parsed: ParsedDocumentName
-    documentStudyId: string
-    connectionUserClerkId: string
-    studyStatus: StudyStatusValue | null
-    /** Only read for outputs events, where an undecided job means the event cannot be genuine. */
-    jobDecided?: boolean | null
-}): boolean {
-    const { event, parsed, documentStudyId, connectionUserClerkId, studyStatus, jobDecided = null } = args
-    if (!isStatelessEventValidForDocument(event, parsed)) return false
-    if (event.studyId !== documentStudyId) return false
-    if (event.submittedByClerkId !== connectionUserClerkId) return false
-
-    // Same reasoning as code-review-submitted: the action layer is the enforcer.
-    if (event.type === 'code-review-submitted' || event.type === 'code-submitted') return true
-    // The decision is written before the winner broadcasts, so an event that arrives while the job
-    // is still open would close a peer's review with no decision behind it.
-    if (event.type === 'outputs-review-submitted') return jobDecided === true
-    if (studyStatus === null) return false
-    if (event.type === 'proposal-submitted') return studyStatus === 'PENDING-REVIEW'
-    if (event.type === 'proposal-review-submitted')
-        return (SUBMITTED_PROPOSAL_REVIEW_STATUSES as readonly StudyStatusValue[]).includes(studyStatus)
-    return false
 }
 
 // pg.Pool-compatible query interface (small surface so tests can pass a
@@ -310,8 +231,6 @@ export interface AuthenticatedContext {
     user: { id: string; clerkId: string }
     // Resolved during authenticate(). For non-code-review docs this is
     // parsed.studyId; for code-review docs it's looked up via study_job.id.
-    // Stashed here so onStateless can validate event.studyId without parsing
-    // a code-review doc's studyId out of thin air (it doesn't have one).
     studyId: string
 }
 
@@ -411,7 +330,9 @@ export async function authenticate(
     const study = studyRow.rows[0]
     if (!study) throw new AuthFailureError('STUDY_NOT_FOUND', 'study not found')
 
-    const requiredOrgId = requiredOrgIdForDocument(parsed, study)
+    // The study events channel may admit either org; every other kind admits exactly one.
+    const isStudyEvents = parsed.kind === 'study-events'
+    const allowedOrgs = isStudyEvents ? studyEventsOrgIds(study) : requiredOrgIdForDocument(parsed, study)
 
     // safe-insights admin bypass OR membership in the kind-required org.
     const accessRow = await deps.db.query(
@@ -421,10 +342,10 @@ export async function authenticate(
           WHERE ou.user_id = $1
             AND (
                 (o.slug = $2 AND ou.is_admin = TRUE)
-                OR ou.org_id = $3
+                OR ou.org_id = ${isStudyEvents ? 'ANY($3)' : '$3'}
             )
           LIMIT 1`,
-        [internalUserId, deps.siAdminOrgSlug, requiredOrgId],
+        [internalUserId, deps.siAdminOrgSlug, allowedOrgs],
     )
     if (accessRow.rowCount === 0) throw new AuthFailureError('NO_MEMBERSHIP', 'no membership in study orgs')
 
