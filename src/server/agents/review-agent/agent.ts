@@ -29,7 +29,7 @@ const ANALYSIS_TOOL: Anthropic.Messages.Tool = {
             codeExplanation: {
                 type: 'string',
                 description:
-                    'Summarize what the code does for a reader with beginner programming skills. Use plain language. Title each section of the summary and use paragraph breaks between sections. Reference file paths if helpful. Use numbered steps if helpful. Include a list of variables used in the file at the end of the summary. Keep the whole explanation under about 1,500 words: summarize repeated blocks once rather than describing each of them.',
+                    'Summarize what the code does for a reader with beginner programming skills. Use plain language. Title each section of the summary in sentence case (capitalize only the first word and proper nouns, for example "Data flow issues") and use paragraph breaks between sections. Reference file paths if helpful. Use numbered steps if helpful. Include a list of variables used in the file at the end of the summary. Keep the whole explanation under about 1,500 words: summarize repeated blocks once rather than describing each of them.',
             },
             resultsSummary: {
                 type: 'string',

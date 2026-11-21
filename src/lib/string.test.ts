@@ -7,6 +7,8 @@ import {
     substituteEntryPointFile,
     orgInitialsTitle,
     plural,
+    looksTitleCase,
+    toSentenceCase,
 } from './string'
 
 describe('orgInitialsTitle', () => {
@@ -154,5 +156,44 @@ describe('plural', () => {
 
     it('takes an explicit plural for nouns the bare s gets wrong', () => {
         expect(plural(2, 'Terms of Service', 'Terms of Service')).toBe('2 Terms of Service')
+    })
+})
+
+describe('looksTitleCase', () => {
+    it('is true when the later words are capitalized', () => {
+        expect(looksTitleCase('Data Flow Issues')).toBe(true)
+        expect(looksTitleCase('Main Data Processing (Main.R)')).toBe(true)
+        expect(looksTitleCase('Analysis of Course Data')).toBe(true)
+    })
+
+    it('is false for a heading that is already in sentence case', () => {
+        expect(looksTitleCase('Reading data with Python')).toBe(false)
+        expect(looksTitleCase('This summary does not cover 4 submitted files:')).toBe(false)
+    })
+
+    it('is false for a single word or an empty string', () => {
+        expect(looksTitleCase('Overview')).toBe(false)
+        expect(looksTitleCase('')).toBe(false)
+    })
+})
+
+describe('toSentenceCase', () => {
+    it('lowercases the capitalized words after the first', () => {
+        expect(toSentenceCase('Data Flow Issues')).toBe('Data flow issues')
+        expect(toSentenceCase('Variables Used:')).toBe('Variables used:')
+    })
+
+    it('keeps file names, acronyms, mixed case and numbers as written', () => {
+        expect(toSentenceCase('Main Data Processing (Main.R)')).toBe('Main data processing (Main.R)')
+        expect(toSentenceCase('Reading The CSV From OpenStax In 2023')).toBe('Reading the CSV from OpenStax in 2023')
+    })
+
+    it('also lowercases the first word when told not to keep it', () => {
+        expect(toSentenceCase(' Overview Of Code', { keepFirst: false })).toBe(' overview of code')
+    })
+
+    it('keeps the whitespace between words', () => {
+        expect(toSentenceCase('File  Overview')).toBe('File  overview')
+        expect(toSentenceCase('')).toBe('')
     })
 })

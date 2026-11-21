@@ -284,10 +284,52 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(toggle).toHaveTextContent('View full AI summary')
     })
 
+    it('scrolls the expanded summary inside the box, with the toggle outside the scroll area', async () => {
+        await renderSection(fixture)
+        expect(screen.queryByTestId('ai-summary-scroll')).not.toBeInTheDocument()
+
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        const scroll = screen.getByTestId('ai-summary-scroll')
+        expect(scroll).toContainElement(screen.getByTestId('ai-summary-body'))
+        expect(scroll).not.toContainElement(screen.getByTestId('ai-summary-toggle'))
+    })
+
+    it('renders Title Case summary headings in sentence case', async () => {
+        const headedFixture = await setupBaseFixture()
+        await insertStudyReview(
+            headedFixture.job.id,
+            '## File Overview\n\nThe Code Uses R.\n\n**Data Flow Issues**\n\nText.\n\n#### Main Data Processing (Main.R)\n\nMore.',
+        )
+        await renderSection(headedFixture)
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        expect(screen.getByRole('heading', { name: 'File overview' })).toBeInTheDocument()
+        expect(screen.getByText('Data flow issues')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Main data processing (Main.R)' })).toBeInTheDocument()
+        expect(screen.getByText('The Code Uses R.')).toBeInTheDocument()
+    })
+
+    it('leaves sentence-case headings and the skipped-files note as written', async () => {
+        const headedFixture = await setupBaseFixture()
+        await insertStudyReview(
+            headedFixture.job.id,
+            '**This summary does not cover 2 submitted files:**\n\n- `a.R`: too big\n\n## Reading data with Python\n\nText.',
+        )
+        await renderSection(headedFixture)
+        await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
+
+        expect(screen.getByText('This summary does not cover 2 submitted files:')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Reading data with Python' })).toBeInTheDocument()
+    })
+
     it('shows the in-progress spinner while no review row exists yet (still generating)', async () => {
         const noReviewFixture = await setupBaseFixture()
         await renderSection(noReviewFixture)
-        expect(await screen.findByTestId('ai-summary-pending')).toHaveTextContent('Generating summary')
+        const pending = await screen.findByTestId('ai-summary-pending')
+        expect(pending).toHaveTextContent('Generating summary')
+        expect(within(pending).getAllByTestId('ai-summary-skeleton-line')).toHaveLength(2)
+        expect(within(pending).getByRole('status')).toHaveTextContent('Generating summary')
         expect(screen.queryByTestId('ai-summary-toggle')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-empty')).not.toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -363,6 +405,27 @@ describe('SubmittedCodeSection — AI summary', () => {
         expect(error).toHaveTextContent('The AI summary failed to generate.')
         expect(screen.getByTestId('ai-summary-retry')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
+    })
+
+    it('puts Retry below the failure banner, not inside it', async () => {
+        const failedFixture = await setupBaseFixture()
+        await insertFailedStudyReview(failedFixture.job.id)
+        const initialReview = (await jobAnalysisForJob(failedFixture.job)).review
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={failedFixture.job.id}
+                initialAnalysis={{ review: initialReview, scan: scanInProgress }}
+                submittedAt={new Date()}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+
+        const banner = within(await screen.findByTestId('ai-summary-error')).getByRole('alert')
+        const retry = screen.getByTestId('ai-summary-retry')
+        expect(banner).toHaveTextContent('The AI summary failed to generate.')
+        expect(banner).not.toContainElement(retry)
+        expect(banner.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('retrying a failed summary clears the failure row and drops back to pending', async () => {
@@ -634,6 +697,7 @@ describe('SubmittedCodeSection — Security scan results', () => {
 
         expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
         expect(screen.getByTestId('scan-details-toggle')).toHaveTextContent('Hide full scan details')
+        expect(screen.queryByTestId('scan-details-scroll')).not.toBeInTheDocument()
     })
 
     it('shows no details box when the log has nothing past its status line', async () => {
