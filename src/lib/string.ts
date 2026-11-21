@@ -97,7 +97,11 @@ function splitWord(token: string) {
 // A sentence-case heading keeps its long words lowercase. Small words ("of", "and") prove nothing,
 // since Title Case leaves them lowercase too.
 export function looksTitleCase(text: string): boolean {
-    const laterWords = text.trim().split(/\s+/).slice(1).map((token) => splitWord(token).core)
+    const laterWords = text
+        .trim()
+        .split(/\s+/)
+        .slice(1)
+        .map((token) => splitWord(token).core)
     return (
         laterWords.some((word) => CAPITALIZED_WORD.test(word)) &&
         !laterWords.some((word) => LOWERCASE_LONG_WORD.test(word))
