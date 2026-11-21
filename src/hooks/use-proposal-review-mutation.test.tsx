@@ -3,6 +3,7 @@ import {
     act,
     beforeEach,
     buildFeedback,
+    captureStudyEvents,
     createTestQueryWrapper,
     db,
     describe,
@@ -20,47 +21,8 @@ import {
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
-import { useEffect, type ReactNode } from 'react'
-import {
-    ReviewFeedbackProviderShare,
-    usePublishReviewFeedbackProvider,
-} from '@/lib/realtime/review-feedback-provider-context'
 import { useProposalReviewMutation } from './use-proposal-review-mutation'
 import { refresh } from 'next/cache'
-
-// Published into ReviewFeedbackProviderShare to imitate CollaborativeEditor's `onProviderReady`.
-type StubProvider = {
-    sendStateless: ReturnType<typeof vi.fn>
-}
-
-function createStubProvider(): StubProvider {
-    return { sendStateless: vi.fn() }
-}
-
-function PublishProvider({ provider }: { provider: StubProvider | null }) {
-    const publish = usePublishReviewFeedbackProvider()
-    useEffect(() => {
-        publish(provider as unknown as Parameters<typeof publish>[0])
-        return () => publish(null)
-    }, [publish, provider])
-    return null
-}
-
-function makeWrapper(provider: StubProvider | null) {
-    const QueryWrapper = createTestQueryWrapper()
-    // PublishProvider mounts after children so the hook subscribes before the publish effect runs;
-    // otherwise publish notifies an empty subscriber set and editorProvider stays null.
-    return function Wrapper({ children }: { children: ReactNode }) {
-        return (
-            <QueryWrapper>
-                <ReviewFeedbackProviderShare>
-                    {children}
-                    <PublishProvider provider={provider} />
-                </ReviewFeedbackProviderShare>
-            </QueryWrapper>
-        )
-    }
-}
 
 const validFeedback = buildFeedback(60)
 const REVIEW_VERSION = 1
@@ -74,7 +36,7 @@ describe('useProposalReviewMutation', () => {
         ;(notifications.show as Mock).mockClear()
     })
 
-    it('approve decision broadcasts via the editor provider and navigates', async () => {
+    it('approve decision publishes its event from the server and navigates', async () => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -82,7 +44,7 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        const provider = createStubProvider()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () =>
@@ -92,7 +54,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(provider) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         await act(async () => {
@@ -110,13 +72,15 @@ describe('useProposalReviewMutation', () => {
             expect(result.current.isSubmitting).toBe(true)
         })
 
-        expect(provider.sendStateless).toHaveBeenCalledTimes(1)
-        const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
-        expect(payload.type).toBe('proposal-review-submitted')
-        expect(payload.studyId).toBe(study.id)
-        expect(payload.submittedByTabId).toBe(tabSessionId)
-        expect(typeof payload.submittedByName).toBe('string')
-        expect(payload.submittedByName.length).toBeGreaterThan(0)
+        expect(events.events).toHaveLength(1)
+        // One event, the decision, from the action's transaction.
+        expect(events.events[0]).toMatchObject({
+            studyId: study.id,
+            change: 'proposal-review-submitted',
+            submittedBy: { name: expect.stringMatching(/.+/) },
+            originTabId: tabSessionId,
+        })
+        expect(events.executors[0].isTransaction).toBe(true)
 
         expect(notifications.show).toHaveBeenCalledWith(
             expect.objectContaining({ 'data-toast-kind': 'success', title: 'Decision submitted' }),
@@ -130,7 +94,7 @@ describe('useProposalReviewMutation', () => {
     it.each([
         { decision: 'needs-clarification' as const, expectedStatus: 'CHANGE-REQUESTED' as const },
         { decision: 'reject' as const, expectedStatus: 'REJECTED' as const },
-    ])('$decision decision broadcasts with the same wiring', async ({ decision, expectedStatus }) => {
+    ])('$decision decision publishes with the same wiring', async ({ decision, expectedStatus }) => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -138,7 +102,7 @@ describe('useProposalReviewMutation', () => {
             studyStatus: 'PENDING-REVIEW',
             jobStatus: 'CODE-SUBMITTED',
         })
-        const provider = createStubProvider()
+        const events = captureStudyEvents()
         const reviewUrl = Routes.studyReview({ orgSlug: org.slug, studyId: study.id })
         memoryRouter.setCurrentUrl(reviewUrl)
         const routerRefresh = (memoryRouter as unknown as { refresh: Mock }).refresh
@@ -151,7 +115,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(provider) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         await act(async () => {
@@ -165,49 +129,23 @@ describe('useProposalReviewMutation', () => {
                 .executeTakeFirstOrThrow()
             expect(updated.status).toBe(expectedStatus)
             expect(result.current.isSubmitting).toBe(true)
-            expect(provider.sendStateless).toHaveBeenCalledTimes(1)
+            expect(events.events).toHaveLength(1)
         })
 
-        const payload = JSON.parse(provider.sendStateless.mock.calls[0][0] as string)
-        expect(payload.type).toBe('proposal-review-submitted')
-        expect(payload.studyId).toBe(study.id)
-        expect(payload.submittedByTabId).toBe(tabSessionId)
+        // One event, the decision, from the action's transaction.
+        expect(events.events[0]).toMatchObject({
+            studyId: study.id,
+            change: 'proposal-review-submitted',
+            submittedBy: { name: expect.stringMatching(/.+/) },
+            originTabId: tabSessionId,
+        })
+        expect(events.executors[0].isTransaction).toBe(true)
         // The action re-renders the current route itself, so the client sends no second refresh.
         expect(vi.mocked(refresh)).toHaveBeenCalledTimes(1)
         expect(routerRefresh).not.toHaveBeenCalled()
     })
 
-    it('no editor provider published: navigates without broadcasting', async () => {
-        const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({
-            org,
-            researcherId: user.id,
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'CODE-SUBMITTED',
-        })
-
-        // No provider in the share context, simulating the editor not having mounted yet.
-        const { result } = renderHook(
-            () =>
-                useProposalReviewMutation({
-                    studyId: study.id,
-                    orgSlug: org.slug,
-                    tabSessionId,
-                    reviewVersion: REVIEW_VERSION,
-                }),
-            { wrapper: makeWrapper(null) },
-        )
-
-        await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback })
-        })
-        await waitFor(() =>
-            expect(memoryRouter.asPath).toBe(Routes.studyReview({ orgSlug: org.slug, studyId: study.id })),
-        )
-        expect(result.current.isSubmitting).toBe(true)
-    })
-
-    it('action error: no navigation, no broadcast', async () => {
+    it('action error: no navigation, no event', async () => {
         const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({
             org,
@@ -217,7 +155,7 @@ describe('useProposalReviewMutation', () => {
         })
         // Promoting out of PENDING-REVIEW forces the action's editable-status guard to reject.
         await setTestStudyStatus(study.id, 'APPROVED')
-        const provider = createStubProvider()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () =>
@@ -227,7 +165,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(provider) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         await act(async () => {
@@ -240,7 +178,7 @@ describe('useProposalReviewMutation', () => {
         )
         expect(errorCall).toBeDefined()
         expect(errorCall![0]).toMatchObject({ message: 'Your work is saved. Try again.' })
-        expect(provider.sendStateless).not.toHaveBeenCalled()
+        expect(events.events).toEqual([])
         expect(memoryRouter.asPath).toBe('/start')
 
         const after = await db.selectFrom('study').select('status').where('id', '=', study.id).executeTakeFirstOrThrow()
@@ -256,7 +194,6 @@ describe('useProposalReviewMutation', () => {
             jobStatus: 'CODE-SUBMITTED',
         })
         await setTestStudyStatus(study.id, 'APPROVED')
-        const provider = createStubProvider()
 
         const callerOnError = vi.fn()
 
@@ -268,7 +205,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(provider) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         await act(async () => {
@@ -286,7 +223,7 @@ describe('useProposalReviewMutation', () => {
             researcherId: user.id,
             studyStatus: 'PENDING-REVIEW',
         })
-        const provider = createStubProvider()
+        const events = captureStudyEvents()
 
         const { result } = renderHook(
             () =>
@@ -296,7 +233,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(provider) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         // No render between the two calls, as with both clicks of a double-click.
@@ -316,7 +253,7 @@ describe('useProposalReviewMutation', () => {
         expect(notifications.show).not.toHaveBeenCalledWith(
             expect.objectContaining({ title: 'Decision could not be submitted' }),
         )
-        expect(provider.sendStateless).toHaveBeenCalledTimes(1)
+        expect(events.events).toHaveLength(1)
     })
 
     it('a failed submit lets the reviewer try again', async () => {
@@ -336,7 +273,7 @@ describe('useProposalReviewMutation', () => {
                     tabSessionId,
                     reviewVersion: REVIEW_VERSION,
                 }),
-            { wrapper: makeWrapper(createStubProvider()) },
+            { wrapper: createTestQueryWrapper() },
         )
 
         await act(async () => {

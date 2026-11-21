@@ -1,6 +1,7 @@
 'use client'
 
 import { RequireStudyAgreement } from '@/components/legal/require-study-agreement'
+import { StudyEventsProvider } from '@/hooks/use-study-events'
 import { useParams } from 'next/navigation'
 import { type ReactNode } from 'react'
 
@@ -10,9 +11,9 @@ export default function StudyIdLayout({ children }: { children: ReactNode }) {
     const { orgSlug, studyId } = useParams<{ orgSlug: string; studyId: string }>()
 
     return (
-        <>
+        <StudyEventsProvider studyId={studyId}>
             <RequireStudyAgreement studyId={studyId} orgSlug={orgSlug} />
             {children}
-        </>
+        </StudyEventsProvider>
     )
 }

@@ -12,6 +12,7 @@ import { showToast } from '@/components/toast-notifications'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 export type EditableSnapshot = {
     status: StudyStatus
@@ -206,6 +207,16 @@ export function useStudyStatusOnReconnect({
             socket.off('status', onStatus)
         }
     }, [enabled, socket, checkStatus])
+
+    // The editor sends resync after its own database listener reconnects: a decision may have
+    // landed while no event could be relayed, though this tab's socket stayed up.
+    const { subscribe } = useStudyEvents()
+    useEffect(() => {
+        if (!enabled) return undefined
+        return subscribe((event) => {
+            if (event.change === 'resync') void checkStatus()
+        })
+    }, [enabled, subscribe, checkStatus])
 
     return { triggerKickOut: checkStatus }
 }

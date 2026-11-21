@@ -1,22 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { HocuspocusProvider } from '@hocuspocus/provider'
 
 import { pushDecided } from '@/lib/navigation'
 import { Routes } from '@/lib/routes'
 import { showToast } from '@/components/toast-notifications'
 import { OUTPUTS_DECIDED_NOTIFICATION_ID } from '@/lib/outputs-review'
+import type { StudyEvent } from '@/lib/collaboration-documents'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
-// The three decision rounds carry an identical payload and differ only in which round closed, so
-// they share one member rather than three copies of the same four fields.
-const DECISION_EVENT_TYPES = ['proposal-review-submitted', 'code-review-submitted', 'outputs-review-submitted'] as const
-
-export type DecisionEventType = (typeof DECISION_EVENT_TYPES)[number]
-
-const isDecisionEventType = (value: unknown): value is DecisionEventType =>
-    DECISION_EVENT_TYPES.includes(value as DecisionEventType)
+type DecisionEventType = 'proposal-review-submitted' | 'code-review-submitted' | 'outputs-review-submitted'
 
 // What the peer's decision closed, per round. Together, so a copy change can be read at a glance.
 const DECISION_SUBJECT: Record<DecisionEventType, string> = {
@@ -32,126 +26,69 @@ const DECISION_ROUTE = {
     'outputs-review-submitted': Routes.studyReview,
 } satisfies Record<DecisionEventType, unknown>
 
-type SubmissionEventBase = {
-    studyId: string
-    submittedByTabId: string
-    submittedByClerkId: string
-    submittedByName: string
-}
-
-export type SubmissionEvent =
-    | ({ type: 'proposal-submitted'; orgName: string } & SubmissionEventBase)
-    | ({ type: 'code-submitted' } & SubmissionEventBase)
-    | ({ type: DecisionEventType } & SubmissionEventBase)
-
-const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
-
-const parseSubmissionEvent = (raw: unknown): SubmissionEvent | null => {
-    if (typeof raw !== 'object' || raw === null) return null
-    const obj = raw as Record<string, unknown>
-    if (
-        !isString(obj.studyId) ||
-        !isString(obj.submittedByTabId) ||
-        !isString(obj.submittedByClerkId) ||
-        !isString(obj.submittedByName)
-    ) {
-        return null
-    }
-    const base: SubmissionEventBase = {
-        studyId: obj.studyId,
-        submittedByTabId: obj.submittedByTabId,
-        submittedByClerkId: obj.submittedByClerkId,
-        submittedByName: obj.submittedByName,
-    }
-    if (obj.type === 'proposal-submitted' && isString(obj.orgName)) {
-        return { type: 'proposal-submitted', ...base, orgName: obj.orgName }
-    }
-    if (obj.type === 'code-submitted' || isDecisionEventType(obj.type)) {
-        return { type: obj.type, ...base }
-    }
-    return null
-}
-
-const tryDecodeStateless = (payload: unknown): SubmissionEvent | null => {
-    let raw: unknown = payload
-    if (typeof raw === 'string') {
-        try {
-            raw = JSON.parse(raw)
-        } catch {
-            return null
-        }
-    }
-    return parseSubmissionEvent(raw)
-}
+export type SubmissionEventType = 'proposal-submitted' | 'code-submitted' | DecisionEventType
 
 type Args = {
-    provider: HocuspocusProvider | null
     orgSlug: string
     studyId: string
-    /** Must match the id the broadcaster puts on the outgoing event, or that tab double-navigates. */
-    currentTabId: string
+    /** The events this screen closes on. One channel carries every change of the study. */
+    types: readonly SubmissionEventType[]
+    /** For a screen scoped to one job, so another job's decision leaves it open. */
+    jobId?: string
     enabled?: boolean
 }
 
-export function useSubmissionRedirectListener({ provider, orgSlug, studyId, currentTabId, enabled = true }: Args) {
+export function useSubmissionRedirectListener({ orgSlug, studyId, types, jobId, enabled = true }: Args) {
     const router = useRouter()
     const pathname = usePathname()
+    const { tabId, subscribe } = useStudyEvents()
     const hasFiredRef = useRef(false)
 
-    useEffect(() => {
-        if (!enabled || !provider) return
+    const handle = useEffectEvent((event: StudyEvent) => {
+        const type = event.change as SubmissionEventType
+        const submittedByName = event.submittedBy?.name
+        // Filtered before the latch, so an event this screen ignores cannot use up its one redirect.
+        if (!types.includes(type) || event.studyId !== studyId || !submittedByName) return
+        if (jobId && event.jobId !== jobId) return
+        if (hasFiredRef.current) return
+        hasFiredRef.current = true
+        // The submitting tab already navigated from its mutation onSuccess. Compared on tab id, not
+        // user, so the same user's other tabs still close.
+        if (event.originTabId === tabId) return
 
-        const handle = (event: SubmissionEvent) => {
-            if (hasFiredRef.current) return
-            if (event.studyId !== studyId) return
-            // The broadcaster's own tab already navigated from its mutation onSuccess. Compared on
-            // tab id, not user, so the same user's other tabs still get kicked out.
-            if (event.submittedByTabId === currentTabId) {
-                hasFiredRef.current = true
-                return
-            }
-            hasFiredRef.current = true
-
-            if (event.type === 'proposal-submitted') {
-                showToast({
-                    category: 'info',
-                    title: 'Proposal submitted',
-                    message: `${event.submittedByName} has proceeded to submit this study proposal to ${event.orgName}. No further edits are allowed at this point.`,
-                })
-                router.push(Routes.studySubmitted({ orgSlug, studyId }))
-                return
-            }
-
-            if (event.type === 'code-submitted') {
-                showToast({
-                    category: 'info',
-                    title: 'Code submitted',
-                    message: `${event.submittedByName} has submitted the code for review. No further edits are allowed at this point.`,
-                })
-                router.push(Routes.studyView({ orgSlug, studyId }))
-                return
-            }
-
+        if (type === 'proposal-submitted') {
             showToast({
                 category: 'info',
-                // Only the outputs round shares an id, with the status backstop that may reach the
-                // same conclusion a moment later through this tab's own failed submit.
-                id: event.type === 'outputs-review-submitted' ? OUTPUTS_DECIDED_NOTIFICATION_ID : undefined,
-                title: 'Decision submitted',
-                message: `${event.submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[event.type]}. No further edits are allowed at this point.`,
+                title: 'Proposal submitted',
+                message: `${submittedByName} has proceeded to submit this study proposal to ${event.orgName}. No further edits are allowed at this point.`,
             })
-            pushDecided(router, pathname, DECISION_ROUTE[event.type]({ orgSlug, studyId }))
+            router.push(Routes.studySubmitted({ orgSlug, studyId }))
+            return
         }
 
-        const onStateless = (data: { payload: unknown }) => {
-            const event = tryDecodeStateless(data?.payload)
-            if (event) handle(event)
+        if (type === 'code-submitted') {
+            showToast({
+                category: 'info',
+                title: 'Code submitted',
+                message: `${submittedByName} has submitted the code for review. No further edits are allowed at this point.`,
+            })
+            router.push(Routes.studyView({ orgSlug, studyId }))
+            return
         }
 
-        provider.on('stateless', onStateless)
+        showToast({
+            category: 'info',
+            // Only the outputs round shares an id, with the status backstop that may reach the
+            // same conclusion a moment later through this tab's own failed submit.
+            id: type === 'outputs-review-submitted' ? OUTPUTS_DECIDED_NOTIFICATION_ID : undefined,
+            title: 'Decision submitted',
+            message: `${submittedByName} has proceeded to submit a decision on ${DECISION_SUBJECT[type]}. No further edits are allowed at this point.`,
+        })
+        pushDecided(router, pathname, DECISION_ROUTE[type]({ orgSlug, studyId }))
+    })
 
-        return () => {
-            provider.off('stateless', onStateless)
-        }
-    }, [provider, orgSlug, studyId, currentTabId, enabled, router, pathname])
+    useEffect(() => {
+        if (!enabled) return undefined
+        return subscribe(handle)
+    }, [enabled, subscribe])
 }

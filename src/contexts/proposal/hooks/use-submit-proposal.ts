@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
 import { type UseFormReturnType } from '@mantine/form'
 import { showToast } from '@/components/toast-notifications'
@@ -9,8 +8,6 @@ import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { type useYjsFormMap } from '@/hooks/use-yjs-form-map'
-import { type SubmissionEvent } from '@/hooks/use-submission-redirect-listener'
 import { buildStudyInfo } from './build-study-info'
 import { useSaveProposalDraft } from './use-save-proposal-draft'
 import { reportSubmissionFailure, SUBMIT_SUCCESS_TITLE } from './submission-toasts'
@@ -18,14 +15,12 @@ import { reportSubmissionFailure, SUBMIT_SUCCESS_TITLE } from './submission-toas
 interface UseSubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    yjsForm: ReturnType<typeof useYjsFormMap>
     tabSessionId: string
 }
 
-export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseSubmitProposalOptions) {
+export function useSubmitProposal({ studyId, form, tabSessionId }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { user } = useUser()
     // reportErrors false because the failure branch below folds the outcome into its own toast.
     const { saveDraft } = useSaveProposalDraft(studyId, form, { titleMode: 'omit', reportErrors: false })
 
@@ -39,30 +34,15 @@ export function useSubmitProposal({ studyId, form, yjsForm, tabSessionId }: UseS
                 await finalizeStudySubmissionAction({
                     studyId,
                     studyInfo: buildStudyInfo(form.getValues(), 'omit'),
+                    originTabId: tabSessionId,
                 }),
             ),
-        onSuccess: (result) => {
+        onSuccess: () => {
             form.resetDirty()
             // Fired before the push: the provider is mounted at the root, and the navigation sweep
             // spares a toast younger than TOAST_NAVIGATION_GRACE_MS, so this one lands on the
             // destination page.
             showToast({ category: 'success', title: SUBMIT_SUCCESS_TITLE, message: '' })
-            const submittedByClerkId = user?.id
-            if (!submittedByClerkId) {
-                router.push(Routes.studySubmitted({ orgSlug, studyId }))
-                return
-            }
-            const event: SubmissionEvent = {
-                type: 'proposal-submitted',
-                studyId,
-                submittedByTabId: tabSessionId,
-                submittedByClerkId,
-                submittedByName: result.submitterFullName,
-                orgName: result.orgName,
-            }
-            const payload = JSON.stringify(event)
-            // Tabs that miss this fall through to the status poll mounted in the proposal form.
-            yjsForm.provider?.sendStateless(payload)
             router.push(Routes.studySubmitted({ orgSlug, studyId }))
         },
         onError: (error) => reportSubmissionFailure(error, [saveDraft()]),

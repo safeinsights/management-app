@@ -4,6 +4,10 @@ import * as RouterMock from 'next-router-mock'
 import {
     act,
     advanceTimers,
+    createTestQueryClient,
+    emitStudyEvent,
+    QueryClientProvider,
+    studyEventsChannels,
     afterEach,
     beforeEach,
     db,
@@ -24,6 +28,7 @@ import {
 import { HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { YjsWebsocketProvider, __resetSharedYjsWebsocketForTests } from '@/lib/realtime/yjs-websocket-context'
+import { StudyEventsProvider } from './use-study-events'
 import { getStudyStatusAction } from '@/server/actions/editor.actions'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
@@ -143,6 +148,49 @@ describe('useStudyStatusOnReconnect', () => {
             socket.__emit('status', { status: 'connected' })
         })
         await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(2))
+    })
+
+    // Mounted under the study events provider, as the study layout mounts it.
+    const mountInStudy = (studyId: string) =>
+        render(
+            <QueryClientProvider client={createTestQueryClient()}>
+                <YjsWebsocketProvider>
+                    <StudyEventsProvider studyId={studyId}>
+                        <Harness studyId={studyId} />
+                    </StudyEventsProvider>
+                </YjsWebsocketProvider>
+            </QueryClientProvider>,
+        )
+
+    it('checks again when the editor sends a resync', async () => {
+        const { studyId } = await insertStudy('DRAFT')
+        mountInStudy(studyId)
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
+        await waitFor(() => expect(studyEventsChannels(studyId)).toHaveLength(1))
+
+        act(() => emitStudyEvent({ studyId, change: 'resync' }))
+
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(2))
+    })
+
+    it('checks once for one reconnect, though the study events channel also resyncs', async () => {
+        const { studyId } = await insertStudy('DRAFT')
+        mountInStudy(studyId)
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(1))
+        await waitFor(() => expect(studyEventsChannels(studyId)).toHaveLength(1))
+
+        const socket = (HocuspocusProviderWebsocket as unknown as { __instances: FakeSocket[] }).__instances[0]
+        act(() => {
+            socket.status = 'disconnected'
+            socket.__emit('status', { status: 'disconnected' })
+        })
+        act(() => {
+            socket.status = 'connected'
+            socket.__emit('status', { status: 'connected' })
+            studyEventsChannels(studyId)[0].__emit('synced', { state: true })
+        })
+        await waitFor(() => expect(getStudyStatusActionMock).toHaveResolvedTimes(2))
+        expect(getStudyStatusActionMock).toHaveBeenCalledTimes(2)
     })
 
     it('does nothing when disabled', async () => {
