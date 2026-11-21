@@ -20,6 +20,7 @@ import {
 } from '@/schema/resubmission-note'
 import { resubmitStudyCodeAction, saveCodeResubmissionNoteDraftAction } from '@/server/actions/study-code.actions'
 import { useCodeSubmissionPresence, type CodeSubmissionPresence } from '@/hooks/use-code-submission-presence'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 interface EditCodeResubmitContextValue {
     studyId: string
@@ -54,6 +55,7 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const presence = useCodeSubmissionPresence(studyId)
+    const { tabId } = useStudyEvents()
 
     const noteForm = useForm<ResubmitNoteValue>({
         validate: zodResolver(resubmitNoteSchema),
@@ -144,11 +146,11 @@ export function EditCodeResubmitProvider({ children, studyId, orgName, initialNo
                 mainFileName: args.mainFileName,
                 fileNames: args.fileNames,
                 resubmissionNote: pendingValueRef.current,
+                originTabId: tabId,
             }),
         onSuccess: () => {
             lastSavedValueRef.current = pendingValueRef.current
             showToast({ category: 'success', title: CODE_SUBMIT_SUCCESS_TITLE, message: '' })
-            presence.broadcastSubmitted()
             router.push(Routes.studyView({ orgSlug, studyId }))
         },
         onError: (error: unknown) =>

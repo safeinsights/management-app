@@ -2,7 +2,12 @@ import type { ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { memoryRouter } from 'next-router-mock'
 import {
+    act,
     advanceTimers,
+    createTestQueryClient,
+    emitStudyEvent,
+    QueryClientProvider,
+    studyEventsChannels,
     afterEach,
     beforeEach,
     describe,
@@ -18,6 +23,7 @@ import {
 } from '@/tests/unit.helpers'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { YjsWebsocketProvider, __resetSharedYjsWebsocketForTests } from '@/lib/realtime/yjs-websocket-context'
+import { StudyEventsProvider } from './use-study-events'
 import { useCodeSubmissionPresence } from './use-code-submission-presence'
 
 type FakeProvider = {
@@ -28,17 +34,25 @@ type FakeProvider = {
     __emit: (event: string, ...args: unknown[]) => void
 }
 
-const providers = () => (HocuspocusProvider as unknown as { __instances: FakeProvider[] }).__instances
-
-const wrapper = ({ children }: { children: ReactNode }) => <YjsWebsocketProvider>{children}</YjsWebsocketProvider>
+const allProviders = () => (HocuspocusProvider as unknown as { __instances: FakeProvider[] }).__instances
+const providers = () => allProviders().filter((provider) => provider.configuration.name?.startsWith('code-submission-'))
 
 describe('useCodeSubmissionPresence', () => {
     let studyId: string
+    let wrapper: (props: { children: ReactNode }) => ReactNode
 
     beforeEach(() => {
         __resetSharedYjsWebsocketForTests()
-        providers().length = 0
+        allProviders().length = 0
         studyId = faker.string.uuid()
+        const client = createTestQueryClient()
+        wrapper = ({ children }) => (
+            <QueryClientProvider client={client}>
+                <YjsWebsocketProvider>
+                    <StudyEventsProvider studyId={studyId}>{children}</StudyEventsProvider>
+                </YjsWebsocketProvider>
+            </QueryClientProvider>
+        )
         ;(useParams as Mock).mockReturnValue({ orgSlug: 'lab' })
         memoryRouter.setCurrentUrl('/start')
         mockClerkSession({
@@ -66,26 +80,13 @@ describe('useCodeSubmissionPresence', () => {
         )
     })
 
-    it('broadcasts code-submitted from this tab and releases the room on unmount', async () => {
-        const { result, unmount } = renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
+    it('sends nothing itself and releases the room on unmount', async () => {
+        const { unmount } = renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
         await waitFor(() => expect(providers()).toHaveLength(1))
-
-        result.current.broadcastSubmitted()
-
         const provider = providers()[0]
-        expect(provider.sendStateless).toHaveBeenCalledTimes(1)
-        expect(JSON.parse(provider.sendStateless.mock.calls[0][0] as string)).toEqual({
-            type: 'code-submitted',
-            studyId,
-            submittedByTabId: expect.any(String),
-            submittedByClerkId: 'user_erin',
-            submittedByName: 'Erin Lab',
-        })
-        // Own broadcast must not kick this tab: the mutation's onSuccess already navigates it.
-        provider.__emit('stateless', { payload: provider.sendStateless.mock.calls[0][0] })
-        expect(memoryRouter.asPath).toBe('/start')
 
         unmount()
+        expect(provider.sendStateless).not.toHaveBeenCalled()
         expect(provider.destroy).toHaveBeenCalledTimes(1)
     })
 
@@ -93,15 +94,9 @@ describe('useCodeSubmissionPresence', () => {
         renderHook(() => useCodeSubmissionPresence(studyId), { wrapper })
         await waitFor(() => expect(providers()).toHaveLength(1))
 
-        providers()[0].__emit('stateless', {
-            payload: JSON.stringify({
-                type: 'code-submitted',
-                studyId,
-                submittedByTabId: faker.string.uuid(),
-                submittedByClerkId: 'user_erin',
-                submittedByName: 'Erin Lab',
-            }),
-        })
+        await waitFor(() => expect(studyEventsChannels(studyId)).toHaveLength(1))
+
+        act(() => emitStudyEvent({ studyId, change: 'code-submitted', submittedBy: { name: 'Erin Lab' } }))
 
         expect(memoryRouter.asPath).toBe(`/lab/study/${studyId}/view`)
     })

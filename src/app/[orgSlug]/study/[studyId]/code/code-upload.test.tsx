@@ -18,6 +18,7 @@ import {
     waitForPendingQueries,
     within,
     writeWorkspaceFiles,
+    captureStudyEvents,
 } from '@/tests/unit.helpers'
 import { notifications } from '@mantine/notifications'
 import { storeS3File } from '@/server/aws'
@@ -25,8 +26,7 @@ import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { StepNav } from '@/lib/study-screen'
 import type { Route } from 'next'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import { vi, type Mock } from 'vitest'
+import { vi } from 'vitest'
 import { s3Available } from '@/tests/s3.helpers'
 
 vi.mock('@/server/aws', async () => {
@@ -201,9 +201,10 @@ describe('CodeUploadPage', () => {
         ])
     })
 
-    it.skipIf(!s3Available)('routes to /view and broadcasts code-submitted after successful submit', async () => {
+    it.skipIf(!s3Available)('routes to /view and publishes code-submitted after successful submit', async () => {
         const orgSlug = 'openstax-lab'
         const { study } = await setupStudy(orgSlug)
+        const events = captureStudyEvents()
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('code-upload-page')
         workspaceRoots.push(root)
@@ -234,12 +235,17 @@ describe('CodeUploadPage', () => {
         await waitFor(() => {
             expect(memoryRouter.asPath).toBe(`/openstax-lab/study/${study.id}/view`)
         })
-        // OTTER-753: the second researcher is only kicked out if this page actually broadcasts.
-        const { __instances } = HocuspocusProvider as unknown as { __instances: { sendStateless: Mock }[] }
-        expect(JSON.parse(__instances[0].sendStateless.mock.calls[0][0] as string)).toMatchObject({
-            type: 'code-submitted',
-            studyId: study.id,
-        })
+        // OTTER-753: the second researcher is only kicked out if the submit publishes the event.
+        // The simulated scan that follows publishes its own job-status event.
+        expect(events.events.filter((event) => event.change !== 'job-status')).toEqual([
+            expect.objectContaining({
+                studyId: study.id,
+                change: 'code-submitted',
+                submittedBy: { name: expect.stringMatching(/.+/) },
+                originTabId: expect.any(String),
+            }),
+        ])
+        expect(events.executors[0].isTransaction).toBe(true)
     })
 
     it('shows error notification when IDE file upload to S3 fails', async () => {

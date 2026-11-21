@@ -161,8 +161,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     submitAction,
 }) => {
     const websocketProvider = useYjsWebsocket()
-    // Shared with the decision hook, which broadcasts the submission on this document, and with the
-    // listener that closes the review in the other tabs.
+    // Shared with the decision hook, which reads from it whether the feedback reached the editor.
     const publishProvider = usePublishOutputsReviewFeedbackProvider()
 
     return (

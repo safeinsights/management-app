@@ -66,7 +66,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         collabKeys: PROPOSAL_PAGE_COLLAB_KEYS,
     })
 
-    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, yjsForm, tabSessionId })
+    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, tabSessionId })
 
     const value = useMemo(
         () => ({

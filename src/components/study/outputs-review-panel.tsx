@@ -1,7 +1,7 @@
 'use client'
 
 import { semanticColor } from '@/theme/tokens'
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode } from 'react'
 import { Box, Button } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { PoliteStatus } from '@/components/polite-status'
@@ -30,6 +30,7 @@ import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
 import { PageLayout } from '@/components/page-layout'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 // Module-level so the no-key path hands the same array identity down on every render.
 const NO_FILES: JobFileInfo[] = []
@@ -70,8 +71,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
     const priorOutputs = usePriorRunOutputs(priorRuns)
-    // Identifies this tab to the peers, so the same reviewer's other tabs are still closed out.
-    const [tabSessionId] = useState(() => crypto.randomUUID())
+    const { tabId: tabSessionId } = useStudyEvents()
     const isRoundOpen = !hasOutputsDecision((job.statusChanges ?? []).map((change) => change.status))
 
     // Read from the job's own files, never from an empty fetchEncryptedJobFiles result, which
@@ -105,7 +105,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                 <OutputsReviewSubmissionListener
                     orgSlug={orgSlug}
                     studyId={studyId}
-                    tabSessionId={tabSessionId}
+                    jobId={job.id}
                     enabled={isRoundOpen}
                 />
                 <Box bg={semanticColor('surface.page')}>

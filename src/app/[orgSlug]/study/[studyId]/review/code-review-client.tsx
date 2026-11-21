@@ -27,6 +27,7 @@ import { CodeReviewFeedbackSection, DECISION_GROUP_ID, FEEDBACK_INPUT_ID } from 
 import { CodeReviewSubmissionListener } from './code-review-submission-listener'
 import { CODE_REVIEW_CRITERIA_KEYS } from '@/hooks/use-code-review-evaluation-map'
 import type { CodeReviewCriteria, CodeReviewCriteriaDraft } from '@/hooks/use-code-review-evaluation-map'
+import { useStudyEvents } from '@/hooks/use-study-events'
 
 type Props = {
     orgSlug: string
@@ -63,13 +64,11 @@ const flaggedFields = (
 function useCodeReview({
     orgSlug,
     studyId,
-    jobId,
     tabSessionId,
     labName,
 }: {
     orgSlug: string
     studyId: string
-    jobId: string
     tabSessionId: string
     labName: string
 }) {
@@ -98,7 +97,7 @@ function useCodeReview({
         },
     })
 
-    const { submitReview, isSubmitting } = useCodeReviewMutation({ studyId, jobId, orgSlug, tabSessionId })
+    const { submitReview, isSubmitting } = useCodeReviewMutation({ studyId, orgSlug, tabSessionId })
 
     const handleSubmit = async () => {
         setHasAttemptedSubmit(true)
@@ -255,7 +254,7 @@ function NonEditableBody({ isVisible, nav }: NonEditableBodyProps) {
 }
 
 export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: Props) {
-    const [tabSessionId] = useState(() => crypto.randomUUID())
+    const { tabId: tabSessionId } = useStudyEvents()
 
     const initiallyEditable = isCodeReviewEditable({ latestJobStatus })
     const labName = study.submittingLabName
@@ -271,7 +270,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
         handleConfirmSubmit,
         isSubmitting,
         hasAttemptedSubmit,
-    } = useCodeReview({ orgSlug, studyId: study.id, jobId: job.id, tabSessionId, labName })
+    } = useCodeReview({ orgSlug, studyId: study.id, tabSessionId, labName })
 
     return (
         <StudyKickOutProvider
@@ -286,7 +285,7 @@ export function CodeReviewClient({ orgSlug, study, job, latestJobStatus, nav }: 
                 <CodeReviewSubmissionListener
                     orgSlug={orgSlug}
                     studyId={study.id}
-                    tabSessionId={tabSessionId}
+                    jobId={job.id}
                     enabled={initiallyEditable}
                 />
                 <EditableBody
