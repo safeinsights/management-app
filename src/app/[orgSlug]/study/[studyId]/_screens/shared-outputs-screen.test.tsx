@@ -297,7 +297,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveAttribute('data-variant', locked.variant)
         expect(alert).toHaveTextContent(locked.title)
-        expect(alert).toHaveTextContent(locked.body)
+        expect(alert).toHaveTextContent(locked.body as string)
     })
 
     it('marks the outputs reviewed only once they are decrypted, never for an errored run', async () => {
@@ -333,7 +333,7 @@ describe.each(VARIANTS)('SharedOutputsScreen — $label', (variant) => {
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveAttribute('data-variant', unlocked.variant)
         expect(alert).toHaveTextContent(unlocked.title)
-        expect(alert).toHaveTextContent(unlocked.body)
+        expect(alert).toHaveTextContent(unlocked.body as string)
         expect(alert).toHaveTextContent(dayjs(DECIDED_AT).format('MMM DD, YYYY'))
         expect(alert).not.toHaveTextContent(locked.title)
         expect(alert).not.toHaveTextContent(sibling.unlocked.title)

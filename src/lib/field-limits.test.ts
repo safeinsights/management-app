@@ -40,4 +40,10 @@ describe('overCharacterLimitError', () => {
             'Study title exceeds the 60 character limit. Shorten it to continue.',
         )
     })
+
+    it('agrees with a plural field title', () => {
+        expect(overCharacterLimitError('Additional notes or requests', 1800, { plural: true })).toBe(
+            'Additional notes or requests exceed the 1800 character limit. Shorten them to continue.',
+        )
+    })
 })

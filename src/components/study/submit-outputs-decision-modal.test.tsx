@@ -35,18 +35,21 @@ describe('SubmitOutputsDecisionModal', () => {
 
     it('states that the files and feedback are being shared for the share-outputs path', () => {
         renderModal('share-outputs')
-        expect(screen.getByText(SHARE_OUTPUTS_BODY)).toBeInTheDocument()
+        expect(screen.getByRole('dialog')).toHaveTextContent(SHARE_OUTPUTS_BODY)
     })
 
     it('states that the files are withheld for the feedback-only path', () => {
         renderModal('share-feedback-only')
-        expect(screen.getByText(FEEDBACK_ONLY_BODY)).toBeInTheDocument()
+        expect(screen.getByRole('dialog')).toHaveTextContent(FEEDBACK_ONLY_BODY)
     })
 
-    it('interpolates the lab name into both bodies', () => {
-        expect(confirmationBody('share-outputs', 'Acme Lab')).toContain('Acme Lab')
-        expect(confirmationBody('share-feedback-only', 'Acme Lab')).toContain('Acme Lab')
-    })
+    it.each(['share-outputs', 'share-feedback-only'] as const)(
+        'sets the lab name in semibold in the %s body',
+        (decision) => {
+            renderWithProviders(<p>{confirmationBody(decision, 'Acme Lab')}</p>)
+            expect(screen.getByText('Acme Lab').style.fontWeight).toBe('var(--si-font-weight-semibold)')
+        },
+    )
 
     // The component stays mounted while closed, so "closed" means no dialog is rendered.
     it('shows no dialog until a decision has been picked', () => {
@@ -76,13 +79,13 @@ describe('SubmitOutputsDecisionModal', () => {
         }
 
         renderWithProviders(<Harness />)
-        expect(screen.getByText(SHARE_OUTPUTS_BODY)).toBeInTheDocument()
+        expect(screen.getByRole('dialog')).toHaveTextContent(SHARE_OUTPUTS_BODY)
 
         await userEvent.click(screen.getByRole('button', { name: 'close it' }))
         await userEvent.click(screen.getByRole('button', { name: 'reopen with feedback only' }))
 
-        expect(screen.getByText(FEEDBACK_ONLY_BODY)).toBeInTheDocument()
-        expect(screen.queryByText(SHARE_OUTPUTS_BODY)).toBeNull()
+        expect(screen.getByRole('dialog')).toHaveTextContent(FEEDBACK_ONLY_BODY)
+        expect(screen.getByRole('dialog')).not.toHaveTextContent(SHARE_OUTPUTS_BODY)
     })
 
     it('closes without submitting from Cancel', async () => {

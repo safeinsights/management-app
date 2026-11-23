@@ -102,7 +102,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 
-    it('shows the outputs-available banner with the run-complete date, addressed to the lab', async () => {
+    it('shows the outputs-available banner with the run-complete date, addressed to the lab in semibold', async () => {
         const { org, study, raw } = await setupAvailable()
         await renderScreen({ study, raw }, org.slug)
 
@@ -111,6 +111,7 @@ describe('ReviewerOutputsAvailableScreen before decryption', () => {
         expect(alert).toHaveTextContent(
             `Enter your security key to decrypt the outputs, review them, and then share with ${study.submittingLabName}.`,
         )
+        expect(within(alert).getByText(study.submittingLabName).style.fontWeight).toBe('var(--si-font-weight-semibold)')
     })
 
     it('asks for the security key and hides the review view until a key validates', async () => {
@@ -237,6 +238,7 @@ describe('ReviewerOutputsAvailableScreen after decryption', () => {
         expect(alert).toHaveTextContent(
             `As the reviewer, you are responsible for checking the outputs for sensitive or restricted information* before they are shared with ${labName}.`,
         )
+        expect(within(alert).getByText(labName).style.fontWeight).toBe('var(--si-font-weight-semibold)')
         expect(alert).toHaveTextContent(
             '*Sensitive data could cause harm if disclosed, such as personally identifiable information (PII). Restricted data is limited by a data use agreement or policy.',
         )
