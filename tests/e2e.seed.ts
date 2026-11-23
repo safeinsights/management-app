@@ -363,6 +363,17 @@ export async function storeSeededMainCode(studyId: string, jobId: string) {
     await uploadSeedObject(seededMainCodePath(studyId, jobId), 'summary(read.csv("data.csv"))\n')
 }
 
+export async function seedSupplementalCode(studyId: string, jobId: string, names: string[]) {
+    for (const name of names) {
+        const path = `studies/${studyId}/${jobId}/${name}`
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: jobId, name, path, fileType: 'SUPPLEMENTAL-CODE' })
+            .execute()
+        await uploadSeedObject(path, `print("${name}")\n`)
+    }
+}
+
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
 // in latestJobForStudy and strand the reviewer off the results-review screen.
 export async function seedCodeApprovedJobReady(title: string): Promise<SeedResult> {

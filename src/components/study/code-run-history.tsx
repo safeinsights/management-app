@@ -244,7 +244,7 @@ function useCodeRunHistory(runs: PriorCodeRun[], role: CodeRunRole, outputs: Pri
     const [historyKeyAccepted, setHistoryKeyAccepted] = useState(false)
     const [announcement, announce] = useAnnouncement()
     // The row whose own key just opened it, so its table takes focus once. Any later toggle clears
-    // it: a remounted table (a row reopened, or on Mantine 9 a section shown again) must not take it.
+    // it: a table remounted by reopening its row must not take it.
     const [focusRunId, setFocusRunId] = useState<string | null>(null)
     const toggleRefs = useRef(new Map<string, HTMLButtonElement>())
     const showAllRef = useRef<HTMLButtonElement>(null)
@@ -662,8 +662,7 @@ const RunCodeFiles: FC<{ isVisible: boolean; run: PriorCodeRun }> = ({ isVisible
     )
 }
 
-// Mounted only while the row is open, so a closed row neither fetches its archives nor relies on
-// Collapse keeping it alive (it unmounts when reduced motion is on).
+// Mounted only while the row is open, so a closed row does not fetch its archives.
 const RowBody: FC<RowOutputsProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     if (!isVisible) return null
     const isFeedbackOnly = isFeedbackOnlyRun(props.run.statusChanges)
