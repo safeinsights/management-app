@@ -14,10 +14,12 @@ import { type Submitted } from '@/schema/study'
 import type { StepNav } from '@/lib/study-screen'
 import { Box, Stack } from '@mantine/core'
 import type { ReactNode } from 'react'
-import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { CodeReviewFeedbackEntry, ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { JobAnalysis, LatestJobForStudy } from '@/server/db/queries'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
 import { CollapsibleSubmittedCodeSection } from './collapsible-submitted-code-section'
+import { PageLayout } from '@/components/page-layout'
 
 export type PostFeedbackKind = 'PROPOSAL' | 'CODE'
 
@@ -41,8 +43,8 @@ type PostFeedbackViewProps = {
 }
 
 const STEP_LABEL_BY_KIND: Record<PostFeedbackKind, string> = {
-    PROPOSAL: 'STEP 1',
-    CODE: 'STEP 2',
+    PROPOSAL: 'Step 1',
+    CODE: 'Step 2',
 }
 
 type DecisionBannerProps = {
@@ -112,18 +114,16 @@ export function PostFeedbackView({
         <DecisionBanner
             kind={kind}
             decision={decision}
-            researchLab={study.submittingLabName ?? study.submittedByOrgSlug}
+            researchLab={study.submittingLabName}
             reviewerName={latestDecision ? latest?.authorName : null}
             decidedAt={timestampDate}
         />
     )
     const heading = isCode ? codeReviewHeading(reviewVersion) : proposalReviewHeading(reviewVersion)
-    const feedbackBeforeDetails = isCode && reviewVersion > 1
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+            <PageLayout header={<StudyPageHeader study={study} step={{ label: stepLabel, heading }} />}>
                 <CollapsibleSubmittedCodeSection
                     isVisible={isCode}
                     orgSlug={orgSlug}
@@ -133,9 +133,7 @@ export function PostFeedbackView({
                     stepLabel={stepLabel}
                     heading={heading}
                     banner={banner}
-                >
-                    <FeedbackAndNotesSection isVisible={feedbackBeforeDetails} entries={entries} alwaysExpandLatest />
-                </CollapsibleSubmittedCodeSection>
+                />
                 <ProposalSection
                     isVisible={!isCode}
                     study={study}
@@ -154,13 +152,9 @@ export function PostFeedbackView({
                         </Stack>
                     }
                 />
-                <FeedbackAndNotesSection
-                    isVisible={!feedbackBeforeDetails}
-                    entries={entries}
-                    alwaysExpandLatest={isCode}
-                />
+                <FeedbackAndNotesSection entries={entries} alwaysExpandLatest={isCode} />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { redirect } from 'next/navigation'
 import { LegalPageShell } from '@/components/legal/legal-page-shell'
 import { OrgLegalTabs } from './org-legal-tabs'
@@ -20,7 +19,7 @@ export default async function OrgLegalPage({ params }: { params: Promise<{ orgSl
 
     return (
         <LegalPageShell
-            eyebrow={displayOrgName(org.name)}
+            eyebrow={org.name}
             title="Legal center"
             tabs={<OrgLegalTabs orgSlug={org.slug} orgType={org.type} />}
         />

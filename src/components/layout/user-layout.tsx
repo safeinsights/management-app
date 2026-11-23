@@ -1,5 +1,3 @@
-'use server'
-
 import { ClerkProvider } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
 import { LoadingOverlay } from '@mantine/core'
@@ -9,7 +7,11 @@ import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
 import { connection } from 'next/server'
+import { env } from '@/server/config'
 import PostHogUserProvider from '../posthog-user-provider'
+import { requireUserKey } from '@/server/user-key-gate'
+import { requireGlobalAcknowledgement } from '@/server/global-acknowledgement-gate'
+import { Routes } from '@/lib/routes'
 
 type Props = {
     children: ReactNode
@@ -18,19 +20,22 @@ type Props = {
 
 export async function UserLayout({ children, showOverlay = false }: Props) {
     await connection() // force server rendering so we can access env vars
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
+    const clerkPublishableKey = env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
     const user = await currentUser()
     if (!user) {
-        redirect('/account/signin')
+        redirect(Routes.accountSignin)
     }
     if (user.twoFactorEnabled === false) {
-        redirect('/account/mfa')
+        redirect(Routes.accountMfa)
     }
+    await requireUserKey()
+    await requireGlobalAcknowledgement()
 
+    // Without `dynamic` Clerk drops the CSP nonce from clerk.browser.js (OTTER-679).
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
+        <ClerkProvider publishableKey={clerkPublishableKey} dynamic>
             <SentryUserProvider />
             <PostHogUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>

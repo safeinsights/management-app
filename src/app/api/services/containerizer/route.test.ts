@@ -2,6 +2,8 @@ import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import {
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestProposalDecision,
     insertTestStudyData,
     mockSessionWithTestData,
@@ -120,6 +122,20 @@ test('containerizer persists JOB-ERRORED once and is idempotent for same status'
     rows = await getStatusRows(jobId)
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
+})
+
+// Like the scan webhook: a retry would only be refused again, so the containerizer gets no 4xx to retry on.
+test('containerizer answers 200 to a report after the outputs decision and writes nothing', async () => {
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+    await insertTestJobStatuses(jobId, ['CODE-SUBMITTED', 'CODE-APPROVED', 'JOB-ERRORED', 'FILES-REJECTED'])
+    const before = await getStatusRows(jobId)
+
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-READY' }))
+
+    expect(resp.status).toBe(200)
+    expect(await getStatusRows(jobId)).toHaveLength(before.length)
 })
 
 test('containerizer tells the Data Partner when packaging errors', async () => {
@@ -247,17 +263,7 @@ test('containerizer records a reason against an errored row holding unclassified
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    // createdAt is set explicitly: each test runs in one transaction where now() is frozen, so
-    // every row would tie and the winner would fall to random v7uuid() ordering.
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            studyJobId: jobId,
-            status: 'JOB-ERRORED',
-            message: 'Task stopped: exit code 137',
-            createdAt: new Date(Date.now() + 1_000),
-        })
-        .execute()
+    await insertTestJobStatus(jobId, 'JOB-ERRORED', { message: 'Task stopped: exit code 137' })
 
     const resp = await apiHandler.POST(
         authedRequest({ jobId, status: 'JOB-ERRORED', failureReason: 'BASE_IMAGE_UNAVAILABLE' }),

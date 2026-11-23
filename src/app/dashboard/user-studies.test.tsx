@@ -1,5 +1,7 @@
 import {
     db,
+    insertTestJob,
+    insertTestJobStatus,
     insertTestUser,
     mockDualRoleSessionWithTestData,
     mockPathname,
@@ -66,15 +68,8 @@ describe('UserStudiesDashboard', () => {
             researcherId,
             title: 'Reviewer Study',
         })
-        const job = await db
-            .insertInto('studyJob')
-            .values({ studyId: study.id })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: reviewerId, status: 'CODE-APPROVED' })
-            .execute()
+        const job = await insertTestJob(study.id)
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: reviewerId })
     }
 
     it('opens on the Reviewer tab for a dual-role user, with the switcher outside the card', async () => {
@@ -109,6 +104,7 @@ describe('UserStudiesDashboard', () => {
         expect(screen.getByText('All studies')).toBeDefined()
         expect(screen.getByRole('columnheader', { name: /Submitted to/ })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('restores the tab named in the URL', async () => {
@@ -125,6 +121,7 @@ describe('UserStudiesDashboard', () => {
 
         expect(await screen.findByRole('link', { name: 'Researcher Study' })).toBeDefined()
         expect(screen.getByRole('radio', { name: 'Researcher' })).toBeChecked()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     // Category 3 (OTTER-619): no eyebrow, and the reserved slot must announce nothing.
@@ -146,6 +143,7 @@ describe('UserStudiesDashboard', () => {
         expect(await screen.findByText(/Every study follows four steps/)).toBeDefined()
         expect(screen.queryByRole('radio', { name: 'Reviewer' })).toBeNull()
         expect(screen.queryByRole('radio', { name: 'Researcher' })).toBeNull()
+        expect(screen.queryByTestId('new-study')).toBeNull()
     })
 
     it('does not show the toggle for a single-role reviewer', async () => {

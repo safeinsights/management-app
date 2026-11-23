@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import {
     actionResult,
     db,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -13,7 +14,8 @@ import {
     type Mock,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
@@ -68,10 +70,7 @@ async function setupDecidedStudy(decisionStatus: DecisionStatus, title = 'Effect
         title,
     })
     // The header dates the decision from this status-change row, not the feedback entry.
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: decisionStatus, userId: user.id, createdAt: DECISION_DATE })
-        .execute()
+    await insertTestJobStatus(job.id, decisionStatus, { at: DECISION_DATE, userId: user.id })
 
     await db
         .insertInto('studyJobFile')
@@ -123,12 +122,14 @@ describe('CodePostDecisionView', () => {
             renderView(study, job, [buildEntry({ decision: 'APPROVE' })], latestJobStatus)
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
 
             const title = study.title ?? ''
             expect(title).not.toBe('')
-            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${title} — Step 3: Submit code` }),
+            ).toBeInTheDocument()
             expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(header).not.toHaveTextContent(title)
         })

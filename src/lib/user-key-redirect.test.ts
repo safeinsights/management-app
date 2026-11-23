@@ -20,4 +20,10 @@ describe('keyGenerationUrl', () => {
     it('treats the dashboard as no destination so the key page still resolves its own landing', () => {
         expect(keyGenerationUrl(Routes.dashboard)).toBe(Routes.accountKeys)
     })
+
+    it('treats Home and a dashboard with a query as no destination', () => {
+        expect(keyGenerationUrl(Routes.home)).toBe(Routes.accountKeys)
+        expect(keyGenerationUrl(`${Routes.dashboard}?skip=Acme`)).toBe(Routes.accountKeys)
+        expect(keyGenerationUrl(`${Routes.home}?decline=Acme`)).toBe(Routes.accountKeys)
+    })
 })

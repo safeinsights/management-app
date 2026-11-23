@@ -7,7 +7,6 @@ import {
     insertTestOrg,
     BLANK_UUID,
 } from '@/tests/unit.helpers'
-import { displayOrgName } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 import { resolveInternalLinkAction } from './link-preview.actions'
 
@@ -20,7 +19,7 @@ describe('resolveInternalLinkAction', () => {
             pathname: `/${org.slug}/study/${studyId}/view`,
         })
 
-        expect(result).toEqual({ kind: 'internal', title: 'my 1st study', category: displayOrgName(org.name) })
+        expect(result).toEqual({ kind: 'internal', title: 'my 1st study', category: org.name })
     })
 
     it('reports a study the caller has no access to as unavailable', async () => {
@@ -60,7 +59,7 @@ describe('resolveInternalLinkAction', () => {
         expect(await resolveInternalLinkAction({ pathname: `/${org.slug}/dashboard` })).toEqual({
             kind: 'internal',
             title: 'Dashboard',
-            category: displayOrgName(org.name),
+            category: org.name,
         })
         expect(await resolveInternalLinkAction({ pathname: `/${outsider.slug}/dashboard` })).toEqual({
             kind: 'unavailable',
@@ -105,7 +104,7 @@ describe('resolveInternalLinkAction', () => {
         expect(await resolveInternalLinkAction({ pathname: Routes.adminTeam({ orgSlug: admin.org.slug }) })).toEqual({
             kind: 'internal',
             title: 'Manage team',
-            category: displayOrgName(admin.org.name),
+            category: admin.org.name,
         })
     })
 

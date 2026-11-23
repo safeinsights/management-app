@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
-import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -58,7 +59,7 @@ describe('ProposalSection', () => {
     it('renders the section header with step label and heading', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        expect(screen.getByText('STEP 1')).toBeInTheDocument()
+        expect(screen.getByText('Step 1')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
     })
 
@@ -91,7 +92,7 @@ describe('ProposalSection', () => {
     it('shows the revised title and versioned heading when reviewVersion > 1', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" reviewVersion={2} />)
 
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
         expect(screen.getByRole('heading', { name: 'Review proposal v2.0', level: 2 })).toBeInTheDocument()
         expect(screen.getByTestId('status-alert')).toHaveTextContent(`Revised proposal submitted by ${labName}`)
     })
@@ -99,7 +100,7 @@ describe('ProposalSection', () => {
     it('renders the action banner naming the submitting lab', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
-        const labName = study.submittingLabName ?? study.submittedByOrgSlug
+        const labName = study.submittingLabName
         const banner = screen.getByTestId('status-alert')
         expect(banner).toHaveAttribute('data-variant', 'action')
         expect(banner).toHaveTextContent(`New proposal submitted by ${labName}`)
@@ -125,7 +126,7 @@ describe('ProposalSection', () => {
         renderWithProviders(<ProposalSection study={study} orgSlug="test-org" />)
 
         const header = screen.getByTestId('proposal-section-header')
-        expect(header).toHaveTextContent('STEP 1')
+        expect(header).toHaveTextContent('Step 1')
         expect(within(header).queryByRole('button', { name: /full proposal/i })).not.toBeInTheDocument()
         expect(within(screen.getByTestId('proposal-card')).getByTestId('proposal-toggle-top')).toBeInTheDocument()
     })

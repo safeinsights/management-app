@@ -1,11 +1,8 @@
 import { CODER_DISABLED } from '@/server/config'
 import { copyStarterCodeIntoWorkspace, initializeWorkspaceCodeFiles } from '@/server/coder/workspaces'
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 
-export async function copyStarterCodeIntoDevWorkspace(
-    studyId: string,
-    executor: DBExecutor = db,
-): Promise<string | null> {
+export async function copyStarterCodeIntoDevWorkspace(studyId: string, executor: DBExecutor): Promise<string | null> {
     if (!CODER_DISABLED) return null
     return copyStarterCodeIntoWorkspace(studyId, executor)
 }

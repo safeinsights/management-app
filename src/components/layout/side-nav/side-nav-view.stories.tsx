@@ -1,7 +1,7 @@
 import type { Story } from '@ladle/react'
 import { AppShellNavbar, Text } from '@mantine/core'
 import { semanticColor } from '@/theme/tokens'
-import type { NavOrg } from '@/lib/nav/side-nav'
+import { NOTHING_UNREAD, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import { WithAppShell } from '~ladle/decorators/with-app-shell'
 import { SideNavView } from './side-nav-view'
@@ -16,10 +16,14 @@ const ORGS: NavOrg[] = [
     { id: 'org-rl', name: 'Westbrook University Research Consortium', slug: 'westbrook', type: 'lab', isAdmin: false },
 ]
 
-const Shell: React.FC<{ focusedOrgSlug: string | null; pathname: string }> = ({ focusedOrgSlug, pathname }) => (
+const Shell: React.FC<{ focusedOrgSlug: string | null; pathname: string; unread?: NavUnread }> = ({
+    focusedOrgSlug,
+    pathname,
+    unread = NOTHING_UNREAD,
+}) => (
     <WithAppShell main={<Text c="dimmed">Page content sits beside the nav.</Text>}>
         <AppShellNavbar withBorder={false} bg={semanticColor('surface.sidenav')}>
-            <SideNavView orgs={ORGS} focusedOrgSlug={focusedOrgSlug} pathname={pathname} />
+            <SideNavView orgs={ORGS} focusedOrgSlug={focusedOrgSlug} pathname={pathname} unread={unread} />
         </AppShellNavbar>
     </WithAppShell>
 )
@@ -36,4 +40,12 @@ export const ResearchLabAdmin: Story = () => (
 
 export const NonAdminStudyPage: Story = () => (
     <Shell focusedOrgSlug="westbrook" pathname={Routes.studyRequest({ orgSlug: 'westbrook' })} />
+)
+
+export const Unread: Story = () => (
+    <Shell
+        focusedOrgSlug={null}
+        pathname={Routes.dashboard}
+        unread={{ myStudies: { researcher: true, reviewer: false }, orgSlugs: ['openstax-data', 'mars-university'] }}
+    />
 )

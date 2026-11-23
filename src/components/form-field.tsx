@@ -1,17 +1,8 @@
-import { type FC, type FocusEvent, type ReactNode, useRef } from 'react'
-import { Box, Group, Input } from '@mantine/core'
+import { type FC, type FocusEvent, type ReactNode, useContext, useRef } from 'react'
+import { Box, Group, Input, InputWrapperContext } from '@mantine/core'
 import { useClickOutside } from '@mantine/hooks'
-import { InputError } from '@/components/errors'
+import { ERROR_LINE_MIN_HEIGHT, InputError } from '@/components/errors'
 import { errorToString } from '@/lib/errors'
-
-const formFieldLabelStyles = {
-    labelProps: { fw: 600, fz: 'sm' },
-    styles: {
-        // OTTER-691: Mantine adds no gap under a label, so set it here.
-        label: { marginBottom: 4 },
-        description: { marginBottom: 'var(--mantine-spacing-xs)' },
-    },
-} as const
 
 export const fieldErrorId = (inputId: string) => `${inputId}-error`
 export const fieldDescriptionId = (inputId: string) => `${inputId}-description`
@@ -62,8 +53,44 @@ export const FieldErrorBox: FC<{ fieldId: string; error?: unknown; isLive?: bool
     return <Box id={fieldErrorId(fieldId)}>{message}</Box>
 }
 
-// Mantine inputs render their own `Input.Wrapper`, whose `aria-describedby` overwrites any
-// hand-passed one, so the association has to be computed by that inner wrapper (OTTER-737).
+// `Input.Wrapper` hands the input (or Radio.Group's role="radiogroup" fieldset) its aria ids through
+// this context, listing only the label, description and error it renders itself, and overwrites a
+// hand-passed `aria-describedby`. Ours render outside the wrapper, so they are set here instead.
+const AriaOverride: FC<{ labelledBy?: string; describedBy?: string; children: ReactNode }> = ({
+    labelledBy,
+    describedBy,
+    children,
+}) => {
+    const ctx = useContext(InputWrapperContext)
+    return (
+        <InputWrapperContext value={{ ...ctx, labelId: labelledBy ?? ctx.labelId, describedBy }}>
+            {children}
+        </InputWrapperContext>
+    )
+}
+
+// `description` is the ids to use, or `true` for the input's own derived id (OTTER-737).
+const DescribedBy: FC<{ hasError: boolean; description?: string | true; children: ReactNode }> = ({
+    hasError,
+    description,
+    children,
+}) => {
+    const id = useContext(InputWrapperContext).inputId
+    if (!id) return children
+    const descriptionIds = description === true ? fieldDescriptionId(id) : description
+    const describedBy = [hasError ? fieldErrorId(id) : null, descriptionIds].filter(Boolean).join(' ') || undefined
+    return <AriaOverride describedBy={describedBy}>{children}</AriaOverride>
+}
+
+// For a Radio.Group whose title and helper text render outside it: `<Radio.Group {...radioGroupAria(…)}>`.
+export const radioGroupAria = (labelledBy: string, describedBy?: string) => ({
+    inputContainer: (children: ReactNode) => (
+        <AriaOverride labelledBy={labelledBy} describedBy={describedBy}>
+            {children}
+        </AriaOverride>
+    ),
+})
+
 // `error` must be a node, not a boolean, or Mantine omits it from `aria-describedby` (OTTER-647).
 export const nativeFieldProps = (
     error: ReactNode,
@@ -74,15 +101,19 @@ export const nativeFieldProps = (
     }: { required?: boolean; description?: ReactNode; describedBy?: string } = {},
 ) => ({
     error,
-    // Truthy only so the inner wrapper folds the description id into `describedBy`; it is
-    // never rendered (see inputWrapperOrder).
-    description: describedBy || description,
-    ...(describedBy ? { descriptionProps: { id: describedBy } } : {}),
     // `aria-required` rather than `required`, to keep native browser validation UI from
     // competing with Mantine's messages.
     'aria-required': required || undefined,
     // Mantine types this prop as mutable, so `as const` would not assign.
     inputWrapperOrder: ['input'] as ('input' | 'error' | 'label' | 'description')[],
+    inputContainer: (children: ReactNode) => (
+        <DescribedBy
+            hasError={!!error && typeof error !== 'boolean'}
+            description={describedBy || !!description || undefined}
+        >
+            {children}
+        </DescribedBy>
+    ),
 })
 
 interface ValidatableForm {
@@ -141,6 +172,8 @@ export interface FormFieldProps {
     footer?: ReactNode
     /** Only for a field whose error can appear while the user is still typing in it (OTTER-690). */
     errorLive?: boolean
+    /** Reserves the error row up front, so an error raised on blur doesn't push the page down mid-click. */
+    validatesOnBlur?: boolean
     children: ReactNode
 }
 
@@ -149,7 +182,11 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     error,
     errorLive,
 }) => {
-    const message = error ? <Input.Error id={fieldErrorId(inputId)}>{error}</Input.Error> : null
+    const message = error ? (
+        <Input.Error id={fieldErrorId(inputId)}>
+            <InputError error={error} />
+        </Input.Error>
+    ) : null
 
     // Polite, never assertive: a character-limit message re-fires on every keystroke past the
     // cap, and an assertive region would interrupt the user mid-word.
@@ -158,17 +195,25 @@ const FieldErrorSlot: FC<{ inputId: string; error?: ReactNode; errorLive?: boole
     return message
 }
 
-const FieldFooterRow: FC<{ inputId: string; error?: ReactNode; footer?: ReactNode; errorLive?: boolean }> = ({
-    inputId,
-    error,
-    footer,
-    errorLive,
-}) => {
+const FieldFooterRow: FC<{
+    inputId: string
+    error?: ReactNode
+    footer?: ReactNode
+    errorLive?: boolean
+    validatesOnBlur?: boolean
+}> = ({ inputId, error, footer, errorLive, validatesOnBlur }) => {
     // `errorLive` keeps the row mounted: the live region has to exist before the message does.
-    if (!error && !footer && !errorLive) return null
+    if (!error && !footer && !errorLive && !validatesOnBlur) return null
 
     return (
-        <Group justify={error ? 'space-between' : 'flex-end'} align="flex-start" gap="xs" mt="xxs" wrap="nowrap">
+        <Group
+            justify={error ? 'space-between' : 'flex-end'}
+            align="flex-start"
+            gap="xs"
+            mt="xs"
+            wrap="nowrap"
+            mih={ERROR_LINE_MIN_HEIGHT}
+        >
             <FieldErrorSlot inputId={inputId} error={error} errorLive={errorLive} />
             {footer}
         </Group>
@@ -183,6 +228,7 @@ export const FormField: FC<FormFieldProps> = ({
     error,
     footer,
     errorLive,
+    validatesOnBlur,
     children,
 }) => {
     return (
@@ -192,17 +238,23 @@ export const FormField: FC<FormFieldProps> = ({
                 label={label}
                 withAsterisk={required}
                 description={description}
-                descriptionProps={{ id: fieldDescriptionId(inputId) }}
+                labelProps={{ fz: 'sm' }}
+                descriptionProps={{ id: fieldDescriptionId(inputId), mb: 'xs' }}
                 // ARIA only: omitting 'error' from inputWrapperOrder keeps the visible message in
                 // FieldFooterRow beside the counter rather than rendered twice.
                 error={error}
                 errorProps={{ id: fieldErrorId(inputId) }}
                 inputWrapperOrder={['label', 'description', 'input']}
-                {...formFieldLabelStyles}
             >
                 {children}
             </Input.Wrapper>
-            <FieldFooterRow inputId={inputId} error={error} footer={footer} errorLive={errorLive} />
+            <FieldFooterRow
+                inputId={inputId}
+                error={error}
+                footer={footer}
+                errorLive={errorLive}
+                validatesOnBlur={validatesOnBlur}
+            />
         </Box>
     )
 }

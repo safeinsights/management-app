@@ -20,8 +20,9 @@ import { EditResubmitProvider, useEditResubmit, type EditResubmitDraftData } fro
 import { SUBMIT_FAILURE_TITLE, SUBMIT_FAILURE_UNSAVED_MESSAGE } from '@/contexts/proposal/hooks/submission-toasts'
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
+import { editProposalPreviousStep } from '@/lib/study-screen'
 import { ResubmissionNoteSection } from '@/components/study/resubmission-note-section'
-import { REQUIRED_NOTE_ERROR } from './schema'
+import { REQUIRED_NOTE_ERROR } from '@/schema/resubmission-note'
 import { EditResubmitFooter } from './footer'
 
 const ORG_NAME = 'Rice University'
@@ -32,6 +33,8 @@ function NoteSection() {
 }
 
 const STUDY_ID = '11111111-1111-4111-8111-111111111111'
+
+const PREVIOUS_STEP = editProposalPreviousStep({ orgSlug: 'lab-1', studyId: STUDY_ID })
 
 const wordsString = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ')
 
@@ -66,7 +69,12 @@ const renderFooter = ({
         <EditResubmitProvider studyId={studyId} draftData={draft}>
             <NoteProbe note={note} />
             <NoteSection />
-            <EditResubmitFooter researcherName="Researcher" researcherId="researcher-1" orgName={ORG_NAME} />
+            <EditResubmitFooter
+                researcherName="Researcher"
+                researcherId="researcher-1"
+                orgName={ORG_NAME}
+                previousStep={PREVIOUS_STEP}
+            />
         </EditResubmitProvider>,
     )
 
@@ -218,11 +226,16 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
     }
 
     // piUserId must reference a real user row or the flush trips the foreign key.
-    const renderFooterForStudy = (studyId: string, piUserId: string) =>
+    const renderFooterForStudy = (orgSlug: string, studyId: string, piUserId: string) =>
         renderWithProviders(
             <EditResubmitProvider studyId={studyId} draftData={{ ...VALID_PROPOSAL_DRAFT, piUserId }}>
                 <TitleInputProbe />
-                <EditResubmitFooter researcherName="Researcher" researcherId="researcher-1" orgName={ORG_NAME} />
+                <EditResubmitFooter
+                    researcherName="Researcher"
+                    researcherId="researcher-1"
+                    orgName={ORG_NAME}
+                    previousStep={editProposalPreviousStep({ orgSlug, studyId })}
+                />
             </EditResubmitProvider>,
         )
 
@@ -234,14 +247,15 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         const user = userEvent.setup()
         const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
-        renderFooterForStudy(study.id, researcher.id)
+        renderFooterForStudy(org.slug, study.id, researcher.id)
         await dirtyTheForm(user)
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
-            { timeout: 5000 },
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
+            ),
         )
 
         const after = await db
@@ -259,14 +273,14 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
     // unsaved state would show "Profile not available" (OTTER-724).
     it('flushes the draft to the study row before opening the reviewer preview', async () => {
         const user = userEvent.setup()
-        const { researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
+        const { org, researcher, study } = await setupChangeRequestedStudy('CHANGE-REQUESTED')
 
-        renderFooterForStudy(study.id, researcher.id)
+        renderFooterForStudy(org.slug, study.id, researcher.id)
         await dirtyTheForm(user)
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
 
         const after = await db
             .selectFrom('study')
@@ -279,15 +293,15 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
 
     it('reports the error and stays on the page when the flush fails', async () => {
         const user = userEvent.setup()
-        const { researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
+        const { org, researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
         ;(notifications.show as Mock).mockClear()
 
-        renderFooterForStudy(study.id, researcher.id)
+        renderFooterForStudy(org.slug, study.id, researcher.id)
         await dirtyTheForm(user)
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
         )
@@ -303,13 +317,14 @@ describe('EditResubmitFooter — save-on-navigate (OTTER-573)', () => {
         const { org, researcher, study } = await setupChangeRequestedStudy('PENDING-REVIEW')
         ;(notifications.show as Mock).mockClear()
 
-        renderFooterForStudy(study.id, researcher.id)
+        renderFooterForStudy(org.slug, study.id, researcher.id)
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(
-            () => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: org.slug, studyId: study.id })),
-            { timeout: 5000 },
+        await waitFor(() =>
+            expect(memoryRouter.asPath).toBe(
+                Routes.studyEdit({ orgSlug: org.slug, studyId: study.id, from: 'edit-proposal' }),
+            ),
         )
         expect(notifications.show).not.toHaveBeenCalled()
 
@@ -328,6 +343,7 @@ describe('EditResubmitFooter — reviewer preview title (OTTER-762)', () => {
                     researcherId="researcher-1"
                     orgName={ORG_NAME}
                     studyTitle="Persisted Step 1 title"
+                    previousStep={PREVIOUS_STEP}
                 />
             </EditResubmitProvider>,
         )

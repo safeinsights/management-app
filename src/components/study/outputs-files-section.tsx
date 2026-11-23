@@ -1,6 +1,6 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, useEffect, useRef } from 'react'
 import { Button, Divider, Group, Paper, Stack, Table, Text } from '@mantine/core'
 import { DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { OutputsFileRow, type OutputFileRowData } from './outputs-file-row'
@@ -29,7 +29,7 @@ const DownloadAllButton: FC<DownloadAllButtonProps> = ({ isVisible, isPreparing,
 
     return (
         <Button
-            variant="outline"
+            variant="subtle"
             onClick={onClick}
             loading={isPreparing}
             // Decorative: the button already has a visible label, unlike the per-row icon.
@@ -41,12 +41,26 @@ const DownloadAllButton: FC<DownloadAllButtonProps> = ({ isVisible, isPreparing,
     )
 }
 
+// Where a key form gives way to this table, focus would otherwise drop to the top of the page. The
+// title rather than the table: it says what arrived, with one file or many.
+function useFocusTitle(enabled: boolean) {
+    const titleRef = useRef<HTMLParagraphElement>(null)
+    useEffect(() => {
+        if (enabled) titleRef.current?.focus()
+    }, [enabled])
+    return titleRef
+}
+
 type OutputsFilesSectionProps = {
     rows: OutputFileRowData[]
     isPreparingZip: boolean
     onView: (row: OutputFileRowData) => void
     onDownload: (row: OutputFileRowData) => void
     onDownloadAll: () => void
+    /** Embedded sits inside a code run card or history row, which already draws the card and divider. */
+    variant?: 'card' | 'embedded'
+    /** Set where this section replaces a key form the user just submitted. */
+    autoFocusTitle?: boolean
 }
 
 export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
@@ -55,16 +69,26 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
     onView,
     onDownload,
     onDownloadAll,
+    variant = 'card',
+    autoFocusTitle = false,
 }) => {
+    const titleRef = useFocusTitle(autoFocusTitle)
+    const isEmbedded = variant === 'embedded'
     const fileRows = rows.map((row) => (
         <OutputsFileRow key={row.key} row={row} onView={onView} onDownload={onDownload} />
     ))
 
     return (
-        <Paper p="xxl" data-testid="outputs-files-section">
+        <Paper p={isEmbedded ? 0 : 'xxl'} data-testid={isEmbedded ? 'code-run-outputs' : 'outputs-files-section'}>
             <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text
+                        ref={titleRef}
+                        tabIndex={autoFocusTitle ? -1 : undefined}
+                        fz={isEmbedded ? 'lg' : 'xl'}
+                        fw={fontWeight.bold}
+                        c={semanticColor('text.primary')}
+                    >
                         Output files
                     </Text>
                     <DownloadAllButton
@@ -73,7 +97,7 @@ export const OutputsFilesSection: FC<OutputsFilesSectionProps> = ({
                         onClick={onDownloadAll}
                     />
                 </Group>
-                <Divider color={semanticColor('border.default')} />
+                {isEmbedded ? undefined : <Divider />}
                 {/* File names, actor names and timestamps are all unbounded; without this the
                     Actions column is the first thing pushed off a narrow viewport. */}
                 <Table.ScrollContainer minWidth={TABLE_MIN_WIDTH}>

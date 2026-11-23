@@ -1,11 +1,11 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, ReactNode } from 'react'
 import { Box, Divider, Group, List, Paper, Radio, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { InputError } from '@/components/errors'
 import { Editor } from '@/components/editable-text/editor'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
+import { DecisionRadio } from '@/components/study/decision-radio'
 import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FieldErrorBox } from '@/components/form-field'
 import { useYjsWebsocket } from '@/lib/realtime/yjs-websocket-context'
@@ -17,16 +17,6 @@ import { fontWeight, semanticColor } from '@/theme/tokens'
 export const FEEDBACK_INPUT_ID = 'outputs-decision-feedback'
 export const DECISION_GROUP_ID = 'outputs-decision-options'
 
-const EDITOR_SKELETON_HEIGHT = 260
-
-const contentStyle = {
-    minHeight: 260,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '14px',
-    lineHeight: 1.6,
-} as const
-
 // Worded as "nothing that can be shared" rather than "no output files": the branch is also
 // reached by jobs holding files this screen cannot offer (OTTER-524).
 const noOutputsShareHint = (labName: string) => `There is nothing from this run that can be shared with ${labName}.`
@@ -37,16 +27,16 @@ const DecisionIntro: FC<{ labName: string; canShareOutputs: boolean }> = ({ labN
     // not have.
     if (!canShareOutputs) {
         return (
-            <Text component="div" fz={16} c={semanticColor('text.primary')}>
+            <Text component="div" fz="md" c={semanticColor('text.primary')}>
                 Sharing outputs is not available for this run. Describe what happened in your feedback so {labName} can
                 revise the code.
             </Text>
         )
     }
     return (
-        <Text component="div" fz={16} c={semanticColor('text.primary')}>
+        <Text component="div" fz="md" c={semanticColor('text.primary')}>
             Based on your review:
-            <List spacing={4} size="md" pt="xxs">
+            <List spacing="xxs" size="md" pt="xxs">
                 <List.Item>
                     If the outputs contain sensitive or restricted information, do not share them. Describe the issue in
                     your feedback so {labName} can revise the code.
@@ -96,7 +86,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
             description={option.description}
             error={error}
             disabled={option.disabled}
-            styles={DECISION_RADIO_STYLES}
+            isProminent
             testId={`outputs-decision-${option.value}`}
         />
     ))
@@ -110,7 +100,7 @@ const DecisionRadioGroup: FC<DecisionRadioGroupProps> = ({ value, onChange, erro
         // the submit-time focus jump would find nothing (see focusFirstInvalid).
         <Box id={DECISION_GROUP_ID}>
             {/* No blur validation: the message renders above the options, so raising it on blur
-                would push the navigation row down mid-click. */}
+                would push Submit decision down mid-click. */}
             <Radio.Group
                 value={value ?? ''}
                 onChange={(next) => onChange(next as OutputsDecision)}
@@ -147,6 +137,14 @@ export type OutputsDecisionSectionProps = {
     decisionError: string | undefined
     /** False when the run produced no artifacts, so sharing them is not an option (OTTER-524). */
     canShareOutputs?: boolean
+    /** The form's submit, shown in the card under the options (OTTER-1062). */
+    submitAction?: ReactNode
+}
+
+// A Group, because a Stack child stretches to the full card width.
+const SubmitRow: FC<{ action?: ReactNode }> = ({ action }) => {
+    if (!action) return null
+    return <Group>{action}</Group>
 }
 
 export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
@@ -160,6 +158,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
     onSelect,
     decisionError,
     canShareOutputs = true,
+    submitAction,
 }) => {
     const websocketProvider = useYjsWebsocket()
     // Shared with the decision hook, which broadcasts the submission on this document, and with the
@@ -170,12 +169,12 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
         <Paper p="xxl" data-testid="outputs-decision-section">
             <Stack gap="lg">
                 <Group gap={0} align="center">
-                    <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Decision
                     </Text>
-                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                    <RequiredIndicator fz="xl" fw={fontWeight.bold} />
                 </Group>
-                <Divider color={semanticColor('border.default')} />
+                <Divider />
                 <DecisionIntro labName={labName} canShareOutputs={canShareOutputs} />
                 <Editor
                     id={outputsReviewFeedbackDocName(jobId)}
@@ -183,7 +182,8 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     studyId={studyId}
                     websocketProvider={websocketProvider}
                     onProviderReady={publishProvider}
-                    contentStyle={contentStyle}
+                    contentHeight={260}
+                    fz="sm"
                     onChange={onFeedbackChange}
                     error={feedbackError}
                     ariaLabel="Decision feedback"
@@ -193,7 +193,6 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                         hasDescription: false,
                         hasCounter: true,
                     })}
-                    skeletonHeight={EDITOR_SKELETON_HEIGHT}
                     isResizable
                     // Takes the slot the save indicator vacates, not a row below the counter.
                     footerLeft={<FieldErrorBox fieldId={FEEDBACK_INPUT_ID} error={feedbackError} isLive />}
@@ -206,6 +205,7 @@ export const OutputsDecisionSection: FC<OutputsDecisionSectionProps> = ({
                     labName={labName}
                     canShareOutputs={canShareOutputs}
                 />
+                <SubmitRow action={submitAction} />
             </Stack>
         </Paper>
     )

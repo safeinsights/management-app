@@ -2,10 +2,12 @@ import {
     actionResult,
     describe,
     expect,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     it,
     type Mock,
+    type PriorCodeRunOptions,
     mockSessionWithTestData,
     renderWithProviders,
     requireRawState,
@@ -14,7 +16,6 @@ import {
 import { useParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { researcherOutputsAwaitingReviewBanner } from '@/lib/study-banners'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { setupStudyAction } from '@/tests/db-action.helpers'
@@ -38,7 +39,8 @@ const renderScreen = async (study: ScreenComponentProps['study'], orgSlug: strin
 const setupAwaitingReview = async ({
     completedAt,
     dataPartnerName,
-}: { completedAt?: Date; dataPartnerName?: string } = {}) => {
+    priorRuns,
+}: { completedAt?: Date; dataPartnerName?: string; priorRuns?: PriorCodeRunOptions[] } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-lab', orgType: 'lab' })
     // orgId is the data partner, submittedByOrgId the research lab, so a separate org proves the
     // banner names the reviewing partner rather than the lab.
@@ -47,13 +49,11 @@ const setupAwaitingReview = async ({
         org: dataPartner,
         researcherId: user.id,
         jobStatus: 'JOB-RUNNING',
+        priorRuns,
     })
     await db.updateTable('study').set({ submittedByOrgId: org.id }).where('id', '=', dbStudy.id).execute()
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'CODE-APPROVED' }).execute()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ studyJobId: job.id, status: 'RUN-COMPLETE', ...(completedAt ? { createdAt: completedAt } : {}) })
-        .execute()
+    await insertTestJobStatus(job.id, 'CODE-APPROVED')
+    await insertTestJobStatus(job.id, 'RUN-COMPLETE', { at: completedAt })
 
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -61,23 +61,37 @@ const setupAwaitingReview = async ({
 }
 
 describe('OutputsAwaitingReviewScreen', () => {
+    // OTTER-1070: the history is for the statuses after the decision, not while the lab waits for it.
+    it('shows no code run history, even with earlier decided runs', async () => {
+        const { org, study } = await setupAwaitingReview({
+            priorRuns: [{ ranAt: dayjs().subtract(9, 'day').toDate() }],
+        })
+        await renderScreen(study, org.slug)
+
+        expect(screen.getAllByText(/Verify outputs/).length).toBeGreaterThan(0)
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
     it('renders STEP 4 "Verify outputs"', async () => {
         const { org, study } = await setupAwaitingReview()
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 4')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 4: Verify outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 4')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Verify outputs')
     })
 
     it('names the reviewing data partner in the banner title and body', async () => {
-        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Openstax Data Partner' })
+        const { org, study } = await setupAwaitingReview({ dataPartnerName: 'Clinical Lab Network' })
         await renderScreen(study, org.slug)
 
-        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: displayOrgName(study.orgName) })
+        const copy = researcherOutputsAwaitingReviewBanner({ dataPartner: study.orgName })
         const alert = screen.getByTestId('status-alert')
         expect(alert).toHaveTextContent(copy.title)
-        expect(alert).toHaveTextContent(copy.body)
+        expect(alert).toHaveTextContent(copy.body as string)
+        expect(alert).toHaveTextContent('Clinical Lab Network')
         expect(alert).toHaveAttribute('data-variant', 'informative')
     })
 
@@ -111,7 +125,7 @@ describe('OutputsAwaitingReviewScreen', () => {
 
     it('refuses to render once the reviewer has decided, so it cannot disagree with the rule table', async () => {
         const { org, study, job } = await setupAwaitingReview()
-        await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: 'FILES-APPROVED' }).execute()
+        await insertTestJobStatus(job.id, 'FILES-APPROVED')
         await renderScreen(study, org.slug)
 
         expect(screen.queryByTestId('status-alert')).not.toBeInTheDocument()

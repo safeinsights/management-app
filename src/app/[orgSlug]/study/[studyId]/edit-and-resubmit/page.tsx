@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
-import { Stack } from '@mantine/core'
 import { notFound } from 'next/navigation'
-import { getStudyAction, getProposalFeedbackForStudyAction } from '@/server/actions/study.actions'
+import { getStudyAction } from '@/server/actions/study.actions'
+import { getProposalFeedbackForStudyAction } from '@/server/actions/review-feedback.actions'
 import { getUsersForOrgId, upcomingResubmissionNoteVersion } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
-import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
 import { isSessionOrgMember } from '@/lib/utils'
+import { editProposalPreviousStep } from '@/lib/study-screen'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { EDIT_PROPOSAL_STEP } from '@/components/study/proposal-step-header'
 import { EditResubmitProvider } from '@/contexts/edit-resubmit'
 import { EditResubmitForm } from './form'
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: 'Edit proposal' }
 export default async function StudyEditAndResubmitRoute(props: {
     params: Promise<{ studyId: string; orgSlug: string }>
 }) {
-    const { studyId } = await props.params
+    const { orgSlug, studyId } = await props.params
 
     const study = await getStudyAction({ studyId })
 
@@ -37,8 +37,6 @@ export default async function StudyEditAndResubmitRoute(props: {
     if ('error' in entriesResult) return notFound()
     const entries = entriesResult
 
-    const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
-
     const labMembers = await getUsersForOrgId(study.submittedByOrgId)
     const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
@@ -46,35 +44,34 @@ export default async function StudyEditAndResubmitRoute(props: {
     const initialNote = study.proposalResubmissionNoteDraft ?? ''
 
     return (
-        <Stack p="xl" gap="xl">
-            <EditResubmitProvider
-                studyId={studyId}
+        <EditResubmitProvider
+            studyId={studyId}
+            initialNote={initialNote}
+            draftData={{
+                title: study.title ?? '',
+                piName: study.piName,
+                piUserId: study.piUserId ?? '',
+                datasets: study.datasets ?? undefined,
+                researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
+                projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
+                impact: study.impact ? JSON.stringify(study.impact) : undefined,
+                additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
+            }}
+        >
+            <EditResubmitForm
+                header={<StudyPageHeader study={study} step={EDIT_PROPOSAL_STEP} />}
+                orgName={study.orgName}
+                members={memberOptions}
+                researcherName={study.createdBy}
+                researcherId={study.researcherId}
+                enclaveOrgSlug={study.orgSlug}
+                feedbackEntries={entries}
+                noteVersion={noteVersion}
                 initialNote={initialNote}
-                draftData={{
-                    title: study.title ?? '',
-                    piName: study.piName,
-                    piUserId: study.piUserId ?? '',
-                    datasets: study.datasets ?? undefined,
-                    researchQuestions: study.researchQuestions ? JSON.stringify(study.researchQuestions) : undefined,
-                    projectSummary: study.projectSummary ? JSON.stringify(study.projectSummary) : undefined,
-                    impact: study.impact ? JSON.stringify(study.impact) : undefined,
-                    additionalNotes: study.additionalNotes ? JSON.stringify(study.additionalNotes) : undefined,
-                }}
-            >
-                <EditResubmitForm
-                    header={<StudyPageHeader study={study} />}
-                    orgName={displayOrgName(enclaveOrg?.name ?? '')}
-                    members={memberOptions}
-                    researcherName={study.createdBy}
-                    researcherId={study.researcherId}
-                    enclaveOrgSlug={study.orgSlug}
-                    feedbackEntries={entries}
-                    noteVersion={noteVersion}
-                    initialNote={initialNote}
-                    studyTitle={study.title}
-                    isDraftCreator={isDraftCreator}
-                />
-            </EditResubmitProvider>
-        </Stack>
+                studyTitle={study.title}
+                isDraftCreator={isDraftCreator}
+                previousStep={editProposalPreviousStep({ orgSlug, studyId })}
+            />
+        </EditResubmitProvider>
     )
 }

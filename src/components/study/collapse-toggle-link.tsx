@@ -1,9 +1,9 @@
 'use client'
 
 import { forwardRef } from 'react'
-import { Anchor, type MantineColor, type MantineSpacing } from '@mantine/core'
+import { Anchor, Group, type MantineColor, type MantineSize, type MantineSpacing } from '@mantine/core'
 import { ToggleChevron } from '@/components/icons'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 type CollapseToggleLinkProps = {
     label: string
@@ -16,10 +16,29 @@ type CollapseToggleLinkProps = {
      * the body; the toggle in the other state claims it instead. */
     autoFocus?: boolean
     c?: MantineColor
+    controls?: string
+    withChevron?: boolean
+    /** Off for a toggle whose label already names the state it switches to, which a screen reader
+     * would otherwise read twice ("Hide, expanded"). */
+    withAriaExpanded?: boolean
+    size?: MantineSize
 }
 
 export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLinkProps>(function CollapseToggleLink(
-    { label, isExpanded, onClick, isVisible = true, testId, mt, autoFocus, c = 'navy.5' },
+    {
+        label,
+        isExpanded,
+        onClick,
+        isVisible = true,
+        testId,
+        mt,
+        autoFocus,
+        c = semanticColor('brand.default'),
+        controls,
+        withChevron = true,
+        withAriaExpanded = true,
+        size = 'sm',
+    },
     ref,
 ) {
     if (!isVisible) return null
@@ -30,7 +49,7 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             // Anchor renders a real <button>, which would default to type="submit" and submit
             // the reviewer decision form when the proposal is collapsed.
             type="button"
-            size="sm"
+            size={size}
             fw={fontWeight.bold}
             c={c}
             mt={mt}
@@ -38,13 +57,15 @@ export const CollapseToggleLink = forwardRef<HTMLButtonElement, CollapseToggleLi
             onClick={onClick}
             display="inline-flex"
             w="fit-content"
-            style={{ alignItems: 'center', gap: 4 }}
-            aria-expanded={isExpanded}
+            aria-expanded={withAriaExpanded ? isExpanded : undefined}
+            aria-controls={controls}
             data-testid={testId}
             ref={ref}
         >
-            {label}
-            <ToggleChevron isExpanded={isExpanded} />
+            <Group component="span" gap="xxs" wrap="nowrap">
+                {label}
+                {withChevron && <ToggleChevron isExpanded={isExpanded} />}
+            </Group>
         </Anchor>
     )
 })

@@ -1,5 +1,4 @@
 import type { Metadata, Route } from 'next'
-import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
@@ -7,16 +6,19 @@ import { InvalidInvitePanel } from './invalid-invite-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
 import { ButtonLink } from '@/components/links'
-import { Flex, Paper, Text, Title } from '@mantine/core'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Flex, Text, Title } from '@mantine/core'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import { currentDb } from '@/server/request-context'
 
 export const metadata: Metadata = { title: 'Invitation' }
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
+    const executor = currentDb()
     const { inviteId } = await params
     const session = await sessionFromClerk()
 
-    const pendingInvite = await db
+    const pendingInvite = await executor
         .selectFrom('pendingUser')
         .innerJoin('org', 'pendingUser.orgId', 'org.id')
         .leftJoin('user', 'user.email', 'pendingUser.email')
@@ -39,7 +41,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
             ? `${pendingInvite.firstName} ${pendingInvite.lastName}`
             : undefined
 
-    const claimedInvite = await db
+    const claimedInvite = await executor
         .selectFrom('pendingUser')
         .select('claimedByUserId')
         .where('claimedByUserId', 'is not', null)
@@ -57,7 +59,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     if (!pendingInvite) {
         if (session) return <InvalidInvitePanel />
-        redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
+        redirect(`${Routes.accountSignin}?invite_not_found=1`, RedirectType.replace)
     }
 
     // getUserList matches merged emails as well as primary ones.
@@ -67,7 +69,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [pendingInvite.email] })
 
         if (clerkUsers.data.length > 0) {
-            const userWithClerkId = await db
+            const userWithClerkId = await executor
                 .selectFrom('user')
                 .select(['id'])
                 .where('clerkId', '=', clerkUsers.data[0].id)
@@ -89,13 +91,13 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     }
 
     if (matchingUser) {
-        redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
+        redirect(`${Routes.accountSignin}?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     }
 
     const { orgName, isAdmin } = pendingInvite
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
                     You’ve been invited to join SafeInsights!
@@ -111,7 +113,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                 <ButtonLink
                     variant="filled"
                     size="lg"
-                    href={`/account/signin?invite_id=${inviteId}` as Route}
+                    href={`${Routes.accountSignin}?invite_id=${inviteId}` as Route}
                     fullWidth
                 >
                     Login with existing account
@@ -130,6 +132,6 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
                     Create New Account
                 </ButtonLink>
             </Flex>
-        </Paper>
+        </FocusedCard>
     )
 }

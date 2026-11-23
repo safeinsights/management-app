@@ -1,6 +1,7 @@
 'use client'
 
 import { FC } from 'react'
+import type { Route } from 'next'
 import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
 import { type UseFormReturnType } from '@mantine/form'
@@ -35,6 +36,8 @@ interface ProposalFooterProps {
     /** Drafts beyond the proposal fields to flush before leaving; false blocks the navigation. */
     flushBeforeLeave?: () => Promise<boolean>
     isFlushing?: boolean
+    /** Where "Previous step" goes; Step 1 unless the page resolves its own step back. */
+    previousHref?: Route
 }
 
 const nothingToFlush = () => Promise.resolve(true)
@@ -56,6 +59,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
     orderedFieldIds,
     flushBeforeLeave = nothingToFlush,
     isFlushing = false,
+    previousHref,
 }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -79,7 +83,7 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({
         // Yjs autosave is inactive in single-user mode, so this is the only write path.
         const saved = await Promise.all([saveDraft(), flushBeforeLeave()])
         if (!saved.every(Boolean)) return
-        router.push(Routes.studyEdit({ orgSlug, studyId }))
+        router.push(previousHref ?? Routes.studyEdit({ orgSlug, studyId }))
     }
 
     const handleOpenReviewer = async () => {

@@ -3,12 +3,17 @@ import {
     actionResult,
     createTestProposalDraft,
     insertTestBaselineJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestCodeEnv,
     insertTestStudyOnly,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
+    stampStudyOpened,
+    studyOpenedAt,
     db,
 } from '@/tests/unit.helpers'
 import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
@@ -33,6 +38,14 @@ describe('Workspace Actions', () => {
     const originalCoderFiles = process.env.CODER_FILES
 
     fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
+
+    const mockCoder = () =>
+        // Spread the real module: a bare factory drops exports the actions import (e.g. the
+        // starter-code copy) and the mock then leaks into every later test in this file.
+        vi.doMock('@/server/coder', async (importOriginal) => ({
+            ...(await importOriginal<typeof import('@/server/coder')>()),
+            createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
+        }))
 
     beforeEach(() => {
         vi.resetModules()
@@ -228,10 +241,7 @@ describe('Workspace Actions', () => {
                 ])
                 .execute()
             const submittedAt = new Date('2026-01-01T00:00:00.000Z')
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
 
             const { getLastSubmissionInfoAction } = await import('./workspaces.actions')
             const result = actionResult(await getLastSubmissionInfoAction({ studyId: study.id }))
@@ -254,13 +264,8 @@ describe('Workspace Actions', () => {
                 .insertInto('studyJobFile')
                 .values({ studyJobId: job.id, name: 'main.r', path: `p/${job.id}/main.r`, fileType: 'MAIN-CODE' })
                 .execute()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: submittedAt },
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: submittedAt },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED', { at: submittedAt })
 
             await insertTestBaselineJob(study.id)
 
@@ -275,14 +280,6 @@ describe('Workspace Actions', () => {
     // OTTER-602: the OTTER-601 re-anchor is correct only on an empty round; with files present it
     // marks them all stale.
     describe('ensureWorkspaceAction submit-enable baseline (OTTER-602)', () => {
-        const mockCoder = () =>
-            // Spread the real module: a bare factory drops exports the actions import (e.g. the
-            // starter-code copy) and the mock then leaks into every later test in this file.
-            vi.doMock('@/server/coder', async (importOriginal) => ({
-                ...(await importOriginal<typeof import('@/server/coder')>()),
-                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-            }))
-
         const jobCreatedAt = async (jobId: string) =>
             (await db.selectFrom('studyJob').select('createdAt').where('id', '=', jobId).executeTakeFirstOrThrow())
                 .createdAt
@@ -334,17 +331,71 @@ describe('Workspace Actions', () => {
         })
     })
 
+    // Spec rows 8 and 9: the round opens, and both badges leave "Proposal approved", at the first
+    // launch or upload. The page-load preload must not do it (see starter-code-preload.test.ts).
+    describe('code draft trigger (OTTER-698)', () => {
+        const pillsFor = async (studyId: string) => {
+            const { studyCodeStateFor } = await import('@/server/study-code-gate')
+            const { resolvePillId } = await import('@/lib/study-screen')
+            const state = (await studyCodeStateFor(db, studyId))!
+            return { researcher: resolvePillId('researcher', state), reviewer: resolvePillId('reviewer', state) }
+        }
+
+        const approvedStudyWithoutJob = async () => {
+            const { org, user } = await mockSessionWithTestData()
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'proposal-approved', reviewer: 'proposal-approved' })
+            return { study }
+        }
+
+        test('launching the IDE opens the round', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { study } = await approvedStudyWithoutJob()
+
+            const { ensureWorkspaceAction } = await import('@/server/actions/workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+
+        // OTTER-937: opening the round moves the launcher's badge, so that launch counts as the visit.
+        test('a launch that opens the round leaves it read for the launcher, a relaunch stamps nothing', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            mockCoder()
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(study.id, [user.id], earlier)
+
+            const { ensureWorkspaceAction } = await import('@/server/actions/workspaces.actions')
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+
+            await stampStudyOpened(study.id, [user.id], earlier)
+            actionResult(await ensureWorkspaceAction({ studyId: study.id }))
+            expect(await studyOpenedAt(study.id, user.id)).toEqual(earlier)
+        })
+
+        test('uploading a code file opens the round', async () => {
+            process.env.CODER_FILES = TEST_CODER_FILES
+            const { study } = await approvedStudyWithoutJob()
+
+            const { uploadWorkspaceFileAction } = await import('@/server/actions/workspace-files.actions')
+            actionResult(
+                await uploadWorkspaceFileAction({
+                    studyId: study.id,
+                    file: new File(['print(1)'], 'analysis.r', { type: 'text/plain' }),
+                }),
+            )
+
+            expect(await pillsFor(study.id)).toEqual({ researcher: 'code-draft', reviewer: 'code-awaiting' })
+        })
+    })
+
     // OTTER-719: the `load IDE` grant used to be unconditioned, so any lab member could read or
     // overwrite another lab's in-progress code. These exercise the RPC endpoints themselves.
     describe('server-owned file rules (OTTER-693)', () => {
-        const mockCoder = () =>
-            // Spread the real module: a bare factory drops exports the actions import (e.g. the
-            // starter-code copy) and the mock then leaks into every later test in this file.
-            vi.doMock('@/server/coder', async (importOriginal) => ({
-                ...(await importOriginal<typeof import('@/server/coder')>()),
-                createUserAndWorkspace: vi.fn(async () => ({ success: true, workspace: { id: 'ws-test' } })),
-            }))
-
         const approvedStudy = async () => {
             const { org, user } = await mockSessionWithTestData()
             const { study } = await insertTestStudyJobData({
@@ -486,9 +537,7 @@ describe('Workspace Actions', () => {
                 studyStatus: 'APPROVED',
                 jobStatus: statuses[0],
             })
-            for (const status of statuses.slice(1)) {
-                await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status }).execute()
-            }
+            await insertTestJobStatuses(job.id, statuses.slice(1))
 
             const studyDir = path.join(TEST_CODER_FILES, study.id)
             await fs.mkdir(studyDir, { recursive: true })

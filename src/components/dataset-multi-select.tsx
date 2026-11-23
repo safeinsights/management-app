@@ -25,6 +25,20 @@ interface DatasetMultiSelectProps {
 // DOM id, to a 1px invisible box. A single space is truthy for Mantine and renders as nothing.
 const BLANK_PLACEHOLDER = ' '
 
+const NO_DATASETS: string[] = []
+
+// Until the options load, Mantine has no label for a saved value and shows its raw ID as the pill.
+const useDatasetMultiSelect = (value: string[], placeholder: string, disabled: boolean, orgSlug?: string) => {
+    const { options, isLoading } = useOrgDataSources(orgSlug)
+    const shownValue = isLoading ? NO_DATASETS : value
+
+    // Only while empty: with pills present Mantine hides the field and the pills box takes over
+    // as the click target.
+    const fieldPlaceholder = shownValue.length === 0 ? placeholder || BLANK_PLACEHOLDER : undefined
+
+    return { options, shownValue, fieldPlaceholder, isDisabled: disabled || isLoading }
+}
+
 export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
     id,
     value,
@@ -37,17 +51,18 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
     disabled = false,
     orgSlug,
 }) => {
-    const { options } = useOrgDataSources(orgSlug)
-
-    // Only while empty: with pills present Mantine hides the field and the pills box takes over
-    // as the click target.
-    const fieldPlaceholder = value.length === 0 ? placeholder || BLANK_PLACEHOLDER : undefined
+    const { options, shownValue, fieldPlaceholder, isDisabled } = useDatasetMultiSelect(
+        value,
+        placeholder,
+        disabled,
+        orgSlug,
+    )
 
     return (
         <MultiSelect
             id={id}
             data={options}
-            value={value}
+            value={shownValue}
             onChange={onChange}
             onBlur={onBlur}
             error={error}
@@ -57,7 +72,7 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
             aria-required={required || undefined}
             inputWrapperOrder={suppressOwnError ? ['input'] : undefined}
             placeholder={fieldPlaceholder}
-            disabled={disabled}
+            disabled={isDisabled}
             searchable={false}
             rightSection={<CaretUpDownIcon size={18} />}
             rightSectionPointerEvents="none"

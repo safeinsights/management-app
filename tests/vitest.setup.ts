@@ -1,21 +1,24 @@
 import 'dotenv/config' // must precede other imports, matching Next.js
 import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
-import { localStorageContext } from '@/server/actions/action'
-import { createTempDir } from '@/tests/temp-dir'
-import fs from 'fs'
+import { localStorageContext } from '@/server/request-context'
 import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
-import { cleanup } from '@testing-library/react'
+import { installFakeClerkOrgs } from './unit/clerk-orgs'
+import { cleanup, configure } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
 import * as matchers from '@testing-library/jest-dom/matchers'
 
 declare module 'vitest' {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    interface Assertion<T = any> extends jest.Matchers<void, T>, TestingLibraryMatchers<T, void> {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    interface Matchers<R, T> extends TestingLibraryMatchers<T, R> {}
 }
 
 expect.extend(matchers)
+
+// Many waits sit on a real server action and DB write, which can pass 1 s on a busy CI shard. Kept
+// under Vitest's 5 s test timeout so a stuck wait still fails with Testing Library's DOM output.
+configure({ asyncUtilTimeout: 3000 })
 
 // `after()` callbacks must be awaited before the test transaction rolls back, or they outlive
 // it and cause speed-dependent FK violations (passing locally, failing on slow CI).
@@ -43,8 +46,9 @@ const mockState = vi.hoisted(() => {
     }
 })
 
+// Like Next's after(), the callback keeps the caller's store, which withTransaction() settles back to root.
 mockState.setRunWithLocalStorage((cb) => {
-    localStorageContext.run({ db: undefined as never }, cb)
+    localStorageContext.run(localStorageContext.getStore() ?? {}, cb)
 })
 
 // Deferred side effects must land before a test continues, e.g. a deferred CODE-SCANNED insert
@@ -68,7 +72,7 @@ declare global {
     var __flushDeferred: typeof flushDeferred
 }
 
-// unit.helpers re-exports this through the global: importing the setup file from there re-runs it
+// tests/unit/next.ts reaches this through the global: importing the setup file from there re-runs it
 // after vi.resetModules, with an empty queue and its hooks registered twice.
 globalThis.__flushDeferred = flushDeferred
 
@@ -102,6 +106,8 @@ vi.mock('next/router', () => require('next-router-mock'))
 vi.mock('next/server', async (importOriginal) => ({
     ...(await importOriginal()),
     after: mockState.runDeferredTestCallback,
+    // The real one throws outside a request scope, so server layouts could not be called in a test.
+    connection: async () => {},
 }))
 
 // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
@@ -145,17 +151,50 @@ vi.mock('next/font/google', () => ({
 }))
 vi.mock('next/headers', async () => ({ headers: async () => mockState.headers }))
 
-// Configured via mockClerkSession() in unit.helpers.tsx
+// Configured via mockClerkSession() in tests/unit/clerk.ts
 vi.mock('@clerk/nextjs')
+vi.mock('@clerk/nextjs/legacy')
 vi.mock('@clerk/nextjs/server')
 
+// A session read an action started but the test never awaited (a reconnect status check, say).
+const inFlightSessionReads = vi.hoisted(() => new Set<Promise<unknown>>())
+
 // Mutations only; read functions stay real.
-vi.mock('@/server/clerk', async (importOriginal) => ({
-    ...(await importOriginal()),
-    updateClerkUserName: vi.fn(),
-    updateClerkUserMetadata: vi.fn(),
-    findOrCreateClerkOrganization: vi.fn(),
-}))
+vi.mock('@/server/clerk', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/clerk')>()
+    return {
+        ...actual,
+        updateClerkUserName: vi.fn(),
+        updateClerkUserMetadata: vi.fn(),
+        sessionFromClerk: (...args: Parameters<typeof actual.sessionFromClerk>) => {
+            const read = actual.sessionFromClerk(...args)
+            inFlightSessionReads.add(read)
+            read.finally(() => inFlightSessionReads.delete(read)).catch(() => undefined)
+            return read
+        },
+    }
+})
+
+// Coder's network calls, real until stubCoder() stubs them for a test.
+vi.mock('@/server/coder', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/coder')>()
+    return {
+        ...actual,
+        createUserAndWorkspace: vi.fn(actual.createUserAndWorkspace),
+        getCoderWorkspaceLaunchStatus: vi.fn(actual.getCoderWorkspaceLaunchStatus),
+    }
+})
+
+// Coder is off in every unit test, wherever it runs, until stubCoder() turns it on for one test through this env var.
+vi.mock('@/server/config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/config')>()
+    return {
+        ...actual,
+        get CODER_DISABLED() {
+            return process.env.UNIT_CODER_STUBBED !== 't'
+        },
+    }
+})
 
 vi.mock('@mantine/notifications', () => ({
     notifications: {
@@ -311,12 +350,9 @@ beforeAll(async () => {
     testTransaction.start()
 })
 
-let tmpDir: string = ''
-
 beforeEach(async () => {
     testTransaction.start()
-    tmpDir = await createTempDir()
-    process.env.UPLOAD_TMP_DIRECTORY = tmpDir
+    installFakeClerkOrgs()
     ;(useClerk as Mock).mockImplementation(() => ({
         signOut: vi.fn(),
         openUserProfile: vi.fn(),
@@ -329,7 +365,7 @@ beforeEach(async () => {
 })
 
 // Runs even when the teardown check or the rollback throws, so the next test cannot inherit a
-// stale client, provider or temp directory. The filesystem call goes last, likeliest to fail.
+// stale client or provider.
 const resetTestEnvironment = async () => {
     const { __resetSharedYjsWebsocketForTests } = await import('@/lib/realtime/yjs-websocket-context')
     __resetSharedYjsWebsocketForTests()
@@ -341,8 +377,6 @@ const resetTestEnvironment = async () => {
     // Already unmounted in afterEach, so the observers are gone; this clears the data behind them.
     const { resetTestQueryClients } = await import('@/tests/unit.helpers')
     resetTestQueryClients()
-    delete process.env.UPLOAD_TMP_DIRECTORY
-    await fs.promises.rm(tmpDir, { recursive: true })
 }
 
 afterEach(async () => {
@@ -352,7 +386,8 @@ afterEach(async () => {
         try {
             // Unmount first, so nothing can start a mutation between the check and the rollback.
             cleanup()
-            const { pendingTestMutationCount, pendingTestMutationDescriptions } = await import('@/tests/unit.helpers')
+            const { pendingTestMutationCount, pendingTestMutationDescriptions, settleTestQueries } =
+                await import('@/tests/unit.helpers')
             const pending = pendingTestMutationCount()
             if (pending) {
                 // Named here rather than left to the reporter: this throws from a hook, which the
@@ -364,6 +399,7 @@ afterEach(async () => {
                     `${pending} mutation(s) still pending at teardown in "${testName}" [${details}]; await the outcome in the test.`,
                 )
             }
+            await settleTestQueries([...inFlightSessionReads])
             await flushDeferred()
         } finally {
             // The check can throw; the transaction still has to go, or its rows outlive the test.
@@ -389,3 +425,23 @@ afterAll(async () => {
         await testTransaction.close()
     }
 })
+
+// happy-dom dispatches selectionchange synchronously inside setBaseAndExtent, before it records the
+// direction, so Lexical re-reads a backward selection as forward. Browsers queue the event, so
+// deliver it after the call instead (happy-dom 21.0.4, Selection.ts #associateRange).
+if (typeof Selection !== 'undefined') {
+    const domSetBaseAndExtent = Selection.prototype.setBaseAndExtent
+    let settingBaseAndExtent = false
+    document.addEventListener('selectionchange', (event) => settingBaseAndExtent && event.stopImmediatePropagation(), {
+        capture: true,
+    })
+    Selection.prototype.setBaseAndExtent = function (...args) {
+        settingBaseAndExtent = true
+        try {
+            domSetBaseAndExtent.apply(this, args)
+        } finally {
+            settingBaseAndExtent = false
+        }
+        queueMicrotask(() => document.dispatchEvent(new Event('selectionchange')))
+    }
+}

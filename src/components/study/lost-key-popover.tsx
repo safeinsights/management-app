@@ -99,13 +99,15 @@ const useLostKeyPopover = (triggerRef: RefObject<HTMLButtonElement | null>) => {
     }
 }
 
-export const LostKeyPopover = () => {
+export const LostKeyPopover = ({ isVisible = true }: { isVisible?: boolean }) => {
     const triggerRef = useRef<HTMLButtonElement>(null)
     const popover = useLostKeyPopover(triggerRef)
 
+    if (!isVisible) return null
+
     return (
         <Group gap="xxs" align="center" onBlur={popover.onGroupBlur}>
-            <Text fz={16} c={semanticColor('text.secondary')}>
+            <Text fz="md" c={semanticColor('text.secondary')}>
                 Lost your key?
             </Text>
             <Popover
@@ -124,7 +126,7 @@ export const LostKeyPopover = () => {
                     <ActionIcon
                         ref={triggerRef}
                         variant="transparent"
-                        color="charcoal.4"
+                        color={semanticColor('icon.light')}
                         size={20}
                         onClick={popover.onTriggerClick}
                         onFocus={popover.onTriggerFocus}
@@ -142,11 +144,11 @@ export const LostKeyPopover = () => {
                     onKeyDown={popover.onEscape}
                 >
                     <Stack gap="sm">
-                        <Text fz={14}>
+                        <Text fz="sm">
                             Another member of your organization can access these outputs with their own valid key. Ask
                             them to access them.
                         </Text>
-                        <Text fz={14}>
+                        <Text fz="sm">
                             A key you generate now cannot access these outputs. It applies only to outputs encrypted
                             after you generate it.
                         </Text>

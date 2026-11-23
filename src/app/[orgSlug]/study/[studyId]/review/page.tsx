@@ -1,10 +1,9 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { AlertNotFound } from '@/components/errors'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { renderStudyScreen } from '../_screens/render-screen'
 import { reviewerPageGuard } from './reviewer-page-guard'
+import { currentDb } from '@/server/request-context'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study review' }
@@ -17,7 +16,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ orgSlug
     if (!guard.ok) return guard.render
     const { study } = guard
 
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
     if (!raw) return <AlertNotFound title="Study was not found" message="No such study exists" />
 
     return renderStudyScreen({

@@ -1,10 +1,11 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Group, Text } from '@mantine/core'
+import { ActionIcon, Badge, type BadgeProps, Group, Text } from '@mantine/core'
 import { CaretDownIcon, CheckCircleIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { RefresherSlot } from '@/components/refresher'
 import type { ScanStatus } from '@/database/types'
+import { fontWeight } from '@/theme/tokens'
 import { SettingsCard, SettingsCardRow } from './settings-card'
 
 // Presentational only: the body, refresher and per-row nodes are injected so these render
@@ -26,7 +27,21 @@ const SCAN_BADGE_ICONS: Partial<Record<ScanStatus, ReactNode>> = {
 
 const CLICKABLE_SCAN_STATUSES: ScanStatus[] = ['SCAN-COMPLETE', 'SCAN-FAILED']
 
-export const ScanStatusBadge: React.FC<{ status: string | null; onClick?: () => void }> = ({ status, onClick }) => {
+// A badge without a handler stays a plain badge, so keyboard users never land on a dead Tab stop.
+const ActionBadge: React.FC<BadgeProps & { label: string; onClick?: () => void }> = ({
+    label,
+    onClick,
+    ...badgeProps
+}) => {
+    if (!onClick) return <Badge {...badgeProps} />
+    return <Badge {...badgeProps} component="button" type="button" onClick={onClick} aria-label={label} />
+}
+
+export const ScanStatusBadge: React.FC<{ name: string; status: string | null; onClick?: () => void }> = ({
+    name,
+    status,
+    onClick,
+}) => {
     if (!status) return null
     const config = SCAN_BADGE_CONFIG[status as ScanStatus]
     if (!config) return null
@@ -34,16 +49,16 @@ export const ScanStatusBadge: React.FC<{ status: string | null; onClick?: () => 
     const isClickable = CLICKABLE_SCAN_STATUSES.includes(status as ScanStatus)
 
     return (
-        <Badge
+        <ActionBadge
             variant="light"
             size="sm"
             color={config.color}
             leftSection={SCAN_BADGE_ICONS[status as ScanStatus]}
-            style={isClickable ? { cursor: 'pointer' } : undefined}
+            label={`View ${config.label} results for ${name}`}
             onClick={isClickable ? onClick : undefined}
         >
             {config.label}
-        </Badge>
+        </ActionBadge>
     )
 }
 
@@ -55,7 +70,7 @@ export type CodeEnvRowViewProps = {
     latestScanStatus: string | null
     detailOpened: boolean
     onToggleDetail: () => void
-    onLanguageBadgeClick: () => void
+    onLanguageBadgeClick?: () => void
     onScanBadgeClick: () => void
     actions: ReactNode
     detail: ReactNode
@@ -78,18 +93,24 @@ export function CodeEnvRowView({
         <SettingsCardRow>
             <Group justify="space-between" p="sm" wrap="nowrap">
                 <Group gap="sm" wrap="nowrap">
-                    <ActionIcon size="sm" variant="subtle" onClick={onToggleDetail}>
-                        <CaretDownIcon
-                            style={{
-                                transform: detailOpened ? 'rotate(0deg)' : 'rotate(-90deg)',
-                                transition: 'transform 200ms',
-                            }}
-                        />
+                    <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        onClick={onToggleDetail}
+                        aria-label={`Details for ${name}`}
+                        aria-expanded={detailOpened}
+                    >
+                        <CaretDownIcon className="rotatable" data-rotated={!detailOpened || undefined} />
                     </ActionIcon>
-                    <Text fw={500}>{name}</Text>
-                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={onLanguageBadgeClick}>
+                    <Text fw={fontWeight.semibold}>{name}</Text>
+                    <ActionBadge
+                        variant="light"
+                        size="sm"
+                        label={`View ${language} starter code for ${name}`}
+                        onClick={onLanguageBadgeClick}
+                    >
                         {language}
-                    </Badge>
+                    </ActionBadge>
                     {isTesting && (
                         <Badge variant="light" size="sm" color="yellow">
                             Testing
@@ -101,7 +122,7 @@ export function CodeEnvRowView({
                             Default
                         </Badge>
                     )}
-                    <ScanStatusBadge status={latestScanStatus} onClick={onScanBadgeClick} />
+                    <ScanStatusBadge name={name} status={latestScanStatus} onClick={onScanBadgeClick} />
                 </Group>
                 <Group gap="xxs" wrap="nowrap">
                     {actions}

@@ -2,12 +2,20 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
 import {
+    enableClerkOrgSync,
     mockSessionWithTestData,
     insertTestOrg,
     insertTestUser,
     insertTestCodeEnv,
+    insertTestDataSource,
+    insertTestStudyOnly,
     faker,
     actionResult,
+    installFakeClerkOrgs,
+    insertClaimedInvite,
+    testEmail,
+    type MinimalTestOrg,
+    NFD_E_ACUTE,
 } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
@@ -25,6 +33,8 @@ import {
 import logger from '@/lib/logger'
 import { isActionError } from '@/lib/errors'
 
+beforeEach(enableClerkOrgSync)
+
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
@@ -34,6 +44,7 @@ vi.mock('@/server/aws', async (importOriginal) => {
 })
 
 describe('Org Actions', () => {
+    let fake: ReturnType<typeof installFakeClerkOrgs>
     let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
 
     beforeEach(async () => {
@@ -45,6 +56,7 @@ describe('Org Actions', () => {
             settings: { publicKey: 'no-such-key' },
         }
         await mockSessionWithTestData({ isSiAdmin: true })
+        fake = installFakeClerkOrgs()
         try {
             await insertOrgAction(newOrg)
         } catch (e) {
@@ -59,10 +71,9 @@ describe('Org Actions', () => {
             expect(org).toMatchObject(newOrg)
         })
 
-        it('throws error when duplicate organization name exists for new org', async () => {
-            vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        it('refuses a duplicate slug with copy the admin can act on', async () => {
             const result = await insertOrgAction(newOrg)
-            expect(result).toEqual({ error: expect.stringContaining('duplicate key value violates unique constraint') })
+            expect(result).toEqual({ error: `An organization with the slug "${newOrg.slug}" already exists.` })
         })
 
         it('throws error with malformed input', async () => {
@@ -78,9 +89,115 @@ describe('Org Actions', () => {
                 .selectAll('org')
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
-            await deleteOrgAction({ orgId: org.id })
+            // Kysely's DeleteResult is a class instance, which Next.js cannot send to the client.
+            expect(await deleteOrgAction({ orgId: org.id })).toBeUndefined()
             const result = await fetchUsersOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
+        })
+
+        describe('an org with other records', () => {
+            let org: MinimalTestOrg
+
+            beforeEach(async () => {
+                org = await db
+                    .selectFrom('org')
+                    .select(['id', 'slug', 'type'])
+                    .where('slug', '=', newOrg.slug)
+                    .executeTakeFirstOrThrow()
+            })
+
+            const orgExists = async () =>
+                Boolean(await db.selectFrom('org').select('id').where('id', '=', org.id).executeTakeFirst())
+
+            it('deletes its pending invites and members with it', async () => {
+                const { user } = await insertTestUser({ org })
+                await insertClaimedInvite({ userId: user.id, orgId: org.id })
+                await db
+                    .insertInto('pendingUser')
+                    .values({ email: testEmail(), orgId: org.id, isAdmin: false })
+                    .execute()
+
+                actionResult(await deleteOrgAction({ orgId: org.id }))
+
+                expect(await orgExists()).toBe(false)
+                // Only the membership goes; the person keeps their account.
+                expect(
+                    await db.selectFrom('user').select('id').where('id', '=', user.id).executeTakeFirst(),
+                ).toBeDefined()
+            })
+
+            it.each([
+                ['studies on its data', () => insertTestStudyOnly({ org })],
+                ['studies it submitted', () => insertTestStudyOnly({ submittedByOrg: org })],
+                [
+                    'legal documents',
+                    () => db.insertInto('legalDocument').values({ orgId: org.id, type: 'DOPA' }).execute(),
+                ],
+                ['code environments', () => insertTestCodeEnv({ orgId: org.id })],
+            ])('refuses while it has %s', async (_records, insertRecord) => {
+                await insertRecord()
+
+                const result = await deleteOrgAction({ orgId: org.id })
+
+                expect(result).toEqual({
+                    error: "This organization has studies, legal documents or code environments, so it can't be deleted.",
+                })
+                expect(await orgExists()).toBe(true)
+            })
+        })
+    })
+
+    describe('Clerk sync', () => {
+        it('creates a Clerk org with no members on insert', async () => {
+            const clerkOrg = [...fake.orgs.values()].find((o) => o.slug === newOrg.slug)
+            expect(clerkOrg).toMatchObject({ name: newOrg.name, publicMetadata: { type: 'enclave' } })
+            expect(fake.members.get(clerkOrg!.id)?.size).toBe(0)
+        })
+
+        it('renames the Clerk org on update and ignores a changed slug', async () => {
+            const org = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+            actionResult(
+                await updateOrgAction({
+                    ...newOrg,
+                    id: org.id,
+                    slug: 'attempted-new-slug',
+                    name: 'Renamed Org',
+                } as Parameters<typeof updateOrgAction>[0]),
+            )
+            const after = await db.selectFrom('org').select('slug').where('id', '=', org.id).executeTakeFirstOrThrow()
+            expect(after.slug).toBe(newOrg.slug)
+            expect([...fake.orgs.values()].find((o) => o.slug === newOrg.slug)?.name).toBe('Renamed Org')
+        })
+
+        it('renames the Clerk org from the settings action', async () => {
+            actionResult(await updateOrgSettingsAction({ orgSlug: newOrg.slug, name: 'Settings Name' }))
+            expect([...fake.orgs.values()].find((o) => o.slug === newOrg.slug)?.name).toBe('Settings Name')
+        })
+
+        it('deletes the Clerk org on delete', async () => {
+            const org = await db
+                .selectFrom('org')
+                .select('id')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
+            actionResult(await deleteOrgAction({ orgId: org.id }))
+            expect(fake.orgs.size).toBe(0)
+        })
+
+        it('still creates the org when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            fake.api.createOrganization.mockRejectedValueOnce(new Error('clerk down'))
+            const slug = `fails-${faker.string.uuid()}`
+            actionResult(await insertOrgAction({ ...newOrg, slug }))
+            expect(await db.selectFrom('org').select('id').where('slug', '=', slug).executeTakeFirst()).toBeDefined()
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
         })
     })
 
@@ -133,6 +250,39 @@ describe('Org Actions', () => {
             const result = actionResult(await fetchAdminOrgsWithStatsAction())
             expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
+
+        it('counts each related table once per org', async () => {
+            await mockSessionWithTestData({ isSiAdmin: true })
+            const org = await insertTestOrg({ slug: `stats-${faker.string.uuid()}` })
+            const emptyOrg = await insertTestOrg({ slug: `stats-empty-${faker.string.uuid()}` })
+            const [{ user: researcher }] = await Promise.all([
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+                insertTestUser({ org }),
+            ])
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await insertTestStudyOnly({ org, researcherId: researcher.id })
+            const { study: deletedStudy } = await insertTestStudyOnly({ org, researcherId: researcher.id })
+            await db.updateTable('study').set({ deletedAt: new Date() }).where('id', '=', deletedStudy.id).execute()
+            await insertTestCodeEnv({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+            await insertTestDataSource({ orgId: org.id })
+
+            const result = actionResult(await fetchAdminOrgsWithStatsAction())
+
+            expect(result.find((row) => row.slug === org.slug)).toMatchObject({
+                totalUsers: 3,
+                totalStudies: 2,
+                totalCodeEnvs: 1,
+                totalDataSources: 2,
+            })
+            expect(result.find((row) => row.slug === emptyOrg.slug)).toMatchObject({
+                totalUsers: 0,
+                totalStudies: 0,
+                totalCodeEnvs: 0,
+                totalDataSources: 0,
+            })
+        })
     })
 
     describe('updateOrgAction', () => {
@@ -154,7 +304,7 @@ describe('Org Actions', () => {
                 email: 'attacker@example.com',
                 type: 'enclave',
                 settings: { publicKey: 'attacker-supplied-public-key' },
-            })
+            } as Parameters<typeof updateOrgAction>[0])
 
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
 
@@ -223,8 +373,9 @@ describe('Org Actions', () => {
             expect(db2ndOrg.name).toBe(initialName)
             expect(db2ndOrg.description).toBe(initialDescription)
 
-            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
-            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/${targetOrgSlug}/admin/team`)
+            expect(revalidatePath).toHaveBeenCalledTimes(2)
         })
 
         it('throws ActionFailure if target org for update is not found in DB', async () => {
@@ -260,6 +411,45 @@ describe('Org Actions', () => {
                 description: 'Valid Description',
             })
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+        })
+
+        describe('limits counted like the on-screen counter', () => {
+            const readOrg = () =>
+                db
+                    .selectFrom('org')
+                    .select(['name', 'description'])
+                    .where('id', '=', targetOrg.id)
+                    .executeTakeFirstOrThrow()
+
+            it('accepts a name and description exactly at their limits', async () => {
+                const name = NFD_E_ACUTE.repeat(50)
+                const description = NFD_E_ACUTE.repeat(250)
+
+                actionResult(await updateOrgSettingsAction({ orgSlug: targetOrgSlug, name, description }))
+
+                expect(await readOrg()).toEqual({ name, description })
+            })
+
+            it('rejects a name one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: NFD_E_ACUTE.repeat(51),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).name).toBe(initialName)
+            })
+
+            it('rejects a description one character over the limit', async () => {
+                const result = await updateOrgSettingsAction({
+                    orgSlug: targetOrgSlug,
+                    name: 'Valid Name',
+                    description: NFD_E_ACUTE.repeat(251),
+                })
+
+                expect(result).toEqual({ error: expect.stringContaining('Validation error') })
+                expect((await readOrg()).description).toBe(initialDescription)
+            })
         })
     })
 

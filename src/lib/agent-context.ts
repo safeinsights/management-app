@@ -19,13 +19,16 @@ export const CONTEXT_LABELS: Record<ContextName, ContextInfo> = {
     PYTHON: { label: 'Python context', description: 'Context about using the Python programming language' },
 }
 
-export const getAgentContext = async (db: DBConn, { name, orgId }: { name: ContextName; orgId: string | null }) => {
-    const row = await db
+const fetchAgentContexts = (db: DBConn, names: ContextName[], orgId: string | null) =>
+    db
         .selectFrom('agentContext')
-        .select('content')
-        .where('name', '=', name)
+        .select(['name', 'content'])
+        .where('name', 'in', names)
         .where('orgId', orgId === null ? 'is' : '=', orgId)
-        .executeTakeFirst()
+        .execute()
+
+export const getAgentContext = async (db: DBConn, { name, orgId }: { name: ContextName; orgId: string | null }) => {
+    const [row] = await fetchAgentContexts(db, [name], orgId)
 
     return { content: row?.content ?? '' }
 }
@@ -35,10 +38,9 @@ export const getAgentContextString = async (
     { language, orgId }: { language: Language; orgId: string | null },
 ): Promise<string> => {
     const names: ContextName[] = ['SYSTEM', language]
-    const parts: string[] = []
-    for (const name of names) {
-        const { content } = await getAgentContext(db, { name, orgId })
-        if (content) parts.push(content)
-    }
-    return parts.join('\n')
+    const rows = await fetchAgentContexts(db, names, orgId)
+    return names
+        .map((name) => rows.find((row) => row.name === name)?.content)
+        .filter(Boolean)
+        .join('\n')
 }

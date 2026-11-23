@@ -1,6 +1,6 @@
 'use client'
 
-import { useResearchDetailsSection } from '@/hooks/use-research-details-section'
+import { useResearchDetailsSection } from '@/components/researcher-profile/use-research-details-section'
 import { ResearchDetailsSectionView } from '@/components/researcher-profile/researcher-profile-view'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
@@ -14,7 +14,7 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
     const {
         form,
         isEditing,
-        setIsEditing,
+        startEditing,
         defaults,
         isPending,
         interestDraft,
@@ -36,7 +36,7 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
             isPending={isPending}
             interestDraft={interestDraft}
             showEditButton={!readOnly}
-            onEdit={() => setIsEditing(true)}
+            onEdit={startEditing}
             onInterestDraftChange={setInterestDraft}
             onAddInterest={addInterest}
             onRemoveInterest={removeInterest}

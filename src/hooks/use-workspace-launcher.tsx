@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@/common'
-import { reportError } from '@/components/errors'
+import { captureError } from '@/components/errors'
 import { showSystemNotification } from '@/components/system-notifications'
-import { ActionFailure } from '@/lib/errors'
+import { ActionFailure, UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 import { ensureWorkspaceAction } from '@/server/actions/workspaces.actions'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,6 +14,15 @@ const toLaunchError = (err: Error | null): Error | null => {
     if (!err) return null
     if (err instanceof ActionFailure && typeof err.error !== 'string') return new Error(LAUNCH_FAILED_MESSAGE)
     return err
+}
+
+// Only a string ActionFailure was worded for the researcher; anything else falls back to the modal's generic text.
+const launchFailureReason = (ensureError: Error | null, status: WorkspaceLaunchStatus | undefined): string | null => {
+    if (status?.failed) return status.failureMessage
+    if (ensureError instanceof ActionFailure && typeof ensureError.error === 'string') {
+        return ensureError.error === UNEXPECTED_ERROR_MESSAGE ? null : ensureError.error
+    }
+    return null
 }
 
 const openWorkspace = (url: string, studyId: string, sameWindow: boolean): { blocked: boolean } => {
@@ -59,6 +68,8 @@ interface UseWorkspaceLauncherReturn {
     error: Error | null
     /** Sentry event id for `error`, quoted to support as the failure modal's Ref. */
     errorEventId: string | null
+    /** Why the launch failed, in words for the researcher, or null when only the generic text applies. */
+    failureReason: string | null
     clearError: () => void
     status: WorkspaceLaunchStatus | undefined
     lastUpdatedAt: Date | null
@@ -79,7 +90,8 @@ export function useWorkspaceLauncher({
 
     const ensure = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => ensureWorkspaceAction({ studyId }),
-        onError: (err) => setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null),
+        // The failure modal is the only surface for a failed launch (OTTER-832), so no toast.
+        onError: (err) => setErrorEventId(captureError(err) || null),
     })
 
     const buildStatus = useWorkspaceBuildStatus({ studyId, enabled: ensure.isSuccess })
@@ -108,7 +120,7 @@ export function useWorkspaceLauncher({
     useEffect(() => {
         if (buildStatus.error && reportedErrorRef.current !== buildStatus.error) {
             reportedErrorRef.current = buildStatus.error
-            setErrorEventId(reportError(buildStatus.error, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(buildStatus.error) || null)
         }
     }, [buildStatus.error])
 
@@ -117,7 +129,7 @@ export function useWorkspaceLauncher({
         if (buildStatus.failed && !reportedFailureRef.current) {
             reportedFailureRef.current = true
             const err = new Error(buildStatus.reason || LAUNCH_FAILED_MESSAGE)
-            setErrorEventId(reportError(err, LAUNCH_FAILED_MESSAGE) || null)
+            setErrorEventId(captureError(err) || null)
         }
     }, [buildStatus.failed, buildStatus.reason])
 
@@ -170,6 +182,7 @@ export function useWorkspaceLauncher({
         isCreatingWorkspace: ensure.isPending,
         error: toLaunchError(ensure.error || buildStatus.error || statusFailure || null),
         errorEventId,
+        failureReason: launchFailureReason(ensure.error, buildStatus.status),
         clearError,
         status: buildStatus.status,
         lastUpdatedAt: buildStatus.lastUpdatedAt,

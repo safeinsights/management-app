@@ -3,12 +3,13 @@
 import { FC } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { useEditResubmit } from '@/contexts/edit-resubmit'
+import type { NavAction } from '@/lib/study-screen'
 import { ProposalFooter } from '@/app/[orgSlug]/study/[studyId]/proposal/proposal-footer'
 import { invalidProposalFieldIds } from '@/app/[orgSlug]/study/[studyId]/proposal/use-proposal-submit-attempt'
 import { ORDERED_FIELD_IDS } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
 import { resubmitModalCopy } from '@/app/[orgSlug]/study/[studyId]/proposal/copy'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
-import { RESUBMISSION_NOTE_FIELD_ID, type ResubmitNoteValue } from './schema'
+import { RESUBMISSION_NOTE_FIELD_ID, type ResubmitNoteValue } from '@/schema/resubmission-note'
 
 // Page order: the proposal fields, then the feedback thread, then the note. The two forms share no
 // wrapper whose positions could be compared, so the order is spelled out here.
@@ -30,6 +31,7 @@ interface EditResubmitFooterProps {
     orgName: string
     /** The persisted `study.title`, which this page reads for the reviewer preview but no longer edits. */
     studyTitle?: string | null
+    previousStep: NavAction
 }
 
 // Edit proposal's footer: the shared ProposalFooter wired to the edit-and-resubmit context, which
@@ -40,6 +42,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
     enclaveOrgSlug,
     orgName,
     studyTitle,
+    previousStep,
 }) => {
     const { studyId, form, noteForm, flushNote, resubmit, isSubmitting, isSavingNote } = useEditResubmit()
     const validate = () => invalidResubmitFieldIds(form, noteForm)
@@ -60,6 +63,7 @@ export const EditResubmitFooter: FC<EditResubmitFooterProps> = ({
             orderedFieldIds={RESUBMIT_ORDERED_FIELD_IDS}
             flushBeforeLeave={flushNote}
             isFlushing={isSavingNote}
+            previousHref={previousStep.href}
         />
     )
 }

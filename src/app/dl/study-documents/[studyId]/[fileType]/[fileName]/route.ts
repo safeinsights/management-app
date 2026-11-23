@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { studyInfoForStudyId } from '@/server/db/queries'
+import { getInfoForStudyId } from '@/server/db/queries'
 import { urlForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
 import { canViewStudyResults } from '@/server/auth'
@@ -13,7 +13,7 @@ export const GET = async (
         return NextResponse.json({ error: 'no parameters provided' }, { status: 400 })
     }
 
-    const study = await studyInfoForStudyId(studyId)
+    const study = await getInfoForStudyId(studyId, false)
     if (!study) {
         return NextResponse.json({ error: 'Study not found' }, { status: 400 })
     }

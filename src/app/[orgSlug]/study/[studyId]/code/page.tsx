@@ -1,21 +1,26 @@
-'use server'
-
 import type { Metadata } from 'next'
-import { Stack } from '@mantine/core'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { getDraftStudyAction } from '@/server/actions/study-request'
+import { SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
+import { getDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import { redirect } from 'next/navigation'
 import { CodeUploadPage } from './code-upload'
-import { canResearcherSubmitCodeForReview, codeSubmissionNav, projectStudyState } from '@/lib/study-screen'
+import {
+    canResearcherSubmitCodeForReview,
+    codeSubmissionNav,
+    isCodeResubmissionInDraft,
+    projectStudyState,
+} from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { hasViewedSubmitCodeFaq } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { ensureStarterCodePreloadAction } from '@/server/actions/workspaces.actions'
 import logger from '@/lib/logger'
 import { IDE_ONBOARDING_VIDEO_URL } from '@/lib/config'
 import { fetchVideoDurationMinutes } from '@/server/vimeo'
+import { researcherPageGuard } from '../researcher-page-guard'
+import { currentDb } from '@/server/request-context'
+import { PageLayout } from '@/components/page-layout'
 
 export async function generateMetadata(): Promise<Metadata> {
     return { title: 'Study code' }
@@ -30,14 +35,21 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
         redirect(Routes.studyView({ orgSlug, studyId }))
     }
 
+    const guard = await researcherPageGuard(result, studyId)
+    if (!guard.ok) return guard.render
+
     if (!result.language) {
         redirect(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     // OTTER-693: a submitted round is view-only, because the confirmation modal promised it would be.
     // study.status stays APPROVED through submission, so the answer lives on the job statuses.
-    const raw = await rawStudyStateForStudy(studyId)
-    const isEditable = !!raw && canResearcherSubmitCodeForReview(projectStudyState(raw))
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
+    const state = raw ? projectStudyState(raw) : null
+    if (state && isCodeResubmissionInDraft(state)) {
+        redirect(Routes.studyResubmit({ orgSlug, studyId }))
+    }
+    const isEditable = !!state && canResearcherSubmitCodeForReview(state)
 
     // OTTER-693: the Data Partner's template has to be in the workspace before the table renders.
     // Best-effort: the copy reads from S3, and a study whose starter code is missing should still
@@ -59,19 +71,18 @@ export default async function StudyCodeUploadRoute(props: { params: Promise<{ st
     const isFirstVisit = !hasViewedFaq
 
     return (
-        <Stack p="xl" gap="xl">
-            <StudyPageHeader study={result} />
+        <PageLayout header={<StudyPageHeader study={result} step={SUBMIT_CODE_STEP} />}>
             <CodeUploadPage
                 orgSlug={orgSlug}
                 studyId={studyId}
                 // study.orgId is the enclave org, so orgName is the Data Partner the code will run
                 // against — not the submitting lab. Same source /resubmit reads.
-                dataPartnerName={displayOrgName(result.orgName)}
+                dataPartnerName={result.orgName}
                 isFirstVisit={isFirstVisit}
                 videoDurationMinutes={videoDurationMinutes}
                 isEditable={isEditable}
                 nav={codeSubmissionNav(result.status, { orgSlug, studyId })}
             />
-        </Stack>
+        </PageLayout>
     )
 }

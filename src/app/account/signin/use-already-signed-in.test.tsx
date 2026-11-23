@@ -312,4 +312,58 @@ describe('useAlreadySignedIn', () => {
         expect(toast.title).toBe('Failed to sign out while switching accounts')
         expect(toast.message).toMatch(/^Signing out took too long\. Your connection may be down\./)
     })
+
+    // OTTER-790: offline, the session cannot end, so the form would only hit session_exists and send
+    // the user back in as the same account. signOut mirrors Clerk's offline shape: a server action
+    // rejecting with no handler, which fails the run if anything calls it.
+    it('switchAccount keeps the panel and skips Clerk while offline', async () => {
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+        const signOut = vi.fn(() => {
+            void Promise.reject(new TypeError('Failed to fetch'))
+            return new Promise<void>(() => {})
+        })
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        const resetPosthog = vi.spyOn(posthog, 'reset').mockImplementation(() => posthog)
+        mockSignedInUser()
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'], { orgs: {} })
+
+        const { result } = renderAlreadySignedIn(queryClient)
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(signOut).not.toHaveBeenCalled()
+        expect(resetPosthog).not.toHaveBeenCalled()
+        expect(result.current.status).toBe('signed-in')
+        expect(result.current.isSwitching).toBe(false)
+        expect(queryClient.getQueryData([...CURRENT_USER_INFO_KEY, 'clerk-user'])).toBeDefined()
+        const [toast] = (notifications.show as Mock).mock.calls[0]
+        expect(toast.title).toBe('Failed to sign out while switching accounts')
+        // Exact, so a Sentry reference that offline can never be delivered would fail it.
+        expect(toast.message).toBe('You appear to be offline. Check your connection and try again.')
+    })
+
+    it('switchAccount signs out on retry once back online', async () => {
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValueOnce(false)
+        const signOut = vi.fn().mockResolvedValue(undefined)
+        ;(useClerk as Mock).mockReturnValue({ signOut, openUserProfile: vi.fn() })
+        mockSignedInUser()
+
+        const { result } = renderAlreadySignedIn()
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+        expect(result.current.status).toBe('signed-in')
+
+        await act(async () => {
+            await result.current.switchAccount()
+        })
+
+        expect(signOut).toHaveBeenCalledOnce()
+        expect(result.current.status).toBe('signed-out')
+        // The offline error toast never auto-closes, so the retry has to take it down.
+        const [offlineToast] = (notifications.show as Mock).mock.calls[0]
+        expect(notifications.hide).toHaveBeenCalledWith(offlineToast.id)
+    })
 })

@@ -1,4 +1,4 @@
-import { type SignInResource } from '@clerk/types'
+import { type SignInResource } from '@clerk/nextjs/types'
 import { isUsingPhoneMFA, signInToMFAState } from './logic'
 import { describe, it, expect, vi } from 'vitest'
 

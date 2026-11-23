@@ -9,9 +9,11 @@ import type { JobFileInfo } from '@/lib/types'
 type OutputsFilesViewerProps = {
     jobId: string
     decryptedFiles: JobFileInfo[]
+    variant?: 'card' | 'embedded'
+    autoFocusTitle?: boolean
 }
 
-export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decryptedFiles }) => {
+export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decryptedFiles, variant, autoFocusTitle }) => {
     const files = useOutputsFiles({ jobId, decryptedFiles })
     const previewFile = files.viewing ? { name: files.viewing.name, contents: files.viewing.contents } : null
 
@@ -23,6 +25,8 @@ export const OutputsFilesViewer: FC<OutputsFilesViewerProps> = ({ jobId, decrypt
                 onView={files.onView}
                 onDownload={files.onDownload}
                 onDownloadAll={files.onDownloadAll}
+                variant={variant}
+                autoFocusTitle={autoFocusTitle}
             />
             <FileOrImagePreviewModal
                 file={previewFile}

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 export function textViewer(_path: string, text: string): ReactNode {
     return (
         <ScrollArea h={500}>
-            <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>
+            <Code block className="pre-wrap">
                 {text}
             </Code>
         </ScrollArea>

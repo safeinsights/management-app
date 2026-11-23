@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs'
 import NextError from 'next/error'
 import { useEffect } from 'react'
 
-// KNOWN GAP blocking an enforcing CSP (OTTER-721): this entry renders its own <html>, so the root
+// KNOWN GAP in the enforced CSP (OTTER-721): this entry renders its own <html>, so the root
 // layout's `connection()` never reaches it and its inline hydration scripts get no nonce.
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
     useEffect(() => {

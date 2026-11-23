@@ -1,18 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-import { Skeleton, Stack } from '@mantine/core'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Skeleton, Stack, type MantineFontSize } from '@mantine/core'
 import type { HocuspocusProviderWebsocket, HocuspocusProvider } from '@hocuspocus/provider'
 
 import { useSingleUserEditing } from '@/lib/realtime/yjs-websocket-context'
 import { EditorFooterArea } from './editor-footer'
 import { SingleUserEditor } from './single-user-editor'
-import { resolveContentHeight } from './editor-surface'
+import { DEFAULT_EDITOR_CONTENT_HEIGHT } from './editor-surface'
 
-const CollaborativeEditor = dynamic(() => import('./collaborative-editor').then((mod) => mod.CollaborativeEditor), {
-    ssr: false,
-})
+// React.lazy rather than next/dynamic, whose loading slot gets no props and so drops the footer
+// while the chunk loads. The `mounted` guard below keeps it out of the server render.
+const CollaborativeEditor = lazy(() =>
+    import('./collaborative-editor').then((mod) => ({ default: mod.CollaborativeEditor })),
+)
 
 // Collaboration-only props are accepted for call-site parity and ignored in single-user mode.
 export type EditorProps = {
@@ -23,7 +24,7 @@ export type EditorProps = {
     initialValue?: string
     websocketProvider?: HocuspocusProviderWebsocket | null
     contentClassName?: string
-    contentStyle?: React.CSSProperties
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
@@ -44,36 +45,53 @@ export type EditorProps = {
     contentHeight?: number
     isResizable?: boolean
     onProviderReady?: (provider: HocuspocusProvider | null) => void
-    /** Defaults to the height the editor mounts at, so the swap is not a jump. */
-    skeletonHeight?: number
 }
 
-export function Editor({ websocketProvider, skeletonHeight, ...props }: EditorProps) {
+export function Editor({ websocketProvider, ...props }: EditorProps) {
     const singleUserEditing = useSingleUserEditing()
     // Keeps the server render and the client's first render byte-identical; without it the
-    // dynamic <Suspense> is a hydration mismatch.
+    // lazy <Suspense> is a hydration mismatch.
     const [mounted, setMounted] = useState(false)
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration flip
     useEffect(() => setMounted(true), [])
 
     // Sized like the editor it stands in for; this outer skeleton renders first, so a flat
     // default here is the jump the user sees.
-    const placeholderHeight = skeletonHeight ?? resolveContentHeight(props.contentHeight, props.contentStyle)
+    const placeholderHeight = props.contentHeight ?? DEFAULT_EDITOR_CONTENT_HEIGHT
 
     if (singleUserEditing) {
         return <SingleUserEditor {...props} />
     }
 
-    // Callers pass a null websocket during SSR and pre-hydration. The footer rides along: Submit
-    // stays enabled to surface errors, so a field whose editor has not mounted still owes the
-    // researcher its own error and count (OTTER-777).
-    if (!mounted || !websocketProvider)
-        return (
-            <Stack gap="xxs">
-                <Skeleton h={placeholderHeight} radius={4} />
-                <EditorFooterArea left={props.footerLeft} right={props.footerRight} />
-            </Stack>
-        )
+    // Stands in during SSR, pre-hydration and the editor chunk's load. The footer rides along:
+    // Submit stays enabled to surface errors, so a field whose editor has not mounted still owes
+    // the researcher its own error and count (OTTER-777).
+    const fallback = (
+        <EditorFallback height={placeholderHeight} footerLeft={props.footerLeft} footerRight={props.footerRight} />
+    )
 
-    return <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
+    if (!mounted || !websocketProvider) return fallback
+
+    return (
+        <Suspense fallback={fallback}>
+            <CollaborativeEditor websocketProvider={websocketProvider} {...props} />
+        </Suspense>
+    )
+}
+
+function EditorFallback({
+    height,
+    footerLeft,
+    footerRight,
+}: {
+    height: number
+    footerLeft?: React.ReactNode
+    footerRight?: React.ReactNode
+}) {
+    return (
+        <Stack gap="xxs">
+            <Skeleton h={height} radius="sm" />
+            <EditorFooterArea left={footerLeft} right={footerRight} />
+        </Stack>
+    )
 }

@@ -1,10 +1,12 @@
-import { onJobErrored, onRunCompleted } from '@/server/events'
+import { onRunCompleted } from '@/server/events'
+import { lockJobForTransition } from '@/database/job-status-writer'
+import { JobTransitionRefusedError, transitionJob } from '@/server/job-transitions'
 
-import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { roundIsClosed, storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 import logger from '@/lib/logger'
+import { apiRequestingOrg, withTransaction, currentDb } from '@/server/request-context'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -13,7 +15,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const alreadyReceived = await db
+    const alreadyReceived = await currentDb()
         .selectFrom('jobStatusChange')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
@@ -33,7 +35,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     }
 
     // The join is a security check: the job must be owned by the requesting org.
-    const info = await db
+    const info = await currentDb()
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id))
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -67,8 +69,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     // OTTER-642: a re-delivered error used to append a second JOB-ERRORED and re-send the reviewer
     // email. Serialized on the job row; the lock is taken after the uploads and released before the
     // email, so no S3 or SMTP call runs inside the transaction.
-    const announcement = await db.transaction().execute(async (trx) => {
-        await trx.selectFrom('studyJob').select('id').where('id', '=', info.studyJobId).forUpdate().execute()
+    const announcement = await withTransaction(currentDb(), async (trx) => {
+        await lockJobForTransition(trx, info.studyJobId)
 
         // JOB-ERRORED is shared with the scanner, the containerizer and PUT /api/job/[jobId], so a
         // bare lookup would read one of theirs as proof this callback finished. Ordering is a
@@ -87,19 +89,29 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         // first one. Recording the outcome would append RUN-COMPLETE after FILES-APPROVED.
         if (await roundIsClosed(info.studyJobId, trx)) return 'round-decided' as const
 
-        // Any earlier JOB-ERRORED on the job has already emailed the Data Partner, and its outputs are
-        // reviewed as errored. setup-app always sends PUT /api/job/[jobId] before an error log.
-        const erroredEarlier = await trx
-            .selectFrom('jobStatusChange')
-            .select('id')
-            .where('studyJobId', '=', info.studyJobId)
-            .where('status', '=', 'JOB-ERRORED')
-            .executeTakeFirst()
+        // Outputs of a job that errored at any point are reviewed as errored, and that error already
+        // emailed the Data Partner, so its results ask for no second review email.
+        const erroredEarlier =
+            outcome === 'RUN-COMPLETE' &&
+            (await trx
+                .selectFrom('jobStatusChange')
+                .select('id')
+                .where('studyJobId', '=', info.studyJobId)
+                .where('status', '=', 'JOB-ERRORED')
+                .executeTakeFirst())
 
-        await trx.insertInto('jobStatusChange').values({ status: outcome, studyJobId: info.studyJobId }).execute()
-
-        return erroredEarlier ? ('announced-earlier' as const) : ('announced' as const)
+        // setup-app always sends PUT /api/job/[jobId] before an error log, so an errored delivery is
+        // usually a repeat, and transitionJob emailed the Data Partner for the first one.
+        const result = await transitionJob(trx, info.studyJobId, outcome, { actor: 'enclave' })
+        return result.outcome === 'moved' && !erroredEarlier ? ('announced' as const) : ('announced-earlier' as const)
+    }).catch((error: unknown) => {
+        if (error instanceof JobTransitionRefusedError) return 'refused' as const
+        throw error
     })
+
+    if (announcement === 'refused') {
+        return NextResponse.json({ status: 'fail', error: 'transition-refused' }, { status: 409 })
+    }
 
     if (announcement === 'round-decided') {
         logger.warn(
@@ -118,12 +130,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'success', detail }, { status: 200 })
     }
 
-    if (announcement === 'announced') {
-        if (outcome === 'JOB-ERRORED') {
-            onJobErrored({ studyId: info.studyId })
-        } else {
-            onRunCompleted({ studyId: info.studyId })
-        }
+    if (announcement === 'announced' && outcome === 'RUN-COMPLETE') {
+        await onRunCompleted({ studyId: info.studyId })
     }
 
     return NextResponse.json({ status: 'success' }, { status: 200 })

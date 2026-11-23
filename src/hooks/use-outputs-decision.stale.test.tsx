@@ -25,12 +25,16 @@ import { useOutputsDecision } from './use-outputs-decision'
 
 // Both actions are ours, which the usual rule forbids mocking. A stale action id cannot be produced
 // any other way: it is a transport failure, and a real action never throws one (OTTER-726).
-vi.mock('@/server/actions/study-job.actions', () => ({ submitOutputsDecisionAction: vi.fn() }))
+// Each stays the real action until the test fails it the way the transport does.
+vi.mock('@/server/actions/study-job.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/study-job.actions')>()
+    return { ...actual, submitOutputsDecisionAction: vi.fn(actual.submitOutputsDecisionAction) }
+})
 
-vi.mock('@/server/actions/editor.actions', () => ({
-    getStudyStatusAction: vi.fn(),
-    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
-}))
+vi.mock('@/server/actions/editor.actions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/actions/editor.actions')>()
+    return { ...actual, getStudyStatusAction: vi.fn(actual.getStudyStatusAction) }
+})
 
 const submitMock = submitOutputsDecisionAction as unknown as Mock
 const statusMock = getStudyStatusAction as unknown as Mock

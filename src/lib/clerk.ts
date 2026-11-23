@@ -5,9 +5,9 @@ import { isDeepEqual, omit } from 'remeda'
 // "dbfyq3" marks the seeded production-like accounts, which must never be deleted.
 export const TEST_USER_PATTERN = /^(?!.*dbfyq3).*(?:test|delete).*$/i
 
-export function getProtectedTestEmails(): Set<string> {
+export function getProtectedTestEmails(env: Record<string, string | undefined>): Set<string> {
     return new Set(
-        [process.env.CLERK_RESEARCHER_EMAIL, process.env.CLERK_REVIEWER_EMAIL, process.env.CLERK_ADMIN_EMAIL]
+        [env.CLERK_RESEARCHER_EMAIL, env.CLERK_REVIEWER_EMAIL, env.CLERK_ADMIN_EMAIL]
             .filter(Boolean)
             .map((e) => e!.toLowerCase()),
     )
@@ -19,11 +19,9 @@ export function isTestUser(
         firstName?: string | null
         lastName?: string | null
     },
-    protectedEmails?: Set<string>,
+    protectedEmails: Set<string>,
 ): boolean {
-    const protected_ = protectedEmails ?? getProtectedTestEmails()
-
-    const isProtected = user.emailAddresses.some((e) => protected_.has(e.emailAddress.toLowerCase()))
+    const isProtected = user.emailAddresses.some((e) => protectedEmails.has(e.emailAddress.toLowerCase()))
     if (isProtected) return false
 
     const emailMatches = user.emailAddresses.some((e) => TEST_USER_PATTERN.test(e.emailAddress))

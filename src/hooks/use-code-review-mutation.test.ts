@@ -8,18 +8,20 @@ import {
     describe,
     expect,
     faker,
+    insertTestJobStatus,
     insertTestStudyJobData,
     it,
     mockSessionWithTestData,
     renderHook,
     waitFor,
+    waitForPendingMutations,
     type Mock,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
 import { type HocuspocusProviderHandle } from '@/tests/hocuspocus.mock'
-import { useCodeReviewMutation } from './use-code-review-mutation'
+import { useCodeReviewMutation, type SubmitCodeReviewArgs } from './use-code-review-mutation'
 import type { CodeReviewCriteria } from './use-code-review-evaluation-map'
 
 vi.mock('@hocuspocus/provider', async () => {
@@ -38,12 +40,14 @@ const validCriteria: CodeReviewCriteria = {
     privacyProtection: 'yes',
 }
 
+const approval: SubmitCodeReviewArgs = { decision: 'approve', feedback: validFeedback, criteria: validCriteria }
+
 const setApprovedStudyAndCodeSubmitted = async () => {
     const { user, org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
     const { study, job } = await insertTestStudyJobData({
         org,
         researcherId: user.id,
-        studyStatus: 'PENDING-REVIEW',
+        studyStatus: 'APPROVED',
         jobStatus: 'CODE-SUBMITTED',
     })
     await db.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', study.id).execute()
@@ -74,21 +78,21 @@ describe('useCodeReviewMutation', () => {
         expect(handle.name).toBe(`code-review-feedback-${job.id}`)
 
         await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
+            result.current.submitReview(approval)
         })
-        // Status lands only once the action has resolved. isSubmitting is also true while the
-        // request is in flight, so the lock has to still be on after that write.
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select('status')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('APPROVED')
+        // The broadcast goes out only once the action has resolved, and the lock has to still be on then.
+        await waitFor(() => {
+            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
             expect(result.current.isSubmitting).toBe(true)
         })
+        const approved = await db
+            .selectFrom('jobStatusChange')
+            .select('id')
+            .where('studyJobId', '=', job.id)
+            .where('status', '=', 'CODE-APPROVED')
+            .executeTakeFirst()
+        expect(approved).toBeDefined()
 
-        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
         const payload = JSON.parse(handle.sendStateless.mock.calls[0][0] as string)
         expect(payload.type).toBe('code-review-submitted')
         expect(payload.studyId).toBe(study.id)
@@ -119,13 +123,8 @@ describe('useCodeReviewMutation', () => {
                 criteria: validCriteria,
             })
         })
-        await waitFor(async () => {
-            const updated = await db
-                .selectFrom('study')
-                .select('status')
-                .where('id', '=', study.id)
-                .executeTakeFirstOrThrow()
-            expect(updated.status).toBe('APPROVED')
+        await waitFor(() => {
+            expect(handle.sendStateless).toHaveBeenCalledTimes(1)
             expect(result.current.isSubmitting).toBe(true)
         })
 
@@ -136,17 +135,19 @@ describe('useCodeReviewMutation', () => {
             .where('status', '=', 'CODE-CHANGES-REQUESTED')
             .executeTakeFirst()
         expect(jobChangesRequested).toBeTruthy()
-        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+        const updated = await db
+            .selectFrom('study')
+            .select('status')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updated.status).toBe('APPROVED')
     })
 
     it('action error: no navigation, no broadcast', async () => {
         const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
         // Eligibility keys on job status alone (OTTER-552), so recording a decision makes the
         // latest code change a decision rather than a submission, which the claim rejects.
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'CODE-APPROVED', userId: study.researcherId })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
 
         const { result } = renderHook(
             () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
@@ -157,7 +158,7 @@ describe('useCodeReviewMutation', () => {
         const handle = constructed[0]
 
         await act(async () => {
-            result.current.submitReview({ decision: 'approve', feedback: validFeedback, criteria: validCriteria })
+            result.current.submitReview(approval)
         })
         await waitFor(() => expect(notifications.show).toHaveBeenCalled())
 
@@ -169,5 +170,63 @@ describe('useCodeReviewMutation', () => {
         expect((errorCall?.[0] as { message?: string }).message).not.toMatch(/^Error:/)
         expect(handle.sendStateless).not.toHaveBeenCalled()
         expect(memoryRouter.asPath).toBe('/start')
+    })
+
+    it('a double submit records one decision and shows no failure toast', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+
+        const { result } = renderHook(
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await waitFor(() => expect(constructed).toHaveLength(1))
+        const handle = constructed[0]
+
+        // No render between the two calls, as with both clicks of a double-click.
+        await act(async () => {
+            result.current.submitReview(approval)
+            result.current.submitReview(approval)
+        })
+        await waitForPendingMutations()
+
+        const decisions = await db
+            .selectFrom('studyReviewComment')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .where('entryType', '=', 'DECISION')
+            .execute()
+        expect(decisions).toHaveLength(1)
+        expect(notifications.show).not.toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        expect(handle.sendStateless).toHaveBeenCalledTimes(1)
+    })
+
+    it('a failed submit lets the reviewer try again', async () => {
+        const { org, study, job } = await setApprovedStudyAndCodeSubmitted()
+        await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: study.researcherId })
+
+        const { result } = renderHook(
+            () => useCodeReviewMutation({ studyId: study.id, jobId: job.id, orgSlug: org.slug, tabSessionId }),
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        await act(async () => {
+            result.current.submitReview(approval)
+        })
+        await waitForPendingMutations()
+        expect(notifications.show).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Decision could not be submitted' }),
+        )
+        // Reopens the code for review, so the same decision now goes through.
+        await insertTestJobStatus(job.id, 'CODE-SUBMITTED')
+
+        await act(async () => {
+            result.current.submitReview(approval)
+        })
+        await waitFor(() =>
+            expect(notifications.show).toHaveBeenCalledWith(expect.objectContaining({ title: 'Decision submitted' })),
+        )
     })
 })

@@ -41,6 +41,7 @@ type NavRowProps = {
     isGroup?: boolean
     rightSection?: ReactNode
     title?: string
+    hasUnread?: boolean
 }
 
 const isNavIcon = (icon: NavIcon | ReactNode): icon is NavIcon => typeof icon === 'string' && icon in ICONS
@@ -55,6 +56,18 @@ const ExternalMarker: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
     )
 }
 
+// Sits on the icon's top-right corner, against its box rather than its glyph, so every icon gets
+// the same offset (OTTER-838). The text for screen readers follows the label instead.
+const UnreadBadge: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <span className={styles.unreadBadge} />
+}
+
+const UnreadText: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return <VisuallyHidden>Updated</VisuallyHidden>
+}
+
 // Every nav row is an anchor, group rows included: they navigate to the org dashboard.
 export const NavRow: React.FC<NavRowProps> = ({
     label,
@@ -65,15 +78,20 @@ export const NavRow: React.FC<NavRowProps> = ({
     isGroup = false,
     rightSection,
     title,
+    hasUnread = false,
 }) => {
     const isExternal = url.startsWith('http')
     const className = clsx(styles.row, isSubnav && styles.subnav, isGroup && styles.groupRow)
     const content = (
         <>
-            <span className={styles.icon}>{isNavIcon(icon) ? ICONS[icon] : icon}</span>
+            <span className={styles.icon}>
+                {isNavIcon(icon) ? ICONS[icon] : icon}
+                <UnreadBadge isVisible={hasUnread} />
+            </span>
             <span className={styles.label} title={title}>
                 {label}
             </span>
+            <UnreadText isVisible={hasUnread} />
             <ExternalMarker isVisible={isExternal} />
             {rightSection}
         </>

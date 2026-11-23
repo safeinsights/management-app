@@ -4,7 +4,7 @@ import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { safeRedirectUrl } from '@/lib/utils'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { useSearchParams } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
@@ -96,7 +96,7 @@ export const SignInForm: FC<{
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
                 errorMessage === clerkErrorOverrides.form_identifier_not_found
             ) {
-                form.setFieldError('email', ' ')
+                form.setFieldError('email', true)
                 form.setFieldError('password', errorMessage)
                 return
             }
@@ -125,6 +125,7 @@ export const SignInForm: FC<{
             form={form}
             onSubmit={onSubmit}
             forgotPasswordHref={forgotPasswordHref}
+            isFinishingMfaSetup={searchParams.get('mfa') === 'verify'}
             clerkError={clerkError}
             setClerkError={setClerkError}
         />

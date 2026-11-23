@@ -14,7 +14,7 @@ type Props = {
 export function FocusedLayoutShell({ children }: Props) {
     const pathname = usePathname()
     const router = useRouter()
-    const isSignInFlow = pathname.startsWith('/account/signin') || pathname.startsWith('/account/reset-password')
+    const isSignInFlow = pathname.startsWith(Routes.accountSignin) || pathname.startsWith(Routes.accountResetPassword)
 
     return (
         <FocusedLayoutShellView

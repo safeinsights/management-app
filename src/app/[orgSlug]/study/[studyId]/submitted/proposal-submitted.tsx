@@ -1,20 +1,20 @@
 'use client'
 
-import { Stack } from '@mantine/core'
-import { displayOrgName } from '@/lib/string'
 import { ErrorAlert } from '@/components/errors'
 import { ProposalRequest } from '@/components/study/proposal-initial-request'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { StudyStatus } from '@/database/types'
 import type { Submitted } from '@/schema/study'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import type { PageHeaderStep } from '@/components/page-header'
 import type { StepNav } from '@/lib/study-screen'
-import { effectiveProposalStatus } from '@/lib/review-decision'
 import { decisionTimestampForProposalHeader } from '@/lib/studies'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherProposalBanner, type BannerCopy } from '@/lib/study-banners'
+import { PageLayout } from '@/components/page-layout'
 
 interface ProposalSubmittedProps {
     orgSlug: string
@@ -58,6 +58,8 @@ function FeedbackErrorAlert({ status, feedbackError }: { status: StudyStatus; fe
     )
 }
 
+const SUBMIT_PROPOSAL_STEP: PageHeaderStep = { label: 'Step 2', heading: 'Submit proposal' }
+
 export function ProposalSubmitted({
     orgSlug,
     study,
@@ -67,9 +69,8 @@ export function ProposalSubmitted({
     feedbackError,
     nav,
 }: ProposalSubmittedProps) {
-    const proposalStatus = effectiveProposalStatus(study)
-    const bannerCopy = researcherProposalBanner(proposalStatus, {
-        dataPartner: displayOrgName(orgName),
+    const bannerCopy = researcherProposalBanner(study.status, {
+        dataPartner: orgName,
         version: studyVersion,
     })
 
@@ -78,23 +79,20 @@ export function ProposalSubmitted({
     const banner = bannerCopy ? <StatusBanner copy={bannerCopy} study={study} entries={entries} /> : null
 
     return (
-        <Stack p="xl" gap="xl">
-            <StudyPageHeader study={study} />
-            <Stack gap="xxl">
-                {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
-                    longer needs the "Initial request 2.0" counter (OTTER-762). */}
-                <ProposalRequest
-                    study={study}
-                    orgSlug={orgSlug}
-                    stepLabel="STEP 2"
-                    heading="Submit proposal"
-                    banner={banner}
-                    initialExpanded={false}
-                />
-                <FeedbackErrorAlert status={proposalStatus} feedbackError={feedbackError} />
-                <FeedbackAndNotesSection entries={entries} />
-                <StepNavigation nav={nav} />
-            </Stack>
-        </Stack>
+        <PageLayout header={<StudyPageHeader study={study} step={SUBMIT_PROPOSAL_STEP} />}>
+            {/* The banner title carries the round ("Proposal resubmitted…"), so the heading no
+                longer needs the "Initial request 2.0" counter (OTTER-762). */}
+            <ProposalRequest
+                study={study}
+                orgSlug={orgSlug}
+                stepLabel={SUBMIT_PROPOSAL_STEP.label}
+                heading={SUBMIT_PROPOSAL_STEP.heading}
+                banner={banner}
+                initialExpanded={false}
+            />
+            <FeedbackErrorAlert status={study.status} feedbackError={feedbackError} />
+            <FeedbackAndNotesSection entries={entries} />
+            <StepNavigation nav={nav} />
+        </PageLayout>
     )
 }

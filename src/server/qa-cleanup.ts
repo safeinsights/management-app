@@ -11,6 +11,7 @@
 // Deletion order is FK-safe by hand: a new table referencing user.id without ON DELETE CASCADE
 // breaks deletion at runtime, so give it a cascade or add it below.
 import { sql, type Kysely } from 'kysely'
+import { env } from '@/server/config'
 import { type DB } from '@/database/types'
 import { type SessionUser } from '@/lib/types'
 import { clerkClient, verifyToken } from '@clerk/nextjs/server'
@@ -18,8 +19,11 @@ import { headers } from 'next/headers'
 import { marshalSession } from '@/server/session'
 import { deleteFolderContents } from '@/server/aws'
 import { pathForStudy } from '@/lib/paths'
-import { isClerkApiError } from '@/lib/errors'
+import { isClerkNotFoundError } from '@/lib/clerk-org-sync-core'
+import { hasVerifiedSecondFactor } from '@/lib/second-factor'
 import logger from '@/lib/logger'
+import { localStorageContext, withTransaction } from '@/server/request-context'
+import { detachJobStatusAuthor } from '@/database/job-status-writer'
 
 export type QaAuthResult =
     | { ok: true; user: SessionUser; isSiAdmin: boolean }
@@ -65,10 +69,14 @@ export async function requireQaAuth(): Promise<QaAuthResult> {
         // The standalone verifyToken (unlike auth()/clerkClient()) does not read CLERK_SECRET_KEY
         // from the environment on its own — it only uses the key passed in options. Without it,
         // JWK resolution fails and the guard rejects every request, so pass the secret explicitly.
-        claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY })
+        claims = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY })
     } catch (error) {
         logger.warn('QA cleanup token verification failed', error)
         return { ok: false, status: 401, message: 'Authentication required' }
+    }
+
+    if (!hasVerifiedSecondFactor(claims.fva)) {
+        return { ok: false, status: 401, message: 'Second factor verification required' }
     }
 
     const session = await marshalSession(claims.sub, claims)
@@ -194,22 +202,14 @@ export async function findQaUser(db: Kysely<DB>, idOrEmail: string) {
     return user
 }
 
-// Mutation Actions already run their handlers inside a transaction (see action.ts)
-// and Kysely does not support nesting, so reuse the caller's transaction when given one.
-export async function withTransaction(db: Kysely<DB>, fn: (trx: Kysely<DB>) => Promise<void>) {
-    if (db.isTransaction) {
-        await fn(db)
-        return
-    }
-    await db.transaction().execute(fn)
-}
-
 async function deleteStudyRows(db: Kysely<DB>, studyId: string) {
     const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
     if (jobs.length > 0) {
         const jobIds = jobs.map((job) => job.id)
+        // eslint-disable-next-line custom/noJobStatusWrites -- the jobs themselves are deleted below
         await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
         await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
+        // eslint-disable-next-line custom/noJobStatusWrites -- every job of the study goes, with the study
         await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
     }
     await db.deleteFrom('yjsDocument').where('studyId', '=', studyId).execute()
@@ -245,8 +245,14 @@ async function deleteStudyAgreementRows(db: Kysely<DB>, studyId: string) {
  * then its S3 folder once the rows are committed.
  */
 export async function deleteStudyCompletely(db: Kysely<DB>, orgSlug: string, studyId: string) {
+    const deleteFolder = () => deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     await withTransaction(db, (trx) => deleteStudyRows(trx, studyId))
-    await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
+    if (!db.isTransaction) return await deleteFolder()
+
+    // Joined to a caller's transaction, the rows are not gone until that caller commits.
+    const ctx = localStorageContext.getStore()
+    if (ctx?.db !== db || !ctx.afterCommit) throw new Error('cannot tell when this transaction commits')
+    ctx.afterCommit(deleteFolder)
 }
 
 /**
@@ -334,7 +340,7 @@ export async function deleteUserCompletely(
         // study_review_comment.author_id is ON DELETE RESTRICT — clear it first.
         await trx.deleteFrom('studyReviewComment').where('authorId', '=', userId).execute()
         await trx.deleteFrom('studyProposalComment').where('authorId', '=', userId).execute()
-        await trx.deleteFrom('jobStatusChange').where('userId', '=', userId).execute()
+        await detachJobStatusAuthor(trx, userId)
         // Written by the signup flow, one row per enforced published document, so every
         // fully-signed-up account has these — which is why the QA signup suite's teardown
         // was the thing that found them missing here.
@@ -360,14 +366,6 @@ export async function deleteUserCompletely(
  */
 export async function deleteUserById(db: Kysely<DB>, idOrEmail: string) {
     return await deleteUserCompletely(db, await findQaUser(db, idOrEmail))
-}
-
-// Clerk's backend client rejects with a ClerkAPIResponseError; a 404/resource_not_found
-// on delete means the account is already gone, the one failure cleanup can ignore.
-function isClerkNotFoundError(error: unknown): boolean {
-    if (!isClerkApiError(error)) return false
-    const status = (error as { status?: number }).status
-    return status === 404 || error.errors[0].code === 'resource_not_found'
 }
 
 /**

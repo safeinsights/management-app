@@ -6,15 +6,19 @@ import {
     faker,
     insertTestOrg,
     insertTestStudyOnly,
+    isSortableHeader,
     mockSessionWithTestData,
     renderWithProviders,
+    tableHeader,
     testUploadFile,
 } from '@/tests/unit.helpers'
+import { acknowledgeLegalDocumentAction } from '@/server/actions/legal-acknowledgement.actions'
 import {
-    acknowledgeLegalDocumentAction,
     createLegalDocumentDraftAction,
     publishLegalDocumentVersionAction,
 } from '@/server/actions/legal-document.actions'
+import type { OrgType } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import { UserStudyAgreements } from './user-study-agreements'
 
 vi.mock('@/server/aws', async (importOriginal) => {
@@ -27,10 +31,13 @@ vi.mock('@/server/aws', async (importOriginal) => {
     }
 })
 
-const seedAcknowledgedAgreement = async (title: string, signedAt: string) => {
-    const { org, restoreSession } = await mockSessionWithTestData({ orgType: 'enclave' })
-    const dataPartner = { id: org.id, slug: org.slug, type: 'enclave' as const }
-    const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+const seedAcknowledgedAgreement = async (title: string, signedAt: string, readerType: OrgType = 'enclave') => {
+    const { org, user, restoreSession } = await mockSessionWithTestData({ orgType: readerType })
+    const otherOrg = await insertTestOrg({
+        slug: faker.string.alpha(10),
+        type: readerType === 'enclave' ? 'lab' : 'enclave',
+    })
+    const [dataPartner, researchLab] = readerType === 'enclave' ? [org, otherOrg] : [otherOrg, org]
     const { study } = await insertTestStudyOnly({
         org: dataPartner,
         submittedByOrg: researchLab,
@@ -48,7 +55,7 @@ const seedAcknowledgedAgreement = async (title: string, signedAt: string) => {
     restoreSession()
     actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
 
-    return { study, dataPartner, researchLab, dataPartnerName: org.name, restoreSession, version }
+    return { study, dataPartner, researchLab, dataPartnerName: dataPartner.name, user, restoreSession, version }
 }
 
 // Postgres now() is the transaction clock, so two acks written back to back can share a timestamp.
@@ -89,6 +96,91 @@ describe('UserStudyAgreements', () => {
         expect(within(row).getByRole('link', { name: /PDF/ })).toHaveAttribute('href', `/dl/legal/${version.id}`)
     })
 
+    it('links a Data Partner member to the review page of the study', async () => {
+        const title = `Review ${faker.string.alpha(6)}`
+        const { study, dataPartner } = await seedAcknowledgedAgreement(title, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveAttribute(
+            'href',
+            Routes.studyReview({ orgSlug: dataPartner.slug, studyId: study.id }),
+        )
+    })
+
+    it('links a Research Lab member to the researcher view of the study', async () => {
+        const title = `View ${faker.string.alpha(6)}`
+        const { study, researchLab } = await seedAcknowledgedAgreement(title, '2026-06-17', 'lab')
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveAttribute(
+            'href',
+            Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+        )
+    })
+
+    it('links a member of both orgs to the researcher view of the study', async () => {
+        const title = `Both ${faker.string.alpha(6)}`
+        const { study, researchLab, user } = await seedAcknowledgedAgreement(title, '2026-06-17')
+        await db.insertInto('orgUser').values({ orgId: researchLab.id, userId: user.id, isAdmin: false }).execute()
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveAttribute(
+            'href',
+            Routes.studyView({ orgSlug: researchLab.slug, studyId: study.id }),
+        )
+    })
+
+    it('links the study ID in place of a missing title', async () => {
+        const { study, dataPartner } = await seedAcknowledgedAgreement(
+            `Untitled ${faker.string.alpha(6)}`,
+            '2026-06-17',
+        )
+        // Only a draft may lack a title; an acknowledged agreement keeps the row listed whatever the status.
+        await db.updateTable('study').set({ status: 'DRAFT', title: null }).where('id', '=', study.id).execute()
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        await waitFor(() =>
+            expect(screen.getByRole('link', { name: study.id })).toHaveAttribute(
+                'href',
+                Routes.studyReview({ orgSlug: dataPartner.slug, studyId: study.id }),
+            ),
+        )
+    })
+
+    it('clamps a long title to a bounded cell and shows it in full in a tooltip', async () => {
+        const title = `Long ${faker.lorem.words(40)}`
+        await seedAcknowledgedAgreement(title, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        const link = within(row).getByRole('link', { name: title })
+        // Ellipsis without a bounded width would let the column grow instead of clamping.
+        const cell = link.closest('td')
+        expect(cell).toHaveClass('mantine-datatable-ellipsis')
+        expect(cell).toHaveStyle({ width: '35%', maxWidth: '0' })
+
+        fireEvent.mouseEnter(link)
+        await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent(title))
+    })
+
+    it('shows the title link in plain black rather than link navy', async () => {
+        const title = `Plain ${faker.string.alpha(6)}`
+        await seedAcknowledgedAgreement(title, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+
+        const row = await rowFor(title)
+        expect(within(row).getByRole('link', { name: title })).toHaveStyle({ color: '#000000' })
+    })
+
     it("lists a test study of the user's org as exempt, with no document to open", async () => {
         const title = `Test ${faker.string.alpha(6)}`
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
@@ -126,28 +218,27 @@ describe('UserStudyAgreements', () => {
 
         renderWithProviders(<UserStudyAgreements />)
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
     })
 
-    it('renders the empty state for a user who has acknowledged nothing', async () => {
+    it('names the heading and the empty state the same for a user who has acknowledged nothing', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
 
         renderWithProviders(<UserStudyAgreements />)
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        expect(screen.getByRole('heading', { name: 'Study Agreement' })).toBeDefined()
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
     })
 
-    it('leads with the most recently acknowledged agreement and flips on click', async () => {
+    it('leads with the newest study and flips on a Study ID click', async () => {
         const older = `Older ${faker.string.alpha(6)}`
         const newer = `Newer ${faker.string.alpha(6)}`
         const olderSeed = await seedAcknowledgedAgreement(older, '2026-02-02')
         const { dataPartner, restoreSession } = olderSeed
-        await setAckedAt(olderSeed.version.id, new Date('2026-03-01T12:00:00Z'))
+        // The older study's later ack would lead if the table still sorted by Acknowledged on.
+        await setAckedAt(olderSeed.version.id, new Date('2026-08-01T12:00:00Z'))
 
+        // Inserted second, so its v7 id sorts after the first's.
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         const { study } = await insertTestStudyOnly({
             org: dataPartner,
@@ -166,19 +257,45 @@ describe('UserStudyAgreements', () => {
         actionResult(await publishLegalDocumentVersionAction({ versionId: version.id, signedAt: '2026-01-01' }))
         restoreSession()
         actionResult(await acknowledgeLegalDocumentAction({ versionId: version.id }))
-        await setAckedAt(version.id, new Date('2026-08-01T12:00:00Z'))
+        await setAckedAt(version.id, new Date('2026-03-01T12:00:00Z'))
 
         renderWithProviders(<UserStudyAgreements />)
         await rowFor(newer)
 
-        // Acknowledged on desc, so the later ack leads even though its Effective on is the earlier.
         await waitFor(() => expect(rowTitles()[0]).toContain(newer))
 
-        // Through the header's text: a sortable header's accessible name carries the sort icon too.
-        const header = screen.getByText('Acknowledged on').closest('th')
-        if (!header) throw new Error('no Acknowledged on header')
-        fireEvent.click(header)
+        fireEvent.click(tableHeader('Study ID'))
 
         await waitFor(() => expect(rowTitles()[0]).toContain(older))
+    })
+
+    it('marks the sortable columns with dark caret icons', async () => {
+        await seedAcknowledgedAgreement(`Signed ${faker.string.alpha(6)}`, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+        await waitFor(() => expect(rowTitles()).toHaveLength(1))
+
+        const icons = [
+            within(tableHeader('Study ID')).getByRole('img', { name: 'Sorted descending' }),
+            within(tableHeader('Study title')).getByRole('img', { name: 'Not sorted' }),
+        ]
+        for (const icon of icons) {
+            const svg = icon.querySelector('svg')
+            // Phosphor's viewBox, so these are the dashboard's carets, not the library's default arrows.
+            expect(svg).toHaveAttribute('viewBox', '0 0 256 256')
+            expect(svg).toHaveStyle({ color: '#0d0d0d' })
+        }
+    })
+
+    it('sorts by Study ID and Study title only', async () => {
+        await seedAcknowledgedAgreement(`Signed ${faker.string.alpha(6)}`, '2026-06-17')
+
+        renderWithProviders(<UserStudyAgreements />)
+        await waitFor(() => expect(rowTitles()).toHaveLength(1))
+
+        expect(isSortableHeader('Study ID')).toBe(true)
+        expect(isSortableHeader('Study title')).toBe(true)
+        expect(isSortableHeader('Effective on')).toBe(false)
+        expect(isSortableHeader('Acknowledged on')).toBe(false)
     })
 })

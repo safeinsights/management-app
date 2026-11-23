@@ -1,4 +1,5 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
+import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { Routes } from '@/lib/routes'
@@ -7,10 +8,11 @@ import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 import { safeRedirectUrl } from '@/lib/utils'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from './lib/types'
-import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { UUID_RE } from '@/lib/collaboration-documents'
+import { REQUEST_PATH_HEADER } from '@/lib/request-path'
+import { hasVerifiedSecondFactor } from '@/lib/second-factor'
 import {
     CSP_HEADER,
     CSP_NONCE_HEADER,
@@ -21,7 +23,7 @@ import {
     isCspEnabled,
     reportingEndpointsValue,
 } from '@/lib/csp'
-import * as Sentry from '@sentry/nextjs'
+import { env } from '@/server/config'
 
 const ANON_ROUTES: Array<string> = [
     '/about',
@@ -29,19 +31,32 @@ const ANON_ROUTES: Array<string> = [
     '/account/signin',
     '/account/invitation',
     '/editor-demo',
+    Routes.termsOfService,
+    Routes.privacyNotice,
 ]
+
+function isClerkRateLimit(error: unknown): boolean {
+    return isClerkAPIResponseError(error) && error.status === 429
+}
 
 function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
     return Object.values(session.orgs).find((org) => org.slug === orgSlug) || null
 }
 
 function redirectToDashboard(request: NextRequest, route: string, session: UserSession) {
-    log.warn(
-        `Blocking unauthorized ${route} route access to: `,
-        request.url,
-        JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
-    )
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    log.warn(`Blocking unauthorized ${route} route access to: `, request.url, `user: ${session.user.id}`)
+    return NextResponse.redirect(new URL(Routes.dashboard, request.url))
+}
+
+const isMfaSetupPath = (pathname: string) =>
+    pathname === Routes.accountMfa || pathname.startsWith(`${Routes.accountMfa}/`)
+
+// Server actions get a 403, not a redirect: their fetch would follow it by replaying the POST.
+function refuseUnverifiedSession(req: NextRequest, clerkUserId: string | null) {
+    if (!req.headers.has('next-action')) return NextResponse.redirect(new URL(Routes.accountMfa, req.url))
+
+    log.warn(`Refusing a server action without a verified second factor on ${req.nextUrl.pathname}`, clerkUserId)
+    return new NextResponse(null, { status: 403 })
 }
 
 function sanitizeRedirectParam(req: NextRequest): NextResponse | null {
@@ -66,6 +81,7 @@ const SIGNIN_PARAM_VALIDATORS: Record<string, (value: string) => boolean> = {
     invite_not_found: (v) => v === '1',
     error: (v) => v === 'session',
     invite_id: (v) => UUID_RE.test(v),
+    mfa: (v) => v === 'verify',
 }
 
 // Next serializes every query param into the page's RSC payload, so DAST scanners report any value
@@ -85,17 +101,20 @@ function sanitizeSigninParams(req: NextRequest): NextResponse | null {
 }
 
 // Every document-rendering path goes through here rather than NextResponse.next() directly, so no
-// branch can miss the nonce.
+// branch can miss the nonce or the request path.
 export function continueWithNonce(req: NextRequest): NextResponse {
-    if (!isCspEnabled()) return NextResponse.next()
+    const headers = new Headers(req.headers)
+    // set, not append: a client-supplied value must never reach the key gate.
+    headers.set(REQUEST_PATH_HEADER, req.nextUrl.pathname + req.nextUrl.search)
+
+    if (!isCspEnabled(env.NODE_ENV)) return NextResponse.next({ request: { headers } })
 
     const nonce = generateNonce()
-    const reportUrl = cspReportUrl()
+    const reportUrl = cspReportUrl(env.NEXT_PUBLIC_SENTRY_DSN || env.SENTRY_DSN, env)
     const policy = cspHeaderValue(nonce, reportUrl)
 
     // Do not collapse these two. Next learns the nonce only by parsing a `content-security-policy`
     // request header; x-csp-nonce is how our own server components read the raw value.
-    const headers = new Headers(req.headers)
     headers.set(CSP_NONCE_HEADER, nonce)
     headers.set('content-security-policy', policy)
 
@@ -114,7 +133,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     const signinSanitized = sanitizeSigninParams(req)
     if (signinSanitized) return signinSanitized
 
-    const { userId: clerkUserId, sessionClaims } = await auth()
+    const { userId: clerkUserId, sessionClaims, factorVerificationAge } = await auth()
 
     const isAnonRoute = ANON_ROUTES.some((r) => pathname.startsWith(r))
 
@@ -122,16 +141,20 @@ export const proxy = clerkMiddleware(async (auth, req) => {
     try {
         session = await marshalSession(clerkUserId, sessionClaims)
     } catch (error) {
-        Sentry.captureException(error)
-        log.error('Failed to marshal session:', error)
-        // marshalSession only throws for a user Clerk still considers authenticated, so stale
-        // metadata is recoverable: regenerate rather than bouncing them to signin.
-        try {
-            session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
-        } catch (retryError) {
-            Sentry.captureException(retryError)
-            log.error('Failed to marshal session after forced metadata re-sync:', retryError)
-            // session stays null; the branch below falls back to BLANK_SESSION
+        if (isClerkRateLimit(error)) {
+            // The page builds the session again and reports the failure once; retrying now only
+            // spends another call against the limit (OTTER-1007).
+            log.info('Clerk rate-limited the session marshal: %O', error)
+        } else {
+            log.error('Failed to marshal session:', error)
+            // marshalSession only throws for a user Clerk still considers authenticated, so stale
+            // metadata is recoverable: regenerate rather than bouncing them to signin.
+            try {
+                session = await marshalSession(clerkUserId, sessionClaims, { forceUpdate: true })
+            } catch (retryError) {
+                log.error('Failed to marshal session after forced metadata re-sync:', retryError)
+                // session stays null; the branch below falls back to BLANK_SESSION
+            }
         }
     }
 
@@ -144,7 +167,7 @@ export const proxy = clerkMiddleware(async (auth, req) => {
         if (clerkUserId) {
             session = BLANK_SESSION
         } else {
-            const signInUrl = new URL('/account/signin', req.url)
+            const signInUrl = new URL(Routes.accountSignin, req.url)
             const intended = safeRedirectUrl(pathname + req.nextUrl.search, Routes.home)
             signInUrl.searchParams.set('redirect_url', intended)
             // This branch is the only place that refuses a session, so the mark tells the signin page
@@ -154,6 +177,11 @@ export const proxy = clerkMiddleware(async (auth, req) => {
             log.warn(`attempted to load ${pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
+    }
+
+    // Signing in and accepting an invite run before the user has a second factor to verify.
+    if (!isAnonRoute && !isMfaSetupPath(pathname) && !hasVerifiedSecondFactor(factorVerificationAge)) {
+        return refuseUnverifiedSession(req, clerkUserId)
     }
 
     const currentOrgSlug = extractOrgSlugFromPath(pathname)
@@ -188,7 +216,8 @@ export const config = {
     matcher: [
         '/(admin|dl|reviewer|researcher|organization)(.*)',
         // Excludes api requests: the api access wrapper hits the DB and middleware has no full
-        // node env.
-        '/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // node env. robots.txt is exempt by exact path: ANON_ROUTES only covers signed-out requests,
+        // and the org guard would read it as an org slug and redirect signed-in non-members.
+        '/((?!_next|api|robots\\.txt$|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     ],
 }

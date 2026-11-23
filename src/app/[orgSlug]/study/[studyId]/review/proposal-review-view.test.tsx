@@ -47,7 +47,9 @@ describe('ProposalReviewView', () => {
     it('renders the page title', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} priorEntries={[]} reviewVersion={1} />)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 1: Review proposal` }),
+        ).toBeInTheDocument()
     })
 
     it('does not repeat the study title in the proposal section header', () => {

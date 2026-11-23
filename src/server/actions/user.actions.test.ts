@@ -2,19 +2,25 @@ import { describe, it, expect, test, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import {
+    beforeEach,
+    enableClerkOrgSync,
+    currentFakeClerkOrgsApi,
+    fakeClerkRoleOf,
+    flushDeferred,
+    getAuditEntriesWithMetadata,
     insertTestOrg,
     insertTestUser,
     actionResult,
     mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
+    postHogCaptures,
 } from '@/tests/unit.helpers'
 import { faker } from '@faker-js/faker'
 import { currentUserInfoAction, onUserResetPWAction, onUserSignInAction, updateUserRoleAction } from './user.actions'
 import logger from '@/lib/logger'
-import { onUserRoleUpdate } from '@/server/events'
 
-vi.mock('@/server/events')
+beforeEach(enableClerkOrgSync)
 
 describe('User Actions', () => {
     it('findOrCreateSiUserId returns existing user id when user exists', async () => {
@@ -193,12 +199,54 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
-        expect(onUserRoleUpdate).toHaveBeenCalledWith({
-            userId: userToUpdate.id,
-            actorId: admin.id,
-            orgId: org.id,
-            before: expect.objectContaining({ isAdmin: false }),
-            after: { isAdmin: true },
-        })
+        await flushDeferred()
+        expect(await getAuditEntriesWithMetadata(userToUpdate.id, 'USER')).toContainEqual(
+            expect.objectContaining({
+                eventType: 'UPDATED',
+                userId: admin.id,
+                metadata: { roles: { before: expect.objectContaining({ isAdmin: false }), after: { isAdmin: true } } },
+            }),
+        )
+        expect(postHogCaptures()).toContainEqual(
+            expect.objectContaining({
+                distinctId: admin.id,
+                event: 'role_updated',
+                properties: expect.objectContaining({ target_user_id: userToUpdate.id, org_id: org.id }),
+            }),
+        )
+    })
+
+    test('updateUserRoleAction mirrors the role change into Clerk', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { user: target } = await insertTestUser({ org })
+        const change = (isAdmin: boolean) =>
+            updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin }).then(actionResult)
+
+        await change(true)
+        expect(await fakeClerkRoleOf(org.slug, target.clerkId)).toBe('org:admin')
+
+        await change(false)
+        expect(await fakeClerkRoleOf(org.slug, target.clerkId)).toBe('org:member')
+    })
+
+    test('updateUserRoleAction still changes the role when Clerk fails, and logs', async () => {
+        const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const { user: target, orgUser } = await insertTestUser({ org })
+        const api = await currentFakeClerkOrgsApi()
+        api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
+
+        actionResult(await updateUserRoleAction({ orgSlug: org.slug, userId: target.id, isAdmin: true }))
+
+        const changed = await db
+            .selectFrom('orgUser')
+            .select('isAdmin')
+            .where('id', '=', orgUser.id)
+            .executeTakeFirstOrThrow()
+        expect(changed.isAdmin).toBe(true)
+        expect(logError).toHaveBeenCalledWith(
+            'clerk-org-sync failed',
+            expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+        )
     })
 })

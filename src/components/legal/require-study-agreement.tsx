@@ -2,9 +2,10 @@
 
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
+import { isPermissionDenied } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 import { legalDocumentQueryKeys } from '@/schema/legal-document'
-import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-document.actions'
+import { fetchStudyAgreementStatusAction } from '@/server/actions/legal-acknowledgement.actions'
 import { captureException } from '@sentry/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -25,7 +26,7 @@ export const useStudyAgreementStatus = (studyId: string) => {
 
     // Failing open is right, but a gate that has quietly stopped asking must not also be invisible.
     useEffect(() => {
-        if (error) captureException(error)
+        if (error && !isPermissionDenied(error)) captureException(error)
     }, [error])
 
     // A gate that cannot be read blocks work just as a missing agreement does, so callers have to
@@ -33,22 +34,24 @@ export const useStudyAgreementStatus = (studyId: string) => {
     return { status: data, isUnreadable: isError }
 }
 
-const usePendingStudyAgreement = (studyId: string) => {
+type StudyRouteProps = { studyId: string; orgSlug: string }
+
+const usePendingStudyAgreement = ({ studyId, orgSlug }: StudyRouteProps) => {
     const { status } = useStudyAgreementStatus(studyId)
     const router = useRouter()
 
     const versionId = status?.state === 'pending' ? status.versionId : undefined
     const consent = useAcknowledgementConsent({
-        versionId,
+        versionIds: versionId ? [versionId] : [],
         invalidateKey: legalDocumentQueryKeys.studyAgreement(studyId),
     })
 
-    // Cancel goes to the dashboard: this blocks one study, not the app.
-    return { versionId, onCancel: () => router.push(Routes.dashboard), ...consent }
+    // Cancel goes to the org dashboard: this blocks one study, not the app.
+    return { versionId, onCancel: () => router.push(Routes.orgDashboard({ orgSlug })), ...consent }
 }
 
 // Blocks a member of either party who owes this study's agreement. Mounted in the study layout, so
 // it covers every route of the study for both roles.
-export const RequireStudyAgreement = ({ studyId }: { studyId: string }) => (
-    <StudyAgreementModal {...usePendingStudyAgreement(studyId)} />
+export const RequireStudyAgreement = (props: StudyRouteProps) => (
+    <StudyAgreementModal {...usePendingStudyAgreement(props)} />
 )

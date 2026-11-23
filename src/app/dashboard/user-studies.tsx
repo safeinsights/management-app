@@ -4,6 +4,7 @@ import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { PageHeader } from '@/components/page-header'
+import { PageLayout } from '@/components/page-layout'
 import { useInvitationNotices } from '@/hooks/use-invitation-notices'
 import { useSession } from '@/hooks/session'
 import type { UserSession } from '@/lib/types'
@@ -80,24 +81,24 @@ export default function UserStudiesDashboard() {
 
     if (!session) {
         return (
-            <Stack p="xxl" gap="xxl">
-                <DashboardHeaderSkeleton />
-                <Paper shadow="xs" p="xxl">
+            <PageLayout px="md" pb="xxl" header={<DashboardHeaderSkeleton />}>
+                <Paper shadow="xs" px="lg" py="xxl">
                     <TableSkeleton paperWrapper={false} />
                 </Paper>
-            </Stack>
+            </PageLayout>
         )
     }
 
     const isReviewer = audience === 'reviewer'
 
+    // Narrower page and card gutters than other pages give the studies table its 928px at a
+    // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack p="xxl" gap="xxl">
-            <PageHeader title="My studies" />
+        <PageLayout px="md" pb="xxl" header={<PageHeader title="My studies" />}>
             <JoinedOrgBanner />
             <Stack gap="md">
                 <RoleSwitcher isVisible={showToggle} audience={audience} onChange={onAudienceChange} />
-                <Paper shadow="xs" p="xxl">
+                <Paper shadow="xs" px="lg" py="xxl">
                     <StudiesTable
                         key={audience}
                         audience={audience}
@@ -109,11 +110,10 @@ export default function UserStudiesDashboard() {
                                 ? 'Studies you are reviewing, across every organization you belong to. Open a study to view its details, review submitted materials, and submit your decision.'
                                 : 'Studies you have taken part in, across every organization you belong to. Open a study to check its status, view details, or take your next step.'
                         }
-                        showNewStudyButton={!isReviewer}
                         showRefresher
                     />
                 </Paper>
             </Stack>
-        </Stack>
+        </PageLayout>
     )
 }

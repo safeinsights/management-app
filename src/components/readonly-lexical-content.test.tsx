@@ -1,4 +1,14 @@
-import { renderWithProviders, fireEvent, screen, waitFor, describe, it, expect, vi } from '@/tests/unit.helpers'
+import {
+    renderWithProviders,
+    fireEvent,
+    screen,
+    waitFor,
+    describe,
+    it,
+    expect,
+    vi,
+    lexicalLinkState,
+} from '@/tests/unit.helpers'
 import { LINK_CARD_DIALOG_LABEL, LINK_CARD_LABELS } from '@/components/link-hover-card/copy'
 import { ReadOnlyLexicalContent } from './readonly-lexical-content'
 
@@ -16,30 +26,13 @@ function root(children: object[]) {
     return JSON.stringify({ root: { children, direction: 'ltr', format: '', indent: 0, type: 'root', version: 1 } })
 }
 
-function linkState(url: string, target: string | null) {
-    return root([
-        paragraph([
-            {
-                children: [textNode('example')],
-                direction: 'ltr',
-                format: '',
-                indent: 0,
-                type: 'link',
-                version: 1,
-                rel: target ? 'noopener noreferrer' : null,
-                target,
-                title: null,
-                url,
-            },
-        ]),
-    ])
-}
+const linkState = (url: string, target: string | null) => lexicalLinkState({ url, target })
 
 /** Mirrors how links were persisted before target/rel were set on insertion. */
 const legacyLinkState = (url: string) => linkState(url, null)
 
 async function renderLink(value: string) {
-    const { container } = renderWithProviders(<ReadOnlyLexicalContent value={value} />)
+    const { container } = renderWithProviders(<ReadOnlyLexicalContent value={value} label="Notes" />)
 
     const anchor = await waitFor(() => {
         const found = container.querySelector('a')
@@ -152,7 +145,10 @@ describe('ReadOnlyLexicalContent', () => {
 
     it('renders paragraphs with the themed class that removes the default margin', async () => {
         const { container } = renderWithProviders(
-            <ReadOnlyLexicalContent value={root([paragraph([textNode('first')]), paragraph([textNode('second')])])} />,
+            <ReadOnlyLexicalContent
+                value={root([paragraph([textNode('first')]), paragraph([textNode('second')])])}
+                label="Notes"
+            />,
         )
 
         await waitFor(() => expect(container.querySelectorAll('p')).toHaveLength(2))
@@ -162,8 +158,16 @@ describe('ReadOnlyLexicalContent', () => {
         }
     })
 
+    // Lexical keeps role="textbox" on read-only content, and WCAG wants every textbox named.
+    it('names the read-only textbox with its label', async () => {
+        renderWithProviders(<ReadOnlyLexicalContent value={root([paragraph([textNode('first')])])} label="Notes" />)
+
+        const textbox = await screen.findByRole('textbox', { name: 'Notes' })
+        expect(textbox).toHaveAttribute('aria-readonly', 'true')
+    })
+
     it('renders nothing for a legacy empty-root state', () => {
-        const { container } = renderWithProviders(<ReadOnlyLexicalContent value={root([])} />)
+        const { container } = renderWithProviders(<ReadOnlyLexicalContent value={root([])} label="Notes" />)
 
         expect(container.querySelector('p')).toBeNull()
     })

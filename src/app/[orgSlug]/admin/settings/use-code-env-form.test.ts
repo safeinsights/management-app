@@ -1,31 +1,20 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useParams } from 'next/navigation'
-import { createTestQueryWrapper } from '@/tests/unit.helpers'
-import { useCodeEnvForm } from './use-code-env-form'
-
-vi.mock('./code-envs.actions', () => ({
-    createOrgCodeEnvAction: vi.fn(),
-    updateOrgCodeEnvAction: vi.fn(),
-    getStarterCodeUploadUrlAction: vi.fn(),
-    getSampleDataUploadUrlAction: vi.fn(),
-}))
-
-vi.mock('@/hooks/upload', () => ({
-    uploadFiles: vi.fn().mockResolvedValue([]),
-}))
-
 import {
-    createOrgCodeEnvAction,
-    updateOrgCodeEnvAction,
-    getStarterCodeUploadUrlAction,
-    getSampleDataUploadUrlAction,
-} from './code-envs.actions'
-import { uploadFiles } from '@/hooks/upload'
-
-const TEST_ORG_SLUG = 'test-org'
-
-const mockPresignedUrl = { url: 'https://s3.example.com', fields: { key: 'test' } }
+    actionResult,
+    createTestQueryWrapper,
+    db,
+    insertTestCodeEnv,
+    mockSessionWithTestData,
+    testImageRef,
+    waitForPendingMutations,
+} from '@/tests/unit.helpers'
+import { pathForSampleData, pathForStarterCode } from '@/lib/paths'
+import { fetchOrgCodeEnvsAction } from '@/server/actions/code-envs.actions'
+import { storeS3File } from '@/server/aws'
+import { fetchFileContents } from '@/server/storage'
+import { useCodeEnvForm } from './use-code-env-form'
 
 const mockCodeEnv = {
     id: 'code-env-1',
@@ -34,7 +23,7 @@ const mockCodeEnv = {
     name: 'Test Env',
     language: 'PYTHON' as const,
     commandLines: { py: 'python %f' },
-    url: 'python:3.11',
+    url: testImageRef('python:3.11'),
     isTesting: false,
     starterCodeFileNames: ['main.py'],
     sampleDataPath: null,
@@ -47,11 +36,31 @@ const mockCodeEnv = {
 }
 
 describe('useCodeEnvForm', () => {
-    beforeEach(() => {
-        ;(useParams as Mock).mockReturnValue({ orgSlug: TEST_ORG_SLUG })
-        ;(getStarterCodeUploadUrlAction as Mock).mockResolvedValue(mockPresignedUrl)
-        ;(getSampleDataUploadUrlAction as Mock).mockResolvedValue(mockPresignedUrl)
+    let org: { id: string; slug: string }
+
+    beforeEach(async () => {
+        ;({ org } = await mockSessionWithTestData({ isAdmin: true }))
+        ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug })
     })
+
+    const codeEnvsInOrg = () =>
+        db.selectFrom('orgCodeEnv').selectAll('orgCodeEnv').where('orgId', '=', org.id).execute()
+
+    // Uploads go through the presigned post to the local S3, so what they wrote is read back from it.
+    const storedText = async (path: string) => (await fetchFileContents(path)).text()
+
+    // A saved environment, read back the way the settings page loads it.
+    const insertCodeEnv = async ({ url = testImageRef('python:3.11') }: { url?: string } = {}) => {
+        const { id } = await insertTestCodeEnv({
+            orgId: org.id,
+            identifier: 'test_env',
+            name: 'Test Env',
+            language: 'PYTHON',
+            url,
+            starterCodeFileNames: ['main.py'],
+        })
+        return actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug })).find((env) => env.id === id)!
+    }
 
     // OTTER-647: a half-filled draft pair was discarded on submit, so the save appeared to
     // succeed while losing the input.
@@ -78,7 +87,8 @@ describe('useCodeEnvForm', () => {
             await waitFor(() => {
                 expect(result.current.form.errors.newEnvValue).toBe('Complete both fields or clear them')
             })
-            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+            await waitForPendingMutations()
+            expect(await codeEnvsInOrg()).toEqual([])
         })
 
         it('treats a whitespace-only half as empty rather than saving the whitespace', async () => {
@@ -96,11 +106,11 @@ describe('useCodeEnvForm', () => {
             await waitFor(() => {
                 expect(result.current.form.errors.newEnvValue).toBe('Complete both fields or clear them')
             })
-            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+            await waitForPendingMutations()
+            expect(await codeEnvsInOrg()).toEqual([])
         })
 
         it('appends a complete draft pair, trimmed', async () => {
-            ;(createOrgCodeEnvAction as Mock).mockResolvedValue({ ...mockCodeEnv, id: 'new-id' })
             const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
                 wrapper: createTestQueryWrapper(),
             })
@@ -112,13 +122,9 @@ describe('useCodeEnvForm', () => {
 
             act(() => result.current.onSubmit())
 
-            await waitFor(() => {
-                expect(createOrgCodeEnvAction).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        settings: expect.objectContaining({ environment: [{ name: 'FOO', value: 'bar' }] }),
-                    }),
-                )
-            })
+            await waitForPendingMutations()
+            const [created] = await codeEnvsInOrg()
+            expect(created.settings).toEqual(expect.objectContaining({ environment: [{ name: 'FOO', value: 'bar' }] }))
         })
 
         it('flags the empty half of a draft command line', async () => {
@@ -133,7 +139,8 @@ describe('useCodeEnvForm', () => {
             await waitFor(() => {
                 expect(result.current.form.errors.newCmdExt).toBe('Complete both fields or clear them')
             })
-            expect(createOrgCodeEnvAction).not.toHaveBeenCalled()
+            await waitForPendingMutations()
+            expect(await codeEnvsInOrg()).toEqual([])
         })
     })
 
@@ -154,9 +161,6 @@ describe('useCodeEnvForm', () => {
     })
 
     it('create: uploads starter code via presigned URL', async () => {
-        const createdEnv = { ...mockCodeEnv, id: 'new-id' }
-        ;(createOrgCodeEnvAction as Mock).mockResolvedValue(createdEnv)
-
         const onComplete = vi.fn()
         const { result } = renderHook(() => useCodeEnvForm(undefined, onComplete), {
             wrapper: createTestQueryWrapper(),
@@ -173,25 +177,14 @@ describe('useCodeEnvForm', () => {
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(createOrgCodeEnvAction).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    orgSlug: TEST_ORG_SLUG,
-                    starterCodeFileNames: ['main.py'],
-                }),
-            )
-            expect(getStarterCodeUploadUrlAction).toHaveBeenCalledWith({
-                orgSlug: TEST_ORG_SLUG,
-                codeEnvId: 'new-id',
-            })
-            expect(uploadFiles).toHaveBeenCalledWith([[starterCode, mockPresignedUrl]])
-        })
+        await waitForPendingMutations()
+        const [created] = await codeEnvsInOrg()
+        expect(created).toMatchObject({ url: 'python:3.11', starterCodeFileNames: ['main.py'] })
+        const starterPath = pathForStarterCode({ orgSlug: org.slug, codeEnvId: created.id, fileName: 'main.py' })
+        expect(await storedText(starterPath)).toBe('code')
     })
 
     it('create: uploads sample data when sampleDataPath is set', async () => {
-        const createdEnv = { ...mockCodeEnv, id: 'new-id' }
-        ;(createOrgCodeEnvAction as Mock).mockResolvedValue(createdEnv)
-
         const onComplete = vi.fn()
         const { result } = renderHook(() => useCodeEnvForm(undefined, onComplete), {
             wrapper: createTestQueryWrapper(),
@@ -212,16 +205,17 @@ describe('useCodeEnvForm', () => {
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(getSampleDataUploadUrlAction).toHaveBeenCalledWith({ codeEnvId: 'new-id' })
-            expect(uploadFiles).toHaveBeenCalledWith([[sampleFile, mockPresignedUrl]])
+        await waitForPendingMutations()
+        const [created] = await codeEnvsInOrg()
+        const samplePrefix = pathForSampleData({
+            orgSlug: org.slug,
+            codeEnvId: created.id,
+            sampleDataPath: created.sampleDataPath,
         })
+        expect(await storedText(`${samplePrefix}/sample.csv`)).toBe('data')
     })
 
     it('create: does not upload sample data when sampleDataPath is empty', async () => {
-        const createdEnv = { ...mockCodeEnv, id: 'new-id' }
-        ;(createOrgCodeEnvAction as Mock).mockResolvedValue(createdEnv)
-
         const { result } = renderHook(() => useCodeEnvForm(undefined, vi.fn()), {
             wrapper: createTestQueryWrapper(),
         })
@@ -233,22 +227,21 @@ describe('useCodeEnvForm', () => {
             result.current.form.setFieldValue('commandLines', { py: 'python %f' })
             result.current.form.setFieldValue('url', 'python:3.11')
             result.current.form.setFieldValue('starterCodes', [starterCode])
+            result.current.setSampleDataFiles([new File(['data'], 'sample.csv')])
         })
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(createOrgCodeEnvAction).toHaveBeenCalled()
-            expect(getSampleDataUploadUrlAction).not.toHaveBeenCalled()
-        })
+        await waitForPendingMutations()
+        const [created] = await codeEnvsInOrg()
+        const samplePrefix = pathForSampleData({ orgSlug: org.slug, codeEnvId: created.id })
+        await expect(storedText(`${samplePrefix}/sample.csv`)).rejects.toThrow()
     })
 
     it('edit: uploads new starter code and calls update action', async () => {
-        const updatedEnv = { ...mockCodeEnv, name: 'Updated' }
-        ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(updatedEnv)
-
+        const codeEnv = await insertCodeEnv()
         const onComplete = vi.fn()
-        const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, onComplete), {
+        const { result } = renderHook(() => useCodeEnvForm(codeEnv, onComplete), {
             wrapper: createTestQueryWrapper(),
         })
 
@@ -259,47 +252,45 @@ describe('useCodeEnvForm', () => {
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(getStarterCodeUploadUrlAction).toHaveBeenCalledWith({
-                orgSlug: TEST_ORG_SLUG,
-                codeEnvId: mockCodeEnv.id,
-            })
-            expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    orgSlug: TEST_ORG_SLUG,
-                    codeEnvId: mockCodeEnv.id,
-                    starterCodeFileNames: ['updated.py'],
-                    starterCodeUploaded: true,
-                }),
-            )
+        await waitForPendingMutations()
+        const [updated] = await codeEnvsInOrg()
+        expect(updated.starterCodeFileNames).toEqual(['updated.py'])
+        const starterPath = pathForStarterCode({ orgSlug: org.slug, codeEnvId: codeEnv.id, fileName: 'updated.py' })
+        expect(await storedText(starterPath)).toBe('new code')
+    })
+
+    it('edit: saves an environment whose URL has no digest', async () => {
+        const legacyEnv = await insertCodeEnv({ url: 'python:3.11' })
+
+        const { result } = renderHook(() => useCodeEnvForm(legacyEnv, vi.fn()), {
+            wrapper: createTestQueryWrapper(),
         })
+        act(() => result.current.form.setFieldValue('name', 'Renamed'))
+        act(() => result.current.onSubmit())
+
+        await waitForPendingMutations()
+        expect((await codeEnvsInOrg())[0]).toMatchObject({ name: 'Renamed', url: 'python:3.11' })
     })
 
     it('edit: skips starter code upload when no new file', async () => {
-        const updatedEnv = { ...mockCodeEnv, name: 'Updated' }
-        ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(updatedEnv)
+        const codeEnv = await insertCodeEnv()
+        const starterPath = pathForStarterCode({ orgSlug: org.slug, codeEnvId: codeEnv.id, fileName: 'main.py' })
+        await storeS3File({ orgSlug: org.slug }, new Blob(['existing code']).stream(), starterPath)
 
-        const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
+        const { result } = renderHook(() => useCodeEnvForm(codeEnv, vi.fn()), {
             wrapper: createTestQueryWrapper(),
         })
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(getStarterCodeUploadUrlAction).not.toHaveBeenCalled()
-            expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    starterCodeUploaded: false,
-                    starterCodeFileNames: undefined,
-                }),
-            )
-        })
+        await waitForPendingMutations()
+        expect((await codeEnvsInOrg())[0].starterCodeFileNames).toEqual(['main.py'])
+        expect(await storedText(starterPath)).toBe('existing code')
     })
 
     it('edit: uploads sample data files', async () => {
-        ;(updateOrgCodeEnvAction as Mock).mockResolvedValue(mockCodeEnv)
-
-        const { result } = renderHook(() => useCodeEnvForm(mockCodeEnv, vi.fn()), {
+        const codeEnv = await insertCodeEnv()
+        const { result } = renderHook(() => useCodeEnvForm(codeEnv, vi.fn()), {
             wrapper: createTestQueryWrapper(),
         })
 
@@ -310,9 +301,8 @@ describe('useCodeEnvForm', () => {
 
         act(() => result.current.onSubmit())
 
-        await waitFor(() => {
-            expect(getSampleDataUploadUrlAction).toHaveBeenCalledWith({ codeEnvId: mockCodeEnv.id })
-            expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(expect.objectContaining({ sampleDataUploaded: true }))
-        })
+        await waitForPendingMutations()
+        const samplePrefix = pathForSampleData({ orgSlug: org.slug, codeEnvId: codeEnv.id })
+        expect(await storedText(`${samplePrefix}/data.csv`)).toBe('data')
     })
 })

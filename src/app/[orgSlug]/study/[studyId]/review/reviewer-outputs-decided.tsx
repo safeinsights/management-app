@@ -1,19 +1,21 @@
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
 import { OutputsDecidedBanner } from '@/components/study/outputs-decided-banner'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { DecryptAndViewOutputs } from '@/components/study/decrypt-and-view-outputs'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
+import { latestRunFeedback } from '@/lib/outputs-review'
 import { latestStatusAt } from '@/lib/study-job-status'
 import type { RawStudyState, StepNav } from '@/lib/study-screen'
 import { projectStudyState } from '@/lib/study-screen'
-import { latestSubmittedJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
-import type { OutputsDecisionFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import { latestSubmittedJobForStudy, priorCodeRunsForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import type { OutputsDecisionFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { loadOutputsFeedback } from '../view/load-outputs-feedback'
+import { PageLayout } from '@/components/page-layout'
 
 type ReviewerOutputsDecidedProps = {
     study: SelectedStudy
@@ -51,9 +53,10 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
         )
     }
 
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const { entries: feedbackEntries, feedbackLoadError } = await loadOutputsFeedback(study.id)
     const { reviewerName, decidedAt } = outputsDecisionAttribution(feedbackEntries, job.statusChanges)
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
 
     // A run closed out with nothing to decrypt must not ask for a key that cannot work; a
     // submission-time scan log does not count as an output (OTTER-524).
@@ -61,11 +64,10 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+            <PageLayout header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}>
                 <ProposalStepHeader
-                    stepLabel="STEP 3"
-                    heading="Review outputs"
+                    stepLabel={REVIEW_OUTPUTS_STEP.label}
+                    heading={REVIEW_OUTPUTS_STEP.heading}
                     banner={
                         <OutputsDecidedBanner
                             resultsErrored={state.resultsErrored}
@@ -76,10 +78,15 @@ export async function ReviewerOutputsDecided({ study, raw, nav }: ReviewerOutput
                         />
                     }
                 />
-                <FeedbackAndNotesSection entries={feedbackEntries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <DecryptAndViewOutputs job={job} isVisible={hasDecryptableOutputs} />
+                <DecryptAndViewOutputs
+                    job={job}
+                    priorRuns={priorRuns}
+                    hasDecryptableOutputs={hasDecryptableOutputs}
+                    latestFeedback={latestRunFeedback(feedbackEntries, job.id)}
+                    feedbackLoadError={feedbackLoadError}
+                />
                 <StepNavigation nav={nav} />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

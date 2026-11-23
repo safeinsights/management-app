@@ -1,5 +1,6 @@
 import {
     db,
+    findFieldErrorShownOnce,
     insertKeylessInvitedUser,
     renderWithProviders,
     screen,
@@ -11,7 +12,8 @@ import {
 } from '@/tests/unit.helpers'
 import { describe, it, expect, vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
-import { useAuth, useSignIn } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { memoryRouter } from 'next-router-mock'
 import { clerkErrorOverrides } from '@/lib/errors'
 import { SignInForm } from './sign-in-form'
@@ -37,6 +39,15 @@ const submitCredentials = async () => {
 }
 
 describe('SignInForm', () => {
+    it('tells a user signed out after setting up MFA to sign in with it', async () => {
+        memoryRouter.setCurrentUrl('/account/signin?mfa=verify')
+        mockSignInCreate(vi.fn())
+
+        renderWithProviders(<SignInForm mfa={false} onComplete={vi.fn()} />)
+
+        expect(await screen.findByText('MFA is set up')).toBeDefined()
+    })
+
     it('redirects instead of erroring when Clerk reports an active session on submit', async () => {
         memoryRouter.setCurrentUrl('/account/signin?redirect_url=%2Fdashboard')
         const create = vi.fn().mockRejectedValue({
@@ -126,6 +137,11 @@ describe('SignInForm', () => {
 
         await waitFor(() => expect(screen.getByText(clerkErrorOverrides.form_password_incorrect)).toBeInTheDocument())
         expect(memoryRouter.asPath).toBe('/account/signin')
+        await findFieldErrorShownOnce(clerkErrorOverrides.form_password_incorrect)
+
+        const email = screen.getByLabelText('Email')
+        expect(email).toHaveAttribute('aria-invalid', 'true')
+        expect(email).not.toHaveAttribute('aria-describedby')
     })
 
     // A blank email fails both `min(1)` and `email()`; the resolver keeps the last by default,
@@ -137,7 +153,7 @@ describe('SignInForm', () => {
         await userEvent.click(screen.getByLabelText('Email'))
         await userEvent.tab()
 
-        expect(await screen.findByText('Email is required')).toBeInTheDocument()
+        await findFieldErrorShownOnce('Email is required')
         expect(screen.queryByText('Invalid email')).not.toBeInTheDocument()
     })
 

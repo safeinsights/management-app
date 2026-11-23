@@ -8,7 +8,7 @@ import type { NavAction, NavVariant, StepNav } from '@/lib/study-screen'
 // it goes and how heavy it looks is decided by the nav table (resolveScreenNav); this only lays it out.
 
 // Mantine has no "solid" — the spec's three weights map onto filled / outline / subtle.
-const MANTINE_VARIANT: Record<NavVariant, ButtonVariant> = {
+export const MANTINE_VARIANT: Record<NavVariant, ButtonVariant> = {
     solid: 'filled',
     outline: 'outline',
     subtle: 'subtle',

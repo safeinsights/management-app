@@ -1,7 +1,7 @@
 import type React from 'react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { redirect } from 'next/navigation'
-import { db, insertTestStudyOnly, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
+import { insertTestStudyOnly, mockSessionWithTestData, setTestStudyStatus } from '@/tests/unit.helpers'
 import ReviewProposalPage from './page'
 import { ProposalReviewView } from '../proposal-review-view'
 import { PostFeedbackView } from '../post-feedback-view'
@@ -29,24 +29,6 @@ describe('ReviewProposalPage', () => {
         const page = await callPage(org.slug, study.id)
 
         expect(page?.type).toBe(PostFeedbackView)
-    })
-
-    // Code submission used to flip study.status back to PENDING-REVIEW while approvedAt still
-    // recorded the decision, and old rows can still look like this.
-    it('renders the decided proposal feedback for a PENDING-REVIEW study whose approvedAt is set', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
-        await db
-            .updateTable('study')
-            .set({ status: 'PENDING-REVIEW', approvedAt: new Date() })
-            .where('id', '=', study.id)
-            .execute()
-
-        const page = await callPage(org.slug, study.id)
-
-        expect(page?.type).toBe(PostFeedbackView)
-        const props = page?.props as React.ComponentProps<typeof PostFeedbackView>
-        expect(props.fallback?.decision).toBe('APPROVE')
     })
 
     it('falls through to the editable proposal review when the proposal is not yet decided', async () => {

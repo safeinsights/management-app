@@ -5,6 +5,7 @@ import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Routes } from '@/lib/routes'
 import { getColumns } from './columns'
+import { DeleteDraftButton } from './delete-draft-button'
 import { buildRowModel } from './row-model'
 import { StudyRowView } from './study-row-view'
 import type { Audience, StudyRow as StudyRowType } from './types'
@@ -29,6 +30,8 @@ const baseStudy: StudyRowType = {
     impact: null,
     additionalNotes: null,
     hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
     orgName: 'Test Org',
     orgSlug: 'test-org',
 }
@@ -40,6 +43,7 @@ function renderRow(study: StudyRowType, audience: Audience = 'reviewer', userId?
                 <StudyRowView
                     row={buildRowModel(study, audience, { orgSlug: 'test-org', userId })}
                     columns={getColumns(audience, 'org', false)}
+                    DeleteDraft={DeleteDraftButton}
                 />
             </TableTbody>
         </Table>,
@@ -58,7 +62,7 @@ describe('StudyRow status pill', () => {
 
         await user.hover(screen.getByText('Awaiting code'))
 
-        expect(await screen.findByText('Waiting for Genius to submit their code.')).toBeVisible()
+        expect(await screen.findByText('Waiting for Genius Lab to submit their code.')).toBeVisible()
     })
 
     it('tells the researcher the proposal is with the data partner, naming the partner', async () => {
@@ -75,53 +79,32 @@ describe('StudyRow status pill', () => {
 })
 
 const rowEl = () => screen.getByRole('link', { name: 'Reading Comprehension Study' }).closest('tr') as HTMLElement
-// The highlight is a data attribute the CSS module keys on, not an inline colour.
-const isHighlighted = (tr: HTMLElement) => tr.hasAttribute('data-highlighted')
+const titleCell = () => screen.getByRole('link', { name: 'Reading Comprehension Study' }).closest('td') as HTMLElement
 
-describe('StudyRow reviewer highlight', () => {
-    it('highlights when the proposal is awaiting review (PENDING-REVIEW)', () => {
-        renderRow({ ...baseStudy, status: 'PENDING-REVIEW', jobStatusChanges: [] })
-        expect(isHighlighted(rowEl())).toBe(true)
+describe('StudyRow unread dot', () => {
+    const lastUpdatedAt = new Date('2026-09-10T12:00:00Z')
+
+    it('marks a study the viewer never opened', () => {
+        renderRow({ ...baseStudy, lastUpdatedAt, lastOpenedAt: null })
+        expect(within(titleCell()).getByText('Updated')).toBeInTheDocument()
     })
 
-    // A resubmission opens a new job, and the dashboard query returns only the latest job's
-    // statuses, so the prior round's decision is absent (OTTER-552).
-    it('highlights when code is awaiting review even though study is APPROVED', () => {
-        renderRow({
-            ...baseStudy,
-            status: 'APPROVED',
-            jobStatusChanges: [
-                { status: 'CODE-SCANNED' as StudyJobStatus },
-                { status: 'CODE-SUBMITTED' as StudyJobStatus },
-            ],
-        })
-        expect(isHighlighted(rowEl())).toBe(true)
+    it('marks a study that changed after the last visit', () => {
+        renderRow({ ...baseStudy, lastUpdatedAt, lastOpenedAt: new Date('2026-09-09T12:00:00Z') })
+        expect(within(titleCell()).getByText('Updated')).toBeInTheDocument()
     })
 
-    it('does not highlight when the latest code decision is a change request (awaiting researcher)', () => {
-        renderRow({
-            ...baseStudy,
-            status: 'APPROVED',
-            jobStatusChanges: [
-                { status: 'CODE-CHANGES-REQUESTED' as StudyJobStatus },
-                { status: 'CODE-SCANNED' as StudyJobStatus },
-                { status: 'CODE-SUBMITTED' as StudyJobStatus },
-            ],
-        })
-        expect(isHighlighted(rowEl())).toBe(false)
+    it('clears once the viewer has opened the study since it changed', () => {
+        renderRow({ ...baseStudy, lastUpdatedAt, lastOpenedAt: new Date('2026-09-11T12:00:00Z') })
+        expect(screen.queryByText('Updated')).toBeNull()
+        expect(screen.getByRole('link', { name: 'Reading Comprehension Study' })).toBeInTheDocument()
     })
 
-    it('does not highlight an approved-and-running study', () => {
-        renderRow({
-            ...baseStudy,
-            status: 'APPROVED',
-            jobStatusChanges: [
-                { status: 'JOB-RUNNING' as StudyJobStatus },
-                { status: 'CODE-APPROVED' as StudyJobStatus },
-                { status: 'CODE-SUBMITTED' as StudyJobStatus },
-            ],
-        })
-        expect(isHighlighted(rowEl())).toBe(false)
+    // The dot replaced the needs-attention row fill: an opened study awaiting review carries none.
+    it('does not highlight a read study awaiting review', () => {
+        renderRow({ ...baseStudy, status: 'PENDING-REVIEW', lastUpdatedAt, lastOpenedAt: new Date('2026-09-11') })
+        expect(rowEl()).not.toHaveAttribute('data-highlighted')
+        expect(screen.queryByText('Updated')).toBeNull()
     })
 })
 
@@ -184,6 +167,20 @@ describe('StudyRow draft bin', () => {
 
     it('hides the bin from other researchers', () => {
         renderRow(draft, 'researcher', 'someone-else')
+        expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
+    })
+
+    it('renders no bin when the container passes no delete control', () => {
+        renderWithProviders(
+            <Table>
+                <TableTbody>
+                    <StudyRowView
+                        row={buildRowModel(draft, 'researcher', { orgSlug: 'test-org', userId: 'researcher-1' })}
+                        columns={getColumns('researcher', 'org', false)}
+                    />
+                </TableTbody>
+            </Table>,
+        )
         expect(screen.queryByLabelText(/delete draft study/i)).toBeNull()
     })
 

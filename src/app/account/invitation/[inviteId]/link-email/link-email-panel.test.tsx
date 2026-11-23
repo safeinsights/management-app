@@ -1,10 +1,13 @@
 import {
     act,
+    advanceTimers,
     createTestQueryClient,
     db,
+    fakeTimeouts,
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
+    restoreRealTimers,
     screen,
     testEmail,
     userEvent,
@@ -14,7 +17,7 @@ import {
 import { readJoinedOrg } from '@/lib/joined-org'
 import { useReverification, useUser } from '@clerk/nextjs'
 import router from 'next-router-mock'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LinkEmailPanel } from './link-email-panel'
 
 type FakeAddress = {
@@ -79,6 +82,8 @@ describe('invite email linking screen', () => {
         router.setCurrentUrl('/')
         sessionStorage.clear()
     })
+
+    afterEach(restoreRealTimers)
 
     it('sends a code to the invited address and links it once the code is accepted', async () => {
         const { user, invitingOrg, invitedEmail, invite } = await setupClaimedInvite()
@@ -325,9 +330,10 @@ describe('invite email linking screen', () => {
 
         await screen.findByText(/Enter the code we sent to/)
         await db.deleteFrom('pendingUser').where('id', '=', invite.id).execute()
-        await act(() => queryClient.refetchQueries({ queryKey: ['claimedInvite', invite.id] }))
         // React Query hands the result to its observers on a timer tick, after the refetch settles.
-        await act(() => new Promise((resolve) => setTimeout(resolve)))
+        fakeTimeouts()
+        await act(() => queryClient.refetchQueries({ queryKey: ['claimedInvite', invite.id] }))
+        await advanceTimers(0)
 
         expect(screen.getByText(/Enter the code we sent to/)).toBeDefined()
         expect(screen.queryByText('This invitation is no longer valid')).toBeNull()

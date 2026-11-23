@@ -1,0 +1,13 @@
+{
+    "config_missing_tests": [],
+    "config_missing_fixtests": [],
+    "config_with_errors": [
+        {
+            "filename": "rules/invalid.yaml",
+            "error": "Traceback (most recent call last):\n  File \"/usr/lib/python3.12/site-packages/semgrep/test.py\", line 313, in invoke_semgrep_multi\n    output = semgrep.run_scan.run_scan_and_return_json(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/site-packages/semgrep/run_scan.py\", line 1803, in run_scan_and_return_json\n    ) = run_scan(\n        ^^^^^^^^^\n  File \"/usr/lib/python3.12/site-packages/semgrep/telemetry.py\", line 468, in inner\n    return f(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/site-packages/semgrep/simple_profiling.py\", line 100, in wrapper\n    result = func(*args, **kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/site-packages/semgrep/run_scan.py\", line 1468, in run_scan\n    sanity_check_resolved_config(real_config_errors, configs_obj)\n  File \"/usr/lib/python3.12/site-packages/semgrep/run_scan.py\", line 201, in sanity_check_resolved_config\n    raise SemgrepError(\nsemgrep.error.SemgrepError: invalid configuration file found (1 configs were invalid)\n",
+            "output": {}
+        }
+    ],
+    "results": {},
+    "fixtest_results": {}
+}

@@ -1,33 +1,20 @@
 import {
     actionResult,
-    db,
     describe,
     expect,
+    insertTestJobStatuses,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestUser,
     it,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
-import type { StudyJobStatus } from '@/database/types'
 import { getStudyStatusAction } from './editor.actions'
-
-// Explicit timestamps: rows written in one tick tie on createdAt, and v7 ids are not monotonic
-// inside a millisecond, so the order under test would otherwise be luck.
-const insertStatuses = async (studyJobId: string, statuses: StudyJobStatus[]) => {
-    const base = Date.now()
-    for (const [index, status] of statuses.entries()) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId, status, createdAt: new Date(base + (index + 1) * 1000) })
-            .execute()
-    }
-}
 
 describe('getStudyStatusAction', () => {
     // OTTER-726: the outputs review backstop has to see the files decision even when the scanner
-    // appends CODE-SCANNED afterwards, which is the ordering QA recorded.
-    it('lists every status of the named job, so a late scan row cannot hide the files decision', async () => {
+    // appends CODE-SCANNED afterwards, which is the ordering QA recorded. The late row is history only.
+    it('lists every status of the named job and stays on the files decision after a late scan', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study, job } = await insertTestStudyJobData({
             org,
@@ -35,12 +22,13 @@ describe('getStudyStatusAction', () => {
             studyStatus: 'APPROVED',
             jobStatus: 'CODE-SUBMITTED',
         })
-        await insertStatuses(job.id, ['CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'CODE-SCANNED'])
+        await insertTestJobStatuses(job.id, ['CODE-APPROVED', 'RUN-COMPLETE', 'FILES-APPROVED', 'CODE-SCANNED'])
 
         const result = actionResult(await getStudyStatusAction({ studyId: study.id, studyJobId: job.id }))
 
-        expect(result.latestJobStatus).toBe('CODE-SCANNED')
+        expect(result.latestJobStatus).toBe('FILES-APPROVED')
         expect(result.jobStatuses).toEqual([
+            'INITIATED',
             'CODE-SUBMITTED',
             'CODE-APPROVED',
             'RUN-COMPLETE',

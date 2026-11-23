@@ -4,17 +4,20 @@ import {
     db,
     insertTestStudyJobData,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockSessionWithTestData,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
 import { flushDeferred } from '@/tests/vitest.setup'
 import { deliver } from '@/server/mailgun'
 import { describe, expect, it, vi } from 'vitest'
+import { onUpdateDraftStudyAction } from '@/server/actions/study-proposal.actions'
 import {
-    onUpdateDraftStudyAction,
     resubmitProposalAction,
     saveProposalResubmissionNoteDraftAction,
-} from '@/server/actions/study-request'
+} from '@/server/actions/proposal-resubmission.actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -36,6 +39,22 @@ vi.mock('@/server/mailgun', async (importOriginal) => ({
 const NOTE_50_WORDS = buildFeedback(50)
 
 describe('resubmitProposalAction', () => {
+    // OTTER-937: no leave stamp follows a reload, so the action itself must count as the visit.
+    it('leaves the study read for the resubmitter, not for a co-author', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-own-change', orgType: 'lab' })
+        const { user: coAuthor } = await insertTestUser({ org })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'CHANGE-REQUESTED' })
+        const earlier = new Date(Date.now() - 60 * 60 * 1000)
+        await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
+
+        actionResult(
+            await resubmitProposalAction({ studyId: study.id, studyInfo: {}, resubmissionNote: NOTE_50_WORDS }),
+        )
+
+        expect(await isUnreadOnOrgDashboard(org.slug, study.id, 'researcher')).toBe(false)
+        expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
+    })
+
     it('transitions a CHANGE-REQUESTED study to PENDING-REVIEW and writes a RESUBMISSION-NOTE comment', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-1', orgType: 'lab' })
         const { study } = await insertTestStudyJobData({
@@ -230,6 +249,39 @@ describe('resubmitProposalAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(unchanged.status).toBe('APPROVED')
+
+        const commentCount = await db
+            .selectFrom('studyProposalComment')
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('studyId', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(Number(commentCount.count)).toBe(0)
+    })
+
+    // Postgres reads a hyphenless UUID as the same row, but Routes.studyReview throws on it.
+    it('rejects a study id that is not a canonical UUID before it writes anything', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-resubmit-uuid', orgType: 'lab' })
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'CHANGE-REQUESTED',
+            title: 'Original title',
+        })
+
+        const result = await resubmitProposalAction({
+            studyId: study.id.replaceAll('-', ''),
+            studyInfo: { title: 'attempting' },
+            resubmissionNote: NOTE_50_WORDS,
+        })
+
+        expect(result).toMatchObject({ error: expect.stringContaining('studyId') })
+
+        const unchanged = await db
+            .selectFrom('study')
+            .select(['status', 'title'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged).toEqual({ status: 'CHANGE-REQUESTED', title: 'Original title' })
 
         const commentCount = await db
             .selectFrom('studyProposalComment')
@@ -486,6 +538,25 @@ describe('saveProposalResubmissionNoteDraftAction', () => {
             .where('id', '=', study.id)
             .executeTakeFirstOrThrow()
         expect(row.proposalResubmissionNoteDraft).toBe('In-progress note')
+    })
+
+    // OTTER-838: the save moves Last updated, so it must also count as the saver having seen it.
+    it('does not mark the study unread for the person saving, only for their co-authors', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'lab-prop-note-seen', orgType: 'lab' })
+        const { user: coAuthor } = await insertTestUser({ org })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'CHANGE-REQUESTED' })
+        const earlier = new Date(Date.now() - 60 * 60 * 1000)
+        await stampStudyOpened(study.id, [user.id, coAuthor.id], earlier)
+
+        actionResult(await saveProposalResubmissionNoteDraftAction({ studyId: study.id, note: 'In-progress note' }))
+
+        const { labEditedAt } = await db
+            .selectFrom('study')
+            .select('labEditedAt')
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect((await studyOpenedAt(study.id, user.id))!.getTime()).toBeGreaterThanOrEqual(labEditedAt!.getTime())
+        expect(await studyOpenedAt(study.id, coAuthor.id)).toEqual(earlier)
     })
 
     it('lets a lab co-author overwrite the draft (last-write-wins)', async () => {

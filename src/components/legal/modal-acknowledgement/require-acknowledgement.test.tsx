@@ -1,55 +1,55 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
+import router from 'next-router-mock'
 import { db } from '@/database'
+import { globalAcknowledgementUrl } from '@/lib/global-acknowledgement-redirect'
+import { Routes } from '@/lib/routes'
+import { legalDocumentQueryKeys } from '@/schema/legal-document'
 import {
-    actionResult,
+    createTestQueryClient,
+    faker,
+    insertTestLegalDocument,
+    mockPathname,
     mockSessionWithTestData,
     renderWithProviders,
     resetLegalDocuments,
-    testUploadFile,
     userEvent,
 } from '@/tests/unit.helpers'
-import {
-    createLegalDocumentDraftAction,
-    publishLegalDocumentVersionAction,
-} from '@/server/actions/legal-document.actions'
 import { RequireLegalAcknowledgement } from './require-acknowledgement'
 
-// The upload happens client-side, so only the AWS boundary is stubbed.
+// A ropa is a pdf, whose body is a signed link; only the AWS boundary is stubbed.
 vi.mock('@/server/aws', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/server/aws')>()
     return {
         ...actual,
         signedUrlForFile: vi.fn(async () => 'https://mock-signed-url.example.com/file'),
-        storeS3File: vi.fn(),
     }
 })
 
-const TERMS_BODY = 'The terms you must accept.'
-
-// Mocking `@/server/aws` does not reach storage's own import of it.
-vi.mock('@/server/storage', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/storage')>()),
-    fetchFileContents: vi.fn(async () => new Blob([TERMS_BODY])),
-}))
-
 // The gate answers for every published tos/pn, so a seeded database would leave a second
-// document outstanding behind the one under test.
-beforeEach(resetLegalDocuments)
+// document outstanding behind the one under test. Off /legal, which the gate leaves uncovered.
+beforeEach(async () => {
+    await resetLegalDocuments()
+    mockPathname(Routes.dashboard)
+})
 
-const publish = async (type: 'TOS' | 'PN', fileName: string) => {
-    const { version } = actionResult(await createLegalDocumentDraftAction({ type, file: testUploadFile(fileName) }))
-    return actionResult(await publishLegalDocumentVersionAction({ versionId: version.id }))
-}
+const ropaGate = () => screen.findByRole('dialog', { name: /Research Organization Participation Agreement/ })
 
-const publishTos = () => publish('TOS', 'terms.md')
+const acknowledge = (userId: string, legalDocumentVersionId: string) =>
+    db.insertInto('legalDocumentAcknowledgement').values({ userId, legalDocumentVersionId }).execute()
 
 const acknowledgementsFor = (userId: string) =>
     db
         .selectFrom('legalDocumentAcknowledgement')
-        .selectAll('legalDocumentAcknowledgement')
+        .select('legalDocumentVersionId')
         .where('userId', '=', userId)
         .execute()
+
+const userOwingRopa = async () => {
+    const session = await mockSessionWithTestData({ orgType: 'lab' })
+    const ropa = await insertTestLegalDocument({ type: 'ROPA', orgId: session.org.id, publishedBy: session.user.id })
+    return { ...session, ropa }
+}
 
 describe('RequireLegalAcknowledgement', () => {
     it('stays out of the way when nothing is outstanding', async () => {
@@ -58,74 +58,54 @@ describe('RequireLegalAcknowledgement', () => {
         renderWithProviders(<RequireLegalAcknowledgement />)
 
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(router.asPath).toBe(Routes.dashboard)
     })
 
-    it('records the acknowledgement and lets the user through', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const version = await publishTos()
-
+    // The layout catches this on a full load; client navigation skips it.
+    it('sends a user owing the Terms of Service to the acknowledgement step, keeping their place', async () => {
         const { user } = await mockSessionWithTestData()
+        await insertTestLegalDocument({ type: 'TOS', publishedBy: user.id })
+        const studiesPage = `${Routes.researcherStudies}?page=2`
+        mockPathname(studiesPage)
+
         renderWithProviders(<RequireLegalAcknowledgement />)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
-
-        await userEvent.click(screen.getByRole('checkbox'))
-        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-        await waitFor(async () => {
-            const acks = await acknowledgementsFor(user.id)
-            expect(acks).toHaveLength(1)
-            expect(acks[0]!.legalDocumentVersionId).toBe(version.id)
-        })
-        await waitFor(() => expect(screen.queryByText(/The Terms of Service/)).toBeNull())
+        await waitFor(() => expect(router.asPath).toBe(globalAcknowledgementUrl(studiesPage)))
+        expect(screen.queryByRole('dialog')).toBeNull()
     })
 
-    it('asks about one document at a time', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        await publishTos()
-        await publish('PN', 'privacy.md')
+    // The step only marks this query stale, so the app returns holding the pre-ack answer.
+    it('does not send a user back to the step on a cached answer from before they acknowledged', async () => {
+        await mockSessionWithTestData()
+        const queryClient = createTestQueryClient()
+        const key = legalDocumentQueryKeys.nextPendingAcknowledgement()
+        queryClient.setQueryDefaults(key, { refetchOnMount: true })
+        queryClient.setQueryData(key, [{ type: 'TOS', versionId: faker.string.uuid(), isUpdate: true }])
+        await queryClient.invalidateQueries({ queryKey: key })
 
-        const { user } = await mockSessionWithTestData()
+        renderWithProviders(<RequireLegalAcknowledgement />, { queryClient })
+
+        await waitFor(() => expect(queryClient.getQueryData(key)).toEqual([]))
+        expect(router.asPath).toBe(Routes.dashboard)
+    })
+
+    it('asks about a ropa in a modal, with Sign out, once the Terms of Service is acknowledged', async () => {
+        const { user, ropa } = await userOwingRopa()
+        const tos = await insertTestLegalDocument({ type: 'TOS', publishedBy: user.id })
+        await acknowledge(user.id, tos.id)
+
         renderWithProviders(<RequireLegalAcknowledgement />)
 
-        expect(await screen.findByText(/The Terms of Service is now available/)).toBeDefined()
-        expect(screen.queryByText(/Privacy Notice/)).toBeNull()
+        expect(await ropaGate()).toBeDefined()
+        expect(screen.getByRole('button', { name: 'Sign out' })).toBeDefined()
 
         await userEvent.click(screen.getByRole('checkbox'))
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
 
-        expect(await screen.findByText(/The Privacy Notice is now available/)).toBeDefined()
-        expect(screen.queryByText(/Terms of Service/)).toBeNull()
-        expect(screen.getByRole('checkbox')).not.toBeChecked()
-
-        await userEvent.click(screen.getByRole('checkbox'))
-        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-        await waitFor(async () => expect(await acknowledgementsFor(user.id)).toHaveLength(2))
+        await waitFor(async () =>
+            expect((await acknowledgementsFor(user.id)).map((ack) => ack.legalDocumentVersionId)).toContain(ropa.id),
+        )
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    })
-
-    // Matched whole: the thrown ActionFailure's message is the JSON of its field errors, which a
-    // looser match would still satisfy.
-    it('shows why an acknowledgement was refused rather than silently reopening', async () => {
-        await mockSessionWithTestData({ isSiAdmin: true })
-        const version = await publishTos()
-
-        const { user } = await mockSessionWithTestData()
-        renderWithProviders(<RequireLegalAcknowledgement />)
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
-
-        // All three columns together, or the row fails its draft-or-published check constraint.
-        await db
-            .updateTable('legalDocumentVersion')
-            .set({ publishedAt: null, publishedBy: null, versionNumber: null })
-            .where('id', '=', version.id)
-            .execute()
-
-        await userEvent.click(screen.getByRole('checkbox'))
-        await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
-
-        expect(await screen.findByText('Version is not published and cannot be acknowledged')).toBeDefined()
-        expect(await acknowledgementsFor(user.id)).toHaveLength(0)
+        expect(router.asPath).toBe(Routes.dashboard)
     })
 })

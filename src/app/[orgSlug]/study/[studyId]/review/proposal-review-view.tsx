@@ -13,9 +13,9 @@ import { DecisionConfirmationModal } from './decision-confirmation-modal'
 import { Button, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useState, type FC } from 'react'
-import type { ProposalFeedbackEntry } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { ProposalSection } from './proposal-section'
+import { ProposalSection, proposalReviewStep } from './proposal-section'
 import { DECISION_RADIO_NAME, ReviewDecisionSection } from './review-decision-section'
 import { ReviewFeedbackSection } from './review-feedback-section'
 import { type StudyForReview } from './review-types'
@@ -143,7 +143,7 @@ function ProposalReviewViewContent({ orgSlug, study, priorEntries, reviewVersion
 
     return (
         <ProposalReviewLayoutView
-            header={<StudyPageHeader study={study} />}
+            header={<StudyPageHeader study={study} step={proposalReviewStep(reviewVersion)} />}
             listener={
                 <ReviewSubmissionListener
                     orgSlug={orgSlug}

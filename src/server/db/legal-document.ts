@@ -2,7 +2,6 @@ import { type DBExecutor } from '@/database'
 import {
     type OrgStudyAgreementSort,
     type ParticipationAgreementType,
-    type UserParticipationAgreementSort,
     type UserStudyAgreementSort,
 } from '@/schema/legal-document'
 import type { LegalDocumentType, OrgType } from '@/database/types'
@@ -152,7 +151,7 @@ export const studyAgreementState = (db: DBExecutor, { studyId, userId }: { study
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 
-// Nulls sink in both directions, so an unsigned agreement never leads the table.
+// Nulls sink in both directions.
 const orderedBy = (direction: 'asc' | 'desc') => (ob: OrderByItemBuilder) =>
     (direction === 'asc' ? ob.asc() : ob.desc()).nullsLast()
 
@@ -166,23 +165,13 @@ const displayTitle = (title: string, id: string) => sql`coalesce(nullif(${sql.re
 const orgStudyAgreementOrderBy = {
     studyId: sql.ref('study.id'),
     studyTitle: displayTitle('study.title', 'study.id'),
-    signedAt: sql.ref('agreement.signedAt'),
-    ackedAt: sql.ref('orgAck.ackedAt'),
 } satisfies Record<OrgStudyAgreementSort['columnAccessor'], unknown>
 
-// These two name the wrapping subquery's output aliases, not the source columns.
+// Names the wrapping subquery's output aliases, not the source columns.
 const userStudyAgreementOrderBy = {
     studyId: sql.ref('studyId'),
     studyTitle: displayTitle('studyTitle', 'studyId'),
-    signedAt: sql.ref('signedAt'),
-    ackedAt: sql.ref('ackedAt'),
 } satisfies Record<UserStudyAgreementSort['columnAccessor'], unknown>
-
-const userParticipationAgreementOrderBy = {
-    orgName: sql.ref('orgName'),
-    signedAt: sql.ref('signedAt'),
-    ackedAt: sql.ref('ackedAt'),
-} satisfies Record<UserParticipationAgreementSort['columnAccessor'], unknown>
 
 // Starts from the acknowledgement, so these read what the user signed, not what their orgs are party to.
 // distinctOn must lead the ORDER BY, so callers wrap this and apply the display sort a level up.
@@ -250,13 +239,14 @@ export const legalDocumentVersionForDownload = (db: DBExecutor, versionId: strin
         .where('legalDocumentVersion.publishedAt', 'is not', null)
         .executeTakeFirst()
 
-// Spread into both union arms, so a column added to one cannot silently miss the other.
 const studyAgreementRowFields = [
     'study.id as studyId',
     'study.title as studyTitle',
     'study.isTestStudy as isTestStudy',
     'researchLab.name as fromName',
     'dataPartner.name as toName',
+    'researchLab.slug as fromOrgSlug',
+    'dataPartner.slug as toOrgSlug',
 ] as const
 
 // Both parties, not a counterparty: no single viewing org here. Direction follows studyAgreementCounterpartyLabels.
@@ -293,7 +283,14 @@ export const userStudyAgreements = (
                     .as('agreement'),
             (join) => join.onTrue(),
         )
-        .select([...studyAgreementRowFields, 'agreement.versionId', 'agreement.signedAt', 'agreement.ackedAt'])
+        .select((eb) => [
+            ...studyAgreementRowFields,
+            'agreement.versionId',
+            'agreement.signedAt',
+            'agreement.ackedAt',
+            // Membership of the lab alone grants the researcher view, so a member of both orgs gets it.
+            eb('study.submittedByOrgId', 'in', usersOrgs).as('isResearcher'),
+        ])
         // Two ways a study belongs here. The acknowledged side carries no status filter on purpose:
         // what you signed stays listed even once the study is withdrawn.
         .where((eb) =>
@@ -308,28 +305,34 @@ export const userStudyAgreements = (
             ]),
         )
 
-    return db
-        .selectFrom(rows.as('agreement'))
-        .selectAll('agreement')
-        .orderBy(userStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
-        .orderBy(userStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
-        .execute()
+    return (
+        db
+            .selectFrom(rows.as('agreement'))
+            .selectAll('agreement')
+            .orderBy(userStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
+            // Newest first among equal titles, matching the table's default.
+            .orderBy(userStudyAgreementOrderBy.studyId, orderedBy('desc'))
+            .execute()
+    )
 }
 
 export const userParticipationAgreements = (
     db: DBExecutor,
-    { userId, type, sort }: { userId: string; type: ParticipationAgreementType; sort: UserParticipationAgreementSort },
+    { userId, type }: { userId: string; type: ParticipationAgreementType },
 ) => {
     const acknowledged = latestAcknowledgedVersions(db, { userId, type })
         .innerJoin('org', 'org.id', 'legalDocument.orgId')
         .select(['org.id as orgId', 'org.name as orgName', ...acknowledgedVersionFields])
 
-    return db
-        .selectFrom(acknowledged.as('agreement'))
-        .selectAll('agreement')
-        .orderBy(userParticipationAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
-        .orderBy(userParticipationAgreementOrderBy.orgName, orderedBy('asc'))
-        .execute()
+    return (
+        db
+            .selectFrom(acknowledged.as('agreement'))
+            .selectAll('agreement')
+            // A fixed order: the design gives these tables no sortable column.
+            .orderBy('ackedAt', orderedBy('desc'))
+            .orderBy('orgName', orderedBy('asc'))
+            .execute()
+    )
 }
 
 // Both directions come from here so they cannot point at the same org.
@@ -397,7 +400,8 @@ export const orgStudyAgreements = (
             // Second arm: once signed, a study stays listed whatever its status becomes.
             .where((eb) => eb.or([eb('study.status', '=', 'APPROVED'), eb('agreement.versionId', 'is not', null)]))
             .orderBy(orgStudyAgreementOrderBy[sort.columnAccessor], orderedBy(sort.direction))
-            .orderBy(orgStudyAgreementOrderBy.studyTitle, orderedBy('asc'))
+            // Newest first among equal titles, matching the table's default.
+            .orderBy(orgStudyAgreementOrderBy.studyId, orderedBy('desc'))
             .execute()
     )
 }

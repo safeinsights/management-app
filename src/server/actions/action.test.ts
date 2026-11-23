@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
+import { faker, insertTestOrg, mockSessionWithTestData } from '@/tests/unit.helpers'
+import logger from '@/lib/logger'
+import { apiRequestingOrg, currentDb, localStorageContext } from '@/server/request-context'
+import type { Org } from '@/schema/org'
+import * as Sentry from '@sentry/nextjs'
+
+vi.mock('@sentry/nextjs', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sentry/nextjs')>()),
+    flush: vi.fn().mockResolvedValue(true),
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+}))
 
 describe('Action Builder', () => {
     beforeEach(async () => {
@@ -147,15 +159,14 @@ describe('Action Builder', () => {
     })
 
     describe('error handling', () => {
-        it('catches exceptions and returns them as error objects', async () => {
-            const errorMessage = 'Something went wrong'
-            const mockHandler = vi.fn().mockRejectedValue(new Error(errorMessage))
+        it('returns the generic message for an unexpected exception', async () => {
+            const mockHandler = vi.fn().mockRejectedValue(new Error('internal detail'))
 
             const action = new Action('error-test').handler(mockHandler)
 
             const result = await action()
 
-            expect(result).toEqual({ error: errorMessage })
+            expect(result).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
             expect(mockHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
                     params: undefined,
@@ -191,13 +202,46 @@ describe('Action Builder', () => {
             expect(result).toEqual({ error: failureObject })
         })
 
-        it('catches handler exceptions and returns them as error objects', async () => {
-            const mockHandler = vi.fn(async () => {
-                throw new Error('hi')
+        it('keeps a database error out of the response and hands back its Sentry event id', async () => {
+            const { user } = await mockSessionWithTestData()
+            const action = new Action('fk-violation', { performsMutations: true }).handler(async ({ db }) => {
+                await db
+                    .insertInto('orgUser')
+                    .values({ orgId: faker.string.uuid(), userId: user.id, isAdmin: false })
+                    .execute()
             })
-            const action = new Action('middleware-error-test').handler(mockHandler)
+
             const result = await action()
-            expect(result).toEqual({ error: 'hi' })
+
+            expect(result).toEqual({
+                error: UNEXPECTED_ERROR_MESSAGE,
+                eventId: expect.stringMatching(/^[a-f0-9]{32}$/),
+            })
+            expect(JSON.stringify(result)).not.toMatch(/foreign key|org_user/)
+        })
+
+        it('returns the generic message when a schema transform throws', async () => {
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const schema = z.string().transform((): string => {
+                throw new Error('transform detail')
+            })
+            const action = new Action('transform-error').params(schema).handler(async () => 'ok')
+
+            expect(await action('x')).toEqual({ error: UNEXPECTED_ERROR_MESSAGE })
+        })
+    })
+
+    describe('currentDb', () => {
+        it('is the action transaction inside a mutating handler', async () => {
+            const action = new Action('ambient-mutating', { performsMutations: true }).handler(
+                async () => currentDb().isTransaction,
+            )
+            expect(await action()).toBe(true)
+        })
+
+        it('is the root connection inside a non-mutating handler', async () => {
+            const action = new Action('ambient-read').handler(async () => currentDb().isTransaction)
+            expect(await action()).toBe(false)
         })
     })
 
@@ -211,7 +255,7 @@ describe('Action Builder', () => {
                 },
             )
 
-            expect(await action()).toEqual({ error: 'rolled back' })
+            expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
             expect(hook).not.toHaveBeenCalled()
         })
 
@@ -230,5 +274,135 @@ describe('Action Builder', () => {
             expect(await action()).toBe('committed')
             expect(laterHook).toHaveBeenCalledOnce()
         })
+    })
+
+    describe('error reporting', () => {
+        it('does not report expected ActionFailure', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const action = new Action('expected-failure').handler(async () => {
+                throw new ActionFailure({ user: 'nope' })
+            })
+            expect(await action()).toEqual({ error: { user: 'nope' } })
+            expect(errorSpy).not.toHaveBeenCalled()
+        })
+
+        it('reports unexpected errors once', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const boom = new Error('boom')
+            const action = new Action('unexpected-failure').handler(async () => {
+                throw boom
+            })
+            expect(await action()).toEqual({ error: UNEXPECTED_ERROR_MESSAGE })
+            expect(errorSpy).toHaveBeenCalledTimes(1)
+            expect(errorSpy).toHaveBeenCalledWith(boom)
+        })
+
+        it('reports a permission denial once as a warning, without the user email', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            const { user } = await mockSessionWithTestData()
+            const action = new Action('denied').requireAbilityTo('manage', 'all').handler(async () => 'ok')
+            expect(await action()).toEqual({ error: { permission_denied: expect.any(String) } })
+            expect(errorSpy).not.toHaveBeenCalled()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            expect(warnSpy.mock.calls[0][0]).not.toContain(user.email)
+        })
+
+        it('keeps the subject out of the denial text and sends only its ids to the warning', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            const { user } = await mockSessionWithTestData()
+            const studyId = faker.string.uuid()
+            const orgId = faker.string.uuid()
+            const action = new Action('denied-subject')
+                .params(z.object({ studyId: z.string(), note: z.string(), fakeId: z.string() }))
+                .middleware(async () => ({ orgId, title: 'Confidential title', path: 'confidential/path.pdf' }))
+                .requireAbilityTo('manage', 'all')
+                .handler(async () => 'ok')
+
+            const result = await action({ studyId, note: 'confidential caller note', fakeId: 'not-a-uuid secret' })
+
+            expect(result).toEqual({ error: { permission_denied: 'in denied-subject action; cannot manage all.' } })
+            expect(errorSpy).not.toHaveBeenCalled()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            const warning = String(warnSpy.mock.calls[0][0])
+            expect(warning).toContain(user.id)
+            expect(warning).toContain(studyId)
+            expect(warning).toContain(orgId)
+            for (const content of [
+                'Confidential title',
+                'confidential/path.pdf',
+                'confidential caller note',
+                'not-a-uuid secret',
+            ]) {
+                expect(warning).not.toContain(content)
+            }
+        })
+
+        it('logs only top-level, non-sensitive id keys that hold a UUID', async () => {
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            await mockSessionWithTestData()
+            const studyId = faker.string.uuid()
+            const nestedId = faker.string.uuid()
+            const arrayId = faker.string.uuid()
+            const untypedUuid = faker.string.uuid()
+            const inviteId = faker.string.uuid()
+            const action = new Action('denied-filter')
+                .params(z.object({ studyId: z.string(), inviteId: z.string() }))
+                .middleware(async () => ({
+                    study: { id: nestedId },
+                    jobIds: [arrayId],
+                    owner: untypedUuid,
+                    submittedByOrgId: null,
+                }))
+                .requireAbilityTo('manage', 'all')
+                .handler(async () => 'ok')
+
+            await action({ studyId, inviteId })
+
+            const warning = String(warnSpy.mock.calls[0][0])
+            expect(warning).toContain(`ids: ${JSON.stringify({ studyId })}`)
+            for (const dropped of [nestedId, arrayId, untypedUuid, inviteId]) {
+                expect(warning).not.toContain(dropped)
+            }
+        })
+
+        it('flushes Sentry before returning a failure, so the warning leaves the Lambda', async () => {
+            vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+            vi.mocked(Sentry.flush).mockClear()
+            const action = new Action('denied-flush').requireAbilityTo('manage', 'all').handler(async () => 'ok')
+            await action()
+            expect(Sentry.flush).toHaveBeenCalledOnce()
+        })
+
+        it('flushes after it logs an unexpected error', async () => {
+            const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            vi.mocked(Sentry.flush).mockClear()
+            await new Action('bug-flush').handler(async () => {
+                throw new Error('boom')
+            })()
+            expect(Sentry.flush).toHaveBeenCalledOnce()
+            expect(errorSpy.mock.invocationCallOrder[0]).toBeLessThan(
+                vi.mocked(Sentry.flush).mock.invocationCallOrder[0],
+            )
+        })
+
+        it('does not flush on success', async () => {
+            vi.mocked(Sentry.flush).mockClear()
+            expect(await new Action('ok-no-flush').handler(async () => 'ok')()).toBe('ok')
+            expect(Sentry.flush).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('API org', () => {
+        it.each([true, false])(
+            'keeps the org of the route that called it (performsMutations: %s)',
+            async (performsMutations) => {
+                const org = (await insertTestOrg()) as Org
+                const action = new Action('api-org', { performsMutations }).handler(async () => apiRequestingOrg().id)
+
+                expect(await localStorageContext.run({ org }, () => action())).toBe(org.id)
+            },
+        )
     })
 })

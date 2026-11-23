@@ -1,30 +1,12 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { db } from '@/database'
 import { requireQaAuth, requireAdminOfOrgs, findQaStudy } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
 import { setQaStudyState, QA_FILE_KEYS, type QaFileKey } from '@/server/qa-study-state'
 import { qaErrorResponse, qaRefusedResponse } from '../../../responses'
 import { auditQaOperation } from '../../../audit'
-
-const STUDY_STATUSES = ['APPROVED', 'ARCHIVED', 'CHANGE-REQUESTED', 'DRAFT', 'PENDING-REVIEW', 'REJECTED'] as const
-
-const JOB_STATUSES = [
-    'CODE-APPROVED',
-    'CODE-CHANGES-REQUESTED',
-    'CODE-SCANNED',
-    'CODE-SUBMITTED',
-    'FILES-APPROVED',
-    'FILES-REJECTED',
-    'INITIATED',
-    'JOB-ERRORED',
-    'JOB-PACKAGING',
-    'JOB-PROVISIONING',
-    'JOB-READY',
-    'JOB-RUNNING',
-    'RESULTS-VIEWED',
-    'RUN-COMPLETE',
-] as const
+import { currentDb } from '@/server/request-context'
+import { JOB_STATUSES, STUDY_STATUSES } from '@/lib/job-status-rules'
 
 const statusSchema = z.object({
     studyStatus: z.enum(STUDY_STATUSES).optional(),
@@ -67,6 +49,7 @@ async function parseRequest(req: Request) {
 // Files arrive as plaintext under the `result` and `log` keys and are encrypted for the reviewing
 // org before storage.
 export const PATCH = async (req: Request, { params }: { params: Promise<{ studyId: string }> }) => {
+    const executor = currentDb()
     const auth = await requireQaAuth()
     if (!auth.ok) {
         return NextResponse.json({ error: auth.message }, { status: auth.status })
@@ -76,7 +59,7 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ studyI
     try {
         // Resolved and authorized before the body is read: an unauthorized caller must not be
         // able to make the server consume an upload. A non-QA study leaves no attempt row.
-        const study = await findQaStudy(db, studyId)
+        const study = await findQaStudy(executor, studyId)
         const entry = {
             actorUserId: auth.user.id,
             eventType: 'UPDATED',
@@ -85,7 +68,7 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ studyI
             metadata: { orgSlugs: study.orgSlugs },
         } as const
 
-        const authorized = await requireAdminOfOrgs(db, auth, study.orgSlugs)
+        const authorized = await requireAdminOfOrgs(executor, auth, study.orgSlugs)
         if (!authorized.ok) {
             return await qaRefusedResponse(entry, authorized)
         }
@@ -104,7 +87,7 @@ export const PATCH = async (req: Request, { params }: { params: Promise<{ studyI
                     },
                 },
             },
-            () => setQaStudyState(db, study, update),
+            () => setQaStudyState(executor, study, update),
             (applied) => ({
                 studyJobId: applied.studyJobId ?? undefined,
                 jobCreated: applied.jobCreated,

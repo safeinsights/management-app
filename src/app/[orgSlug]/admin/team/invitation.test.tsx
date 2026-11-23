@@ -1,7 +1,15 @@
 import { notifications } from '@mantine/notifications'
 import { clerkClient } from '@clerk/nextjs/server'
 import { type Mock, describe, expect, it, vi } from 'vitest'
-import { db, mockSessionWithTestData, renderWithProviders, screen, userEvent, waitFor } from '@/tests/unit.helpers'
+import {
+    db,
+    findFieldErrorShownOnce,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { sendInviteEmail } from '@/server/mailer'
 import { InviteButton } from './invitation'
 
@@ -76,5 +84,25 @@ describe('InviteButton', () => {
             .where('email', '=', 'new-invitee@test.com')
             .executeTakeFirst()
         expect(pending).toBeDefined()
+    })
+
+    it('shows an email error one time, with the error icon', async () => {
+        await renderInviteModal()
+
+        await userEvent.type(screen.getByLabelText('Invite by email'), 'not-an-email')
+        await userEvent.tab()
+
+        await findFieldErrorShownOnce('Invalid email address')
+    })
+
+    it('shows a permission error one time, with the error icon', async () => {
+        await renderInviteModal()
+        const email = screen.getByLabelText('Invite by email')
+
+        await userEvent.click(email)
+        await userEvent.tab()
+        await userEvent.click(email)
+
+        await findFieldErrorShownOnce('A permission must be selected')
     })
 })

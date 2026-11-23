@@ -5,6 +5,7 @@ import { Pill, PillsInput, Text, VisuallyHidden } from '@mantine/core'
 import type { UseFormReturnType } from '@mantine/form'
 import type { ResearchDetailsValues } from '@/schema/researcher-profile'
 import { useWidgetBlur } from '@/components/form-field'
+import { InputError } from '@/components/errors'
 
 interface ResearchInterestsInputProps {
     form: UseFormReturnType<ResearchDetailsValues>
@@ -49,6 +50,8 @@ export function ResearchInterestsInput({
         </Pill>
     ))
 
+    const error = form.errors.researchInterests
+
     const announcement = interests.length
         ? `Research interests: ${interests.join(', ')}`
         : 'No research interests selected'
@@ -56,7 +59,7 @@ export function ResearchInterestsInput({
     return (
         <>
             <div {...widgetBlur}>
-                <PillsInput id="researchInterests" error={form.errors.researchInterests as unknown as string}>
+                <PillsInput id="researchInterests" error={error ? <InputError error={error} /> : undefined}>
                     <Pill.Group>
                         {interestPills}
                         <PillsInput.Field

@@ -11,7 +11,43 @@ import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 import noInvalidButtonVariant from './tests/no-invalid-button-variant.mjs'
 import noRawStyleValues from './tests/no-raw-style-values.mjs'
-import { PENDING_RAW_STYLE_FILES, toLiteralGlob } from './tests/no-raw-style-values-pending.mjs'
+import noJobStatusWrites from './tests/no-job-status-writes.mjs'
+
+// Shared with the database-handle object below: a later object setting this rule replaces the list.
+const restrictedImportPaths = [
+    {
+        name: '@tanstack/react-query',
+        message: 'Please import tanstack from @/common instead.',
+    },
+    {
+        // It cancels the Tab keydown, which traps keyboard focus in the editor and
+        // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
+        // now it has been copied into a new editor along with the rest of the plugin
+        // list, so the ban is the guard. Indent / Outdent live on the toolbar.
+        name: '@lexical/react/LexicalTabIndentationPlugin',
+        message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
+    },
+]
+
+const serverBoundaryZone = {
+    target: './src/server',
+    from: ['./src/app', './src/components'],
+    message: 'Server code must not import from src/app or src/components. Move shared logic to src/lib or src/schema.',
+}
+
+const indexOnlyZone = (folder) => ({
+    target: ['./src', './tests', './bin'],
+    from: `./src/server/${folder}`,
+    except: ['./index.ts'],
+    message: `Import @/server/${folder} (its index.ts), never an inner module: test mocks target the index.`,
+})
+const awsIndexZone = indexOnlyZone('aws')
+const queriesIndexZone = indexOnlyZone('db/queries')
+
+const noProcessEnv = {
+    selector: "MemberExpression[object.name='process'][property.name='env']",
+    message: 'Read config through `env` from @/server/config, not process.env.',
+}
 
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
@@ -32,7 +68,6 @@ const eslintConfig = [
             'CHANGELOG.md',
             'test-results/**',
             'tests/coverage/**',
-            'services/**',
         ],
     },
     // Base JavaScript recommended rules
@@ -108,6 +143,22 @@ const eslintConfig = [
             },
         },
     },
+    // A later object that sets this rule replaces the earlier zones for its files, so each object
+    // lists every zone that applies there. Inside each folder, siblings may import each other.
+    {
+        files: ['**/*.{ts,tsx,mjs}'],
+        rules: {
+            'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone, queriesIndexZone] }],
+        },
+    },
+    {
+        files: ['src/server/aws/**'],
+        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, queriesIndexZone] }] },
+    },
+    {
+        files: ['src/server/db/queries/**'],
+        rules: { 'import/no-restricted-paths': ['error', { zones: [serverBoundaryZone, awsIndexZone] }] },
+    },
     // Custom rules and project-specific configuration
     {
         plugins: {
@@ -117,6 +168,7 @@ const eslintConfig = [
                     noBareRouteStrings,
                     noInvalidButtonVariant,
                     noRawStyleValues,
+                    noJobStatusWrites,
                 },
             },
         },
@@ -124,21 +176,7 @@ const eslintConfig = [
             'custom/noSelectAllWithoutArgs': 'error',
             'custom/noBareRouteStrings': 'error',
             'custom/noInvalidButtonVariant': 'error',
-            'no-restricted-imports': [
-                'error',
-                {
-                    name: '@tanstack/react-query',
-                    message: 'Please import tanstack from @/common instead.',
-                },
-                {
-                    // It cancels the Tab keydown, which traps keyboard focus in the editor and
-                    // types a literal tab (WCAG 2.1.2). Lexical's own docs discourage it. Twice
-                    // now it has been copied into a new editor along with the rest of the plugin
-                    // list, so the ban is the guard. Indent / Outdent live on the toolbar.
-                    name: '@lexical/react/LexicalTabIndentationPlugin',
-                    message: 'Tab must move focus out of the editor. Use the toolbar Indent / Outdent buttons instead.',
-                },
-            ],
+            'no-restricted-imports': ['error', ...restrictedImportPaths],
             'no-console': ['error', { allow: ['warn', 'error'] }],
             '@typescript-eslint/no-unused-vars': [
                 'error',
@@ -148,8 +186,75 @@ const eslintConfig = [
             'import/no-duplicates': 'error',
         },
     },
-    // Theme tokens over ad-hoc styling. `error` everywhere; the files still mid-migration are
-    // listed in tests/no-raw-style-values-pending.mjs and drop back to `warn` until clean.
+    // One way to get a database handle: currentDb() or a required executor. Only the two files
+    // that bind the root connection may import the global db, and only withTransaction() may call
+    // .transaction().
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/**/*.test.{ts,tsx}', 'src/server/request-context.ts', 'src/server/actions/action.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    paths: restrictedImportPaths,
+                    patterns: [
+                        {
+                            // The alias and any relative path to src/database.ts.
+                            regex: '^(@|\\.\\.?)(/.*)?/database$',
+                            importNames: ['db'],
+                            message: 'Use currentDb() from @/server/request-context, or take a required executor.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    // One block for both selectors: a later object setting no-restricted-syntax would replace this one.
+    // Config is read through the env schema (OTTER-848); the exceptions are the schema itself, the
+    // Semgrep runner's own config module, the client-inlined NEXT_PUBLIC reads in src/lib/config.ts,
+    // the instrumentation hooks and the seeds' fail-closed checks, which the migrator bundle runs
+    // without @/server/config.
+    {
+        files: ['src/**/*.{ts,tsx}', 'services/**/*.ts'],
+        ignores: [
+            '**/*.test.{ts,tsx}',
+            'src/server/request-context.ts',
+            'src/server/config.ts',
+            'services/semgrep-runner/config.ts',
+            'src/lib/config.ts',
+            'src/instrumentation.ts',
+            'src/instrumentation-client.ts',
+            'src/database/seeds/1743608138837_test_users.ts',
+            'src/database/seeds/1793200000000_sample_studies.ts',
+        ],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector:
+                        'CallExpression[callee.property.name=/^(transaction|startTransaction)$/], ' +
+                        'CallExpression[callee.property.value=/^(transaction|startTransaction)$/]',
+                    message: 'Open transactions with withTransaction() from @/server/request-context.',
+                },
+                noProcessEnv,
+            ],
+        },
+    },
+    // The status writer must stay loadable by the migrator bundle, which cannot load request-context,
+    // so it skips the transaction rule only.
+    {
+        files: ['src/database/job-status-writer.ts'],
+        rules: { 'no-restricted-syntax': ['error', noProcessEnv] },
+    },
+    // Job statuses change only through the transition table (OTTER-973).
+    {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'bin/**/*.ts'],
+        ignores: ['src/database/job-status-writer.ts', 'src/database/migrations/**'],
+        rules: {
+            'custom/noJobStatusWrites': 'error',
+        },
+    },
+    // Theme tokens over ad-hoc styling.
     {
         // `.ts` too: the status pills and app-shell backgrounds are plain colour constants, and a
         // .tsx-only glob never sees them.
@@ -159,24 +264,16 @@ const eslintConfig = [
             'custom/noRawStyleValues': 'error',
         },
     },
-    {
-        // `[orgSlug]` is a route segment, not a glob class.
-        files: PENDING_RAW_STYLE_FILES.map(toLiteralGlob),
-        rules: {
-            'custom/noRawStyleValues': 'warn',
-        },
-    },
     // The theme is where raw values are supposed to live: it is what the tokens resolve to.
     {
-        files: ['src/theme.ts', 'src/theme/**/*.ts', 'src/components/ui/theme-components.ts'],
+        files: ['src/theme.ts', 'src/theme/**/*.ts'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },
     },
-    // Brand artwork and the editor's own palettes are not themeable: the logo hexes are the mark
-    // itself, and the card keeps Lexical/Yjs cursor colours as they are.
+    // Brand artwork is not themeable: the logo hexes are the mark itself.
     {
-        files: ['src/components/layout/svg/**', 'src/components/editable-text/config.ts'],
+        files: ['src/components/layout/svg/**'],
         rules: {
             'custom/noRawStyleValues': 'off',
         },

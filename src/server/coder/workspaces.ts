@@ -12,7 +12,7 @@ import {
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { completePathForSampleData, s3BucketName, toAthenaDbName, toPgDbName } from '../aws'
-import { getConfigValue } from '../config'
+import { env, getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import type {
@@ -29,14 +29,18 @@ import type {
     WorkspaceLaunchStatus,
     JobStatus,
 } from './types'
-import { getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
+import { ensureCoderUserActive, getCoderUserFor, getOrCreateCoderUserFor, resolveCoderIdentity } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestCodeEnvForStudyId, fetchLatestCodeEnvForStudyIdOrNull } from '../db/queries'
+import { fetchCodeEnvForStudyId, fetchCodeEnvForStudyIdOrNull } from '../db/queries'
 import { latestStudyJobCreatedAt } from '../db/mutations'
-import { db, type DBExecutor } from '@/database'
+import { type DBExecutor } from '@/database'
 import { fetchFileContents } from '../storage'
 import { writeAgentContext } from '../context-writer'
 import { templateFileNameFor } from '@/lib/languages'
+import { currentDb } from '@/server/request-context'
+import { normalizeImageRef } from '@/schema/code-env'
+import { ActionFailure } from '@/lib/errors'
+import { describeLaunchFailure } from './launch-failure'
 
 async function generateWorkspaceUrl(user: CoderUser, studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -96,8 +100,10 @@ export async function getCoderWorkspaceLaunchStatus(
 
     // Resolved once and reused for finalizeWorkspaceLaunch below: the poll runs every few seconds,
     // and re-resolving would mean a second lookup per tick against both the DB and Coder.
-    const user = await getCoderUserFor(await resolveCoderIdentity(studyId))
-    if (!user) throw new Error('Coder user not found')
+    const found = await getCoderUserFor(await resolveCoderIdentity(studyId))
+    if (!found) throw new Error('Coder user not found')
+    // Coder's 15-minute dormancy job can re-flag the user mid-launch, since activation leaves last_seen_at old.
+    const user = await ensureCoderUserActive(found)
     const workspaceName = generateWorkspaceName(studyId)
 
     const workspace = await coderFetch<CoderWorkspaceEvent>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -163,6 +169,7 @@ export async function getCoderWorkspaceLaunchStatus(
         ready: readiness.ready,
         failed,
         reason,
+        failureMessage: failed ? describeLaunchFailure(reason) : null,
         cursors: newCursors,
         url,
     }
@@ -180,7 +187,7 @@ async function startWorkspace(workspaceId: WorkspaceId): Promise<void> {
     }
 }
 
-export async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchLatestCodeEnvForStudyId>>) {
+export async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<typeof fetchCodeEnvForStudyId>>) {
     const environment = [...(codeEnv.settings?.environment || [])]
     const dataPath = completePathForSampleData({
         orgSlug: codeEnv.slug,
@@ -198,7 +205,7 @@ export async function buildWorkspaceEnvironment(codeEnv: Awaited<ReturnType<type
         codeEnvId: codeEnv.id,
         sampleDataPath: codeEnv.sampleDataPath ?? undefined,
     })
-    const bucketRegion = process.env.AWS_REGION || 'us-east-1'
+    const bucketRegion = env.AWS_REGION || 'us-east-1'
     environment.push({ name: `${prefix}_S3_BUCKET_NAME`, value: bucketName })
     environment.push({ name: `${prefix}_S3_BUCKET_PREFIX`, value: bucketPrefix })
     environment.push({ name: `${prefix}_S3_BUCKET_REGION`, value: bucketRegion })
@@ -230,7 +237,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
     const workspaceName = generateWorkspaceName(studyId)
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -274,7 +281,7 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         },
         {
             name: 'container_image',
-            value: options.containerImage,
+            value: normalizeImageRef(options.containerImage),
         },
         {
             name: 'environment',
@@ -289,11 +296,27 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         rich_parameter_values: richParameterValues,
     }
 
-    return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
-        method: 'POST',
-        body: data,
-        errorMessage: 'Failed to create workspace',
-    })
+    try {
+        return await coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
+            method: 'POST',
+            body: data,
+            errorMessage: 'Failed to create workspace',
+        })
+    } catch (error) {
+        // A 4xx here is Coder refusing the request (e.g. template parameter validation), which the researcher can
+        // act on. 401/403 mean our token or config is off, so those keep the generic text and support ref.
+        if (
+            error instanceof CoderApiError &&
+            error.status >= 400 &&
+            error.status < 500 &&
+            ![401, 403].includes(error.status)
+        ) {
+            throw new ActionFailure(
+                describeLaunchFailure(error.responseText) ?? 'Coder refused to create the workspace',
+            )
+        }
+        throw error
+    }
 }
 
 export async function createUserAndWorkspace(
@@ -307,6 +330,7 @@ export async function createUserAndWorkspace(
         }
     } catch (error) {
         logger.error('Error in createUserAndWorkspace:', error)
+        if (error instanceof ActionFailure) throw error
         throw new Error(
             `Failed to create user and workspace: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
@@ -320,13 +344,10 @@ export async function createUserAndWorkspace(
  *
  * Returns the template's name when it copied, and null when there was nothing to do.
  */
-export const copyStarterCodeIntoWorkspace = async (
-    studyId: string,
-    executor: DBExecutor = db,
-): Promise<string | null> => {
+export const copyStarterCodeIntoWorkspace = async (studyId: string, executor: DBExecutor): Promise<string | null> => {
     const logCtx = `[coder-init study=${studyId}]`
 
-    const codeEnv = await fetchLatestCodeEnvForStudyIdOrNull(studyId)
+    const codeEnv = await fetchCodeEnvForStudyIdOrNull(studyId, executor)
     if (!codeEnv) {
         logger.info(`${logCtx} no code environment, nothing to copy`)
         return null
@@ -386,10 +407,10 @@ export const copyStarterCodeIntoWorkspace = async (
 export const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const logCtx = `[coder-init study=${studyId}]`
 
-    await copyStarterCodeIntoWorkspace(studyId)
+    await copyStarterCodeIntoWorkspace(studyId, currentDb())
 
-    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
-    const baselineCreatedAt = await latestStudyJobCreatedAt(db, studyId)
+    const codeEnv = await fetchCodeEnvForStudyId(studyId, currentDb())
+    const baselineCreatedAt = await latestStudyJobCreatedAt(currentDb(), studyId)
     const pastDate = baselineCreatedAt ? new Date(baselineCreatedAt.getTime() - 1000) : new Date(Date.now() - 60_000)
 
     // Refreshed every launch so a relaunch picks up context changes even when starter code is untouched.

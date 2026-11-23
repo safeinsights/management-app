@@ -1,9 +1,10 @@
 'use client'
 
-import { Button, Checkbox, Group, Stack, Text } from '@mantine/core'
+import { Button, Group, Stack, Text } from '@mantine/core'
 import type { FC } from 'react'
 import { AcknowledgementError, BlockingModal } from '../blocking-modal'
 import { LegalMarkdownSection } from '../markdown-sections'
+import { AcknowledgementCheckbox } from '../acknowledgement-checkbox'
 import {
     legalAcknowledgementBody,
     legalAcknowledgementCheckboxLabel,
@@ -43,9 +44,9 @@ export const LegalAcknowledgementModal: FC<Props> = ({
 
                 <LegalMarkdownSection document={document} />
 
-                <Checkbox
+                <AcknowledgementCheckbox
                     checked={isChecked}
-                    onChange={(event) => onCheckedChange(event.currentTarget.checked)}
+                    onChange={onCheckedChange}
                     label={legalAcknowledgementCheckboxLabel(document)}
                 />
 

@@ -1,11 +1,7 @@
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
-import {
-    getStudyAction,
-    type CodeReviewFeedbackEntry,
-    type ProposalFeedbackEntry,
-    type SelectedStudy,
-} from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry, type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
@@ -130,7 +126,9 @@ describe('PostFeedbackView', () => {
             const entries = [buildEntry()]
             renderWithProviders(<PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} />)
 
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 1: Review proposal` }),
+            ).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review proposal', level: 2 })).toBeInTheDocument()
         })
 
@@ -383,7 +381,7 @@ describe('PostFeedbackView', () => {
                 <PostFeedbackView nav={NAV} orgSlug={ORG_SLUG} study={study} entries={entries} kind="CODE" />,
             )
 
-            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByText('Step 2')).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
         })
 
@@ -403,7 +401,7 @@ describe('PostFeedbackView', () => {
             expect(screen.getByRole('heading', { name: 'Review code v2.0', level: 2 })).toBeInTheDocument()
         })
 
-        it('places Feedback and notes between STEP 2 and Submission details on a resubmission', async () => {
+        it('places Feedback and notes after Submission details on a resubmission', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy } = await insertTestStudyJobData({
                 org,
@@ -434,8 +432,8 @@ describe('PostFeedbackView', () => {
             const stepHeader = screen.getByTestId('proposal-section-header')
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
-            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(stepHeader.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
         it('renders the informative banner with code-approved copy', () => {
@@ -489,7 +487,7 @@ describe('PostFeedbackView', () => {
             expect(screen.getByTestId('status-alert')).toHaveTextContent(`${STATUS_ALERT_SEPARATOR} Apr 18, 2026`)
         })
 
-        it('keeps datasets visible until the "View full submission details" toggle is clicked', async () => {
+        it('keeps the first two submission details visible until the "View full submission details" toggle is clicked', async () => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: ORG_SLUG, orgType: 'enclave' })
             const { study: dbStudy, job } = await insertTestStudyJobData({
                 org,
@@ -539,13 +537,13 @@ describe('PostFeedbackView', () => {
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
             expect(opener).toHaveTextContent('View full submission details')
             expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
             expect(
-                screen.getByTestId('submitted-code-datasets').compareDocumentPosition(opener) &
+                screen.getByTestId('security-scan-results').compareDocumentPosition(opener) &
                     Node.DOCUMENT_POSITION_FOLLOWING,
             ).toBeTruthy()
 
@@ -554,7 +552,7 @@ describe('PostFeedbackView', () => {
 
             await waitFor(() => expect(screen.getByTestId('ai-summary')).toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             await waitFor(() => expect(screen.getByTestId('submitted-code-section').parentElement).toHaveFocus())
             await waitFor(() => expect(screen.getByTestId('study-code-body')).toBeInTheDocument())
             expect(screen.queryByTestId('study-code-toggle')).not.toBeInTheDocument()
@@ -565,7 +563,7 @@ describe('PostFeedbackView', () => {
             await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             await waitFor(() => expect(screen.getByTestId('study-code-toggle')).toHaveFocus())
         })
 

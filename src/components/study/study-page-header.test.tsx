@@ -1,10 +1,9 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 
 const study = {
     title: 'Impact of highlighting on student learning outcomes',
     submittingLabName: 'Genius Lab',
-    submittedByOrgSlug: 'genius',
     isTestStudy: false,
 }
 
@@ -15,22 +14,35 @@ describe('StudyPageHeader', () => {
         expect(screen.getByRole('heading', { level: 1, name: study.title })).toBeInTheDocument()
     })
 
+    it('names the current step in the level-1 heading', () => {
+        renderWithProviders(<StudyPageHeader study={study} step={{ label: 'Step 3', heading: 'Submit code' }} />)
+
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Submit code` }),
+        ).toBeInTheDocument()
+    })
+
     it('renders the submitting research lab as the eyebrow', () => {
         renderWithProviders(<StudyPageHeader study={study} />)
 
-        expect(screen.getByText('Genius')).toBeInTheDocument()
+        expect(screen.getByText('Genius Lab')).toBeInTheDocument()
     })
 
-    it('falls back to the submitting org slug when the lab name is missing', () => {
-        renderWithProviders(<StudyPageHeader study={{ ...study, submittingLabName: null }} />)
-
-        expect(screen.getByText('genius')).toBeInTheDocument()
-    })
-
-    it('marks a test study beside the title', () => {
+    it('marks a test study under the title without adding the badge to the heading', () => {
         renderWithProviders(<StudyPageHeader study={{ ...study, isTestStudy: true }} />)
 
         expect(screen.getByText('Test study')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { level: 1, name: study.title })).toBeInTheDocument()
+    })
+
+    it('explains a test study when its badge is hovered', async () => {
+        renderWithProviders(<StudyPageHeader study={{ ...study, isTestStudy: true }} />)
+
+        await userEvent.hover(screen.getByText('Test study'))
+
+        expect(
+            await screen.findByText('This is a test study. It does not require a Study Agreement.'),
+        ).toBeInTheDocument()
     })
 
     it('says nothing for an ordinary study', () => {

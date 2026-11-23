@@ -1,10 +1,24 @@
+import { useState } from 'react'
 import { vi } from 'vitest'
-import { describe, expect, it, beforeEach, staleActionError, waitFor, faker, type Mock } from '@/tests/unit.helpers'
+import {
+    describe,
+    expect,
+    it,
+    beforeEach,
+    mockClerkSession,
+    render,
+    screen,
+    staleActionError,
+    userEvent,
+    waitFor,
+    faker,
+    type Mock,
+} from '@/tests/unit.helpers'
 import { captureException } from '@sentry/nextjs'
 import { notifications } from '@mantine/notifications'
 import { STALE_DEPLOYMENT_NOTIFICATION_ID } from '@/components/errors'
 import { STALE_DEPLOYMENT_TITLE } from '@/lib/errors'
-import { getQueryClient } from './providers'
+import { getQueryClient, Providers } from '@/components/layout/providers'
 
 vi.mock('@sentry/nextjs', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@sentry/nextjs')>()),
@@ -14,7 +28,7 @@ vi.mock('@sentry/nextjs', async (importOriginal) => ({
 const showMock = notifications.show as unknown as Mock
 const captureMock = vi.mocked(captureException)
 
-const failWith = async (error: Error, meta?: { errorMessage: string }) => {
+const failWith = async (error: Error, meta?: { errorMessage?: string; reportsOwnErrors?: boolean }) => {
     const queryKey = [faker.string.uuid()]
     await getQueryClient()
         .fetchQuery({ queryKey, queryFn: () => Promise.reject(error), retry: false, meta })
@@ -62,5 +76,38 @@ describe('the shared query client', () => {
         await failWith(staleActionError())
 
         await waitFor(() => expect(captureMock).toHaveBeenCalled())
+    })
+
+    // The IDE launcher captures a failed status poll itself; reporting it here too sent two events.
+    it('leaves a query that reports its own failures alone, even for a stale action id', async () => {
+        await failWith(staleActionError(), { reportsOwnErrors: true })
+
+        expect(captureMock).not.toHaveBeenCalled()
+        expect(showMock).not.toHaveBeenCalled()
+    })
+})
+
+function BreakablePage() {
+    const [broken, setBroken] = useState(false)
+    if (broken) throw new Error('render failed')
+    return <button onClick={() => setBroken(true)}>Break the page</button>
+}
+
+// The boundary swaps out everything inside it, so an announcer mounted there would go with the page
+// and leave the error screen's new title unspoken (OTTER-823).
+describe('the error boundary', () => {
+    it('leaves the route announcer in place to announce the error screen', async () => {
+        mockClerkSession(null)
+        render(
+            <Providers singleUserEditing>
+                <BreakablePage />
+            </Providers>,
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: 'Break the page' }))
+
+        await waitFor(() =>
+            expect(screen.getByTestId('route-announcer')).toHaveTextContent('Something went wrong - SafeInsights'),
+        )
     })
 })

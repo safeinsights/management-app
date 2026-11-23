@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+: "${DOCKER_REPO:?DOCKER_REPO must be set}"
+: "${DOCKER_TAG:=latest}"
+
+# Lambda rejects the OCI index that buildx pushes when it adds a provenance attestation.
+docker buildx build \
+    --platform linux/amd64 \
+    --provenance=false \
+    -f "$PROJECT_DIR/Dockerfile.semgrep-runner" \
+    -t "$DOCKER_REPO:$DOCKER_TAG" \
+    "$PROJECT_DIR"

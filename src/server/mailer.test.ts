@@ -4,6 +4,7 @@ import * as mailgun from '@/server/mailer'
 import { audit } from '@/server/events'
 import {
     faker,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestOrgStudyJobUsers,
     insertTestProposalDecision,
@@ -28,12 +29,15 @@ async function getUser(userId: string) {
 
 describe('mailgun email functions', () => {
     it('sendInviteEmail calls deliver with expected params', async () => {
-        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId: 'test-invite-id' })
+        const inviteId = faker.string.uuid()
+        await mailgun.sendInviteEmail({ emailTo: 'gertrude@test.com', inviteId })
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: 'gertrude@test.com',
                 template: expect.stringContaining('welcome'),
-                vars: expect.objectContaining({ inviteLink: expect.stringContaining('test-invite-id') }),
+                vars: expect.objectContaining({
+                    inviteLink: expect.stringContaining(Routes.accountInvitation({ inviteId })),
+                }),
             }),
         )
     })
@@ -74,6 +78,19 @@ describe('mailgun email functions', () => {
         for (const message of messages) expect(message.bcc).toBeUndefined()
     })
 
+    it('sendStudyProposalEmails skips a Data Partner member whose blank email was cleared to NULL', async () => {
+        const { study, org, user1 } = await insertTestOrgStudyJobUsers()
+        const { user: noEmail } = await insertTestUser({ org })
+        await db.updateTable('user').set({ email: null }).where('id', '=', noEmail.id).execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const messages = (deliverMock.mock.calls as [{ to: string; vars: { fullName: string } }][]).map(([m]) => m)
+        for (const message of messages) expect(message.to).toMatch(/\S+@\S+/)
+        expect(messages.map((message) => message.vars.fullName)).not.toContain(noEmail.fullName)
+        expect(messages.map((message) => message.to)).toContain(user1.email)
+    })
+
     it('sendStudyProposalEmails dates a revised proposal by its resubmission, not the first submission', async () => {
         const { study, user2 } = await insertTestOrgStudyJobUsers()
         await db
@@ -97,7 +114,21 @@ describe('mailgun email functions', () => {
         await mailgun.sendStudyProposalEmails(study.id)
 
         const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
-        expect(message.vars.submittedOn).toBe('03/10/2026')
+        expect(message.vars.submittedOn).toBe('Mar 10, 2026 (UTC)')
+    })
+
+    it('sendStudyProposalEmails names the UTC day for a submission after UTC midnight', async () => {
+        const { study } = await insertTestOrgStudyJobUsers()
+        await db
+            .updateTable('study')
+            .set({ submittedAt: new Date('2026-03-11T01:30:00Z') })
+            .where('id', '=', study.id)
+            .execute()
+
+        await mailgun.sendStudyProposalEmails(study.id)
+
+        const [[message]] = deliverMock.mock.calls as [[{ vars: Record<string, unknown> }]]
+        expect(message.vars.submittedOn).toBe('Mar 11, 2026 (UTC)')
     })
 
     it('sendStudyAgreementReadyEmail reaches the researcher, greeted by name', async () => {
@@ -109,7 +140,7 @@ describe('mailgun email functions', () => {
         expect(deliverMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 to: researcher.email,
-                subject: 'Acknowledge Study Agreements',
+                subject: 'Acknowledge Study Agreement',
                 template: 'vb - sla ready for acknowledgment',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
@@ -157,7 +188,7 @@ describe('mailgun email functions', () => {
     // Any lab member can finalize a draft someone else created; only the CREATED audit row names them.
     it('sendStudyProposalApprovedEmail reaches a co-author who submitted the proposal', async () => {
         const { study, user2: coAuthor } = await insertTestOrgStudyJobUsers()
-        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id })
+        await audit({ userId: coAuthor.id, eventType: 'CREATED', recordType: 'STUDY', recordId: study.id }, db)
 
         await mailgun.sendStudyProposalApprovedEmail(study.id)
 
@@ -304,10 +335,7 @@ describe('mailgun email functions', () => {
             const { study, org, job, user1: researcher, user2: proposalDecider } = await insertTestOrgStudyJobUsers()
             const { user: codeDecider } = await insertTestUser({ org })
             await insertTestProposalDecision({ studyId: study.id, authorId: proposalDecider.id })
-            await db
-                .insertInto('jobStatusChange')
-                .values({ studyJobId: job.id, userId: codeDecider.id, status: 'CODE-APPROVED' })
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-APPROVED', { userId: codeDecider.id })
 
             await mailgun[send](study.id)
 
@@ -394,10 +422,7 @@ describe('mailgun email functions', () => {
         const researchLab = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
         await db.updateTable('study').set({ submittedByOrgId: researchLab.id }).where('id', '=', study.id).execute()
         const { user: codeSubmitter } = await insertTestUser({ org: researchLab })
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, userId: codeSubmitter.id, status: 'CODE-SUBMITTED' })
-            .execute()
+        await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { userId: codeSubmitter.id })
 
         await mailgun[send](study.id)
 

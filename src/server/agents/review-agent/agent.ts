@@ -1,9 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { env } from '@/server/config'
 import { buildAnalysisPrompt, DEFAULT_SYSTEM_INSTRUCTION } from './prompts'
 import { analysisReportSchema } from './types'
 import type { AnalysisReport, AnalysisResult, ReviewAgentConfig, ReviewContent, ReviewMessage } from './types'
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
+const DEFAULT_MODEL = env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
 // A ceiling, not the length control: the schema property descriptions carry that.
 const DEFAULT_MAX_TOKENS = 16_000
 const DEFAULT_MAX_RETRIES = 3
@@ -106,8 +107,9 @@ function extractReport(response: Anthropic.Messages.Message): AnalysisReport {
     if (response.stop_reason === 'refusal') {
         throw new Error('The model refused to generate an analysis.')
     }
-    if (response.stop_reason === 'max_tokens') {
-        throw new Error('The model response was truncated by max_tokens — raise the limit.')
+    // max_tokens: raise the limit. model_context_window_exceeded: the submission itself is too large.
+    if (response.stop_reason === 'max_tokens' || response.stop_reason === 'model_context_window_exceeded') {
+        throw new Error(`The model response was truncated (${response.stop_reason}).`)
     }
 
     const toolUse = response.content.find(

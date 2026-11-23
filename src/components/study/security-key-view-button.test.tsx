@@ -22,4 +22,14 @@ describe('SecurityKeyViewButton', () => {
         expect(status).toHaveAttribute('aria-live', 'polite')
         expect(status).toHaveTextContent('Decrypting outputs')
     })
+
+    it('uses the caller idle label', () => {
+        renderWithProviders(<SecurityKeyViewButton isDecrypting={false} idleLabel="View files" onClick={vi.fn()} />)
+        expect(screen.getByRole('button', { name: 'View files' })).toBeEnabled()
+    })
+
+    it('still reports the busy state with a caller idle label', () => {
+        renderWithProviders(<SecurityKeyViewButton isDecrypting idleLabel="View files" onClick={vi.fn()} />)
+        expect(screen.getByRole('button', { name: /decrypting/i })).toBeDisabled()
+    })
 })

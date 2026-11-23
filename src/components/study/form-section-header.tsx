@@ -22,7 +22,7 @@ export const FormSectionHeader: FC<FormSectionHeaderProps> = ({ title, descripti
                 </>
             )}
         </Title>
-        <Divider color={semanticColor('border.default')} />
+        <Divider />
         <Text fz="md" c={semanticColor('text.primary')}>
             {description}
         </Text>

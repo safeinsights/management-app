@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
+import { env } from '@/server/config'
 
 export const metadata: Metadata = { title: 'About' }
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
-        <Text component="div" fz="lg" fw={500}>
+        <Text component="div" fz="lg" fw={fontWeight.semibold}>
             {title}:
         </Text>
         <Text component="div" fz="md" fw={fontWeight.bold}>
@@ -28,8 +29,8 @@ const GithubLink = ({ repo, path, label }: { repo: string; path: string; label: 
 )
 
 const TagLink = () => {
-    const tag = process.env.RELEASE_TAG
-    const sha = process.env.RELEASE_SHA
+    const tag = env.RELEASE_TAG
+    const sha = env.RELEASE_SHA
     if (!tag && !sha) {
         return 'not deployed'
     }
@@ -39,7 +40,7 @@ const TagLink = () => {
 }
 
 const IacVersionLink = () => {
-    const version = process.env.IAC_VERSION
+    const version = env.IAC_VERSION
     if (!version) {
         return 'not deployed'
     }
@@ -55,7 +56,7 @@ const IacVersionLink = () => {
 // Diverges from the release above when the editor was unchanged: its image is tagged by content
 // hash, so an untouched editor keeps serving an earlier release's image.
 const EditorReleaseLink = () => {
-    const sha = process.env.EDITOR_RELEASE_SHA
+    const sha = env.EDITOR_RELEASE_SHA
     if (!sha) {
         return 'not deployed'
     }
@@ -65,7 +66,16 @@ const EditorReleaseLink = () => {
 
 export default function AboutPage() {
     return (
-        <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm" miw={500} maw={800} mx="auto">
+        <Paper
+            bg={semanticColor('surface.tableheader')}
+            shadow="none"
+            p="sm"
+            mt="xl"
+            radius="sm"
+            miw={500}
+            maw={800}
+            mx="auto"
+        >
             <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
                 <Stat title="Release" value={<TagLink />} />
 
@@ -79,23 +89,23 @@ export default function AboutPage() {
 
                 <Divider my="md" />
 
-                <Stat title="S3 Bucket" value={process.env.BUCKET_NAME || 'none'} />
+                <Stat title="S3 Bucket" value={env.BUCKET_NAME || 'none'} />
 
                 <Divider my="md" />
 
-                <Stat title="Containerizer" value={process.env.CONTAINERIZER_PROJECT_NAME || 'none'} />
+                <Stat title="Containerizer" value={env.CONTAINERIZER_PROJECT_NAME || 'none'} />
 
                 <Divider my="md" />
 
-                <Stat title="Scanner" value={process.env.SCANNER_PROJECT_NAME || 'none'} />
+                <Stat title="Scanner" value={env.SCANNER_PROJECT_NAME || 'none'} />
 
                 <Divider my="md" />
 
-                <Stat title="Container Repo" value={process.env.CODE_BUILD_REPOSITORY_DOMAIN || 'none'} />
+                <Stat title="Container Repo" value={env.CODE_BUILD_REPOSITORY_DOMAIN || 'none'} />
 
                 <Divider my="md" />
 
-                <Stat title="Clerk Key" value={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'none'} />
+                <Stat title="Clerk Key" value={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'none'} />
             </Card>
         </Paper>
     )

@@ -1,8 +1,8 @@
 import type { ButtonVariant } from '@mantine/core'
-import { DEFAULT_THEME, mergeMantineTheme } from '@mantine/core'
+import { DEFAULT_THEME, mergeMantineTheme, rem } from '@mantine/core'
 import { describe, expect, it } from 'vitest'
 import { actionIconVars, buttonVars, cssVariablesResolver, inputVars, theme } from './theme'
-import { semanticCssVariables, semanticShades } from './theme/tokens'
+import { semanticColor, semanticCssVariables, semanticShades } from './theme/tokens'
 
 // Locks the values transcribed from the SI UI Component Library Figma file. Hex values are
 // hand-copied from its Variables panel, so drift would otherwise be invisible in review.
@@ -34,6 +34,12 @@ describe('palette', () => {
         expect(theme.colors?.[family]?.[Number(shade)]).toMatch(/^#[0-9a-f]{6}$/)
     })
 
+    // The yellow status badges fill with it (OTTER-698).
+    it('fills status/warning/bg-dark with the library value', () => {
+        const [family, shade] = semanticShades['warning.bg.dark'].split('.')
+        expect(theme.colors?.[family]?.[Number(shade)]).toBe('#f0bc62')
+    })
+
     it('publishes border/SideNav as navy/0 at 30 percent', () => {
         const vars = semanticCssVariables(mergeMantineTheme(DEFAULT_THEME, theme))
         expect(vars['--si-color-border-sidenav']).toBe('#e6e9ef4d')
@@ -46,6 +52,23 @@ describe('palette', () => {
 describe('textarea', () => {
     it('turns no resize handle on by default', () => {
         expect(theme.components?.Textarea?.defaultProps?.resize).toBeUndefined()
+    })
+})
+
+describe('headings', () => {
+    // noRawStyleValues rejects --si-font-size-22/26/34 on `fz` because these keys equal them.
+    it.each([
+        ['h1', 34],
+        ['h2', 26],
+        ['h3', 22],
+    ] as const)('keeps %s at the Figma %ipx size', (heading, px) => {
+        expect(mergeMantineTheme(DEFAULT_THEME, theme).headings.sizes[heading].fontSize).toBe(rem(px))
+    })
+})
+
+describe('dividers', () => {
+    it('draws the line in border/default', () => {
+        expect(theme.components?.Divider?.defaultProps?.color).toBe(semanticColor('border.default'))
     })
 })
 
@@ -104,6 +127,13 @@ describe('buttons', () => {
         })
     })
 
+    it('paints a disabled transparent button with no tile', () => {
+        expect(buttonVars({}, { variant: 'transparent' }).root).toMatchObject({
+            '--mantine-color-disabled': 'transparent',
+            '--mantine-color-disabled-color': '#595959',
+        })
+    })
+
     it('no longer ships button colours through a styles callback', () => {
         expect(theme.components?.Button).not.toHaveProperty('styles')
     })
@@ -121,6 +151,21 @@ describe('buttons', () => {
     })
 })
 
+describe('badges', () => {
+    const badgeRoot = (props: object) => theme.components?.Badge?.styles(DEFAULT_THEME, props).root
+
+    it.each([
+        ['onClick', { onClick: () => {} }],
+        ['href', { href: '/x' }],
+    ])('gives a badge with %s a pointer', (_, props) => {
+        expect(badgeRoot(props)).toMatchObject({ cursor: 'pointer' })
+    })
+
+    it('leaves a static badge on the default cursor', () => {
+        expect(badgeRoot({})).not.toHaveProperty('cursor')
+    })
+})
+
 describe('inputs', () => {
     it.each([undefined, 'default'])('gives the %s variant the selected blue focus border', (variant) => {
         expect(inputVars({}, { variant }).wrapper['--input-bd-focus']).toBe('var(--si-color-surface-selected)')
@@ -135,6 +180,16 @@ describe('inputs', () => {
             '--input-disabled-bg': 'var(--si-color-surface-disabled-medium)',
             '--input-disabled-color': 'var(--si-color-text-disabled)',
         })
+    })
+
+    it('puts the error row an xs gap below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: true }).wrapper['--input-margin-bottom']).toBe(
+            'var(--mantine-spacing-xs)',
+        )
+    })
+
+    it('adds no gap when nothing sits below the input', () => {
+        expect(inputVars({}, {}, { offsetBottom: false }).wrapper).not.toHaveProperty('--input-margin-bottom')
     })
 
     it('keeps disabled inputs at full opacity', () => {
@@ -171,7 +226,8 @@ describe('required asterisk color', () => {
     it('paints every Mantine-rendered asterisk from it', () => {
         const styles = theme.components?.InputWrapper?.styles as { required?: { color?: string } } | undefined
 
-        expect(styles?.required?.color).toBe('#7e241e')
+        expect(styles?.required?.color).toBe(semanticColor('error.text'))
+        expect(semanticShades['error.text']).toBe('red.7')
     })
 })
 
@@ -195,8 +251,12 @@ describe('light variant pairs', () => {
         expect(resolved.light[`--mantine-color-${ramp}-light-hover`]).toBe(hover)
     })
 
-    it('leaves the brand ramp on Mantine defaults', () => {
-        expect(resolved.light).not.toHaveProperty('--mantine-color-navy-light-color')
+    // Mantine 9 would resolve these from navy-1/2/9: a darker text and an opaque background.
+    it('keeps the brand ramp light variant on the primary shade, as in Mantine 8', () => {
+        expect(resolved.light['--mantine-color-navy-light']).toBe('rgba(1, 33, 94, 0.1)')
+        expect(resolved.light['--mantine-color-navy-light-hover']).toBe('rgba(1, 33, 94, 0.12)')
+        expect(resolved.light['--mantine-color-navy-light-color']).toBe('var(--mantine-color-navy-5)')
+        expect(resolved.variables['--mantine-radius-default']).toBe('0.25rem')
     })
 
     // error, dimmed and placeholder were shadowed for the same reason; they move with the new ones.

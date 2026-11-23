@@ -1,3 +1,4 @@
+import { Routes } from '@/lib/routes/definitions'
 import { authFileFor, e2eRestoreSession, e2eSignOut, expect, goto, reload, test } from './e2e.helpers'
 
 // Clerk's signOut ends the session for every tab of the browser, so a sign-in page that signed out on
@@ -8,33 +9,33 @@ test.describe('two tabs, one session', () => {
 
     test('loading sign-in in a second tab keeps the first tab signed in', async ({ page }) => {
         const other = await page.context().newPage()
-        await goto(page, '/dashboard')
+        await goto(page, Routes.dashboard)
 
-        await goto(other, '/account/signin')
+        await goto(other, Routes.accountSignin)
         await expect(other.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
-        await goto(page, '/dashboard')
-        await expect(page).toHaveURL(/\/dashboard/)
+        await goto(page, Routes.dashboard)
+        await expect(page).toHaveURL(Routes.dashboard)
         await expect(page.getByRole('heading', { level: 1, name: 'My studies' })).toBeVisible()
     })
 
     test('reloading a signed-out tab after signing in elsewhere keeps the active tab signed in', async ({ page }) => {
-        await goto(page, '/dashboard')
+        await goto(page, Routes.dashboard)
         const stale = await page.context().newPage()
 
         await e2eSignOut(page)
-        await goto(stale, '/account/signin')
+        await goto(stale, Routes.accountSignin)
         await expect(stale.getByLabel('email')).toBeVisible()
 
         await e2eRestoreSession(page, 'admin')
-        await goto(page, '/dashboard')
-        await expect(page).toHaveURL(/\/dashboard/)
+        await goto(page, Routes.dashboard)
+        await expect(page).toHaveURL(Routes.dashboard)
 
         await reload(stale)
         await expect(stale.getByRole('heading', { name: /already signed in/i })).toBeVisible()
 
-        await goto(page, '/dashboard')
-        await expect(page).toHaveURL(/\/dashboard/)
+        await goto(page, Routes.dashboard)
+        await expect(page).toHaveURL(Routes.dashboard)
         await expect(page.getByRole('heading', { level: 1, name: 'My studies' })).toBeVisible()
     })
 })

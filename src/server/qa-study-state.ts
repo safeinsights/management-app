@@ -13,6 +13,7 @@ import {
 } from '@/server/storage'
 import { QaCleanupNotFoundError } from '@/server/qa-cleanup'
 import { QaInvalidRequestError } from '@/server/qa-provision'
+import { transitionJob } from '@/server/job-transitions'
 
 export const QA_FILE_KEYS = {
     result: 'ENCRYPTED-RESULT',
@@ -114,7 +115,7 @@ export async function setQaStudyState(
         }
     }
 
-    // job_status_change is append-only; the current status is its newest row.
+    // The qa actor may make any move, but still through the transition table, so the log replays.
     if (update.jobStatus && studyJobId) {
         // The real submission path clears the scan log alongside the status row, and the panel
         // relies on that: the log carries no round, so QA would otherwise keep the previous
@@ -123,7 +124,7 @@ export async function setQaStudyState(
             const discarded = await discardStaleScanLogRows(studyJobId, db)
             await deleteDiscardedScanLogObjects(discarded)
         }
-        await db.insertInto('jobStatusChange').values({ studyJobId, status: update.jobStatus }).execute()
+        await transitionJob(db, studyJobId, update.jobStatus, { actor: 'qa' })
     }
 
     let studyStatus = row.status

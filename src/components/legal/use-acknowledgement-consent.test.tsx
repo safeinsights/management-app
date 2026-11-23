@@ -2,17 +2,21 @@ import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { UserStudyAgreements } from '@/app/legal/user-study-agreements'
 import {
+    act,
+    createTestQueryWrapper,
     faker,
     insertTestOrg,
     insertTestStudyAgreement,
     insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
+    renderHook,
     renderWithProviders,
     resetLegalDocuments,
     userEvent,
 } from '@/tests/unit.helpers'
 import { RequireStudyAgreement } from './require-study-agreement'
+import { useAcknowledgementConsent } from './use-acknowledgement-consent'
 
 beforeEach(resetLegalDocuments)
 
@@ -46,14 +50,12 @@ describe('useAcknowledgementConsent', () => {
 
         renderWithProviders(
             <>
-                <RequireStudyAgreement studyId={study.id} />
+                <RequireStudyAgreement studyId={study.id} orgSlug="unused-by-this-test" />
                 <UserStudyAgreements />
             </>,
         )
 
-        await waitFor(() =>
-            expect(screen.getByText('You have not acknowledged any Study Agreements yet')).toBeDefined(),
-        )
+        await waitFor(() => expect(screen.getByText('You have not acknowledged any Study Agreement yet')).toBeDefined())
 
         await screen.findByRole('dialog')
         await userEvent.click(screen.getByRole('checkbox'))
@@ -62,5 +64,29 @@ describe('useAcknowledgementConsent', () => {
         await waitFor(() => expect(screen.getByText(title)).toBeDefined())
         // The table can refresh before the gate's own refetch, which closes the dialog.
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+
+    // A Privacy Notice joining the Terms of Service on screen is a new question, not the one ticked.
+    it('clears the tick when the set of versions on screen changes', async () => {
+        const { result, rerender } = renderHook(
+            ({ versionIds }) => useAcknowledgementConsent({ versionIds, invalidateKey: ['consent-test'] }),
+            { wrapper: createTestQueryWrapper(), initialProps: { versionIds: ['tos-v1'] } },
+        )
+
+        act(() => result.current.onCheckedChange(true))
+        expect(result.current.isChecked).toBe(true)
+
+        rerender({ versionIds: ['tos-v1', 'pn-v1'] })
+        expect(result.current.isChecked).toBe(false)
+    })
+
+    it('never reads as ticked with nothing on screen', async () => {
+        const { result } = renderHook(
+            () => useAcknowledgementConsent({ versionIds: [], invalidateKey: ['consent-test'] }),
+            { wrapper: createTestQueryWrapper() },
+        )
+
+        act(() => result.current.onCheckedChange(true))
+        expect(result.current.isChecked).toBe(false)
     })
 })

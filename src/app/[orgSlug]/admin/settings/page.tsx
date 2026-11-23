@@ -9,7 +9,6 @@ import { OrgSettingsView } from './org-settings-view'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -24,7 +23,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
 
     return (
         <OrgSettingsView
-            orgName={displayOrgName(org.name)}
+            orgName={org.name}
             orgSettings={<OrganizationSettingsManager org={org} />}
             apiKeys={<ApiKeySettingsDisplay />}
             codeEnvs={<CodeEnvs />}

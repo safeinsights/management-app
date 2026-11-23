@@ -1,58 +1,64 @@
 import type { Metadata } from 'next'
 import { semanticColor } from '@/theme/tokens'
-import { Box, Stack } from '@mantine/core'
-import { notFound } from 'next/navigation'
+import { Box } from '@mantine/core'
+import { notFound, redirect } from 'next/navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
-import { db } from '@/database'
-import { displayOrgName } from '@/lib/string'
-import { canResearcherResubmitCode, projectStudyState } from '@/lib/study-screen'
-import { fetchLatestCodeEnvForStudyIdOrNull } from '@/server/db/queries'
+import { EDIT_CODE_STEP } from '@/components/study/proposal-step-header'
+import { canResearcherResubmitCode, codeResubmissionNav, projectStudyState } from '@/lib/study-screen'
+import { fetchCodeEnvForStudyIdOrNull } from '@/server/db/queries'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
-import { getCodeReviewFeedbackAction, getStudyAction } from '@/server/actions/study.actions'
+import { getCodeReviewFeedbackAction } from '@/server/actions/review-feedback.actions'
+import { getStudyAction } from '@/server/actions/study.actions'
 import { EditCodeResubmitProvider } from '@/contexts/edit-code-resubmit'
 import { EditStudyCodeView } from './edit-study-code-view'
+import { researcherPageGuard } from '../researcher-page-guard'
+import { currentDb } from '@/server/request-context'
+import { Routes } from '@/lib/routes'
+import { PageLayout } from '@/components/page-layout'
 
 export const metadata: Metadata = { title: 'Edit study code' }
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId } = await props.params
-    const study = await getStudyAction({ studyId })
+    const { studyId, orgSlug } = await props.params
+    const guard = await researcherPageGuard(await getStudyAction({ studyId }), studyId)
+    if (!guard.ok) return guard.render
+    const { study } = guard
 
-    if ('error' in study || !study.submittedByOrgSlug || study.title === null) {
-        return notFound()
-    }
+    if (!study.submittedByOrgSlug || study.title === null) return notFound()
 
     // The same predicate the autosave and resubmit actions gate on, so the page never renders a
     // state those actions would reject.
-    const raw = await rawStudyStateForStudy(studyId)
-    if (!raw || !canResearcherResubmitCode(projectStudyState(raw))) return notFound()
+    const raw = await rawStudyStateForStudy(studyId, currentDb())
+    if (!raw) return notFound()
+    const state = projectStudyState(raw)
+    // OTTER-949: Back after resubmitting, or a stale link, lands here once the round is closed.
+    if (!canResearcherResubmitCode(state)) redirect(Routes.studyView({ orgSlug, studyId }))
+    const nav = codeResubmissionNav(state, { orgSlug, studyId })
 
     const feedbackResult = await getCodeReviewFeedbackAction({ studyId })
     if ('error' in feedbackResult) return notFound()
     const feedbackEntries = feedbackResult
 
-    const enclaveOrg = await db.selectFrom('org').select('name').where('id', '=', study.orgId).executeTakeFirst()
-    const orgName = displayOrgName(enclaveOrg?.name ?? '')
-
-    const studyHasCodeEnv = (await fetchLatestCodeEnvForStudyIdOrNull(studyId)) != null
+    const studyHasCodeEnv = (await fetchCodeEnvForStudyIdOrNull(studyId, currentDb())) != null
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
+            <PageLayout header={<StudyPageHeader study={study} step={EDIT_CODE_STEP} />}>
                 <EditCodeResubmitProvider
                     studyId={studyId}
-                    orgName={orgName}
+                    orgName={study.orgName}
                     initialNote={study.codeResubmissionNoteDraft ?? ''}
                 >
                     <EditStudyCodeView
                         studyId={studyId}
-                        orgName={orgName}
+                        orgName={study.orgName}
                         feedbackEntries={feedbackEntries}
                         studyHasCodeEnv={studyHasCodeEnv}
+                        previousStep={nav.back}
+                        viewOutputs={nav.secondary}
                     />
                 </EditCodeResubmitProvider>
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

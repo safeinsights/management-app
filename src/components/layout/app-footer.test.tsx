@@ -1,4 +1,4 @@
-import { describe, expect, it, renderWithProviders, screen } from '@/tests/unit.helpers'
+import { describe, expect, it, renderToServerHtml, renderWithProviders, screen } from '@/tests/unit.helpers'
 import { AppShell } from '@mantine/core'
 import { AppFooter } from './app-footer'
 
@@ -23,5 +23,16 @@ describe('AppFooter', () => {
         )
 
         expect(screen.getByRole('contentinfo')).toHaveTextContent(COPYRIGHT)
+    })
+
+    it('leaves the year out of the server HTML, which renders in UTC', () => {
+        const html = renderToServerHtml(
+            <AppShell>
+                <AppFooter />
+            </AppShell>,
+        )
+
+        expect(html).toContain('© SafeInsights | Rice University')
+        expect(html).not.toContain(String(new Date().getFullYear()))
     })
 })

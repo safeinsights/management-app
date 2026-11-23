@@ -5,7 +5,11 @@ import {
     cleanupWorkspaceDirs,
     createWorkspaceDir,
     db,
+    insertTestJobStatuses,
     insertTestStudyJobData,
+    insertTestStudyOnly,
+    insertTestUser,
+    mockDataPartnerSessionWithLabStudy,
     mockSessionWithTestData,
     renderWithProviders,
     screen,
@@ -17,6 +21,10 @@ import {
 } from '@/tests/unit.helpers'
 import type { StudyJobStatus } from '@/database/types'
 import { memoryRouter } from 'next-router-mock'
+import { Routes } from '@/lib/routes'
+import { resolvePillId } from '@/lib/study-screen'
+import { studyCodeStateFor } from '@/server/study-code-gate'
+import { ensureRoundJobForLaunch, ensureRoundJobForUpload } from '@/server/db/mutations'
 import StudyCodeUploadRoute from './page'
 import { SUBMIT_CODE_FAQ_SUBJECT } from '@/lib/audit-subjects'
 
@@ -54,7 +62,7 @@ describe('StudyCodeUploadRoute', () => {
 
         await renderRoute(org.slug, study.id)
 
-        expect(screen.getByText('STEP 3')).toBeInTheDocument()
+        expect(screen.getByText('Step 3')).toBeInTheDocument()
         expect(screen.getByTestId('video-duration-badge')).toHaveTextContent('10 min video')
 
         const previousLink = screen.getByRole('link', { name: /previous/i })
@@ -164,7 +172,6 @@ describe('StudyCodeUploadRoute', () => {
             expect(screen.getByText(/already have code/i)).toBeInTheDocument()
         })
 
-        // The preload mints a round job, so a view-only visit must not open one.
         it('opens no round job on a view-only visit', async () => {
             const { org, study } = await seedWithFiles('CODE-SUBMITTED')
             const before = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
@@ -173,6 +180,69 @@ describe('StudyCodeUploadRoute', () => {
 
             const after = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
             expect(after).toHaveLength(before.length)
+        })
+    })
+
+    // The dashboard links this state to /resubmit; /code catches Back, bookmarks and stale tabs.
+    describe('a round reopened by Edit code after the outputs decision (OTTER-1073)', () => {
+        const seedDecided = async (decision: StudyJobStatus, { byAnotherMember = false } = {}) => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const author = byAnotherMember ? (await insertTestUser({ org })).user : user
+            const { study, job } = await insertTestStudyJobData({
+                org,
+                researcherId: author.id,
+                studyStatus: 'APPROVED',
+                jobStatus: 'CODE-SUBMITTED',
+            })
+            await insertTestJobStatuses(job.id, ['CODE-APPROVED', 'RUN-COMPLETE', decision])
+            return { org, study }
+        }
+
+        it.each([
+            ['an upload after shared outputs', 'FILES-APPROVED', ensureRoundJobForUpload],
+            ['an upload after feedback only', 'FILES-REJECTED', ensureRoundJobForUpload],
+            ['an IDE launch after shared outputs', 'FILES-APPROVED', ensureRoundJobForLaunch],
+            ['an IDE launch after feedback only', 'FILES-REJECTED', ensureRoundJobForLaunch],
+        ] as const)('sends %s to Edit code', async (_, decision, openRound) => {
+            const { org, study } = await seedDecided(decision)
+            await openRound(db, study.id)
+
+            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+            expect(mockRedirect).toHaveBeenCalledWith(Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
+        })
+
+        it('sends a lab member who is not the author to Edit code too', async () => {
+            const { org, study } = await seedDecided('FILES-APPROVED', { byAnotherMember: true })
+            await ensureRoundJobForUpload(db, study.id)
+
+            await expect(renderRoute(org.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+            expect(mockRedirect).toHaveBeenCalledWith(Routes.studyResubmit({ orgSlug: org.slug, studyId: study.id }))
+        })
+
+        it('stays on the view-only page while no later round is open', async () => {
+            const { org, study } = await seedDecided('FILES-APPROVED')
+
+            await renderRoute(org.slug, study.id)
+
+            expect(mockRedirect).not.toHaveBeenCalled()
+            expect(screen.queryByRole('button', { name: /submit code for review/i })).not.toBeInTheDocument()
+        })
+    })
+
+    // Spec rows 8 and 9: only a launch or an upload turns "Proposal approved" into a code draft.
+    describe('code draft trigger (OTTER-698)', () => {
+        it('opens no round job when an approved study is only viewed, so both badges stay approved', async () => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+
+            await renderRoute(org.slug, study.id)
+
+            const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', study.id).execute()
+            expect(jobs).toHaveLength(0)
+
+            const state = (await studyCodeStateFor(db, study.id))!
+            expect(resolvePillId('researcher', state)).toBe('proposal-approved')
+            expect(resolvePillId('reviewer', state)).toBe('proposal-approved')
         })
     })
 
@@ -263,5 +333,23 @@ describe('StudyCodeUploadRoute', () => {
             await renderRoute(org.slug, second.id)
             expect(faqControl()).toHaveAttribute('aria-expanded', 'false')
         })
+    })
+})
+
+// OTTER-768: `view Study` lets a Data Partner member read the study, but this is a Research Lab page.
+describe('/code for a Data Partner member (OTTER-768)', () => {
+    it('sends the member to the review page', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'APPROVED' })
+
+        await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyReview({ orgSlug: enclave.slug, studyId: study.id }))
+    })
+
+    // getDraftStudyAction refuses this status before the guard runs; /view's guard takes the next hop.
+    it('hands a status the code step does not serve to /view', async () => {
+        const { enclave, study } = await mockDataPartnerSessionWithLabStudy({ studyStatus: 'PENDING-REVIEW' })
+
+        await expect(renderRoute(enclave.slug, study.id)).rejects.toThrow('NEXT_REDIRECT')
+        expect(mockRedirect).toHaveBeenCalledWith(Routes.studyView({ orgSlug: enclave.slug, studyId: study.id }))
     })
 })

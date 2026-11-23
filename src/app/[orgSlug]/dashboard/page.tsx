@@ -1,15 +1,12 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { StudiesTable } from '@/components/dashboard/studies-table'
 import { JoinedOrgBanner } from '@/components/dashboard/joined-org-banner'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { PageHeader } from '@/components/page-header'
+import { PageLayout } from '@/components/page-layout'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,11 +22,11 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     }
 
     const isEnclave = isEnclaveOrg(org)
-    const orgName = displayOrgName(org.name)
 
+    // Narrower page and card gutters than other pages give the studies table its 928px at a
+    // 1280 viewport (Figma 6448-17079).
     return (
-        <Stack p="xxl" gap="xxl">
-            <PageHeader eyebrow={orgName} title="Dashboard" />
+        <PageLayout px="md" pb="xxl" header={<PageHeader eyebrow={org.name} title="Dashboard" />}>
             <JoinedOrgBanner />
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
@@ -45,6 +42,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 showRefresher
                 paperWrapper
             />
-        </Stack>
+        </PageLayout>
     )
 }

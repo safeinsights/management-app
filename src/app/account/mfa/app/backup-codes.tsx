@@ -2,11 +2,14 @@ import { useState, type FC } from '@/common'
 import { AppModal } from '@/components/modals/app-modal'
 import { useSession } from '@/hooks/session'
 import { useUser } from '@clerk/nextjs'
-import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { Button, CopyButton, Group, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { fontWeight, semanticColor } from '@/theme/tokens'
+import type { EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
+import { SIGN_IN_TO_VERIFY_MFA, useSessionNeedsSecondFactor } from '@/app/account/mfa/use-session-needs-second-factor'
+import { useSignOut } from '@/hooks/use-sign-out'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -16,26 +19,147 @@ type ConfirmationModalProps = {
 }
 
 type BackupCodesProps = {
-    codes?: string[] | null
+    isVisible: boolean
+    enrolled: EnrolledCodes | null
 }
 
-const BackupCodes = ({ codes }: BackupCodesProps) => {
-    const theme = useMantineTheme()
-    const { isLoaded } = useUser()
+function useBackupCodes(enrolled: EnrolledCodes | null) {
     const { isLoaded: isSessionLoaded, session } = useSession()
+    const needsSecondFactor = useSessionNeedsSecondFactor()
+    const signOut = useSignOut({ redirectAfterSignOut: SIGN_IN_TO_VERIFY_MFA })
     const router = useRouter()
     const [hasCopied, setHasCopied] = useState(false)
     const [modalOpened, setModalOpened] = useState(false)
     const [isRedirecting, setIsRedirecting] = useState(false)
 
-    const codesAsText = codes && codes.length ? codes.join('\n') : ''
-
-    const goToDashboard = () => {
+    const goToSafeInsights = () => {
+        setModalOpened(false)
+        setIsRedirecting(true)
         if (!isSessionLoaded || !session) return
-        router.push(Routes.dashboard)
+        if (needsSecondFactor) void signOut()
+        else router.push(Routes.dashboard)
     }
 
-    if (!isLoaded) return null
+    const codes = enrolled?.codes ?? []
+    const hasCodes = codes.length > 0
+
+    // Leaving without copying gets a confirmation, since the codes are never shown again. With no codes
+    // on screen there is nothing to lose.
+    const leave = () => {
+        if (hasCopied || !hasCodes) goToSafeInsights()
+        else setModalOpened(true)
+    }
+
+    return {
+        codes,
+        hasCodes,
+        hasExistingCodes: Boolean(enrolled?.hasExistingCodes),
+        isSessionLoaded,
+        modalOpened,
+        isRedirecting,
+        copyCodes: (copy: () => void) => {
+            copy()
+            setHasCopied(true)
+        },
+        closeModal: () => setModalOpened(false),
+        leave,
+        goToSafeInsights,
+    }
+}
+
+type CodesProps = {
+    isVisible: boolean
+    codes: string[]
+}
+
+const RecoveryCodesList: FC<CodesProps> = ({ isVisible, codes }) => {
+    if (!isVisible) return null
+
+    return (
+        <>
+            <Text mb="xs" size="md">
+                These are your recovery codes. Please store them in a secure location. You will need one of them to
+                access your account <b>if you lose access</b> to your authentication device.
+            </Text>
+
+            <ScrollArea.Autosize
+                mah={130}
+                type="auto"
+                bg={semanticColor('surface.sunken')}
+                py="md"
+                px="lg"
+                bd={`1px solid ${semanticColor('border.dark')}`}
+            >
+                <Stack gap="xxs">
+                    {codes.map((code, index) => (
+                        <Text key={index} size="sm">
+                            {code}
+                        </Text>
+                    ))}
+                </Stack>
+            </ScrollArea.Autosize>
+        </>
+    )
+}
+
+const NoCodesNotice: FC<{ isVisible: boolean; hasExistingCodes: boolean }> = ({ isVisible, hasExistingCodes }) => {
+    if (!isVisible) return null
+
+    return (
+        <Text mb="xs" size="md">
+            {hasExistingCodes
+                ? 'Your existing recovery codes still work. Use one of them if you lose access to your authentication device.'
+                : 'No recovery codes were created for your account. Keep your authentication device safe, because you will need it to sign in.'}
+        </Text>
+    )
+}
+
+const CopyCodesButton: FC<CodesProps & { onCopy: (copy: () => void) => void }> = ({ isVisible, codes, onCopy }) => {
+    if (!isVisible) return null
+
+    return (
+        <CopyButton value={codes.join('\n')} timeout={1000}>
+            {({ copied, copy }) => (
+                <Stack gap="xxs">
+                    <Button fullWidth size="lg" onClick={() => onCopy(copy)}>
+                        Copy codes
+                    </Button>
+                    <CopiedNotice isVisible={copied} />
+                </Stack>
+            )}
+        </CopyButton>
+    )
+}
+
+const CopiedNotice: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+
+    return (
+        <Group gap="xs" justify="center" align="center">
+            <CheckIcon size={16} color={semanticColor('success.text')} />
+            <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
+                Copied!
+            </Text>
+        </Group>
+    )
+}
+
+const BackupCodes = ({ isVisible, enrolled }: BackupCodesProps) => {
+    const { isLoaded } = useUser()
+    const {
+        codes,
+        hasCodes,
+        hasExistingCodes,
+        isSessionLoaded,
+        modalOpened,
+        isRedirecting,
+        copyCodes,
+        closeModal,
+        leave,
+        goToSafeInsights,
+    } = useBackupCodes(enrolled)
+
+    if (!isVisible || !isLoaded) return null
 
     return (
         <>
@@ -43,58 +167,11 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                 <Title mb="xs" ta="center" order={3}>
                     Multi-factor authentication is set up successfully!
                 </Title>
-                <Text mb="xs" size="md">
-                    These are your recovery codes. Please store them in a secure location. You will need one of them to
-                    access your account <b>if you lose access</b> to your authentication device.
-                </Text>
-
-                <Box
-                    bg="gray.0"
-                    py="md"
-                    px="lg"
-                    style={{ border: `1px solid ${theme.colors?.grey[2]}`, maxHeight: 130, overflowY: 'auto' }}
-                >
-                    {codes && codes.length ? (
-                        <Stack gap={2} style={{ overflowY: 'auto' }}>
-                            {codes.map((code, index) => (
-                                <Text key={index} size="sm">
-                                    {code}
-                                </Text>
-                            ))}
-                        </Stack>
-                    ) : (
-                        <Text size="sm" c="dimmed">
-                            Generating recovery codes...
-                        </Text>
-                    )}
-                </Box>
+                <RecoveryCodesList isVisible={hasCodes} codes={codes} />
+                <NoCodesNotice isVisible={!hasCodes} hasExistingCodes={hasExistingCodes} />
 
                 <Stack gap="md" mt="xs">
-                    <CopyButton value={codesAsText} timeout={1000}>
-                        {({ copied, copy }) => (
-                            <Stack gap="xxs">
-                                <Button
-                                    fullWidth
-                                    size="lg"
-                                    onClick={() => {
-                                        copy()
-                                        setHasCopied(true)
-                                    }}
-                                    disabled={!codes || codes.length === 0}
-                                >
-                                    Copy codes
-                                </Button>
-                                {copied && (
-                                    <Group gap={6} justify="center" align="center">
-                                        <CheckIcon size={16} color={theme.colors.green[7]} />
-                                        <Text size="sm" c={semanticColor('success.text')} fw={fontWeight.semibold}>
-                                            Copied!
-                                        </Text>
-                                    </Group>
-                                )}
-                            </Stack>
-                        )}
-                    </CopyButton>
+                    <CopyCodesButton isVisible={hasCodes} codes={codes} onCopy={copyCodes} />
 
                     <Button
                         loading={isRedirecting}
@@ -102,14 +179,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                         variant="outline"
                         mt="xs"
                         size="lg"
-                        onClick={() => {
-                            if (!hasCopied) {
-                                setModalOpened(true)
-                            } else {
-                                setIsRedirecting(true)
-                                goToDashboard()
-                            }
-                        }}
+                        onClick={leave}
                         disabled={!isSessionLoaded}
                     >
                         Go to SafeInsights
@@ -119,12 +189,8 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
 
             <ConfirmationModal
                 isOpen={modalOpened}
-                onClose={() => setModalOpened(false)}
-                onConfirm={() => {
-                    setModalOpened(false)
-                    setIsRedirecting(true)
-                    goToDashboard()
-                }}
+                onClose={closeModal}
+                onConfirm={goToSafeInsights}
                 isLoading={isRedirecting}
             />
         </>

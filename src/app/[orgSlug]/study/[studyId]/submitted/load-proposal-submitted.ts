@@ -1,10 +1,6 @@
 import { captureException } from '@sentry/nextjs'
-import {
-    getProposalFeedbackForStudyAction,
-    type ProposalFeedbackEntry,
-    SelectedStudy,
-} from '@/server/actions/study.actions'
-import { getOrgNameFromId } from '@/server/db/queries'
+import { getProposalFeedbackForStudyAction, type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import { SelectedStudy } from '@/server/actions/study.actions'
 import { deriveStudyVersion } from '@/lib/studies'
 import { isActionError } from '@/lib/errors'
 import type { Submitted } from '@/schema/study'
@@ -18,10 +14,7 @@ export type ProposalSubmittedData = {
 
 // Shared by /submitted and the proposal-feedback /view screen so they render identically.
 export async function loadProposalSubmittedData(study: Submitted<SelectedStudy>): Promise<ProposalSubmittedData> {
-    const [orgName, feedbackResult] = await Promise.all([
-        getOrgNameFromId(study.orgId),
-        getProposalFeedbackForStudyAction({ studyId: study.id }),
-    ])
+    const feedbackResult = await getProposalFeedbackForStudyAction({ studyId: study.id })
 
     const feedbackError = isActionError(feedbackResult)
     if (feedbackError) {
@@ -29,5 +22,5 @@ export async function loadProposalSubmittedData(study: Submitted<SelectedStudy>)
     }
 
     const entries = feedbackError ? [] : feedbackResult
-    return { orgName, entries, studyVersion: deriveStudyVersion(entries), feedbackError }
+    return { orgName: study.orgName, entries, studyVersion: deriveStudyVersion(entries), feedbackError }
 }

@@ -4,15 +4,15 @@ import { StudyDetails } from '@/components/study/study-details'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { ScreenComponentProps } from './types'
+import { PageLayout } from '@/components/page-layout'
 
 export function StudyOverviewScreen({ study }: ScreenComponentProps) {
     return (
-        <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} />
+        <PageLayout header={<StudyPageHeader study={study} />}>
             <Paper bg={semanticColor('surface.raised')} p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center" wrap="nowrap">
-                        <Title order={2} size="xl" style={{ flex: 1, minWidth: 0 }}>
+                        <Title order={2} size="xl" flex={1} miw={0}>
                             Study Proposal
                         </Title>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
@@ -28,7 +28,7 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Code
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">No code has been uploaded yet.</Text>
                 </Stack>
             </Paper>
@@ -40,10 +40,10 @@ export function StudyOverviewScreen({ study }: ScreenComponentProps) {
                             Study Status
                         </Title>
                     </Group>
-                    <Divider c="dimmed" />
+                    <Divider />
                     <Text c="dimmed">Status will be available after code is uploaded.</Text>
                 </Stack>
             </Paper>
-        </Stack>
+        </PageLayout>
     )
 }

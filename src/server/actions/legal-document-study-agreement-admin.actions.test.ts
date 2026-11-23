@@ -12,12 +12,8 @@ import {
     resetLegalDocuments,
     testUploadFile,
 } from '@/tests/unit.helpers'
-import {
-    createLegalDocumentDraftAction,
-    fetchStudiesAwaitingStudyAgreementAction,
-    fetchStudyAgreementsAction,
-    publishLegalDocumentVersionAction,
-} from './legal-document.actions'
+import { createLegalDocumentDraftAction, publishLegalDocumentVersionAction } from './legal-document.actions'
+import { fetchStudiesAwaitingStudyAgreementAction, fetchStudyAgreementsAction } from './study-agreement.actions'
 import type { StudyStatus } from '@/database/types'
 
 // Spread the real module: mailer reads SI_EMAIL from it, and a bare `deliver` mock makes that throw.

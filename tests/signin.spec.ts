@@ -1,14 +1,15 @@
+import { Routes } from '@/lib/routes/definitions'
 import { CLERK_MFA_CODE, e2eSignOut, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
         test(`login as ${role}`, async ({ page }) => {
-            await page.goto('/account/signin')
+            await page.goto(Routes.accountSignin)
             await e2eSignOut(page)
 
             const fillForm = async () => {
                 await page.getByLabel('email').fill(props.identifier)
-                await page.getByLabel('password').fill(props.password)
+                await page.getByRole('textbox', { name: 'Password' }).fill(props.password)
                 await page.getByRole('button', { name: 'login' }).click()
             }
 
@@ -25,11 +26,8 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            // Keyless roles land on the security-key page instead of My studies.
-            await page
-                .getByRole('heading', { name: /my studies|security key/i })
-                .first()
-                .waitFor({ state: 'visible' })
+            // Every seeded role holds a key; a keyless one would be sent to key setup instead.
+            await page.getByRole('heading', { name: 'My studies' }).waitFor({ state: 'visible' })
         })
     }
 })

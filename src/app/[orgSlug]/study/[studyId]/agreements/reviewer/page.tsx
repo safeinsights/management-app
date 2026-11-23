@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { Routes } from '@/lib/routes'
 import { redirect } from 'next/navigation'

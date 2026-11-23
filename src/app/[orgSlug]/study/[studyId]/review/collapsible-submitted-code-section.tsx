@@ -19,7 +19,6 @@ type CollapsibleSubmittedCodeSectionProps = {
     heading: string
     banner: ReactNode
     initiallyExpanded?: boolean
-    children?: ReactNode
 }
 
 type SubmittedCodePanelProps = Pick<CollapsibleSubmittedCodeSectionProps, 'orgSlug' | 'study' | 'job' | 'analysis'> & {
@@ -71,7 +70,6 @@ export function CollapsibleSubmittedCodeSection({
     heading,
     banner,
     initiallyExpanded = false,
-    children,
 }: CollapsibleSubmittedCodeSectionProps) {
     // Without a panel, an opener would expand an empty card with no way to collapse it again.
     const hasSubmittedCode = Boolean(job && analysis)
@@ -91,7 +89,6 @@ export function CollapsibleSubmittedCodeSection({
     return (
         <>
             <ProposalStepHeader stepLabel={stepLabel} heading={heading} banner={banner} />
-            {children}
             <SubmittedCodePanel
                 isVisible={hasSubmittedCode}
                 orgSlug={orgSlug}

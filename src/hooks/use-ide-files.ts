@@ -21,7 +21,7 @@ import {
     readWorkspaceFileAction,
     recordWorkspaceFileEditAction,
 } from '@/server/actions/workspace-files.actions'
-import { submitStudyCodeAction } from '@/server/actions/study-request'
+import { submitStudyCodeAction } from '@/server/actions/study-code.actions'
 import { getLastSubmissionInfoAction, getStarterCodeInfoAction } from '@/server/actions/workspaces.actions'
 
 /** The Figma toast's wording for a request that failed rather than a file that was too big. */
@@ -111,6 +111,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         isCreatingWorkspace,
         error: launchError,
         errorEventId: launchErrorEventId,
+        failureReason: launchFailureReason,
         clearError: clearLaunchError,
         status: launchStatus,
         lastUpdatedAt: launchLastUpdatedAt,
@@ -147,16 +148,15 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
     )
 
     /**
-     * OTTER-693: the badge marks the pre-loaded Main.{x} and nothing else, which is why this is the
-     * one derived template name rather than every starter file. copyStarterCodeIntoWorkspace
-     * backdates its mtime behind the baseline job, so an untouched template sits at or before that
-     * timestamp and an edited or re-uploaded one has moved past it.
+     * OTTER-693: badges only the pre-loaded Main.{x}. The copy backdates its mtime, so an untouched
+     * template sits at or before the round job's createdAt. No job (null, not still loading) means
+     * no launch or upload yet, so nothing has touched it (OTTER-698).
      */
     const templateFileNames = useMemo(() => {
         const templateName = starterCodeInfo?.templateFileName
-        if (!templateName || !lastJob) return []
+        if (!templateName || lastJob === undefined) return []
 
-        const baselineAt = new Date(lastJob.createdAt).getTime()
+        const baselineAt = lastJob ? new Date(lastJob.createdAt).getTime() : Infinity
         return workspace.files
             .filter((f) => f.name === templateName && new Date(f.mtime).getTime() <= baselineAt)
             .map((f) => f.name)
@@ -212,7 +212,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to read file')(new ActionFailure(result.error))
+                reportMutationError('Failed to read file')(new ActionFailure(result.error, result.eventId))
                 return
             }
             setViewingFile({ name: result.fileName, contents: result.contents })
@@ -229,7 +229,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
             // denial or a DB failure must not vanish along with the Last activity row.
             const result = await recordWorkspaceFileEditAction({ studyId, fileName })
             if (result && 'error' in result)
-                reportMutationError('Failed to record file edit')(new ActionFailure(result.error))
+                reportMutationError('Failed to record file edit')(new ActionFailure(result.error, result.eventId))
 
             queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
             launchWorkspace()
@@ -243,7 +243,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         async (fileName: string) => {
             const result = await readWorkspaceFileAction({ studyId, fileName })
             if ('error' in result) {
-                reportMutationError('Failed to download file')(new ActionFailure(result.error))
+                reportMutationError('Failed to download file')(new ActionFailure(result.error, result.eventId))
                 return
             }
             downloadBlob(result.fileName, new Blob([result.contents]))
@@ -342,6 +342,7 @@ export function useIDEFiles({ studyId, onSubmitSuccess, onSubmitError }: UseIDEF
         abandonLaunch,
         launchError,
         launchErrorEventId,
+        launchFailureReason,
         clearLaunchError,
         launchStatus,
         launchLastUpdatedAt,

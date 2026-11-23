@@ -46,10 +46,6 @@ export function isPlaintextLogType(fileType: FileType): boolean {
     return PLAINTEXT_LOG_TYPES.includes(fileType)
 }
 
-export function isResultFile(f: { fileType: FileType }): boolean {
-    return ['ENCRYPTED-RESULT', 'APPROVED-RESULT'].includes(f.fileType)
-}
-
 export function isCodeFileType(fileType: FileType): boolean {
     return CODE_FILE_TYPES.includes(fileType)
 }

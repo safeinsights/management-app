@@ -5,6 +5,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import { sentryScrubOptions } from '@/lib/sentry'
+import { sentryDeployOptionsFromEnv } from '@/lib/sentry-deploy'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -17,9 +18,8 @@ Sentry.init({
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
 
-    // Enable logs to be sent to Sentry
-    enableLogs: true,
-
     // we don't currently use edge but we might in the future. I'm guessing it suports NODE_ENV though?
     enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
+
+    ...sentryDeployOptionsFromEnv(process.env),
 })

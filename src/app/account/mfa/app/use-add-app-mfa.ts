@@ -1,0 +1,103 @@
+'use client'
+
+import { useEffect, useEffectEvent, useState } from 'react'
+import type { TOTPResource } from '@clerk/nextjs/types'
+import { useForm } from '@/common'
+import { reportError } from '@/components/errors'
+import { errorToString, isClerkApiError } from '@/lib/errors'
+import logger from '@/lib/logger'
+import { enrollAndReadCodes, type EnrolledCodes } from '@/app/account/mfa/enrollment-codes'
+import { useRequireUser } from '../use-require-user'
+
+const REGENERATE_COOLDOWN_MS = 30000
+
+export type AddAppMfaStep = 'add' | 'success'
+
+const isIncorrectCode = (err: unknown) =>
+    isClerkApiError(err) && err.errors.some((e) => e.code === 'form_code_incorrect')
+
+function secretFromUri(uri?: string) {
+    if (!uri) return null
+    try {
+        return new URL(uri).searchParams.get('secret')
+    } catch (err) {
+        logger.error({ err, message: 'Error parsing TOTP URI' })
+        return null
+    }
+}
+
+export function useAddAppMfa() {
+    const { isLoaded, user } = useRequireUser()
+    const [enrolled, setEnrolled] = useState<EnrolledCodes | null>(null)
+    const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
+    const [canRegenerate, setCanRegenerate] = useState(true)
+    const [isVerifying, setIsVerifying] = useState(false)
+    const userId = user?.id
+
+    const form = useForm({
+        initialValues: {
+            code: '',
+        },
+        validate: {
+            code: (value: string) => (value.length !== 6 ? 'Code must be 6 digits' : null),
+        },
+    })
+
+    const createTotp = useEffectEvent(() => {
+        void user
+            ?.createTOTP()
+            .then(setTOTP)
+            .catch((err) => reportError(err, 'Error generating MFA'))
+    })
+
+    useEffect(() => {
+        if (userId) createTotp()
+    }, [userId])
+
+    useEffect(() => {
+        if (canRegenerate) return
+        const timer = setTimeout(() => setCanRegenerate(true), REGENERATE_COOLDOWN_MS)
+        return () => clearTimeout(timer)
+    }, [canRegenerate])
+
+    const regenerate = async () => {
+        try {
+            setTOTP(await user?.createTOTP())
+            setCanRegenerate(false)
+        } catch (err) {
+            reportError(err, 'Error regenerating QR code')
+        }
+    }
+
+    const verifyTotp = async (values: { code: string }) => {
+        if (!user) return
+        setIsVerifying(true)
+        try {
+            setEnrolled(await enrollAndReadCodes(user, () => user.verifyTOTP({ code: values.code })))
+        } catch (err) {
+            if (!isIncorrectCode(err)) logger.error('Error verifying TOTP', err)
+            form.setErrors({
+                code: errorToString(err, {
+                    clerkOverrides: { form_code_incorrect: 'Invalid verification code. Please try again.' },
+                }),
+            })
+        } finally {
+            setIsVerifying(false)
+        }
+    }
+
+    const step: AddAppMfaStep = enrolled ? 'success' : 'add'
+
+    return {
+        isReady: isLoaded && Boolean(user),
+        step,
+        enrolled,
+        totpUri: totp?.uri,
+        secret: secretFromUri(totp?.uri),
+        canRegenerate,
+        isVerifying,
+        form,
+        regenerate,
+        verifyTotp,
+    }
+}

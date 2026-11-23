@@ -11,6 +11,7 @@ import {
 } from '@/tests/unit.helpers'
 import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 
 describe('PersonalInfoSection', () => {
     // Derived from the seeded value: a hardcoded literal would match what faker emitted on
@@ -129,7 +130,9 @@ describe('PersonalInfoSection', () => {
                 expect.objectContaining({
                     title: 'Save failed',
                     'data-toast-kind': 'error',
-                    message: expect.stringMatching(/^Network error\nReference: [a-f0-9]{32}$/),
+                    message: expect.stringMatching(
+                        new RegExp(`^${UNEXPECTED_ERROR_MESSAGE}\\nReference: [a-f0-9]{32}$`),
+                    ),
                 }),
             )
         })

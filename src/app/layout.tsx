@@ -8,13 +8,14 @@ const globalFont = Open_Sans({
 import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
+import '@/styles/mantine-datatable.css'
 import '@mantine/dropzone/styles.layer.css'
 // The layered build only: the plain stylesheet sits outside the cascade layer and would outrank the
 // theme's Notification override.
 import '@mantine/notifications/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
-import { getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
+import { env, getConfigValue, SINGLE_USER_EDITING } from '@/server/config'
 import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 import { GlobalLoading } from '@/components/layout/global-loading'
@@ -22,8 +23,8 @@ import { HydrationMarker } from '@/components/layout/hydration-marker'
 import { RouteFocusManager } from '@/components/layout/route-focus-manager'
 import { connection } from 'next/server'
 import { clientUserInfoSnapshotForRequest } from '@/server/session'
-
-const APP_TITLE = 'SafeInsights'
+import { APP_TITLE } from '@/lib/constants'
+import { sentryDeployAttributes } from '@/lib/sentry-deploy'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -51,7 +52,7 @@ export default async function RootLayout({
     const postHogProjectToken = (await getConfigValue('POSTHOG_PROJECT_TOKEN', false)) ?? ''
 
     return (
-        <html lang="en" translate="no" className={globalFont.className}>
+        <html lang="en" translate="no" className={globalFont.className} {...sentryDeployAttributes(env)}>
             <body>
                 <Providers
                     singleUserEditing={SINGLE_USER_EDITING}

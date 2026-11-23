@@ -13,7 +13,8 @@ import {
     within,
     type Mock,
 } from '@/tests/unit.helpers'
-import { getStudyAction, type CodeReviewFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import type { StepNav } from '@/lib/study-screen'
 import { STATUS_ALERT_SEPARATOR } from '@/components/study/status-alert'
@@ -144,12 +145,14 @@ describe('CodePostSubmissionView', () => {
             renderView(study, job)
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit code' })).toBeInTheDocument()
 
             const title = study.title ?? ''
             expect(title).not.toBe('')
-            expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${title} — Step 3: Submit code` }),
+            ).toBeInTheDocument()
             expect(within(header).queryByText(/^Title:/)).not.toBeInTheDocument()
             expect(header).not.toHaveTextContent(title)
         })

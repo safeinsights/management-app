@@ -4,23 +4,13 @@ import { type ReactNode } from 'react'
 import { Box, Divider, Group, Paper, Radio, Stack, Text } from '@mantine/core'
 import type { useReviewFeedback } from '@/hooks/use-review-feedback'
 import { RequiredIndicator } from '@/components/required-indicator'
-import { DecisionRadio, DECISION_RADIO_STYLES } from '@/components/study/decision-radio'
-import { fieldErrorId, FieldErrorBox, useWidgetBlur } from '@/components/form-field'
+import { DecisionRadio } from '@/components/study/decision-radio'
+import { fieldErrorId, FieldErrorBox, radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { DecisionFeedbackEditor } from './decision-feedback-editor'
 import { usePublishCodeReviewFeedbackProvider } from '@/lib/realtime/code-review-feedback-provider-context'
 import { codeReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import type { CodeDecision } from '@/lib/review-decision'
 import { fontWeight, semanticColor } from '@/theme/tokens'
-
-const EDITOR_SKELETON_HEIGHT = 400
-
-const contentStyle = {
-    minHeight: 400,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '14px',
-    lineHeight: 1.6,
-} as const
 
 const SECTION_HEADING_ID = 'code-review-decision-heading'
 export const FEEDBACK_INPUT_ID = 'code-review-feedback'
@@ -39,7 +29,7 @@ type CodeReviewFeedbackSectionProps = {
 
 function FeedbackIntro({ labName }: { labName: string }) {
     return (
-        <Text fz={16} c={semanticColor('text.primary')}>
+        <Text fz="md" c={semanticColor('text.primary')}>
             Share your decision and feedback with {labName} based on the evaluation criteria above. You can also request
             clarifications, flag dataset risks, or outline required changes.
         </Text>
@@ -63,8 +53,8 @@ function FeedbackEditor({
             docName={codeReviewFeedbackDocName(jobId)}
             inputId={FEEDBACK_INPUT_ID}
             ariaLabel="Code review feedback"
-            contentStyle={contentStyle}
-            skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            contentHeight={400}
+            fz="sm"
             isResizable
             onProviderReady={publishProvider}
         />
@@ -74,7 +64,7 @@ function FeedbackEditor({
 type DecisionOption = {
     value: CodeDecision
     title: string
-    description: ReactNode
+    description: string
     testId: string
 }
 
@@ -82,21 +72,13 @@ const buildDecisionOptions = (labName: string): DecisionOption[] => [
     {
         value: 'approve',
         title: 'Approve and run code',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                The code will run in your secure enclave and your feedback will be shared with {labName}.
-            </Text>
-        ),
+        description: `The code will run in your secure enclave and your feedback will be shared with ${labName}.`,
         testId: 'code-review-decision-approve',
     },
     {
         value: 'needs-clarification',
         title: 'Request revision',
-        description: (
-            <Text component="span" size="sm" c="grey.7">
-                Send the code back to {labName} for changes or additional information.
-            </Text>
-        ),
+        description: `Send the code back to ${labName} for changes or additional information.`,
         testId: 'code-review-decision-needs-clarification',
     },
 ]
@@ -131,7 +113,7 @@ function DecisionRadioGroup({
             testId={option.testId}
             error={error}
             errorId={errorId}
-            styles={DECISION_RADIO_STYLES}
+            isProminent
         />
     ))
 
@@ -150,8 +132,8 @@ function DecisionRadioGroup({
                 value={value ?? ''}
                 onChange={handleChange}
                 {...widgetBlur}
+                {...radioGroupAria(SECTION_HEADING_ID)}
                 name="code-review-decision"
-                labelProps={{ id: SECTION_HEADING_ID }}
             >
                 <Stack gap="md">{radioOptions}</Stack>
             </Radio.Group>
@@ -173,10 +155,10 @@ export function CodeReviewFeedbackSection({
         <Paper p="xxl" data-testid="code-review-section">
             <Stack gap="lg">
                 <Group gap="xxs" align="center">
-                    <Text id={SECTION_HEADING_ID} fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                    <Text id={SECTION_HEADING_ID} fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                         Decision
                     </Text>
-                    <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                    <RequiredIndicator fz="xl" fw={fontWeight.bold} />
                 </Group>
                 <Divider />
                 <FeedbackIntro labName={labName} />

@@ -1,5 +1,6 @@
 import {
     db,
+    findFieldErrorShownOnce,
     fireEvent,
     insertKeylessInvitedUser,
     Mock,
@@ -11,7 +12,8 @@ import {
 } from '@/tests/unit.helpers'
 import { vi, describe, it, expect } from 'vitest'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
-import { useAuth, useSignIn } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
@@ -96,5 +98,21 @@ describe('RecoveryCodeSignIn', () => {
                 `/account/keys?redirect_url=${encodeURIComponent(`/${invitingOrg.slug}/dashboard`)}`,
             ),
         )
+    })
+
+    it('shows a code error one time, with the error icon', async () => {
+        ;(useSignIn as Mock).mockReturnValue({
+            isLoaded: true,
+            signIn: { attemptSecondFactor: vi.fn() },
+            setActive: vi.fn(),
+        })
+        renderWithProviders(<RecoveryCodeSignIn setStep={vi.fn()} />)
+
+        const input = screen.getByLabelText(/Enter recovery code/i)
+        await userEvent.type(input, 'not-valid!')
+        await userEvent.tab()
+
+        await findFieldErrorShownOnce('Only alphanumeric characters are allowed')
+        expect(input).toHaveAttribute('aria-invalid', 'true')
     })
 })

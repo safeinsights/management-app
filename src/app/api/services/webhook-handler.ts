@@ -4,6 +4,7 @@ import { NotFoundError } from '@/lib/errors'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 import { getConfigValue } from '@/server/config'
+import { JobTransitionRefusedError } from '@/database/job-status-writer'
 
 function secretsMatch(a: string, b: string): boolean {
     const bufA = Buffer.from(a)
@@ -20,14 +21,14 @@ async function authenticateRequest(req: Request): Promise<boolean> {
     return !!token && !!expectedSecret && secretsMatch(token, expectedSecret)
 }
 
-interface WebhookHandlerOptions<T extends z.ZodTypeAny> {
+interface WebhookHandlerOptions<T extends z.ZodType> {
     route: string
     schema: T
     entityNotFoundMessage: string
     handler: (body: z.infer<T>) => Promise<void>
 }
 
-export function createWebhookHandler<T extends z.ZodTypeAny>({
+export function createWebhookHandler<T extends z.ZodType>({
     route,
     schema,
     entityNotFoundMessage,
@@ -49,6 +50,11 @@ export function createWebhookHandler<T extends z.ZodTypeAny>({
             if (error instanceof ZodError) {
                 logger.error(`Error handling ${route} POST`, error, { route, body: rawBody ?? null })
                 return NextResponse.json({ error: 'invalid-payload', issues: error.issues }, { status: 400 })
+            }
+
+            // A retry would only be refused again, and transitionJob has already logged the refusal.
+            if (error instanceof JobTransitionRefusedError) {
+                return new NextResponse('ok', { status: 200 })
             }
 
             if (error instanceof NotFoundError) {

@@ -9,7 +9,7 @@ import {
     participationAgreementOrgLabels,
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
-import { fetchParticipationAgreementsAction } from '@/server/actions/legal-document.actions'
+import { fetchParticipationAgreementsAction } from '@/server/actions/participation-agreement.actions'
 import { Button, Flex, Stack, Title } from '@mantine/core'
 import { DataTable, type DataTableColumn } from 'mantine-datatable'
 import { documentColumn, newVersionColumn, useAgreementPanelModals, versionHistoryColumn } from '../agreement-panel'
@@ -107,7 +107,6 @@ export const ParticipationAgreements: FC<{ type: ParticipationAgreementType }> =
                 scope={{ type, orgId: historyFor?.orgId }}
             />
             <DataTable
-                withTableBorder
                 horizontalSpacing="md"
                 verticalSpacing="sm"
                 minHeight={140}

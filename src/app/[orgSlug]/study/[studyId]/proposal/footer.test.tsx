@@ -8,6 +8,7 @@ import {
     describe,
     expect,
     it,
+    lexicalLinkState,
     renderWithProviders,
     screen,
     setTestStudyStatus,
@@ -149,6 +150,33 @@ describe('DraftProposalFooter reviewer preview title (OTTER-690)', () => {
     })
 })
 
+describe('DraftProposalFooter reviewer preview link card (OTTER-792)', () => {
+    it('closes only the link card on the first Escape and the preview on the second', async () => {
+        const user = userEvent.setup()
+        renderFooter({
+            ...fullyValidExceptTitle,
+            researchQuestions: lexicalLinkState({ url: 'https://example.com' }),
+        })
+
+        await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
+        const preview = await screen.findByRole('dialog', { name: 'View as reviewer' })
+
+        await user.click(await within(preview).findByRole('link', { name: 'example' }))
+        await screen.findByRole('dialog', { name: 'Link details' })
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Copy link' })))
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Link details' })).not.toBeInTheDocument())
+        // A preview closed by the same Escape would have returned focus to "View as reviewer" by now.
+        expect(document.activeElement).toBe(within(preview).getByRole('link', { name: 'example' }))
+
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'View as reviewer' })).not.toBeInTheDocument())
+    })
+})
+
 // Yjs autosave is inactive in single-user mode, so Previous must flush the form to the study row
 // before leaving or Step 2 progress is lost (OTTER-572/573).
 describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
@@ -175,9 +203,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })))
 
         const study = await db
             .selectFrom('study')
@@ -201,7 +227,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(notifications.show).toHaveBeenCalled(), { timeout: 5000 })
+        await waitFor(() => expect(notifications.show).toHaveBeenCalled())
         const errorCall = (notifications.show as Mock).mock.calls.find(
             ([arg]) => (arg as { title?: string })?.title === 'Failed to save draft',
         )
@@ -223,7 +249,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'View as reviewer' }))
 
-        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument(), { timeout: 5000 })
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
 
         const study = await db
             .selectFrom('study')
@@ -245,9 +271,7 @@ describe('DraftProposalFooter save-on-navigate (OTTER-573)', () => {
 
         await user.click(screen.getByRole('button', { name: 'Previous step' }))
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studyEdit({ orgSlug: lab.slug, studyId })))
         expect(notifications.show).not.toHaveBeenCalled()
 
         const study = await db.selectFrom('study').select('title').where('id', '=', studyId).executeTakeFirstOrThrow()

@@ -9,8 +9,6 @@ const formValues = (overrides: Partial<StudyProposalFormValues> = {}): StudyProp
     language: null,
     piName: '',
     description: '',
-    mainCodeFile: null,
-    additionalCodeFiles: [],
     stepIndex: 0,
     createdStudyId: null,
     ideMainFile: '',

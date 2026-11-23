@@ -5,11 +5,14 @@ import {
     actionResult,
     db,
     insertTestCodeResubmissionNote,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
+    type PriorCodeRunOptions,
     renderWithProviders,
     requireRawState,
     screen,
+    within,
 } from '@/tests/unit.helpers'
 import { lexicalJson } from '@/lib/lexical'
 import type { StudyJobStatus } from '@/database/types'
@@ -25,18 +28,20 @@ import { ReviewerOutputsDecided } from './reviewer-outputs-decided'
 const setupDecided = async ({
     jobStatus = 'RUN-COMPLETE' as StudyJobStatus,
     filesDecision = 'FILES-APPROVED' as StudyJobStatus,
+    ranAt = undefined as Date | undefined,
+    priorRuns = [] as PriorCodeRunOptions[],
 } = {}) => {
     const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-    const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus })
+    const { study: dbStudy, job } = await insertTestStudyJobData({
+        org,
+        researcherId: user.id,
+        jobStatus: 'INITIATED',
+        priorRuns,
+    })
+    await insertTestJobStatus(job.id, jobStatus, { userId: user.id, at: ranAt })
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
 
-    const job = await db
-        .selectFrom('studyJob')
-        .where('studyId', '=', dbStudy.id)
-        .selectAll('studyJob')
-        .executeTakeFirstOrThrow()
-
-    await db.insertInto('jobStatusChange').values({ studyJobId: job.id, status: filesDecision }).execute()
+    await insertTestJobStatus(job.id, filesDecision)
 
     const raw = await requireRawState(dbStudy.id)
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -60,8 +65,10 @@ describe('ReviewerOutputsDecided', () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
-        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('STEP 3')
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
+        expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Step 3')
         expect(screen.getByTestId('proposal-section-header')).toHaveTextContent('Review outputs')
     })
 
@@ -153,7 +160,7 @@ describe('ReviewerOutputsDecided', () => {
         expect(screen.getByText('No decision found')).toBeInTheDocument()
     })
 
-    it('renders the Feedback and notes section with reviewer feedback entries', async () => {
+    it('shows the reviewer feedback inside the Code run card instead of a Feedback and notes card', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await db
             .insertInto('studyReviewComment')
@@ -171,12 +178,52 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByTestId('feedback-and-notes-section')).toBeInTheDocument()
-        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+        const card = screen.getByTestId('code-run-card')
+        const feedback = within(card).getByTestId('latest-run-feedback')
+        expect(feedback).toHaveTextContent('Reviewer feedback')
+        expect(feedback).not.toHaveTextContent('(v')
     })
 
-    // OTTER-766: the note belongs to the code step, and the outputs version is its own sequence.
-    it('omits the code resubmission note and keeps the first outputs decision at v1.0', async () => {
+    // Earlier runs keep their feedback in the code run history, so it must not show twice.
+    it('shows only the latest run feedback in the Code run card', async () => {
+        const { org, user, study, job, raw } = await setupDecided({
+            priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }],
+        })
+        const priorJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', study.id)
+            .where('id', '!=', job.id)
+            .executeTakeFirstOrThrow()
+        const decision = (studyJobId: string, round: number, text: string) => ({
+            studyId: study.id,
+            studyJobId,
+            authorId: user.id,
+            reviewKind: 'RESULTS' as const,
+            entryType: 'DECISION' as const,
+            decision: 'APPROVE' as const,
+            body: JSON.parse(lexicalJson(text)),
+            round,
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values([
+                decision(priorJob.id, 1, 'Run 1 outputs look clean.'),
+                decision(job.id, 2, 'Run 2 outputs are cleared to share.'),
+            ])
+            .execute()
+
+        await renderView(study, raw, org.slug)
+
+        const feedback = within(screen.getByTestId('code-run-card')).getByTestId('latest-run-feedback')
+        expect(await within(feedback).findByText('Run 2 outputs are cleared to share.')).toBeInTheDocument()
+        expect(screen.queryByText('Run 1 outputs look clean.')).not.toBeInTheDocument()
+        expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
+    })
+
+    // OTTER-766: the note belongs to the code step. OTTER-883: outputs decisions carry no version.
+    it('omits the code resubmission note and labels the outputs decision without a version', async () => {
         const { org, user, study, job, raw } = await setupDecided()
         await insertTestCodeResubmissionNote({
             studyId: study.id,
@@ -201,7 +248,8 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByText('Reviewer feedback (v1.0)')).toBeInTheDocument()
+        expect(screen.getByText('Reviewer feedback')).toBeInTheDocument()
+        expect(screen.queryByText(/Reviewer feedback \(v/)).toBeNull()
         expect(screen.queryByText(/fixed the aggregation/)).not.toBeInTheDocument()
         expect(screen.queryByText(/resubmission note/i)).not.toBeInTheDocument()
     })
@@ -224,7 +272,7 @@ describe('ReviewerOutputsDecided', () => {
 
         await renderView(study, raw, org.slug)
 
-        const entry = screen.getByTestId('feedback-entries')
+        const entry = screen.getByTestId('latest-run-feedback')
         expect(entry).toHaveTextContent(user.fullName)
         expect(entry).toHaveTextContent(dayjs().format('MMM DD, YYYY'))
         expect(screen.getByTestId('status-alert')).toHaveTextContent(`Outputs and feedback shared by ${user.fullName}`)
@@ -272,22 +320,33 @@ describe('ReviewerOutputsDecided', () => {
         expect(alert).not.toHaveTextContent(/shared by /)
     })
 
-    it('hides the Feedback and notes section when there are no entries', async () => {
+    it('says no feedback was shared when the decision has no comment', async () => {
         const { org, study, raw } = await setupDecided()
         await renderView(study, raw, org.slug)
 
         expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
+        expect(screen.getByTestId('latest-run-feedback')).toHaveTextContent('No feedback was shared for this run.')
     })
 
-    it('renders the View outputs again security-key section', async () => {
+    it('renders the code run key section with the view-again copy', async () => {
         const { org, study, job, raw } = await setupDecided()
         await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
         await renderView(study, raw, org.slug)
 
-        expect(screen.getByRole('heading', { name: /view outputs again/i })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(
             screen.getByText('The outputs are encrypted. Enter your security key to view them again.'),
         ).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: 'View files' })).toBeInTheDocument()
+    })
+
+    // The decision lands later than the run, and must not move the date the run is known by.
+    it('dates the code run by when it finished, not by the outputs decision', async () => {
+        const { org, study, job } = await setupDecided({ ranAt: new Date('2026-03-05T12:00:00Z') })
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        await renderView(study, await requireRawState(study.id), org.slug)
+
+        expect(screen.getByRole('heading', { name: 'Code run Mar 05, 2026' })).toBeInTheDocument()
     })
 
     // A submission-time scan log is not this run's outputs, so the form must not offer it as one.
@@ -296,18 +355,37 @@ describe('ReviewerOutputsDecided', () => {
         await seedJobFileRow(job.id, 'ENCRYPTED-SECURITY-SCAN-LOG', 'encrypted-scan-log.txt')
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
     })
 
     // OTTER-524: an errored run can be closed out with nothing to decrypt, so asking for a key
     // would pose a demand no key can satisfy.
-    it('omits the security-key section when the decided run left nothing to decrypt', async () => {
-        const { org, study, raw } = await setupDecided({ jobStatus: 'JOB-ERRORED', filesDecision: 'FILES-REJECTED' })
+    // The card stays, so the feedback is not hidden together with the key form.
+    it('omits the security-key section but keeps the feedback when the decided run left nothing to decrypt', async () => {
+        const { org, user, study, job, raw } = await setupDecided({
+            jobStatus: 'JOB-ERRORED',
+            filesDecision: 'FILES-REJECTED',
+        })
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId: study.id,
+                studyJobId: job.id,
+                authorId: user.id,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson('The script timed out while loading data.')),
+                round: 1,
+            })
+            .execute()
         await renderView(study, raw, org.slug)
 
-        expect(screen.queryByRole('heading', { name: /view outputs again/i })).not.toBeInTheDocument()
+        const card = screen.getByTestId('code-run-card')
+        expect(within(card).getByRole('heading', { name: /^code run /i })).toBeInTheDocument()
         expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
+        expect(await within(card).findByText('The script timed out while loading data.')).toBeInTheDocument()
     })
 
     it('renders Previous step as a subtle-variant link', async () => {
@@ -324,5 +402,36 @@ describe('ReviewerOutputsDecided', () => {
         const link = screen.getByRole('link', { name: /back to my studies/i })
         expect(link).toHaveAttribute('data-variant', 'filled')
         expect(link).not.toHaveAttribute('data-disabled')
+    })
+})
+
+describe('ReviewerOutputsDecided code run history', () => {
+    it('is absent when the latest run is the only one', async () => {
+        const { org, study, raw } = await setupDecided()
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('code-run-history')).toBeNull()
+    })
+
+    it('counts the earlier runs below the View outputs again card', async () => {
+        const { org, study, job, raw } = await setupDecided({
+            priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }],
+        })
+        await seedJobFileRow(job.id, 'ENCRYPTED-RESULT', 'encrypted-results.zip')
+        await renderView(study, raw, org.slug)
+
+        const history = screen.getByTestId('code-run-history')
+        expect(history).toHaveTextContent('Code run history (1)')
+        const keyForm = screen.getByTestId('security-key-form')
+        expect(keyForm.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    // A run closed out with nothing to decrypt still has a history worth showing.
+    it('shows the history even when the decided run left nothing to decrypt', async () => {
+        const { org, study, raw } = await setupDecided({ priorRuns: [{ ranAt: dayjs().subtract(5, 'day').toDate() }] })
+        await renderView(study, raw, org.slug)
+
+        expect(screen.queryByTestId('security-key-form')).toBeNull()
+        expect(screen.getByTestId('code-run-history')).toHaveTextContent('Code run history (1)')
     })
 })

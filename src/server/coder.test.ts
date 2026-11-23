@@ -14,22 +14,24 @@ import {
     shaHash,
 } from './coder'
 import logger from '@/lib/logger'
+import { ActionFailure } from '@/lib/errors'
 import { getConfigValue } from './config'
-import { getIdeOwnerForStudy, siUser, fetchLatestCodeEnvForStudyId, getDataSourcesForOrg } from './db/queries'
+import {
+    db,
+    insertTestCodeEnv,
+    insertTestOrg,
+    insertTestStudyOnly,
+    insertTestUser,
+    type InsertTestCodeEnvOptions,
+} from '@/tests/unit.helpers'
 import { fetchFileContents } from './storage'
-import { getAgentContextAction } from './actions/agent-context.actions'
 
 vi.mock('./config', async (importOriginal) => ({
     ...(await importOriginal<typeof import('./config')>()),
     getConfigValue: vi.fn(),
-}))
-
-vi.mock('./db/queries', () => ({
-    getIdeOwnerForStudy: vi.fn(),
-    siUser: vi.fn(),
-    fetchLatestCodeEnvForStudyId: vi.fn(),
-    fetchLatestCodeEnvForStudyIdOrNull: vi.fn(),
-    getDataSourcesForOrg: vi.fn(),
+    get env() {
+        return process.env
+    },
 }))
 
 vi.mock('./storage', () => ({
@@ -55,20 +57,42 @@ vi.mock('node:fs/promises', () => ({
     readFile: vi.fn().mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })),
 }))
 
-vi.mock('@/server/actions/agent-context.actions', () => ({
-    getAgentContextAction: vi.fn(),
-}))
-
 global.fetch = vi.fn()
 
 const getConfigValueMock = getConfigValue as unknown as Mock
-const getIdeOwnerForStudyMock = getIdeOwnerForStudy as unknown as Mock
-const siUserMock = siUser as unknown as Mock
-const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
-const getDataSourcesForOrgMock = getDataSourcesForOrg as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
+
+// The expected sample-data paths and database names below are built from this slug and test_env.
+const ORG_SLUG = 'test-org'
+
+// A study whose IDE has been claimed by John Doe at this address.
+const insertClaimedStudy = async ({ email = 'john@example.com' }: { email?: string | null } = {}) => {
+    const org = await insertTestOrg({ slug: ORG_SLUG, type: 'enclave' })
+    const { user } = await insertTestUser({ org })
+    await db.updateTable('user').set({ firstName: 'John', lastName: 'Doe', email }).where('id', '=', user.id).execute()
+    const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
+    await db.updateTable('study').set({ ideOwnerId: user.id }).where('id', '=', study.id).execute()
+    return { studyId: study.id, orgId: org.id }
+}
+
+// The R code env the study runs: its org's newest one for the study's language.
+const insertStudyCodeEnv = async (
+    orgId: string,
+    options: Pick<InsertTestCodeEnvOptions, 'dataSourceType' | 'environment' | 'starterCodeFileNames' | 'url'> = {},
+) => {
+    const codeEnv = await insertTestCodeEnv({
+        orgId,
+        language: 'R',
+        identifier: 'test_env',
+        url: options.url ?? 'test-image:latest',
+        dataSourceType: options.dataSourceType,
+        environment: options.environment,
+        starterCodeFileNames: options.starterCodeFileNames ?? ['main.R'],
+    })
+    return codeEnv.id
+}
 
 describe('getOrCreateCoderUserFor', () => {
     const ORIGINAL_ENV = process.env
@@ -91,13 +115,9 @@ describe('getOrCreateCoderUserFor', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
+        const { studyId } = await insertClaimedStudy()
 
-        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
         expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
         expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john%40example.com', {
             method: 'GET',
@@ -133,18 +153,9 @@ describe('getOrCreateCoderUserFor', () => {
         getConfigValueMock.mockResolvedValueOnce('token')
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com')
         getConfigValueMock.mockResolvedValueOnce('token')
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
-        siUserMock.mockResolvedValue({
-            id: 'user123',
-            primaryEmailAddress: { emailAddress: 'john@example.com' },
-            fullName: 'John Doe',
-        })
+        const { studyId } = await insertClaimedStudy()
 
-        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
         expect(result).toEqual(mockUsersEmailQueryResponse)
         expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
             method: 'POST',
@@ -174,13 +185,9 @@ describe('getOrCreateCoderUserFor', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
+        const { studyId } = await insertClaimedStudy()
 
-        await expect(getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))).rejects.toThrow(
+        await expect(getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))).rejects.toThrow(
             'Failed to query users: 500 Internal server error',
         )
     })
@@ -199,9 +206,9 @@ describe('getOrCreateCoderUserFor', () => {
             }),
         })
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getIdeOwnerForStudyMock.mockResolvedValue({ userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' })
+        const { studyId } = await insertClaimedStudy({ email: 'ann@x.edu' })
 
-        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity('study123'))
+        const result = await getOrCreateCoderUserFor(await resolveCoderIdentity(studyId))
 
         expect(result.username).toBe('ann-x-edu-2222')
         expect(mockFetch.mock.calls[0][0]).toBe('https://api.coder.com/api/v2/users?q=ann%40x.edu')
@@ -254,15 +261,67 @@ describe('getOrCreateCoderUserFor', () => {
 
     // OTTER-817: never silently fall back to the submitter — that is the bug this replaced.
     it('throws when no researcher has claimed the IDE', async () => {
-        getIdeOwnerForStudyMock.mockResolvedValue(null)
+        const { study } = await insertTestStudyOnly()
 
-        await expect(resolveCoderIdentity('study123')).rejects.toThrow(/No IDE owner for study study123/)
+        await expect(resolveCoderIdentity(study.id)).rejects.toThrow(`No IDE owner for study ${study.id}`)
     })
 
     it('throws when the IDE owner has no email address', async () => {
-        getIdeOwnerForStudyMock.mockResolvedValue({ userId: 'ide-owner-1', email: null, fullName: 'John Doe' })
+        const { studyId } = await insertClaimedStudy({ email: null })
 
-        await expect(resolveCoderIdentity('study123')).rejects.toThrow(/has no email address/)
+        await expect(resolveCoderIdentity(studyId)).rejects.toThrow(/has no email address/)
+    })
+
+    describe('user status', () => {
+        const identity = { userId: 'ide-owner-1', email: 'ann@x.edu', fullName: 'Ann' }
+        const lookupResponse = (status: string) => ({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ users: [{ username: 'ann-x-edu-2222', email: 'ann@x.edu', status }] }),
+        })
+        const putCalls = () =>
+            (global.fetch as unknown as Mock).mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+
+        beforeEach(() => {
+            getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        })
+
+        it('reactivates a dormant user and returns the activated user', async () => {
+            const activated = { username: 'ann-x-edu-2222', email: 'ann@x.edu', status: 'active' }
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch
+                .mockResolvedValueOnce(lookupResponse('dormant'))
+                .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(activated) })
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result).toEqual(activated)
+            expect(putCalls()).toHaveLength(1)
+            expect(putCalls()[0][0]).toBe('https://api.coder.com/api/v2/users/ann-x-edu-2222/status/activate')
+            expect(logger.info).toHaveBeenCalledWith(
+                expect.stringContaining('Reactivating dormant Coder user ann-x-edu-2222'),
+            )
+        })
+
+        it('returns an active user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('active'))
+
+            const result = await getOrCreateCoderUserFor(identity)
+
+            expect(result.username).toBe('ann-x-edu-2222')
+            expect(putCalls()).toHaveLength(0)
+        })
+
+        // Suspension is a deliberate admin action, so a launch must not undo it.
+        it('rejects a suspended user without reactivating', async () => {
+            const mockFetch = global.fetch as unknown as Mock
+            mockFetch.mockResolvedValueOnce(lookupResponse('suspended'))
+
+            await expect(getOrCreateCoderUserFor(identity)).rejects.toThrow(
+                'Coder account ann-x-edu-2222 is suspended; an admin must reactivate it',
+            )
+            expect(putCalls()).toHaveLength(0)
+        })
     })
 })
 
@@ -273,8 +332,6 @@ describe('createUserAndWorkspace', () => {
         process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
-        vi.mocked(getAgentContextAction).mockResolvedValue({ content: 'test context' })
-        getDataSourcesForOrgMock.mockResolvedValue([])
     })
 
     afterEach(() => {
@@ -329,25 +386,17 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
             return Promise.resolve('https://api.coder.com')
         })
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
-            id: 'env-123',
-            identifier: 'test_env',
-            slug: 'test-org',
-            url: 'test-image:latest',
-            settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
-            starterCodeFileNames: ['main.R'],
-            language: 'R',
+        const { studyId, orgId } = await insertClaimedStudy()
+        // A row saved before the scheme was rejected: Coder must still get a plain reference.
+        const codeEnvId = await insertStudyCodeEnv(orgId, {
+            environment: [{ name: 'VAR1', value: 'value1' }],
+            url: ' https://test-image:latest ',
         })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        const result = await createUserAndWorkspace('study123')
+        const result = await createUserAndWorkspace(studyId)
         expect(result).toEqual({
             success: true,
             workspace: mockWorkspaceResponse,
@@ -359,7 +408,7 @@ describe('createUserAndWorkspace', () => {
         expect(createWorkspaceCall).toBeDefined()
         const requestBody = JSON.parse(createWorkspaceCall![1].body)
         expect(requestBody.rich_parameter_values).toEqual([
-            { name: 'study_id', value: 'study123' },
+            { name: 'study_id', value: studyId },
             { name: 'container_image', value: 'test-image:latest' },
             {
                 name: 'environment',
@@ -367,18 +416,82 @@ describe('createUserAndWorkspace', () => {
                     { name: 'VAR1', value: 'value1' },
                     {
                         name: 'DATA_PATH',
-                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`,
                     },
                     {
                         name: 'TEST_ENV_DATA_PATH',
-                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`,
                     },
                     { name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME },
-                    { name: 'TEST_ENV_S3_BUCKET_PREFIX', value: 'code-env/test-org/env-123/sample-data' },
+                    { name: 'TEST_ENV_S3_BUCKET_PREFIX', value: `code-env/test-org/${codeEnvId}/sample-data` },
                     { name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' },
                 ]),
             },
         ])
+    })
+
+    it('turns a workspace creation Coder refuses into an ActionFailure the researcher can read', async () => {
+        const refusal = JSON.stringify({
+            message: 'Unable to validate parameters',
+            validations: [{ field: 'container_image', detail: 'Container image must have no URL scheme' }],
+        })
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const respond = (status: number, body: unknown) =>
+                Promise.resolve({
+                    ok: status < 400,
+                    status,
+                    json: vi.fn().mockResolvedValue(body),
+                    text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : JSON.stringify(body)),
+                })
+            if (url.includes('/users?')) return respond(200, mockUsersEmailQueryResponse)
+            if (init?.method === 'POST' && url.includes('/members/')) return respond(400, refusal)
+            if (url.includes('/templates')) return respond(200, [{ id: 'template1', name: 'aws-fargate' }])
+            if (url.includes('/organizations')) return respond(200, [{ id: 'org1', name: 'coder' }])
+            return respond(404, 'Not found')
+        })
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            return Promise.resolve('https://api.coder.com')
+        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        await insertStudyCodeEnv(orgId)
+
+        const failure = await createUserAndWorkspace(studyId).catch((err: unknown) => err)
+
+        expect(failure).toBeInstanceOf(ActionFailure)
+        expect((failure as ActionFailure).error).toMatch(/image reference is invalid/)
+    })
+
+    // Our Coder token or config being off is not something the researcher can act on.
+    it('keeps the generic failure when Coder rejects our credentials', async () => {
+        ;(global.fetch as unknown as Mock).mockImplementation((url: string, init?: RequestInit) => {
+            const respond = (status: number, body: unknown) =>
+                Promise.resolve({
+                    ok: status < 400,
+                    status,
+                    json: vi.fn().mockResolvedValue(body),
+                    text: vi.fn().mockResolvedValue(typeof body === 'string' ? body : JSON.stringify(body)),
+                })
+            if (url.includes('/users?')) return respond(200, mockUsersEmailQueryResponse)
+            if (init?.method === 'POST' && url.includes('/members/')) {
+                return respond(403, { message: 'API key expired', detail: 'session token is invalid' })
+            }
+            if (url.includes('/templates')) return respond(200, [{ id: 'template1', name: 'aws-fargate' }])
+            if (url.includes('/organizations')) return respond(200, [{ id: 'org1', name: 'coder' }])
+            return respond(404, 'Not found')
+        })
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            return Promise.resolve('https://api.coder.com')
+        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        await insertStudyCodeEnv(orgId)
+
+        const failure = await createUserAndWorkspace(studyId).catch((err: unknown) => err)
+
+        // Not an ActionFailure, so the action layer shows "Something went wrong" rather than Coder's text.
+        expect(failure).not.toBeInstanceOf(ActionFailure)
+        expect((failure as Error).message).toMatch(/^Failed to create user and workspace/)
     })
 
     it('should include DATABASE_URL env vars for athena data source type', async () => {
@@ -431,26 +544,13 @@ describe('createUserAndWorkspace', () => {
             if (key === 'ATHENA_RESULTS_BUCKET_NAME') return Promise.resolve(null)
             return Promise.resolve('https://api.coder.com')
         })
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
-            id: 'env-123',
-            identifier: 'test_env',
-            dataSourceType: 'athena',
-            slug: 'test-org',
-            url: 'test-image:latest',
-            settings: { environment: [] },
-            starterCodeFileNames: ['main.R'],
-            language: 'R',
-        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        const codeEnvId = await insertStudyCodeEnv(orgId, { dataSourceType: 'athena' })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        await createUserAndWorkspace('study123')
+        await createUserAndWorkspace(studyId)
 
         const createWorkspaceCall = mockFetch.mock.calls.find(
             (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
@@ -460,7 +560,7 @@ describe('createUserAndWorkspace', () => {
             requestBody.rich_parameter_values.find((p: { name: string }) => p.name === 'environment').value,
         )
 
-        const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`
+        const dataPath = `s3://${process.env.BUCKET_NAME}/code-env/test-org/${codeEnvId}/sample-data`
         const expectedDbUrl = `athena://athena.us-west-2.amazonaws.com:443/test_org_test_env?s3_location=${dataPath}`
         expect(envVars).toContainEqual({ name: 'DATABASE_URL', value: expectedDbUrl })
         expect(envVars).toContainEqual({ name: 'TEST_ENV_DATABASE_URL', value: expectedDbUrl })
@@ -471,7 +571,7 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
             name: 'TEST_ENV_S3_BUCKET_PREFIX',
-            value: 'code-env/test-org/env-123/sample-data',
+            value: `code-env/test-org/${codeEnvId}/sample-data`,
         })
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-west-2' })
     })
@@ -525,26 +625,13 @@ describe('createUserAndWorkspace', () => {
             if (key === 'CODER_SAMPLE_DATA_READ_ONLY_POSTGRES_USER') return Promise.resolve('readonly_user')
             return Promise.resolve('https://api.coder.com')
         })
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
-            id: 'env-123',
-            identifier: 'test_env',
-            dataSourceType: 'postgres',
-            slug: 'test-org',
-            url: 'test-image:latest',
-            settings: { environment: [] },
-            starterCodeFileNames: ['main.R'],
-            language: 'R',
-        })
+        const { studyId, orgId } = await insertClaimedStudy()
+        const codeEnvId = await insertStudyCodeEnv(orgId, { dataSourceType: 'postgres' })
         fetchFileContentsMock.mockResolvedValue({
             arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
-        await createUserAndWorkspace('study123')
+        await createUserAndWorkspace(studyId)
 
         const createWorkspaceCall = mockFetch.mock.calls.find(
             (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
@@ -565,7 +652,7 @@ describe('createUserAndWorkspace', () => {
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_NAME', value: process.env.BUCKET_NAME })
         expect(envVars).toContainEqual({
             name: 'TEST_ENV_S3_BUCKET_PREFIX',
-            value: 'code-env/test-org/env-123/sample-data',
+            value: `code-env/test-org/${codeEnvId}/sample-data`,
         })
         expect(envVars).toContainEqual({ name: 'TEST_ENV_S3_BUCKET_REGION', value: 'us-east-1' })
     })
@@ -579,21 +666,9 @@ describe('createUserAndWorkspace', () => {
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
-        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
-            id: 'env-123',
-            identifier: 'test_env',
-            slug: 'test-org',
-            url: 'test-image:latest',
-            settings: {},
-            starterCodeFileNames: ['main.R'],
-        })
+        const { studyId } = await insertClaimedStudy()
 
-        await expect(createUserAndWorkspace('study123')).rejects.toThrow(
+        await expect(createUserAndWorkspace(studyId)).rejects.toThrow(
             'Failed to create user and workspace: Failed to query users: 500 Internal server error',
         )
     })
@@ -799,6 +874,8 @@ describe('md5Hash', () => {
 
 describe('getCoderWorkspaceLaunchStatus', () => {
     const ORIGINAL_ENV = process.env
+    let studyId: string
+    let orgId: string
 
     const buildId = 'build-1'
     const agentId = 'agent-1'
@@ -834,16 +911,12 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         return Promise.resolve({ ok: false, status: 404, text: vi.fn().mockResolvedValue('Not found') })
     }
 
-    beforeEach(() => {
+    beforeEach(async () => {
         process.env = { ...ORIGINAL_ENV }
         vi.resetAllMocks()
         global.fetch = vi.fn()
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
-        getIdeOwnerForStudyMock.mockResolvedValue({
-            userId: 'ide-owner-1',
-            email: 'john@example.com',
-            fullName: 'John Doe',
-        })
+        ;({ studyId, orgId } = await insertClaimedStudy())
     })
 
     afterEach(() => {
@@ -861,7 +934,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
             }),
         )
 
-        const status = await getCoderWorkspaceLaunchStatus('study-1')
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
 
         expect(status.buildStatus).toBe('running')
         expect(status.ready).toBe(false)
@@ -870,13 +943,33 @@ describe('getCoderWorkspaceLaunchStatus', () => {
         expect(status.agentLogLines).toEqual(['agent up'])
         expect(status.agentStatus).toEqual({ lifecycle: 'starting', status: 'connecting', codeServer: 'initializing' })
         expect(status.cursors).toEqual({ build: 2, agent: 5 })
+        const methods = (global.fetch as unknown as Mock).mock.calls.map(([, init]) => (init as RequestInit).method)
+        expect(methods).not.toContain('PUT')
+    })
+
+    it('reactivates a user flagged dormant mid-launch and keeps polling', async () => {
+        const fetchMock = global.fetch as unknown as Mock
+        const ok = (json: unknown) => Promise.resolve({ ok: true, json: vi.fn().mockResolvedValue(json) })
+        fetchMock.mockImplementation((url: string, init: RequestInit) => {
+            if (url.includes('/users?'))
+                return ok({ users: [{ username: 'john-doe', email: 'john@example.com', status: 'dormant' }] })
+            if (init.method === 'PUT') return ok({ username: 'john-doe', email: 'john@example.com', status: 'active' })
+            return routeFetch({})(url)
+        })
+
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
+
+        const puts = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'PUT')
+        expect(puts.map(([url]) => url)).toEqual(['https://api.coder.com/api/v2/users/john-doe/status/activate'])
+        expect(fetchMock.mock.calls.map(([url]) => url)).toContainEqual(expect.stringContaining('/john-doe/workspace/'))
+        expect(status.buildStatus).toBe('running')
     })
 
     it('only requests logs after the provided cursors', async () => {
         const fetchMock = global.fetch as unknown as Mock
         fetchMock.mockImplementation(routeFetch({ buildLogs: [], agentLogs: [] }))
 
-        await getCoderWorkspaceLaunchStatus('study-1', { build: 2, agent: 5 })
+        await getCoderWorkspaceLaunchStatus(studyId, { build: 2, agent: 5 })
 
         const urls = fetchMock.mock.calls.map((c) => c[0] as string)
         expect(urls).toContainEqual(expect.stringContaining(`/workspacebuilds/${buildId}/logs?after=2`))
@@ -890,7 +983,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
             }),
         )
 
-        const status = await getCoderWorkspaceLaunchStatus('study-1')
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
 
         expect(status.failed).toBe(true)
         expect(status.reason).toBe('terraform exploded')
@@ -905,7 +998,7 @@ describe('getCoderWorkspaceLaunchStatus', () => {
             return routeFetch({ agentLogs: [{ id: 9, created_at: '2020-01-01T00:00:09Z', output: 'agent' }] })(url)
         })
 
-        const status = await getCoderWorkspaceLaunchStatus('study-1')
+        const status = await getCoderWorkspaceLaunchStatus(studyId)
 
         expect(status.buildLogLines).toEqual([])
         expect(status.agentLogLines).toEqual(['agent'])
@@ -928,15 +1021,12 @@ describe('getCoderWorkspaceLaunchStatus', () => {
             return ok([])
         })
 
-        await expect(getCoderWorkspaceLaunchStatus('study-1')).rejects.toThrow(/expected at most one agent/)
+        await expect(getCoderWorkspaceLaunchStatus(studyId)).rejects.toThrow(/expected at most one agent/)
     })
 
     // OTTER-817: the url carries the Coder username, so this is the assertion that distinguishes a
     // workspace opened under the IDE owner from one opened under the proposal submitter.
     describe('once ready', () => {
-        // A real uuid: the ready path reaches latestStudyJobCreatedAt, which queries study_job for real.
-        const READY_STUDY_ID = '00000000-0000-0000-0000-000000000817'
-
         const readyEvent = {
             ...workspaceEvent,
             latest_build: {
@@ -967,26 +1057,25 @@ describe('getCoderWorkspaceLaunchStatus', () => {
             return ok([])
         }
 
-        beforeEach(() => {
+        beforeEach(async () => {
             ;(global.fetch as unknown as Mock).mockImplementation(routeReady)
-            fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({ language: 'R', orgId: 'org-1' })
-            getDataSourcesForOrgMock.mockResolvedValue([])
+            await insertStudyCodeEnv(orgId, { starterCodeFileNames: [] })
         })
 
         it("returns the IDE owner's workspace url", async () => {
-            const status = await getCoderWorkspaceLaunchStatus(READY_STUDY_ID)
+            const status = await getCoderWorkspaceLaunchStatus(studyId)
 
             // The lookup is keyed on the IDE owner's email, and the url carries the username that
             // lookup resolved to — the two halves of what returned a 404 for a non-submitter.
             expect((global.fetch as unknown as Mock).mock.calls[0][0]).toContain('john%40example.com')
             expect(status.ready).toBe(true)
             expect(status.url).toBe(
-                `https://api.coder.com/@owner-b/${generateWorkspaceName(READY_STUDY_ID)}.main/apps/code-server`,
+                `https://api.coder.com/@owner-b/${generateWorkspaceName(studyId)}.main/apps/code-server`,
             )
         })
 
         it('resolves the Coder user once per poll rather than again to build the url', async () => {
-            await getCoderWorkspaceLaunchStatus(READY_STUDY_ID)
+            await getCoderWorkspaceLaunchStatus(studyId)
 
             const userLookups = (global.fetch as unknown as Mock).mock.calls.filter((c) =>
                 (c[0] as string).includes('/users?'),

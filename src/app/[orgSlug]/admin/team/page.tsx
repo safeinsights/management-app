@@ -3,7 +3,6 @@ import { Stack } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { displayOrgName } from '@/lib/string'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { UsersTable } from './users-table'
 import { InviteButton } from './invitation'
@@ -22,7 +21,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
     return (
         <Stack p="md">
             <ManageTeamView
-                orgName={displayOrgName(org.name)}
+                orgName={org.name}
                 inviteAction={<InviteButton orgSlug={orgSlug} />}
                 table={<UsersTable orgSlug={orgSlug} />}
             />

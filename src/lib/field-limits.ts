@@ -1,6 +1,8 @@
-// Wording is verbatim copy from OTTER-690.
-export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number) =>
-    `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
+// The singular wording is verbatim copy from OTTER-690.
+export const overCharacterLimitError = (fieldTitle: string, maxCharacters: number, { plural = false } = {}) =>
+    plural
+        ? `${fieldTitle} exceed the ${maxCharacters} character limit. Shorten them to continue.`
+        : `${fieldTitle} exceeds the ${maxCharacters} character limit. Shorten it to continue.`
 
 // Derived, never stored: setFieldValue clears the field's error and Mantine dedupes the
 // setFieldError that would put it back (OTTER-777). The required half stays with blur and submit.

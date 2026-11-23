@@ -3,10 +3,11 @@ import { StatusAlert, STATUS_ALERT_VARIANT, statusAlertTitle } from '@/component
 import { OutputsReviewPanel } from '@/components/study/outputs-review-panel'
 import { ReviewBeforeSharingBanner } from '@/components/study/review-before-sharing-banner'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { jobErrorDetails, type JobErrorDetails } from '@/lib/job-error-details'
 import { latestStatusAt } from '@/lib/study-job-status'
 import { awaitingFilesDecisionOnError, projectStudyState } from '@/lib/study-screen'
-import { latestRecordedJobFailureReason, latestSubmittedJobForStudy } from '@/server/db/queries'
+import { latestRecordedJobFailureReason, latestSubmittedJobForStudy, priorCodeRunsForStudy } from '@/server/db/queries'
 import type { ScreenComponentProps } from './types'
 
 // OTTER-524 names the stage that failed and says plainly when no error log exists. OTTER-769
@@ -34,21 +35,23 @@ export async function ReviewerOutputsErroredScreen({
         return <AlertNotFound title="No error found" message="This study has not encountered an error." />
     }
 
-    const labName = study.submittingLabName ?? study.submittedByOrgSlug
+    const labName = study.submittingLabName
     const erroredAt = latestStatusAt(job.statusChanges, 'JOB-ERRORED')
     // Reviewer-scoped query, so the raw reason never reaches the researcher.
     const recordedReason = await latestRecordedJobFailureReason(job.id)
     // Banner copy and key gate read the same predicate, so the screen cannot promise a key form
     // it does not render (OTTER-524).
     const details = jobErrorDetails(job.statusChanges, job.files ?? [], recordedReason)
+    const priorRuns = await priorCodeRunsForStudy(study.id, job.id)
 
     return (
         <OutputsReviewPanel
             orgSlug={orgSlug}
             studyId={study.id}
             job={job}
+            priorRuns={priorRuns}
             labName={labName}
-            header={<StudyPageHeader study={study} />}
+            header={<StudyPageHeader study={study} step={REVIEW_OUTPUTS_STEP} />}
             lockedBanner={<ErroredBanner erroredAt={erroredAt} details={details} />}
             unlockedBanner={<ReviewBeforeSharingBanner labName={labName} />}
             nav={phasedNav}

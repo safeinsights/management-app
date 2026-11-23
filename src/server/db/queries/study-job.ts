@@ -1,0 +1,262 @@
+import { Selectable } from 'kysely'
+import { jsonArrayFrom, type DBExecutor } from '@/database'
+import { ActionSuccessType } from '@/lib/types'
+import { throwNotFound } from '@/lib/errors'
+import { currentDb } from '@/server/request-context'
+import { FileType } from '@/database/types'
+import { JOB_FAILURE_REASONS } from '@/lib/job-error-details'
+import { OUTPUTS_REVIEWABLE_JOB_STATUSES } from '@/lib/outputs-review'
+import { latestJobQuery } from '@/server/db/latest-job'
+
+export async function getStudyJobInfo(studyJobId: string) {
+    return await currentDb()
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('org', 'study.orgId', 'org.id')
+        .select((eb) => [
+            'studyJob.id as studyJobId',
+            'studyJob.studyId',
+            'studyJob.createdAt',
+            'study.title as studyTitle',
+            'study.status',
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.submittedByOrgId',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['status', 'createdAt'])
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                    .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['id', 'name', 'path', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
+        ])
+        .where('studyJob.id', '=', studyJobId)
+        .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
+}
+
+export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
+
+export { latestJobQuery }
+
+function latestJobForStudyQuery(studyId: string, options: { submitted?: boolean } = {}) {
+    return latestJobQuery(currentDb(), studyId, options)
+        .selectAll('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select(['study.orgId', 'study.language', 'study.status'])
+        .select((eb) => [
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                    .orderBy('createdAt', 'desc')
+                    .orderBy('jobStatusChange.id', 'desc')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['id', 'name', 'path', 'fileType', 'createdAt'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
+        ])
+}
+
+export const latestJobForStudy = async (studyId: string) => {
+    return latestJobForStudyQuery(studyId).executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
+}
+
+export async function latestJobForStudyOrNull(studyId: string): Promise<LatestJobForStudy | null> {
+    return (await latestJobForStudyQuery(studyId).executeTakeFirst()) ?? null
+}
+
+export const latestSubmittedJobForStudy = async (studyId: string): Promise<LatestJobForStudy | null> => {
+    return (await latestJobForStudyQuery(studyId, { submitted: true }).executeTakeFirst()) ?? null
+}
+
+// The code round the job carries, stored by the status writer (OTTER-973).
+export async function jobRound(studyJobId: string, executor: DBExecutor): Promise<number> {
+    const job = await executor
+        .selectFrom('studyJob')
+        .select('round')
+        .where('id', '=', studyJobId)
+        .executeTakeFirstOrThrow(throwNotFound(`study job ${studyJobId}`))
+    return job.round
+}
+
+export type PriorCodeRun = Awaited<ReturnType<typeof priorCodeRunsForStudy>>[number]
+
+// A job counts as a code run only once the enclave finished it, errored or not; rounds closed
+// before running never produced outputs to review (OTTER-882).
+export async function priorCodeRunsForStudy(studyId: string, latestJobId: string) {
+    return await currentDb()
+        .selectFrom('studyJob')
+        .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+        .select((eb) => [
+            'studyJob.id',
+            'studyJob.round',
+            eb.fn.max('jobStatusChange.createdAt').as('ranAt'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange as statusChange')
+                    .select(['statusChange.status', 'statusChange.createdAt'])
+                    .whereRef('statusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile as codeFile')
+                    .select(['codeFile.id', 'codeFile.name', 'codeFile.fileType'])
+                    .whereRef('codeFile.studyJobId', '=', 'studyJob.id')
+                    .where('codeFile.fileType', 'in', ['MAIN-CODE', 'SUPPLEMENTAL-CODE'])
+                    // Explicit, because sorting the enum column follows its declaration order (OTTER-812).
+                    .orderBy((fileEb) => fileEb('codeFile.fileType', '=', 'MAIN-CODE'), 'desc')
+                    .orderBy('codeFile.name', 'asc'),
+            ).as('codeFiles'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyReviewComment')
+                    .innerJoin('user as author', 'author.id', 'studyReviewComment.authorId')
+                    .select([
+                        'studyReviewComment.id',
+                        'studyReviewComment.body',
+                        'studyReviewComment.createdAt',
+                        'studyReviewComment.round',
+                        'author.fullName as authorName',
+                    ])
+                    .whereRef('studyReviewComment.studyJobId', '=', 'studyJob.id')
+                    .where('studyReviewComment.reviewKind', '=', 'RESULTS')
+                    .where('studyReviewComment.entryType', '=', 'DECISION')
+                    // Matches getOutputsDecisionFeedbackAction, so same-millisecond decisions keep one order.
+                    .orderBy('studyReviewComment.createdAt', 'desc')
+                    .orderBy('studyReviewComment.id', 'desc'),
+            ).as('feedback'),
+        ])
+        .where('studyJob.studyId', '=', studyId)
+        .where('studyJob.id', '!=', latestJobId)
+        .where('jobStatusChange.status', 'in', OUTPUTS_REVIEWABLE_JOB_STATUSES)
+        .groupBy('studyJob.id')
+        .orderBy('ranAt', 'desc')
+        .orderBy('studyJob.id', 'desc')
+        .execute()
+}
+
+// jobStatusChange.message can hold raw service/AWS text, so it must not be selected in queries the
+// researcher can reach; the filter to known codes stops a duplicate JOB-ERRORED masking the real one.
+// (OTTER-524)
+export async function latestRecordedJobFailureReason(studyJobId: string): Promise<string | null> {
+    // An empty code set would render `message in ()`, which Postgres rejects.
+    const knownReasons: string[] = [...JOB_FAILURE_REASONS]
+    if (knownReasons.length === 0) return null
+
+    const row = await currentDb()
+        .selectFrom('jobStatusChange')
+        .select('message')
+        .where('studyJobId', '=', studyJobId)
+        .where('status', '=', 'JOB-ERRORED')
+        .where('message', 'in', knownReasons)
+        .orderBy('createdAt', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return row?.message ?? null
+}
+
+const studyJobInfoQuery = (studyJobId: string) =>
+    currentDb()
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select([
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.id as studyId',
+            'studyJob.id as studyJobId',
+            'study.submittedByOrgId',
+            'study.status',
+        ])
+        .where('studyJob.id', '=', studyJobId)
+
+type StudyJobInfo = Awaited<ReturnType<ReturnType<typeof studyJobInfoQuery>['executeTakeFirstOrThrow']>>
+
+export async function getInfoForStudyJobId(studyJobId: string, throwIfNotFound?: true): Promise<StudyJobInfo>
+export async function getInfoForStudyJobId(
+    studyJobId: string,
+    throwIfNotFound: false,
+): Promise<StudyJobInfo | undefined>
+export async function getInfoForStudyJobId(
+    studyJobId: string,
+    throwIfNotFound = true,
+): Promise<StudyJobInfo | undefined> {
+    const query = studyJobInfoQuery(studyJobId)
+    return throwIfNotFound
+        ? await query.executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
+        : await query.executeTakeFirst()
+}
+
+type JobDetails = { id: string; name: string; path: string }
+
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound?: true,
+): Promise<Selectable<JobDetails>>
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound?: false,
+): Promise<Selectable<JobDetails> | undefined>
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound = true,
+): Promise<Selectable<JobDetails> | undefined> {
+    const file = await currentDb()
+        .selectFrom('studyJobFile')
+        .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path', 'study.orgId', 'study.submittedByOrgId'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', fileType)
+        // A resubmission can leave more than one row of a given type for a job; take the newest.
+        .orderBy('studyJobFile.createdAt', 'desc')
+        .orderBy('studyJobFile.id', 'desc')
+        .executeTakeFirst()
+
+    if (!file && throwIfNotFound) {
+        throw new Error(`File of type ${fileType} not found for study job ${studyJobId}`)
+    }
+    return file
+}
+
+export async function getOrgIdForJobId(jobId: string) {
+    const job = await currentDb()
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .where('studyJob.id', '=', jobId)
+        .select(['study.orgId'])
+        .executeTakeFirst()
+
+    return job?.orgId
+}
+
+// Scoped to the study so a job id from another study yields nothing.
+export async function latestCodeSubmissionAt(studyId: string, jobId: string): Promise<Date | undefined> {
+    const row = await currentDb()
+        .selectFrom('jobStatusChange')
+        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .where('studyJob.id', '=', jobId)
+        .where('studyJob.studyId', '=', studyId)
+        .where('jobStatusChange.status', '=', 'CODE-SUBMITTED')
+        .select('jobStatusChange.createdAt')
+        .orderBy('jobStatusChange.createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    return row?.createdAt
+}

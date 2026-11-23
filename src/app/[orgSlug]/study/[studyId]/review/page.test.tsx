@@ -4,9 +4,11 @@ import { faker } from '@faker-js/faker'
 import { redirect } from 'next/navigation'
 import {
     db,
+    insertTestJobStatus,
     insertTestOrg,
     insertTestStudyJobData,
     insertTestStudyOnly,
+    mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
     setTestStudyStatus,
 } from '@/tests/unit.helpers'
@@ -37,10 +39,7 @@ const addJobStatus = async (studyId: string, status: StudyJobStatus) => {
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
     const base = last?.createdAt ? new Date(last.createdAt).getTime() : Date.now()
-    await db
-        .insertInto('jobStatusChange')
-        .values({ status, studyJobId: job.id, createdAt: new Date(base + 1000) })
-        .execute()
+    await insertTestJobStatus(job.id, status, { at: new Date(base + 1000) })
 }
 
 const ackReviewerAgreements = (studyId: string) =>
@@ -73,6 +72,22 @@ describe('StudyReviewPage', () => {
 
         expect(page?.type).toBe(ProposalReviewView)
         expect(page?.type).not.toBe(AccessDeniedAlert)
+        expect(mockRedirect).not.toHaveBeenCalled()
+    })
+
+    // OTTER-768: the URL picks the persona, so the researcher guard leaves a dual-role user's /review alone.
+    it('lets a dual-role user review a study their own lab submitted', async () => {
+        const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData()
+        const { study } = await insertTestStudyJobData({
+            org: enclaveOrg,
+            submittedByOrg: labOrg,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+
+        const page = await callPage(enclaveOrg.slug, study.id)
+
+        expect(page?.type).toBe(ProposalReviewView)
         expect(mockRedirect).not.toHaveBeenCalled()
     })
 

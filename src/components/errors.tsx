@@ -5,6 +5,7 @@ import { derivedToastId, showToast } from '@/components/toast-notifications'
 import {
     errorToString,
     extractActionFailure,
+    isActionError,
     isStaleDeploymentError,
     STALE_DEPLOYMENT_MESSAGE,
     STALE_DEPLOYMENT_TITLE,
@@ -43,17 +44,27 @@ const reportStaleDeployment = () =>
         message: <ReloadNotice message={STALE_DEPLOYMENT_MESSAGE} />,
     })
 
-// Returns the Sentry event id so a caller can quote the same reference the toast shows.
-export const reportError = (error: unknown, title = 'An error occurred') => {
+// The server already raised this event, so the reader gets its id and Sentry gets no second one (OTTER-984).
+const serverEventId = (error: unknown) => (isActionError(error) ? error.eventId : undefined)
+
+const capture = (error: unknown) => {
     // Captured on purpose for a stale action id too: these events are the only client-side measure
     // of how often a deploy lands under an open tab. Only the reference id is withheld from the
     // notice, because the copy already says the one thing the reader can do.
-    const eventId = captureException(error)
+    const eventId = serverEventId(error) ?? captureException(error)
+    const isStale = isStaleDeploymentError(error)
+    if (isStale) reportStaleDeployment()
+    return { eventId, isStale }
+}
 
-    if (isStaleDeploymentError(error)) {
-        reportStaleDeployment()
-        return eventId
-    }
+// For a caller that shows the failure itself, so no toast. A stale deployment still gets its reload
+// notice, because nothing on the page can fix that.
+export const captureError = (error: unknown) => capture(error).eventId
+
+// Returns the Sentry event id so a caller can quote the same reference the toast shows.
+export const reportError = (error: unknown, title = 'An error occurred') => {
+    const { eventId, isStale } = capture(error)
+    if (isStale) return eventId
 
     const detail = errorToString(error, { fallback: 'Try again.' })
 
@@ -140,15 +151,19 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
     )
 }
 
+// One InputError line: reserving it up front keeps the layout still when a message arrives.
+export const ERROR_LINE_MIN_HEIGHT = 'calc(var(--mantine-font-size-sm) * var(--mantine-line-height-sm))'
+
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 
     // `component="span"` so this stays valid as a Mantine `error`, which renders inside a `<p>`
     // where a `<div>` is a React nesting error.
     return (
-        <Group component="span" gap="xs">
+        <Group component="span" gap="xs" wrap="nowrap" align="flex-start">
             <WarningCircleIcon size={14} color="var(--mantine-color-error)" weight="fill" />
-            <Text c="var(--mantine-color-error)" size="sm" component="span">
+            {/* The text takes the free width, so a wrapping message cannot squeeze the icon below 14px. */}
+            <Text c="var(--mantine-color-error)" size="sm" component="span" flex={1}>
                 {error}
             </Text>
         </Group>

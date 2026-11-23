@@ -2,12 +2,12 @@ import { useRef, type FC } from 'react'
 import { Anchor, Box, Divider, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
 import type { FileWithPath } from '@mantine/dropzone'
-import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { ACCEPTED_FILE_FORMATS_TEXT, MAX_UPLOAD_FILE_HINT } from '@/lib/types'
 import { FileDropOverlay } from './file-drop-overlay'
 import { LaunchIdeControl } from './launch-ide-control'
 import { LaunchProgress } from './launch-progress'
 import { UploadFilesButton } from './upload-files-button'
-import { fontWeight } from '@/theme/tokens'
+import { fontWeight, semanticColor } from '@/theme/tokens'
 
 interface StarterFile {
     name: string
@@ -56,7 +56,7 @@ const WriteCodeInIdePanel: FC<WriteCodeInIdePanelProps> = ({
 
     return (
         <>
-            <Paper bg="violet.0" p="lg" radius="md">
+            <Paper bg={semanticColor('highlight.bg.light')} p="lg" radius="md">
                 <Stack gap="sm">
                     <Text fw={fontWeight.bold}>Write and test your code in IDE (recommended)</Text>
                     <Text size="sm" c="dimmed">
@@ -152,7 +152,7 @@ export function StudyCodeEmptyView({
                                     {ACCEPTED_FILE_FORMATS_TEXT}
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    10MB max
+                                    {MAX_UPLOAD_FILE_HINT}
                                 </Text>
                                 <UploadFilesButton openRef={openRef} disabled={isUploadDisabled} />
                             </Stack>

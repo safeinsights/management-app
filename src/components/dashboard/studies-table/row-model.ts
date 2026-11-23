@@ -1,9 +1,9 @@
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { UNTITLED_STUDY_TITLE } from '@/lib/string'
-import type { StatusLabel } from '@/lib/status-labels'
-import { resolveDashboardAction, resolvePillStatus, resolveRowHighlight, type StudyState } from '@/lib/study-screen'
-import { lastBadgeChangeAt, rowStudyState } from './dashboard-raw-state'
+import type { PillId, StatusLabel } from '@/lib/status-labels'
+import { resolveDashboardAction, resolvePillId, resolvePillStatus, type StudyState } from '@/lib/study-screen'
+import { isStudyUnread, lastActivityAt, rowStudyState, timeOf } from '@/lib/study-screen/dashboard-raw-state'
 import { dataPartnerDisplayName, labDisplayName, pillOrgNamesFromRow } from './pill-context'
 import type { Audience, StudyRow } from './types'
 
@@ -27,14 +27,12 @@ export type RowModel = {
     submittedBy: Attribution
     reviewedBy: Attribution
     status: StatusLabel
-    isHighlighted: boolean
+    isUnread: boolean
     canDeleteDraft: boolean
     study: StudyRow
 }
 
 type Stage = { name: string | null | undefined; at: Date | string | null | undefined }
-
-const timeOf = (at: Date | string | null | undefined) => (at ? new Date(at).getTime() : null)
 
 const newestStage = (stages: Stage[]): Stage | null =>
     stages.reduce<Stage | null>((newest, stage) => {
@@ -64,13 +62,28 @@ const proposalReview = (study: StudyRow): Stage => {
     return { name: study.reviewerName, at: decidedAt }
 }
 
-const attribution = (stages: Array<[label: string, stage: Stage]>, placeholder: string): Attribution => ({
-    name: newestStage(stages.map(([, stage]) => stage))?.name ?? null,
-    lines: stages.map(([label, stage]) => `${label}: ${stage.name ?? placeholder}`),
-})
+type StageLabel = 'Proposal' | 'Code' | 'Outputs'
 
-const newestDate = (...dates: Array<Date | string | null | undefined>): Date =>
-    new Date(Math.max(...dates.map((date) => timeOf(date) ?? 0)))
+// While a stage awaits its submission or decision, earlier rounds' actors are not credited for it or later stages.
+const AWAITING_SUBMISSION: Partial<Record<PillId, StageLabel>> = { 'proposal-draft': 'Proposal', 'code-draft': 'Code' }
+const AWAITING_REVIEW: Partial<Record<PillId, StageLabel>> = {
+    'proposal-needs-review': 'Proposal',
+    'code-needs-review': 'Code',
+    'outputs-need-review': 'Outputs',
+    'code-errored': 'Outputs',
+}
+
+const attribution = (
+    stages: Array<[label: StageLabel, stage: Stage]>,
+    placeholder: string,
+    awaiting: StageLabel | undefined,
+): Attribution => {
+    const from = awaiting ? stages.findIndex(([label]) => label === awaiting) : stages.length
+    return {
+        name: awaiting ? null : (newestStage(stages.map(([, stage]) => stage))?.name ?? null),
+        lines: stages.map(([label, stage], i) => `${label}: ${(i < from && stage.name) || placeholder}`),
+    }
+}
 
 // The researcher link and the draft bin come from the same dashboard rule (docs/study-screens-logic.md,
 // Stage 3).
@@ -103,7 +116,7 @@ export function buildRowModel(
         id: study.id,
         title: study.title?.trim() || UNTITLED_STUDY_TITLE,
         href,
-        lastActivityAt: newestDate(study.lastUpdatedAt, lastBadgeChangeAt(study, audience), study.ownEditsAt),
+        lastActivityAt: lastActivityAt(study, audience),
         submittedTo: study.status === 'DRAFT' ? null : dataPartnerDisplayName(study),
         submittedFrom: labDisplayName(study),
         belongsTo: audience === 'researcher' ? labDisplayName(study) : dataPartnerDisplayName(study),
@@ -113,6 +126,7 @@ export function buildRowModel(
                 ['Code', { name: study.codeSubmitterName, at: study.codeSubmittedAt }],
             ],
             NOT_SUBMITTED,
+            AWAITING_SUBMISSION[resolvePillId('researcher', state)],
         ),
         reviewedBy: attribution(
             [
@@ -121,9 +135,10 @@ export function buildRowModel(
                 ['Outputs', { name: study.outputsReviewerName, at: study.outputsReviewedAt }],
             ],
             NOT_REVIEWED,
+            AWAITING_REVIEW[resolvePillId('reviewer', state)],
         ),
         status: resolvePillStatus(audience, state, pillOrgNamesFromRow(study)),
-        isHighlighted: resolveRowHighlight(audience, state),
+        isUnread: isStudyUnread(study, audience),
         canDeleteDraft,
         study,
     }

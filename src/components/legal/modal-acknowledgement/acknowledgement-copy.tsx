@@ -1,5 +1,8 @@
 import { legalDocumentTypeLabels, type PendingLegalDocument } from '@/schema/legal-document'
+import { Text } from '@mantine/core'
+import type { FC } from 'react'
 import { PdfLink } from '../pdf-link'
+import { fontWeight } from '@/theme/tokens'
 
 export const legalAcknowledgementTitle = (document: PendingLegalDocument) => legalDocumentTypeLabels[document.type]
 
@@ -12,17 +15,30 @@ const documentName = (document: PendingLegalDocument) => {
     return <PdfLink url={document.url} label={label} />
 }
 
+// Only org-scoped ropa/dopa
+const OrgScope: FC<{ orgName: string | null }> = ({ orgName }) => {
+    if (!orgName) return null
+
+    return (
+        <>
+            {' '}
+            for{' '}
+            <Text span fw={fontWeight.semibold}>
+                {orgName}
+            </Text>
+        </>
+    )
+}
+
 // Wording follows what UX established for the participation-agreement modals. One document per modal,
 // so the sentence can always say the true thing about it rather than hedging across a pair.
 export const legalAcknowledgementBody = (document: PendingLegalDocument) => {
     const state = document.isUpdate ? 'has been updated' : 'is now available'
-    // Only org-scoped ropa/dopa
-    const scope = document.orgName ? ` for ${document.orgName}` : ''
 
     return (
         <>
             The {documentName(document)}
-            {scope} {state}. Please review before proceeding.
+            <OrgScope orgName={document.orgName} /> {state}. Please review before proceeding.
         </>
     )
 }
@@ -30,5 +46,5 @@ export const legalAcknowledgementBody = (document: PendingLegalDocument) => {
 export const legalAcknowledgementCheckboxLabel = (document: PendingLegalDocument) => {
     const updated = document.isUpdate ? 'updated ' : ''
 
-    return `I have read and acknowledge the ${updated}${legalAcknowledgementTitle(document)}`
+    return `I have read and acknowledge the ${updated}${legalAcknowledgementTitle(document)}.`
 }

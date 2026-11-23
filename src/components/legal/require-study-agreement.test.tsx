@@ -1,20 +1,35 @@
 import { screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureException } from '@sentry/nextjs'
+import { memoryRouter } from 'next-router-mock'
 import { db } from '@/database'
 import type { StudyStatus } from '@/database/types'
+import logger from '@/lib/logger'
+import { Routes } from '@/lib/routes'
 import {
+    createTestQueryWrapper,
     faker,
     insertTestOrg,
     insertTestStudyAgreement,
     insertTestStudyOnly,
     insertTestUser,
     mockSessionWithTestData,
+    renderHook,
     renderWithProviders,
     resetLegalDocuments,
     userEvent,
 } from '@/tests/unit.helpers'
-import { RequireStudyAgreement } from './require-study-agreement'
+import { RequireStudyAgreement, useStudyAgreementStatus } from './require-study-agreement'
 import { StudyAgreementPreparingNotice } from './study-agreement-preparing-notice'
+
+vi.mock('@sentry/nextjs', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sentry/nextjs')>()),
+    captureException: vi.fn(),
+    // Called by Action when it has a session, and on a failure (OTTER-842).
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+    flush: vi.fn().mockResolvedValue(true),
+}))
 
 beforeEach(resetLegalDocuments)
 
@@ -49,18 +64,18 @@ const acknowledgementsFor = (userId: string) =>
 
 describe('RequireStudyAgreement', () => {
     it('stays out of the way when no agreement has been published', async () => {
-        const { study } = await arrangeStudyForCurrentUser()
+        const { study, researchLab } = await arrangeStudyForCurrentUser()
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
 
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     })
 
     it('blocks the study until the agreement is acknowledged, and records the acknowledgement', async () => {
-        const { study, user } = await arrangeStudyForCurrentUser()
+        const { study, user, researchLab } = await arrangeStudyForCurrentUser()
         const version = await insertTestStudyAgreement({ studyId: study.id })
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
 
         const dialog = await screen.findByRole('dialog')
         expect(dialog).toBeInTheDocument()
@@ -77,18 +92,73 @@ describe('RequireStudyAgreement', () => {
     })
 
     it('stays out of the way once acknowledged', async () => {
-        const { study } = await arrangeStudyForCurrentUser()
+        const { study, researchLab } = await arrangeStudyForCurrentUser()
         await insertTestStudyAgreement({ studyId: study.id })
 
-        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
         await screen.findByRole('dialog')
         await userEvent.click(screen.getByRole('checkbox'))
         await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
         unmount()
 
-        renderWithProviders(<RequireStudyAgreement studyId={study.id} />)
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    })
+
+    it('sends Cancel to the org dashboard unacknowledged, and blocks again on the next visit', async () => {
+        const { study, user, researchLab } = await arrangeStudyForCurrentUser()
+        await insertTestStudyAgreement({ studyId: study.id })
+
+        const { unmount } = renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
+        await screen.findByRole('dialog')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.orgDashboard({ orgSlug: researchLab.slug })))
+        expect(await acknowledgementsFor(user.id)).toEqual([])
+        unmount()
+
+        renderWithProviders(<RequireStudyAgreement studyId={study.id} orgSlug={researchLab.slug} />)
+        expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    })
+})
+
+// OTTER-878: the study layout runs this for every visitor, including one the page turns away.
+describe('useStudyAgreementStatus error reporting', () => {
+    beforeEach(() => {
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+    })
+
+    const renderStatus = (studyId: string) =>
+        renderHook(() => useStudyAgreementStatus(studyId), { wrapper: createTestQueryWrapper() })
+
+    it('does not report a member of an unrelated lab who is refused', async () => {
+        const { study } = await arrangeStudyForCurrentUser()
+        await mockSessionWithTestData({ orgSlug: faker.string.alpha(10), orgType: 'lab' })
+
+        const { result } = renderStatus(study.id)
+
+        await waitFor(() => expect(result.current.isUnreadable).toBe(true))
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('cannot acknowledge LegalDocument'))
+        expect(captureException).not.toHaveBeenCalled()
+    })
+
+    it('does not report a study id that does not exist', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        const { result } = renderStatus(faker.string.uuid())
+
+        await waitFor(() => expect(result.current.isUnreadable).toBe(true))
+        expect(captureException).not.toHaveBeenCalled()
+    })
+
+    it('still reports a failure that is not a refusal', async () => {
+        await mockSessionWithTestData({ orgType: 'lab' })
+
+        renderStatus('not-a-uuid')
+
+        await waitFor(() => expect(captureException).toHaveBeenCalledOnce())
     })
 })
 
@@ -108,7 +178,8 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(await screen.findByText(/are being prepared/)).toBeInTheDocument()
+        expect(await screen.findByText('Study Agreement is being prepared')).toBeInTheDocument()
+        expect(screen.getByText(/have signed the Study Agreement\. If you are included/)).toBeInTheDocument()
     })
 
     it('names both signatories, lab first, so the reader knows who is holding it up', async () => {
@@ -126,7 +197,9 @@ describe('StudyAgreementPreparingNotice', () => {
 
         renderNotice(study.id)
 
-        expect(await screen.findByText(/you will be notified when your agreement is ready/)).toBeInTheDocument()
+        expect(
+            await screen.findByText(/you will be notified when your Study Agreement is ready for acknowledgement\.$/),
+        ).toBeInTheDocument()
     })
 
     it('drops the notify note in the informative tone', async () => {
@@ -135,7 +208,8 @@ describe('StudyAgreementPreparingNotice', () => {
         renderNotice(study.id, { tone: 'informative' })
 
         expect(await screen.findByTestId('status-alert')).toHaveAttribute('data-variant', 'informative')
-        expect(screen.getByText(/have signed the study agreements\.$/)).toBeInTheDocument()
+        expect(screen.getByText('Study Agreement is being prepared')).toBeInTheDocument()
+        expect(screen.getByText(/have signed the Study Agreement\.$/)).toBeInTheDocument()
         expect(screen.queryByText(/you will be notified/)).toBeNull()
     })
 

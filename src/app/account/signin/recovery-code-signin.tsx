@@ -1,14 +1,13 @@
 'use client'
 
-import { InputError } from '@/components/errors'
 import { useMutation } from '@/hooks/query-wrappers'
 import { errorToString } from '@/lib/errors'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@/common'
 import { showToast } from '@/components/toast-notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { Step } from './mfa'
+import type { Step } from './use-request-mfa'
 import { useCompleteSignIn } from './use-complete-sign-in'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -78,9 +77,6 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                         placeholder="Each code can only be used once"
                         key={form.key('code')}
                         {...form.getInputProps('code')}
-                        // Handed to Mantine so the message lands in `aria-describedby` rather than
-                        // being visual only.
-                        error={form.errors.code ? <InputError error={form.errors.code} /> : undefined}
                         autoComplete="one-time-code"
                     />
                     <Button

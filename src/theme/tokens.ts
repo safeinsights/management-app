@@ -82,7 +82,7 @@ export const semanticShades = {
     'warning.text': 'yellow.8',
     'warning.border': 'yellow.6',
     'warning.bg.light': 'yellow.0',
-    'warning.bg.dark': 'yellow.5',
+    'warning.bg.dark': 'yellow.4',
     /** status/error/* */
     'error.text': 'red.7',
     'error.border': 'red.6',
@@ -104,8 +104,8 @@ export type SemanticToken = keyof typeof semanticShades
 
 // Tokens whose value is not a ramp position: Figma's two base colours, its `light blue`, the
 // three alpha entries (`surface/tableheader` = #DADEE1 50%, `brand/accentalpha` = alpha/Blue30,
-// itself #E7F1FE 30%, `border/SideNav` = navy/0 30%), and `status/highlight/*`, a magenta no ramp
-// holds — none of which can live in a MantineColorsTuple.
+// itself #E7F1FE 30%, `border/SideNav` = navy/0 30%), `status/highlight/*`, a magenta no ramp
+// holds, and the unread dot, Figma `violet/4`. None of these can live in a MantineColorsTuple.
 const NON_RAMP = {
     'text.white': '#ffffff',
     'text.black': '#000000',
@@ -117,6 +117,7 @@ const NON_RAMP = {
     'border.sidenav': '#e6e9ef4d',
     'highlight.bg.light': '#f7e9fa',
     'highlight.text': '#5e1169',
+    'unread.dot': '#b93fcc',
 } as const
 
 /** CSS custom property name for a token, e.g. `--si-color-text-placeholder`. */
@@ -176,9 +177,9 @@ export const mantineColorOverrides = (theme: MantineTheme): Record<string, strin
     return vars
 }
 
-// Figma collections `font-size` and `line-height`. The five sizes that coincide with Mantine's
-// xs-xl scale are set on the theme itself; these expose the whole set, including the sizes Mantine
-// has no key for, without inventing names for them.
+// Figma collections `font-size` and `line-height`. All sizes but 10 and 40 have a Mantine key
+// (xs-xl on the theme, h3-h1 from Mantine's heading defaults); these expose the whole set without
+// inventing names for the other two.
 export const typographyCssVariables: Record<string, string> = {
     '--si-font-size-10': '0.625rem',
     '--si-font-size-12': '0.75rem',

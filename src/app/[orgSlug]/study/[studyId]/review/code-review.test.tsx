@@ -1,5 +1,6 @@
 import { lexicalJson } from '@/lib/lexical'
-import { type CodeReviewFeedbackEntry, getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -61,13 +62,15 @@ describe('CodeReview', () => {
         it('renders the H1 page title "Study proposal"', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 2: Review code` }),
+            ).toBeInTheDocument()
         })
 
         it('renders the STEP 2 sub-label and the section heading', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
-            expect(screen.getByText('STEP 2')).toBeInTheDocument()
+            expect(screen.getByText('Step 2')).toBeInTheDocument()
             expect(screen.getByRole('heading', { name: 'Review code', level: 2 })).toBeInTheDocument()
         })
 
@@ -88,7 +91,7 @@ describe('CodeReview', () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             const banner = screen.getByTestId('status-alert')
-            const labName = study.submittingLabName ?? study.submittedByOrgSlug
+            const labName = study.submittingLabName
             expect(banner).toHaveAttribute('data-variant', 'action')
             expect(banner).toHaveTextContent(`New code submitted by ${labName}`)
             expect(banner).toHaveTextContent('Review the code files and AI summary')
@@ -106,13 +109,13 @@ describe('CodeReview', () => {
             expect(screen.queryByTestId('feedback-and-notes-section')).not.toBeInTheDocument()
         })
 
-        it('keeps datasets visible when submission details collapse', async () => {
+        it('keeps the first two submission details visible when the section collapses', async () => {
             renderWithProviders(await CodeReview({ orgSlug: ORG_SLUG, study, entries: [], nav: {} }))
 
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
 
             const user = userEvent.setup()
             await user.click(screen.getByTestId('study-code-toggle-collapse'))
@@ -120,13 +123,13 @@ describe('CodeReview', () => {
             await waitFor(() => expect(screen.getByTestId('ai-summary')).not.toBeVisible())
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
             const opener = screen.getByTestId('study-code-toggle')
             expect(opener).toHaveTextContent('View full submission details')
             expect(screen.getByTestId('submitted-code-section')).toContainElement(opener)
             expect(
-                screen.getByTestId('submitted-code-datasets').compareDocumentPosition(opener) &
+                screen.getByTestId('security-scan-results').compareDocumentPosition(opener) &
                     Node.DOCUMENT_POSITION_FOLLOWING,
             ).toBeTruthy()
             expect(opener).toHaveFocus()
@@ -163,7 +166,7 @@ describe('CodeReview', () => {
         })
         const resubmissionEntries: CodeReviewFeedbackEntry[] = [resubmissionNote, reviewerEntry]
 
-        // Round comes from the job via codeRoundForJob — seed a real change-request + resubmit.
+        // Round comes from the job's stored round; seed a real change-request + resubmit.
         beforeEach(async () => {
             const job = await db
                 .selectFrom('studyJob')
@@ -185,7 +188,7 @@ describe('CodeReview', () => {
             )
 
             const banner = screen.getByTestId('status-alert')
-            const labName = study.submittingLabName ?? study.submittedByOrgSlug
+            const labName = study.submittingLabName
             expect(banner).toHaveTextContent(`Revised code submitted by ${labName}`)
             expect(banner).not.toHaveTextContent('New code submitted')
         })
@@ -222,7 +225,33 @@ describe('CodeReview', () => {
             expect(section).toHaveTextContent('Debshilla Basu Mallick')
         })
 
-        it('positions Feedback and notes between STEP 2 and Submission details', async () => {
+        it('shows only the latest 2 Feedback and notes entries until View all is clicked', async () => {
+            const user = userEvent.setup()
+            const fourEntries = [
+                buildEntry({ ...resubmissionNote, id: 'note-v3', version: 3 }),
+                buildEntry({ ...reviewerEntry, id: 'reviewer-v2', version: 2 }),
+                ...resubmissionEntries,
+            ]
+            renderWithProviders(
+                await CodeReview({
+                    orgSlug: ORG_SLUG,
+                    study,
+                    entries: fourEntries,
+                    nav: {},
+                }),
+            )
+
+            const section = screen.getByTestId('feedback-and-notes-section')
+            expect(section).toHaveTextContent('Resubmission note (v3.0)')
+            expect(section).not.toHaveTextContent('Resubmission note (v2.0)')
+
+            await user.click(screen.getByRole('button', { name: 'View all notes and feedback' }))
+
+            expect(section).toHaveTextContent('Resubmission note (v2.0)')
+            expect(section).toHaveTextContent('Reviewer feedback (v1.0)')
+        })
+
+        it('positions Feedback and notes between Submission details and Code evaluation', async () => {
             renderWithProviders(
                 await CodeReview({
                     orgSlug: ORG_SLUG,
@@ -236,8 +265,8 @@ describe('CodeReview', () => {
             const feedback = screen.getByTestId('feedback-and-notes-section')
             const submittedCode = screen.getByTestId('submitted-code-section')
             const evaluation = screen.getByTestId('code-evaluation-section')
-            expect(stepHeader.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-            expect(feedback.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(stepHeader.compareDocumentPosition(submittedCode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            expect(submittedCode.compareDocumentPosition(feedback) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
             expect(feedback.compareDocumentPosition(evaluation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
         })
 
@@ -273,7 +302,7 @@ describe('CodeReview', () => {
             expect(screen.getByTestId('submitted-code-section')).toContainElement(toggle)
             expect(screen.getByTestId('submitted-code-section')).toBeVisible()
             expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
-            expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
+            expect(screen.getByTestId('security-scan-results')).toBeVisible()
             expect(screen.getByTestId('ai-summary')).not.toBeVisible()
             expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
         })

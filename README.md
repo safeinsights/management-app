@@ -16,7 +16,7 @@ It's responsible for:
 
 ### Production Environment
 
-- Node.js version 20.x or higher
+- Node.js 24.x
 - PostgreSQL
 
 ### Development Environment
@@ -70,7 +70,7 @@ For developing locally without docker compose, you will need to:
     - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.
     - An SI Staff admin is a user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in the codebase). The screen at `/admin/safeinsights` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
-## Type-Safe Routing 🗺️
+## Type-Safe Routing 🧭
 
 The application uses a type-safe routing system located in [src/lib/routes](src/lib/routes) that provides compile-time and runtime validation for routes and parameters using Zod schemas. All routes must be defined in the `Routes` object in [src/lib/routes](src/lib/routes) and accessed using it's type safe methods as shown below:
 
@@ -120,7 +120,7 @@ To develop locally, you'll need to create your own SI Staff admin account:
 - `docker compose down -v --rmi all` - Full "reset switch" for DB errors (stops and removes Docker containers, networks, volumes, and all images)
 - `docker system prune -a` or `docker builder prune` - Clear your docker cache in case of emergency
 
-### Database Management 🗄️
+### Database Management 🐘
 
 - `pnpm exec kysely migrate:make your_migration_name` - Creates a migration file, we should use `snake_case` for migration names
 - `pnpm run db:migrate` - Run database migrations
@@ -225,16 +225,59 @@ To have Claude Code use docker unit tests, see the "Claude Code integration" sec
 
 ### E2E Testing with Playwright 🎭
 
-To run playwright tests locally, you'll need to install playwright:
+E2E tests live in `tests/*.spec.ts`. They run against a production build of the app with faked Clerk sign-in, on a separate test database, so your dev database is never touched.
 
-- `pnpm install`
-- `pnpm exec playwright install`
+#### On your host
 
-And then run playwright: `pnpm exec playwright test --ui` to view status, or run `pnpm exec playwright test --headed` to interact with browser as it runs.
+One-time: `pnpm install` and `pnpm exec playwright install`. With Postgres (`localhost:5432`) and SeaweedFS (`:8333`) running, `pnpm run test:e2e:up` creates and migrates the `si_mgmnt_test` database, builds the app on port 4100 and runs the suite. Later runs: `pnpm exec playwright test --ui` to view status, or `pnpm exec playwright test --headed` to watch the browser.
 
-If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `pnpm exec playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
+#### In Docker 🐳
 
-If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `pnpm exec playwright show-trace <path to download>` to view the failure details.
+`./bin/docker-e2e` runs everything in containers (Postgres, SeaweedFS, the app, Playwright and Chromium), so it needs only Docker. Each checkout gets its own containers and volumes, only the UI port of a session or `--ui` run is published (on 127.0.0.1, at a free port), and the containers are removed when the run ends.
+
+```bash
+./bin/docker-e2e                           # run the whole suite
+./bin/docker-e2e -- tests/signin.spec.ts   # Playwright arguments go after --
+./bin/docker-e2e --ui                      # Playwright UI mode; open the printed http://127.0.0.1:<port>
+./bin/docker-e2e --help                    # all options, e.g. --clean, sessions, --prune
+```
+
+The first run takes a few minutes. Later runs are fast: the app is rebuilt only when app code changed. Every run starts on a fresh, seeded test database and uses CI's timeouts.
+
+To have Claude Code use docker e2e tests, see the "Claude Code integration" section of
+[PR #1281](https://github.com/safeinsights/management-app/pull/1281).
+
+##### Browsers on your host
+
+For WebKit, Firefox, Chrome, Safari or a headed browser, start a host session: the app stays in Docker, the browsers run on your host. For Safari, open the printed app URL.
+
+```bash
+pnpm exec playwright install chromium webkit firefox   # once
+./bin/docker-e2e --up --host                           # start, prints the app URL
+./bin/docker-e2e --host-run -- --project=webkit tests/signin.spec.ts
+./bin/docker-e2e --down                                # end; plain runs are refused until then
+```
+
+For Claude Code, see the "Claude Code integration" section of [PR #1296](https://github.com/safeinsights/management-app/pull/1296).
+
+#### Results
+
+Failures leave a screenshot, `error-context.md` and `trace.zip` under `test-results/e2e/<test>/`. Open a trace with `pnpm exec playwright show-trace <path>`. In Docker mode the app server's output is in `test-results/e2e-server.log`.
+
+If there are Playwright failures on GitHub Actions, the trace file is stored under the "Artifacts" section of the run. Download the trace.zip and open it with `pnpm exec playwright show-trace <path to download>`.
+
+#### Accessibility checks
+
+`tests/a11y.spec.ts` scans a fixed list of pages with [axe](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright). It runs as the `a11y` Playwright project. All e2e projects run with reduced motion, so no element is scanned halfway through a transition. Run it alone with `pnpm exec playwright test --project=a11y`.
+
+- Any violation tagged WCAG 2.0, 2.1 or 2.2 level A or AA fails the test, whatever its impact. Best-practice findings are reported but do not fail.
+- Each scan writes its full axe JSON (`axe-*.json`) to the test's output folder and attaches it to the report. CI uploads all of them as the `a11y-results` artifact on every run, pass or fail. Files named `axe-selftest-*.json` come from the gate self-tests and contain violations on purpose.
+- A failure lists the rule, its impact, the help text and the CSS selectors of the elements that fail.
+- The JSON also lists axe's `incomplete` results: checks that axe could not decide, often color contrast over images or gradients. They do not fail the test and need a manual look.
+- No rule is disabled and no part of the app is excluded. Fix the markup instead of disabling a rule.
+- On a table that other workers fill in parallel, pass `onlyRowsWith` with text from the rows the test seeded. The scan then leaves out the other workers' rows, so every run scans the same input.
+- To scan a new page, add a test that waits for the page's loaded content and then calls `expectNoA11yViolations(page, label)` from `tests/a11y.helpers.ts`. Any other spec can call it too.
+- Automated scanning finds only part of the WCAG issues. Keyboard use, focus order and screen-reader checks remain manual.
 
 ### trivy vulnerability scanner
 
@@ -256,7 +299,7 @@ The new way to deploy is from the IaC repo, run:
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
 ```
 
-## Troubleshooting/Notes 🛠️
+## Troubleshooting/Notes 🔧
 
 There are a few CLI applications to debug the API end endpoints:
 

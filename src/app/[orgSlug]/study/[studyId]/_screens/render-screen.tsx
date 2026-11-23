@@ -15,6 +15,7 @@ import {
     type StepNav,
     type StudyRole,
 } from '@/lib/study-screen'
+import type { NavOrigin } from '@/lib/routes'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { SCREEN_COMPONENTS } from './registry'
 
@@ -22,6 +23,7 @@ type RenderArgs = {
     raw: RawStudyState
     study: SelectedStudy
     orgSlug: string
+    from?: NavOrigin
 }
 
 // The nav is resolved here, once, so no screen re-derives it from state. Exported for screen tests,
@@ -46,6 +48,7 @@ export async function renderScreenById(
     const navProps = screenNavProps(args.role, descriptor.screen, args.raw, {
         orgSlug: args.orgSlug,
         studyId: args.study.id,
+        from: args.from,
     })
     return (await Screen({
         descriptor,

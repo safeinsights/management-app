@@ -1,11 +1,17 @@
-import { describe, expect, test, vi, type Mock } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { SendMessageCommand } from '@aws-sdk/client-sqs'
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
     db,
+    insertTestJob,
+    insertTestJobStatus,
+    insertTestJobStatuses,
     insertTestOrg,
+    insertTestLaterJob,
     insertTestStudyJobData,
     insertTestUser,
+    isUnreadOnOrgDashboard,
     mockClerkSession,
     mockDualRoleSessionWithTestData,
     mockSessionWithTestData,
@@ -13,24 +19,26 @@ import {
     flushDeferred,
     postHogCaptures,
     setTestStudyStatus,
+    stampStudyOpened,
+    studyOpenedAt,
 } from '@/tests/unit.helpers'
+import { stubJobQueue } from '@/tests/job-queue.helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import { OUTPUTS_FEEDBACK_MAX_CHARACTERS } from '@/lib/outputs-review'
 import {
     fetchEncryptedJobFilesAction,
+    fetchLabPublicKeysAction,
     fetchStudyJobCodeFileAction,
-    loadStudyJobAction,
     getJobAnalysisAction,
     markOutputsDecisionViewedAction,
     regenerateStudyReviewAction,
     submitOutputsDecisionAction,
 } from './study-job.actions'
-import { codeSubmissionVersion } from '@/server/db/queries'
+import { jobRound } from '@/server/db/queries'
 import { sendLabCodeErroredEmail, sendLabOutputsNeedReviewEmail } from '@/server/mailer'
-import { onStudyReviewRequested } from '@/server/events'
-import { fetchStudiesForOrgAction } from './study.actions'
-import { dashboardRawStateFromRow } from '@/components/dashboard/studies-table/dashboard-raw-state'
-import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import { fetchStudiesForOrgAction } from './study-dashboard.actions'
+import { dashboardRawStateFromRow } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { projectStudyState, resolvePillId } from '@/lib/study-screen'
 import logger from '@/lib/logger'
 
@@ -42,12 +50,6 @@ vi.mock('@/server/storage', () => ({
 vi.mock('@/server/mailer', () => ({
     sendLabOutputsNeedReviewEmail: vi.fn(),
     sendLabCodeErroredEmail: vi.fn(),
-}))
-
-// Spy on the generation trigger only; study-request.ts depends on the rest of the module.
-vi.mock('@/server/events', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/server/events')>()),
-    onStudyReviewRequested: vi.fn(),
 }))
 
 async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJobStatus } = {}) {
@@ -97,21 +99,6 @@ async function setupResultApprovalFixture({ jobStatus = 'RUN-COMPLETE' as StudyJ
 }
 
 describe('Study Job Actions', () => {
-    test('loadStudyJobAction', async () => {
-        const { org } = await mockSessionWithTestData()
-        const { job, study } = await insertTestStudyJobData({ org })
-
-        const result = actionResult(await loadStudyJobAction({ studyJobId: job.id }))
-
-        expect(result).toMatchObject({
-            studyJobId: job.id,
-            studyId: study.id,
-            createdAt: expect.any(Date),
-            studyTitle: expect.any(String),
-            orgSlug: expect.any(String),
-        })
-    })
-
     test('fetchEncryptedJobFilesAction returns the whole-zip artifacts to an enclave reviewer', async () => {
         const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { job } = await insertTestStudyJobData({ org })
@@ -133,6 +120,36 @@ describe('Study Job Actions', () => {
         expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
         expect(result[0].studyJobFileId).toBe(file.id)
         expect(result[0].recipientKeys).toEqual({})
+    })
+
+    // OTTER-882: the code run card decrypts the latest run alone; earlier runs belong to the history.
+    test('fetchEncryptedJobFilesAction returns only the requested run when the study has earlier runs', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+        const { study, job: earlierJob } = await insertTestStudyJobData({ org, jobStatus: 'RUN-COMPLETE' })
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'earlier/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: earlierJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+        const latestJob = await insertTestLaterJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
+        const latestFile = await db
+            .insertInto('studyJobFile')
+            .values({
+                path: 'latest/encrypted-results.zip',
+                name: 'encrypted-results.zip',
+                studyJobId: latestJob.id,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: latestJob.id, type: 'reviewer' }))
+
+        expect(result.map((file) => file.studyJobFileId)).toEqual([latestFile.id])
     })
 
     test('fetchEncryptedJobFilesAction returns researcher keys for shared files', async () => {
@@ -192,6 +209,130 @@ describe('Study Job Actions', () => {
 
         const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
         expect(result).toHaveLength(0)
+    })
+
+    // A run shared before the researcher replaced their key is wrapped for the old key only.
+    describe('fetchEncryptedJobFilesAction with an earlier key fingerprint', () => {
+        const insertEncryptedFile = (jobId: string) =>
+            db
+                .insertInto('studyJobFile')
+                .values({
+                    path: `results/${jobId}/encrypted-results.zip`,
+                    name: 'encrypted-results.zip',
+                    studyJobId: jobId,
+                    fileType: 'ENCRYPTED-RESULT',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+        const wrapFor = (studyJobFileId: string, fingerprint: string, crypt: string) =>
+            db
+                .insertInto('studyJobFileRecipientKey')
+                .values({ studyJobFileId, filePath: 'results.csv', fingerprint, crypt })
+                .executeTakeFirstOrThrow()
+
+        const setup = async ({ withCurrentKey = true } = {}) => {
+            const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+            const { job, study } = await insertTestStudyJobData({ org })
+            if (withCurrentKey) {
+                await db
+                    .insertInto('userPublicKey')
+                    .values({ userId: user.id, publicKey: Buffer.from('current'), fingerprint: 'currentFingerprint' })
+                    .executeTakeFirstOrThrow()
+            }
+            const file = await insertEncryptedFile(job.id)
+            await wrapFor(file.id, 'oldFingerprint', 'wrapped-for-old-key')
+            await wrapFor(file.id, 'currentFingerprint', 'wrapped-for-current-key')
+            return { job, study }
+        }
+
+        test('returns only the wraps for the named fingerprint', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-old-key' })
+        })
+
+        test('returns the current key wraps when no fingerprint is named', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher' }))
+
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-current-key' })
+        })
+
+        test('ignores the fingerprint for a reviewer, who decrypts from the manifest', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'reviewer', fingerprint: 'oldFingerprint' }),
+            )
+
+            expect(result).toHaveLength(1)
+            expect(result[0].recipientKeys).toEqual({})
+        })
+
+        test('returns nothing for a fingerprint with no wraps on this job', async () => {
+            const { job } = await setup()
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({ jobId: job.id, type: 'researcher', fingerprint: 'unknown' }),
+            )
+
+            expect(result).toEqual([])
+        })
+
+        test("never returns the same fingerprint's wraps from another job", async () => {
+            const { job, study } = await setup()
+            const otherJob = await insertTestJob(study.id)
+            const otherFile = await insertEncryptedFile(otherJob.id)
+            await wrapFor(otherFile.id, 'oldFingerprint', 'wrapped-on-another-job')
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result.map((file) => file.recipientKeys)).toEqual([{ 'results.csv': 'wrapped-for-old-key' }])
+        })
+
+        test('refuses a user who cannot view the job, even with a valid fingerprint', async () => {
+            const { job } = await setup()
+            await mockSessionWithTestData({ orgType: 'lab' })
+
+            const result = await fetchEncryptedJobFilesAction({
+                jobId: job.id,
+                type: 'researcher',
+                fingerprint: 'oldFingerprint',
+            })
+
+            expect(result).toEqual({ error: expect.anything() })
+        })
+
+        test('returns the wraps to a researcher with no current key who names an earlier one', async () => {
+            const { job } = await setup({ withCurrentKey: false })
+
+            const result = actionResult(
+                await fetchEncryptedJobFilesAction({
+                    jobId: job.id,
+                    type: 'researcher',
+                    fingerprint: 'oldFingerprint',
+                }),
+            )
+
+            expect(result[0].recipientKeys).toEqual({ 'results.csv': 'wrapped-for-old-key' })
+        })
     })
 
     describe('dual-role and stale org claims', () => {
@@ -337,19 +478,78 @@ describe('Study Job Actions', () => {
                 orgType: 'lab',
             })
 
+        const withholdOutputs = async ({ enclave, job }: Fixture) =>
+            actionResult(
+                await submitOutputsDecisionAction({
+                    orgSlug: enclave.slug,
+                    studyJobId: job.id,
+                    decision: 'share-feedback-only',
+                    feedback: 'Outputs withheld.',
+                    sharedFiles: [],
+                }),
+            )
+
         // Sequentially, which is the guard the action actually provides; see the race documented on
         // the insert for what two overlapping visits do.
-        test('records the lab view of a released decision once, on the decided job', async () => {
+        test('records the lab decrypting shared outputs once, on the decided job', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(await viewedRows(fixture.job.id)).toEqual([
+                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
+            ])
+        })
+
+        test('does not count a visit to shared outputs that are still encrypted', async () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)
             signInAsResearcher(fixture)
 
             actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
+        })
+
+        test('counts a visit to feedback-only, where there is nothing to decrypt', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await withholdOutputs(fixture)
+            signInAsResearcher(fixture)
+
             actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
 
-            expect(await viewedRows(fixture.job.id)).toEqual([
-                { status: 'RESULTS-VIEWED', userId: fixture.researcher.id },
-            ])
+            expect(await viewedRows(fixture.job.id)).toHaveLength(1)
+        })
+
+        test.each([
+            ['shared outputs', approve],
+            ['feedback only', withholdOutputs],
+        ])('never marks an errored run reviewed: %s', async (_, decide) => {
+            const fixture = await setupResultApprovalFixture({ jobStatus: 'JOB-ERRORED' })
+            await decide(fixture)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(await viewedRows(fixture.job.id)).toHaveLength(0)
+        })
+
+        // OTTER-937: viewing moves the researcher's badge, so the view itself must count as the visit.
+        test('leaves the study read for the researcher who viewed it, not for a co-author', async () => {
+            const fixture = await setupResultApprovalFixture()
+            await approve(fixture)
+            const { user: coAuthor } = await insertTestUser({ org: fixture.lab })
+            const earlier = new Date(Date.now() - 60 * 60 * 1000)
+            await stampStudyOpened(fixture.study.id, [fixture.researcher.id, coAuthor.id], earlier)
+            signInAsResearcher(fixture)
+
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
+
+            expect(await isUnreadOnOrgDashboard(fixture.lab.slug, fixture.study.id, 'researcher')).toBe(false)
+            expect(await studyOpenedAt(fixture.study.id, coAuthor.id)).toEqual(earlier)
         })
 
         test('writes nothing while the reviewer has not decided', async () => {
@@ -367,7 +567,7 @@ describe('Study Job Actions', () => {
             const fixture = await setupResultApprovalFixture()
             await approve(fixture)
 
-            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id }))
+            actionResult(await markOutputsDecisionViewedAction({ studyId: fixture.study.id, decrypted: true }))
 
             expect(await viewedRows(fixture.job.id)).toHaveLength(0)
         })
@@ -384,6 +584,30 @@ describe('Study Job Actions', () => {
                 .where('studyId', '=', studyId)
                 .where('reviewKind', '=', 'RESULTS')
                 .executeTakeFirst()
+
+        // OTTER-937: no leave stamp follows a reload, so the decision itself must count as the visit.
+        test.each(['share-outputs', 'share-feedback-only'] as const)(
+            '%s leaves the study read for the deciding reviewer, not for another reviewer',
+            async (decision) => {
+                const { enclave, job, reviewer, sharedFiles, study } = await setupResultApprovalFixture()
+                const { user: otherReviewer } = await insertTestUser({ org: enclave })
+                const earlier = new Date(Date.now() - 60 * 60 * 1000)
+                await stampStudyOpened(study.id, [reviewer.id, otherReviewer.id], earlier)
+
+                actionResult(
+                    await submitOutputsDecisionAction({
+                        orgSlug: enclave.slug,
+                        studyJobId: job.id,
+                        decision,
+                        feedback: 'The outputs look clean and contain no PII.',
+                        sharedFiles: decision === 'share-outputs' ? sharedFiles : [],
+                    }),
+                )
+
+                expect(await isUnreadOnOrgDashboard(enclave.slug, study.id, 'reviewer')).toBe(false)
+                expect(await studyOpenedAt(study.id, otherReviewer.id)).toEqual(earlier)
+            },
+        )
 
         // The name reaches the other reviewers' tabs, so it has to come from the server rather
         // than from the submitting client (OTTER-726).
@@ -574,15 +798,15 @@ describe('Study Job Actions', () => {
         // outputs decision showed "Reviewer feedback (v2.0)" after one code resubmit.
         test('the first outputs decision is round 1 however far the code rounds have climbed', async () => {
             const { enclave, job, study } = await setupResultApprovalFixture()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: job.id, status: 'CODE-APPROVED' },
-                ])
-                .execute()
-            expect(await codeSubmissionVersion(study.id)).toBe(2)
+            // The run completes after the resubmitted code is approved, so the job is ready for a decision.
+            await insertTestJobStatuses(job.id, [
+                'CODE-SUBMITTED',
+                'CODE-CHANGES-REQUESTED',
+                'CODE-SUBMITTED',
+                'CODE-APPROVED',
+                'RUN-COMPLETE',
+            ])
+            expect(await jobRound(job.id, db)).toBe(2)
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -609,19 +833,8 @@ describe('Study Job Actions', () => {
                 }),
             )
 
-            const secondJob = await db
-                .insertInto('studyJob')
-                .values({ studyId: study.id })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: secondJob.id, status: 'CODE-SUBMITTED' },
-                    { studyJobId: secondJob.id, status: 'CODE-APPROVED' },
-                    { studyJobId: secondJob.id, status: 'RUN-COMPLETE' },
-                ])
-                .execute()
+            const secondJob = await insertTestJob(study.id)
+            await insertTestJobStatuses(secondJob.id, ['CODE-SUBMITTED', 'CODE-APPROVED', 'RUN-COMPLETE'])
 
             actionResult(
                 await submitOutputsDecisionAction({
@@ -881,17 +1094,9 @@ describe('Study Job Actions', () => {
         // Submitted, changes requested, submitted again: the job now carries round 2's code, with
         // round 1's summary still beside it.
         const resubmit = async (studyJobId: string) =>
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId, status: 'CODE-CHANGES-REQUESTED' },
-                    { studyJobId, status: 'CODE-SUBMITTED' },
-                ])
-                .execute()
+            await insertTestJobStatuses(studyJobId, ['CODE-CHANGES-REQUESTED', 'CODE-SUBMITTED'])
 
-        // A scan costs an S3 fetch, and nothing has rendered a verdict since OTTER-694, so the
-        // default must not pay for one.
-        test('returns the review without a scan by default', async () => {
+        test('returns the scan alongside the review', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
             await insertReview(job.id, 'Summary of this round')
@@ -899,20 +1104,7 @@ describe('Study Job Actions', () => {
             const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id }))
 
             expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toBeNull()
-        })
-
-        // The panel is parked pending a new scanning tool (OTTER-775), not gone: the pair must
-        // still come back in one round-trip for whoever rebuilds it.
-        test('returns the scan alongside the review when asked', async () => {
-            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
-            const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await insertReview(job.id, 'Summary of this round')
-
-            const analysis = actionResult(await getJobAnalysisAction({ studyJobId: job.id, withScan: true }))
-
-            expect(analysis.review?.report?.codeExplanation).toBe('Summary of this round')
-            expect(analysis.scan).toEqual({ trivy: null, sonarqube: null, logFile: null })
+            expect(analysis.scan).toEqual({ semgrep: null, details: null, logFile: null })
         })
 
         // A change-requested resubmit reuses the job, so the previous round's row is still there
@@ -958,6 +1150,15 @@ describe('Study Job Actions', () => {
     })
 
     describe('regenerateStudyReviewAction', () => {
+        // With a queue configured, generation is requested rather than run in-process against the model.
+        let queue: ReturnType<typeof stubJobQueue>
+        const enqueuedJobs = () =>
+            queue.commandCalls(SendMessageCommand).map((call) => JSON.parse(call.args[0].input.MessageBody!))
+
+        beforeEach(() => {
+            queue = stubJobQueue()
+        })
+
         test('clears a failed review row and re-fires generation', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
@@ -974,7 +1175,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeUndefined()
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
         })
 
         // An earlier round's failure is that round's own history, so regenerating this round must
@@ -982,13 +1183,8 @@ describe('Study Job Actions', () => {
         test('clears only the current round and re-fires generation for it', async () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { job } = await insertTestStudyJobData({ org, jobStatus: 'CODE-SUBMITTED' })
-            await db
-                .insertInto('jobStatusChange')
-                .values([
-                    { studyJobId: job.id, status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() + 1000) },
-                    { studyJobId: job.id, status: 'CODE-SUBMITTED', createdAt: new Date(Date.now() + 2000) },
-                ])
-                .execute()
+            await insertTestJobStatus(job.id, 'CODE-CHANGES-REQUESTED', { at: new Date(Date.now() + 1000) })
+            await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: new Date(Date.now() + 2000) })
             await db
                 .insertInto('studyReview')
                 .values([
@@ -1005,7 +1201,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .execute()
             expect(remaining.map((row) => row.round)).toEqual([1])
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 2 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 2 } }])
         })
 
         test('leaves a successful review row untouched and starts nothing', async () => {
@@ -1025,7 +1221,7 @@ describe('Study Job Actions', () => {
                 .where('studyJobId', '=', job.id)
                 .executeTakeFirst()
             expect(remaining).toBeDefined()
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
         })
 
         // Retry used to start a run whatever was happening, which is how one reviewer could pay
@@ -1042,7 +1238,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('in-progress')
-            expect(onStudyReviewRequested as unknown as Mock).not.toHaveBeenCalled()
+            expect(enqueuedJobs()).toEqual([])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('summaryStartedAt')
@@ -1066,7 +1262,7 @@ describe('Study Job Actions', () => {
             const result = actionResult(await regenerateStudyReviewAction({ studyJobId: job.id }))
 
             expect(result.status).toBe('restarted')
-            expect(onStudyReviewRequested as unknown as Mock).toHaveBeenCalledWith({ studyJobId: job.id, round: 1 })
+            expect(enqueuedJobs()).toEqual([{ job: 'study-review', payload: { studyJobId: job.id, round: 1 } }])
             const remaining = await db
                 .selectFrom('studyReview')
                 .select('id')
@@ -1079,7 +1275,7 @@ describe('Study Job Actions', () => {
 
 describe('draft code files are private to the Research Lab (OTTER-596)', () => {
     const seedCodeFile = async (studyId: string) => {
-        const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+        const job = await insertTestJob(studyId)
         await db
             .insertInto('studyJobFile')
             .values({ studyJobId: job.id, name: 'main.r', path: `code/${studyId}/main.r`, fileType: 'MAIN-CODE' })
@@ -1108,5 +1304,70 @@ describe('draft code files are private to the Research Lab (OTTER-596)', () => {
         await mockSessionWithTestData({ orgSlug: enclave.slug, orgType: 'enclave' })
         const result = actionResult(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' }))
         expect(result).toMatchObject({ fileName: 'main.r' })
+    })
+})
+
+describe('job subjects carry ids only (MA-6)', () => {
+    const permissionDenied = (result: unknown) =>
+        (result as { error: { permission_denied: string } }).error.permission_denied
+
+    const seedCodeJob = async () => {
+        const enclave = await insertTestOrg({ slug: 'ma6-enclave', type: 'enclave' })
+        const lab = await insertTestOrg({ slug: 'ma6-lab', type: 'lab' })
+        const { study, job } = await insertTestStudyJobData({
+            org: enclave,
+            submittedByOrg: lab,
+            title: 'Confidential cohort study',
+            jobStatus: 'CODE-SUBMITTED',
+        })
+        const path = `code/${study.id}/confidential-main.r`
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: job.id, name: 'main.r', path, fileType: 'MAIN-CODE' })
+            .execute()
+        return { enclave, lab, study, job, path }
+    }
+
+    test('a refused caller of fetchStudyJobCodeFileAction gets no title or file path', async () => {
+        const { study, job, path } = await seedCodeJob()
+        await mockSessionWithTestData({ orgType: 'lab' })
+        vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
+        const denied = permissionDenied(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' }))
+
+        expect(denied).not.toContain(job.id)
+        expect(denied).not.toContain(study.title)
+        expect(denied).not.toContain(path)
+
+        const warning = String(vi.mocked(logger.warn).mock.calls[0][0])
+        expect(warning).toContain(job.id)
+        expect(warning).not.toContain(study.title)
+        expect(warning).not.toContain(path)
+    })
+
+    test('an SI admin outside both orgs can still fetch a code file', async () => {
+        const { job } = await seedCodeJob()
+        await mockSessionWithTestData({ isSiAdmin: true })
+
+        expect(
+            actionResult(await fetchStudyJobCodeFileAction({ studyJobId: job.id, fileName: 'main.r' })),
+        ).toMatchObject({ fileName: 'main.r' })
+    })
+
+    test('an unknown job keeps its not-found text', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+        const studyJobId = '00000000-0000-7000-8000-000000000000'
+
+        expect(await fetchStudyJobCodeFileAction({ studyJobId, fileName: 'main.r' })).toEqual({
+            error: { user: `job for study job id ${studyJobId} was not found` },
+        })
+    })
+
+    test('an unknown study on fetchLabPublicKeysAction is not found', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave' })
+
+        expect(await fetchLabPublicKeysAction({ studyId: '00000000-0000-7000-8000-000000000000' })).toEqual({
+            error: { user: 'study was not found' },
+        })
     })
 })

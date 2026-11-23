@@ -4,13 +4,13 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Box, Radio, Stack, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useQuery } from '@/common'
-import { ErrorAlert, InputError } from '@/components/errors'
-import { useWidgetBlur } from '@/components/form-field'
+import { ERROR_LINE_MIN_HEIGHT, ErrorAlert, InputError } from '@/components/errors'
+import { radioGroupAria, useWidgetBlur } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { RequiredIndicator } from '@/components/required-indicator'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { Language } from '@/database/types'
-import { StudyProposalFormValues } from '../form-schemas'
+import { StudyProposalFormValues } from '@/schema/study-request'
 import { LANGUAGE_FIELD_ID } from './field-ids'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -20,15 +20,13 @@ const TITLE_ID = 'programming-language-title'
 const HELPER_ID = 'programming-language-helper'
 const ERROR_ID = 'programming-language-error'
 
-const ErrorLine: React.FC<{ error: React.ReactNode }> = ({ error }) => {
-    if (!error) return null
-
-    return (
-        <span id={ERROR_ID}>
-            <InputError error={error} />
-        </span>
-    )
-}
+// Mounted before any error: the group validates on blur, and a line appearing then would push
+// Save & continue down under a pending click.
+const ErrorLine: React.FC<{ error: React.ReactNode }> = ({ error }) => (
+    <Box id={ERROR_ID} mih={ERROR_LINE_MIN_HEIGHT}>
+        <InputError error={error} />
+    </Box>
+)
 
 interface ProgrammingLanguageFieldProps {
     form: UseFormReturnType<StudyProposalFormValues>
@@ -156,27 +154,21 @@ export const ProgrammingLanguageField: React.FC<ProgrammingLanguageFieldProps> =
                 <Text id={HELPER_ID} size="xs" c="dimmed">
                     {helperText}
                 </Text>
+                {/* Above the radios by design, not by mistake (Figma Error/empty, OTTER-880). */}
+                <ErrorLine error={error} />
 
                 {/* Blur is a bubbled focusout, so tabbing between radios would validate a
                     still-empty group; useWidgetBlur waits for the user to leave (OTTER-647). */}
-                {/* Radio.Group puts role="radiogroup" on an inner element named by `labelProps.id`;
-                    hand-passed aria-* lands on the roleless outer wrapper. `description` paints nothing
-                    under inputWrapperOrder but still wires the group's aria-describedby (OTTER-690). */}
                 <Radio.Group
                     id={GROUP_ID}
-                    labelProps={{ id: TITLE_ID }}
-                    description={helperText}
-                    descriptionProps={{ id: HELPER_ID }}
-                    error={error}
-                    inputWrapperOrder={['input']}
                     value={checkedLanguage}
                     onChange={(value) => form.setFieldValue('language', value as Language)}
                     {...widgetBlur}
+                    {...radioGroupAria(TITLE_ID, describedBy)}
                 >
                     {/* Stacked, not a row: the multi-language design lists the options vertically. */}
                     <Stack gap="xs">{languageRadios}</Stack>
                 </Radio.Group>
-                <ErrorLine error={error} />
             </>
         )
     }

@@ -30,7 +30,7 @@ export function FilePreviewModal({
         </Group>
     )
     return (
-        <AppModal isOpen onClose={onClose} title={title} size="xl" styles={{ body: { padding: 0 } }}>
+        <AppModal isOpen onClose={onClose} title={title} size="xl" padding={0}>
             {isLoading ? (
                 <Center h={500} data-testid="file-preview-loading">
                     <Loader />

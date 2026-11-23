@@ -1,10 +1,13 @@
-import { vi, type Mock } from 'vitest'
+import { type Mock } from 'vitest'
 import {
     createTestQueryClient,
+    db,
     describe,
     expect,
     faker,
+    insertTestStudyJobData,
     it,
+    mockDualRoleSessionWithTestData,
     QueryClientProvider,
     renderHook,
     waitFor,
@@ -14,15 +17,6 @@ import { useParams } from 'next/navigation'
 import type { JobFileActivity } from '@/server/db/queries'
 import type { JobFileInfo } from '@/lib/types'
 import { useOutputsFiles } from './use-outputs-files'
-import { fetchJobFileActivityAction } from '@/server/actions/study-job-file-activity.actions'
-
-// Mocking one of our own actions goes against the usual rule, and it is the only way to reach these
-// branches: a real action resolves or returns an error envelope, it never throws at the transport.
-// These tests exist to prove a failed request is reported, so the failure is injected here (OTTER-726).
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(),
-    recordJobFileActivityAction: vi.fn(),
-}))
 
 const ORG_SLUG = 'memorial'
 
@@ -54,6 +48,33 @@ const renderFiles = (jobId: string, decryptedFiles: JobFileInfo[], seed?: JobFil
     return { client, ...renderHook(() => useOutputsFiles({ jobId, decryptedFiles }), { wrapper }) }
 }
 
+// Each side of the study has acted on the file differently, and the session's current org is the lab,
+// so only the URL's slug can select the enclave's row.
+const insertTwoSidedOutput = async () => {
+    const { user, labOrg, enclaveOrg } = await mockDualRoleSessionWithTestData({ enclaveSlug: ORG_SLUG })
+    const { job } = await insertTestStudyJobData({ org: enclaveOrg, submittedByOrg: labOrg })
+    const archive = await db
+        .insertInto('studyJobFile')
+        .values({
+            studyJobId: job.id,
+            name: 'results.zip',
+            path: `studies/${job.id}/results.zip`,
+            fileType: 'APPROVED-RESULT',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    const file = { sourceId: archive.id, path: 'logs.json', contents: new ArrayBuffer(8) } as JobFileInfo
+    const ref = { studyJobFileId: archive.id, filePath: file.path, userId: user.id }
+    await db
+        .insertInto('studyJobFileActivity')
+        .values([
+            { ...ref, orgId: enclaveOrg.id, action: 'VIEWED' },
+            { ...ref, orgId: labOrg.id, action: 'DOWNLOADED' },
+        ])
+        .execute()
+    return { jobId: job.id, file }
+}
+
 const failRefetch = async (client: ReturnType<typeof createTestQueryClient>, jobId: string) => {
     await client
         .fetchQuery({
@@ -71,15 +92,16 @@ const failRefetch = async (client: ReturnType<typeof createTestQueryClient>, job
 describe('useOutputsFiles activity display', () => {
     // OTTER-783: the server scopes the column to one side of the study by this slug.
     it('asks for the activity of the org in the URL', async () => {
-        const jobId = faker.string.uuid()
-        renderFiles(jobId, [decryptedFile('logs.json')])
+        const { jobId, file } = await insertTwoSidedOutput()
+        const { result } = renderFiles(jobId, [file])
 
-        await waitFor(() => expect(fetchJobFileActivityAction).toHaveBeenCalledWith({ jobId, orgSlug: ORG_SLUG }))
+        await waitFor(() => expect(result.current.rows[0].activityState).toBe('known'))
+        expect(result.current.rows[0].activity?.action).toBe('VIEWED')
     })
 
-    it('asserts nothing about activity while the first request is in flight', () => {
-        const file = decryptedFile('logs.json')
-        const { result } = renderFiles(faker.string.uuid(), [file])
+    it('asserts nothing about activity while the first request is in flight', async () => {
+        const { jobId, file } = await insertTwoSidedOutput()
+        const { result } = renderFiles(jobId, [file])
 
         expect(result.current.rows[0].activityState).toBe('pending')
         expect(result.current.rows[0].activity).toBeNull()

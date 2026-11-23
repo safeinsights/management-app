@@ -5,7 +5,7 @@ import { StatusAlert } from '@/components/study/status-alert'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { useStudyAgreementStatus } from './require-study-agreement'
 
-const PREPARING_TITLE = 'Study agreements are being prepared'
+const PREPARING_TITLE = `${legalDocumentTypeLabels.SLA} is being prepared`
 
 type Props = {
     studyId: string
@@ -39,7 +39,7 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({
 
     if (status?.state !== 'none') return null
 
-    const signatories = `${consequence} until the required ${status.researchLabName} and ${status.dataPartnerName} signatories have signed the study agreements.`
+    const signatories = `${consequence} until the required ${status.researchLabName} and ${status.dataPartnerName} signatories have signed the ${legalDocumentTypeLabels.SLA}.`
 
     if (tone === 'informative')
         return (
@@ -50,8 +50,8 @@ export const StudyAgreementPreparingNotice: FC<Props> = ({
 
     return (
         <StatusAlert variant="action" title={PREPARING_TITLE}>
-            {signatories} If you are included in this study, you will be notified when your agreement is ready for
-            acknowledgement.
+            {signatories} If you are included in this study, you will be notified when your{' '}
+            {legalDocumentTypeLabels.SLA} is ready for acknowledgement.
         </StatusAlert>
     )
 }

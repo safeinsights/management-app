@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Stack } from '@mantine/core'
+import { Stack, type MantineFontSize } from '@mantine/core'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { ListPlugin } from '@lexical/react/LexicalListPlugin'
@@ -23,7 +23,7 @@ export type SingleUserEditorProps = {
     /** Serialized Lexical JSON to seed the editor with. */
     initialValue?: string
     contentClassName?: string
-    contentStyle?: React.CSSProperties
+    fz?: MantineFontSize
     placeholder?: string
     ariaLabel?: string
     onChange?: (json: string) => void
@@ -73,7 +73,7 @@ export function SingleUserEditor({
     id,
     initialValue,
     contentClassName,
-    contentStyle,
+    fz,
     placeholder,
     ariaLabel,
     onChange,
@@ -96,7 +96,7 @@ export function SingleUserEditor({
                 <EditorSurface
                     inputId={inputId}
                     contentClassName={contentClassName}
-                    contentStyle={contentStyle}
+                    fz={fz}
                     placeholder={placeholder}
                     ariaLabel={ariaLabel}
                     ariaDescribedBy={ariaDescribedBy}

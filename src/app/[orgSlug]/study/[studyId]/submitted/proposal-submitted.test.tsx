@@ -1,6 +1,7 @@
 import { lexicalJson } from '@/lib/lexical'
 import { Routes } from '@/lib/routes'
-import { getStudyAction, type ProposalFeedbackEntry, type SelectedStudy } from '@/server/actions/study.actions'
+import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import { type ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
 import { isSubmittedStudy, type Submitted } from '@/schema/study'
 import {
     actionResult,
@@ -170,29 +171,6 @@ describe('ProposalSubmitted', () => {
 
             expect(screen.getByTestId('status-alert')).toHaveTextContent(
                 `Proposal submitted to ${ORG_NAME} ${STATUS_ALERT_SEPARATOR} Apr 16, 2025`,
-            )
-        })
-
-        it('uses the approval date when status is PENDING-REVIEW but the proposal was approved', () => {
-            const codeUnderReviewStudy = {
-                ...study,
-                status: 'PENDING-REVIEW' as const,
-                approvedAt: new Date('2026-04-20T10:00:00Z'),
-                submittedAt: new Date('2026-05-01T10:00:00Z'),
-            }
-            renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={codeUnderReviewStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            expect(screen.getByTestId('status-alert')).toHaveTextContent(
-                `Proposal approved ${STATUS_ALERT_SEPARATOR} Apr 20, 2026`,
             )
         })
 
@@ -389,28 +367,6 @@ describe('ProposalSubmitted', () => {
             expect(banner).toHaveAttribute('data-variant', 'informative')
             expect(banner).toHaveTextContent(`Proposal v2.0 resubmitted to ${ORG_NAME}`)
         })
-
-        it('renders approved banner when status is PENDING-REVIEW but proposal was previously approved', () => {
-            const codeUnderReviewStudy = {
-                ...study,
-                status: 'PENDING-REVIEW' as const,
-                approvedAt: new Date('2026-04-20T10:00:00Z'),
-            }
-            renderWithProviders(
-                <ProposalSubmitted
-                    nav={NAV}
-                    orgSlug={ORG_SLUG}
-                    study={codeUnderReviewStudy}
-                    orgName={ORG_NAME}
-                    entries={[]}
-                    studyVersion={1}
-                />,
-            )
-
-            const banner = screen.getByTestId('status-alert')
-            expect(banner).toHaveAttribute('data-variant', 'success')
-            expect(banner).toHaveTextContent('Proposal approved')
-        })
     })
 
     describe('view full proposal dropdown', () => {
@@ -449,7 +405,9 @@ describe('ProposalSubmitted', () => {
             expect(screen.getByTestId('proposal-toggle-top')).toHaveTextContent('Hide full proposal')
             expect(screen.getByTestId('proposal-body')).toBeVisible()
             expect(screen.queryByTestId('proposal-snippet')).not.toBeInTheDocument()
-            expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+            expect(
+                screen.getByRole('heading', { level: 1, name: `${study.title} — Step 2: Submit proposal` }),
+            ).toBeInTheDocument()
             expect(screen.queryByText(/^Title:/)).not.toBeInTheDocument()
         })
 
@@ -551,7 +509,7 @@ describe('ProposalSubmitted', () => {
             )
 
             const header = screen.getByTestId('proposal-section-header')
-            expect(within(header).getByText('STEP 2')).toBeInTheDocument()
+            expect(within(header).getByText('Step 2')).toBeInTheDocument()
             expect(within(header).getByRole('heading', { level: 2, name: 'Submit proposal' })).toBeInTheDocument()
         })
 

@@ -1,40 +1,37 @@
 import { ZodType, ZodError, z } from 'zod'
 import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from '@/lib/permissions'
-import * as Sentry from '@sentry/nextjs'
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 
-import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
-import { AsyncLocalStorage } from 'node:async_hooks'
+import { AccessDeniedError, ActionFailure, UNEXPECTED_ERROR_MESSAGE, type ActionResponse } from '@/lib/errors'
+import { UUID_RE } from '@/lib/collaboration-documents'
 import logger from '@/lib/logger'
+import { isSensitiveKey } from '@/lib/sentry-scrub-text'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 import { setSentryFromSession } from '@/lib/sentry'
+import * as Sentry from '@sentry/nextjs'
+import {
+    afterCommitQueue,
+    localStorageContext,
+    withTransaction,
+    type AfterCommitFn,
+    type RequestContext,
+} from '@/server/request-context'
 
 type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
-// Queues work that must not run until the handler's writes are visible to anyone else. A mutating
-// handler runs inside a transaction, so anything it hands to another process from inside the
-// handler can read the round before it exists (OTTER-799).
-export type AfterCommitFn = (fn: () => Promise<unknown>) => void
-
-// Optional here, required on a handler's own context: this type is also the async-local store,
-// which is populated outside an action in tests and in Action.db.
-export type ActionContext<Args = unknown> = {
-    session?: UserSessionWithAbility
+export type ActionContext<Args = unknown> = RequestContext & {
     db: DBExecutor
     params?: Args
-    afterCommit?: AfterCommitFn
 }
 
 export type ActionOptions = {
     performsMutations?: boolean
 }
-
-export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
 export async function currentSession<T extends boolean>(
     throwIfNotFound?: T,
@@ -48,6 +45,16 @@ export async function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
+// The subject holds the caller's params and whatever a middleware loaded, so Sentry gets its ids only.
+// Sensitive keys are skipped: an id such as inviteId is a bearer token, and console.warn is not scrubbed.
+const subjectIds = (subject: Record<string, unknown>) =>
+    Object.fromEntries(
+        Object.entries(subject).filter(
+            ([key, value]) =>
+                /(^id|Id)$/.test(key) && !isSensitiveKey(key) && typeof value === 'string' && UUID_RE.test(value),
+        ),
+    )
+
 export class Action<
     Args = unknown,
     Ctx extends ActionContext = {
@@ -60,11 +67,6 @@ export class Action<
     private schema?: ZodType<Args>
     private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
     private options: ActionOptions
-
-    static get db() {
-        const ctx = localStorageContext.getStore()
-        return ctx?.db || db
-    }
 
     constructor(
         private actionName: string,
@@ -98,18 +100,15 @@ export class Action<
                 throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
             }
 
-            // Lands in the permission_denied message returned to a refused caller, so middleware
-            // must return ids and slugs only — never a whole row, never secrets (OTTER-724 / MA-6).
-            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit']) }
+            // CASL checks these keys. Keep middleware output to ids and status, since a row
+            // key can override a caller param of the same name.
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db', 'afterCommit', 'org']) }
             const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (!session.ability.can(action, abilitySubject as any)) {
-                const msg =
-                    `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
-                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                    `session: ${JSON.stringify(omit(session, ['ability']), null, 2)}\n`
-                logger.error(msg)
+                const msg = `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.`
+                logger.warn(`user ${session.user.id} ${msg} ids: ${JSON.stringify(subjectIds(abilityArgs))}`)
                 throw new ActionFailure({ permission_denied: msg })
             }
 
@@ -124,8 +123,6 @@ export class Action<
         const middlewareFns = [...this.middlewareFns]
 
         const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
-            let actionCtx: ActionContext | undefined
-
             try {
                 let args: Args
                 if (schema) {
@@ -133,7 +130,10 @@ export class Action<
                         args = schema.parse(raw)
                     } catch (error) {
                         if (error instanceof ZodError) {
-                            const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>
+                            const fieldErrors = z.flattenError(error).fieldErrors as Record<
+                                string,
+                                string[] | undefined
+                            >
                             const sanitizedErrors: Record<string, string> = {}
                             for (const key in fieldErrors) {
                                 if (fieldErrors[key] && fieldErrors[key] !== undefined) {
@@ -142,78 +142,54 @@ export class Action<
                             }
                             return { error: `Validation error: ${JSON.stringify(sanitizedErrors)}` }
                         }
-                        return { error: error instanceof Error ? error.message : 'Unknown validation error' }
+                        // A transform or refine that throws is a bug, so it takes the unexpected-error path below.
+                        throw error
                     }
                 } else {
                     args = raw as Args
                 }
-                const session = await sessionFromClerk()
+                // Kept so apiRequestingOrg() still works in an action that a wrapApiOrgAction route calls.
+                const org = localStorageContext.getStore()?.org
+                // Outside any caller's transaction: a user sync commits on its own before Clerk hears of it.
+                const session = (await localStorageContext.run({ org }, () => sessionFromClerk())) ?? undefined
 
-                const afterCommitFns: (() => Promise<unknown>)[] = []
-                const afterCommit: AfterCommitFn = (fn) => {
-                    afterCommitFns.push(fn)
-                }
-
-                const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                    let ctx = { params: args, session, db: dbConn, afterCommit } as Ctx & { params: Args }
-                    actionCtx = ctx
-
-                    return localStorageContext.run(ctx, async () => {
-                        for (const mw of middlewareFns) {
-                            const more = await mw(ctx)
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ctx = { ...ctx, ...(more as any[]) }
-                        }
-
-                        if (session) {
-                            setSentryFromSession(session)
-                        }
-
-                        return handlerFn(ctx)
-                    })
-                }
-
-                let result: Res
-
-                if (this.options.performsMutations) {
-                    result = await db.transaction().execute(execute)
-                } else {
-                    result = await execute(db)
-                }
-
-                if (actionCtx) actionCtx.db = db
-
-                // Only reached once the writes are committed. A handler that threw never gets here,
-                // so work queued by a rolled-back handler is dropped with it. One hook failing must
-                // not fail the action: the mutation the caller asked for already happened.
-                const runAfterCommitFns = async () => {
-                    for (const fn of afterCommitFns) {
-                        try {
-                            await fn()
-                        } catch (error: unknown) {
-                            logger.error(error)
-                        }
+                // Reads db and afterCommit from the store, which withTransaction() binds for a mutating action.
+                const execute = async (): Promise<Res> => {
+                    let ctx = { ...localStorageContext.getStore() } as Ctx & { params: Args }
+                    for (const mw of middlewareFns) {
+                        const more = await mw(ctx)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ctx = { ...ctx, ...(more as any[]) }
                     }
-                }
-                // Inside the store, with db already swapped off the committed transaction, so a hook
-                // reads the same context its handler did rather than an empty one.
-                await (actionCtx ? localStorageContext.run(actionCtx, runAfterCommitFns) : runAfterCommitFns())
 
+                    if (session) {
+                        setSentryFromSession(session)
+                    }
+
+                    return handlerFn(ctx)
+                }
+
+                // A fresh store, so an action called inside another transaction opens its own instead of
+                // joining one whose commit it cannot see.
+                if (this.options.performsMutations) {
+                    return await localStorageContext.run({ params: args, session, org }, () =>
+                        withTransaction(db, execute),
+                    )
+                }
+
+                const { afterCommit, run: runAfterCommitFns } = afterCommitQueue()
+                const store: RequestContext = { params: args, session, org, db, afterCommit }
+                const result = await localStorageContext.run(store, execute)
+                await localStorageContext.run(store, runAfterCommitFns)
                 return result
             } catch (error) {
-                if (actionCtx) actionCtx.db = db
-
-                Sentry.captureException(error)
-
-                if (error instanceof ActionFailure) {
-                    return { error: error.error }
-                }
-                if (error instanceof AccessDeniedError) {
-                    return { error: `Access denied: ${error.message}` }
-                }
-
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-                return { error: errorMessage }
+                // ActionFailure is the expected validation / permission path; only the rest is a bug.
+                const eventId = error instanceof ActionFailure ? undefined : logger.error(error)
+                // The Lambda freezes once the response ends, and nothing else flushes a page render (OTTER-842).
+                await Sentry.flush(2000)
+                if (error instanceof ActionFailure) return { error: error.error }
+                // A bug's own text can name tables and constraints (OTTER-984), so the reader gets a reference instead.
+                return { error: UNEXPECTED_ERROR_MESSAGE, eventId }
             }
         }
 

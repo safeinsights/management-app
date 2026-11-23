@@ -7,7 +7,7 @@ import {
     proposalFormSchema,
     initialProposalValues,
 } from './schema'
-import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/app/[orgSlug]/study/request/form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS, STUDY_TITLE_OVER_LIMIT_ERROR } from '@/schema/study-request'
 import { overCharacterLimitError } from '@/lib/field-limits'
 import { BLANK_UUID } from '@/tests/unit.helpers'
 
@@ -238,7 +238,7 @@ describe('proposalFormSchema', () => {
             if (!result.success) {
                 const error = result.error.issues.find((e) => e.path.includes('additionalNotes'))
                 expect(error?.message).toBe(
-                    overCharacterLimitError(FIELD_TITLES.additionalNotes, CHARACTER_LIMITS.additionalNotes),
+                    'Additional notes or requests exceed the 1800 character limit. Shorten them to continue.',
                 )
             }
         })
@@ -413,11 +413,11 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
         })
 
         it.each([
-            ['researchQuestions', 3000],
-            ['projectSummary', 6000],
-            ['impact', 3000],
-            ['additionalNotes', 1800],
-        ] as const)('accepts %s at %i characters and rejects one more', (field, limit) => {
+            ['researchQuestions', 3000, 'exceeds', 'it'],
+            ['projectSummary', 6000, 'exceeds', 'it'],
+            ['impact', 3000, 'exceeds', 'it'],
+            ['additionalNotes', 1800, 'exceed', 'them'],
+        ] as const)('accepts %s at %i characters and rejects one more', (field, limit, verb, pronoun) => {
             expect(
                 draftProposalFormSchema.safeParse({ ...validProposalData, [field]: lexicalText('x'.repeat(limit)) })
                     .success,
@@ -428,7 +428,7 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
                 [field]: lexicalText('x'.repeat(limit + 1)),
             })
             expect(messagesFor(tooLong, field)).toContain(
-                `${FIELD_TITLES[field]} exceeds the ${limit} character limit. Shorten it to continue.`,
+                `${FIELD_TITLES[field]} ${verb} the ${limit} character limit. Shorten ${pronoun} to continue.`,
             )
         })
 
@@ -481,7 +481,7 @@ describe('draftProposalFormSchema (OTTER-691)', () => {
                 additionalNotes: lexicalText('x'.repeat(CHARACTER_LIMITS.additionalNotes + 1)),
             })
             expect(messagesFor(tooLong, 'additionalNotes')).toContain(
-                `${FIELD_TITLES.additionalNotes} exceeds the ${CHARACTER_LIMITS.additionalNotes} character limit. Shorten it to continue.`,
+                'Additional notes or requests exceed the 1800 character limit. Shorten them to continue.',
             )
         })
     })

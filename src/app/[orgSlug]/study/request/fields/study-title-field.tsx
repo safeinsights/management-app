@@ -6,12 +6,11 @@ import { CharacterCounter } from '@/components/character-counter'
 import { fieldCounterId, fieldDescribedBy, FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { countCharacters } from '@/lib/field-limits'
-import { STUDY_TITLE_MAX_CHARACTERS } from '../form-schemas'
+import { STUDY_TITLE_MAX_CHARACTERS } from '@/schema/study-request'
 import { TITLE_INPUT_ID } from './field-ids'
 
 const LABEL = 'Study title'
 const DESCRIPTION = 'Give your study a short, clear title to identify it on SafeInsights.'
-const FIELD_WIDTH = 620
 
 interface StudyTitleFieldProps {
     value: string
@@ -27,14 +26,15 @@ export const StudyTitleField: FC<StudyTitleFieldProps> = ({ value, error, onChan
     return (
         // The width belongs to the whole field, not to the input alone: the counter sits in
         // FormField's footer row, which would otherwise right-align to the card rather than to the
-        // input the count describes.
-        <Box maw={FIELD_WIDTH}>
+        // input the count describes. 60% of the card's inner width, as Step 2's datasets field.
+        <Box w="60%">
             <FormField
                 inputId={TITLE_INPUT_ID}
                 label={LABEL}
                 required
                 description={DESCRIPTION}
                 error={error}
+                validatesOnBlur
                 // The character-limit message appears mid-typing, before focus moves, so it has to
                 // announce itself.
                 errorLive

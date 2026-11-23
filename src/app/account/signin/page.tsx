@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { Container, Loader } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -52,7 +52,7 @@ export default function SigninPage() {
     const showMFA = alreadySignedIn.status === 'signed-out' && step === 'mfa'
 
     return (
-        <Container w={500}>
+        <Container w="100%" maw={500}>
             <AlreadySignedIn
                 isVisible={alreadySignedIn.status === 'signed-in'}
                 email={alreadySignedIn.email}

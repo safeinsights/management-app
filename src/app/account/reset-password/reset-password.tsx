@@ -1,8 +1,8 @@
 'use client'
 
 import { AppModal } from '@/components/modals/app-modal'
-import { useSignIn } from '@clerk/nextjs'
-import type { SignInResource } from '@clerk/types'
+import { useSignIn } from '@clerk/nextjs/legacy'
+import type { SignInResource } from '@clerk/nextjs/types'
 import { Button, Group, Loader, Stack, Text } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'

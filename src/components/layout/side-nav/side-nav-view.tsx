@@ -1,4 +1,4 @@
-import { externalNavLinks, type NavOrg } from '@/lib/nav/side-nav'
+import { helpNavLinks, hasMyStudiesUnread, type NavOrg, type NavUnread } from '@/lib/nav/side-nav'
 import { Routes } from '@/lib/routes'
 import Link from 'next/link'
 import { SafeInsightsLogo } from '../svg/si-logo'
@@ -14,10 +14,11 @@ export type SideNavViewProps = {
     orgs: NavOrg[]
     focusedOrgSlug: string | null
     pathname: string
+    unread: NavUnread
 }
 
-export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, pathname }) => {
-    const links = externalNavLinks(orgs)
+export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, pathname, unread }) => {
+    const links = helpNavLinks(orgs)
     const isOnMyStudies = pathname === Routes.dashboard
 
     return (
@@ -27,16 +28,28 @@ export const SideNavView: React.FC<SideNavViewProps> = ({ orgs, focusedOrgSlug, 
             </Link>
             <ul className={styles.list}>
                 <li className={styles.group}>
-                    <NavRow label="My studies" url={Routes.dashboard} icon="house" isCurrent={isOnMyStudies} />
+                    <NavRow
+                        label="My studies"
+                        url={Routes.dashboard}
+                        icon="house"
+                        isCurrent={isOnMyStudies}
+                        hasUnread={hasMyStudiesUnread(unread)}
+                    />
                 </li>
                 {orgs.map((org) => (
-                    <OrgGroup key={org.id} org={org} focusedOrgSlug={focusedOrgSlug} pathname={pathname} />
+                    <OrgGroup
+                        key={org.id}
+                        org={org}
+                        focusedOrgSlug={focusedOrgSlug}
+                        pathname={pathname}
+                        hasUnread={unread.orgSlugs.includes(org.slug)}
+                    />
                 ))}
                 <li className={styles.group}>
                     <ul className={styles.list}>
                         {links.map((link) => (
                             <li key={link.url}>
-                                <NavRow {...link} />
+                                <NavRow {...link} isCurrent={pathname === link.url} />
                             </li>
                         ))}
                     </ul>

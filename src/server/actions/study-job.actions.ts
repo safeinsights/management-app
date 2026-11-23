@@ -1,10 +1,10 @@
 'use server'
 
-import { ActionFailure, isPgUniqueViolation, throwNotFound } from '@/lib/errors'
+import { ActionFailure, isPgUniqueViolation } from '@/lib/errors'
 import { isOutputsDecided, latestJob, projectStudyState } from '@/lib/study-screen'
 import { rawStudyStateForStudy } from '@/server/db/study-state-query'
 import { assertDecisionFeedback } from './decision-feedback'
-import { isApprovedLogType, isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
+import { isEncryptedArtifact, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { outputsReviewFeedbackDocName } from '@/lib/collaboration-documents'
 import {
     hasOutputsDecision,
@@ -13,28 +13,26 @@ import {
     OUTPUTS_FEEDBACK_MAX_CHARACTERS,
     toOutputsReviewDecision,
 } from '@/lib/outputs-review'
-import { JobFile, sharedFileSchema, type SharedFile } from '@/lib/types'
+import { sharedFileSchema, type SharedFile } from '@/lib/types'
 import { isSessionOrgMember } from '@/lib/utils'
 import type { FileType } from '@/database/types'
 import {
     getLabPublicKeysForStudy,
     getUserPublicKey,
-    getSharedFileIdsForJob,
-    getStudyJobFileOfType,
-    getStudyJobInfo,
     jobAnalysisForJob,
-    latestJobForStudy,
     fetchUserFullName,
+    jobRound,
     outputsDecisionVersion,
 } from '@/server/db/queries'
-import { SCAN_LOG_FILE_NAME } from '@/lib/paths'
-import { codeRoundForJob } from '@/server/db/code-round'
+import { markStudyOpened, markStudyUpdated } from '@/server/db/mutations'
 import { isStudyReviewStale, studyReviewState } from '@/lib/study-review'
 import { onStudyResultsApproved, onStudyResultsRejected, onStudyReviewRequested } from '@/server/events'
 import { insertSharedFileKeys } from '@/server/results-sharing'
 import { fetchFileContents } from '@/server/storage'
 import { Action, z } from './action'
+import { loadStudyJob, withReviewerStudyJobSubject, withStudyAccessSubject, withStudyJobSubject } from './study-subject'
 import { requireStudyAgreement } from '@/server/study-agreement'
+import { transitionJob } from '@/server/job-transitions'
 
 // insertSharedFileKeys silently accepts partial sets, and recording an approval the lab cannot
 // act on is worse than refusing.
@@ -58,25 +56,10 @@ function assertSharesEveryArtifact(
 
 export const fetchLabPublicKeysAction = new Action('fetchLabPublicKeysAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
-        return { orgId: study.orgId }
-    })
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId } }) => {
         return await getLabPublicKeysForStudy(studyId)
-    })
-
-// Derived from the re-wrapped key rows, so empty before approval.
-export const fetchSharedFileIdsAction = new Action('fetchSharedFileIdsAction')
-    .params(z.object({ jobId: z.string() }))
-    .middleware(async ({ params: { jobId } }) => {
-        const studyJob = await getStudyJobInfo(jobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { jobId } }) => {
-        return await getSharedFileIdsForJob(jobId)
     })
 
 // Feedback and the files decision land together so the reviewer's rationale can never be orphaned
@@ -94,12 +77,10 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             sharedFiles: z.array(sharedFileSchema),
         }),
     )
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
+    .middleware(withReviewerStudyJobSubject)
     .requireAbilityTo('review', 'Study')
-    .middleware(requireStudyAgreement(({ studyJob }) => studyJob.studyId))
+    .middleware(requireStudyAgreement(({ studyId }) => studyId))
+    .middleware(loadStudyJob)
     .handler(async ({ params: { decision, feedback, sharedFiles }, studyJob, session, db }) => {
         const userId = session.user.id
         const studyId = studyJob.studyId
@@ -168,20 +149,13 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
             await insertSharedFileKeys(db, studyJobId, sharedFiles)
         }
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status: shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED',
-                studyJobId,
-            })
-            .executeTakeFirstOrThrow()
+        // Re-checked under the job lock: two identical decisions can both pass hasOutputsDecision above.
+        await transitionJob(db, studyJobId, shareOutputs ? 'FILES-APPROVED' : 'FILES-REJECTED', {
+            actor: 'reviewer',
+            userId,
+        })
 
-        await db
-            .updateTable('study')
-            .set({ reviewerId: userId, lastUpdatedAt: new Date() })
-            .where('id', '=', studyId)
-            .execute()
+        await markStudyUpdated(db, { studyId, userId, set: { reviewerId: userId } })
 
         // The editor's persist gate refuses writes to a decided job, which is what stops a
         // connected tab recreating the row.
@@ -201,50 +175,20 @@ export const submitOutputsDecisionAction = new Action('submitOutputsDecisionActi
         return { submitterFullName }
     })
 
-export const loadStudyJobAction = new Action('loadStudyJobAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob }) => {
-        return studyJob
-    })
-
-export const latestJobForStudyAction = new Action('latestJobForStudyAction')
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-
-        const studyJob = await latestJobForStudy(studyId)
-        return { studyJob, orgId: studyJob.orgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob }) => studyJob)
-
-// The summary and the scan describe the same submission, so a caller that wants both gets them in
-// one authorization and one getStudyJobInfo rather than two round-trips. `withScan` is off by
-// default: the scan costs an S3 fetch, and no caller has rendered a verdict since OTTER-694.
+// The summary and scan share one authorization and submission lookup.
 export const getJobAnalysisAction = new Action('getJobAnalysisAction')
-    .params(z.object({ studyJobId: z.string(), withScan: z.boolean().optional() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ studyJob, params: { withScan } }) => await jobAnalysisForJob(studyJob, { withScan }))
+    .handler(async ({ studyJobId }) => await jobAnalysisForJob({ studyJobId }))
 
 export const regenerateStudyReviewAction = new Action('regenerateStudyReviewAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ params: { studyJobId }, db, afterCommit }) => {
         // Only this round's row is touched; an earlier round's rows are that round's history.
-        const round = await codeRoundForJob(studyJobId, db)
+        const round = await jobRound(studyJobId, db)
         const existing = await db
             .selectFrom('studyReview')
             .select(['report', 'createdAt', 'summaryFailedAt', 'summaryStartedAt'])
@@ -266,40 +210,11 @@ export const regenerateStudyReviewAction = new Action('regenerateStudyReviewActi
         return { status: 'restarted' as const }
     })
 
-export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-
-    .handler(async ({ studyJob }) => {
-        const approvedJobFiles = studyJob.files.filter(
-            (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
-        )
-
-        const jobFiles: JobFile[] = []
-        for (const jobFile of approvedJobFiles) {
-            const blob = await fetchFileContents(jobFile.path)
-            const contents = await blob.arrayBuffer()
-            jobFiles.push({
-                contents,
-                path: jobFile.name,
-                fileType: jobFile.fileType,
-            })
-        }
-
-        return jobFiles
-    })
-
 export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileAction')
     .params(z.object({ studyJobId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
     .handler(async ({ studyJob, params: { fileName } }) => {
         const file = studyJob.files.find(
             (f) => f.name === fileName && (f.fileType === 'MAIN-CODE' || f.fileType === 'SUPPLEMENTAL-CODE'),
@@ -312,23 +227,6 @@ export const fetchStudyJobCodeFileAction = new Action('fetchStudyJobCodeFileActi
         return { fileName: file.name, contents }
     })
 
-export const fetchScanLogAction = new Action('fetchScanLogAction')
-    .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ params: { studyJobId } }) => {
-        const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
-    .requireAbilityTo('view', 'StudyJob')
-    .handler(async ({ params: { studyJobId } }) => {
-        // Newest row of the type, so the viewer shows the same log the displayed
-        // scan statuses were parsed from and the download link serves.
-        const file = await getStudyJobFileOfType(studyJobId, 'SECURITY-SCAN-LOG', false)
-        if (!file) throw new ActionFailure({ file: 'No security scan log found for this job' })
-
-        const blob = await fetchFileContents(file.path)
-        return { fileName: SCAN_LOG_FILE_NAME, contents: await blob.text() }
-    })
-
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(
         z.object({
@@ -336,19 +234,23 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             // session.orgs cannot answer this: a dual-role lab+enclave user is legitimately both
             // and was handed recipientKeys:{}, failing decrypt as "private key is not valid".
             type: z.enum(['researcher', 'reviewer']),
+            // A researcher may name an earlier key, so a run shared before a key reset still opens.
+            // Wraps are useless without that key's private half, and job viewers can already fetch
+            // the ciphertext through the reviewer branch.
+            fingerprint: z.string().min(1).max(256).optional(),
         }),
     )
-    .middleware(async ({ params: { jobId } }) => {
-        const studyJob = await getStudyJobInfo(jobId)
-        // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
-        // re-wrapped result files, not just enclave reviewers.
-        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId, status: studyJob.status }
-    })
+    // Include submittedByOrgId so 'view StudyJob' matches lab researchers fetching their own
+    // re-wrapped result files, not just enclave reviewers.
+    .middleware(withStudyJobSubject)
     .requireAbilityTo('view', 'StudyJob')
+    .middleware(loadStudyJob)
 
-    .handler(async ({ params: { type }, studyJob, session, db }) => {
+    .handler(async ({ params: { type, fingerprint: requestedFingerprint }, studyJob, session, db }) => {
         const userKey = await getUserPublicKey(session.user.id)
-        if (!userKey) return []
+        // Reviewers decrypt with their registered key, so only a researcher's request may name another.
+        const fingerprint = (type === 'researcher' && requestedFingerprint) || userKey?.fingerprint
+        if (!fingerprint) return []
 
         const encryptedFiles = studyJob.files.filter(
             (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
@@ -381,7 +283,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
                 'in',
                 encryptedFiles.map((f) => f.id),
             )
-            .where('fingerprint', '=', userKey.fingerprint)
+            .where('fingerprint', '=', fingerprint)
             .execute()
         if (!wrappedKeys.length) return []
 
@@ -405,22 +307,15 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
         )
     })
 
-// Recorded from the client once the outputs decision page is on screen, not during its render: a
-// render-time write would fire on link prefetch and mark the decision viewed before anyone read it.
+// Recorded from the client, not during render: a render-time write would fire on link prefetch.
+// Feedback-only counts as read once on screen; shared outputs only once decrypted (OTTER-999).
 export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionViewedAction', {
     performsMutations: true,
 })
-    .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .select(['orgId', 'submittedByOrgId', 'status'])
-            .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(throwNotFound('study'))
-        return { orgId: study.orgId, submittedByOrgId: study.submittedByOrgId, status: study.status }
-    })
+    .params(z.object({ studyId: z.string(), decrypted: z.boolean().optional() }))
+    .middleware(withStudyAccessSubject)
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { studyId }, session, db, submittedByOrgId }) => {
+    .handler(async ({ params: { studyId, decrypted }, session, db, submittedByOrgId }) => {
         // Only the lab's own view counts. Silent, not a failure: reviewers reach this page too.
         if (!isSessionOrgMember(session, submittedByOrgId)) return
 
@@ -428,12 +323,12 @@ export const markOutputsDecisionViewedAction = new Action('markOutputsDecisionVi
         if (!raw) return
         const state = projectStudyState(raw)
         if (!isOutputsDecided(state) || state.resultsViewed) return
+        // An errored run stays Code errored however it is read.
+        if (state.resultsErrored) return
+        if (state.resultsApproved && !decrypted) return
 
         const job = latestJob(raw.jobs)
         if (!job) return
-        // Two overlapping visits can both insert; accepted, see docs/study-screens-logic.md (OTTER-698).
-        await db
-            .insertInto('jobStatusChange')
-            .values({ studyJobId: job.id, status: 'RESULTS-VIEWED', userId: session.user.id })
-            .execute()
+        await transitionJob(db, job.id, 'RESULTS-VIEWED', { actor: 'researcher', userId: session.user.id })
+        await markStudyOpened(db, { studyId, userId: session.user.id })
     })

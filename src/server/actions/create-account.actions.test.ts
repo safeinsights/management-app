@@ -1,0 +1,1108 @@
+import { db } from '@/database'
+import { findOrCreateLegalDocument } from '@/server/db/legal-document'
+import { syncMembershipToClerk } from '@/server/clerk-org-sync'
+import {
+    enableClerkOrgSync,
+    actionResult,
+    createFakeClerkOrgs,
+    currentFakeClerkOrgsApi,
+    fakeClerkRoleOf,
+    faker,
+    flushDeferred,
+    getAuditEntries,
+    getAuditEntriesWithMetadata,
+    insertTestOrg,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+    postHogCaptures,
+    testEmail,
+} from '@/tests/unit.helpers'
+import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
+import { v7 } from 'uuid'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import logger from '@/lib/logger'
+import {
+    getClaimedInviteAction,
+    getOrgInfoForInviteAction,
+    onCreateAccountAction,
+    onJoinTeamAccountAction,
+    onPendingUserLoginAction,
+    onRevokeInviteAction,
+} from './create-account.actions'
+
+beforeEach(enableClerkOrgSync)
+
+describe('Create Account Actions', () => {
+    let org: { id: string; slug: string; name: string; type: 'enclave' | 'lab' } = {
+        id: '',
+        slug: '',
+        name: '',
+        type: 'enclave',
+    }
+    let invitingUser: { user: { id: string } }
+
+    beforeEach(async () => {
+        org = await insertTestOrg()
+        invitingUser = await insertTestUser({ org })
+        const client = clerkClient as unknown as Mock
+        const auth = clerkAuth as unknown as Mock
+        auth.mockResolvedValue({
+            userId: null,
+            sessionClaims: null,
+        })
+
+        client.mockResolvedValue({
+            users: {
+                createUser: vi.fn(),
+                updateUser: vi.fn(async () => ({})),
+                updateUserMetadata: vi.fn(async () => ({})),
+                getUser: vi.fn(() => ({ publicMetadata: {} })),
+                getUserList: vi.fn(async () => ({
+                    totalCount: 1,
+                    data: [
+                        {
+                            id: faker.string.alpha(10),
+                        },
+                    ],
+                })),
+            },
+            emailAddresses: {
+                createEmailAddress: vi.fn(async () => ({ id: faker.string.alpha(10) })),
+                updateEmailAddress: vi.fn(async () => ({})),
+            },
+            organizations: createFakeClerkOrgs().api,
+        })
+    })
+
+    it('onCreateAccountAction creates a new user', async () => {
+        const form = {
+            firstName: 'Test',
+            lastName: 'User',
+            password: 'password',
+        }
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onCreateAccountAction({ inviteId: invite.id, form })
+
+        const newUser = await db
+            .selectFrom('user')
+            .select(['id', 'email'])
+            .where('email', '=', invite.email)
+            .executeTakeFirstOrThrow()
+
+        // Grant and claim commit together, so the guard is self-enforcing.
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(newUser.id)
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('userId', '=', newUser.id)
+            .where('orgId', '=', org.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(false)
+        await flushDeferred()
+        expect(await getAuditEntriesWithMetadata(newUser.id, 'USER')).toContainEqual(
+            expect.objectContaining({ eventType: 'ACCEPTED_INVITE', metadata: { inviteId: invite.id } }),
+        )
+        expect(postHogCaptures()).toContainEqual(
+            expect.objectContaining({
+                distinctId: newUser.id,
+                event: 'accepted_invite',
+                properties: expect.objectContaining({ is_new_account: true }),
+            }),
+        )
+    })
+
+    describe('signup acknowledgements', () => {
+        const form = { firstName: 'Test', lastName: 'User', password: 'password', confirmPassword: 'password' }
+
+        const createInvite = async () =>
+            await db
+                .insertInto('pendingUser')
+                .values({
+                    orgId: org.id,
+                    email: faker.internet.email({ provider: 'test.com' }),
+                    isAdmin: false,
+                    invitedByUserId: invitingUser.user.id,
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        // Globally scoped, so at most one row can exist and a seeded database already holds it;
+        // a plain insert returns nothing on conflict and throws.
+        const publishTos = async () => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
+            // Numbered past whatever exists, or the version-number unique constraint fires.
+            const { maxVersion } = await db
+                .selectFrom('legalDocumentVersion')
+                .select((eb) => eb.fn.max('versionNumber').as('maxVersion'))
+                .where('legalDocumentId', '=', legalDocumentId)
+                .executeTakeFirstOrThrow()
+
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: 'legal/TOS/terms',
+                    fileName: 'terms.md',
+                    format: 'markdown',
+                    versionNumber: Number(maxVersion ?? 0) + 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        const acknowledgementsFor = async (email: string) =>
+            await db
+                .selectFrom('legalDocumentAcknowledgement')
+                .innerJoin('user', 'user.id', 'legalDocumentAcknowledgement.userId')
+                .select('legalDocumentAcknowledgement.legalDocumentVersionId')
+                .where('user.email', '=', email)
+                .execute()
+
+        it('records agreement to the versions the form displayed', async () => {
+            const version = await publishTos()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [version.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: version.id }])
+        })
+
+        // A draft was never shown to anyone, so agreeing to one is evidence of nothing.
+        it('ignores a version that was never published', async () => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type: 'TOS' })).id
+            await db
+                .deleteFrom('legalDocumentVersion')
+                .where('legalDocumentId', '=', legalDocumentId)
+                .where('publishedAt', 'is', null)
+                .execute()
+            // Create draft
+            const draft = await db
+                .insertInto('legalDocumentVersion')
+                .values({ legalDocumentId, filePath: 'legal/TOS/draft', fileName: 'draft.md', format: 'markdown' })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [draft.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+
+        it('creates the account when nothing has been published to acknowledge', async () => {
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+
+        // Publish an org-scoped participation agreement for the given org.
+        const publishParticipationAgreement = async (orgId: string, type: 'ROPA' | 'DOPA') => {
+            const legalDocumentId = (await findOrCreateLegalDocument(db, { type, orgId })).id
+            return await db
+                .insertInto('legalDocumentVersion')
+                .values({
+                    legalDocumentId,
+                    filePath: `legal/${type}/agreement`,
+                    fileName: 'agreement.pdf',
+                    format: 'pdf',
+                    versionNumber: 1,
+                    publishedAt: new Date(),
+                    publishedBy: invitingUser.user.id,
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
+
+        it("records agreement to the invite org's participation agreement", async () => {
+            const dopa = await publishParticipationAgreement(org.id, 'DOPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [dopa.id] })
+
+            expect(await acknowledgementsFor(invite.email)).toEqual([{ legalDocumentVersionId: dopa.id }])
+        })
+
+        // Check that by-org gating works (no acknowledging another org's ropa/dopa can be recorded here)
+        it('ignores an org-scoped agreement the signup form never displays', async () => {
+            const otherOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+            const ropa = await publishParticipationAgreement(otherOrg.id, 'ROPA')
+            const invite = await createInvite()
+
+            await onCreateAccountAction({ inviteId: invite.id, form, acknowledgedVersionIds: [ropa.id] })
+
+            expect(await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()).toBeDefined()
+            expect(await acknowledgementsFor(invite.email)).toEqual([])
+        })
+    })
+
+    it('onCreateAccountAction throws an error if invite not found', async () => {
+        const form = {
+            firstName: 'Test',
+            lastName: 'User',
+            password: 'password',
+        }
+
+        const result = await onCreateAccountAction({ inviteId: v7(), form })
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+    })
+
+    it('onCreateAccountAction surfaces Clerk validation errors inline', async () => {
+        const client = clerkClient as unknown as Mock
+        client.mockResolvedValue({
+            users: {
+                getUserList: vi.fn(async () => ({ totalCount: 0, data: [] })),
+                createUser: vi.fn(async () => {
+                    throw {
+                        errors: [
+                            {
+                                code: 'form_password_pwned',
+                                message: 'Password has been found in an online data breach.',
+                                longMessage:
+                                    'Password has been found in an online data breach. For account safety, please use a different password.',
+                            },
+                        ],
+                    }
+                }),
+            },
+        })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const form = {
+            firstName: 'Test',
+            lastName: 'User',
+            password: 'hunter2',
+        }
+
+        const result = await onCreateAccountAction({ inviteId: invite.id, form })
+        expect(result).toEqual({
+            error: {
+                code: 'form_password_pwned',
+                form: 'Password has been found in an online data breach. For account safety, please use a different password.',
+            },
+        })
+    })
+
+    it('onCreateAccountAction rejects existing user', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const form = {
+            firstName: 'Test',
+            lastName: 'User',
+            password: 'password',
+        }
+        const result = await onCreateAccountAction({ inviteId: invite.id, form })
+        expect(result).toEqual({ error: expect.objectContaining({ user: 'already has account' }) })
+    })
+
+    // Invites are bearer credentials, so acceptance authorizes on the session alone.
+    const signInAs = (user: { id: string; clerkId: string; email: string | null }, orgSlug: string) =>
+        mockClerkSession({
+            userId: user.id,
+            clerkUserId: user.clerkId,
+            email: user.email ?? undefined,
+            orgSlug,
+        })!
+
+    it('onJoinTeamAccountAction adds to existing user', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const newOrg = await insertTestOrg()
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        const userId = result.id
+        expect(userId).toEqual(user.id)
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
+        expect(orgUsers).toHaveLength(2)
+        expect(orgUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ orgId: org.id }),
+                expect.objectContaining({ orgId: newOrg.id }),
+            ]),
+        )
+
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(user.id)
+    })
+
+    it('onJoinTeamAccountAction attaches an invite addressed to another email to the accepting account', async () => {
+        // The membership attaches to the accepting session's account, never to the invited address.
+        const { user } = await insertTestUser({ org })
+        const targetOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: targetOrg.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const mocks = signInAs(user, org.slug)
+        // A verified address is a sign-in / password-reset identifier, so accepting must never
+        // write the invited address onto the accepting Clerk account.
+        const emailWrites = { createEmailAddress: vi.fn(), updateEmailAddress: vi.fn() }
+        Object.assign(mocks.client, { emailAddresses: emailWrites })
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.id).toEqual(user.id)
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['userId', 'isAdmin'])
+            .where('orgId', '=', targetOrg.id)
+            .execute()
+        expect(membership).toEqual([{ userId: user.id, isAdmin: false }])
+
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(user.id)
+
+        expect(emailWrites.createEmailAddress).not.toHaveBeenCalled()
+        expect(emailWrites.updateEmailAddress).not.toHaveBeenCalled()
+    })
+
+    it('onJoinTeamAccountAction grants exactly the role the invite row specifies', async () => {
+        // No-escalation invariant: no caller-supplied input can influence the granted role.
+        const { user } = await insertTestUser({ org })
+        const contributorOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+        const adminOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const contributorInvite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: contributorOrg.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const adminInvite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: adminOrg.id,
+                email: testEmail(),
+                isAdmin: true,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        actionResult(
+            await onJoinTeamAccountAction({ inviteId: contributorInvite.id, isAdmin: true } as {
+                inviteId: string
+            }),
+        )
+        actionResult(await onJoinTeamAccountAction({ inviteId: adminInvite.id }))
+
+        const memberships = await db
+            .selectFrom('orgUser')
+            .select(['orgId', 'isAdmin'])
+            .where('userId', '=', user.id)
+            .execute()
+        expect(memberships).toEqual(
+            expect.arrayContaining([
+                { orgId: contributorOrg.id, isAdmin: false },
+                { orgId: adminOrg.id, isAdmin: true },
+            ]),
+        )
+    })
+
+    it('onJoinTeamAccountAction promotes an existing member when the invite grants admin', async () => {
+        // Consuming the invite without honouring its role would silently drop the promotion.
+        const { user } = await insertTestUser({ org })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isAdmin: true,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('orgId', '=', org.id)
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(true)
+
+        const claimed = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(claimed.claimedByUserId).toBe(user.id)
+    })
+
+    it('onJoinTeamAccountAction never demotes an existing admin via a contributor invite', async () => {
+        const { user } = await insertTestUser({ org, isAdmin: true })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+
+        const membership = await db
+            .selectFrom('orgUser')
+            .select(['isAdmin'])
+            .where('orgId', '=', org.id)
+            .where('userId', '=', user.id)
+            .executeTakeFirstOrThrow()
+        expect(membership.isAdmin).toBe(true)
+    })
+
+    describe('Clerk organization membership', () => {
+        const inviteFor = (orgId: string, email: string, isAdmin: boolean) =>
+            db
+                .insertInto('pendingUser')
+                .values({ orgId, email, isAdmin, invitedByUserId: invitingUser.user.id })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        const dbMembers = async (orgId: string) =>
+            db.selectFrom('orgUser').select('userId').where('orgId', '=', orgId).execute()
+
+        it('onCreateAccountAction mirrors the invited role into Clerk', async () => {
+            const invite = await inviteFor(org.id, testEmail(), false)
+            const form = { firstName: 'Test', lastName: 'User', password: 'password' }
+
+            actionResult(await onCreateAccountAction({ inviteId: invite.id, form }))
+
+            const created = await db
+                .selectFrom('user')
+                .select('clerkId')
+                .where('email', '=', invite.email)
+                .executeTakeFirstOrThrow()
+            expect(await fakeClerkRoleOf(org.slug, created.clerkId)).toBe('org:member')
+        })
+
+        it('onCreateAccountAction still creates the account when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const invite = await inviteFor(org.id, testEmail(), true)
+            const before = await dbMembers(org.id)
+            const api = await currentFakeClerkOrgsApi()
+            api.getOrganization.mockRejectedValueOnce(Object.assign(new Error('clerk down'), { status: 500 }))
+
+            const { userId } = actionResult(
+                await onCreateAccountAction({
+                    inviteId: invite.id,
+                    form: { firstName: 'Test', lastName: 'User', password: 'password' },
+                }),
+            )
+
+            expect(await dbMembers(org.id)).toHaveLength(before.length + 1)
+            const claimed = await db
+                .selectFrom('pendingUser')
+                .select('claimedByUserId')
+                .where('id', '=', invite.id)
+                .executeTakeFirstOrThrow()
+            expect(claimed.claimedByUserId).toBe(userId)
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
+        })
+
+        it('onCreateAccountAction leaves Clerk alone when it loses the claim race', async () => {
+            const invite = await inviteFor(org.id, testEmail(), false)
+            const clerkId = faker.string.alpha(10)
+            await syncMembershipToClerk({ userId: invitingUser.user.id, orgId: org.id })
+            const clerk = await clerkClient()
+            // Another accept claims the invite after the up-front check but before the transaction.
+            ;(clerk.users.getUserList as Mock).mockImplementationOnce(async () => {
+                await db
+                    .updateTable('pendingUser')
+                    .set({ claimedByUserId: invitingUser.user.id })
+                    .where('id', '=', invite.id)
+                    .execute()
+                return { totalCount: 1, data: [{ id: clerkId }] }
+            })
+
+            const result = await onCreateAccountAction({
+                inviteId: invite.id,
+                form: { firstName: 'Test', lastName: 'User', password: 'password' },
+            })
+
+            expect(result).toEqual({ error: expect.anything() })
+            expect(await fakeClerkRoleOf(org.slug, clerkId)).toBeUndefined()
+        })
+
+        it('onJoinTeamAccountAction mirrors a new membership into Clerk', async () => {
+            const { user } = await insertTestUser({ org })
+            const target = await insertTestOrg()
+            signInAs(user, org.slug)
+
+            actionResult(
+                await onJoinTeamAccountAction({ inviteId: (await inviteFor(target.id, user.email!, false)).id }),
+            )
+
+            expect(await fakeClerkRoleOf(target.slug, user.clerkId)).toBe('org:member')
+        })
+
+        it('onJoinTeamAccountAction promotes an existing member in Clerk', async () => {
+            const { user } = await insertTestUser({ org })
+            signInAs(user, org.slug)
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id })
+
+            actionResult(await onJoinTeamAccountAction({ inviteId: (await inviteFor(org.id, user.email!, true)).id }))
+
+            expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
+        })
+
+        it('onJoinTeamAccountAction leaves an existing admin as admin in Clerk', async () => {
+            const { user } = await insertTestUser({ org, isAdmin: true })
+            signInAs(user, org.slug)
+            await syncMembershipToClerk({ userId: user.id, orgId: org.id })
+            const api = await currentFakeClerkOrgsApi()
+            api.updateOrganizationMembership.mockClear()
+
+            actionResult(await onJoinTeamAccountAction({ inviteId: (await inviteFor(org.id, user.email!, false)).id }))
+
+            expect(api.updateOrganizationMembership).not.toHaveBeenCalled()
+            expect(await fakeClerkRoleOf(org.slug, user.clerkId)).toBe('org:admin')
+        })
+
+        it('onJoinTeamAccountAction still adds the membership when Clerk fails, and logs', async () => {
+            const logError = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const { user } = await insertTestUser({ org })
+            const target = await insertTestOrg()
+            signInAs(user, org.slug)
+            const invite = await inviteFor(target.id, user.email!, false)
+            const api = await currentFakeClerkOrgsApi()
+            api.updateOrganizationMembership.mockRejectedValueOnce(new Error('clerk down'))
+
+            actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+
+            expect(await dbMembers(target.id)).toHaveLength(1)
+            expect(logError).toHaveBeenCalledWith(
+                'clerk-org-sync failed',
+                expect.objectContaining({ error: expect.objectContaining({ message: 'clerk down' }) }),
+            )
+        })
+    })
+
+    it('onJoinTeamAccountAction refuses an unauthenticated caller', async () => {
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
+    })
+
+    it('onJoinTeamAccountAction refuses an already-claimed invite', async () => {
+        const { user } = await insertTestUser({ org })
+        const newOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: newOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        const result = await onJoinTeamAccountAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', user.id).execute()
+        expect(orgUsers).toEqual([expect.objectContaining({ orgId: org.id })])
+    })
+
+    it('onJoinTeamAccountAction returns needsUserKey true for enclave org without existing key', async () => {
+        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: labOrg })
+
+        const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: enclaveOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, labOrg.slug)
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsUserKey).toBe(true)
+    })
+
+    it('onJoinTeamAccountAction returns needsUserKey false for enclave org with existing key', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: enclaveOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, org.slug)
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsUserKey).toBe(false)
+    })
+
+    it('onJoinTeamAccountAction returns needsUserKey true for lab org without existing key', async () => {
+        // insertTestUser only auto-creates a key for enclave-org users, so a lab org keeps this
+        // user key-less.
+        const existingLabOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: existingLabOrg })
+
+        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: labOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        signInAs(user, existingLabOrg.slug)
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsUserKey).toBe(true)
+    })
+
+    const insertInvite = async (opts: { orgId?: string; email?: string; claimedByUserId?: string } = {}) =>
+        await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: opts.orgId ?? org.id,
+                email: opts.email ?? testEmail().toLowerCase(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: opts.claimedByUserId ?? null,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+    const findInvite = async (id: string) =>
+        await db.selectFrom('pendingUser').select(['id']).where('id', '=', id).executeTakeFirst()
+
+    it('onRevokeInviteAction lets an org admin revoke an invite', async () => {
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: true })
+
+        const invite = await insertInvite()
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction lets any authenticated holder of the link decline an unclaimed invite', async () => {
+        // Possession of the id authorizes accepting, so it also authorizes declining.
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
+
+        const invite = await insertInvite()
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction refuses an unauthenticated caller', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+        const invite = await insertInvite()
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
+    })
+
+    it('onRevokeInviteAction lets an org admin remove a claimed invite', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: true })
+
+        const invite = await insertInvite({ claimedByUserId: user.id })
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(await findInvite(invite.id)).toBeFalsy()
+    })
+
+    it('onRevokeInviteAction refuses a non-admin deleting a claimed invite', async () => {
+        // A claimed invite is a spent bearer token, so only an org admin may remove the row.
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ orgSlug: org.slug, isAdmin: false })
+
+        const invite = await insertInvite({ claimedByUserId: invitingUser.user.id })
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
+    })
+
+    it('onRevokeInviteAction refuses an admin of a different org deleting a claimed invite', async () => {
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        await mockSessionWithTestData({ isAdmin: true })
+
+        const invite = await insertInvite({ claimedByUserId: invitingUser.user.id })
+
+        const result = await onRevokeInviteAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        expect(await findInvite(invite.id)).toBeTruthy()
+    })
+
+    it('onPendingUserLoginAction claims invite for logged in user', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        const updatedInvite = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirst()
+
+        expect(updatedInvite?.claimedByUserId).toBe(user.id)
+    })
+
+    // Signup skips the shared sequence, so without this a new account's first sign-in is never audited.
+    it('onPendingUserLoginAction records the login', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({ orgId: org.id, email: testEmail(), isAdmin: false })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        await flushDeferred()
+        expect(await getAuditEntries(user.id, 'USER')).toContainEqual({
+            eventType: 'LOGGED_IN',
+            recordType: 'USER',
+            recordId: user.id,
+            userId: user.id,
+        })
+    })
+
+    it('onPendingUserLoginAction is a no-op success when the same user already claimed the invite', async () => {
+        // By the time the signup page calls this, onCreateAccountAction has already claimed the
+        // invite for the same user.
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onPendingUserLoginAction({ inviteId: invite.id })
+        expect(result).toBeUndefined()
+
+        const unchanged = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.claimedByUserId).toBe(user.id)
+    })
+
+    it('onPendingUserLoginAction cannot re-claim an invite another user already claimed', async () => {
+        await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onPendingUserLoginAction({ inviteId: invite.id })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+
+        const unchanged = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirstOrThrow()
+        expect(unchanged.claimedByUserId).toBe(invitingUser.user.id)
+    })
+
+    it('getOrgInfoForInviteAction returns org information for valid invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await getOrgInfoForInviteAction({ inviteId: invite.id }))
+
+        expect(result).toMatchObject({
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            email: invite.email,
+        })
+    })
+
+    it('getOrgInfoForInviteAction throws error for invalid invite', async () => {
+        const result = await getOrgInfoForInviteAction({ inviteId: v7() })
+        expect(result).toEqual({ error: { invite: 'not found' } })
+    })
+
+    it('getOrgInfoForInviteAction discloses nothing for an already-claimed invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await getOrgInfoForInviteAction({ inviteId: invite.id })
+        expect(result).toEqual({ error: { invite: 'not found' } })
+    })
+
+    it('onCreateAccountAction refuses an already-claimed invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: testEmail(),
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+                claimedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await onCreateAccountAction({
+            inviteId: invite.id,
+            form: { firstName: 'Test', lastName: 'User', password: 'password' },
+        })
+
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        const created = await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()
+        expect(created).toBeUndefined()
+    })
+
+    describe('getClaimedInviteAction', () => {
+        const insertInvite = async (orgId: string, claimedByUserId: string | null) =>
+            await db
+                .insertInto('pendingUser')
+                .values({
+                    orgId,
+                    email: testEmail(),
+                    isAdmin: false,
+                    invitedByUserId: invitingUser.user.id,
+                    claimedByUserId,
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+
+        it('returns the invited address and the inviting org to the claimer', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, user.id)
+
+            signInAs(user, org.slug)
+
+            const result = actionResult(await getClaimedInviteAction({ inviteId: invite.id }))
+
+            expect(result).toEqual({
+                email: invite.email,
+                orgSlug: invitingOrg.slug,
+                orgName: invitingOrg.name,
+            })
+        })
+
+        it('refuses an unauthenticated caller', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, user.id)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+
+        // The invited address belongs to whoever was invited, so only the account that spent the
+        // invite may read it back.
+        it('refuses a signed-in user who did not claim the invite', async () => {
+            const { user } = await insertTestUser({ org })
+            const claimer = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, claimer.user.id)
+
+            signInAs(user, org.slug)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        })
+
+        it('refuses an invite nobody has claimed', async () => {
+            const { user } = await insertTestUser({ org })
+            const invitingOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+            const invite = await insertInvite(invitingOrg.id, null)
+
+            signInAs(user, org.slug)
+
+            const result = await getClaimedInviteAction({ inviteId: invite.id })
+
+            expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
+        })
+    })
+})

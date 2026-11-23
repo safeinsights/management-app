@@ -145,6 +145,8 @@ change.
 no escape, no click-outside — with an explicit **Sign out** as the alternative to agreeing.
 Declining is a legitimate choice, and without that button the modal covers the nav and the only way
 out is closing the tab, which leaves the session intact.
+Since the UX review, the Terms of Service / Privacy Notice gate no longer offers Sign out; the
+ROPA/DOPA gate still does.
 
 **Signup records the acknowledgement against the versions the form displayed,** not "whatever is
 latest now". If a new version publishes between page load and submit, we record what the user was

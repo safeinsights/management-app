@@ -1,9 +1,5 @@
 import { semanticColor } from '@/theme/tokens'
 
-export const OPENSTAX_ORG_SLUG = 'openstax'
-export const OPENSTAX_LAB_ORG_SLUG = 'openstax-lab'
-export const OPENSTAX_ORG_SLUGS = [OPENSTAX_ORG_SLUG, OPENSTAX_LAB_ORG_SLUG] as const
-
 export const PROPOSAL_GRID_SPAN = {
     titleSpan: { base: 12, sm: 4, lg: 2 },
     inputSpan: { base: 12, sm: 8, lg: 4 },
@@ -28,12 +24,17 @@ export const APP_SHELL = {
     mainMaxWidth: 1600,
 } as const
 
+export const APP_TITLE = 'SafeInsights'
+
 // Spread onto each shell's <main> so useRouteFocus has one target. tabIndex -1 takes scripted
 // focus without joining the tab order; the outline rule lives in globals.css.
 export const MAIN_CONTENT_ID = 'main-content'
 export const MAIN_CONTENT_PROPS = { id: MAIN_CONTENT_ID, tabIndex: -1 } as const
 
 export const POSTHOG_HOST = 'https://us.i.posthog.com'
+
+// Lets dashboards split the PostHog projects the website, this app and (soon) the docs share.
+export const POSTHOG_SURFACE = 'app'
 
 // Clerk's signOut can hang instead of settling, which strands whatever awaits it. Shared so the
 // bound is one decision rather than a copy per call site (OTTER-745).

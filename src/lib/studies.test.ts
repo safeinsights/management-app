@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { ProposalFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { ProposalFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import { decisionTimestampForProposalHeader, draftHasStep2Progress } from './studies'
 
 const submittedAt = new Date('2025-04-16T10:00:00Z')
@@ -60,12 +61,6 @@ describe('decisionTimestampForProposalHeader', () => {
             study: study({ status: 'PENDING-REVIEW' }),
             entries: [],
             expected: submittedAt,
-        },
-        {
-            name: 'PENDING-REVIEW with approvedAt uses approvedAt',
-            study: study({ status: 'PENDING-REVIEW', approvedAt }),
-            entries: [],
-            expected: approvedAt,
         },
         {
             name: 'CHANGE-REQUESTED with empty entries uses submittedAt',

@@ -8,16 +8,6 @@ import { reviewFeedbackDocNameForVersion } from '@/lib/collaboration-documents'
 import { usePublishReviewFeedbackProvider } from '@/lib/realtime/review-feedback-provider-context'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
-const EDITOR_SKELETON_HEIGHT = 600
-
-const contentStyle = {
-    minHeight: 600,
-    padding: '8px 16px',
-    outline: 'none',
-    fontSize: '1rem',
-    lineHeight: 1.6,
-} as const
-
 type ReviewFeedbackSectionProps = {
     feedback: ReturnType<typeof useReviewFeedback>
     submittingLabName: string
@@ -46,8 +36,8 @@ const EVALUATION_CRITERIA = [
 function CriterionLine({ label, description }: { label: string; description: string }) {
     return (
         <List.Item>
-            <Text component="span" fz={16} c={semanticColor('text.primary')}>
-                <Text component="span" fz={16} fw={fontWeight.semibold}>
+            <Text component="span" fz="md" c={semanticColor('text.primary')}>
+                <Text component="span" fz="md" fw={fontWeight.semibold}>
                     {label}:
                 </Text>{' '}
                 {description}
@@ -73,8 +63,8 @@ function FeedbackEditor({
             docName={reviewFeedbackDocNameForVersion(studyId, reviewVersion)}
             inputId="review-feedback"
             ariaLabel="Initial request review feedback"
-            contentStyle={contentStyle}
-            skeletonHeight={EDITOR_SKELETON_HEIGHT}
+            contentHeight={600}
+            fz="md"
             isResizable
             onProviderReady={publishProvider}
         />
@@ -90,18 +80,18 @@ export function ReviewFeedbackSection({
     return (
         <Stack gap="lg" data-testid="review-feedback-section">
             <Group gap="xxs" align="center">
-                <Text fz={20} fw={fontWeight.bold} c={semanticColor('text.primary')}>
+                <Text fz="xl" fw={fontWeight.bold} c={semanticColor('text.primary')}>
                     {SECTION_TITLE}
                 </Text>
-                <RequiredIndicator fz={20} fw={fontWeight.bold} />
+                <RequiredIndicator fz="xl" fw={fontWeight.bold} />
             </Group>
             <Divider />
             <Stack gap="md">
-                <Text fz={16} c={semanticColor('text.primary')}>
+                <Text fz="md" c={semanticColor('text.primary')}>
                     Share your decision and feedback on this proposal with {submittingLabName}. Consider evaluating the
                     proposal on these criteria:
                 </Text>
-                <List spacing={4} fz={16} data-testid="evaluation-criteria">
+                <List spacing="xxs" fz="md" data-testid="evaluation-criteria">
                     {EVALUATION_CRITERIA.map((criterion) => (
                         <CriterionLine
                             key={criterion.label}

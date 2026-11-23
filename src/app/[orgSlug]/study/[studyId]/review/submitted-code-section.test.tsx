@@ -2,35 +2,30 @@ import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actio
 import type { StudyJobStatus } from '@/database/types'
 import {
     actionResult,
+    advanceTimers,
     createTestQueryClient,
     db,
-    fireEvent,
+    fakeTimeouts,
     insertTestDataSource,
+    insertTestJobStatus,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
+    restoreRealTimers,
     screen,
     userEvent,
     type Mock,
     waitFor,
+    waitForPendingQueries,
     within,
 } from '@/tests/unit.helpers'
 import { useParams } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type JobScanResult, jobAnalysisForJob, latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { SubmittedCodeSection } from './submitted-code-section'
 import { latestCodeSubmittedAt } from '@/lib/study-job-status'
-import { JobAnalysisPanels, splitVisibleFiles, truncateFileName } from './submitted-code-interactive'
+import { JobAnalysisPanels, splitPreviewBlocks } from './submitted-code-interactive'
 import { fetchFileContents } from '@/server/storage'
-import { getJobAnalysisAction } from '@/server/actions/study-job.actions'
-
-// Only the poll is faked; the file actions stay real so their tests still exercise the database.
-vi.mock('@/server/actions/study-job.actions', async () => {
-    const actual = await vi.importActual<typeof import('@/server/actions/study-job.actions')>(
-        '@/server/actions/study-job.actions',
-    )
-    return { ...actual, getJobAnalysisAction: vi.fn(actual.getJobAnalysisAction) }
-})
 
 vi.mock('@/server/storage', async () => {
     const actual = await vi.importActual<typeof import('@/server/storage')>('@/server/storage')
@@ -42,13 +37,15 @@ vi.mock('@/server/storage', async () => {
 
 const ORG_SLUG = 'test-org-submitted'
 
-const scanResult = (trivy: JobScanResult['trivy'], sonarqube: JobScanResult['sonarqube']): JobScanResult => ({
-    trivy,
-    sonarqube,
+const SCAN_DETAILS = 'R and Python files analyzed: 1\n  main.r\n\nFor review, not failing the gate:\n  main.r:28  INFO'
+
+const scanResult = (semgrep: JobScanResult['semgrep'], details: string | null = SCAN_DETAILS): JobScanResult => ({
+    semgrep,
+    details,
     logFile: { id: 'scan-log-id', name: 'security-scan-log.txt', path: 'studies/x/security-scan-log.txt' },
 })
 
-const scanInProgress: JobScanResult = { trivy: null, sonarqube: null, logFile: null }
+const scanInProgress: JobScanResult = { semgrep: null, details: null, logFile: null }
 
 async function insertStudyJobFile(
     studyJobId: string,
@@ -94,6 +91,32 @@ async function insertFailedStudyReview(studyJobId: string) {
         .executeTakeFirstOrThrow()
 }
 
+// The verdict is parsed from the log's contents, which come from the storage mock.
+async function insertScanLog(studyJobId: string, verdict: 'no findings' | 'findings found') {
+    vi.mocked(fetchFileContents).mockResolvedValue(new Blob([`Semgrep scan: ${verdict}\n${SCAN_DETAILS}`]))
+    return insertStudyJobFile(studyJobId, 'security-scan-log.txt', 'SECURITY-SCAN-LOG')
+}
+
+// The poll runs the real action, so it is counted on the query cache as each poll starts.
+const watchPolls = (queryClient: ReturnType<typeof createTestQueryClient>) => {
+    const polls = { started: 0, failed: 0 }
+    queryClient.getQueryCache().subscribe((event) => {
+        if (event.type !== 'updated' || event.query.queryKey[0] !== 'job-analysis') return
+        if (event.action.type === 'fetch') polls.started++
+        if (event.action.type === 'error') polls.failed++
+    })
+    return polls
+}
+
+// A poll in flight absorbs the interval ticks, so it must land first. Counted across several
+// intervals: a count compared to itself inside waitFor passes against a poll that never stops.
+const expectPollingStopped = async (polls: ReturnType<typeof watchPolls>) => {
+    const settled = polls.started
+    await waitForPendingQueries()
+    await advanceTimers(200)
+    expect(polls.started).toBe(settled)
+}
+
 type Fixture = {
     orgId: string
     study: SelectedStudy
@@ -119,6 +142,8 @@ async function setupBaseFixture(overrides: { datasets?: string[]; studyTitle?: s
 async function refreshFixtureJob(fixture: Fixture): Promise<Fixture> {
     return { ...fixture, job: await latestJobForStudy(fixture.study.id) }
 }
+
+afterEach(restoreRealTimers)
 
 async function renderSection(fixture: Fixture, scanOverride?: JobScanResult) {
     const analysis = await jobAnalysisForJob(fixture.job)
@@ -276,17 +301,10 @@ describe('SubmittedCodeSection — AI summary', () => {
             .set({ createdAt: oldJobCreatedAt })
             .where('id', '=', resubmissionFixture.job.id)
             .execute()
-        await db
-            .insertInto('jobStatusChange')
-            .values([
-                {
-                    studyJobId: resubmissionFixture.job.id,
-                    status: 'CODE-CHANGES-REQUESTED',
-                    createdAt: new Date(resubmittedAt.getTime() - 1_000),
-                },
-                { studyJobId: resubmissionFixture.job.id, status: 'CODE-SUBMITTED', createdAt: resubmittedAt },
-            ])
-            .execute()
+        await insertTestJobStatus(resubmissionFixture.job.id, 'CODE-CHANGES-REQUESTED', {
+            at: new Date(resubmittedAt.getTime() - 1_000),
+        })
+        await insertTestJobStatus(resubmissionFixture.job.id, 'CODE-SUBMITTED', { at: resubmittedAt })
 
         await renderSection(await refreshFixtureJob(resubmissionFixture))
 
@@ -310,10 +328,9 @@ describe('SubmittedCodeSection — AI summary', () => {
             { status: 'CODE-CHANGES-REQUESTED', createdAt: new Date(Date.now() - 2 * day) },
             { status: 'CODE-SUBMITTED', createdAt: new Date() },
         ]
-        await db
-            .insertInto('jobStatusChange')
-            .values(statuses.map((change) => ({ ...change, studyJobId: resubmissionFixture.job.id })))
-            .execute()
+        for (const { status, createdAt } of statuses) {
+            await insertTestJobStatus(resubmissionFixture.job.id, status, { at: createdAt })
+        }
 
         const job = await latestJobForStudy(resubmissionFixture.study.id)
         expect(new Date(latestCodeSubmittedAt(job)).getTime()).toBe(statuses[3].createdAt.getTime())
@@ -335,7 +352,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const error = await screen.findByTestId('ai-summary-error')
@@ -353,7 +372,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={failedFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date(Date.now() - 10 * 60_000)}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -371,16 +392,19 @@ describe('SubmittedCodeSection — AI summary', () => {
         await insertPendingStudyReview(liveFixture.job.id, new Date())
         const initialReview = (await jobAnalysisForJob(liveFixture.job)).review
 
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={liveFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
-        await new Promise((resolve) => setTimeout(resolve, 80))
+        await advanceTimers(80)
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -395,7 +419,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         expect(await screen.findByTestId('ai-summary-error')).toHaveTextContent('The AI summary failed to generate.')
@@ -412,7 +438,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 studyJobId={deadFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         const user = userEvent.setup()
@@ -426,21 +454,24 @@ describe('SubmittedCodeSection — AI summary', () => {
     it('keeps polling while the row reports a run in progress and the scan has settled', async () => {
         const pollFixture = await setupBaseFixture()
         await insertPendingStudyReview(pollFixture.job.id, new Date())
-        const pendingReview = (await jobAnalysisForJob(pollFixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(
-            actionResult({ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }),
-        )
+        await insertScanLog(pollFixture.job.id, 'no findings')
+        const initialAnalysis = await jobAnalysisForJob(pollFixture.job)
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={pollFixture.job.id}
-                initialAnalysis={{ review: pendingReview, scan: scanResult('PASSED', 'PASSED') }}
+                initialAnalysis={initialAnalysis}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+            { queryClient },
         )
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(1))
+        await waitFor(() => expect(polls.started).toBeGreaterThan(1))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
     })
 
@@ -455,7 +486,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={new Date()}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
@@ -468,7 +501,6 @@ describe('SubmittedCodeSection — AI summary', () => {
     // report that was already in the database until a reload (OTTER-775 review).
     it('keeps polling past the summary backstop and replaces the error when the report lands', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -477,14 +509,14 @@ describe('SubmittedCodeSection — AI summary', () => {
                 submittedAt={new Date()}
                 summaryTimeoutMs={30}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await screen.findByTestId('ai-summary-error')
 
         await insertStudyReview(fixture.job.id, 'Late but real summary')
-        const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
 
         expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Late but real summary')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
@@ -497,11 +529,13 @@ describe('SubmittedCodeSection — AI summary', () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
         const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockRejectedValue(new Error('network died'))
+        // Another enclave's session may not view this job, so the refetch is refused.
+        await mockSessionWithTestData({ orgType: 'enclave' })
 
         // The test client opts out of refetchOnMount; the app's does not (OTTER-694).
         const queryClient = createTestQueryClient()
         queryClient.setDefaultOptions({ queries: { retry: false, refetchOnMount: true } })
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -509,11 +543,13 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
             { queryClient },
         )
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
+        await waitFor(() => expect(polls.failed).toBeGreaterThan(0))
         expect(screen.getByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -529,7 +565,9 @@ describe('SubmittedCodeSection — AI summary', () => {
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={longAgo}
                 summaryTimeoutMs={180_000}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
         expect(screen.getByTestId('ai-summary-error')).toBeInTheDocument()
         expect(screen.queryByTestId('ai-summary-pending')).not.toBeInTheDocument()
@@ -539,17 +577,20 @@ describe('SubmittedCodeSection — AI summary', () => {
         const blankFixture = await setupBaseFixture()
         await insertStudyReview(blankFixture.job.id, '')
         const initialReview = (await jobAnalysisForJob(blankFixture.job)).review
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={blankFixture.job.id}
                 initialAnalysis={{ review: initialReview, scan: scanInProgress }}
                 submittedAt={blankFixture.job.createdAt}
                 summaryTimeoutMs={50}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
 
         await waitFor(() => expect(screen.getByTestId('ai-summary-empty')).toBeInTheDocument())
-        await new Promise((resolve) => setTimeout(resolve, 60))
+        await advanceTimers(60)
         expect(screen.getByTestId('ai-summary-empty')).toHaveTextContent('No AI summary available yet.')
         expect(screen.queryByTestId('ai-summary-error')).not.toBeInTheDocument()
     })
@@ -564,46 +605,77 @@ describe('SubmittedCodeSection — AI summary', () => {
     })
 })
 
-describe('SubmittedCodeSection — Security scan log', () => {
-    it('does not render the security scan log section', async () => {
+describe('SubmittedCodeSection — Security scan results', () => {
+    it.each(['PASSED', 'FAILED', 'INDETERMINATE', 'NOT-RUN'] as const)(
+        'renders %s scan results before the summary',
+        async (status) => {
+            const fixture = await setupBaseFixture()
+            await renderSection(fixture, scanResult(status))
+            const scan = screen.getByTestId('security-scan-results')
+            const summary = screen.getByTestId('ai-summary')
+            expect(scan.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+            if (status === 'PASSED') expect(within(scan).getByLabelText('Passed')).toBeInTheDocument()
+            if (status === 'FAILED') expect(within(scan).getByLabelText('Failed')).toBeInTheDocument()
+            if (status === 'INDETERMINATE') expect(scan).toHaveTextContent('indeterminate')
+            if (status === 'NOT-RUN') expect(scan).toHaveTextContent('did not run')
+        },
+    )
+
+    it('shows the scan log clamped, and expands it on toggle', async () => {
         const fixture = await setupBaseFixture()
-        await renderSection(fixture, scanResult('PASSED', 'PASSED'))
-        expect(screen.queryByTestId('security-scan-log')).not.toBeInTheDocument()
-        expect(screen.queryByText('Security scan log')).not.toBeInTheDocument()
+        await renderSection(fixture, scanResult('PASSED'))
+        const body = screen.getByTestId('scan-details-body')
+        expect(body).toHaveTextContent('main.r:28 INFO')
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('2')
+
+        await userEvent.setup().click(screen.getByTestId('scan-details-toggle'))
+
+        expect(body.style.getPropertyValue('--text-line-clamp')).toBe('')
+        expect(screen.getByTestId('scan-details-toggle')).toHaveTextContent('Hide full scan details')
+    })
+
+    it('shows no details box when the log has nothing past its status line', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanResult('PASSED', null))
+        expect(screen.queryByTestId('scan-details-body')).not.toBeInTheDocument()
+    })
+
+    it('announces the pending scan in a status region', async () => {
+        const fixture = await setupBaseFixture()
+        await renderSection(fixture, scanInProgress)
+        expect(within(screen.getByTestId('security-scan-results')).getByRole('status')).toHaveTextContent(
+            'Security scan pending',
+        )
     })
 })
 
 describe('SubmittedCodeSection — Analysis polling', () => {
-    it('stops polling once the summary has arrived', async () => {
+    it('stops polling once both the summary and scan have arrived', async () => {
         const fixture = await setupBaseFixture()
         await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
-        const review = (await jobAnalysisForJob(fixture.job)).review
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review, scan: null }))
+        await insertScanLog(fixture.job.id, 'no findings')
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
+        fakeTimeouts()
         renderWithProviders(
             <JobAnalysisPanels
                 studyJobId={fixture.job.id}
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+            { queryClient },
         )
         await waitFor(() => expect(screen.getByTestId('ai-summary-body')).toBeInTheDocument())
 
-        // Sampled after several poll intervals of real time: comparing the count to itself inside
-        // waitFor is satisfied on the first attempt, so it passes even against a poll that never
-        // stops — the regression this test is named for. The scan never settles here, which used
-        // to hold the interval open on its own (OTTER-694).
-        const settled = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await new Promise((resolve) => setTimeout(resolve, 200))
-
-        expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBe(settled)
+        await expectPollingStopped(polls)
     })
 
-    // Nothing renders a scan verdict, so asking for one would buy an S3 read on every tick.
-    it('never asks the server for the scan', async () => {
+    it('polls analysis for the current job', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -611,19 +683,44 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
         )
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
 
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(0))
-        // Exact, not toMatchObject: the point is that no scan flag is sent at all.
-        for (const [args] of vi.mocked(getJobAnalysisAction).mock.calls) {
-            expect(args).toEqual({ studyJobId: fixture.job.id })
-        }
+        expect(await screen.findByTestId('ai-summary-body')).toHaveTextContent('Summary of the submitted code')
+    })
+
+    it('keeps polling after the summary arrives until the scan settles', async () => {
+        const fixture = await setupBaseFixture()
+        await insertStudyReview(fixture.job.id, 'Summary of the submitted code')
+        const review = (await jobAnalysisForJob(fixture.job)).review
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
+        fakeTimeouts()
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review, scan: scanInProgress }}
+                submittedAt={new Date()}
+                pollIntervalMs={20}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+            { queryClient },
+        )
+        await waitFor(() => expect(polls.started).toBeGreaterThan(1))
+        expect(screen.getByText('Security scan pending')).toBeInTheDocument()
+        await insertScanLog(fixture.job.id, 'findings found')
+        await waitFor(() => expect(screen.getByTestId('security-scan-results')).toHaveTextContent('Semgrep: Failed'))
+        await expectPollingStopped(polls)
     })
 
     it('keeps polling until the summary arrives', async () => {
         const fixture = await setupBaseFixture()
-        vi.mocked(getJobAnalysisAction).mockResolvedValue(actionResult({ review: null, scan: null }))
+        const queryClient = createTestQueryClient()
+        const polls = watchPolls(queryClient)
 
         renderWithProviders(
             <JobAnalysisPanels
@@ -631,13 +728,67 @@ describe('SubmittedCodeSection — Analysis polling', () => {
                 initialAnalysis={{ review: null, scan: scanInProgress }}
                 submittedAt={new Date()}
                 pollIntervalMs={20}
-            />,
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+            { queryClient },
         )
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
 
-        const afterFirst = vi.mocked(getJobAnalysisAction).mock.calls.length
-        await waitFor(() => expect(vi.mocked(getJobAnalysisAction).mock.calls.length).toBeGreaterThan(afterFirst))
+        const afterFirst = polls.started
+        await waitFor(() => expect(polls.started).toBeGreaterThan(afterFirst))
         expect(screen.getByTestId('ai-summary-pending')).toBeInTheDocument()
+    })
+})
+
+describe('SubmittedCodeSection collapsed preview', () => {
+    it('keeps the first two blocks visible and collapses the rest behind the opener', async () => {
+        const fixture = await setupBaseFixture()
+        const analysis = await jobAnalysisForJob(fixture.job)
+        renderWithProviders(
+            <SubmittedCodeSection
+                orgSlug={ORG_SLUG}
+                study={fixture.study}
+                job={fixture.job}
+                analysis={{ ...analysis, scan: scanResult('PASSED') }}
+                detailsExpanded={false}
+                onExpand={vi.fn()}
+                onCollapse={vi.fn()}
+            />,
+        )
+
+        expect(screen.getByTestId('submitted-code-datasets')).toBeVisible()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).not.toBeVisible()
+        expect(screen.getByTestId('study-code-viewer')).not.toBeVisible()
+        const opener = screen.getByTestId('study-code-toggle')
+        expect(opener).toHaveTextContent('View full submission details')
+        expect(
+            screen.getByTestId('security-scan-results').compareDocumentPosition(opener) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy()
+    })
+
+    it('previews whichever blocks are present first', async () => {
+        const fixture = await setupBaseFixture()
+        renderWithProviders(
+            <JobAnalysisPanels
+                studyJobId={fixture.job.id}
+                initialAnalysis={{ review: null, scan: scanResult('PASSED') }}
+                submittedAt={new Date()}
+                detailsExpanded={false}
+                expandToggle={<button type="button">Open details</button>}
+                leadingBlocks={[{ key: 'retired', isVisible: false, content: <p>Retired block</p> }]}
+            >
+                <p>Code files block</p>
+            </JobAnalysisPanels>,
+        )
+
+        expect(screen.queryByText('Retired block')).not.toBeInTheDocument()
+        expect(screen.getByTestId('security-scan-results')).toBeVisible()
+        expect(screen.getByTestId('ai-summary')).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Open details' })).toBeVisible()
+        expect(screen.getByText('Code files block')).not.toBeVisible()
     })
 })
 
@@ -651,96 +802,44 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         return refreshFixtureJob(fixture)
     }
 
-    it('renders a "Code files" heading above the table tabs', async () => {
+    it('renders a "Code files" heading above the file tabs, which share its name', async () => {
         const fixture = await setupFilesFixture(['main.R'])
         await renderSection(fixture)
         const heading = screen.getByText('Code files')
-        const tabs = screen.getByTestId('study-code-file-tabs')
+        const tabs = screen.getByRole('tablist', { name: 'Code files' })
         expect(heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('renders files in a single horizontal row with no wrapping', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'extra.R'])
+    it('renders every file as a tab in one row, main file first', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R', 'f.R'])
         await renderSection(fixture)
-        const tabs = screen.getByTestId('study-code-file-tabs')
-        expect(tabs).toHaveStyle({ overflow: 'hidden' })
+        const names = within(screen.getByRole('tablist'))
+            .getAllByRole('tab')
+            .map((tab) => tab.getAttribute('title'))
+        expect(names).toEqual(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R', 'f.R'])
     })
 
-    it('renders the main code file first and active by default', async () => {
+    it('selects the main code file by default', async () => {
         const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
         await renderSection(fixture)
-        const tabs = screen.getAllByTestId('study-code-file-tab')
-        expect(tabs[0]).toHaveAttribute('title', 'main.R')
-        expect(tabs[0].dataset.active).toBe('true')
-        expect(tabs[1].dataset.active).toBe('false')
+        expect(screen.getByRole('tab', { name: 'main.R' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tab', { name: 'helpers.R' })).toHaveAttribute('aria-selected', 'false')
     })
 
     it('switches the active tab when another file is clicked', async () => {
         const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
         await renderSection(fixture)
-        const user = userEvent.setup()
-        await user.click(screen.getAllByTestId('study-code-file-tab')[1])
+        await userEvent.setup().click(screen.getByRole('tab', { name: 'helpers.R' }))
 
-        const tabs = screen.getAllByTestId('study-code-file-tab')
-        expect(tabs[0].dataset.active).toBe('false')
-        expect(tabs[1].dataset.active).toBe('true')
+        expect(screen.getByRole('tab', { name: 'main.R' })).toHaveAttribute('aria-selected', 'false')
+        expect(screen.getByRole('tab', { name: 'helpers.R' })).toHaveAttribute('aria-selected', 'true')
     })
 
-    it('shows up to 4 tabs when total files ≤ 4', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R'])
-        await renderSection(fixture)
-        expect(screen.getAllByTestId('study-code-file-tab')).toHaveLength(4)
-        expect(screen.queryByTestId('study-code-files-overflow')).not.toBeInTheDocument()
-    })
-
-    it('replaces the last visible tab with "+{x} more files" when total files > 4', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R'])
-        await renderSection(fixture)
-        expect(screen.getAllByTestId('study-code-file-tab')).toHaveLength(3)
-        expect(screen.getByTestId('study-code-files-overflow')).toHaveTextContent('+2 more files')
-    })
-
-    it('the overflow count reflects the number of hidden files', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R', 'f.R'])
-        await renderSection(fixture)
-        expect(screen.getByTestId('study-code-files-overflow')).toHaveTextContent('+4 more files')
-    })
-
-    it('opens a menu listing every hidden file when the overflow is clicked (OTTER-540)', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'd.R', 'e.R'])
-        await renderSection(fixture)
-        const user = userEvent.setup()
-
-        expect(screen.queryAllByTestId('study-code-files-overflow-item')).toHaveLength(0)
-
-        await user.click(screen.getByTestId('study-code-files-overflow'))
-
-        const items = await screen.findAllByTestId('study-code-files-overflow-item')
-        expect(items.map((item) => item.getAttribute('title'))).toEqual(['c.R', 'd.R', 'e.R'])
-    })
-
-    it('selecting a hidden file from the overflow menu makes it the active file (OTTER-540)', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
-        await renderSection(fixture)
-        const user = userEvent.setup()
-
-        await user.click(screen.getByTestId('study-code-files-overflow'))
-        await user.click(await screen.findByTitle('hidden-target.R'))
-
-        await user.click(screen.getByTestId('study-code-files-overflow'))
-        const selected = await screen.findByTitle('hidden-target.R')
-        expect(selected.getAttribute('data-selected')).toBe('true')
-    })
-
-    it('truncates long file names with an ellipsis and capping at ~22 chars', async () => {
+    it('names a tab with the full file name even when the label is cut short', async () => {
         const longName = 'a-very-long-supplemental-code-filename.R'
         const fixture = await setupFilesFixture(['main.R', longName])
         await renderSection(fixture)
-        const tabs = screen.getAllByTestId('study-code-file-tab')
-        expect(tabs[1]).toHaveAttribute('title', longName)
-        const visibleText = tabs[1].textContent ?? ''
-        expect(visibleText.length).toBeLessThanOrEqual(22)
-        expect(visibleText).toContain('…')
+        expect(screen.getByRole('tab', { name: longName })).toHaveAttribute('title', longName)
     })
 
     it('renders the study code body expanded by default and hides it when toggled', async () => {
@@ -830,10 +929,7 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         )
         const fixture = await setupFilesFixture(['main.R', 'plot.png'])
         await renderSection(fixture)
-        const user = userEvent.setup()
-
-        const plotTab = screen.getAllByTestId('study-code-file-tab').find((tab) => tab.title === 'plot.png')!
-        await user.click(plotTab)
+        await userEvent.setup().click(screen.getByRole('tab', { name: 'plot.png' }))
 
         const body = await screen.findByTestId('study-code-body')
         await waitFor(() => {
@@ -841,82 +937,62 @@ describe("SubmittedCodeSection — Displaying RL's code", () => {
         })
     })
 
-    it('renders a download link on every visible file tab (OTTER-608)', async () => {
+    it('downloads a file from the icon on its tab without switching tabs (OTTER-608)', async () => {
+        const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
+        await renderSection(fixture)
+        const downloads: { href: string | null; download: string }[] = []
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+            downloads.push({ href: this.getAttribute('href'), download: this.download })
+        })
+
+        const helpersTab = screen.getByRole('tab', { name: 'helpers.R' })
+        await userEvent.setup().click(within(helpersTab).getByTestId('study-code-tab-download'))
+
+        expect(downloads).toEqual([{ href: `/dl/study-code/${fixture.job.id}/helpers.R`, download: 'helpers.R' }])
+        expect(helpersTab).toHaveAttribute('aria-selected', 'false')
+    })
+
+    it('gives keyboard users a download link for the selected file (OTTER-608)', async () => {
         const fixture = await setupFilesFixture(['main.R', 'helpers.R'])
         await renderSection(fixture)
 
-        const mainDownload = await screen.findByRole('link', { name: 'Download main.R' })
+        const mainDownload = screen.getByRole('link', { name: 'Download main.R' })
         expect(mainDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/main.R`)
         expect(mainDownload).toHaveAttribute('download', 'main.R')
 
+        await userEvent.setup().click(screen.getByRole('tab', { name: 'helpers.R' }))
+
         const helpersDownload = screen.getByRole('link', { name: 'Download helpers.R' })
         expect(helpersDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/helpers.R`)
-        expect(helpersDownload).toHaveAttribute('download', 'helpers.R')
-    })
-
-    it('exposes a download link for a file hidden in the overflow menu (OTTER-608)', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
-        await renderSection(fixture)
-        const user = userEvent.setup()
-
-        await user.click(screen.getByTestId('study-code-files-overflow'))
-
-        // The portalled dropdown renders display:none in the test DOM, so the link is not in the
-        // accessibility tree.
-        const items = await screen.findAllByTestId('study-code-files-overflow-item')
-        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
-        const hiddenDownload = within(hiddenItem).getByTestId('study-code-download')
-        expect(hiddenDownload).toHaveAttribute('href', `/dl/study-code/${fixture.job.id}/hidden-target.R`)
-        expect(hiddenDownload).toHaveAttribute('download', 'hidden-target.R')
-        expect(hiddenDownload).toHaveAttribute('aria-label', 'Download hidden-target.R')
-    })
-
-    it('downloading from the overflow menu does not switch the active file (OTTER-608)', async () => {
-        const fixture = await setupFilesFixture(['main.R', 'a.R', 'b.R', 'c.R', 'hidden-target.R'])
-        await renderSection(fixture)
-        const user = userEvent.setup()
-
-        await user.click(screen.getByTestId('study-code-files-overflow'))
-        const items = await screen.findAllByTestId('study-code-files-overflow-item')
-        const hiddenItem = items.find((item) => item.getAttribute('title') === 'hidden-target.R')!
-        fireEvent.click(within(hiddenItem).getByTestId('study-code-download'))
-
-        // One Menu.Item onClick drives both file-select and Mantine's closeOnItemClick, so the
-        // file staying unselected also proves the dropdown stayed open.
-        const after = screen
-            .getAllByTestId('study-code-files-overflow-item')
-            .find((item) => item.getAttribute('title') === 'hidden-target.R')
-        expect(after).toHaveAttribute('data-selected', 'false')
     })
 })
 
 describe('SubmittedCodeSection — pure helpers', () => {
-    it('truncateFileName leaves short names alone', () => {
-        expect(truncateFileName('short.R')).toBe('short.R')
+    const block = (key: string, isVisible?: boolean) => ({ key, isVisible, content: key })
+
+    it('splitPreviewBlocks previews the first blocks and leaves the rest', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b'), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest.map((b) => b.key)).toEqual(['c', 'd'])
     })
 
-    it('truncateFileName caps long names with an ellipsis', () => {
-        const result = truncateFileName('a-very-long-supplemental-code-filename.R')
-        expect(result.endsWith('…')).toBe(true)
-        expect(result.length).toBeLessThanOrEqual(22)
+    it('splitPreviewBlocks moves the next block up when one is not visible', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), block('c'), block('d')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'c'])
+        expect(rest.map((b) => b.key)).toEqual(['d'])
     })
 
-    it('splitVisibleFiles returns all files when count ≤ 4', () => {
-        const files = ['m', 'a', 'b', 'c'].map((name) => ({ name, fileType: 'SUPPLEMENTAL-CODE' as const }))
-        const { visible, hiddenCount } = splitVisibleFiles(files)
-        expect(visible).toHaveLength(4)
-        expect(hiddenCount).toBe(0)
+    it('splitPreviewBlocks leaves nothing to collapse when there are too few blocks', () => {
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b')], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a', 'b'])
+        expect(rest).toEqual([])
     })
 
-    it('splitVisibleFiles shows 3 tabs + overflow when count > 4', () => {
-        const files = ['m', 'a', 'b', 'c', 'd', 'e'].map((name) => ({
-            name,
-            fileType: 'SUPPLEMENTAL-CODE' as const,
-        }))
-        const { visible, hidden, hiddenCount } = splitVisibleFiles(files)
-        expect(visible.map((f) => f.name)).toEqual(['m', 'a', 'b'])
-        expect(hidden.map((f) => f.name)).toEqual(['c', 'd', 'e'])
-        expect(hiddenCount).toBe(3)
+    it('splitPreviewBlocks keeps an always-collapsed block out of the preview', () => {
+        const closer = { key: 'closer', alwaysCollapsed: true, content: 'closer' }
+        const { preview, rest } = splitPreviewBlocks([block('a'), block('b', false), closer], 2)
+        expect(preview.map((b) => b.key)).toEqual(['a'])
+        expect(rest.map((b) => b.key)).toEqual(['closer'])
     })
 
     it('latestCodeSubmittedAt returns the CODE-SUBMITTED event timestamp when present', () => {

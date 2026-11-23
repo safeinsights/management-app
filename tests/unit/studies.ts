@@ -1,0 +1,525 @@
+import { db } from '@/database'
+import { openStudyJob, writeJobStatus, type JobStatusWriteOptions } from '@/database/job-status-writer'
+import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { latestJobForStudy } from '@/server/db/queries'
+import { rawStudyStateForStudy } from '@/server/db/study-state-query'
+import { lexicalJson } from '@/lib/lexical'
+import { actionResult } from '@/lib/utils'
+import { isStudyUnread } from '@/lib/study-screen/dashboard-raw-state'
+import type { StudyRole } from '@/lib/study-screen/state.types'
+import {
+    fetchStudiesForCurrentResearcherUserAction,
+    fetchStudiesForOrgAction,
+} from '@/server/actions/study-dashboard.actions'
+import type { StudyRow } from '@/components/dashboard/studies-table/types'
+import type { ScreenComponentProps } from '@/app/[orgSlug]/study/[studyId]/_screens/types'
+import { expect } from 'vitest'
+import { seedAcknowledgedStudyAgreement } from './legal'
+import { insertTestOrg, type MinimalTestOrg } from './orgs'
+import { insertTestUser } from './users'
+
+// Screen components take the raw study state their rules routed on (see render-screen.tsx).
+export type ScreenInputs = Pick<ScreenComponentProps, 'study' | 'raw'>
+
+export const requireRawState = async (studyId: string) => {
+    const raw = await rawStudyStateForStudy(studyId, db)
+    if (!raw) throw new Error(`no raw study state for study ${studyId}`)
+    return raw
+}
+
+export const insertTestStudyData = async ({
+    org,
+    researcherId,
+    useRealKeys = false,
+}: {
+    org: MinimalTestOrg
+    researcherId?: string
+    useRealKeys?: boolean
+}) => {
+    if (!researcherId) {
+        const { user } = await insertTestUser({ org, useRealKeys })
+        researcherId = user.id
+    }
+    const study = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            submittedByOrgId: org.id,
+            containerLocation: 'test-container',
+            title: 'my 1st study',
+            researcherId: researcherId,
+            piName: 'test',
+            irbProtocols: 'https://www.google.com',
+            status: 'APPROVED',
+            dataSources: ['all'],
+            outputMimeType: 'text/csv',
+            language: 'R',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const job0 = await insertTestJob(study.id)
+    const job1 = await insertTestJob(study.id)
+    await insertTestJobStatus(job1.id, 'JOB-RUNNING', { userId: researcherId })
+    const job2 = await insertTestJob(study.id)
+    await insertTestJobStatus(job2.id, 'JOB-READY', { userId: researcherId })
+
+    return {
+        orgId: org.id,
+        studyId: study.id,
+        jobs: [job0, job1, job2],
+        jobIds: [job0.id, job1.id, job2.id],
+        researcherId: researcherId,
+    }
+}
+
+// `jobInfo` is nested rather than spread alongside `org` because `storeS3File` tags the uploaded
+// object with every property it is handed, so anything but the three string fields throws.
+export const insertTestJobInfo = async ({ org }: { org?: MinimalTestOrg } = {}) => {
+    const testOrg = org ?? (await insertTestOrg())
+    const { studyId, jobIds } = await insertTestStudyData({ org: testOrg })
+
+    return { jobInfo: { orgSlug: testOrg.slug, studyId, studyJobId: jobIds[0] }, org: testOrg }
+}
+
+export const insertTestStudyJobData = async ({
+    org,
+    submittedByOrg,
+    researcherId,
+    studyStatus = 'APPROVED',
+    jobStatus = 'JOB-READY',
+    language,
+    title,
+    piName,
+    researchQuestions,
+    projectSummary,
+    impact,
+    additionalNotes,
+    datasets,
+    withStudyAgreement = true,
+    priorRuns = [],
+}: {
+    org?: MinimalTestOrg
+    // See insertTestStudyOnly: puts the Data Partner and the Research Lab on different orgs.
+    submittedByOrg?: MinimalTestOrg
+    researcherId?: string
+    studyStatus?: StudyStatus
+    jobStatus?: StudyJobStatus
+    language?: Language
+    title?: string
+    piName?: string
+    datasets?: string[] | null
+    researchQuestions?: Json | null
+    projectSummary?: Json | null
+    impact?: Json | null
+    additionalNotes?: Json | null
+    withStudyAgreement?: boolean
+    priorRuns?: PriorCodeRunOptions[]
+} = {}) => {
+    if (!org) {
+        org = await insertTestOrg()
+    }
+    if (!researcherId) {
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
+        researcherId = user.id
+    }
+    const study = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
+            containerLocation: 'test-container',
+            title: title ?? 'my 1st study',
+            researcherId: researcherId,
+            piName: piName ?? 'test',
+            status: studyStatus,
+            submittedAt: studyStatus === 'DRAFT' ? null : new Date(),
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+            language: language || 'R',
+            datasets: datasets ?? null,
+            researchQuestions: researchQuestions ?? null,
+            projectSummary: projectSummary ?? null,
+            impact: impact ?? null,
+            additionalNotes: additionalNotes ?? null,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    const priorJobs = []
+    for (const run of priorRuns) priorJobs.push(await insertTestPriorCodeRun(study.id, run))
+    const job = await insertTestJob(study.id)
+    const studyJobStatus =
+        jobStatus === 'INITIATED'
+            ? { id: job.statusChangeId }
+            : await insertTestJobStatus(job.id, jobStatus, { userId: researcherId })
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
+    const latestJobWithStatus = await latestJobForStudy(study.id)
+
+    return {
+        job,
+        org,
+        study,
+        studyJobStatus,
+        latestJobWithStatus,
+        priorJobs,
+    }
+}
+
+// A baseline job is the file-less INITIATED row minted when a workspace is opened, before any
+// code is submitted.
+export const insertTestBaselineJob = async (studyId: string, { createdAt }: { createdAt?: Date } = {}) => {
+    const job = await insertTestJob(studyId, { createdAt })
+    return { id: job.id, createdAt: job.createdAt }
+}
+
+// Fixtures often date later statuses in the past, and a status dated before INITIATED would replay as
+// the job moving back to INITIATED. So the INITIATED row predates any date a test picks.
+const FIXTURE_INITIATED_AT = new Date('2000-01-01T00:00:00Z')
+
+// A study job with only its INITIATED row. `createdAt` sets the job's own timestamp, which file
+// staleness compares against; `at` dates the INITIATED row.
+export const insertTestJob = (studyId: string, { createdAt, at }: { createdAt?: Date; at?: Date } = {}) =>
+    openStudyJob(db, studyId, { actor: 'qa', createdAt, at: at ?? FIXTURE_INITIATED_AT })
+
+// Through the status writer, as the app writes, with the qa actor so a fixture can place any status.
+// Without `at` the row takes the database clock, so it sorts after every row written before it.
+export const insertTestJobStatus = async (
+    studyJobId: string,
+    status: StudyJobStatus,
+    options: Omit<JobStatusWriteOptions, 'actor'> = {},
+) => {
+    const result = await writeJobStatus(db, studyJobId, status, { actor: 'qa', ...options })
+    return { id: result.statusChangeId! }
+}
+
+// Advances a job that already has CODE-SUBMITTED to round 2 (change request + resubmit). Pass `after`
+// only to place the rows at a given time: they then land 1 s and 2 s after it.
+export const appendCodeResubmission = async (studyJobId: string, after?: Date) => {
+    const at = (offsetMs: number) => (after ? new Date(after.getTime() + offsetMs) : undefined)
+    await insertTestJobStatus(studyJobId, 'CODE-CHANGES-REQUESTED', { at: at(1000) })
+    await insertTestJobStatus(studyJobId, 'CODE-SUBMITTED', { at: at(2000) })
+}
+
+// A lab researcher's submitted code. The code resubmit actions accept it once the reviewer has asked
+// for changes.
+export const insertTestSubmittedCode = async ({
+    lab,
+    researcherId,
+    changesRequested = false,
+}: {
+    lab: MinimalTestOrg
+    researcherId: string
+    changesRequested?: boolean
+}) => {
+    const { study, job } = await insertTestStudyJobData({
+        submittedByOrg: lab,
+        researcherId,
+        jobStatus: 'CODE-SUBMITTED',
+    })
+    if (changesRequested) await insertTestJobStatuses(job.id, ['CODE-CHANGES-REQUESTED'])
+    return { study, job }
+}
+
+export const codeResubmissionNoteDraftOf = async (studyId: string) => {
+    const study = await db
+        .selectFrom('study')
+        .select('codeResubmissionNoteDraft')
+        .where('id', '=', studyId)
+        .executeTakeFirstOrThrow()
+    return study.codeResubmissionNoteDraft
+}
+
+export const insertTestJobStatuses = async (studyJobId: string, statuses: StudyJobStatus[]) => {
+    for (const status of statuses) {
+        await insertTestJobStatus(studyJobId, status)
+    }
+}
+
+// A second run on a study that already has one. Inserted afterwards and dated a minute later, so
+// both the createdAt and the v7-id orderings of "latest job" pick it.
+export const insertTestLaterJob = async (studyId: string, statuses: StudyJobStatus[]) => {
+    const job = await insertTestJob(studyId, { createdAt: new Date(Date.now() + 60_000) })
+    await insertTestJobStatuses(job.id, statuses)
+    return job
+}
+
+type InsertTestCodeResubmissionNoteOptions = {
+    studyId: string
+    studyJobId: string
+    authorId: string
+    round: number
+    text?: string
+    createdAt?: Date
+}
+
+// The row resubmitStudyCodeAction writes for a round's note (OTTER-802).
+export const insertTestCodeResubmissionNote = async ({
+    studyId,
+    studyJobId,
+    authorId,
+    round,
+    text = 'addressed the feedback',
+    createdAt,
+}: InsertTestCodeResubmissionNoteOptions) =>
+    db
+        .insertInto('studyReviewComment')
+        .values({
+            studyId,
+            studyJobId,
+            authorId,
+            reviewKind: 'CODE',
+            entryType: 'RESUBMISSION-NOTE',
+            body: JSON.parse(lexicalJson(text)),
+            round,
+            ...(createdAt ? { createdAt } : {}),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+// Pass `submittedByOrg` to put the two sides of a study on DIFFERENT orgs (orgId is the Data
+// Partner, submittedByOrgId the Research Lab); a swapped join passes silently on a single org.
+export const insertTestStudyOnly = async ({
+    org,
+    submittedByOrg,
+    researcherId,
+    title = 'study without job',
+    status = 'APPROVED',
+    isTestStudy = false,
+    // False for a test about agreements themselves — those files publish and acknowledge their own.
+    withStudyAgreement = true,
+}: {
+    org?: MinimalTestOrg
+    submittedByOrg?: MinimalTestOrg
+    researcherId?: string
+    title?: string
+    status?: StudyStatus
+    isTestStudy?: boolean
+    withStudyAgreement?: boolean
+} = {}) => {
+    if (!org) {
+        org = await insertTestOrg()
+    }
+    if (!researcherId) {
+        const { user } = await insertTestUser({ org: submittedByOrg ?? org })
+        researcherId = user.id
+    }
+    const study = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            submittedByOrgId: (submittedByOrg ?? org).id,
+            containerLocation: 'test-container',
+            title,
+            researcherId,
+            piName: 'test',
+            status,
+            isTestStudy,
+            submittedAt: new Date(),
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+            language: 'R',
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    if (withStudyAgreement) await seedAcknowledgedStudyAgreement(study.id)
+
+    return { org, study }
+}
+
+export const insertTestStudyJobUsers = async ({
+    org,
+    useRealKeys = false,
+}: { org?: MinimalTestOrg; useRealKeys?: boolean } = {}) => {
+    if (!org) {
+        org = await insertTestOrg()
+    }
+    const { user: user1 } = await insertTestUser({ org, useRealKeys })
+    const { user: user2 } = await insertTestUser({ org, useRealKeys })
+
+    const { study, job, ...rest } = await insertTestStudyJobData({ org, researcherId: user1.id })
+
+    return { study, job, user1, user2, ...rest }
+}
+
+export const insertTestOrgStudyJobUsers = async () => {
+    const org = await insertTestOrg()
+    const result = await insertTestStudyJobUsers({ org })
+    return { ...result, org }
+}
+
+// A Data Partner's decision on the proposal, as submitProposalReviewAction records it.
+export const insertTestProposalDecision = ({ studyId, authorId }: { studyId: string; authorId: string }) =>
+    db
+        .insertInto('studyProposalComment')
+        .values({
+            studyId,
+            authorId,
+            authorRole: 'REVIEWER',
+            entryType: 'REVIEWER-FEEDBACK',
+            decision: 'NEEDS-CLARIFICATION',
+            body: JSON.stringify({ text: 'please clarify the methodology' }),
+            version: 1,
+        })
+        .execute()
+
+export const setTestStudyStatus = (studyId: string, status: StudyStatus) =>
+    db.updateTable('study').set({ status }).where('id', '=', studyId).execute()
+
+// The default 60 tokens is ~400 characters, comfortably inside every 1800-character cap.
+// Build the string directly when a test is about a boundary.
+export const buildFeedback = (tokenCount = 60) => Array.from({ length: tokenCount }, (_, i) => `word${i + 1}`).join(' ')
+
+export const expectStudyJobRecords = async (
+    studyId: string,
+    expectedFiles: Array<{ name: string; fileType: string }>,
+) => {
+    const latestJob = await db
+        .selectFrom('studyJob')
+        .select(['id'])
+        .where('studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .executeTakeFirstOrThrow()
+
+    const jobFiles = await db
+        .selectFrom('studyJobFile')
+        .select(['name', 'fileType'])
+        .where('studyJobId', '=', latestJob.id)
+        .orderBy('fileType', 'asc')
+        .execute()
+    expect(jobFiles).toEqual(expectedFiles)
+
+    // The SET of statuses, not their order: CODE-SUBMITTED and CODE-SCANNED are written in the
+    // same operation and can share a created_at to the millisecond.
+    const statuses = await db
+        .selectFrom('jobStatusChange')
+        .select(['status'])
+        .where('studyJobId', '=', latestJob.id)
+        .execute()
+    expect(statuses.map((row) => row.status).sort()).toEqual(['CODE-SCANNED', 'CODE-SUBMITTED', 'INITIATED'])
+}
+
+export const mockStudyRow = (overrides: Partial<StudyRow> = {}): StudyRow => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Test Study',
+    status: 'APPROVED',
+    createdAt: new Date(),
+    submittedAt: new Date(),
+    lastUpdatedAt: new Date(),
+    reviewerName: null,
+    researcherId: 'researcher-1',
+    reviewerId: null,
+    createdBy: 'Researcher Name',
+    jobStatusChanges: [],
+    researcherAgreementsAckedAt: null,
+    piUserId: null,
+    datasets: null,
+    researchQuestions: null,
+    projectSummary: null,
+    impact: null,
+    additionalNotes: null,
+    hasStep2CollabDoc: false,
+    latestStudyJobRound: 1,
+    latestStudyJobCurrentStatus: 'INITIATED',
+    ...overrides,
+})
+
+// A visit stamped before a change stands in for the client's enter stamp with no leave stamp, which is
+// what a reload or a typed URL leaves behind (OTTER-937).
+export const stampStudyOpened = (studyId: string, userIds: string[], openedAt: Date) =>
+    db
+        .insertInto('studyLastOpened')
+        .values(userIds.map((userId) => ({ studyId, userId, openedAt })))
+        .onConflict((oc) => oc.columns(['userId', 'studyId']).doUpdateSet({ openedAt }))
+        .execute()
+
+export const studyOpenedAt = async (studyId: string, userId: string) =>
+    (
+        await db
+            .selectFrom('studyLastOpened')
+            .select('openedAt')
+            .where('studyId', '=', studyId)
+            .where('userId', '=', userId)
+            .executeTakeFirst()
+    )?.openedAt ?? null
+
+// The dot the session's user sees on an org dashboard, through the same action and rule as the table.
+export const isUnreadOnOrgDashboard = async (orgSlug: string, studyId: string, audience: StudyRole) => {
+    const row = actionResult(await fetchStudiesForOrgAction({ orgSlug })).find((candidate) => candidate.id === studyId)
+    if (!row) throw new Error(`study ${studyId} is not on the ${orgSlug} dashboard`)
+    return isStudyUnread(row, audience)
+}
+
+// The same dot on the researcher's My studies (/dashboard), where QA reproduced OTTER-937.
+export const isUnreadOnMyStudies = async (studyId: string) => {
+    const row = actionResult(await fetchStudiesForCurrentResearcherUserAction()).find(
+        (candidate) => candidate.id === studyId,
+    )
+    if (!row) throw new Error(`study ${studyId} is not on My studies`)
+    return isStudyUnread(row, 'researcher')
+}
+
+export type PriorCodeRunOptions = {
+    ranAt: Date
+    outcome?: 'RUN-COMPLETE' | 'JOB-ERRORED'
+    // null leaves the run undecided, a state the research lab must never be shown.
+    decision?: 'FILES-APPROVED' | 'FILES-REJECTED' | null
+    feedback?: { authorId: string; text: string }
+    // The first is the main file, the rest supplemental.
+    codeFiles?: string[]
+    // Defaults to a minute after the run ended.
+    decidedAt?: Date
+}
+
+// An earlier, already-reviewed code run. The writer numbers a job after every job already on the
+// study, so it must be written before the current run is opened (see `priorRuns` on insertTestStudyJobData).
+export const insertTestPriorCodeRun = async (
+    studyId: string,
+    {
+        ranAt,
+        outcome = 'RUN-COMPLETE',
+        decision = 'FILES-APPROVED',
+        feedback,
+        codeFiles = [],
+        decidedAt = new Date(ranAt.getTime() + 60_000),
+    }: PriorCodeRunOptions,
+) => {
+    const submittedAt = new Date(ranAt.getTime() - 60_000)
+    const job = await insertTestJob(studyId, { createdAt: submittedAt })
+    await insertTestJobStatus(job.id, 'CODE-SUBMITTED', { at: submittedAt })
+    await insertTestJobStatus(job.id, outcome, { at: ranAt })
+    if (decision) await insertTestJobStatus(job.id, decision, { at: decidedAt })
+    if (codeFiles.length) {
+        await db
+            .insertInto('studyJobFile')
+            .values(
+                codeFiles.map((name, index) => ({
+                    studyJobId: job.id,
+                    name,
+                    path: `test-org/${job.id}/code/${name}`,
+                    fileType: index === 0 ? ('MAIN-CODE' as const) : ('SUPPLEMENTAL-CODE' as const),
+                })),
+            )
+            .execute()
+    }
+    if (feedback) {
+        await db
+            .insertInto('studyReviewComment')
+            .values({
+                studyId,
+                studyJobId: job.id,
+                authorId: feedback.authorId,
+                reviewKind: 'RESULTS',
+                entryType: 'DECISION',
+                decision: decision === 'FILES-APPROVED' ? 'APPROVE' : 'NEEDS-CLARIFICATION',
+                body: JSON.parse(lexicalJson(feedback.text)),
+                round: 1,
+                createdAt: new Date(ranAt.getTime() + 60_000),
+            })
+            .execute()
+    }
+    return job
+}

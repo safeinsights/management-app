@@ -13,6 +13,7 @@ import {
 import { verifyToken } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 import { deleteFolderContents } from '@/server/aws'
+import { UNEXPECTED_ERROR_MESSAGE } from '@/lib/errors'
 
 const configState = { PROD_ENV: false }
 vi.mock('@/server/config', async (importOriginal) => {
@@ -36,16 +37,25 @@ const {
     orgSlugsForUser,
     deleteUserById,
     deleteStudyById,
+    deleteStudyCompletely,
     QaCleanupNotFoundError,
     QaForbiddenError,
     assertQaEmail,
 } = await import('./qa-cleanup')
+const { Action } = await import('@/server/actions/action')
 
 beforeEach(() => {
     configState.PROD_ENV = false
 })
 
-async function authenticateAs(options: { isSiAdmin?: boolean; isAdmin?: boolean; orgSlug?: string } = {}) {
+async function authenticateAs(
+    options: {
+        isSiAdmin?: boolean
+        isAdmin?: boolean
+        orgSlug?: string
+        factorVerificationAge?: [number, number] | null
+    } = {},
+) {
     const mocks = await mockSessionWithTestData(options)
     if (!mocks.auth) throw new Error('expected a mocked clerk auth')
     const { userId, sessionClaims } = mocks.auth()
@@ -74,6 +84,15 @@ describe('requireQaAuth', () => {
         const result = await requireQaAuth()
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.status).toBe(401)
+    })
+
+    it.each([
+        ['a session that never passed a second factor', [0, -1] as [number, number]],
+        ['a token without the fva claim', null],
+    ])('rejects %s, even for an SI admin', async (_case, factorVerificationAge) => {
+        await authenticateAs({ isSiAdmin: true, factorVerificationAge })
+        const result = await requireQaAuth()
+        expect(result).toMatchObject({ ok: false, status: 401 })
     })
 
     // Authentication no longer implies authorization — a non-admin gets past this guard and is
@@ -324,6 +343,36 @@ describe('deleteStudyById', () => {
 
     it('throws for an unknown study', async () => {
         await expect(deleteStudyById(db, faker.string.uuid())).rejects.toBeInstanceOf(QaCleanupNotFoundError)
+    })
+})
+
+describe('deleteStudyCompletely inside a mutating action', () => {
+    it('leaves the S3 folder alone when the action rolls back', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { studyId } = await insertTestStudyData({ org })
+        const action = new Action('delete-then-fail', { performsMutations: true }).handler(async ({ db }) => {
+            await deleteStudyCompletely(db, org.slug, studyId)
+            throw new Error('rolled back')
+        })
+
+        expect(await action()).toMatchObject({ error: UNEXPECTED_ERROR_MESSAGE })
+
+        expect(deleteFolderContents).not.toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+        const study = await db.selectFrom('study').select('id').where('id', '=', studyId).executeTakeFirst()
+        expect(study?.id).toBe(studyId)
+    })
+
+    it('deletes the S3 folder only once the action commits', async () => {
+        const { org } = await mockSessionWithTestData()
+        const { studyId } = await insertTestStudyData({ org })
+        const action = new Action('delete-then-commit', { performsMutations: true }).handler(async ({ db }) => {
+            await deleteStudyCompletely(db, org.slug, studyId)
+            expect(deleteFolderContents).not.toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+        })
+
+        expect(await action()).toBeUndefined()
+
+        expect(deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
     })
 })
 

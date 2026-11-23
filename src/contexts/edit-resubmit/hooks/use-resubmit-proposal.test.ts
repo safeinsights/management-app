@@ -27,11 +27,7 @@ import {
     type ProposalFormValues,
 } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { SUBMIT_BUTTON_ID } from '@/app/[orgSlug]/study/[studyId]/proposal/field-ids'
-import {
-    initialResubmitNoteValue,
-    resubmitNoteSchema,
-    type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+import { initialResubmitNoteValue, resubmitNoteSchema, type ResubmitNoteValue } from '@/schema/resubmission-note'
 import {
     SUBMIT_FAILURE_MESSAGE,
     SUBMIT_FAILURE_TITLE,
@@ -136,7 +132,7 @@ describe('useResubmitProposal', () => {
             result.current.resubmit()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
 
         const updatedStudy = await db
             .selectFrom('study')
@@ -155,9 +151,7 @@ describe('useResubmitProposal', () => {
         expect(payload.submittedByClerkId.length).toBeGreaterThan(0)
         expect(payload.orgName).toBe(enclave.name)
 
-        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })), {
-            timeout: 5000,
-        })
+        await waitFor(() => expect(memoryRouter.asPath).toBe(Routes.studySubmitted({ orgSlug: lab.slug, studyId })))
     })
 
     // The title field left this page (OTTER-762), so the form's copy is only a seed and must not
@@ -181,7 +175,7 @@ describe('useResubmitProposal', () => {
             result.current.resubmit()
         })
 
-        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1), { timeout: 5000 })
+        await waitFor(() => expect(sendStateless).toHaveBeenCalledTimes(1))
 
         const study = await db
             .selectFrom('study')

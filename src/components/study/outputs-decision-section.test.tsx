@@ -1,10 +1,12 @@
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import {
+    beforeAll,
     describe,
     expect,
     faker,
     it,
+    preloadEditor,
     render,
     screen,
     simulateEditorSave,
@@ -82,6 +84,8 @@ const renderCollaborativeSection = () => {
     return { showFeedbackError: (message: string) => rerender(tree(message)) }
 }
 
+beforeAll(preloadEditor)
+
 describe('OutputsDecisionSection header', () => {
     it('renders the Decision heading with a required marker carrying an accessible name', () => {
         renderSection()
@@ -120,7 +124,7 @@ describe('OutputsDecisionSection feedback field', () => {
 
         await screen.findByLabelText('Decision feedback')
         const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
-        expect(surface.style.resize).toBe('vertical')
+        expect(surface).toHaveAttribute('data-resizable')
     })
 
     it('associates the counter with the editor via aria-describedby', async () => {
@@ -311,6 +315,23 @@ describe('OutputsDecisionSection radio buttons', () => {
         for (const option of screen.getAllByRole('radio')) {
             expect(option).not.toHaveAttribute('aria-invalid')
         }
+    })
+})
+
+describe('OutputsDecisionSection submit action', () => {
+    it('renders the submit action inside the card, below the options', () => {
+        renderSection({ submitAction: <button type="button">Submit decision</button> })
+
+        const section = screen.getByTestId('outputs-decision-section')
+        const submit = within(section).getByRole('button', { name: 'Submit decision' })
+        const group = within(section).getByRole('radiogroup')
+        expect(group.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('renders no submit row without an action', () => {
+        renderSection()
+
+        expect(screen.queryByRole('button', { name: 'Submit decision' })).toBeNull()
     })
 })
 

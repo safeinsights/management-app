@@ -1,22 +1,22 @@
 'use client'
 
 import { type FC } from 'react'
-import { Stack } from '@mantine/core'
 import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
+import { ProposalStepHeader, SUBMIT_CODE_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { StudyPageHeader } from '@/components/study/study-page-header'
 import { SubmittedCodeFilesSection } from '@/components/study/submitted-code-files-section'
 import { filterAndOrderCodeFiles } from '@/app/[orgSlug]/study/[studyId]/review/study-code-files'
-import { displayOrgName } from '@/lib/string'
 import { StatusAlert, statusAlertTitle } from '@/components/study/status-alert'
 import { researcherCodeDecisionBanner, type BannerCopy } from '@/lib/study-banners'
 import { type Submitted } from '@/schema/study'
-import type { CodeReviewFeedbackEntry, SelectedStudy } from '@/server/actions/study.actions'
+import type { CodeReviewFeedbackEntry } from '@/server/actions/review-feedback.actions'
+import type { SelectedStudy } from '@/server/actions/study.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { FileActivityByName } from '@/components/study/submitted-code-table-view'
 import { type CodeDecisionStatus } from '@/lib/study-job-status'
 import type { StepNav } from '@/lib/study-screen'
+import { PageLayout } from '@/components/page-layout'
 
 interface CodePostDecisionViewProps {
     study: Submitted<SelectedStudy>
@@ -61,27 +61,23 @@ export function CodePostDecisionView({
     feedbackLoadError = false,
 }: CodePostDecisionViewProps) {
     const { timestampDate, codeFiles } = deriveCodePostDecision({ job, entries, decision: latestJobStatus })
-    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: displayOrgName(reviewingOrgName) })
+    const copy = researcherCodeDecisionBanner(latestJobStatus, { dataPartner: reviewingOrgName })
 
     const banner = <DecisionBanner copy={copy} decidedAt={timestampDate} />
 
     return (
-        <Stack p="xl" gap="xxl">
-            <StudyPageHeader study={study} />
+        <PageLayout header={<StudyPageHeader study={study} step={SUBMIT_CODE_STEP} />}>
+            <ProposalStepHeader stepLabel={SUBMIT_CODE_STEP.label} heading={SUBMIT_CODE_STEP.heading} banner={banner} />
 
-            <Stack gap="xxl">
-                <ProposalStepHeader stepLabel="STEP 3" heading="Submit code" banner={banner} />
+            <SubmittedCodeFilesSection
+                jobId={job.id}
+                files={codeFiles}
+                activityByName={activityByName}
+                dataPartnerName={reviewingOrgName}
+            />
 
-                <SubmittedCodeFilesSection
-                    jobId={job.id}
-                    files={codeFiles}
-                    activityByName={activityByName}
-                    dataPartnerName={displayOrgName(reviewingOrgName)}
-                />
-
-                <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
-                <StepNavigation nav={nav} />
-            </Stack>
-        </Stack>
+            <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
+            <StepNavigation nav={nav} />
+        </PageLayout>
     )
 }

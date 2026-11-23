@@ -1,6 +1,14 @@
 import { describe, expect, it } from '@/tests/unit.helpers'
 import { ExternalLinks, Routes } from '@/lib/routes'
-import { externalNavLinks, orderNavOrgs, orgSubnav, selectedSubnavUrl, type NavOrg } from './side-nav'
+import {
+    helpNavLinks,
+    NOTHING_UNREAD,
+    orderNavOrgs,
+    orgSubnav,
+    selectedSubnavUrl,
+    withScopeUnread,
+    type NavOrg,
+} from './side-nav'
 
 const org = (name: string, type: NavOrg['type'], isAdmin = false): NavOrg => ({
     id: name,
@@ -52,16 +60,13 @@ describe('orgSubnav', () => {
     })
 })
 
-describe('externalNavLinks', () => {
+describe('helpNavLinks', () => {
     it('offers the catalog to lab members, the resource center to partner members, support to all', () => {
-        expect(externalNavLinks([]).map((l) => l.label)).toEqual(['Support'])
-        expect(externalNavLinks([org('Lab', 'lab')]).map((l) => l.url)).toEqual([
-            ExternalLinks.dataCatalog,
-            ExternalLinks.support,
-        ])
-        expect(externalNavLinks([org('Partner', 'enclave')]).map((l) => l.url)).toEqual([
+        expect(helpNavLinks([]).map((l) => l.label)).toEqual(['Support'])
+        expect(helpNavLinks([org('Lab', 'lab')]).map((l) => l.url)).toEqual([ExternalLinks.dataCatalog, Routes.support])
+        expect(helpNavLinks([org('Partner', 'enclave')]).map((l) => l.url)).toEqual([
             ExternalLinks.resourceCenter,
-            ExternalLinks.support,
+            Routes.support,
         ])
     })
 })
@@ -78,5 +83,23 @@ describe('selectedSubnavUrl', () => {
 
     it('falls back to the dashboard anywhere else inside the org, study pages included', () => {
         expect(selectedSubnavUrl(Routes.studyRequest({ orgSlug }), partner)).toBe(Routes.orgDashboard({ orgSlug }))
+    })
+})
+
+describe('withScopeUnread', () => {
+    it('sets only the My studies tab the table shows', () => {
+        const nav = withScopeUnread(NOTHING_UNREAD, { scope: 'user', audience: 'reviewer', orgSlug: 'lab' }, true)
+
+        expect(nav).toEqual({ myStudies: { researcher: false, reviewer: true }, orgSlugs: [] })
+    })
+
+    it('adds and removes only the table org, leaving the other orgs alone', () => {
+        const nav = { ...NOTHING_UNREAD, orgSlugs: ['partner'] }
+        const scope = { scope: 'org', audience: 'researcher', orgSlug: 'lab' } as const
+
+        const marked = withScopeUnread(nav, scope, true)
+        expect(marked.orgSlugs).toEqual(['partner', 'lab'])
+        expect(withScopeUnread(marked, scope, true).orgSlugs).toEqual(['partner', 'lab'])
+        expect(withScopeUnread(marked, scope, false).orgSlugs).toEqual(['partner'])
     })
 })

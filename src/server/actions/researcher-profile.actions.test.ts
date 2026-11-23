@@ -11,7 +11,13 @@ import {
     mockClerkSession,
     faker,
 } from '@/tests/unit.helpers'
-import { updatePersonalInfoAction, getResearcherProfileByUserIdAction } from './researcher-profile.actions'
+import {
+    updatePersonalInfoAction,
+    updateEducationAction,
+    updatePositionsAction,
+    updateResearchDetailsAction,
+    getResearcherProfileByUserIdAction,
+} from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
 describe('researcher-profile.actions', () => {
@@ -56,6 +62,140 @@ describe('researcher-profile.actions', () => {
             expect(dbUser.firstName).toBe('Jane')
             expect(dbUser.lastName).toBe('Smith')
             expect(result).toEqual({ success: true })
+        })
+    })
+
+    describe('updateEducationAction', () => {
+        it('creates the profile row when the user has none', async () => {
+            const { user } = await mockSessionWithTestData()
+
+            const result = await updateEducationAction({
+                educationalInstitution: 'Rice University',
+                degree: 'Ph.D.',
+                fieldOfStudy: 'Statistics',
+                isCurrentlyPursuing: true,
+            })
+
+            expect(result).toEqual({ success: true })
+            const profile = await db
+                .selectFrom('researcherProfile')
+                .select([
+                    'educationInstitution',
+                    'educationDegree',
+                    'educationFieldOfStudy',
+                    'educationIsCurrentlyPursuing',
+                ])
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+            expect(profile).toEqual({
+                educationInstitution: 'Rice University',
+                educationDegree: 'Ph.D.',
+                educationFieldOfStudy: 'Statistics',
+                educationIsCurrentlyPursuing: true,
+            })
+        })
+
+        it('rejects a blank required field without writing', async () => {
+            const { user } = await mockSessionWithTestData()
+            await insertTestResearcherProfile({
+                userId: user.id,
+                education: { institution: 'MIT', degree: 'Ph.D.', fieldOfStudy: 'CS' },
+            })
+
+            const result = await updateEducationAction({
+                educationalInstitution: ' ',
+                degree: 'M.S.',
+                fieldOfStudy: 'Math',
+                isCurrentlyPursuing: false,
+            })
+
+            expect(isActionError(result)).toBe(true)
+            const profile = await db
+                .selectFrom('researcherProfile')
+                .select('educationDegree')
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+            expect(profile.educationDegree).toBe('Ph.D.')
+        })
+    })
+
+    describe('updatePositionsAction', () => {
+        const positionsFor = (userId: string) =>
+            db
+                .selectFrom('researcherPosition')
+                .select(['affiliation', 'position', 'profileUrl', 'sortOrder'])
+                .where('userId', '=', userId)
+                .orderBy('sortOrder')
+                .execute()
+
+        it('replaces existing positions in submitted order and stores a blank url as null', async () => {
+            const { user } = await mockSessionWithTestData()
+            await insertTestResearcherProfile({
+                userId: user.id,
+                positions: [{ affiliation: 'Old U', position: 'Postdoc' }],
+            })
+
+            const result = await updatePositionsAction({
+                positions: [
+                    { affiliation: 'Rice', position: 'Professor', profileUrl: 'https://rice.edu/prof' },
+                    { affiliation: 'OpenStax', position: 'Advisor', profileUrl: '' },
+                ],
+            })
+
+            expect(result).toEqual({ success: true })
+            expect(await positionsFor(user.id)).toEqual([
+                { affiliation: 'Rice', position: 'Professor', profileUrl: 'https://rice.edu/prof', sortOrder: 0 },
+                { affiliation: 'OpenStax', position: 'Advisor', profileUrl: null, sortOrder: 1 },
+            ])
+        })
+
+        it('removes every position when given an empty list', async () => {
+            const { user } = await mockSessionWithTestData()
+            await insertTestResearcherProfile({
+                userId: user.id,
+                positions: [{ affiliation: 'MIT', position: 'Professor' }],
+            })
+
+            const result = await updatePositionsAction({ positions: [] })
+
+            expect(result).toEqual({ success: true })
+            expect(await positionsFor(user.id)).toEqual([])
+        })
+    })
+
+    describe('updateResearchDetailsAction', () => {
+        it('creates the profile row and saves the research details', async () => {
+            const { user } = await mockSessionWithTestData()
+
+            const result = await updateResearchDetailsAction({
+                researchInterests: ['Learning analytics', 'Causal inference'],
+                detailedPublicationsUrl: 'https://scholar.example.com/me',
+                featuredPublicationsUrls: ['https://example.com/paper-1'],
+            })
+
+            expect(result).toEqual({ success: true })
+            const profile = await db
+                .selectFrom('researcherProfile')
+                .select(['researchInterests', 'detailedPublicationsUrl', 'featuredPublicationsUrls'])
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+            expect(profile).toEqual({
+                researchInterests: ['Learning analytics', 'Causal inference'],
+                detailedPublicationsUrl: 'https://scholar.example.com/me',
+                featuredPublicationsUrls: ['https://example.com/paper-1'],
+            })
+        })
+
+        it('rejects more than five research interests', async () => {
+            await mockSessionWithTestData()
+
+            const result = await updateResearchDetailsAction({
+                researchInterests: ['a', 'b', 'c', 'd', 'e', 'f'],
+                detailedPublicationsUrl: 'https://scholar.example.com/me',
+                featuredPublicationsUrls: [],
+            })
+
+            expect(isActionError(result)).toBe(true)
         })
     })
 

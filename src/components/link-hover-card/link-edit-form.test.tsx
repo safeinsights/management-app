@@ -1,4 +1,4 @@
-import { renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
+import { describedError, renderWithProviders, screen, userEvent, describe, it, expect, vi } from '@/tests/unit.helpers'
 import { LinkEditForm } from './link-edit-form'
 import { EMPTY_TEXT_MESSAGE, INVALID_URL_MESSAGE } from './copy'
 
@@ -52,16 +52,9 @@ describe('LinkEditForm', () => {
         await user.click(form.save)
 
         expect(form.onSave).not.toHaveBeenCalled()
-        expect(await screen.findByText(INVALID_URL_MESSAGE)).toBeInTheDocument()
+        await screen.findByText(INVALID_URL_MESSAGE)
         expect(form.url).toHaveAttribute('aria-invalid', 'true')
-
-        const describedBy = form.url.getAttribute('aria-describedby')
-        expect(describedBy).toBeTruthy()
-        const described = describedBy!
-            .split(' ')
-            .map((id) => document.getElementById(id)?.textContent ?? '')
-            .join(' ')
-        expect(described).toContain(INVALID_URL_MESSAGE)
+        expect(describedError(form.url)).toHaveTextContent(INVALID_URL_MESSAGE)
     })
 
     it('clears the error once the URL changes', async () => {
@@ -86,7 +79,9 @@ describe('LinkEditForm', () => {
         await user.click(form.save)
 
         expect(form.onSave).not.toHaveBeenCalled()
-        expect(await screen.findByText(EMPTY_TEXT_MESSAGE)).toBeInTheDocument()
+        await screen.findByText(EMPTY_TEXT_MESSAGE)
+        expect(form.text).toHaveAttribute('aria-invalid', 'true')
+        expect(describedError(form.text)).toHaveTextContent(EMPTY_TEXT_MESSAGE)
     })
 
     it('trims what it saves, and refuses text that is only spaces', async () => {

@@ -16,10 +16,12 @@ import {
     shouldPersistDocument,
     studyIdForDocument,
 } from './auth.ts'
-import { createSecretsClient, resolveDbSource } from './db-credentials.ts'
-import { ResilientDbPool } from './db-pool.ts'
+import { RDS_SSL } from '../../src/lib/db-connection.ts'
+import { pgPoolFactory, ResilientPool } from '../../src/lib/resilient-pool.ts'
 import { SLUG_TO_STUDY_COLUMN, seedYDocFromLexical, toLexicalJsonIfPlain } from './lexical-seed.ts'
 import { mirrorProposalTitleToStudy } from './title-mirror.ts'
+import { editorUserIds, markStudyOpenedByEditors } from './study-visit.ts'
+import { databaseURL, env } from '../../src/server/config.ts'
 
 // Decode (without verifying) the JWT's `sub` claim, purely for diagnostic
 // logging when authentication has already failed. Returns null on any error.
@@ -39,13 +41,13 @@ function log(event: string, fields: Record<string, unknown> = {}): void {
     process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + '\n')
 }
 
-const jwtKey = process.env.CLERK_JWT_KEY
+const jwtKey = env.CLERK_JWT_KEY
 if (!jwtKey) {
     // Fail closed: refuse to start rather than silently allow anonymous WS connections.
     throw new Error('CLERK_JWT_KEY is required')
 }
-const secretKey = process.env.CLERK_SECRET_KEY
-const authorizedParties = (process.env.CLERK_AUTHORIZED_PARTIES ?? '')
+const secretKey = env.CLERK_SECRET_KEY
+const authorizedParties = (env.CLERK_AUTHORIZED_PARTIES ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -54,26 +56,27 @@ log('startup.config', {
     hasJwtKey: !!jwtKey,
     hasSecretKey: !!secretKey,
     authorizedParties,
-    hasDatabaseUrl: !!process.env.DATABASE_URL,
-    hasDbSecretArn: !!process.env.DB_SECRET_ARN,
+    hasDatabaseUrl: !!env.DATABASE_URL,
+    hasDbSecretArn: !!env.DB_SECRET_ARN,
     nodeVersion: process.version,
 })
 
 const SI_ADMIN_ORG_SLUG = 'safe-insights'
 
-// Resolve the DB source once at boot, then wrap it in a self-healing pool. The
-// pool re-reads the secret and rebuilds itself if a deploy rotates the DB
-// password, so the long-running editor task recovers without a restart
-// (OTTER-626). DATABASE_URL (local/dev) is static and has nothing to refresh.
-const source = await resolveDbSource(process.env, createSecretsClient())
-log('db.config.source', {
-    source: source.kind === 'connectionString' ? 'DATABASE_URL' : 'secretsManager',
-})
-const pool = new ResilientDbPool(source, log)
+// ResilientPool re-reads the secret and rebuilds itself if a deploy rotates the DB password, so the
+// long-running editor task recovers without a restart (OTTER-626).
+log('db.config.source', { source: env.DATABASE_URL ? 'DATABASE_URL' : 'secretsManager' })
+const pool = new ResilientPool(
+    await databaseURL(),
+    pgPoolFactory(env.DATABASE_URL ? undefined : RDS_SSL),
+    databaseURL,
+    () => log('db.credentials.rotated'),
+)
+pool.on('error', (err) => log('db.pool.error', { message: err.message }))
 
 try {
-    const now = await pool.ping()
-    log('db.ping.ok', { now })
+    const { rows } = await pool.query<{ now: Date }>('SELECT now() AS now')
+    log('db.ping.ok', { now: rows[0]?.now })
 } catch (err) {
     log('db.ping.fail', { message: err instanceof Error ? err.message : String(err) })
     throw err
@@ -94,7 +97,7 @@ const server = new Server({
                 })
                 return result.rows[0]?.data ?? null
             },
-            store: async ({ documentName, state, document }) => {
+            store: async ({ documentName, state, document, lastContext }) => {
                 const parsed = parseDocumentName(documentName)
                 if (!parsed) {
                     log('db.store.reject', { documentName, reason: 'unrecognized-name' })
@@ -116,6 +119,18 @@ const server = new Server({
                 )
                 log('db.store.ok', { documentName, bytes: state.length })
 
+                // Best-effort like the title mirror below: the edit is already persisted.
+                try {
+                    const editors = editorUserIds([lastContext, ...document.getConnections().map((c) => c.context)])
+                    await markStudyOpenedByEditors(studyId, editors, pool)
+                } catch (err) {
+                    log('db.store.studyVisit.fail', {
+                        documentName,
+                        studyId,
+                        message: err instanceof Error ? err.message : String(err),
+                    })
+                }
+
                 // Best-effort: Yjs is already persisted above; a mirror failure must not
                 // fail the store hook or roll back the canonical document write.
                 try {
@@ -131,8 +146,8 @@ const server = new Server({
         }),
     ],
     async onAuthenticate({ token, documentName, requestHeaders, requestParameters }) {
-        const headerKeys = Object.keys(requestHeaders ?? {})
-        const paramKeys = requestParameters ? Array.from(requestParameters.keys()) : []
+        const headerKeys = Array.from(requestHeaders.keys())
+        const paramKeys = Array.from(requestParameters.keys())
         log('auth.start', {
             documentName,
             tokenLength: token?.length ?? 0,
@@ -239,7 +254,7 @@ const server = new Server({
         let jobDecided: boolean | null = null
         if (parsedDoc.kind === 'outputs-review-feedback') {
             jobDecided = await hasFilesDecision(parsedDoc.jobId, pool)
-        } else if (parsedDoc.kind !== 'code-review-feedback') {
+        } else if (parsedDoc.kind !== 'code-review-feedback' && parsedDoc.kind !== 'code-submission') {
             const statusRow = await pool.query<{ status: StudyStatus }>('SELECT status FROM study WHERE id = $1', [
                 documentStudyId,
             ])

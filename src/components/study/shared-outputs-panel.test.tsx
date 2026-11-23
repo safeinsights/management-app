@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Route } from 'next'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
     fireEvent,
     insertTestStudyJobData,
@@ -9,6 +9,8 @@ import {
     renderWithProviders,
     screen,
     waitFor,
+    waitForPendingMutations,
+    within,
 } from '@/tests/unit.helpers'
 import { seedEncryptedArtifact } from '@/tests/artifact.helpers'
 import { STATUS_ALERT_VARIANT } from '@/components/study/status-alert'
@@ -18,23 +20,16 @@ import { type Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
 import { SharedOutputsPanel } from './shared-outputs-panel'
 
-vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchEncryptedJobFilesAction: vi.fn(() => []),
-}))
-
-vi.mock('@/server/actions/study-job-file-activity.actions', () => ({
-    fetchJobFileActivityAction: vi.fn(() => []),
-    recordJobFileActivityAction: vi.fn(() => ({})),
-}))
-
 const DECIDED_AT = new Date('2026-08-05T12:00:00Z')
 const DATA_PARTNER = 'Memorial Hospital'
+const KEY_DESCRIPTION =
+    'Output files are encrypted. Enter your security key to access outputs from this and previous code runs.'
 
-const LOCKED_HEADING = 'Decrypt outputs to view code error'
+const LOCKED_HEADING = 'Code run errored. Decrypt to view your outputs and feedback'
 const UNLOCKED_HEADING = 'Resolve the code error to proceed'
-const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback. Enter your security key below to decrypt and diagnose the issue.`
+const LOCKED_BODY = `${DATA_PARTNER} has shared the outputs and feedback for the latest code run. Enter your security key to view them and diagnose the issue.`
 const UNLOCKED_BODY =
-    'Review the outputs and reviewer feedback below to understand why the code run failed, then update your code and resubmit.'
+    'Review the outputs and feedback for the latest code run below to understand why it failed, then update your code and resubmit.'
 
 const LOCKED_TITLE = `${LOCKED_HEADING} • Aug 05, 2026`
 const UNLOCKED_TITLE = `${UNLOCKED_HEADING} • Aug 05, 2026`
@@ -85,24 +80,40 @@ const FeedbackProbe = () => {
 describe('SharedOutputsPanel', () => {
     // A real row still has to exist for the seeded artifact to hang off.
     let job: { id: string }
+    let studyId: string
 
     const renderPanel = (banner = BANNER) =>
         renderWithProviders(
             <SharedOutputsPanel
+                studyId={studyId}
                 decidedAt={DECIDED_AT}
                 banner={banner}
                 job={job}
+                keyDescription={KEY_DESCRIPTION}
                 feedbackSection={<FeedbackProbe />}
                 nav={NAV}
+                priorRuns={[]}
             />,
         )
 
-    const decrypt = async () => {
-        const privateKeyPem = await readTestSupportFile('private_key.pem')
-        await screen.findByRole('button', { name: 'View' })
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: privateKeyPem } })
-        fireEvent.click(screen.getByRole('button', { name: 'View' }))
-        await waitFor(() => expect(screen.getByTestId('outputs-files-section')).toBeInTheDocument())
+    const card = (root = document.body) => within(root).getByTestId('code-run-card')
+
+    const isBefore = (first: Element, second: Element) =>
+        !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+    // Scoped to its own render: a timed-out test keeps running and must not drive the next test's screen.
+    const enterKey = async (root: HTMLElement, value: string) => {
+        const view = within(root)
+        await view.findByRole('button', { name: 'View files' })
+        fireEvent.change(view.getByRole('textbox'), { target: { value } })
+        fireEvent.click(view.getByRole('button', { name: 'View files' }))
+    }
+
+    const decrypt = async (root: HTMLElement) => {
+        await enterKey(root, await readTestSupportFile('private_key.pem'))
+        await waitFor(() => expect(within(card(root)).getByTestId('code-run-outputs')).toBeInTheDocument())
+        // Decrypting fires the reviewed write; let it settle before the test ends.
+        await waitForPendingMutations()
     }
 
     beforeEach(async () => {
@@ -113,20 +124,20 @@ describe('SharedOutputsPanel', () => {
         })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, jobStatus: 'CODE-SUBMITTED' })
         job = (await latestJobForStudy(study.id))!
+        studyId = study.id
 
-        const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-        const artifact = await seedEncryptedArtifact(job.id, {
+        await seedEncryptedArtifact(job.id, {
             fileType: 'ENCRYPTED-RESULT',
             files: [{ name: 'summary.csv', content: 'a,b\n1,2' }],
+            sharedWith: user.id,
         })
-        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([artifact])
     })
 
     describe('before decryption', () => {
         it('renders the STEP 4 "Verify outputs" section header without a study title', () => {
             renderPanel()
             const header = screen.getByTestId('proposal-section-header')
-            expect(header).toHaveTextContent('STEP 4')
+            expect(header).toHaveTextContent('Step 4')
             expect(header).toHaveTextContent('Verify outputs')
             expect(header).not.toHaveTextContent('Diabetes readmission rates')
         })
@@ -142,39 +153,58 @@ describe('SharedOutputsPanel', () => {
         it('degrades to an undated banner when no decision timestamp is available', () => {
             renderWithProviders(
                 <SharedOutputsPanel
+                    studyId={studyId}
                     decidedAt={null}
                     banner={BANNER}
                     job={job}
+                    keyDescription={KEY_DESCRIPTION}
                     feedbackSection={<FeedbackProbe />}
                     nav={NAV}
+                    priorRuns={[]}
                 />,
             )
             const alert = screen.getByTestId('status-alert')
-            expect(alert).toHaveTextContent('Decrypt outputs to view code error')
+            expect(alert).toHaveTextContent(LOCKED_HEADING)
             expect(alert).not.toHaveTextContent('•')
         })
 
-        it('renders the security key form with the base component copy, uncustomised', async () => {
+        it('renders the key fields in the code run card with the given sentence, then the feedback', async () => {
             renderPanel()
-            await screen.findByRole('button', { name: 'View' })
-            expect(screen.getByTestId('security-key-form')).toBeInTheDocument()
-            expect(screen.getByRole('heading', { name: /^Security key/ })).toBeInTheDocument()
-            expect(
-                screen.getByText('This key is required to access the outputs. It was issued to you during sign-up.'),
-            ).toBeInTheDocument()
+            await screen.findByRole('button', { name: 'View files' })
+            expect(within(card()).getByRole('heading', { name: 'Code run Aug 05, 2026' })).toBeInTheDocument()
+            const keyFields = within(card()).getByTestId('security-key-form')
+            expect(within(keyFields).getByText(/^Security key/)).toContainElement(
+                within(keyFields).getByLabelText('required'),
+            )
+            expect(within(keyFields).getByText(KEY_DESCRIPTION)).toBeInTheDocument()
+            expect(screen.queryByText(/issued to you during sign-up/)).toBeNull()
+            expect(isBefore(keyFields, within(card()).getByTestId('feedback-probe'))).toBe(true)
         })
 
+        it('keeps the empty-key and invalid-key errors of the shared key fields', async () => {
+            const { container } = renderPanel()
+            fireEvent.click(await within(container).findByRole('button', { name: 'View files' }))
+            expect(await screen.findByText('Enter your security key to decrypt the outputs.')).toBeInTheDocument()
+
+            await enterKey(container, 'not a key')
+            expect(
+                await screen.findByText('Invalid key. Check that you copied the full key and enter it again.'),
+            ).toBeInTheDocument()
+            expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
+        })
+
+        // The outputs are encrypted to the enclave, so the researcher's key opens them only through
+        // the wraps the researcher key set carries.
         it("asks for the RESEARCHER key set, not the reviewer's", async () => {
-            const { fetchEncryptedJobFilesAction } = await import('@/server/actions/study-job.actions')
-            renderPanel()
-            await screen.findByRole('button', { name: 'View' })
-            expect(fetchEncryptedJobFilesAction).toHaveBeenCalledWith({ jobId: job.id, type: 'researcher' })
+            const { container } = renderPanel()
+            await decrypt(container)
+            expect(screen.getByText('summary.csv')).toBeInTheDocument()
         })
 
         it('shows the feedback section and no outputs table', () => {
             renderPanel()
-            expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
-            expect(screen.queryByTestId('outputs-files-section')).not.toBeInTheDocument()
+            expect(within(card()).getByTestId('feedback-probe')).toBeInTheDocument()
+            expect(screen.queryByTestId('code-run-outputs')).not.toBeInTheDocument()
         })
 
         it('offers only Previous step — Edit code and Back to my studies are absent', () => {
@@ -190,21 +220,21 @@ describe('SharedOutputsPanel', () => {
 
     describe('after decryption', () => {
         it('swaps to the unlocked copy and variant with the same decision date', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'action')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
             expect(alert).toHaveTextContent(UNLOCKED_BODY)
-            expect(alert).not.toHaveTextContent('Decrypt outputs to view code error')
+            expect(alert).not.toHaveTextContent(LOCKED_HEADING)
         })
 
         it('renders a success unlocked banner when that is the copy it is given', async () => {
-            renderPanel({
+            const { container } = renderPanel({
                 ...BANNER,
                 unlocked: { ...BANNER.unlocked, variant: STATUS_ALERT_VARIANT.success },
             })
-            await decrypt()
+            await decrypt(container)
             const alert = screen.getByTestId('status-alert')
             expect(alert).toHaveAttribute('data-variant', 'success')
             expect(alert).toHaveTextContent(UNLOCKED_TITLE)
@@ -212,10 +242,10 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('announces the swap in the SAME polite live region rather than remounting it', async () => {
-            renderPanel()
+            const { container } = renderPanel()
             const before = screen.getByTestId('status-alert')
             expect(before).toHaveAttribute('aria-live', 'polite')
-            await decrypt()
+            await decrypt(container)
             const after = screen.getByTestId('status-alert')
             // Same DOM node: swapping two banner components would drop the announcement.
             expect(after).toBe(before)
@@ -224,27 +254,38 @@ describe('SharedOutputsPanel', () => {
             expect(after).not.toHaveAttribute('aria-live', 'assertive')
         })
 
-        it('keeps the feedback section mounted across the swap', async () => {
-            renderPanel()
+        it('keeps the feedback section mounted and below the outputs across the swap', async () => {
+            const { container } = renderPanel()
             expect(mountCount.current).toBe(1)
-            await decrypt()
+            await enterKey(container, await readTestSupportFile('private_key.pem'))
             expect(screen.getByTestId('feedback-probe')).toBeInTheDocument()
+            await waitFor(() => expect(within(card(container)).getByTestId('code-run-outputs')).toBeInTheDocument())
+            await waitForPendingMutations()
+
+            const probe = within(card()).getByTestId('feedback-probe')
+            expect(isBefore(within(card()).getByTestId('code-run-outputs'), probe)).toBe(true)
             expect(mountCount.current).toBe(1)
+        })
+
+        it('moves focus to the Output files title that replaces the key fields', async () => {
+            const { container } = renderPanel()
+            await decrypt(container)
+            await waitFor(() => expect(within(card()).getByText('Output files')).toHaveFocus())
         })
 
         it('removes the security key form entirely, leaving no input or button behind', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
             expect(screen.queryByTestId('security-key-form')).not.toBeInTheDocument()
-            expect(screen.queryByRole('heading', { name: /^Security key/ })).not.toBeInTheDocument()
+            expect(screen.queryByText(/^Security key/)).not.toBeInTheDocument()
             expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'View files' })).not.toBeInTheDocument()
         })
 
         it('renders the reused outputs table with its header and all three columns', async () => {
-            renderPanel()
-            await decrypt()
-            expect(screen.getByTestId('outputs-files-section')).toHaveTextContent('Output files')
+            const { container } = renderPanel()
+            await decrypt(container)
+            expect(within(card()).getByTestId('code-run-outputs')).toHaveTextContent('Output files')
             const table = screen.getByTestId('outputs-files-table')
             expect(table).toHaveTextContent('File name')
             expect(table).toHaveTextContent('Last activity')
@@ -253,8 +294,8 @@ describe('SharedOutputsPanel', () => {
         })
 
         it('renders the given nav in full once decrypted, keeping Previous step', async () => {
-            renderPanel()
-            await decrypt()
+            const { container } = renderPanel()
+            await decrypt(container)
 
             const previous = screen.getByRole('link', { name: /previous step/i })
             expect(previous).toHaveAttribute('href', PREVIOUS_HREF)

@@ -2,7 +2,7 @@ import { ENVIRONMENT_ID, getConfigValue } from './config'
 import { PostHog } from 'posthog-node'
 import * as Sentry from '@sentry/nextjs'
 import { after } from 'next/server'
-import { POSTHOG_HOST } from '@/lib/constants'
+import { POSTHOG_HOST, POSTHOG_SURFACE } from '@/lib/constants'
 import logger from '@/lib/logger'
 
 async function createPostHogClient(): Promise<PostHog | null> {
@@ -66,14 +66,16 @@ async function sendPostHogEvent({ properties, ...event }: PostHogEvent): Promise
             failure ??= error
         })
         try {
-            await posthog.captureImmediate({ ...event, properties: { ...resolved, environment: ENVIRONMENT_ID } })
+            await posthog.captureImmediate({
+                ...event,
+                properties: { ...resolved, environment: ENVIRONMENT_ID, surface: POSTHOG_SURFACE },
+            })
         } finally {
             stopListening()
         }
         if (failure) throw failure
     } catch (error: unknown) {
         logger.error(error)
-        Sentry.captureException(error)
         await Sentry.flush(2_000)
     }
 }

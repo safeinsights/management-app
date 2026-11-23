@@ -11,6 +11,7 @@
  *   docker exec mgmnt-app pnpm exec tsx bin/inject-encrypted-results.ts <jobId>
  */
 import { db } from '@/database'
+import { writeJobStatus } from '@/database/job-status-writer'
 import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 
@@ -126,13 +127,10 @@ async function main() {
         const ts = runComplete
             ? new Date(new Date(runComplete.createdAt).getTime() - 1000)
             : new Date(Date.now() - 2000)
-        await db
-            .insertInto('jobStatusChange')
-            .values({ status: 'CODE-APPROVED', studyJobId: jobId, createdAt: ts })
-            .execute()
+        await writeJobStatus(db, jobId, 'CODE-APPROVED', { actor: 'qa', at: ts })
     }
     if (!runComplete) {
-        await db.insertInto('jobStatusChange').values({ status: 'RUN-COMPLETE', studyJobId: jobId }).execute()
+        await writeJobStatus(db, jobId, 'RUN-COMPLETE', { actor: 'qa' })
     }
     // Code approved ⇒ proposal-level review is done; study is back to APPROVED.
     await db.updateTable('study').set({ status: 'APPROVED' }).where('id', '=', info.studyId).execute()

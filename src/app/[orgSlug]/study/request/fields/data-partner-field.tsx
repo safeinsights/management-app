@@ -8,7 +8,7 @@ import { useQuery } from '@/common'
 import { FormField, nativeFieldProps } from '@/components/form-field'
 import { ReadOnlyField } from '@/components/read-only-field'
 import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
-import { StudyProposalFormValues } from '../form-schemas'
+import { StudyProposalFormValues } from '@/schema/study-request'
 import { ORG_SELECT_ID } from './field-ids'
 
 // "Data Partner" with both words capitalized is an intentional product exception, not a typo.
@@ -45,11 +45,18 @@ export const DataPartnerField: FC<DataPartnerFieldProps> = ({ form, isLocked, lo
     const error = form.errors.orgSlug
 
     return (
-        <FormField inputId={ORG_SELECT_ID} label={LABEL} required description={DESCRIPTION} error={error}>
+        <FormField
+            inputId={ORG_SELECT_ID}
+            label={LABEL}
+            required
+            description={DESCRIPTION}
+            error={error}
+            validatesOnBlur
+        >
             <Select
                 id={ORG_SELECT_ID}
                 data-testid="org-select"
-                maw={478}
+                w="50%"
                 key={form.key('orgSlug')}
                 allowDeselect={false}
                 data={options}

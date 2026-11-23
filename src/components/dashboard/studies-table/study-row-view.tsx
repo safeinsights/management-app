@@ -1,19 +1,22 @@
 'use client'
 
 import type { FC } from 'react'
-import { Group, Stack, TableTd, TableTr, Text, Tooltip } from '@mantine/core'
+import { Group, Stack, TableTd, TableTr, Text, Tooltip, VisuallyHidden } from '@mantine/core'
 import { Link } from '@/components/links'
 import { formatInstant } from '@/lib/dates'
 import { InfoTooltip } from '@/components/tooltip'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { semanticColor } from '@/theme/tokens'
 import type { ColumnDef } from './columns'
-import { DeleteDraftButton } from './delete-draft-button'
 import { NOT_REVIEWED, NOT_SUBMITTED, type Attribution, type RowModel } from './row-model'
 import type { ColumnId } from './sort'
+import type { StudyRow } from './types'
 import classes from './study-row-view.module.css'
 
-type CellProps = { row: RowModel }
+// Injected by the container so this view, and its Ladle stories, never import server actions.
+export type DeleteDraftComponent = FC<{ study: StudyRow }>
+
+type CellProps = { row: RowModel; DeleteDraft?: DeleteDraftComponent }
 
 const Placeholder: FC<{ text: string }> = ({ text }) => (
     <Text fz="sm" c={semanticColor('text.disabled')}>
@@ -21,12 +24,25 @@ const Placeholder: FC<{ text: string }> = ({ text }) => (
     </Text>
 )
 
+// Sits in the title cell's left padding, so read and unread titles start at the same x (OTTER-838).
+const UnreadDot: FC<{ isVisible: boolean }> = ({ isVisible }) => {
+    if (!isVisible) return null
+    return (
+        <span className={classes.unreadDot}>
+            <VisuallyHidden>Updated</VisuallyHidden>
+        </span>
+    )
+}
+
 const TitleCell: FC<CellProps> = ({ row }) => (
-    <Tooltip label={row.title} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
-        <Link href={row.href} className={classes.title} fz="sm" c={semanticColor('text.primary')} underline="hover">
-            {row.title}
-        </Link>
-    </Tooltip>
+    <>
+        <UnreadDot isVisible={row.isUnread} />
+        <Tooltip label={row.title} events={{ hover: true, focus: true, touch: true }} multiline maw={400}>
+            <Link href={row.href} className={classes.title} fz="sm" c={semanticColor('text.primary')} underline="hover">
+                {row.title}
+            </Link>
+        </Tooltip>
+    </>
 )
 
 const LastUpdatedCell: FC<CellProps> = ({ row }) => <Text fz="sm">{formatInstant(row.lastActivityAt)}</Text>
@@ -66,13 +82,13 @@ const AttributionCell: FC<{ attribution: Attribution; placeholder: string }> = (
     </InfoTooltip>
 )
 
-const DeleteDraftCell: FC<{ isVisible: boolean } & CellProps> = ({ isVisible, row }) =>
-    isVisible ? <DeleteDraftButton study={row.study} /> : null
+const DeleteDraftCell: FC<{ isVisible: boolean } & CellProps> = ({ isVisible, row, DeleteDraft }) =>
+    isVisible && DeleteDraft ? <DeleteDraft study={row.study} /> : null
 
-const StatusCell: FC<CellProps> = ({ row }) => (
+const StatusCell: FC<CellProps> = ({ row, DeleteDraft }) => (
     <Group gap="xs" wrap="nowrap">
         <DisplayStudyStatus status={row.status} />
-        <DeleteDraftCell isVisible={row.canDeleteDraft} row={row} />
+        <DeleteDraftCell isVisible={row.canDeleteDraft} row={row} DeleteDraft={DeleteDraft} />
     </Group>
 )
 
@@ -87,20 +103,20 @@ const CELLS: Record<ColumnId, FC<CellProps>> = {
     status: StatusCell,
 }
 
-const StudyCell: FC<{ column: ColumnId } & CellProps> = ({ column, row }) => {
+const StudyCell: FC<{ column: ColumnId } & CellProps> = ({ column, row, DeleteDraft }) => {
     const Cell = CELLS[column]
     return (
-        <TableTd>
-            <Cell row={row} />
+        <TableTd className={column === 'title' ? classes.titleCell : undefined}>
+            <Cell row={row} DeleteDraft={DeleteDraft} />
         </TableTd>
     )
 }
 
-export function StudyRowView({ row, columns }: { row: RowModel; columns: ColumnDef[] }) {
+export function StudyRowView({ row, columns, DeleteDraft }: { columns: ColumnDef[] } & CellProps) {
     return (
-        <TableTr fz={14} className={classes.row} mod={{ highlighted: row.isHighlighted }}>
+        <TableTr fz="sm">
             {columns.map((column) => (
-                <StudyCell key={column.id} column={column.id} row={row} />
+                <StudyCell key={column.id} column={column.id} row={row} DeleteDraft={DeleteDraft} />
             ))}
         </TableTr>
     )

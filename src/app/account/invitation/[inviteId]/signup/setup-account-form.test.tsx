@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { db } from '@/database'
 import {
     actionResult,
     faker,
+    findFieldErrorShownOnce,
     insertTestOrg,
     mockSessionWithTestData,
     renderWithProviders,
@@ -100,6 +101,9 @@ const fillValidForm = async () => {
 const participationCheckbox = () =>
     screen.getByRole('checkbox', { name: /Research Organization Participation Agreement/ })
 
+// The label names whatever is published, which other test files can change mid-run.
+const findTermsCheckbox = () => screen.findByRole('checkbox', { name: /Terms of Service/ })
+
 const createAccountButton = () => screen.getByRole('button', { name: 'Create account' })
 
 describe('SetupAccountForm legal documents', () => {
@@ -110,12 +114,14 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findTermsCheckbox()).toBeDefined()
         // The participation agreement is a pdf, shown as a link the invitee agrees to.
         expect(await screen.findByRole('link', { name: 'Research Organization Participation Agreement' })).toBeDefined()
         await fillValidForm()
 
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
+        // Loaded by now, and linked to its own page rather than shown inline.
+        expect(screen.queryByText(TERMS_BODY)).not.toBeInTheDocument()
     })
 
     it('lets a completed form through when the org has no participation agreement', async () => {
@@ -125,7 +131,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findTermsCheckbox()).toBeDefined()
         expect(
             screen.queryByRole('link', { name: 'Research Organization Participation Agreement' }),
         ).not.toBeInTheDocument()
@@ -143,7 +149,7 @@ describe('SetupAccountForm legal documents', () => {
 
         renderForm(inviteId)
 
-        expect(await screen.findByText(TERMS_BODY)).toBeDefined()
+        expect(await findTermsCheckbox()).toBeDefined()
         await fillNameAndPassword()
         await userEvent.click(screen.getByRole('checkbox', { name: /Terms of Service/ }))
 
@@ -153,8 +159,7 @@ describe('SetupAccountForm legal documents', () => {
         await waitFor(() => expect(createAccountButton()).toBeEnabled())
     })
 
-    // Empty documents fall back to a placeholder that contradicts what is published, so a tick
-    // against it must not create an account.
+    // A failed load leaves no versions to record, so a tick must not create an account.
     it('refuses to submit when the documents cannot be loaded, and says so', async () => {
         fetchFileContents.mockImplementation(async () => {
             throw new Error('S3 is unavailable')
@@ -168,5 +173,42 @@ describe('SetupAccountForm legal documents', () => {
         await fillValidForm()
 
         expect(createAccountButton()).toBeDisabled()
+    })
+})
+
+describe('SetupAccountForm fields', () => {
+    it('leaves the fields without placeholders and keeps the invited email read-only', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        for (const label of ['First name', 'Last name', 'Enter password', 'Confirm password']) {
+            expect(screen.getByLabelText(label)).not.toHaveAttribute('placeholder')
+        }
+        // Read-only rather than disabled, so the invited address keeps primary text.
+        expect(screen.getByLabelText('Email')).toHaveAttribute('readonly')
+        expect(screen.getByLabelText('Email')).toBeEnabled()
+    })
+})
+
+describe('SetupAccountForm field errors', () => {
+    it('shows each field error one time, with the error icon', async () => {
+        fetchFileContents.mockImplementation(async () => new Blob([TERMS_BODY]))
+        await publishTos()
+        const inviteId = await inviteWithoutParticipationAgreement()
+
+        renderForm(inviteId)
+
+        await userEvent.type(screen.getByLabelText('First name'), 'A')
+        await userEvent.type(screen.getByLabelText('Last name'), 'User')
+        await userEvent.type(screen.getByLabelText('Enter password'), 'Testing1234!')
+        await userEvent.type(screen.getByLabelText('Confirm password'), 'Testing1234?')
+        await userEvent.tab()
+
+        for (const message of ['Name must be 2-50 characters', 'Passwords do not match. Please re-enter them.']) {
+            await findFieldErrorShownOnce(message)
+        }
     })
 })

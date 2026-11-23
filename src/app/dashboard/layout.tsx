@@ -1,34 +1,8 @@
-import { ErrorAlert } from '@/components/errors'
-import { AppShell } from '@/components/layout/app-shell'
-import PostHogUserProvider from '@/components/posthog-user-provider'
-import SentryUserProvider from '@/components/sentry-user-provider'
-import { ClerkProvider } from '@clerk/nextjs'
-import { currentUser } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
-import { ReactNode } from 'react'
-import { connection } from 'next/server'
+import { UserLayout } from '@/components/layout/user-layout'
+import { type ReactNode } from 'react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
-    await connection()
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
-
-    if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
-
-    const user = await currentUser()
-    if (!user) {
-        redirect('/account/signin')
-    }
-    if (user.twoFactorEnabled === false) {
-        redirect('/account/mfa')
-    }
-
-    return (
-        <ClerkProvider publishableKey={clerkPublishableKey}>
-            <SentryUserProvider />
-            <PostHogUserProvider />
-            <AppShell>{children}</AppShell>
-        </ClerkProvider>
-    )
+export default function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
+    return <UserLayout>{children}</UserLayout>
 }

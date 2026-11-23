@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TextInput } from '@mantine/core'
+import { useState } from 'react'
+import { Radio, TextInput } from '@mantine/core'
+import { ERROR_LINE_MIN_HEIGHT } from '@/components/errors'
 import { renderWithProviders, screen, userEvent } from '@/tests/unit.helpers'
-import { FormField, fieldDescribedBy, useWidgetBlur } from './form-field'
+import { FormField, fieldDescribedBy, fieldTestId, radioGroupAria, useWidgetBlur } from './form-field'
 
 describe('FormField', () => {
     it('renders the label, description and error, and pairs them to the control', () => {
@@ -17,6 +19,17 @@ describe('FormField', () => {
         expect(screen.getByText('This is required.').closest('[id]')).toHaveAttribute('id', 'field-error')
     })
 
+    // OTTER-880: a bare Mantine error renders at 12px with no icon, unlike the design.
+    it('renders the error with the error icon', () => {
+        renderWithProviders(
+            <FormField inputId="field" label="Study title" error="This is required.">
+                <TextInput id="field" aria-label="Study title input" />
+            </FormField>,
+        )
+
+        expect(document.getElementById('field-error')?.querySelector('svg')).toBeInTheDocument()
+    })
+
     it('separates the label from the description', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title" description="Helper text">
@@ -24,7 +37,19 @@ describe('FormField', () => {
             </FormField>,
         )
 
-        expect(screen.getByText('Study title')).toHaveStyle({ marginBottom: '4px' })
+        expect(screen.getByText('Study title').style.getPropertyValue('margin-bottom')).toBe(
+            'var(--mantine-spacing-xxs)',
+        )
+    })
+
+    // OTTER-662: Mantine's own label weight is 500, which Figma does not have.
+    it('gives a bare Mantine label the FormField weight and gap', () => {
+        renderWithProviders(<TextInput label="Name" />)
+
+        const label = screen.getByText('Name')
+
+        expect(label.style.getPropertyValue('font-weight')).toBe('var(--si-font-weight-semibold)')
+        expect(label.style.getPropertyValue('margin-bottom')).toBe('var(--mantine-spacing-xxs)')
     })
 
     // OTTER-769: theme styles reach the DOM as an inline style, so this covers every
@@ -42,6 +67,15 @@ describe('FormField', () => {
         expect(asterisk).toHaveStyle({ color: '#7e241e' })
     })
 
+    // OTTER-880: set in the theme, so it also covers inputs that render their own error.
+    it('sizes Mantine input errors at 14px', () => {
+        renderWithProviders(<TextInput label="Study title" error="This is required." />)
+
+        expect(screen.getByText('This is required.').style.getPropertyValue('--input-error-size')).toBe(
+            'var(--mantine-font-size-sm)',
+        )
+    })
+
     it('renders no error node when there is no error', () => {
         renderWithProviders(
             <FormField inputId="field" label="Study title">
@@ -50,6 +84,30 @@ describe('FormField', () => {
         )
 
         expect(document.getElementById('field-error')).toBeNull()
+    })
+
+    // A row that mounts with its error pushes whatever is below it down, under a pending click.
+    it('reserves the error row before a blur error arrives', async () => {
+        const Harness = () => {
+            const [error, setError] = useState<string>()
+            return (
+                <>
+                    <FormField inputId="field" label="Study title" error={error} validatesOnBlur>
+                        <TextInput id="field" aria-label="Study title input" />
+                    </FormField>
+                    <button onClick={() => setError('This is required.')}>Raise error</button>
+                </>
+            )
+        }
+        renderWithProviders(<Harness />)
+        const row = screen.getByTestId(fieldTestId('field')).lastElementChild as HTMLElement
+
+        expect(row.style.minHeight).toBe(ERROR_LINE_MIN_HEIGHT)
+
+        await userEvent.click(screen.getByRole('button', { name: 'Raise error' }))
+
+        expect(screen.getByTestId(fieldTestId('field')).lastElementChild).toBe(row)
+        expect(row).toHaveTextContent('This is required.')
     })
 
     it('renders the footer slot alongside the error', () => {
@@ -61,6 +119,29 @@ describe('FormField', () => {
 
         expect(screen.getByText('Too long.')).toBeInTheDocument()
         expect(screen.getByText('12/20')).toBeInTheDocument()
+    })
+})
+
+describe('radioGroupAria', () => {
+    it('names and describes the radiogroup from outside elements, and keeps them after a change', async () => {
+        renderWithProviders(
+            <>
+                <p id="title">Language</p>
+                <p id="help">Pick one</p>
+                <Radio.Group {...radioGroupAria('title', 'help')}>
+                    <Radio value="r" label="R" />
+                    <Radio value="python" label="Python" />
+                </Radio.Group>
+            </>,
+        )
+
+        const group = screen.getByRole('radiogroup', { name: 'Language' })
+        expect(group).toHaveAccessibleDescription('Pick one')
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Python' }))
+
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeChecked()
+        expect(screen.getByRole('radiogroup', { name: 'Language' })).toHaveAccessibleDescription('Pick one')
     })
 })
 

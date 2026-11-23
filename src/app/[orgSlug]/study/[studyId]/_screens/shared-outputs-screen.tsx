@@ -1,24 +1,28 @@
 import { semanticColor } from '@/theme/tokens'
 import { notFound } from 'next/navigation'
-import { Box, Stack } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { SharedOutputsPanel } from '@/components/study/shared-outputs-panel'
-import { FeedbackAndNotesSection } from '@/components/study/feedback-and-notes'
-import { MarkOutputsDecisionViewed } from '@/components/study/mark-outputs-decision-viewed'
+import { CodeRunFeedback } from '@/components/study/code-run-feedback'
 import { StudyPageHeader } from '@/components/study/study-page-header'
+import { VERIFY_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
+import { latestRunFeedback, OUTPUTS_KEY_DESCRIPTIONS } from '@/lib/outputs-review'
 import { researcherSharedOutputsBanner } from '@/lib/study-banners'
 import {
     isErroredOutputsSharedOutcome,
     isOutputsSharedOutcome,
+    projectStudyState,
+    resolvePillId,
     type ScreenId,
     type SharedOutputsScreenId,
     type StudyState,
 } from '@/lib/study-screen'
 import { guardOutputsFeedbackScreen } from './outputs-feedback-guard'
 import type { ScreenComponentProps } from './types'
+import { PageLayout } from '@/components/page-layout'
 
 /**
- * The reviewer released the outputs with "Share outputs and feedback". The researcher decrypts,
- * reads the outputs and feedback, then either resubmits or leaves.
+ * The reviewer released the outputs with "Share outputs and feedback". The researcher reads the
+ * latest run's feedback, decrypts its outputs, then either resubmits or leaves.
  *
  * Two screens, one component, keyed by the screen the rule table picked — the same shape
  * `CodeDecisionScreen` uses for `code-approved`/`code-feedback`. Routing (below), banner
@@ -35,6 +39,12 @@ const SHARE_SCREENS = {
 } as const satisfies Record<SharedOutputsScreenId, (state: StudyState) => boolean>
 
 const isShareScreen = (screen: ScreenId): screen is SharedOutputsScreenId => screen in SHARE_SCREENS
+
+// Same rule table as the status badge, so the sentence and the badge never disagree.
+const researcherKeyDescription = (state: StudyState): string =>
+    resolvePillId('researcher', state) === 'outputs-reviewed'
+        ? OUTPUTS_KEY_DESCRIPTIONS.viewed
+        : OUTPUTS_KEY_DESCRIPTIONS.awaitingView
 
 const NOT_FOUND = { title: 'Outputs not found', message: 'This study has no shared outputs to display yet.' }
 
@@ -55,30 +65,35 @@ export async function SharedOutputsScreen({
         raw,
         matches: SHARE_SCREENS[descriptor.screen],
         notFound: NOT_FOUND,
-        // The reviewer's decision, not the run: FILES-APPROVED is written when they submit it.
-        decisionStatus: 'FILES-APPROVED',
     })
     if (!('job' in result)) return result
 
-    const { job, entries, feedbackLoadError, dataPartner, decidedAt } = result
+    const { job, entries, feedbackLoadError, dataPartner, decidedAt, priorRuns } = result
 
     const banner = researcherSharedOutputsBanner(descriptor.screen, { dataPartner })
 
     return (
         <Box bg={semanticColor('surface.page')}>
-            <Stack px="xl" gap="xxl" py="xl">
-                <StudyPageHeader study={study} />
-                <MarkOutputsDecisionViewed studyId={study.id} />
+            <PageLayout header={<StudyPageHeader study={study} step={VERIFY_OUTPUTS_STEP} />}>
                 <SharedOutputsPanel
+                    // Keyed by job so decrypted outputs can never carry over to another study's run.
+                    key={job.id}
+                    studyId={study.id}
                     decidedAt={decidedAt}
                     banner={banner}
-                    job={job}
+                    job={{ id: job.id }}
+                    keyDescription={researcherKeyDescription(projectStudyState(raw))}
                     feedbackSection={
-                        <FeedbackAndNotesSection entries={entries} loadError={feedbackLoadError} alwaysExpandLatest />
+                        <CodeRunFeedback
+                            feedback={latestRunFeedback(entries, job.id)}
+                            loadError={feedbackLoadError}
+                            testId="latest-run-feedback"
+                        />
                     }
                     nav={phasedNav}
+                    priorRuns={priorRuns}
                 />
-            </Stack>
+            </PageLayout>
         </Box>
     )
 }

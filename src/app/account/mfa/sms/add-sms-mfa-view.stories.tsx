@@ -32,7 +32,7 @@ function StoryForm({
     })
     return (
         <Frame>
-            <AddSmsMfaView form={form} onSubmit={() => {}} isSendingSms={isSendingSms} />
+            <AddSmsMfaView isVisible form={form} onSubmit={() => {}} isSendingSms={isSendingSms} />
         </Frame>
     )
 }

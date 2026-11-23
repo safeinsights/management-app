@@ -129,6 +129,12 @@ describe('generateAnalysis', () => {
         await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow(/max_tokens/)
     })
 
+    it('throws a specific error when the submission overflows the context window', async () => {
+        const { client } = makeClient(toolUseBlock, { stop_reason: 'model_context_window_exceeded' })
+
+        await expect(generateAnalysis({ client }, baseContent)).rejects.toThrow(/model_context_window_exceeded/)
+    })
+
     it('throws when the tool_use payload fails schema validation', async () => {
         const malformedToolUseBlock = [
             {

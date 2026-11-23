@@ -166,20 +166,29 @@ const ADVERSARIAL: Array<[string, (size: number) => string]> = [
 ]
 
 describe('scrubText, adversarial input', () => {
-    const medianTime = (input: string) => {
-        scrubText(input)
-        const samples = Array.from({ length: 5 }, () => {
-            const start = performance.now()
-            for (let i = 0; i < 3; i++) scrubText(input)
-            return performance.now() - start
-        }).sort((a, b) => a - b)
-        return samples[2]
+    const timeOf = (input: string) => {
+        const start = performance.now()
+        for (let i = 0; i < 3; i++) scrubText(input)
+        return performance.now() - start
+    }
+    // Load on a busy runner only adds time, so the fastest sample is the closest to the real
+    // cost. Interleaving the sizes makes a burst of load slow both of them, not only one.
+    const scalingRatio = (makeInput: (size: number) => string) => {
+        const small = makeInput(10_000)
+        const large = makeInput(100_000)
+        scrubText(small)
+        scrubText(large)
+        let bestSmall = Infinity
+        let bestLarge = Infinity
+        for (let i = 0; i < 5; i++) {
+            bestSmall = Math.min(bestSmall, timeOf(small))
+            bestLarge = Math.min(bestLarge, timeOf(large))
+        }
+        return bestLarge / Math.max(bestSmall, 0.05)
     }
     it.each(ADVERSARIAL)('scales linearly for %s', (_label, makeInput) => {
-        const small = medianTime(makeInput(10_000))
-        const large = medianTime(makeInput(100_000))
         // A 10x input allows 40x time for noise; a quadratic scan grows about 100x.
-        expect(large / Math.max(small, 0.05)).toBeLessThan(40)
+        expect(scalingRatio(makeInput)).toBeLessThan(40)
     })
 })
 

@@ -1,11 +1,15 @@
 'use server'
 
+import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
-import { orgSchema, updateOrgSchema, type PublicOrg } from '@/schema/org'
+import { orgSchema, orgDescriptionField, orgNameField, updateOrgSchema, type PublicOrg } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { orgIdFromSlug } from '../db/queries'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
+import { type DBExecutor } from '@/database'
+import { isPgUniqueViolation } from '@/lib/errors'
 import { Language } from '@/database/types'
+import { deleteOrgFromClerk, syncOrgToClerk } from '@/server/clerk-org-sync'
 
 // Mass-assignment path: overwriting settings.publicKey would let an org admin forge M2M API JWTs,
 // and flipping type lab->enclave grants reviewer abilities — hence ('manage','all') (MA-5).
@@ -13,15 +17,33 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
     .params(updateOrgSchema)
     .requireAbilityTo('manage', 'all')
     .handler(async ({ params: { id, ...update }, db }) => {
-        return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
+        const org = await db
+            .updateTable('org')
+            .set(update)
+            .where('id', '=', id)
+            .returningAll()
+            .executeTakeFirstOrThrow()
+        await syncOrgToClerk(org.slug)
+        return org
     })
 
-export const insertOrgAction = new Action('insertOrgAction')
+export const insertOrgAction = new Action('insertOrgAction', { performsMutations: true })
     .params(orgSchema)
     .middleware(async ({ params: { slug } }) => ({ orgSlug: slug }))
     .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
-        return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
+        const inserted = await db
+            .insertInto('org')
+            .values(org)
+            .returningAll()
+            .executeTakeFirstOrThrow()
+            .catch((err) => {
+                if (isPgUniqueViolation(err))
+                    throw new ActionFailure(`An organization with the slug "${org.slug}" already exists.`)
+                throw err
+            })
+        await syncOrgToClerk(inserted.slug)
+        return inserted
     })
 
 export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
@@ -40,32 +62,87 @@ export const fetchUsersOrgsAction = new Action('fetchUsersOrgsAction')
 export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
     .requireAbilityTo('manage', 'all')
     .handler(async ({ db }) => {
+        // One subquery per table: joining all four multiplies their rows per org (OTTER-877).
         return await db
             .selectFrom('org')
-            .leftJoin('study', 'study.orgId', 'org.id')
-            .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
-            .leftJoin('orgCodeEnv', 'orgCodeEnv.orgId', 'org.id')
-            .leftJoin('orgDataSource', 'orgDataSource.orgId', 'org.id')
-            .select([
+            .select((eb) => [
                 'org.id',
                 'org.name',
                 'org.email',
                 'org.slug',
                 'org.type',
                 'org.settings',
-                (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
-                (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
-                (eb) => eb.fn.count('orgCodeEnv.id').distinct().as('totalCodeEnvs'),
-                (eb) => eb.fn.count('orgDataSource.id').distinct().as('totalDataSources'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgUser')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgUser.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalUsers'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('study')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('study.orgId', '=', 'org.id')
+                            .where('study.deletedAt', 'is', null),
+                        'integer',
+                    )
+                    .as('totalStudies'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgCodeEnv')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgCodeEnv.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalCodeEnvs'),
+                eb
+                    .cast<number>(
+                        eb
+                            .selectFrom('orgDataSource')
+                            .select((sub) => sub.fn.countAll().as('count'))
+                            .whereRef('orgDataSource.orgId', '=', 'org.id'),
+                        'integer',
+                    )
+                    .as('totalDataSources'),
             ])
-            .groupBy(['org.id'])
             .execute()
     })
 
-export const deleteOrgAction = new Action('deleteOrgAction')
+// Invites and memberships go with the org. Studies, legal documents and code environments need a purge
+// the cascade can't do (code envs own Athena/Postgres databases and S3 data), so they block it (OTTER-986).
+const orgHasRecords = async (db: DBExecutor, orgId: string) => {
+    const [study, legalDocument, codeEnv] = await Promise.all([
+        db
+            .selectFrom('study')
+            .select('id')
+            .where((eb) => eb.or([eb('orgId', '=', orgId), eb('submittedByOrgId', '=', orgId)]))
+            .executeTakeFirst(),
+        db.selectFrom('legalDocument').select('id').where('orgId', '=', orgId).executeTakeFirst(),
+        db.selectFrom('orgCodeEnv').select('id').where('orgId', '=', orgId).executeTakeFirst(),
+    ])
+    return Boolean(study || legalDocument || codeEnv)
+}
+
+export const deleteOrgAction = new Action('deleteOrgAction', { performsMutations: true })
     .params(z.object({ orgId: z.string() }))
     .requireAbilityTo('delete', 'Org')
-    .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
+    .handler(async ({ db, params: { orgId } }) => {
+        const org = await db.selectFrom('org').select('slug').where('id', '=', orgId).executeTakeFirstOrThrow()
+        if (await orgHasRecords(db, orgId)) {
+            throw new ActionFailure(
+                "This organization has studies, legal documents or code environments, so it can't be deleted.",
+            )
+        }
+        await db.deleteFrom('pendingUser').where('orgId', '=', orgId).execute()
+        await db.deleteFrom('orgUser').where('orgId', '=', orgId).execute()
+        await db.deleteFrom('org').where('id', '=', orgId).execute()
+        await deleteOrgFromClerk(org.slug)
+    })
 
 // Cross-org by design. Selects catalog columns only — keep it that way (MA-6).
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
@@ -183,8 +260,7 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         return { starterCodeUrls }
     })
 
-// On the unconditioned `view Org`, so the row is read in the HANDLER and narrowed to PublicOrg:
-// a middleware read would echo settings and email back in the permission_denied message (MA-6).
+// On the unconditioned `view Org`, so the handler narrows the row to PublicOrg columns (MA-6).
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(orgIdFromSlug)
@@ -206,17 +282,18 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction', { p
     .params(
         z.object({
             orgSlug: z.string(),
-            name: z.string().trim().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
-            description: z.string().max(250, 'Description cannot exceed 250 characters').nullable().optional(),
+            name: orgNameField,
+            description: orgDescriptionField.nullable().optional(),
         }),
     )
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
         await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
+        await syncOrgToClerk(orgSlug)
 
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
-        revalidatePath(`/admin/team/${orgSlug}`)
+        revalidatePath(Routes.adminSettings({ orgSlug }))
+        revalidatePath(Routes.adminTeam({ orgSlug }))
 
         return { success: true, message: 'Organization settings updated successfully.' }
     })

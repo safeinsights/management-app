@@ -10,10 +10,12 @@ import { pathForLegalDocumentVersion } from '@/lib/paths'
 import { findOrCreateLegalDocument, writeStudyAgreementVersion } from '@/server/db/legal-document'
 import { getS3Client, s3BucketName, withS3Prefix } from '@/server/aws'
 import { CODE_DECISION_JOB_STATUSES, ROUND_CLOSING_JOB_STATUSES } from '@/lib/study-job-status'
+import { openStudyJob, writeJobStatus } from '@/database/job-status-writer'
 
 // Matches the split a UI-created study produces (submittedByOrgId = lab, orgId = enclave).
 const ENCLAVE_SLUG = 'openstax'
 const LAB_SLUG = 'openstax-lab'
+const REVIEWER_ADMIN_ORG_SLUG = 'reviewer-is-org-admin'
 
 // Fallback only: in PR environments a user who logged in before seeding owns their email under
 // a random UUID.
@@ -247,6 +249,8 @@ const seededStatusActor = (status: StudyJobStatus, ids: { researcherId: string; 
     return ids.researcherId
 }
 
+const seededMainCodePath = (studyId: string, jobId: string) => `studies/${studyId}/${jobId}/analysis.r`
+
 // `statuses` are inserted oldest-first; the newest is what `latestJobForStudy` resolves.
 async function insertSubmittedJob(
     studyId: string,
@@ -255,10 +259,14 @@ async function insertSubmittedJob(
         withMainCode = true,
         withReview = true,
         reviewRound = 1,
-    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number } = {},
+        endingAt,
+    }: { withMainCode?: boolean; withReview?: boolean; reviewRound?: number; endingAt?: Date } = {},
 ) {
     const actors = { researcherId: await resolveUserId('researcher'), reviewerId: await resolveUserId('reviewer') }
-    const job = await db.insertInto('studyJob').values({ studyId }).returning('id').executeTakeFirstOrThrow()
+    // Backdated so a status a later step appends at server-now sorts after the seeded ones.
+    const last = endingAt?.getTime() ?? Date.now() - 1000
+    const statusAt = (index: number) => new Date(last - (statuses.length - 1 - index) * 1000)
+    const job = await openStudyJob(db, studyId, { actor: 'qa', at: new Date(statusAt(0).getTime() - 1000) })
 
     if (withMainCode) {
         await db
@@ -266,7 +274,7 @@ async function insertSubmittedJob(
             .values({
                 studyJobId: job.id,
                 name: 'analysis.r',
-                path: `studies/${studyId}/${job.id}/analysis.r`,
+                path: seededMainCodePath(studyId, job.id),
                 fileType: 'MAIN-CODE',
             })
             .execute()
@@ -283,19 +291,13 @@ async function insertSubmittedJob(
             .execute()
     }
 
-    // Backdated so a status a later step appends at server-now sorts after the seeded ones.
-    const now = Date.now()
-    await db
-        .insertInto('jobStatusChange')
-        .values(
-            statuses.map((status, i) => ({
-                studyJobId: job.id,
-                status,
-                userId: seededStatusActor(status, actors),
-                createdAt: new Date(now - (statuses.length - i) * 1000),
-            })),
-        )
-        .execute()
+    for (const [index, status] of statuses.entries()) {
+        await writeJobStatus(db, job.id, status, {
+            actor: 'qa',
+            userId: seededStatusActor(status, actors),
+            at: statusAt(index),
+        })
+    }
 
     return job
 }
@@ -349,10 +351,27 @@ export async function seedStudyFor(
     return { studyId: study.id }
 }
 
-export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
+export async function seedCodeSubmitted(title: string): Promise<Required<SeedResult>> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
-    await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
-    return { studyId: study.id }
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// The seeds insert only the file row. A spec that renders the code body needs the object too, or the
+// body never leaves its loading state.
+export async function storeSeededMainCode(studyId: string, jobId: string) {
+    await uploadSeedObject(seededMainCodePath(studyId, jobId), 'summary(read.csv("data.csv"))\n')
+}
+
+export async function seedSupplementalCode(studyId: string, jobId: string, names: string[]) {
+    for (const name of names) {
+        const path = `studies/${studyId}/${jobId}/${name}`
+        await db
+            .insertInto('studyJobFile')
+            .values({ studyJobId: jobId, name, path, fileType: 'SUPPLEMENTAL-CODE' })
+            .execute()
+        await uploadSeedObject(path, `print("${name}")\n`)
+    }
 }
 
 // Deliberately does NOT seed JOB-READY: it can outrank the upload's server-side RUN-COMPLETE
@@ -360,6 +379,30 @@ export async function seedCodeSubmitted(title: string): Promise<SeedResult> {
 export async function seedCodeApprovedJobReady(title: string): Promise<SeedResult> {
     const { study } = await insertStudy({ title, status: 'APPROVED', approvedAt: new Date(), agreementsAcked: true })
     const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'])
+    return { studyId: study.id, jobId: job.id }
+}
+
+// Every date backdated to `at`, so a spec can pick an instant whose local day differs from its UTC
+// day. The file activity precedes the submission, which bounds what the submitted code table shows.
+export async function seedCodeApprovedAt(title: string, at: Date): Promise<Required<SeedResult>> {
+    const { study } = await insertStudy({
+        title,
+        status: 'APPROVED',
+        submittedAt: at,
+        approvedAt: at,
+        agreementsAcked: true,
+    })
+    const job = await insertSubmittedJob(study.id, ['CODE-SUBMITTED', 'CODE-APPROVED'], { endingAt: at })
+    await db
+        .insertInto('workspaceFileActivity')
+        .values({
+            studyId: study.id,
+            fileName: 'analysis.r',
+            userId: await resolveUserId('researcher'),
+            action: 'UPLOADED',
+            createdAt: new Date(at.getTime() - 60_000),
+        })
+        .execute()
     return { studyId: study.id, jobId: job.id }
 }
 
@@ -482,7 +525,7 @@ const TOS_CONTENT = [
 ]
 const PN_CONTENT = ['# Privacy Notice\n\nVersion 1. Seeded for end-to-end tests.\n']
 
-async function uploadLegalContent(key: string, content: string) {
+async function uploadSeedObject(key: string, content: string) {
     await getS3Client().send(new PutObjectCommand({ Bucket: s3BucketName(), Key: withS3Prefix(key), Body: content }))
 }
 
@@ -495,7 +538,7 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
 
     const existing = await db
         .selectFrom('legalDocumentVersion')
-        .select(['id', 'versionNumber', 'fileName'])
+        .select(['id', 'versionNumber', 'fileName', 'filePath'])
         .where('legalDocumentId', '=', legalDocumentId)
         .where('publishedAt', 'is not', null)
         .orderBy('versionNumber')
@@ -512,12 +555,18 @@ async function ensurePublishedVersions(type: 'TOS' | 'PN', contents: string[], p
         )
     }
 
+    // The test DB can outlive the bucket (a reset local SeaweedFS). A version whose object is gone
+    // stays on "Loading" forever, so restore each body; PutObject is safe to repeat.
+    for (const [index, version] of existing.entries()) {
+        await uploadSeedObject(version.filePath, contents[index])
+    }
+
     const versionIds = existing.map((version) => version.id)
 
     for (let index = existing.length; index < contents.length; index++) {
         const versionId = uuidv7()
         const filePath = pathForLegalDocumentVersion({ type, legalDocumentId, versionId })
-        await uploadLegalContent(filePath, contents[index])
+        await uploadSeedObject(filePath, contents[index])
 
         const version = await db
             .insertInto('legalDocumentVersion')
@@ -582,4 +631,4 @@ export async function seedLegalDocuments() {
     await acknowledgeVersions([legalUserId], [...tosVersionIds.slice(0, 1), ...pnVersionIds.slice(-1)])
 }
 
-export { ENCLAVE_SLUG, LAB_SLUG }
+export { ENCLAVE_SLUG, LAB_SLUG, REVIEWER_ADMIN_ORG_SLUG }

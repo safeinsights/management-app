@@ -1,18 +1,17 @@
-import { db } from '@/database'
 import { getStudyAndOrgDisplayInfo, studyDeciderIds, studyLabMemberIds } from '@/server/db/queries'
 import { findLegalDocument } from '@/server/db/legal-document'
-import dayjs from 'dayjs'
 import { APP_BASE_URL } from './config'
-import { pathForInvitation } from '@/lib/paths'
 import { Routes } from '@/lib/routes'
-import { legalDocumentCollectionLabels, legalDocumentTypeLabels } from '@/schema/legal-document'
+import { formatInstantAsUtcDayLabel } from '@/lib/dates'
+import { legalDocumentTypeLabels } from '@/schema/legal-document'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 import { deliver, SI_AGREEMENTS_EMAIL } from './mailgun'
+import { currentDb } from '@/server/request-context'
 
 async function getOrgMembers(orgId: string) {
     return (
-        db
+        currentDb()
             .selectFrom('user')
             .innerJoin('orgUser', 'user.id', 'orgUser.userId')
             .distinctOn('user.id')
@@ -27,7 +26,7 @@ async function getOrgMembers(orgId: string) {
 
 // SI admin is org_user.is_admin on the safe-insights org, the same row Clerk's metadata is built from.
 async function getSiAdmins() {
-    return db
+    return currentDb()
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
@@ -44,7 +43,7 @@ function baseStudyVars(study: StudyInfo) {
     return {
         studyTitle: study.title,
         submittedBy: study.researcherFullName,
-        submittedOn: dayjs(study.submittedAt ?? study.createdAt).format('MM/DD/YYYY'),
+        submittedOn: formatInstantAsUtcDayLabel(study.submittedAt ?? study.createdAt),
         submittedTo: study.orgName,
         researchLab: study.labName,
         dataPartner: study.orgName,
@@ -57,14 +56,14 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
         subject: 'Get started with SafeInsights',
         template: 'welcome email',
         vars: {
-            inviteLink: `${APP_BASE_URL}${pathForInvitation(inviteId)}`,
+            inviteLink: `${APP_BASE_URL}${Routes.accountInvitation({ inviteId })}`,
         },
     })
 }
 
 // submittedAt stays at the first submission; each revision is recorded only by its resubmission note.
 async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
-    const latest = await db
+    const latest = await currentDb()
         .selectFrom('studyProposalComment')
         .select('createdAt')
         .where('studyId', '=', studyId)
@@ -72,7 +71,7 @@ async function latestProposalSubmittedOn(studyId: string, study: StudyInfo) {
         .orderBy('createdAt', 'desc')
         .executeTakeFirst()
 
-    return dayjs(latest?.createdAt ?? study.submittedAt ?? study.createdAt).format('MM/DD/YYYY')
+    return formatInstantAsUtcDayLabel(latest?.createdAt ?? study.submittedAt ?? study.createdAt)
 }
 
 // actionURL is deliberately generic, so a template need not change when its button's destination does.
@@ -96,20 +95,20 @@ async function dataPartnerReviewVars(studyId: string, study: StudyInfo) {
 
 // People who have since left the Data Partner are still included.
 async function getStudyDeciders(studyId: string, { withCodeDeciders = false } = {}) {
-    return db
+    return currentDb()
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', studyDeciderIds(db, studyId, { withCodeDeciders, withOutputsDeciders: false }))
+        .where('id', 'in', studyDeciderIds(currentDb(), studyId, { withCodeDeciders, withOutputsDeciders: false }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
 }
 
 async function getStudyLabAudience(studyId: string, { withCodeSubmitters = false } = {}) {
-    return db
+    return currentDb()
         .selectFrom('user')
         .select(['email', 'fullName'])
-        .where('id', 'in', studyLabMemberIds(db, studyId, { withCodeSubmitters }))
+        .where('id', 'in', studyLabMemberIds(currentDb(), studyId, { withCodeSubmitters }))
         .where('email', 'is not', null)
         .$narrowType<{ email: string }>()
         .execute()
@@ -143,20 +142,6 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     })
 }
 
-// onStudyProposalSubmitted is the only writer of CREATED/STUDY and audits before it mails, so the row for
-// this submission is already there: a second one means the lab has submitted before.
-const isResubmission = async (studyId: string) => {
-    const { submissions } = await db
-        .selectFrom('audit')
-        .select((eb) => eb.fn.countAll().as('submissions'))
-        .where('recordType', '=', 'STUDY')
-        .where('recordId', '=', studyId)
-        .where('eventType', '=', 'CREATED')
-        .executeTakeFirstOrThrow()
-
-    return Number(submissions) > 1
-}
-
 // Audience: SafeInsights admins, Trigger: a proposal is submitted to a Data Partner. Only they can
 // draw the agreement up, and the study sits behind the gate until one of them publishes it.
 export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
@@ -167,10 +152,7 @@ export const sendStudyAgreementPreparationEmail = async (studyId: string) => {
 
     // An agreement already under way needs no second ask. A draft counts: submitStudyCodeAction
     // reaches here too, and its gate only passes once one is acknowledged.
-    if (await findLegalDocument(db, { type: 'SLA', studyId })) return
-
-    // The same proposal coming back is already on the admins' list.
-    if (await isResubmission(studyId)) return
+    if (await findLegalDocument(currentDb(), { type: 'SLA', studyId })) return
 
     const admins = await getSiAdmins()
     const emails = admins.map((admin) => admin.email).filter((email) => email)
@@ -313,7 +295,7 @@ export const sendStudyAgreementReadyEmail = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
 
     await deliverToEach(studyId, await getStudyLabAudience(studyId), {
-        subject: `Acknowledge ${legalDocumentCollectionLabels.SLA}`,
+        subject: `Acknowledge ${legalDocumentTypeLabels.SLA}`,
         template: 'vb - sla ready for acknowledgment',
         vars: {
             ...baseStudyVars(study),

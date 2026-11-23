@@ -8,14 +8,19 @@ import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modals/app-modal'
 import { Routes } from '@/lib/routes'
 import { inviteLandingUrl } from '@/lib/invite-landing'
+import { markInvitationNotice } from '@/lib/invitation-notice'
 import { markOrgJoined } from '@/lib/joined-org'
 import { keyGenerationUrl } from '@/lib/user-key-redirect'
 import { actionResult } from '@/lib/utils'
-import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import type { Route } from 'next'
+import { FocusedCard } from '@/components/layout/focused-card'
+import { Button, Flex, Group, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
+import {
+    getOrgInfoForInviteAction,
+    onJoinTeamAccountAction,
+    onRevokeInviteAction,
+} from '@/server/actions/create-account.actions'
 import { InvalidInvitePanel } from '../invalid-invite-panel'
 
 type InviteProps = {
@@ -30,13 +35,43 @@ type ConfirmationModalProps = {
     orgName: string
 }
 
+function useSkipInvitation() {
+    const router = useRouter()
+    const [isSkipping, setIsSkipping] = useState(false)
+
+    const skipInvitation = (orgName: string) => {
+        if (isSkipping) return
+        setIsSkipping(true)
+        markInvitationNotice({ kind: 'skip', orgName })
+        router.push(Routes.dashboard)
+    }
+
+    return { isSkipping, skipInvitation }
+}
+
+function useDeclineInvitation(inviteId: string) {
+    const router = useRouter()
+
+    const { mutate, isPending } = useMutation({
+        mutationFn: (_orgName: string) => onRevokeInviteAction({ inviteId }),
+        onSuccess: (_result, orgName) => {
+            markInvitationNotice({ kind: 'decline', orgName })
+            router.push(Routes.dashboard)
+        },
+        onError: reportMutationError('Unable to decline invitation'),
+    })
+
+    return { isDeclining: isPending, declineInvitation: mutate }
+}
+
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
     const reloadOrgList = useReloadOrgList()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
-    const [isSkipping, setIsSkipping] = useState(false)
+    const { isSkipping, skipInvitation } = useSkipInvitation()
+    const { isDeclining, declineInvitation } = useDeclineInvitation(inviteId)
 
     const {
         data: org,
@@ -68,14 +103,6 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         },
     })
 
-    const { mutate: revokeInvite, isPending: isRevoking } = useMutation({
-        mutationFn: () => onRevokeInviteAction({ inviteId }),
-        onSuccess: () => {
-            router.push(`${Routes.dashboard}?decline=${org!.name}` as Route)
-        },
-        onError: reportMutationError('Unable to decline invitation'),
-    })
-
     // A claimed or deleted invite no longer resolves; org stays undefined after the query errors,
     // so without this the spinner never stops.
     if (isError) {
@@ -84,14 +111,14 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     if (isLoading || !org) {
         return (
-            <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <FocusedCard my={{ base: 'md', lg: 0 }}>
                 <LoadingMessage message="Loading account invitation" />
-            </Paper>
+            </FocusedCard>
         )
     }
 
     return (
-        <Paper bg={semanticColor('surface.raised')} p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <FocusedCard my={{ base: 'md', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="xs">
                 <Title order={3} ta="center" mb="md">
                     You’ve been invited to join {org.name}.
@@ -118,15 +145,15 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 >
                     Accept invitation
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isRevoking}>
+                <Button variant="outline" size="lg" onClick={() => setConfirmOpen(true)} mb="xxs" loading={isDeclining}>
                     Decline invitation
                 </Button>
 
                 <ConfirmationModal
                     isOpen={confirmOpen}
                     onClose={() => setConfirmOpen(false)}
-                    onConfirm={() => revokeInvite()}
-                    isLoading={isRevoking}
+                    onConfirm={() => declineInvitation(org.name)}
+                    isLoading={isDeclining}
                     orgName={org.name}
                 />
                 <Button
@@ -134,16 +161,12 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     size="lg"
                     loading={isSkipping}
                     w="100%"
-                    onClick={() => {
-                        if (isSkipping) return
-                        setIsSkipping(true)
-                        router.push(`${Routes.dashboard}?skip=${org.name}`)
-                    }}
+                    onClick={() => skipInvitation(org.name)}
                 >
                     Skip for now
                 </Button>
             </Flex>
-        </Paper>
+        </FocusedCard>
     )
 }
 

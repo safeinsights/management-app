@@ -4,11 +4,11 @@ import { type Kysely, sql } from 'kysely'
 // round's summary to be destroyed to make room and let a run that finished late land in the wrong
 // round. Uniqueness moves to (study_job_id, round), following OTTER-638's study_review_comment.
 
-// Numbered by the same rule as codeRoundForJob, reconstructed at the row's own createdAt: closers
-// on jobs that precede this one, plus this job's submissions up to that moment. Counting every
-// closer instead would advance the round at the change request, which the runtime rule does not do
-// until the resubmit lands, and a row written in that window would be filed under a round its job
-// never reads (OTTER-779).
+// Numbered by the same rule as studyJob.round (study_job_round), reconstructed at the row's own
+// createdAt: closers on jobs that precede this one, plus this job's submissions up to that moment.
+// Counting every closer instead would advance the round at the change request, which the runtime
+// rule does not do until the resubmit lands, and a row written in that window would be filed under
+// a round its job never reads (OTTER-779).
 //
 // A run that finished after the next round had opened still gets numbered into that next round,
 // because write time is all a historical row carries. That is what the single row per job already

@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db, insertTestStudyJobData } from '@/tests/unit.helpers'
 import type { AnalysisReport } from '@/server/agents/review-agent/types'
+import { deliver } from '@/server/mailgun'
 import { POST } from './route'
+
+vi.mock('@/server/mailgun', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/server/mailgun')>()),
+    deliver: vi.fn(),
+}))
 
 const sqsEvent = (...bodies: string[]) =>
     new Request('http://localhost/api/jobs', {
@@ -68,6 +74,21 @@ describe('POST /api/jobs', () => {
         )
 
         expect(response.status).toBe(200)
+        expect(await storedReport(job.id)).toMatchObject({ codeExplanation: 'Manual review required.' })
+    })
+
+    // A lost email has no row a user could retry from, so the message must come back (OTTER-855).
+    it('answers 500 when a study email fails, so SQS delivers it again', async () => {
+        const { job, study } = await insertTestStudyJobData()
+        vi.mocked(deliver).mockRejectedValueOnce(new Error('mailgun down'))
+        const email = JSON.stringify({
+            job: 'study-email',
+            payload: { email: 'sendStudyProposalApprovedEmail', studyId: study.id },
+        })
+
+        const response = await POST(sqsEvent(email, studyReviewMessage(job.id)))
+
+        expect(response.status).toBe(500)
         expect(await storedReport(job.id)).toMatchObject({ codeExplanation: 'Manual review required.' })
     })
 })

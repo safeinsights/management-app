@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { Divider, Flex, Text } from '@mantine/core'
 import { LoadingMessage } from '@/components/loading'
-import { fontWeight, semanticColor } from '@/theme/tokens'
+import { fontWeight } from '@/theme/tokens'
 
 // Presentational only: ./pending-invites injects the re-invite and revoke controls, so this
 // renders in isolation (e.g. Ladle).
@@ -21,7 +21,7 @@ export type PendingInvitesViewProps = {
 export function PendingInvitesView({ pendingUsers, isLoading = false, renderActions }: PendingInvitesViewProps) {
     return (
         <>
-            <Divider c={semanticColor('border.default')} my="xl" />
+            <Divider my="xl" />
             <div data-testid="pending-invites">
                 <Text fw={fontWeight.semibold} mb="md">
                     Pending invitations

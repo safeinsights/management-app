@@ -16,6 +16,7 @@ import {
     mockSessionWithTestData,
     renderWithProviders,
     screen,
+    stubCoder,
     userEvent,
     waitFor,
     waitForPendingQueries,
@@ -32,6 +33,8 @@ import type { Route } from 'next'
 import { vi } from 'vitest'
 import { signedUrlForFile, storeS3File } from '@/server/aws'
 import { createUserAndWorkspace, getCoderWorkspaceLaunchStatus } from '@/server/coder'
+import { describeLaunchFailure } from '@/server/coder/launch-failure'
+import { ActionFailure } from '@/lib/errors'
 import { s3Available } from '@/tests/s3.helpers'
 import { MAX_UPLOAD_FILE_BYTES } from '@/lib/types'
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
@@ -50,27 +53,6 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-// This page runs against Coder in production, and CODER_DISABLED short-circuits ensureWorkspaceAction
-// before it reaches createUserAndWorkspace — which would leave the mocks below unreachable. CI sets
-// CI=true, so without this the launch tests silently exercise the dev shim instead. Same approach as
-// workspaces.actions.test.ts.
-vi.mock('@/server/config', async () => ({
-    ...(await vi.importActual<typeof import('@/server/config')>('@/server/config')),
-    CODER_DISABLED: false,
-}))
-
-// Same treatment as @/server/aws above: an external service with no instance in the unit env. Left
-// unmocked, every launch throws on a refused connection, and since the launch action claims the
-// study's IDE in the same transaction, the claim would roll back with it.
-vi.mock('@/server/coder', async () => {
-    const actual = await vi.importActual<typeof import('@/server/coder')>('@/server/coder')
-    return {
-        ...actual,
-        createUserAndWorkspace: vi.fn(),
-        getCoderWorkspaceLaunchStatus: vi.fn(),
-    }
-})
-
 const launchStatus = (overrides: Record<string, unknown> = {}) => ({
     buildStatus: 'running',
     buildLogLines: [],
@@ -79,6 +61,7 @@ const launchStatus = (overrides: Record<string, unknown> = {}) => ({
     ready: true,
     failed: false,
     reason: 'test workspace ready',
+    failureMessage: null,
     cursors: { build: null, agent: null },
     url: 'https://coder.test.example/workspace',
     ...overrides,
@@ -131,7 +114,7 @@ const renderIDE = async (
         acknowledged?: boolean
     } = {},
 ) => {
-    const { study } = await setupStudy(studyOrgSlug, { acknowledged })
+    const { study, user } = await setupStudy(studyOrgSlug, { acknowledged })
     if (files) {
         await insertTestBaselineJob(study.id, { createdAt: new Date(Date.now() - 1000) })
         const root = await createWorkspaceDir('study-code')
@@ -155,7 +138,7 @@ const renderIDE = async (
     )
     renderWithProviders(strictMode ? <StrictMode>{page}</StrictMode> : page)
 
-    return { study, previousHref, dataPartnerName }
+    return { study, user, previousHref, dataPartnerName }
 }
 
 /**
@@ -198,13 +181,7 @@ describe('StudyCode component', () => {
     beforeEach(() => {
         delete process.env.CODER_FILES
         vi.mocked(signedUrlForFile).mockResolvedValue('https://mock-s3-url.example.com/starter.R')
-        vi.mocked(createUserAndWorkspace).mockResolvedValue({
-            success: true,
-            workspace: { id: 'ws-test' } as Awaited<ReturnType<typeof createUserAndWorkspace>>['workspace'],
-        })
-        vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-            launchStatus() as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
-        )
+        stubCoder(launchStatus() as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>)
     })
 
     afterEach(async () => {
@@ -405,8 +382,8 @@ describe('StudyCode component', () => {
             const header = await screen.findByTestId('proposal-section-header')
 
             // Exact string, not a substring: the "STEP 4 of 4" this replaced would satisfy a
-            // loose match against "STEP 3" once the number changed.
-            expect(within(header).getByText('STEP 3')).toBeInTheDocument()
+            // loose match against "Step 3" once the number changed.
+            expect(within(header).getByText('Step 3')).toBeInTheDocument()
         })
 
         it('renders "Submit code" as the section title', async () => {
@@ -519,24 +496,31 @@ describe('StudyCode component', () => {
         })
 
         it('records the visit on mount, without waiting for the reader to touch it', async () => {
-            const { study } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
+            const { study, user } = await renderIDE('openstax-lab', undefined, { isFirstVisit: true })
 
             await waitFor(async () => {
                 const rows = await db
                     .selectFrom('audit')
                     .select('id')
                     .where('recordType', '=', 'USER')
+                    .where('recordId', '=', user.id)
                     .where('eventType', '=', 'VIEWED')
                     .execute()
                 expect(rows).toHaveLength(1)
             })
+            await waitForPendingMutations()
             expect(study).toBeDefined()
         })
 
         it('records nothing on a return visit', async () => {
-            await renderIDE()
+            const { user } = await renderIDE()
 
-            const rows = await db.selectFrom('audit').select('id').where('eventType', '=', 'VIEWED').execute()
+            const rows = await db
+                .selectFrom('audit')
+                .select('id')
+                .where('recordId', '=', user.id)
+                .where('eventType', '=', 'VIEWED')
+                .execute()
             expect(rows).toHaveLength(0)
         })
 
@@ -629,6 +613,7 @@ describe('StudyCode component', () => {
             const player = await screen.findByTestId('onboarding-video-player')
             expect(player).toHaveTextContent('Watch: Getting started with the SafeInsights IDE')
             expect(player).toHaveTextContent('A short walkthrough of the IDE, example data, and code submission.')
+            expect(player.querySelector('iframe')).toHaveAttribute('title', 'SafeInsights IDE Orientation')
             expect(screen.queryByTestId('onboarding-video-teaser')).not.toBeInTheDocument()
         })
 
@@ -1463,11 +1448,14 @@ describe('StudyCode component', () => {
             return rendered
         }
 
+        // By name: the click hovers Launch IDE, whose hover card is a dialog too.
+        const findLaunchModal = () => screen.findByRole('dialog', { name: 'Setting up the SafeInsights IDE' })
+
         it('opens on launch with the countdown, the bar and the sync copy', async () => {
             stillProvisioning()
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
             expect(dialog).toHaveTextContent('Launching the IDE in a new tab')
             expect(dialog).toHaveTextContent(/Ready in \d+ minutes/)
@@ -1481,10 +1469,14 @@ describe('StudyCode component', () => {
             const openSpy = vi.spyOn(window, 'open')
             await startLaunch()
 
-            const dialog = await screen.findByRole('dialog')
+            const dialog = await findLaunchModal()
             await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Close' }))
 
-            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+            await waitFor(() =>
+                expect(
+                    screen.queryByRole('dialog', { name: 'Setting up the SafeInsights IDE' }),
+                ).not.toBeInTheDocument(),
+            )
             // The card's rule: a launch the researcher walked away from must not steal a tab.
             expect(openSpy).not.toHaveBeenCalled()
             openSpy.mockRestore()
@@ -1493,6 +1485,8 @@ describe('StudyCode component', () => {
 
     describe('IDE launch failure modal (OTTER-693)', () => {
         const FILES = { 'main.R': 'print(1)' }
+        const expectNoErrorToast = () =>
+            expect(notifications.show).not.toHaveBeenCalledWith(expect.objectContaining({ 'data-toast-kind': 'error' }))
 
         it('replaces the launch with a failure modal, and retries on Try again', async () => {
             vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
@@ -1508,28 +1502,49 @@ describe('StudyCode component', () => {
             const heading = await screen.findByText('IDE failed to launch')
             const dialog = heading.closest('[role="dialog"]') as HTMLElement
             expect(dialog).toHaveTextContent('Setting up the SafeInsights IDE')
-            // The real Sentry event id, not the design's placeholder: reportError mints one for
+            // The real Sentry event id, not the design's placeholder: captureError mints one for
             // this same failure and the researcher quotes it to support.
             expect(dialog).toHaveTextContent(
                 /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
             )
+            const firstRef = dialog.textContent?.match(/Ref: ([a-f0-9]{32})/)?.[1] ?? ''
+            // OTTER-832: the modal is the only surface, so no toast repeats it.
+            expectNoErrorToast()
 
             // Try again re-attempts rather than only dismissing. Awaited because the retry goes
             // through the launch mutation rather than firing on the click itself.
             vi.mocked(createUserAndWorkspace).mockClear()
             await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
             await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+
+            // The retry fails the same way, and still only the modal reports it. Waiting on a fresh
+            // Ref proves the second failure was captured, not that the first modal is still fading.
+            await screen.findByText((text) => /Ref: [a-f0-9]{32}\./.test(text) && !text.includes(firstRef))
+            expectNoErrorToast()
         })
 
-        // The mutation path above lands the id in the same React batch. A build Coder reports as
-        // failed reaches reportError from an effect instead, so the modal paints once without a ref
-        // — that frame must read as a whole sentence rather than exposing a blank or a placeholder.
-        it('fills the Ref once a failed build is polled', async () => {
-            vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
-                launchStatus({ ready: false, failed: true, url: undefined, reason: 'build failed' }) as Awaited<
-                    ReturnType<typeof getCoderWorkspaceLaunchStatus>
-                >,
-            )
+        // The mutation path above lands the id in the same React batch. A failed build or a failed
+        // poll reaches captureError from an effect instead, so the modal paints once without a ref,
+        // and that frame must read as a whole sentence rather than a blank or a placeholder.
+        it.each([
+            [
+                'a failed build',
+                () =>
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'build failed',
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
+            ],
+            [
+                'a status polling error',
+                () => vi.mocked(getCoderWorkspaceLaunchStatus).mockRejectedValue(new Error('workspace not found')),
+            ],
+        ])('fills the Ref once %s is polled', async (_label, arrange) => {
+            arrange()
             await renderIDE('openstax-lab', FILES)
             await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
 
@@ -1542,6 +1557,73 @@ describe('StudyCode component', () => {
                     /If the issue persists, contact SafeInsights support with Ref: [a-f0-9]{32}\./,
                 ),
             )
+            expectNoErrorToast()
+        })
+
+        // SHRMP-431: the reason Coder reported is named on screen rather than only sent to Sentry.
+        it.each([
+            [
+                'a refused image pull',
+                /image could not be downloaded/,
+                () =>
+                    vi.mocked(getCoderWorkspaceLaunchStatus).mockResolvedValue(
+                        launchStatus({
+                            ready: false,
+                            failed: true,
+                            url: undefined,
+                            reason: 'CannotPullContainerError: pull access denied',
+                            failureMessage: describeLaunchFailure('CannotPullContainerError: pull access denied'),
+                        }) as Awaited<ReturnType<typeof getCoderWorkspaceLaunchStatus>>,
+                    ),
+            ],
+            [
+                'the template refusing the image reference',
+                /image reference is invalid/,
+                () =>
+                    vi.mocked(createUserAndWorkspace).mockRejectedValue(
+                        new ActionFailure(
+                            describeLaunchFailure(
+                                JSON.stringify({
+                                    message: 'Unable to validate parameters',
+                                    validations: [
+                                        {
+                                            field: 'container_image',
+                                            detail: 'Container image must be a plain image reference with no URL scheme (http:// or https://) or spaces',
+                                        },
+                                    ],
+                                }),
+                            ) ?? '',
+                        ),
+                    ),
+            ],
+        ])('names %s in the failed modal and still retries', async (_label, reasonText, arrange) => {
+            arrange()
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            const user = userEvent.setup()
+            await user.click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            await waitFor(() => expect(dialog).toHaveTextContent(reasonText))
+            expect(dialog).toHaveTextContent(/contact SafeInsights support/)
+
+            vi.mocked(createUserAndWorkspace).mockClear()
+            await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
+            await waitFor(() => expect(vi.mocked(createUserAndWorkspace)).toHaveBeenCalled())
+        })
+
+        it('keeps the generic text when no reason is available', async () => {
+            vi.mocked(createUserAndWorkspace).mockRejectedValue(new Error('coder unreachable'))
+            await renderIDE('openstax-lab', FILES)
+            await waitFor(() => expect(screen.getByText('main.R')).toBeInTheDocument())
+
+            await userEvent.setup().click(screen.getByRole('button', { name: /launch ide/i }))
+
+            const heading = await screen.findByText('IDE failed to launch')
+            const dialog = heading.closest('[role="dialog"]') as HTMLElement
+            expect(within(dialog).queryByTestId('ide-launch-failure-reason')).not.toBeInTheDocument()
         })
 
         it('closes without retrying when dismissed', async () => {
@@ -1591,10 +1673,10 @@ describe('StudyCode component', () => {
                 />,
             )
 
-            await waitFor(() => {
-                expect(screen.getByText(new RegExp(`${user.fullName} · Uploaded · Jul 15, 2026,`))).toBeInTheDocument()
-            })
-            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE · Jul 21, 2026,`))).toBeInTheDocument()
+            // The date sits in its own time element, so find the cell by its label, then read it whole.
+            const uploaded = await screen.findByText(new RegExp(`${user.fullName} · Uploaded`))
+            expect(uploaded).toHaveTextContent('Jul 15, 2026,')
+            expect(screen.getByText(new RegExp(`${user.fullName} · Edited in IDE`))).toHaveTextContent('Jul 21, 2026,')
             expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
         })
 
@@ -1621,10 +1703,8 @@ describe('StudyCode component', () => {
             )
 
             // The column reports the latest action, not a history.
-            await waitFor(() => {
-                expect(screen.getByText(/Edited in IDE · Jul 21, 2026,/)).toBeInTheDocument()
-            })
-            expect(screen.queryByText(/Uploaded · Jul 15, 2026,/)).not.toBeInTheDocument()
+            expect(await screen.findByText(/· Edited in IDE/)).toHaveTextContent('Jul 21, 2026,')
+            expect(screen.queryByText(/· Uploaded/)).not.toBeInTheDocument()
         })
 
         it('records an upload against the researcher who uploaded it', async () => {
@@ -1672,17 +1752,25 @@ describe('StudyCode component', () => {
         /**
          * The workspace file is `Main.R`, not the `main.R` the Data Partner uploaded: the copy
          * renames the first starter file after the code env's language, and the badge matches that
-         * derived name. `pristine` decides whether it still counts as untouched — the badge keys off
+         * derived name. `baseline` decides whether it still counts as untouched: the badge keys off
          * the file's mtime sitting at or before the baseline job, which is how the copy backdates it.
          */
-        const renderWithTemplate = async ({ pristine, isMain = false }: { pristine: boolean; isMain?: boolean }) => {
+        const renderWithTemplate = async ({
+            baseline,
+            isMain = false,
+        }: {
+            baseline: 'pristine' | 'edited' | 'none'
+            isMain?: boolean
+        }) => {
             const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax-lab', orgType: 'lab' })
             await insertTestCodeEnv({ orgId: org.id, language: 'R', starterCodeFileNames: ['main.R'] })
             const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
-            await insertTestBaselineJob(study.id, {
-                createdAt: new Date(Date.now() + (pristine ? 60_000 : -60_000)),
-            })
+            if (baseline !== 'none') {
+                await insertTestBaselineJob(study.id, {
+                    createdAt: new Date(Date.now() + (baseline === 'pristine' ? 60_000 : -60_000)),
+                })
+            }
             const root = await createWorkspaceDir('study-code')
             workspaceRoots.push(root)
             await writeWorkspaceFiles(root, study.id, {
@@ -1711,7 +1799,7 @@ describe('StudyCode component', () => {
         // The card's "star pre-selected by default": the pre-load writes study.mainCodeFileName, so
         // the researcher lands on a starred template without touching anything.
         it('renders the template starred when the pre-load has set it as main', async () => {
-            await renderWithTemplate({ pristine: true, isMain: true })
+            await renderWithTemplate({ baseline: 'pristine', isMain: true })
 
             await waitFor(() => {
                 expect(screen.getByRole('radio', { name: 'Main.R is the main file' })).toBeInTheDocument()
@@ -1719,23 +1807,27 @@ describe('StudyCode component', () => {
             expect(screen.getByRole('radio', { name: 'Set mine.R as main file' })).toBeInTheDocument()
         })
 
-        it('badges the untouched starter file, and only that file', async () => {
-            await renderWithTemplate({ pristine: true })
+        // 'none' is the first visit: the pre-load opens no round job, so there is no baseline (OTTER-698).
+        it.each(['pristine', 'none'] as const)(
+            'badges the untouched starter file, and only that file (baseline: %s)',
+            async (baseline) => {
+                await renderWithTemplate({ baseline })
 
-            await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
-            expect(screen.getAllByText('Template')).toHaveLength(1)
-            const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
-            expect(templateRow).toHaveTextContent('Template')
-        })
+                await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
+                expect(screen.getAllByText('Template')).toHaveLength(1)
+                const templateRow = screen.getByRole('button', { name: 'View Main.R' }).closest('tr')
+                expect(templateRow).toHaveTextContent('Template')
+            },
+        )
 
         it('drops the badge once the starter file has been edited or replaced', async () => {
-            await renderWithTemplate({ pristine: false })
+            await renderWithTemplate({ baseline: 'edited' })
 
             expect(screen.queryByText('Template')).not.toBeInTheDocument()
         })
 
         it('explains the template on hover, in the same words as the FAQ', async () => {
-            await renderWithTemplate({ pristine: true })
+            await renderWithTemplate({ baseline: 'pristine' })
             await waitFor(() => expect(screen.getByText('Template')).toBeInTheDocument())
 
             const copy = () => screen.queryAllByText(/It is a template from Test Data Partner that connects to their/)
@@ -1866,7 +1958,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => {
-                expect(screen.getByText(/Study agreements are being prepared/i)).toBeInTheDocument()
+                expect(screen.getByText(/Study Agreement is being prepared/)).toBeInTheDocument()
                 expect(submitCodeButton()).toBeDisabled()
             })
         })
@@ -1876,7 +1968,7 @@ describe('StudyCode component', () => {
             await selectMainFile()
 
             await waitFor(() => expect(submitCodeButton()).toBeEnabled())
-            expect(screen.queryByText(/Study agreements are being prepared/i)).toBeNull()
+            expect(screen.queryByText(/Study Agreement is being prepared/)).toBeNull()
         })
     })
 

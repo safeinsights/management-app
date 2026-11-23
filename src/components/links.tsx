@@ -1,8 +1,10 @@
 'use client'
 
-import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps } from '@mantine/core'
+import { Anchor as MantineAnchor, AnchorProps, ElementProps, Button, ButtonProps, Group } from '@mantine/core'
+import clsx from 'clsx'
 import { FC, ReactNode } from 'react'
 import NextLink from 'next/link'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import type { Route } from 'next'
 import { fontWeight, semanticColor } from '@/theme/tokens'
 
@@ -18,6 +20,15 @@ export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) 
     </MantineAnchor>
 )
 
+export const BackLink: FC<{ href: Route; children: ReactNode }> = ({ href, children }) => (
+    <Link href={href} mt="md" c={semanticColor('link.default')} fw={fontWeight.semibold} fz="md">
+        <Group component="span" gap="xs" wrap="nowrap">
+            <CaretLeftIcon size={20} />
+            {children}
+        </Group>
+    </Link>
+)
+
 export type LinkWithIconProps = AnchorProps &
     ElementProps<'a', keyof AnchorProps> & {
         icon: ReactNode
@@ -29,7 +40,7 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
     icon,
     iconPosition = 'trailing',
     children,
-    style,
+    className,
     ...anchorProps
 }) => (
     <MantineAnchor
@@ -37,13 +48,16 @@ export const LinkWithIcon: FC<LinkWithIconProps> = ({
         fz="sm"
         fw={fontWeight.semibold}
         display="inline-flex"
+        flex="none"
         {...anchorProps}
-        // Merged, not replaced, so a caller's `style` cannot drop the icon+text flex layout.
-        style={{ alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0, ...style }}
+        // Merged, not replaced, so a caller's `className` cannot let the label wrap.
+        className={clsx('nowrap', className)}
     >
-        {iconPosition === 'leading' && icon}
-        {children}
-        {iconPosition === 'trailing' && icon}
+        <Group component="span" gap="xxs" wrap="nowrap">
+            {iconPosition === 'leading' && icon}
+            {children}
+            {iconPosition === 'trailing' && icon}
+        </Group>
     </MantineAnchor>
 )
 

@@ -79,11 +79,13 @@ describe('code_resubmission_note_rows migration', () => {
             const { study, job, org } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
             const { user: coauthor } = await insertTestUser({ org })
             const resubmittedAt = new Date('2026-02-01T00:00:00Z')
+            // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration log rows directly
             await db
                 .updateTable('jobStatusChange')
                 .set({ createdAt: new Date('2026-01-01T00:00:00Z') })
                 .where('studyJobId', '=', job.id)
                 .execute()
+            // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration log rows directly
             await db
                 .insertInto('jobStatusChange')
                 .values([
@@ -108,6 +110,7 @@ describe('code_resubmission_note_rows migration', () => {
         it('attributes a submission that carries no user to the study researcher', async () => {
             const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
             const submittedAt = new Date('2026-02-15T00:00:00Z')
+            // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration log rows directly
             await db
                 .updateTable('jobStatusChange')
                 .set({ userId: null, createdAt: submittedAt })
@@ -127,6 +130,7 @@ describe('code_resubmission_note_rows migration', () => {
             const { study, job } = await insertTestStudyJobData({ jobStatus: 'CODE-SUBMITTED' })
             const jobCreatedAt = new Date('2026-01-01T00:00:00Z')
             await db.updateTable('studyJob').set({ createdAt: jobCreatedAt }).where('id', '=', job.id).execute()
+            // eslint-disable-next-line custom/noJobStatusWrites -- builds pre-migration log rows directly
             await db.deleteFrom('jobStatusChange').where('studyJobId', '=', job.id).execute()
 
             await insertCodeResubmissionNotes(db as unknown as Kysely<unknown>, [

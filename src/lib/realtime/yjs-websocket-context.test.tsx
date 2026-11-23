@@ -27,11 +27,6 @@ type FakeSocket = {
     __emit: (event: string, ...args: unknown[]) => void
 }
 
-vi.mock('@/server/actions/editor.actions', () => ({
-    getYjsDocumentUpdatedAtAction: vi.fn(() => Promise.resolve(null)),
-    getStudyStatusAction: vi.fn(() => Promise.resolve({ status: 'PENDING-REVIEW' })),
-}))
-
 const ctorSpy = (HocuspocusProviderWebsocket as unknown as { __ctor: Mock }).__ctor
 
 const Probe = ({ onSocket }: { onSocket: (socket: ReturnType<typeof useYjsWebsocket>) => void }) => {

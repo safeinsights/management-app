@@ -3,6 +3,7 @@ import {
     db,
     describe,
     expect,
+    insertTestJobStatus,
     insertTestStudyJobData,
     it,
     type Mock,
@@ -21,7 +22,7 @@ import { screenNavProps } from './render-screen'
 import type { ScreenComponentProps } from './types'
 
 const requireRawState = async (studyId: string) => {
-    const raw = await rawStudyStateForStudy(studyId)
+    const raw = await rawStudyStateForStudy(studyId, db)
     if (!raw) throw new Error('raw study state missing')
     return raw
 }
@@ -43,10 +44,7 @@ const setupApproved = async (jobStatuses: StudyJobStatus[]) => {
     const job = await db.selectFrom('studyJob').select('id').where('studyId', '=', dbStudy.id).executeTakeFirstOrThrow()
     const base = Date.now()
     for (const [i, status] of jobStatuses.entries()) {
-        await db
-            .insertInto('jobStatusChange')
-            .values({ status, studyJobId: job.id, createdAt: new Date(base + (i + 1) * 1000) })
-            .execute()
+        await insertTestJobStatus(job.id, status, { at: new Date(base + (i + 1) * 1000) })
     }
     const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     ;(useParams as Mock).mockReturnValue({ orgSlug: org.slug, studyId: study.id })
@@ -58,7 +56,9 @@ describe('ReviewerOutputsPendingScreen', () => {
         const { org, study } = await setupApproved(['CODE-APPROVED', 'JOB-READY'])
         await renderScreen(study, org.slug)
 
-        expect(screen.getByRole('heading', { level: 1, name: study.title! })).toBeInTheDocument()
+        expect(
+            screen.getByRole('heading', { level: 1, name: `${study.title} — Step 3: Review outputs` }),
+        ).toBeInTheDocument()
         const previous = screen.getByRole('link', { name: /previous step/i })
         expect(previous).toHaveAttribute('href', `/${org.slug}/study/${study.id}/review/code`)
         expect(previous).toHaveAttribute('data-variant', 'subtle')

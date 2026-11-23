@@ -36,6 +36,7 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import 'highlight.js/styles/github.css'
 import { highlightLanguageForFile, type HighlightLanguage } from '@/lib/languages'
 import { formatJson } from '@/lib/file-content-helpers'
+import { semanticColor } from '@/theme/tokens'
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('c', c)
@@ -78,12 +79,6 @@ interface CodeViewerProps {
     wrapLines?: boolean
 }
 
-const OUTLINE_STYLE = {
-    border: '1px solid var(--mantine-color-charcoal-1)',
-    borderRadius: '4px',
-    overflow: 'hidden',
-} as const
-
 export function CodeViewer({ code, language, fileName, withBorder = false, wrapLines = false }: CodeViewerProps) {
     const highlightedCode = useMemo(() => {
         try {
@@ -96,23 +91,18 @@ export function CodeViewer({ code, language, fileName, withBorder = false, wrapL
 
     const scroller = (
         <ScrollArea h={500} type="auto">
-            <pre
-                style={{
-                    margin: 0,
-                    padding: '1rem',
-                    background: '#f6f8fa',
-                    borderRadius: '4px',
-                    color: '#24292f',
-                    fontSize: 'var(--mantine-font-size-sm)',
-                    ...(wrapLines ? { whiteSpace: 'pre-wrap', overflowWrap: 'break-word' } : null),
-                }}
+            <Box
+                component="pre"
+                m={0}
+                p="md"
+                bg={semanticColor('surface.sunken')}
+                bdrs="sm"
+                c={semanticColor('text.primary')}
+                fz="sm"
+                className={wrapLines ? 'pre-wrap' : undefined}
             >
-                <code
-                    className={`language-${language}`}
-                    style={{ color: 'inherit' }}
-                    dangerouslySetInnerHTML={{ __html: highlightedCode }}
-                />
-            </pre>
+                <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+            </Box>
         </ScrollArea>
     )
 
@@ -123,7 +113,13 @@ export function CodeViewer({ code, language, fileName, withBorder = false, wrapL
                     {fileName}
                 </Text>
             )}
-            {withBorder ? <Box style={OUTLINE_STYLE}>{scroller}</Box> : scroller}
+            {withBorder ? (
+                <Box bd={`1px solid ${semanticColor('border.default')}`} bdrs="sm">
+                    {scroller}
+                </Box>
+            ) : (
+                scroller
+            )}
         </Box>
     )
 }

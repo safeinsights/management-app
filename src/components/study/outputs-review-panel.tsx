@@ -2,13 +2,16 @@
 
 import { semanticColor } from '@/theme/tokens'
 import { FC, ReactNode, useState } from 'react'
-import { Box, Button, Stack } from '@mantine/core'
+import { Box, Button } from '@mantine/core'
 import { StudyAgreementPreparingNotice } from '@/components/legal/study-agreement-preparing-notice'
+import { PoliteStatus } from '@/components/polite-status'
+import { CodeRunCard } from '@/components/study/code-run-card'
+import { CodeRunHistory, usePriorRunOutputs } from '@/components/study/code-run-history'
 import { OutputsDecisionSection } from '@/components/study/outputs-decision-section'
 import { OutputsFilesViewer } from '@/components/study/outputs-files-viewer'
 import { OutputsReviewSubmissionListener } from '@/components/study/outputs-review-submission-listener'
-import { ProposalStepHeader } from '@/components/study/proposal-step-header'
-import { SecurityKeyForm } from '@/components/study/security-key-form'
+import { CodeRunKeyFields } from '@/components/study/code-run-key-form'
+import { ProposalStepHeader, REVIEW_OUTPUTS_STEP } from '@/components/study/proposal-step-header'
 import { StepNavigation } from '@/components/study/step-navigation'
 import { SubmitOutputsDecisionModal } from '@/components/study/submit-outputs-decision-modal'
 import { useDecryptPhase } from '@/hooks/use-decrypt-phase'
@@ -16,10 +19,17 @@ import { useOutputsDecision } from '@/hooks/use-outputs-decision'
 import { StudyKickOutProvider } from '@/hooks/use-study-status-on-reconnect'
 import { OutputsReviewFeedbackProviderShare } from '@/lib/realtime/outputs-review-feedback-provider-context'
 import { jobHasDecryptableRunOutcome } from '@/lib/file-type-helpers'
-import { hasOutputsDecision, isOutputsReviewEditable, OUTPUTS_DECIDED_NOTICE } from '@/lib/outputs-review'
-import type { PhasedStepNav, StepNav } from '@/lib/study-screen'
+import {
+    codeRunEndedAt,
+    hasOutputsDecision,
+    isOutputsReviewEditable,
+    OUTPUTS_DECIDED_NOTICE,
+    OUTPUTS_KEY_DESCRIPTIONS,
+} from '@/lib/outputs-review'
+import type { PhasedStepNav } from '@/lib/study-screen'
 import type { JobFileInfo } from '@/lib/types'
-import type { LatestJobForStudy } from '@/server/db/queries'
+import type { LatestJobForStudy, PriorCodeRun } from '@/server/db/queries'
+import { PageLayout } from '@/components/page-layout'
 
 // Module-level so the no-key path hands the same array identity down on every render.
 const NO_FILES: JobFileInfo[] = []
@@ -28,6 +38,7 @@ type OutputsReviewPanelProps = {
     orgSlug: string
     studyId: string
     job: NonNullable<LatestJobForStudy>
+    priorRuns: PriorCodeRun[]
     labName: string
     /** The page header, built by the screen from the study, so the h1 fallback lives in one place. */
     header: ReactNode
@@ -36,7 +47,7 @@ type OutputsReviewPanelProps = {
     /** Replaces it once the key decrypts, warning the reviewer to check before sharing. */
     unlockedBanner: ReactNode
     /** Locked keeps only "Previous step": the key form's View button is the forward action until
-     * decryption, after which "Submit decision" is. */
+     * decryption, after which "Submit decision" in the Decision card is. */
     nav: PhasedStepNav
     /** Only the errored screen sets this: for a completed run, no artifacts means delivery
      * went wrong, so the key step must not be skipped (OTTER-524). */
@@ -49,6 +60,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     orgSlug,
     studyId,
     job,
+    priorRuns,
     labName,
     header,
     lockedBanner,
@@ -57,6 +69,7 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
     allowDecisionWithoutArtifacts = false,
 }) => {
     const { decryptedFiles, isLocked: isUndecrypted, onDecrypted } = useDecryptPhase()
+    const priorOutputs = usePriorRunOutputs(priorRuns)
     // Identifies this tab to the peers, so the same reviewer's other tabs are still closed out.
     const [tabSessionId] = useState(() => crypto.randomUUID())
     const isRoundOpen = !hasOutputsDecision((job.statusChanges ?? []).map((change) => change.status))
@@ -96,14 +109,23 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                     enabled={isRoundOpen}
                 />
                 <Box bg={semanticColor('surface.page')}>
-                    <Stack px="xl" gap="xxl" py="xl">
-                        {header}
-                        <ProposalStepHeader stepLabel="STEP 3" heading="Review outputs" banner={banner} />
+                    <PageLayout header={header}>
+                        <ProposalStepHeader
+                            stepLabel={REVIEW_OUTPUTS_STEP.label}
+                            heading={REVIEW_OUTPUTS_STEP.heading}
+                            banner={banner}
+                        />
                         <StudyAgreementPreparingNotice
                             studyId={studyId}
                             consequence="You cannot release these outputs"
                         />
-                        <LockedPhase isVisible={isLocked} job={job} nav={nav.locked} onDecrypted={onDecrypted} />
+                        <LatestRunCard
+                            isVisible={requiresKey}
+                            job={job}
+                            decryptedFiles={reviewableFiles}
+                            onDecrypted={onDecrypted}
+                            onKeyAccepted={priorOutputs.decryptWith}
+                        />
                         <UnlockedPhase
                             decryptedFiles={reviewableFiles}
                             canShareOutputs={canShareOutputs}
@@ -111,32 +133,52 @@ export const OutputsReviewPanel: FC<OutputsReviewPanelProps> = ({
                             studyId={studyId}
                             job={job}
                             labName={labName}
-                            nav={nav.unlocked}
                             tabSessionId={tabSessionId}
                         />
-                    </Stack>
+                        {/* After both phases rather than inside either, so decrypting does not remount
+                            the history and drop what the reviewer had opened. */}
+                        <CodeRunHistory runs={priorRuns} outputs={priorOutputs} isLatestDecrypted={!isLocked} />
+                        <PoliteStatus announcement={priorOutputs.announcement} />
+                        <StepNavigation nav={isLocked ? nav.locked : nav.unlocked} />
+                    </PageLayout>
                 </Box>
             </OutputsReviewFeedbackProviderShare>
         </StudyKickOutProvider>
     )
 }
 
-type LockedPhaseProps = {
-    isVisible: boolean
+type LatestRunSectionProps = {
     job: NonNullable<LatestJobForStudy>
-    nav: StepNav
+    /** null until a key has successfully decrypted. */
+    decryptedFiles: JobFileInfo[] | null
     onDecrypted: (files: JobFileInfo[]) => void
+    onKeyAccepted: (privateKey: string) => void
 }
 
-const LockedPhase: FC<LockedPhaseProps> = ({ isVisible, job, nav, onDecrypted }) => {
+const LatestRunSection: FC<LatestRunSectionProps> = ({ job, decryptedFiles, onDecrypted, onKeyAccepted }) => {
+    if (decryptedFiles === null) {
+        return (
+            <CodeRunKeyFields
+                job={job}
+                type="reviewer"
+                description={OUTPUTS_KEY_DESCRIPTIONS.awaitingView}
+                onDecrypted={onDecrypted}
+                onKeyAccepted={onKeyAccepted}
+            />
+        )
+    }
+    // Mounts only once the reviewer's key has decrypted, so it takes the focus the key form held.
+    return <OutputsFilesViewer jobId={job.id} decryptedFiles={decryptedFiles} variant="embedded" autoFocusTitle />
+}
+
+// The card stays across decryption, so the run's header does not drop when the key form gives way
+// to the outputs. Hidden with no key step, since the card would have nothing to hold.
+const LatestRunCard: FC<LatestRunSectionProps & { isVisible: boolean }> = ({ isVisible, ...props }) => {
     if (!isVisible) return null
     return (
-        <>
-            {/* Reviewers decrypt via the zip's embedded manifest and hold no re-wrapped per-file
-                keys, so the researcher key set would come back empty. */}
-            <SecurityKeyForm job={job} type="reviewer" onDecrypted={onDecrypted} />
-            <StepNavigation nav={nav} />
-        </>
+        <CodeRunCard date={codeRunEndedAt(props.job.statusChanges)}>
+            <LatestRunSection {...props} />
+        </CodeRunCard>
     )
 }
 
@@ -149,7 +191,6 @@ type UnlockedPhaseProps = {
     studyId: string
     job: NonNullable<LatestJobForStudy>
     labName: string
-    nav: StepNav
     tabSessionId: string
 }
 
@@ -162,7 +203,6 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
     studyId,
     job,
     labName,
-    nav,
     tabSessionId,
 }) => {
     if (decryptedFiles === null) return null
@@ -174,23 +214,12 @@ const UnlockedPhase: FC<UnlockedPhaseProps> = ({
             studyId={studyId}
             job={job}
             labName={labName}
-            nav={nav}
             tabSessionId={tabSessionId}
         />
     )
 }
 
 type ReviewBodyProps = Omit<UnlockedPhaseProps, 'decryptedFiles'> & { decryptedFiles: JobFileInfo[] }
-
-// An empty "Outputs files" section would imply a complete listing of what the run produced.
-const OutputsSection: FC<{ isVisible: boolean; jobId: string; decryptedFiles: JobFileInfo[] }> = ({
-    isVisible,
-    jobId,
-    decryptedFiles,
-}) => {
-    if (!isVisible) return null
-    return <OutputsFilesViewer jobId={jobId} decryptedFiles={decryptedFiles} />
-}
 
 const ReviewBody: FC<ReviewBodyProps> = ({
     decryptedFiles,
@@ -199,7 +228,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
     studyId,
     job,
     labName,
-    nav,
     tabSessionId,
 }) => {
     const decision = useOutputsDecision({
@@ -213,7 +241,6 @@ const ReviewBody: FC<ReviewBodyProps> = ({
 
     return (
         <>
-            <OutputsSection isVisible={canShareOutputs} jobId={job.id} decryptedFiles={decryptedFiles} />
             <OutputsDecisionSection
                 jobId={job.id}
                 studyId={studyId}
@@ -225,12 +252,9 @@ const ReviewBody: FC<ReviewBodyProps> = ({
                 onSelect={decision.onSelect}
                 decisionError={decision.decisionError}
                 canShareOutputs={canShareOutputs}
-            />
-            {/* Enabled from the start: pressing it is how the user learns what is still missing,
-                rather than facing a dead button with no explanation. */}
-            <StepNavigation
-                nav={nav}
-                formAction={
+                submitAction={
+                    // Enabled from the start: pressing it is how the user learns what is still missing,
+                    // rather than facing a dead button with no explanation.
                     <Button
                         size="md"
                         onClick={decision.attemptSubmit}

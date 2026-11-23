@@ -1,11 +1,12 @@
 'use client'
 
-import { Button, Checkbox, Group, Stack, Text } from '@mantine/core'
+import { Button, Group, Stack, Text } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { FC } from 'react'
 import { LinkWithIcon } from '@/components/links'
 import { legalDocumentDownloadURL } from '@/lib/paths'
 import { legalDocumentTypeLabels } from '@/schema/legal-document'
+import { AcknowledgementCheckbox } from './acknowledgement-checkbox'
 import { AcknowledgementError, BlockingModal } from './blocking-modal'
 
 const STUDY_AGREEMENT_LABEL = legalDocumentTypeLabels.SLA
@@ -23,7 +24,7 @@ type Props = {
 }
 
 // The agreement is a PDF, so it opens in a tab rather than rendering inline as the Terms of Service
-// does. Cancel goes to the dashboard: this blocks one study, not the app, so declining has somewhere
+// does. Cancel goes to the org dashboard: this blocks one study, not the app, so declining has somewhere
 // to go.
 export const StudyAgreementModal: FC<Props> = ({
     versionId,
@@ -53,11 +54,7 @@ export const StudyAgreementModal: FC<Props> = ({
                     from the Legal section in your profile.
                 </Text>
 
-                <Checkbox
-                    checked={isChecked}
-                    onChange={(event) => onCheckedChange(event.currentTarget.checked)}
-                    label={CHECKBOX_LABEL}
-                />
+                <AcknowledgementCheckbox checked={isChecked} onChange={onCheckedChange} label={CHECKBOX_LABEL} />
 
                 <AcknowledgementError error={error} />
 

@@ -12,8 +12,9 @@ import { GetObjectCommand, NoSuchKey, PutObjectCommand } from '@aws-sdk/client-s
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getS3Client } from '@/server/aws'
-import { APP_BASE_URL } from '@/server/config'
-import { fetchLatestCodeEnvForStudyId } from '@/server/db/queries'
+import { APP_BASE_URL, env } from '@/server/config'
+import { fetchCodeEnvForStudyId } from '@/server/db/queries'
+import { currentDb } from '@/server/request-context'
 import { buildWorkspaceEnvironment, initializeWorkspaceCodeFiles } from '@/server/coder/workspaces'
 import type { WorkspaceLaunchStatus } from '@/server/coder/types'
 import { listStudyFiles, studyFileStore } from '@/server/workspace-files'
@@ -38,7 +39,7 @@ type MicrovmRecord = { microvmId: string; syncTokenHash: string }
 const recordKey = (studyId: string) => `studies/${studyId}/microvm.json`
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')
 const managedConnector = (name: string) =>
-    `arn:aws:lambda:${process.env.AWS_REGION || 'us-east-1'}:aws:network-connector:aws-network-connector:${name}`
+    `arn:aws:lambda:${env.AWS_REGION || 'us-east-1'}:aws:network-connector:aws-network-connector:${name}`
 
 let microvmsClient: LambdaMicrovmsClient | undefined
 const microvms = () => (microvmsClient ??= new LambdaMicrovmsClient())
@@ -112,7 +113,7 @@ async function studyPayload(studyId: string) {
             mtime: Math.floor(file.mtime.getTime() / 1000),
         })),
     )
-    const environment = await buildWorkspaceEnvironment(await fetchLatestCodeEnvForStudyId(studyId))
+    const environment = await buildWorkspaceEnvironment(await fetchCodeEnvForStudyId(studyId, currentDb()))
     return { files, env: Object.fromEntries(environment.map(({ name, value }) => [name, value])) }
 }
 
@@ -198,6 +199,7 @@ const status = (
     failed: false,
     cursors: { build: null, agent: null },
     url: null,
+    failureMessage: null,
     ...fields,
 })
 

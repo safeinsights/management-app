@@ -16,7 +16,7 @@ export const TotpVerification = ({ form, isVerifyingCode, resetFlow }: TotpVerif
         <>
             <Text>Open your authenticator app and enter the 6-digit code generated for your account.</Text>
             <Text>This code changes every 30 seconds and helps ensure your account remains secure.</Text>
-            <Title order={4} ta="center" mt="xs" mb={'-0.5rem'}>
+            <Title order={4} ta="center" mt="xs" mb="-xs">
                 Enter your code
             </Title>
             <OtpInput form={form} errorId="totp-code-error" />

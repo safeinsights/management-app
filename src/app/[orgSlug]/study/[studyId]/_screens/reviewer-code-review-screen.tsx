@@ -1,7 +1,7 @@
 import { isSubmittedStudy } from '@/schema/study'
 import { isActionError } from '@/lib/errors'
 import { AlertNotFound } from '@/components/errors'
-import { getCodeReviewFeedbackAction } from '@/server/actions/study.actions'
+import { getCodeReviewFeedbackAction } from '@/server/actions/review-feedback.actions'
 import { CodeReview } from '../review/code-review'
 import type { ScreenComponentProps } from './types'
 

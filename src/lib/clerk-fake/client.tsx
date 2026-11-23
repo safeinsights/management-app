@@ -39,7 +39,14 @@ function useSignOut() {
     }, [authChanged])
 }
 
-export function ClerkProvider({ children }: { children: ReactNode; publishableKey?: string; nonce?: string }) {
+export function ClerkProvider({
+    children,
+}: {
+    children: ReactNode
+    publishableKey?: string
+    nonce?: string
+    dynamic?: boolean
+}) {
     useEffect(() => {
         // Re-sync from the cookie so consumers that rendered signed-out during SSR flip
         // to the real role.
@@ -84,6 +91,7 @@ export function useSession() {
         const session = {
             id: `e2e-session-${state.role}`,
             lastActiveAt: SESSION_ACTIVE_AT,
+            factorVerificationAge: [0, 0] as [number, number],
             touch: async () => session,
             end: signOut,
         }

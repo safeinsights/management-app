@@ -96,6 +96,8 @@ export interface WorkspaceLaunchStatus {
     ready: boolean
     failed: boolean
     reason: string
+    /** `reason` reworded for the researcher; null unless `failed`. */
+    failureMessage: string | null
     cursors: { build: number | null; agent: number | null }
     url: string | null
 }
@@ -109,9 +111,12 @@ export interface CoderUserQueryResponse {
     users: CoderUser[]
 }
 
+export type CoderUserStatus = 'active' | 'dormant' | 'suspended'
+
 export interface CoderUser {
     username: CoderUsername
     email?: string
+    status?: CoderUserStatus
 }
 
 /** The SafeInsights researcher a study's Coder account belongs to — its IDE owner (OTTER-817). */

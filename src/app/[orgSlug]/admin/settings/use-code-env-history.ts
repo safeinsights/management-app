@@ -3,7 +3,7 @@
 import { useQuery } from '@/common'
 import { codeEnvAuditMetadataSchema } from '@/lib/audit-diff'
 import { isActionError } from '@/lib/errors'
-import { fetchCodeEnvHistoryAction } from './code-envs.actions'
+import { fetchCodeEnvHistoryAction } from '@/server/actions/code-envs.actions'
 import type { CodeEnvHistoryEntry } from './code-env-history-view'
 
 // safeParse inside queryFn, not parse during render: audit rows outlive the code that wrote them,

@@ -1,6 +1,7 @@
 import { renderWithProviders, screen, waitFor, type Mock } from '@/tests/unit.helpers'
 import { describe, it, expect, vi } from 'vitest'
-import { useAuth, useClerk, useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useClerk, useUser } from '@clerk/nextjs'
+import { useSignIn } from '@clerk/nextjs/legacy'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 import SigninPage from './page'

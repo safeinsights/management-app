@@ -7,11 +7,12 @@ import { RESEARCHER_STUDIES_QUERY_KEYS } from '@/components/dashboard/studies-ta
 import { actionResult } from '@/lib/utils'
 import { markOutputsDecisionViewedAction } from '@/server/actions/study-job.actions'
 
-// Failures go to Sentry only: the reader cannot act on them. The ref stops StrictMode writing twice.
-function useMarkOutputsDecisionViewed(studyId: string) {
+// Failures go to Sentry only: the reader cannot act on them.
+export function useMarkOutputsDecisionViewed(studyId: string) {
     const queryClient = useQueryClient()
     const { mutate } = useMutation({
-        mutationFn: async () => actionResult(await markOutputsDecisionViewedAction({ studyId })),
+        mutationFn: async (decrypted: boolean) =>
+            actionResult(await markOutputsDecisionViewedAction({ studyId, decrypted })),
         // Dashboard rows keep for a minute and never refetch on focus, so leaving by the in-app link
         // would land on the badge this write just superseded.
         onSuccess: async () => {
@@ -21,23 +22,28 @@ function useMarkOutputsDecisionViewed(studyId: string) {
                 ),
             )
         },
-        // Nothing else asks again: the reader is already past the decision, and the guard below stops
-        // this leaf retrying on its own.
+        // Nothing else asks again: the reader is already past the decision, and the callers fire once.
         retry: 2,
         onError: (error) => captureException(error),
     })
+    return mutate
+}
+
+// The ref stops StrictMode writing twice.
+function useMarkViewedOnMount(studyId: string) {
+    const markViewed = useMarkOutputsDecisionViewed(studyId)
     const hasMarked = useRef(false)
 
     useEffect(() => {
         if (hasMarked.current) return
 
         hasMarked.current = true
-        mutate()
-    }, [mutate])
+        markViewed(false)
+    }, [markViewed])
 }
 
 // Renders nothing. A client leaf, because a write during the server render would also fire on prefetch.
 export const MarkOutputsDecisionViewed: FC<{ studyId: string }> = ({ studyId }) => {
-    useMarkOutputsDecisionViewed(studyId)
+    useMarkViewedOnMount(studyId)
     return null
 }

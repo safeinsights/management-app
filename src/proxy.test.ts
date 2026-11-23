@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, type Mock, vi } from '@/tests/unit.helpers'
+import { beforeEach, describe, expect, it, mockSessionWithTestData, type Mock, vi } from '@/tests/unit.helpers'
 import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { NextRequest } from 'next/server'
 import { CSP_HEADER, CSP_NONCE_HEADER, REPORTING_ENDPOINTS_HEADER } from '@/lib/csp'
+import { REQUEST_PATH_HEADER } from '@/lib/request-path'
 import { continueWithNonce } from './proxy'
 import { BOUNCE_PARAM, BOUNCE_VALUE } from '@/lib/signin-bounce'
 
@@ -37,10 +38,27 @@ describe('continueWithNonce', () => {
 
         const res = continueWithNonce(new NextRequest('https://example.test/dashboard'))
 
-        expect(res.headers.get(REPORTING_ENDPOINTS_HEADER)).toBe(
-            'csp-report="https://o11.ingest.us.sentry.io/api/22/security/?sentry_key=abc123"',
+        // Stubbing ENVIRONMENT_ID would turn on DB SSL for later tests; csp.test.ts pins the values.
+        expect(res.headers.get(REPORTING_ENDPOINTS_HEADER)).toMatch(
+            /^csp-report="https:\/\/o11\.ingest\.us\.sentry\.io\/api\/22\/security\/\?sentry_key=abc123&sentry_environment=[^&"]+&sentry_release=[^&"]+"$/,
         )
         expect(res.headers.get(CSP_HEADER)).toContain('report-to csp-report')
+    })
+
+    it('forwards the request path to server components without CSP', () => {
+        const res = continueWithNonce(new NextRequest('https://example.test/acme/study/1/review?tab=code'))
+
+        expect(forwardedHeader(res, REQUEST_PATH_HEADER)).toBe('/acme/study/1/review?tab=code')
+    })
+
+    it('overwrites a request path the client sent', () => {
+        vi.stubEnv('NODE_ENV', 'production')
+
+        const res = continueWithNonce(
+            new NextRequest('https://example.test/acme/dashboard', { headers: { [REQUEST_PATH_HEADER]: '/forged' } }),
+        )
+
+        expect(forwardedHeader(res, REQUEST_PATH_HEADER)).toBe('/acme/dashboard')
     })
 })
 
@@ -116,6 +134,7 @@ describe('proxy signin param sanitization', () => {
         ['invite_not_found', '<svg onload=alert(1)>'],
         ['error', 'session<script>'],
         ['invite_id', 'not-a-uuid<b>'],
+        ['mfa', 'verify<b>'],
     ])('drops an invalid %s value', async (param, value) => {
         const { res } = await runProxy(`https://app.test/account/signin?${param}=${encodeURIComponent(value)}&keep=1`)
 
@@ -131,7 +150,7 @@ describe('proxy signin param sanitization', () => {
 
     it('lets the values the app itself writes through', async () => {
         const { res, auth } = await runProxy(
-            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b`,
+            `https://app.test/account/signin?${BOUNCE_PARAM}=${BOUNCE_VALUE}&restart=true&invite_not_found=1&error=session&invite_id=0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b&mfa=verify`,
         )
 
         expect(res.headers.get('location')).toBeNull()
@@ -157,6 +176,7 @@ describe('proxy session marshaling failures', () => {
         vi.fn().mockResolvedValue({
             userId: 'clerk_proxy_test_user',
             sessionClaims: { userMetadata: null, unsafeMetadata: {} },
+            factorVerificationAge: [0, 0],
         })
 
     const mockClerkGetUser = (getUser: Mock) =>
@@ -204,6 +224,27 @@ describe('proxy session marshaling failures', () => {
         expect(res.headers.get('location')).toBeNull()
     })
 
+    // The page builds the session again and reports the failure, so the proxy must not add its own
+    // Sentry events or spend another call against the limit (OTTER-1007).
+    it('neither retries nor reports to Sentry when Clerk rate-limits the marshal', async () => {
+        const { ClerkAPIResponseError } = await import('@clerk/nextjs/errors')
+        const { default: logger } = await import('@/lib/logger')
+        const errorSpy = vi.spyOn(logger, 'error')
+        const getUser = vi
+            .fn()
+            .mockRejectedValue(new ClerkAPIResponseError('Too Many Requests', { data: [], status: 429 }))
+        mockClerkGetUser(getUser)
+
+        const { proxy } = await import('./proxy')
+        const req = new NextRequest('https://app.staging.safeinsights.org/dashboard')
+
+        const res = await (proxy as unknown as ProxyHandler)(authenticatedAuth(), req)
+
+        expect(getUser).toHaveBeenCalledTimes(1)
+        expect(errorSpy).not.toHaveBeenCalled()
+        expect(res.headers.get('location')).toBeNull()
+    })
+
     it('still redirects unauthenticated visitors to signin with a redirect_url', async () => {
         const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
 
@@ -219,5 +260,92 @@ describe('proxy session marshaling failures', () => {
         // OTTER-745: this branch is the only one that refuses a session, and the signin page reads the
         // mark rather than inferring the refusal from its own (stale) client state.
         expect(location).toContain(`${BOUNCE_PARAM}=${BOUNCE_VALUE}`)
+    })
+
+    // The signup form links invitees here before they have an account.
+    it.each(['/terms-of-service', '/privacy-notice'])('lets a signed-out visitor read %s', async (path) => {
+        const auth = vi.fn().mockResolvedValue({ userId: null, sessionClaims: null })
+
+        const { proxy } = await import('./proxy')
+        const res = await (proxy as unknown as ProxyHandler)(auth, new NextRequest(`https://app.test${path}`))
+
+        expect(res.status).toBe(200)
+        expect(res.headers.get('location')).toBeNull()
+    })
+})
+
+describe('proxy second-factor check', () => {
+    beforeEach(() => {
+        vi.resetModules()
+        ;(clerkMiddleware as unknown as Mock).mockImplementation((handler) => handler)
+        ;(createRouteMatcher as unknown as Mock).mockReturnValue(() => false)
+    })
+
+    const runProxy = async (
+        path: string,
+        factorVerificationAge: [number, number] | null,
+        headers: Record<string, string> = {},
+    ) => {
+        const mocks = await mockSessionWithTestData({ factorVerificationAge })
+        const auth = vi.fn().mockResolvedValue(mocks.auth!())
+        const { proxy } = await import('./proxy')
+        return (proxy as unknown as ProxyHandler)(auth, new NextRequest(`https://app.test${path}`, { headers }))
+    }
+
+    const serverAction = { 'next-action': '7f3a9c' }
+
+    it('sends a page request from a session that never passed a second factor to MFA setup', async () => {
+        const res = await runProxy('/dashboard', [0, -1])
+
+        expect(res.status).toBe(307)
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('treats a session without the fva claim as unverified', async () => {
+        const res = await runProxy('/dashboard', null)
+
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('refuses a server action from an unverified session', async () => {
+        const res = await runProxy('/dashboard', [0, -1], serverAction)
+
+        expect(res.status).toBe(403)
+        expect(res.headers.get('location')).toBeNull()
+    })
+
+    it.each(['/account/mfa', '/account/mfa/app', '/account/mfa/sms'])(
+        'lets an unverified session set up MFA on %s',
+        async (path) => {
+            const page = await runProxy(path, [0, -1])
+            const action = await runProxy(path, [0, -1], serverAction)
+
+            expect(page.headers.get('location')).toBeNull()
+            expect(action.status).toBe(200)
+        },
+    )
+
+    it.each(['/account/signin', '/account/invitation/0192f3a0-1c2d-7e4f-8a9b-0c1d2e3f4a5b/signup'])(
+        'lets an unverified session finish signing in on %s',
+        async (path) => {
+            const res = await runProxy(path, [0, -1], serverAction)
+
+            expect(res.status).toBe(200)
+            expect(res.headers.get('location')).toBeNull()
+        },
+    )
+
+    it('does not treat a lookalike of the MFA path as setup', async () => {
+        const res = await runProxy('/account/mfa-reset', [0, -1])
+
+        expect(res.headers.get('location')).toBe('https://app.test/account/mfa')
+    })
+
+    it('lets a session that passed its second factor through', async () => {
+        const page = await runProxy('/dashboard', [3, 3])
+        const action = await runProxy('/dashboard', [3, 3], serverAction)
+
+        expect(page.headers.get('location')).toBeNull()
+        expect(action.status).toBe(200)
     })
 })

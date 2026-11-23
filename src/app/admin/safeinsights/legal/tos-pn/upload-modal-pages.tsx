@@ -29,7 +29,7 @@ const ChosenFileRow: FC<{ file: File | null; onRemove: () => void }> = ({ file, 
     return (
         <Group justify="space-between" align="center">
             <ReadOnlyField label="Uploaded:" value={file.name} />
-            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs">
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt="xxs" aria-label={`Remove ${file.name}`}>
                 <TrashIcon size={16} />
             </ActionIcon>
         </Group>

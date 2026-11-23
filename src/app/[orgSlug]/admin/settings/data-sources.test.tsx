@@ -16,6 +16,13 @@ import { Selectable } from 'kysely'
 import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import { within } from '@testing-library/react'
+import { useOrgDataSources } from '@/hooks/use-org-data-sources'
+
+// Stands in for the code env form's dataset picker, which reads the list through this hook.
+const DatasetOptions = ({ orgSlug }: { orgSlug: string }) => {
+    const { options } = useOrgDataSources(orgSlug)
+    return <div aria-label="Dataset options">{options.map((o) => o.label).join(', ')}</div>
+}
 
 describe('DataSources', async () => {
     let org: Selectable<Org>
@@ -235,6 +242,25 @@ describe('DataSources', async () => {
 
         const urls = await db.selectFrom('orgDataSourceUrl').where('orgDataSourceId', '=', ds.id).execute()
         expect(urls).toEqual([])
+    })
+
+    it('updates the dataset options of the code env form after a delete', async () => {
+        const user = userEvent.setup()
+        await insertTestDataSource({ orgId: org.id, name: 'Doomed' })
+
+        renderWithProviders(
+            <>
+                <DataSources />
+                <DatasetOptions orgSlug={org.slug} />
+            </>,
+        )
+        const datasetOptions = screen.getByLabelText('Dataset options')
+        await waitFor(() => expect(datasetOptions).toHaveTextContent('Doomed'))
+
+        await user.click(screen.getByRole('button', { name: /delete data source/i }))
+        await user.click(await screen.findByRole('button', { name: /yes/i, hidden: true }))
+
+        await waitFor(() => expect(datasetOptions).not.toHaveTextContent('Doomed'))
     })
 
     it('includes URL information if user does not click add URL on save', async () => {

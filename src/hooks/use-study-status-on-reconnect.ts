@@ -138,7 +138,8 @@ export function useStudyStatusOnReconnect({
                 return false
             }
             if (isActionError(result)) {
-                if (reportFailure) reportError(new ActionFailure(result.error), STATUS_CHECK_FAILURE_TITLE)
+                if (reportFailure)
+                    reportError(new ActionFailure(result.error, result.eventId), STATUS_CHECK_FAILURE_TITLE)
                 return false
             }
 

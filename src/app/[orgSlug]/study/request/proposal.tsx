@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import type { Route } from 'next'
 import { useParams, useRouter } from 'next/navigation'
-import { Stack } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { languageLabels } from '@/lib/languages'
 import { Routes } from '@/lib/routes'
@@ -11,7 +12,9 @@ import { SetupForm } from './setup-form'
 import { useSetupForm, type SetupFormLocks } from './use-setup-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
 import { PageHeader } from '@/components/page-header'
-import { displayLabName, UNTITLED_STUDY_TITLE } from '@/lib/string'
+import { SET_UP_STUDY_STEP } from '@/components/study/proposal-step-header'
+import { PageLayout } from '@/components/page-layout'
+import { UNTITLED_STUDY_TITLE } from '@/lib/string'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -19,6 +22,8 @@ interface StudyProposalProps {
     draftData?: DraftStudyData | null
     /** The route org, which is the submitting lab. Names the eyebrow before a study row exists. */
     submittingLabName?: string | null
+    /** A submitted study's "Next step" target from setupStepNav; the proposal status when absent. */
+    nextStepHref?: Route
 }
 
 const MODAL_BODY =
@@ -29,14 +34,9 @@ const MODAL_BODY =
 // read-only record.
 type SetupNavMode = 'create' | 'revisit' | 'submitted'
 
-/**
- * The first visit and a revisit differ by the ampersand because the cards specify them that way:
- * OTTER-690 wrote "Save & continue" for the new-study page and OTTER-764 wrote "Save and continue"
- * for the back-navigation state. Not a typo to tidy up.
- */
 const CTA_LABELS: Record<SetupNavMode, string> = {
     create: 'Save & continue',
-    revisit: 'Save and continue',
+    revisit: 'Save & continue',
     submitted: 'Next step',
 }
 
@@ -60,7 +60,12 @@ function deriveSetupState(studyId: string | undefined, draftData: DraftStudyData
     return { navMode, locks }
 }
 
-export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData, submittingLabName }) => {
+export const StudyProposal: React.FC<StudyProposalProps> = ({
+    studyId,
+    draftData,
+    submittingLabName,
+    nextStepHref,
+}) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, saveDraft, isSaving, initFromDraft } = useStudyRequest()
@@ -83,11 +88,11 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     // A submitted proposal has nothing to validate or save, so the CTA only steps forward
     // (OTTER-764). `isProceeding` still guards it: the target re-reads from the server, and without
     // it the button looks dead for the whole navigation. Nothing resets it, the page is leaving.
-    const goToSubmitted = useCallback(() => {
+    const goToNextStep = useCallback(() => {
         if (!studyId) return
         setIsProceeding(true)
-        router.push(Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
-    }, [router, submittingOrgSlug, studyId])
+        router.push(nextStepHref ?? Routes.studySubmitted({ orgSlug: submittingOrgSlug, studyId }))
+    }, [router, nextStepHref, submittingOrgSlug, studyId])
 
     const { titleValue, titleError, onTitleChange, onTitleBlur, attemptContinue, isConfirmOpen, closeConfirm } =
         useSetupForm({
@@ -117,44 +122,55 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     // A researcher only creates for their own lab, so the eyebrow names the route org before a row
     // exists and the study's own lab once one does (OTTER-619). The heading mirrors the live field,
     // so it keeps up with the title as it is typed.
-    const eyebrow = displayLabName(draftData?.submittingLabName ?? submittingLabName, submittingOrgSlug)
+    const eyebrow = draftData?.submittingLabName ?? submittingLabName
     const headingTitle = titleValue.trim() || UNTITLED_STUDY_TITLE
 
-    const onProceed = navMode === 'submitted' ? goToSubmitted : attemptContinue
+    const onProceed = navMode === 'submitted' ? goToNextStep : attemptContinue
 
     return (
-        <Stack p="xl" gap="xl">
-            <PageHeader eyebrow={eyebrow} title={headingTitle} />
-            <SetupForm
-                form={form}
-                titleValue={titleValue}
-                titleError={titleError}
-                onTitleChange={onTitleChange}
-                onTitleBlur={onTitleBlur}
-                lockedOrgName={draftData?.orgName}
-                lockedLanguageLabel={lockedLanguageLabel}
-                // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
-                isIntroVisible={navMode !== 'submitted'}
-                {...locks}
-            />
+        // Figma's content container and page title widths (OTTER-880); the padding sits outside the cap.
+        <PageLayout
+            header={
+                <Box maw={760}>
+                    <PageHeader eyebrow={eyebrow} title={headingTitle} step={SET_UP_STUDY_STEP} />
+                </Box>
+            }
+        >
+            <Stack gap="xl" maw={1036}>
+                <SetupForm
+                    form={form}
+                    titleValue={titleValue}
+                    titleError={titleError}
+                    onTitleChange={onTitleChange}
+                    onTitleBlur={onTitleBlur}
+                    lockedOrgName={draftData?.orgName}
+                    lockedLanguageLabel={lockedLanguageLabel}
+                    // The intro asks for choices a submitted proposal no longer offers (OTTER-796).
+                    isIntroVisible={navMode !== 'submitted'}
+                    {...locks}
+                />
 
-            {/* No left action in any state: OTTER-690 review took "Discard study" out of scope.
-                Deleting a draft lives behind the dashboard. */}
-            <ProposalFooterActions
-                isSaving={isSaving || isProceeding}
-                onProceed={onProceed}
-                proceedLabel={CTA_LABELS[navMode]}
-            />
+                {/* No left action in any state: OTTER-690 review took "Discard study" out of scope.
+                    Deleting a draft lives behind the dashboard. */}
+                <ProposalFooterActions
+                    isSaving={isSaving || isProceeding}
+                    onProceed={onProceed}
+                    proceedLabel={CTA_LABELS[navMode]}
+                />
 
-            <SubmitConfirmationModal
-                isOpen={isConfirmOpen}
-                onClose={closeConfirm}
-                onConfirm={handleConfirmContinue}
-                isSubmitting={isSaving || isProceeding}
-                title="Continue to the next step?"
-                body={MODAL_BODY}
-                confirmLabel="Continue"
-            />
-        </Stack>
+                <SubmitConfirmationModal
+                    isOpen={isConfirmOpen}
+                    onClose={closeConfirm}
+                    onConfirm={handleConfirmContinue}
+                    isSubmitting={isSaving || isProceeding}
+                    title="Continue to the next step?"
+                    body={MODAL_BODY}
+                    confirmLabel="Continue"
+                    size="md"
+                    centered={false}
+                    yOffset="25dvh"
+                />
+            </Stack>
+        </PageLayout>
     )
 }

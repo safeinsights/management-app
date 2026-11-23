@@ -8,6 +8,7 @@ import { buildSessionClaimsMetadata, defaultOrgSlug, FAKE_ROLES, fixtureForRole,
 import { buildFakeUser, type FakeUser } from './user-resource'
 import { resolveClerkId } from './resolve-clerk-id.server'
 import { buildRouteMatcher } from './route-matcher'
+import { createFakeOrganizations } from './organizations'
 
 export type User = FakeUser
 
@@ -19,15 +20,22 @@ type SessionClaims = {
 type AuthResult = {
     userId: string | null
     sessionClaims: SessionClaims | null
+    factorVerificationAge: [number, number] | null
     orgSlug?: string
 }
 
+const SIGNED_OUT: AuthResult = { userId: null, sessionClaims: null, factorVerificationAge: null }
+
+// Fixtures sign in with their second factor, so every fake session has verified it.
+const VERIFIED_FVA: [number, number] = [0, 0]
+
 function buildAuthResult(fixture: FakeFixture | null, userId: string | null): AuthResult {
-    if (!fixture || !userId) return { userId: null, sessionClaims: null }
+    if (!fixture || !userId) return SIGNED_OUT
     const orgSlug = defaultOrgSlug(fixture)
     return {
         userId,
         orgSlug,
+        factorVerificationAge: VERIFIED_FVA,
         sessionClaims: {
             userMetadata: buildSessionClaimsMetadata(fixture),
             unsafeMetadata: { currentOrgSlug: orgSlug },
@@ -37,7 +45,7 @@ function buildAuthResult(fixture: FakeFixture | null, userId: string | null): Au
 
 export async function auth(): Promise<AuthResult> {
     const fixture = fixtureForRole(await readRoleCookieFromHeaders())
-    if (!fixture) return { userId: null, sessionClaims: null }
+    if (!fixture) return SIGNED_OUT
     return buildAuthResult(fixture, await resolveClerkId(fixture))
 }
 
@@ -49,10 +57,14 @@ export async function currentUser(): Promise<User | null> {
 
 // Used by the QA-cleanup routes under /api/*, which clerkMiddleware skips so auth() has no
 // context. Returns the admin fixture's claims so a manual call still authorizes.
-export async function verifyToken(_token: string, _options: unknown): Promise<{ sub: string } & SessionClaims> {
+export async function verifyToken(
+    _token: string,
+    _options: unknown,
+): Promise<{ sub: string; fva: [number, number] } & SessionClaims> {
     const fixture = fixtureForRole('admin')!
     return {
         sub: await resolveClerkId(fixture),
+        fva: VERIFIED_FVA,
         userMetadata: buildSessionClaimsMetadata(fixture),
         unsafeMetadata: { currentOrgSlug: defaultOrgSlug(fixture) },
     }
@@ -72,6 +84,13 @@ async function fixtureByClerkId(clerkId: string): Promise<FakeFixture | null> {
 }
 
 const noop = async () => {}
+
+// On globalThis so every server bundle layer in the process shares one org store.
+const fakeOrganizations = () => {
+    const g = globalThis as { __clerkFakeOrganizations?: ReturnType<typeof createFakeOrganizations>['api'] }
+    g.__clerkFakeOrganizations ??= createFakeOrganizations().api
+    return g.__clerkFakeOrganizations
+}
 
 function fakeClerkClient() {
     return {
@@ -105,12 +124,7 @@ function fakeClerkClient() {
             disableUserMFA: noop,
             getOrganizationMembershipList: async () => ({ data: [] }),
         },
-        organizations: {
-            getOrganization: async ({ slug }: { slug: string }) => ({ id: `fake-org-${slug}`, slug, name: slug }),
-            createOrganization: async (org: Record<string, unknown>) => ({ id: 'fake-org-created', ...org }),
-            createOrganizationMembership: async () => ({ id: 'fake-membership' }),
-            updateOrganization: noop,
-        },
+        organizations: fakeOrganizations(),
         emailAddresses: {
             createEmailAddress: async ({ emailAddress }: { emailAddress: string }) => ({
                 id: 'fake-email',

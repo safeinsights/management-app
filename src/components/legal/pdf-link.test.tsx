@@ -19,6 +19,18 @@ describe('PdfLink', () => {
         expect(screen.getByRole('link', { name: 'PDF' })).toBeDefined()
     })
 
+    it('trails the label with a new-tab icon by default', () => {
+        renderWithProviders(<PdfLink url="https://example.com/doc.pdf" />)
+
+        expect(screen.getByRole('link', { name: 'PDF' }).querySelector('svg')).not.toBeNull()
+    })
+
+    it('leaves the icon off when a caller opts out', () => {
+        renderWithProviders(<PdfLink url="https://example.com/doc.pdf" withIcon={false} />)
+
+        expect(screen.getByRole('link', { name: 'PDF' }).querySelector('svg')).toBeNull()
+    })
+
     it('dashes an unsigned row rather than linking nowhere', () => {
         renderWithProviders(<PdfLink url={null} />)
 
@@ -35,6 +47,12 @@ describe('LegalDocumentPdfLink', () => {
             'href',
             '/dl/legal/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
         )
+    })
+
+    it('passes the icon opt-out through', () => {
+        renderWithProviders(<LegalDocumentPdfLink versionId="0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b" withIcon={false} />)
+
+        expect(screen.getByRole('link', { name: 'PDF' }).querySelector('svg')).toBeNull()
     })
 
     it('dashes when the row has no published version', () => {

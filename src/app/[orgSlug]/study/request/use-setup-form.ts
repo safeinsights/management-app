@@ -5,7 +5,7 @@ import { useCallback, useState, type ChangeEvent } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { UseFormReturnType } from '@mantine/form'
 import { focusFirstInvalid } from '@/lib/focus-first-invalid'
-import { isTitleOverLimit, STUDY_TITLE_OVER_LIMIT_ERROR, type StudyProposalFormValues } from './form-schemas'
+import { isTitleOverLimit, STUDY_TITLE_OVER_LIMIT_ERROR, type StudyProposalFormValues } from '@/schema/study-request'
 import { FIELD_ID_TO_FORM_PATH, LANGUAGE_FIELD_ID, ORG_SELECT_ID, TITLE_INPUT_ID } from './fields/field-ids'
 
 export interface SetupFormLocks {

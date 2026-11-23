@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { countCharactersFromLexical, hasLexicalContent } from '@/lib/lexical'
 import { overCharacterLimitError } from '@/lib/field-limits'
-import { studyTitleField } from '@/app/[orgSlug]/study/request/form-schemas'
+import { studyTitleField } from '@/schema/study-request'
 
 const REQUIRED_FIELD_ERROR = 'This field is required.'
 
@@ -24,6 +24,10 @@ export const FIELD_TITLES = {
 export const isLexicalOverLimit = (value: string, maxCharacters: number) =>
     countCharactersFromLexical(value) > maxCharacters
 
+// The one plural title, so its error reads "exceed… Shorten them".
+export const proposalOverLimitError = (fieldTitle: string, maxCharacters: number) =>
+    overCharacterLimitError(fieldTitle, maxCharacters, { plural: fieldTitle === FIELD_TITLES.additionalNotes })
+
 // superRefine rather than chained refines so a blank field reports only that it is empty.
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {
@@ -34,7 +38,7 @@ const lexicalField = (fieldTitle: string, requiredError: string | null, maxChara
         if (isLexicalOverLimit(val, maxCharacters)) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: overCharacterLimitError(fieldTitle, maxCharacters),
+                message: proposalOverLimitError(fieldTitle, maxCharacters),
             })
         }
     })
@@ -53,7 +57,7 @@ const validateLinkedPi = (data: { piName: string; piUserId: string }, ctx: z.Ref
 
 const proposalFieldsSchema = z.object({
     title: studyTitleField(REQUIRED_FIELD_ERROR),
-    datasets: z.array(z.string()).min(1, { message: 'Select at least one dataset.' }),
+    datasets: z.array(z.string()).min(1, { error: 'Select at least one dataset.' }),
     researchQuestions: lexicalField(
         FIELD_TITLES.researchQuestions,
         REQUIRED_FIELD_ERROR,
@@ -64,7 +68,7 @@ const proposalFieldsSchema = z.object({
     additionalNotes: lexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
         .optional()
         .default(''),
-    piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
+    piName: z.string().min(1, { error: REQUIRED_FIELD_ERROR }),
     // No rule of its own: nothing displays piUserId, so an error here would block submit invisibly
     // (OTTER-647).
     piUserId: z.string().default(''),
@@ -87,7 +91,7 @@ export const DRAFT_REQUIRED_ERRORS = {
 export const draftProposalFormSchema = proposalFieldsSchema
     .omit({ title: true })
     .extend({
-        datasets: z.array(z.string()).min(1, { message: DRAFT_REQUIRED_ERRORS.datasets }),
+        datasets: z.array(z.string()).min(1, { error: DRAFT_REQUIRED_ERRORS.datasets }),
         researchQuestions: lexicalField(
             FIELD_TITLES.researchQuestions,
             DRAFT_REQUIRED_ERRORS.researchQuestions,
@@ -102,7 +106,7 @@ export const draftProposalFormSchema = proposalFieldsSchema
         additionalNotes: lexicalField(FIELD_TITLES.additionalNotes, null, CHARACTER_LIMITS.additionalNotes)
             .optional()
             .default(''),
-        piName: z.string().min(1, { message: DRAFT_REQUIRED_ERRORS.piName }),
+        piName: z.string().min(1, { error: DRAFT_REQUIRED_ERRORS.piName }),
     })
     .superRefine(validateLinkedPi)
 

@@ -3,14 +3,14 @@ import { describe, expect, failNextPostHogCapture, flushDeferred, it, postHogCap
 import { capturePostHogEvent } from './posthog'
 
 describe('capturePostHogEvent', () => {
-    it('adds the environment to every event', async () => {
+    it('adds the environment and surface to every event', async () => {
         capturePostHogEvent({ distinctId: 'user-1', event: 'user_logged_in', properties: { org_id: 'org-1' } })
         await flushDeferred()
 
         expect(postHogCaptures()).toContainEqual({
             distinctId: 'user-1',
             event: 'user_logged_in',
-            properties: { org_id: 'org-1', environment: expect.any(String) },
+            properties: { org_id: 'org-1', environment: expect.any(String), surface: 'app' },
         })
     })
 

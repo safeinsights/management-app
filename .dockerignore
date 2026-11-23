@@ -4,6 +4,8 @@
 .env
 # dependencies
 /node_modules
+# A host install in a workspace package would replace the one the image build makes.
+**/node_modules
 /.pnp
 .pnp.js
 

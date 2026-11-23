@@ -13,7 +13,7 @@ import {
     resubmitNoteSchema,
     resubmissionNoteToLexicalJson,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { CollaborativeResubmissionNoteSection } from './collaborative-resubmission-note-section'
 import { overCharacterLimitError } from '@/lib/field-limits'
 
@@ -84,7 +84,7 @@ describe('CollaborativeResubmissionNoteSection', () => {
     it('renders a vertical resize handle on the editor', () => {
         renderSingleUserSection()
         const surface = document.querySelector('.collaborative-editor-container') as HTMLElement
-        expect(surface.style.resize).toBe('vertical')
+        expect(surface).toHaveAttribute('data-resizable')
     })
 
     it('does not render the section-level autosave indicator in collaborative mode', () => {

@@ -20,8 +20,3 @@ export function resolvePillId(role: StudyRole, state: StudyState): PillId {
 export function resolvePillStatus(role: StudyRole, state: StudyState, names: PillOrgNames): StatusLabel {
     return resolvePillPresentation(resolvePillId(role, state), { role, ...names })
 }
-
-export function resolveRowHighlight(role: StudyRole, state: StudyState): boolean {
-    if (role === 'researcher') return state.resultsApproved && !state.resultsViewed
-    return state.status === 'PENDING-REVIEW' || state.codeAwaitingDecision
-}

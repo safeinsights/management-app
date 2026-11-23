@@ -1,6 +1,9 @@
+'use client'
+
 import { APP_SHELL } from '@/lib/constants'
 import { semanticColor } from '@/theme/tokens'
 import { AppShellFooter, Box, Text } from '@mantine/core'
+import { useIsHydrated } from '@/hooks/use-is-hydrated'
 import styles from './shell.module.css'
 
 type Props = {
@@ -8,27 +11,34 @@ type Props = {
     isDark?: boolean
 }
 
-const copyright = () => `© ${new Date().getFullYear()} SafeInsights | Rice University`
+type FooterProps = { year: number | null }
 
-const FocusedFooter: React.FC = () => (
+const currentYear = () => new Date().getFullYear()
+
+// The year waits for the browser: on New Year's Eve the server's UTC year is already the next one.
+const copyright = (year: number | null) =>
+    year ? `© ${year} SafeInsights | Rice University` : '© SafeInsights | Rice University'
+
+const FocusedFooter: React.FC<FooterProps> = ({ year }) => (
     <AppShellFooter px="lg" py="md" bg={semanticColor('surface.footer')} bd="none">
         <Text ta="left" c={semanticColor('text.white')} fz="sm">
-            {copyright()}
+            {copyright(year)}
         </Text>
     </AppShellFooter>
 )
 
 // In document flow after main, never fixed, so it cannot overlay page content (Footer spec).
-const InAppFooter: React.FC = () => (
+const InAppFooter: React.FC<FooterProps> = ({ year }) => (
     <Box component="footer" className={styles.footer} maw={APP_SHELL.mainMaxWidth}>
         <div className={styles.footerBar}>
             <Text c={semanticColor('text.secondary')} fz="sm">
-                {copyright()}
+                {copyright(year)}
             </Text>
         </div>
     </Box>
 )
 
 export function AppFooter({ isDark = false }: Props) {
-    return isDark ? <FocusedFooter /> : <InAppFooter />
+    const year = useIsHydrated() ? currentYear() : null
+    return isDark ? <FocusedFooter year={year} /> : <InAppFooter year={year} />
 }

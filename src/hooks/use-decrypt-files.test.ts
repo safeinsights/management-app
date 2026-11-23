@@ -8,10 +8,10 @@ import {
     renderHook,
     waitFor,
 } from '@/tests/unit.helpers'
+import { enclaveKeyPair } from '@/tests/artifact.helpers'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { flipByte, openArchive, packArchive, tamper, writeLegacyCbcArchive } from 'si-encryption/testing/archive'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import type { JobFileInfo } from '@/lib/types'
 import { ArchiveIntegrityError, useDecryptFiles, type EncryptedJobFile } from './use-decrypt-files'
 
@@ -68,7 +68,7 @@ const currentArchive = async (options: { jobId?: string } = { jobId: JOB_ID }) =
 }
 
 const archiveForAnotherKey = async () => {
-    const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+    const { publicKey, fingerprint } = await enclaveKeyPair()
     const writer = new ResultsWriter([{ publicKey, fingerprint }], { jobId: JOB_ID })
     await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
     return { archive: await writer.generate(), fingerprint }
@@ -81,16 +81,22 @@ const expectDecryptsToContents = (files: JobFileInfo[]) => {
 }
 
 describe('useDecryptFiles', () => {
-    it('reads a legacy AES-CBC archive written before the manifest carried a cipher', async () => {
+    it('refuses a legacy AES-CBC archive as tampering', async () => {
         const archive = await writeLegacyCbcArchive([await recipient()], { [FILENAME]: toArrayBuffer(CONTENTS) })
 
-        // Pins the fixture: a manifest that gained a cipher would silently make this a second
-        // current-format test.
+        // Pins the fixture: a manifest that gained a cipher would be refused for another reason.
         const { manifest } = await openArchive(archive)
         expect(manifest.cipher).toBeUndefined()
         expect(manifest.version).toBeUndefined()
 
-        expectDecryptsToContents(await decrypt(await asJobFile(archive)))
+        await expect(decrypt(await asJobFile(archive))).rejects.toThrow(ArchiveIntegrityError)
+    })
+
+    it('refuses a current archive whose manifest is downgraded to claim AES-CBC', async () => {
+        const { manifest, bodies } = await openArchive(await currentArchive())
+        const downgraded = await packArchive({ ...manifest, cipher: 'AES-CBC' }, bodies)
+
+        await expect(decrypt(await asJobFile(downgraded))).rejects.toThrow(ArchiveIntegrityError)
     })
 
     it('reads a current archive', async () => {
@@ -101,7 +107,7 @@ describe('useDecryptFiles', () => {
     // share time, mirroring what fetchEncryptedJobFilesAction returns.
     it('reads a current archive as a researcher with wraps served alongside it', async () => {
         const me = await recipient()
-        const { exportedPublicKey: publicKey, fingerprint } = await generateKeyPair()
+        const { publicKey, fingerprint } = await enclaveKeyPair()
         const writer = new ResultsWriter([{ publicKey, fingerprint }, me], { jobId: JOB_ID })
         await writer.addFile(FILENAME, toArrayBuffer(CONTENTS))
 

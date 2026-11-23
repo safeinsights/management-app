@@ -1,9 +1,9 @@
 'use server'
 
-import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk } from '../clerk'
 import { clientUserInfo } from '../session'
 import { getUserPublicKey } from '../db/queries'
+import { syncMembershipToClerk } from '../clerk-org-sync'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, ActionFailure, z } from './action'
 
@@ -34,7 +34,7 @@ export const onUserResetPWAction = new Action('onUserResetPWAction')
         onUserResetPW(session.user.id)
     })
 
-export const updateUserRoleAction = new Action('updateUserRoleAction')
+export const updateUserRoleAction = new Action('updateUserRoleAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -61,6 +61,7 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
         }
 
         await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
+        await syncMembershipToClerk({ userId, orgId: orgUser.orgId })
         onUserRoleUpdate({
             userId,
             actorId: session.user.id,
@@ -68,21 +69,4 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             before: { ...orgUser },
             after: { isAdmin },
         })
-    })
-
-export const resetUserMFAAction = new Action('resetUserMFAAction')
-    .requireAbilityTo('reset', 'MFA')
-    .handler(async ({ session }) => {
-        const clerkId = session!.user.clerkUserId
-
-        const client = await clerkClient()
-        await client.users.disableUserMFA(clerkId)
-
-        const user = await client.users.getUser(clerkId)
-
-        for (const phoneNumber of user.phoneNumbers) {
-            await client.phoneNumbers.deletePhoneNumber(phoneNumber.id)
-        }
-
-        return { twoFactorEnabled: false }
     })

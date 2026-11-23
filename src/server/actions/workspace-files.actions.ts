@@ -1,11 +1,11 @@
 'use server'
 
 import type { DBExecutor } from '@/database'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
+import { withStudySubject } from './study-subject'
 import { studyFileStore } from '@/server/workspace-files'
-import { getInfoForStudyId } from '@/server/db/queries'
 import { sanitizeFileName } from '@/lib/utils'
-import { ensureRoundJobForUpload } from '@/server/db/mutations'
+import { ensureRoundJobForUpload, markStudyOpened } from '@/server/db/mutations'
 import { requireChangeableCodeFiles } from '@/server/study-code-gate'
 import {
     ACCEPTED_FILE_FORMATS_TEXT,
@@ -14,9 +14,13 @@ import {
     MAX_UPLOAD_FILE_TEXT,
 } from '@/lib/types'
 
-// OTTER-617: the researcher's Last updated reads this; the data partner's does not.
-const stampLabEdit = (db: DBExecutor, studyId: string) =>
-    db.updateTable('study').set({ labEditedAt: new Date() }).where('id', '=', studyId).execute()
+// OTTER-617: the researcher's Last updated reads this; the data partner's does not. The editor has
+// seen their own edit, so it must not mark the study unread for them (OTTER-838).
+const stampLabEdit = async (db: DBExecutor, studyId: string, userId: string) => {
+    const editedAt = new Date()
+    await db.updateTable('study').set({ labEditedAt: editedAt }).where('id', '=', studyId).execute()
+    await markStudyOpened(db, { studyId, userId, seenAt: editedAt })
+}
 
 export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction', { performsMutations: true })
     // Both are card rules, so they belong where every caller passes rather than only in the
@@ -30,7 +34,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
                 .refine((f) => hasAcceptedExtension(f.name), ACCEPTED_FILE_FORMATS_TEXT),
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, file }, session }) => {
@@ -45,7 +49,7 @@ export const uploadWorkspaceFileAction = new Action('uploadWorkspaceFileAction',
             .insertInto('workspaceFileActivity')
             .values({ studyId, fileName, userId: session.user.id, action: 'UPLOADED' })
             .execute()
-        await stampLabEdit(db, studyId)
+        await stampLabEdit(db, studyId, session.user.id)
 
         return { fileName }
     })
@@ -59,7 +63,7 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
     .handler(async ({ db, params: { studyId, fileName }, session }) => {
@@ -76,20 +80,22 @@ export const recordWorkspaceFileEditAction = new Action('recordWorkspaceFileEdit
  */
 export const setMainCodeFileAction = new Action('setMainCodeFileAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
-    .handler(async ({ db, params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName }, session }) => {
+        const editedAt = new Date()
         await db
             .updateTable('study')
-            .set({ mainCodeFileName: sanitizeFileName(fileName), labEditedAt: new Date() })
+            .set({ mainCodeFileName: sanitizeFileName(fileName), labEditedAt: editedAt })
             .where('id', '=', studyId)
             .execute()
+        await markStudyOpened(db, { studyId, userId: session.user.id, seenAt: editedAt })
     })
 
 export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
         const study = await db
@@ -103,7 +109,7 @@ export const getMainCodeFileAction = new Action('getMainCodeFileAction', {})
 
 export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId, fileName } }) => {
         const sanitized = sanitizeFileName(fileName)
@@ -115,10 +121,10 @@ export const readWorkspaceFileAction = new Action('readWorkspaceFileAction', {})
 
 export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), fileName: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .middleware(requireChangeableCodeFiles(({ params }) => params.studyId))
-    .handler(async ({ db, params: { studyId, fileName } }) => {
+    .handler(async ({ db, params: { studyId, fileName }, session }) => {
         const sanitized = sanitizeFileName(fileName)
 
         // Server-side so both files tables get the rule: /code disables the button, /resubmit's
@@ -129,11 +135,11 @@ export const deleteWorkspaceFileAction = new Action('deleteWorkspaceFileAction',
             .where('id', '=', studyId)
             .executeTakeFirst()
         if (study?.mainCodeFileName === sanitized) {
-            throw new Error('Main file cannot be deleted. Set another file as main first.')
+            throw new ActionFailure('Main file cannot be deleted. Set another file as main first.')
         }
 
         await (await studyFileStore()).remove(studyId, sanitized)
-        await stampLabEdit(db, studyId)
+        await stampLabEdit(db, studyId, session.user.id)
 
         return { success: true }
     })

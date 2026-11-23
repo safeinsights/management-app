@@ -8,31 +8,24 @@ import {
     waitFor,
     mockSessionWithTestData,
     faker,
+    findFieldErrorShownOnce,
     renderWithProviders,
     insertTestCodeEnv,
+    insertTestDataSource,
 } from '@/tests/unit.helpers'
-import { vi } from 'vitest'
 import { Selectable } from 'kysely'
 import { db } from '@/database'
 import { CodeEnvs } from './code-envs'
+import { DataSources } from './data-sources'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
 
-vi.mock('@/hooks/upload', () => ({
-    uploadFiles: vi.fn().mockResolvedValue([]),
-}))
-
-vi.mock('@/server/aws', async () => {
-    const actual = await vi.importActual('@/server/aws')
-    return {
-        ...actual,
-        storeS3File: vi.fn().mockResolvedValue(undefined),
-        deleteS3File: vi.fn().mockResolvedValue(undefined),
-        deleteFolderContents: vi.fn().mockResolvedValue(undefined),
-        createSignedUploadUrl: vi.fn().mockResolvedValue({ url: 'https://s3.example.com', fields: { key: 'test' } }),
-        triggerScanForCodeEnv: vi.fn().mockResolvedValue(undefined),
-    }
-})
+// Typing a long value keystroke by keystroke re-renders the whole form each time, which once
+// pushed the creation test past the CI timeout. Pasting enters each value in one event.
+const fillIn = async (input: HTMLElement, text: string) => {
+    await userEvent.click(input)
+    await userEvent.paste(text)
+}
 
 describe('CodeEnvs', async () => {
     let org: Selectable<Org>
@@ -63,7 +56,19 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: /add code environment/i })).toBeInTheDocument()
     })
 
-    it('opens the modal and creates a code environment that is displayed in table', { timeout: 15000 }, async () => {
+    it('makes the language badge a button only when there is starter code to view', async () => {
+        await insertTestCodeEnv({ orgId: org.id, name: 'With Starter', language: 'R' })
+        await insertTestCodeEnv({ orgId: org.id, name: 'No Starter', language: 'R', starterCodeFileNames: [] })
+
+        renderWithProviders(<CodeEnvs />)
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'View R starter code for With Starter' })).toBeInTheDocument()
+        })
+        expect(screen.getByText('No Starter')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'View R starter code for No Starter' })).not.toBeInTheDocument()
+    })
+
+    it('opens the modal and creates a code environment that is displayed in table', async () => {
         renderWithProviders(<CodeEnvs />)
 
         const addButton = screen.getByRole('button', { name: /Add Code Environment/i })
@@ -74,17 +79,17 @@ describe('CodeEnvs', async () => {
         })
 
         const envName = faker.hacker.noun() + ' Code Env'
-        await userEvent.type(screen.getByLabelText(/Name/i), envName)
-        await userEvent.type(screen.getByLabelText(/Identifier/i), 'test_env')
-        await userEvent.type(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
+        await fillIn(screen.getByLabelText(/Name/i), envName)
+        await fillIn(screen.getByLabelText(/Identifier/i), 'test_env')
+        await fillIn(screen.getByPlaceholderText(/harbor\.safeinsights/i), 'example.com/test-image:tag-1234')
 
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement
         await userEvent.upload(fileInput, file)
 
-        await userEvent.type(screen.getByPlaceholderText(/Extension/i), 'r')
-        await userEvent.type(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
+        await fillIn(screen.getByPlaceholderText(/Extension/i), 'r')
+        await fillIn(screen.getByPlaceholderText(/Command/i), 'Rscript %f')
         await userEvent.click(screen.getByRole('button', { name: /Add command line/i }))
 
         await userEvent.click(screen.getByRole('button', { name: /Save Code Environment/i }))
@@ -96,7 +101,7 @@ describe('CodeEnvs', async () => {
 
     // OTTER-647: rejected on the field the admin typed into, not later in a summary that never
     // said which row was at fault.
-    it('rejects a malformed env var name on the field itself', { timeout: 15000 }, async () => {
+    it('rejects a malformed env var name on the field itself', async () => {
         renderWithProviders(<CodeEnvs />)
 
         fireEvent.click(screen.getByRole('button', { name: /Add Code Environment/i }))
@@ -105,8 +110,8 @@ describe('CodeEnvs', async () => {
             expect(screen.getByRole('heading', { name: /Add Code Environment/i })).toBeInTheDocument()
         })
 
-        await userEvent.type(screen.getByPlaceholderText(/Variable name/i), '1BAD')
-        await userEvent.type(screen.getByPlaceholderText(/^Value$/i), 'something')
+        await fillIn(screen.getByPlaceholderText(/Variable name/i), '1BAD')
+        await fillIn(screen.getByPlaceholderText(/^Value$/i), 'something')
         await userEvent.click(screen.getByRole('button', { name: /Add environment variable/i }))
 
         expect((await screen.findAllByText(/Invalid variable name/i)).length).toBeGreaterThan(0)
@@ -143,7 +148,7 @@ describe('CodeEnvs', async () => {
 
         fireEvent.blur(screen.getByTestId('starter-code-dropzone'))
 
-        expect(await screen.findByText(/At least one starter code file is required/i)).toBeInTheDocument()
+        await findFieldErrorShownOnce(/At least one starter code file is required/i)
     })
 
     // The `[]` seed also reaches the edit path, where an empty list would read as "cleared the
@@ -179,6 +184,37 @@ describe('CodeEnvs', async () => {
 
         expect(saved.name).toBe('Renamed Env')
         expect(saved.starterCodeFileNames).toEqual(['existing.R'])
+    })
+
+    describe('editing the last usable environment for a language', () => {
+        const openEdit = async (name: string) => {
+            renderWithProviders(<CodeEnvs />)
+            await waitFor(() => expect(screen.getByText(name)).toBeInTheDocument())
+            fireEvent.click(screen.getByRole('button', { name: `Edit ${name}` }))
+            await waitFor(() => {
+                expect(screen.getByRole('heading', { name: /Edit Code Environment/i })).toBeInTheDocument()
+            })
+        }
+
+        it('locks the testing checkbox and language select', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
+
+            await openEdit('Only R')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeDisabled()
+            expect(screen.getByRole('combobox', { name: /Language/i })).toBeDisabled()
+            expect(screen.getByText(/so it can't be made a testing image/)).toBeInTheDocument()
+        })
+
+        it('leaves them editable when another non-testing environment shares the language', async () => {
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 1', language: 'R', isTesting: false })
+            await insertTestCodeEnv({ orgId: org.id, name: 'R Image 2', language: 'R', isTesting: false })
+
+            await openEdit('R Image 1')
+
+            expect(screen.getByRole('checkbox', { name: /Is testing image/i })).toBeEnabled()
+            expect(screen.getByRole('combobox', { name: /Language/i })).toBeEnabled()
+        })
     })
 
     it('hides delete when there is only one code environment', async () => {
@@ -279,6 +315,82 @@ describe('CodeEnvs', async () => {
         expect(screen.getByRole('button', { name: 'Delete Failed R' })).toBeInTheDocument()
     })
 
+    it('disables delete with an explanation when the environment has linked data sources', async () => {
+        const linked = await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestCodeEnv({ orgId: org.id, name: 'Unlinked R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [linked.id] })
+
+        renderWithProviders(<CodeEnvs />)
+
+        const deleteLinked = await screen.findByRole('button', { name: 'Delete Linked R' })
+        expect(deleteLinked).toHaveAttribute('data-disabled')
+        expect(screen.getByRole('button', { name: 'Delete Unlinked R' })).not.toHaveAttribute('data-disabled')
+
+        await userEvent.hover(deleteLinked)
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(
+            'A code environment with linked data sources cannot be deleted. Remove or re-assign them first.',
+        )
+
+        await userEvent.click(deleteLinked)
+        expect(screen.queryByText(/are you sure you want to delete/i)).not.toBeInTheDocument()
+    })
+
+    it('enables delete once the linked data source is deleted', async () => {
+        const linked = await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestCodeEnv({ orgId: org.id, name: 'Other R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [linked.id] })
+
+        renderWithProviders(
+            <>
+                <CodeEnvs />
+                <DataSources />
+            </>,
+        )
+
+        expect(await screen.findByRole('button', { name: 'Delete Linked R' })).toHaveAttribute('data-disabled')
+
+        await userEvent.click(await screen.findByRole('button', { name: /delete data source/i }))
+        await userEvent.click(await screen.findByRole('button', { name: /yes/i }))
+
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: 'Delete Linked R' })).not.toHaveAttribute('data-disabled')
+        })
+    })
+
+    it('shows the new link in the data sources list after a code env edit', async () => {
+        await insertTestCodeEnv({ orgId: org.id, name: 'Linked R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, name: 'Unlinked Source' })
+
+        renderWithProviders(
+            <>
+                <CodeEnvs />
+                <DataSources />
+            </>,
+        )
+
+        fireEvent.click(await screen.findByRole('button', { name: /edit linked r/i }))
+        await userEvent.click(await screen.findByRole('combobox', { name: /Data Sources/i }))
+        await userEvent.click(await screen.findByRole('option', { name: 'Unlinked Source' }))
+        await userEvent.click(screen.getByRole('button', { name: /Update Code Environment/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Unlinked Source', { selector: 'p' }).parentElement).toHaveTextContent('Linked R')
+        })
+    })
+
+    it('hides delete on the only non-testing environment for a language even when it has linked data sources', async () => {
+        const only = await insertTestCodeEnv({ orgId: org.id, name: 'Only R', language: 'R', isTesting: false })
+        await insertTestDataSource({ orgId: org.id, codeEnvIds: [only.id] })
+
+        renderWithProviders(<CodeEnvs />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Only R')).toBeInTheDocument()
+        })
+
+        expect(screen.queryByRole('button', { name: 'Delete Only R' })).not.toBeInTheDocument()
+    })
+
     it('displays env vars as KEY=VALUE in table', async () => {
         await insertTestCodeEnv({
             orgId: org.id,
@@ -300,6 +412,8 @@ describe('CodeEnvs', async () => {
             expect(screen.getByText('Image with Env Vars')).toBeInTheDocument()
             expect(screen.getByText('Image without Env Vars')).toBeInTheDocument()
         })
+        await userEvent.click(screen.getByRole('button', { name: 'Details for Image with Env Vars' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Details for Image without Env Vars' }))
 
         expect(screen.getAllByText('Env Vars').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()

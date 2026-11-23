@@ -1,19 +1,22 @@
 import {
     act,
+    beforeAll,
     describe,
     expect,
     faker,
     it,
     lexicalEditorFor,
+    preloadEditor,
     renderWithProviders,
     screen,
+    setEditorText,
     simulateEditorSave,
     userEvent,
     vi,
     waitFor,
 } from '@/tests/unit.helpers'
 import { type FC } from 'react'
-import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical'
+import { $getRoot } from 'lexical'
 import { useForm, zodResolver } from '@/common'
 import { fieldCounterId, fieldErrorId } from '@/components/form-field'
 import type { ProposalTextFieldKey } from '@/lib/collaboration-documents'
@@ -75,21 +78,6 @@ const fieldWhere = (predicate: (field: EditableTextField) => boolean, descriptio
 
 const STUDY_ID = faker.string.uuid()
 
-// Edits must go through Lexical's API: happy-dom cannot dispatch the `beforeinput` events the
-// editor listens for.
-const setEditorText = async (surface: HTMLElement, text: string) => {
-    const editor = lexicalEditorFor(surface)
-    // Awaited: Lexical commits on a microtask, so a synchronous act() returns before the change
-    // has reached the form.
-    await act(async () => {
-        editor.update(() => {
-            const paragraph = $createParagraphNode()
-            if (text) paragraph.append($createTextNode(text))
-            $getRoot().clear().append(paragraph)
-        })
-    })
-}
-
 const LEAVE_LABEL = 'Leave the field'
 
 // The entry bound to a real form, which is what owns the error the field displays. One harness for
@@ -121,6 +109,8 @@ const EntryHarness: FC<{
         </>
     )
 }
+
+beforeAll(preloadEditor)
 
 // OTTER-647: ariaRequired was passed bare while the asterisk followed field.required, so the one
 // optional field announced as required.

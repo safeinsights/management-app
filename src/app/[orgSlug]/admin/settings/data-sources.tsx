@@ -8,27 +8,37 @@ import { AppModal } from '@/components/modals/app-modal'
 import { DataSourceForm } from './data-source-form'
 import { DataSourceRowView, DataSourcesView } from './data-sources-view'
 import { TrashIcon, PencilIcon } from '@phosphor-icons/react/dist/ssr'
-import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from './data-sources.actions'
+import { deleteOrgDataSourceAction, fetchOrgDataSourcesAction } from '@/server/actions/data-sources.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { ActionSuccessType } from '@/lib/types'
 import { QueryStateBody } from './query-state-body'
+import { orgDataSourcesQueryKey } from '@/hooks/use-org-data-sources'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]
 
 // Module-level, so a render that has no data yet does not mint a new array identity each time.
 const NO_DATA_SOURCES: DataSource[] = []
 
+// Code envs list their linked data sources, and deleting a data source cascades its links.
+const useInvalidateDataSources = (orgSlug: string) => {
+    const queryClient = useQueryClient()
+    return () => {
+        queryClient.invalidateQueries({ queryKey: orgDataSourcesQueryKey(orgSlug) })
+        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
+    }
+}
+
 const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const queryClient = useQueryClient()
+    const invalidateDataSources = useInvalidateDataSources(orgSlug)
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
 
     const deleteMutation = useMutation({
         mutationFn: deleteOrgDataSourceAction,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+            invalidateDataSources()
             showToast({ category: 'success', title: 'Success', message: 'Data source was deleted successfully' })
         },
         onError: reportMutationError('Failed to delete data source'),
@@ -36,7 +46,7 @@ const DataSourceRow: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => 
 
     const handleEditComplete = () => {
         closeEditModal()
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+        invalidateDataSources()
     }
 
     return (
@@ -96,17 +106,17 @@ const DataSourcesTable: React.FC<{ dataSources: DataSource[] }> = ({ dataSources
 
 export const DataSources: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const queryClient = useQueryClient()
+    const invalidateDataSources = useInvalidateDataSources(orgSlug)
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const dataSources = useQuery({
-        queryKey: ['orgDataSources', orgSlug],
+        queryKey: orgDataSourcesQueryKey(orgSlug),
         queryFn: async () => await fetchOrgDataSourcesAction({ orgSlug }),
     })
 
     const handleFormComplete = () => {
         closeAddModal()
-        queryClient.invalidateQueries({ queryKey: ['orgDataSources', orgSlug] })
+        invalidateDataSources()
     }
 
     return (

@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { isValidUrl } from './config'
+import { isValidUrl, pickCursorColor } from './config'
+
+describe('pickCursorColor', () => {
+    it('gives the same name the same color', () => {
+        expect(pickCursorColor('Ada Lovelace')).toBe(pickCursorColor('Ada Lovelace'))
+    })
+
+    // OTTER-662: cursor colors follow the theme rather than hardcoded hex.
+    it('picks every color from an SI ramp variable', () => {
+        const names = ['Ada Lovelace', 'Grace Hopper', 'Alan Turing', 'Anonymous', 'a', 'bb', 'ccc', 'dddd']
+
+        for (const name of names) {
+            expect(pickCursorColor(name)).toMatch(/^var\(--mantine-color-[a-z]+-[0-9]\)$/)
+        }
+        expect(new Set(names.map(pickCursorColor)).size).toBeGreaterThan(1)
+    })
+})
 
 describe('isValidUrl', () => {
     it('accepts valid http URLs', () => {

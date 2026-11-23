@@ -53,11 +53,13 @@ type OrgGroupProps = {
     org: NavOrg
     focusedOrgSlug: string | null
     pathname: string
+    hasUnread: boolean
 }
 
 // Groups behave as an accordion keyed on the URL: only the org in the path is open, and the group
-// row itself never reads as current — its open subnav already says so.
-export const OrgGroup: React.FC<OrgGroupProps> = ({ org, focusedOrgSlug, pathname }) => {
+// row itself never reads as current: its open subnav already says so. Only the group row carries
+// the unread dot, never its children (OTTER-838).
+export const OrgGroup: React.FC<OrgGroupProps> = ({ org, focusedOrgSlug, pathname, hasUnread }) => {
     const isOpen = org.slug === focusedOrgSlug
     const items = orgSubnav(org)
     const selectedUrl = isOpen ? selectedSubnavUrl(pathname, org) : null
@@ -71,6 +73,7 @@ export const OrgGroup: React.FC<OrgGroupProps> = ({ org, focusedOrgSlug, pathnam
                 icon={<OrgTypeIcon type={org.type} />}
                 rightSection={<AdminPill isVisible={org.isAdmin} />}
                 isGroup
+                hasUnread={hasUnread}
             />
             <Subnav isVisible={isOpen} items={items} selectedUrl={selectedUrl} />
         </li>

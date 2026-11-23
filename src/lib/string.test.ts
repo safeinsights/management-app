@@ -6,7 +6,6 @@ import {
     shellQuote,
     substituteEntryPointFile,
     orgInitialsTitle,
-    displayLabName,
     plural,
 } from './string'
 
@@ -140,21 +139,6 @@ describe('substituteEntryPointFile', () => {
 
     it('returns the template unchanged when there is no %f token', () => {
         expect(substituteEntryPointFile('Rscript main.R', 'ignored.r')).toBe('Rscript main.R')
-    })
-})
-
-describe('displayLabName', () => {
-    it('shows a real name in its display form', () => {
-        expect(displayLabName('Genius Lab', 'genius-lab')).toBe('Genius')
-    })
-
-    it('falls back to the slug when there is no name, leaving the slug whole', () => {
-        expect(displayLabName(null, 'genius-lab')).toBe('genius-lab')
-        expect(displayLabName(undefined, 'genius-lab')).toBe('genius-lab')
-    })
-
-    it('falls back to the slug when the name strips to nothing', () => {
-        expect(displayLabName('Lab', 'genius-lab')).toBe('genius-lab')
     })
 })
 

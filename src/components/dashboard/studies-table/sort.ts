@@ -45,11 +45,12 @@ export const STATUS_LIFECYCLE: PillId[] = [
     'outputs-reviewed',
 ]
 
-// Last updated sorts newest first only; any click on it returns to the default.
+// Last updated opens newest first, like the page default; every other column opens ascending.
 export function nextSort(current: SortState, clicked: ColumnId): SortState {
-    if (clicked === 'lastUpdated') return DEFAULT_SORT
-    if (current.column !== clicked) return { column: clicked, direction: 'asc' }
-    return { column: clicked, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+    if (current.column === clicked) {
+        return { column: clicked, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+    }
+    return { column: clicked, direction: clicked === 'lastUpdated' ? 'desc' : 'asc' }
 }
 
 type SortValue = string | number | null

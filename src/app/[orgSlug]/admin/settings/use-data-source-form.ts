@@ -4,8 +4,12 @@ import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { showToast } from '@/components/toast-notifications'
 import { useParams } from 'next/navigation'
-import { createOrgDataSourceAction, fetchOrgDataSourcesAction, updateOrgDataSourceAction } from './data-sources.actions'
-import { dataSourceFormSchema, createOrgDataSourceSchema, editOrgDataSourceSchema } from './data-sources.schema'
+import {
+    createOrgDataSourceAction,
+    fetchOrgDataSourcesAction,
+    updateOrgDataSourceAction,
+} from '@/server/actions/data-sources.actions'
+import { dataSourceFormSchema, createOrgDataSourceSchema, editOrgDataSourceSchema } from '@/schema/data-source'
 import { ActionSuccessType } from '@/lib/types'
 
 type DataSource = ActionSuccessType<typeof fetchOrgDataSourcesAction>[number]

@@ -5,6 +5,11 @@
 // which the rebrand deliberately kept. BoxProps widens `variant` to string, so TS cannot catch it.
 const MANTINE_VARIANTS = ['filled', 'light', 'outline', 'transparent', 'white', 'subtle', 'default', 'gradient']
 
+// Resolved by the theme's variantColorResolver (src/theme.ts) before it falls back to Mantine's.
+const THEME_VARIANTS = ['error']
+
+const ALLOWED_VARIANTS = [...MANTINE_VARIANTS, ...THEME_VARIANTS]
+
 // Mantine components whose variant runs through that resolver. Components of our own that happen to
 // take a `variant` prop (StatusAlert, FormFieldLabel, LaunchIdeButton) define their own names.
 const GUARDED_COMPONENTS = ['Button', 'ButtonLink', 'ActionIcon', 'ThemeIcon']
@@ -42,7 +47,7 @@ const noInvalidButtonVariant = {
                 if (!component) return
 
                 const literal = literalStringValue(node.value)
-                if (!literal || MANTINE_VARIANTS.includes(literal.value)) return
+                if (!literal || ALLOWED_VARIANTS.includes(literal.value)) return
 
                 context.report({
                     node: literal,
@@ -50,7 +55,7 @@ const noInvalidButtonVariant = {
                     data: {
                         variant: literal.value,
                         component,
-                        allowed: MANTINE_VARIANTS.join(', '),
+                        allowed: ALLOWED_VARIANTS.join(', '),
                     },
                 })
             },

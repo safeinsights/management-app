@@ -1,6 +1,6 @@
 # Study Screen Logic
 
-How the app decides **which screen a researcher or reviewer sees, which link/pill/highlight the
+How the app decides **which screen a researcher or reviewer sees, which link/pill the
 dashboard shows, and which status label is displayed** for a given study.
 
 All of this logic lives in one pure module — `src/lib/study-screen/` — with **no React, DB, or
@@ -32,18 +32,23 @@ tie), v7 UUIDs aren't reliably monotonic inside a millisecond, and webhook statu
 (`CODE-SCANNED`, results, execution) can arrive late. **So `statusChanges[0]` is never safe.**
 
 Therefore the projection only asks **existence** (`some(status === X)`) and **count**
-(how many `X`) questions about a job's statuses — never "what is the newest one."
+(how many `X`) questions about a job's statuses, never "what is the newest one." The status writer
+is the one place that orders rows; it stores the result on the job as `studyJob.currentStatus`,
+`studyJob.round` and `studyJob.statusChangedAt` (see "Job status transitions").
 
 Two axes, resolved differently:
 
-| Axis                                     | Ordering matters? | Resolved by                                       |
-| ---------------------------------------- | ----------------- | ------------------------------------------------- |
-| **Across jobs** (which round is current) | Yes               | `max(studyJob.id)` — v7 ids match insertion order |
-| **Within the latest job** (which phase)  | No                | set-existence / counting                          |
+| Axis                                     | Ordering matters? | Resolved by                                         |
+| ---------------------------------------- | ----------------- | --------------------------------------------------- |
+| **Across jobs** (which round is current) | Yes               | `latestJobQuery`: highest `studyJob.round`, then id |
+| **Within the latest job** (which phase)  | No                | set-existence / counting on the log                 |
 
-A resubmission opens a **brand-new `studyJob`** (a closed round is never reopened). So a
-multi-round study has multiple jobs, and **only the latest job feeds the phase facts** — earlier
-rounds are history. The lone cross-job fact is `submissionRound` (a count of rounds).
+An outputs decision closes the round, so the next code opens a **new `studyJob`**; a change request
+keeps the same job (see "Job round semantics"). A multi-round study has multiple jobs, and **only the
+latest job feeds the phase facts**: earlier rounds are history. `latestJobQuery({ submitted: true })`
+and `latestJob` skip a job whose `currentStatus` is still `INITIATED`, so a round that has only just
+opened does not mask the code under review. The dashboard uses the plain form and tracks the current
+round. `studyJob.createdAt` is moved for file staleness only and never selects the latest job.
 
 ---
 
@@ -60,21 +65,21 @@ rounds are history. The lone cross-job fact is `submissionRound` (a count of rou
                             │
                         StudyState             ← flat booleans/enums; "latest job" facts
                             │
-        ┌───────────────────┼────────────────────┬──────────────────────┐
-        ▼                   ▼                    ▼                      ▼
-  resolveScreen()   resolveDashboardAction()  resolvePillStatus()  resolveRowHighlight()
-  (role screen rules)  (DASHBOARD_RULES)       (priority walk)       (role rule)
-        │                   │                    │                      │
-        ▼                   ▼                    ▼                      ▼
-  ScreenDescriptor    DashboardAction         StatusLabel             boolean
+        ┌───────────────────┼────────────────────┐
+        ▼                   ▼                    ▼
+  resolveScreen()   resolveDashboardAction()  resolvePillStatus()
+  (role screen rules)  (DASHBOARD_RULES)       (priority walk)
+        │                   │                    │
+        ▼                   ▼                    ▼
+  ScreenDescriptor    DashboardAction         StatusLabel
         │
   SCREEN_COMPONENTS[descriptor.screen]   ← registry maps id → React component
         │
    rendered screen
 ```
 
-Every consumer reads from the **same** `StudyState` — that is what keeps routing, the link, the
-pill, and the highlight from drifting apart.
+Every consumer reads from the **same** `StudyState`, which is what keeps routing, the link and the
+pill from drifting apart.
 
 ---
 
@@ -113,13 +118,17 @@ correctly reads "under review again." Counting handles both shapes and is permut
 - `isExecuting` = latest job has a running status (`JOB-PROVISIONING/PACKAGING/READY/RUNNING`).
 - `hasResults` / `resultsApproved` / `resultsRejected` / `resultsErrored` — results statuses are
   terminal-and-permanent for their job (pure existence; no counting).
-- `submissionRound` — count of jobs that ever carried a `CODE-SUBMITTED` (the one cross-job fact).
 - `hasStep2Progress` = the DRAFT reached Step 2 of the proposal wizard, from **either** persistence
   layer: a written Step 2 column (`draftHasStep2Progress`) or an existing Step 2 collaborative
   document (`hasStep2CollabDoc`, see `server/db/step2-collab-doc.ts`). Both are needed because
   collaborative Step 2 autosaves into Yjs and flushes the columns only on Previous / View as
   reviewer / Submit, so the columns alone under-report progress (OTTER-572). Gated on `isDraft`:
   neither layer clears itself on submit, so a non-DRAFT study reports `false` regardless.
+- `nextCodeRoundInDraft` = the newest job, **`INITIATED` included**, is `INITIATED` on a round
+  above 1: Edit code reopened the code after a `FILES-*` decision closed the round, and nothing is
+  submitted on the new round yet. Read off the newest job rather than `latestJob`, so the dashboard
+  row (which carries only that job) and `/code` agree. Only `openStudyJob` numbers an `INITIATED` job
+  past round 1; a change request raises the round of the job it was made on (OTTER-1073).
 
 ---
 
@@ -236,7 +245,9 @@ holds no encrypted artifact describing the run's outcome, for the same reason: a
 be closed out having produced nothing, and returning here would ask for a key no key holder could
 satisfy. It is the same gate as the errored screen, on the same predicate. A decided job whose sole
 encrypted artifact is a scan log therefore loses the re-decrypt too, because that form promises the
-run's outputs and a submission-time scan log is not one.
+run's outputs and a submission-time scan log is not one. Only the key form goes: the `Code run`
+card stays, with the latest run's `Reviewer feedback` inside it, so the decision's feedback is never
+hidden behind the key. Earlier runs' feedback is shown only in their code run history rows.
 
 Precedence notes: errored/available/decided form a priority chain (#1–#3) — an errored run with no
 decision is claimed first, then an undecided completed run, then any remaining `hasResults` state
@@ -304,21 +315,26 @@ The spec's governing rule: every state carries **exactly one solid button**, so 
 end. A Submit / View action that opens a modal or decrypts is not navigation and stays with its form
 (passed to `StepNavigation` as `formAction`); such screens legitimately return only `Previous step`.
 "Previous step" is anchored **per phase**, not to the page the user arrived from, which keeps the
-table a pure function of state.
+table a pure function of state. The one exception is a step back from an edit page (OTTER-673): the
+page it lands on has the same state as when it is reached from the status page, but its `Next step`
+must return to the edit page. So Edit proposal and Edit code step back with `?from=edit-proposal` or
+`?from=edit-code`, and `/edit` and `/submitted` read it into `NavCtx.from`. It lasts one hop, and a
+page ignores it once the edit page would no longer render. A round Edit code reopened needs no
+origin: while it is in draft, `/submitted` returns to `/resubmit` from any entry (OTTER-1073).
 
 **Researcher table:**
 
-| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                   |
-| -------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                            |
-| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code`; CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
-| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                           |
-| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                    |
-| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                   |
-| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                           |
-| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                    |
-| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                            |
-| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                         |
+| Screen                                       | back → (`Previous step`, subtle) | forward (solid unless noted)                                                                                                                                                                                                                     |
+| -------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `study-overview` (submitted)                 | `/edit` (read-only Step 1)       | `Back to my studies` (draft: empty, the wizard footer owns forward)                                                                                                                                                                              |
+| `proposal-feedback`                          | `/edit` (read-only Step 1)       | code submitted: `Next step` → `/view/code` (`from=edit-code` and `canResearcherResubmitCode`, or `isCodeResubmissionInDraft`: → `/resubmit`); CHANGE-REQUESTED: `Edit proposal`; REJECTED: `Back to my studies`; APPROVED: `Next step` → `/code` |
+| `code-under-review`                          | `/submitted`                     | `Back to my studies`                                                                                                                                                                                                                             |
+| `code-approved`                              | `/submitted`                     | `Next step` → `/view` (unconditional: `/view` serves outputs from approval)                                                                                                                                                                      |
+| `code-feedback`                              | `/submitted`                     | CHANGES-REQUESTED: `Edit code` → `/resubmit`; REJECTED: `Back to my studies`                                                                                                                                                                     |
+| `outputs-pending`                            | `/view/code`                     | `Back to my studies`                                                                                                                                                                                                                             |
+| `outputs-feedback`, `outputs-errored-shared` | `/view/code`                     | `Edit code`                                                                                                                                                                                                                                      |
+| `outputs-awaiting-review`                    | `/view/code`                     | `Back to my studies` (waiting on the reviewer, so nothing is ahead)                                                                                                                                                                              |
+| `outputs-shared`                             | `/view/code`                     | approved: `Edit code` (outline) + `Back to my studies`; rejected: `Edit code`; not resubmittable: `Back to my studies`                                                                                                                           |
 
 **Reviewer table:**
 
@@ -341,6 +357,23 @@ through `codeSubmissionNav(status, ctx)`. Submitting is form-owned, so `Previous
 navigation it carries: anchored to `/submitted` once the proposal is `APPROVED`, and to `/edit`
 before that.
 
+`/resubmit` (Edit code) is a form route too. `Resubmit code for review` belongs to the form.
+`codeResubmissionNav(state, ctx)` always supplies `Previous step` → `/submitted?from=edit-code`, the
+approved proposal, past the code step Edit code was opened from (OTTER-673); the footer flushes the
+note draft before following it. It adds an outline `View outputs` → `/view` only when
+`isOutputsDecided`: the round was reopened from the outputs step, so `/view` serves the latest outputs
+screen. Edit code reached from `CODE-CHANGES-REQUESTED` gets no `View outputs` (OTTER-837). Once
+`canResearcherResubmitCode` is false (Back after resubmitting, a teammate's resubmit, a stale link)
+the page redirects to `/view` instead of rendering (OTTER-949).
+
+`/edit-and-resubmit` (Edit proposal) takes its `Previous step` from `editProposalPreviousStep(ctx)`:
+→ `/edit?from=edit-proposal`, Step 1. The footer saves the proposal and note drafts before following
+it (OTTER-673).
+
+`/edit` (Step 1) resolves its forward step through `setupStepNav(status, ctx)`. For a submitted study
+its only action is `Next step`: → `/edit-and-resubmit` when `from=edit-proposal` and the study is still
+`CHANGE-REQUESTED`, else → `/submitted` (OTTER-673).
+
 Being outside the screen table does not put `/code` outside the state machine. It renders **view-only**
 once `canResearcherSubmitCodeForReview` (`eligibility.ts`) is false — that is, once the round has a
 `CODE-SUBMITTED`, whatever the reviewer has decided since — because its confirmation modal promises
@@ -350,6 +383,9 @@ gated by `canResearcherResubmitCode`, which requires a resubmission note. Both r
 server-side as well as in the page: `requireUnsubmittedCodeRound` guards `submitStudyCodeAction`, and
 `requireChangeableCodeFiles` — the union of the two, since the workspace-file actions serve both
 pages — guards every upload, delete, main-file and IDE-launch action (`server/study-code-gate.ts`).
+The one exception: while a round reopened by Edit code is in draft (`isCodeResubmissionInDraft`:
+`nextCodeRoundInDraft` and `canResearcherResubmitCode`), `/code` redirects to `/resubmit`, where that
+round is resubmitted, instead of showing the decided round view-only (OTTER-1073).
 
 `Back to my studies` always goes to the personal `/dashboard` (My studies), for both roles. The spec
 routes this exit to one fixed destination, never back to the entry point, so neither the page nor
@@ -367,19 +403,25 @@ faithful to the old `useStudyHref`.
 | --- | ------------------------------------------------------------------------------------------ | ---------------------------------- |
 | 1   | `isDraft && hasStep2Progress`                                                              | `studyProposal` (+ `delete-draft`) |
 | 2   | `isDraft`                                                                                  | `studyEdit` (+ `delete-draft`)     |
-| 3   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`                        |
-| 4   | `hasAnyJob`                                                                                | `studyView`                        |
-| 5   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`                        |
-| 6   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted`                   |
-| 7   | fallback                                                                                   | `studyView`                        |
+| 3   | `nextCodeRoundInDraft`                                                                     | `studyResubmit`                    |
+| 4   | `APPROVED && hasAnyJob && !hasSubmittedCode`                                               | `studyCode`                        |
+| 5   | `hasAnyJob`                                                                                | `studyView`                        |
+| 6   | `APPROVED && researcherAgreementsAcked`                                                    | `studyCode`                        |
+| 7   | post-submission status, no job (`PENDING-REVIEW`/`APPROVED`/`REJECTED`/`CHANGE-REQUESTED`) | `studySubmitted`                   |
+| 8   | fallback                                                                                   | `studyView`                        |
 
 Rule 1 is the draft-resume rule (OTTER-572): a draft left on Step 2 reopens on Step 2, and only a
 draft that never got there lands on the Step 1 data-partner picker. `/edit` itself stays
 redirect-free so Step 2's Previous button remains a working escape hatch.
 
+Rule 3 precedes the code-draft rule. The dashboard reads the current round, so a round Edit code
+reopened after an outputs decision is still a **Code draft**, but `/code` serves the decided round
+view-only and its Submit is the first submission, not a resubmission with a note. The row opens Edit
+code instead (OTTER-1073).
+
 ---
 
-## Stage 4 — Pill + row highlight (`pill.ts`)
+## Stage 4: Pill (`pill.ts`)
 
 `resolvePillId(role, state)` runs an ordered rule table, the same first-match-wins contract Stage 2
 uses, and returns a `PillId`. `resolvePillStatus(role, state, names)` then resolves that id against
@@ -391,21 +433,23 @@ The pill cannot be keyed on a status value alone, which is why it has a table ra
 - one researcher label, **Code processing**, spans `JOB-PACKAGING`, `JOB-READY` and `JOB-RUNNING`;
 - `JOB-ERRORED` reads **Awaiting outputs** to a researcher until a reviewer records a `FILES-*`
   decision, then **Code errored** (OTTER-598);
-- a `FILES-*` decision reads **Outputs need review** to a researcher until they open it, then
-  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records;
+- a `FILES-*` decision reads **Outputs need review** to a researcher until the lab reads it, then
+  **Outputs reviewed**, which is what the `RESULTS-VIEWED` job status records. Reading means
+  decrypting for `FILES-APPROVED` and opening the page for `FILES-REJECTED`; an errored run never
+  gets there (OTTER-999);
 - a reviewer sees **Outputs reviewed** as soon as they submit the decision, because they made it.
 
 `RESULTS-VIEWED` is the one status a user's reading writes, appended to the latest job by
-`markOutputsDecisionViewedAction` when the lab's outputs decision page is on screen (a client leaf,
-`MarkOutputsDecisionViewed`, fires it on mount; a render-time write would also fire on link
-prefetch). The action writes only for a member of the submitting org, only once a `FILES-*` decision
-exists, and once per job for any visit that sees an earlier one. Two visits close enough to read
-before either writes both insert. That race is accepted rather than fixed: every reader asks the
-status set whether the row is there, so a duplicate moves no badge. The partial unique index that
-would settle it cannot be created, because its predicate has to name `RESULTS-VIEWED`, which the
-migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
-of a new value, and `status::text` as a non-IMMUTABLE index predicate; a fresh database replays both
-migrations together, so a later migration cannot escape it either. A job status rather than a study
+`markOutputsDecisionViewedAction`. For feedback-only, a client leaf (`MarkOutputsDecisionViewed`)
+fires it when the page mounts; a render-time write would also fire on link prefetch. For shared
+outputs, `SharedOutputsPanel` fires it with `decrypted: true` once a key opens the files, because a
+visit to still-encrypted outputs is not a review (OTTER-999). The action writes only for a member of
+the submitting org, only once a `FILES-*` decision exists, never for a `FILES-APPROVED` call without
+`decrypted`, never on a `JOB-ERRORED` job, and once per job: the status writer locks the job and
+skips `RESULTS-VIEWED` when the job already has one, so two reads that overlap still write one row
+(see "Job status transitions"). A partial unique index cannot do this, because its predicate has to
+name `RESULTS-VIEWED`, which the migration before it adds in the same transaction. Postgres refuses the enum literal as an unsafe use
+of a new value, and `status::text` as a non-IMMUTABLE index predicate. A job status rather than a study
 column because a resubmission opens a new job, so the fact resets per round without any clearing
 logic.
 
@@ -436,6 +480,11 @@ The spec names backend states conceptually; none of them is a new stored value e
 | `job-errored` / `job-error-shared`            | `JOB-ERRORED` without / with a `FILES-*` row               |
 | `results-pending-review` / `results-shared`   | `RUN-COMPLETE` undecided / a `FILES-*` row                 |
 | `results-reviewed`                            | `FILES-*` (reviewer) or `FILES-*` + `RESULTS-VIEWED` (lab) |
+
+The `INITIATED` job behind `code-initiated` is opened by the first IDE launch (Launch IDE or the
+table pencil) or code upload, never by opening `/code`: the starter-code preload copies and stars
+the template without opening a round, and `submitStudyCodeAction` refuses until a round is open
+(OTTER-698).
 
 ### Researcher pill table (`researcher-pill-rules.ts`)
 
@@ -478,13 +527,122 @@ The spec names backend states conceptually; none of them is a new stored value e
 | 15  | `status === 'PENDING-REVIEW'`                         | `proposal-needs-review`       |
 | 16  | fallback                                              | `proposal-draft`              |
 
-`resolveRowHighlight(role, state)`: researcher highlights on `resultsApproved` until the lab has
-opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` or
-`codeAwaitingDecision`. Both mean an action is owed.
+Rows carry no status-based highlight. A row's only emphasis is the per-person unread dot
+(OTTER-838): `isStudyUnread` in `lib/study-screen/dashboard-raw-state.ts` compares
+the row's Last updated value with the viewer's last visit, and the badge already says who must act.
 
 > `code-declined` has no row in the product spec, because the reject action is hidden from reviewers
 > (OTTER-650). Studies decided before it was hidden still carry `CODE-REJECTED`, so the badge stays
 > rather than letting those rows fall to the draft fallback.
+
+---
+
+## Job status transitions
+
+Every write to `jobStatusChange`, and every new `studyJob`, goes through
+`src/database/job-status-writer.ts` (OTTER-973). The app calls it through `transitionJob` in
+`src/server/job-transitions.ts`; seeds, `bin/` scripts and test fixtures call `writeJobStatus` and
+`openStudyJob` directly with the `qa` actor. The ESLint rule `custom/noJobStatusWrites`
+(`tests/no-job-status-writes.mjs`) fails the build for any other write.
+
+The writer locks the study row, then the job row, reads the job's current status from
+`studyJob.currentStatus`, checks the transition table, and writes the row with `clock_timestamp()`.
+`now()` is fixed for a whole transaction, so two writes in one transaction would tie;
+`clock_timestamp()` keeps rows in write order. In the same transaction it sets the job columns from
+the table's row: a `move` sets `currentStatus` and `statusChangedAt`, and a `move` on a row marked
+`roundIncrement` (a resubmission after a change request) adds 1 to `round`. `openStudyJob` numbers a
+new job from the stored round of the study's latest job (highest `round`, then id), plus 1 when that
+job is decided (`FILES-APPROVED` or `FILES-REJECTED`). The transition table is the only rule for the
+columns of every job the app writes.
+
+Migration `1793742916584` filled the columns by replaying each job's log (`backfillReplay`, which
+orders rows that tie by lifecycle rank and alternates tied submissions and change requests). It keeps
+its own copy of the rule, as the rule stood when the migration ran, and that copy is never edited.
+The migration also installed two triggers with the same copy for app code older than the columns.
+Migration `1793904779051` dropped them: a deploy swaps the code before it migrates, so no older code
+writes against the columns, and the writer is their only owner. A rollback across these migrations is
+not supported; `backfillStudyJobState` rebuilds the columns from the log if one happens anyway. The
+writer still sets the `app.job_writer` flag around its inserts, so the triggers skip its rows in the
+deploy window before `1793904779051` runs. Readers stay set-based, as described above.
+
+**Actors.** `researcher` and `reviewer` (actions), `enclave` (`/api/job/[jobId]` and its results
+route), `service` (the scanner and containerizer webhooks), `system` (the job opened by the app and
+`SIMULATE_CODE_BUILD`), and `qa` (the QA API, seeds, scripts and fixtures).
+
+**Effects.** A `move` row changes the job's current status. A `log` row is kept as history and leaves
+the status where it was, so a late or out-of-order report never moves a job backward. The effect
+depends only on the pair of statuses, never on the actor, so the backfill's replay of the log gives
+the same status as the writes did.
+
+Rules applied before the table, in this order:
+
+1. **Round closed.** After `FILES-APPROVED` or `FILES-REJECTED`, every write except
+   `RESULTS-VIEWED` is refused (`qa` excepted), a repeat of the decision included.
+2. **Machine repeat.** A write of the current status is a no-op for `enclave`, `service` and
+   `system`, which re-send statuses.
+3. **Person repeat.** A write of the current status from `researcher` or `reviewer` is refused, so
+   the action rolls back the comments and keys it wrote first.
+4. **Log no-op.** A `log` write is skipped when the job's newest row already has that status.
+   `RESULTS-VIEWED` is skipped when the job has one anywhere.
+5. **Table and actor.** A pair the table does not list, or a listed pair from an actor it does not
+   name, is refused.
+
+"Stage" means `JOB-PACKAGING`, `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, in that order.
+
+| To                                        | From                                                                              | Effect                       | Actors           |
+| ----------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------- | ---------------- |
+| `INITIATED`                               | none (new job, `openStudyJob`)                                                    | move                         | system, qa       |
+| `CODE-SUBMITTED`                          | `INITIATED`                                                                       | move                         | researcher       |
+| `CODE-SUBMITTED`                          | `CODE-CHANGES-REQUESTED` (next code round, same job)                              | move                         | researcher       |
+| `CODE-SCANNED`                            | `CODE-SUBMITTED`                                                                  | move                         | service, system  |
+| `CODE-SCANNED`                            | `CODE-CHANGES-REQUESTED`, `CODE-APPROVED`, a stage, `JOB-ERRORED`, `RUN-COMPLETE` | log                          | service, system  |
+| `JOB-ERRORED`                             | `CODE-SUBMITTED`, `CODE-SCANNED`                                                  | move                         | service          |
+| `JOB-ERRORED`                             | `CODE-CHANGES-REQUESTED`                                                          | log                          | service          |
+| `CODE-APPROVED`, `CODE-CHANGES-REQUESTED` | `CODE-SUBMITTED`, `CODE-SCANNED`, `JOB-ERRORED`                                   | move                         | reviewer         |
+| `JOB-PACKAGING`                           | `CODE-APPROVED`                                                                   | move                         | service          |
+| `JOB-READY`                               | `CODE-APPROVED`                                                                   | move                         | service, system  |
+| `JOB-READY`                               | `JOB-PACKAGING`                                                                   | move                         | service          |
+| `JOB-PROVISIONING`                        | `JOB-READY`                                                                       | move                         | enclave          |
+| `JOB-RUNNING`                             | `JOB-READY`, `JOB-PROVISIONING`                                                   | move                         | enclave          |
+| `JOB-ERRORED`                             | `CODE-APPROVED`, a stage                                                          | move                         | service, enclave |
+| a stage                                   | a later stage, `JOB-ERRORED`, `RUN-COMPLETE`                                      | log                          | service, enclave |
+| `RUN-COMPLETE`                            | `JOB-READY`, `JOB-PROVISIONING`, `JOB-RUNNING`, `JOB-ERRORED`                     | move                         | enclave          |
+| `FILES-APPROVED`, `FILES-REJECTED`        | `RUN-COMPLETE`, `JOB-ERRORED`                                                     | move                         | reviewer         |
+| `RESULTS-VIEWED`                          | `FILES-APPROVED`, `FILES-REJECTED`                                                | log                          | researcher       |
+| any                                       | any                                                                               | the listed effect, else move | qa               |
+
+`qa` may write any pair, repeats included; `CODE-REJECTED` has no other writer. A replay treats an
+unlisted pair as a move, the same as a `qa` write, so the writes and the replay agree. One exception
+(`replayEffect`): after `FILES-APPROVED` or `FILES-REJECTED`, an unlisted pair is a log unless it
+writes the other decision, so a late report that older app versions appended cannot reopen the round.
+
+**Refusals.** A refused write throws `JobTransitionRefusedError`, an `ActionFailure`, and writes
+nothing; the action's transaction rolls back. The enclave routes answer 409. Their existing early
+answers come first: `PUT /api/job/[jobId]` still answers 422 once `RUN-COMPLETE` exists, and
+known-stale deliveries still answer 200. The scan and containerizer webhooks answer 200 to a
+refusal, as a retry would only be refused again.
+
+**Observe mode.** The enclave and the services deploy separately from this app. While
+`OBSERVE_MACHINE_ACTOR_PAIRS` is true, a pair the table refuses for `enclave` or `service` is logged
+as a warning and still written, with the effect a replay would give it. The round-closed rule still
+applies to them. Setting the flag to false enforces the table for them too.
+
+**Email.** A move into `JOB-ERRORED` by any actor but `qa` emails the Data Partner after the commit.
+A repeat or a `log` row sends nothing, so a results delivery that follows the runner's own
+`JOB-ERRORED` does not email twice.
+
+---
+
+## What `study.status` means
+
+`study.status` holds the proposal decision only: `DRAFT`, `PENDING-REVIEW`, `APPROVED`,
+`CHANGE-REQUESTED`, `REJECTED` (and `ARCHIVED`, which nothing in the app writes). Code and results
+rounds live on the job: `studyJob.currentStatus` and `studyJob.round`, with the log for history. A code
+decision or a resubmission does not touch `study.status`, so the screens read the proposal decision
+from `study.status` alone (`proposalReviewDecision`). Older app versions flipped the status back to
+`PENDING-REVIEW` on a code resubmit; migration `1780300000000` moved those rows to `APPROVED`
+(OTTER-621). Migration `1793742918582` stores the decision for any other `PENDING-REVIEW` row that
+still had only `approvedAt` or `rejectedAt` (OTTER-973). `DRAFT` and `ARCHIVED` rows keep their status.
 
 ---
 
@@ -493,15 +651,20 @@ opened the decision (`resultsViewed`); reviewer highlights on `PENDING-REVIEW` o
 - A round **closes** only on `FILES-APPROVED` / `FILES-REJECTED`.
 - A `CODE-CHANGES-REQUESTED` resubmit **reuses the same job** (the round is still open).
 - `CODE-SUBMITTED` is **append-only per round**.
-- User-facing submission **version** = `CODE-CHANGES-REQUESTED` count + 1 (`codeSubmissionVersion`),
-  which is distinct from `submissionRound` (count of jobs that ever carried a submission).
+- `studyJob.round` is the code round the job carries. `openStudyJob` gives a new job the round of the
+  study's latest job, plus 1 after an outputs decision, and a resubmission after a change request
+  adds 1 (`roundIncrement` in the transition table). The migration backfilled existing jobs with the
+  same numbers by counting the `CODE-CHANGES-REQUESTED`, `FILES-APPROVED` and `FILES-REJECTED` rows
+  on earlier jobs plus the job's own resubmissions.
+- The user-facing submission **version** is the `round` of the job that carries the code, so a
+  change request does not relabel the code it was made on as the next version.
 
 ---
 
 ## Role dimension
 
 Both roles are implemented. The resolvers take a `role` (`'researcher' | 'reviewer'`); `resolveScreen`
-picks the matching rule table, and the pill/highlight resolvers already branch on role. The
+picks the matching rule table, and the pill resolver already branches on role. The
 **projection is shared and role-agnostic** — the reviewer flow reads the same `StudyState` facts and
 inherits all the order-independence guarantees for free (`reviewerAgreementsAcked` is the exception:
 it is still projected but, since OTTER-727, read by no rule). Adding the reviewer flow was adding a rule table + adapters, not
@@ -516,6 +679,10 @@ re-architecting — exactly as the design intended.
 - **Shared guard** (`review/reviewer-page-guard.tsx`): both reviewer entry points run the same
   access preamble (session/org → study → lab-org redirect to `/view` → `isSubmittedStudy` →
   enclave-only), so a non-reviewer hitting either URL directly is handled identically.
+- **Researcher guard** (`researcher-page-guard.tsx`, OTTER-768): the mirror for `/submitted`,
+  `/view`, `/view/code`, `/code`, `/resubmit` and `/edit`. A member of the submitting org or an SI
+  admin passes; a reviewer of the study is redirected to `/review`. `view Study` alone is not enough,
+  because the Data Partner holds it for every submitted study.
 - **Agreements gate — hidden (OTTER-727)**: the old redirect-to-`/agreements` became the
   `reviewer-agreements` screen, and is now hidden entirely. Its rule is gone from the reviewer table
   (see the OTTER-727 note above), and both `/agreements/reviewer` and `/agreements/researcher`
@@ -551,7 +718,11 @@ re-architecting — exactly as the design intended.
 | `pill.ts`                              | `PillRuleEntry`, `resolvePillId`, `resolvePillStatus`, `resolveRowHighlight`                                |
 | `lib/status-labels.ts`                 | `PillId`, `PILL_PRESENTATION`: every badge's label, tooltip and color                                       |
 | `actions/study-job.actions.ts`         | `markOutputsDecisionViewedAction` writes the `RESULTS-VIEWED` row                                           |
+| `lib/job-status-rules.ts`              | statuses, actors, `JOB_TRANSITIONS`, `decideJobTransition`, `replayEffect` (no imports)                     |
+| `database/job-status-writer.ts`        | `writeJobStatus`, `openStudyJob`: the only writes to the status log                                         |
+| `server/job-transitions.ts`            | `transitionJob`, the app's entry to the writer (logging, `JOB-ERRORED` email)                               |
 | `nav.ts`                               | `RESEARCHER_STEP_NAV`, `REVIEWER_STEP_NAV`, `resolveStepNav`, `resolveReviewerStepNav`, `codeSubmissionNav` |
+| `nav.ts`                               | `codeResubmissionNav` (`/resubmit`, OTTER-837), `setupStepNav` (`/edit`, OTTER-673)                         |
 | `components/study/step-navigation.tsx` | `StepNavigation` — lays out a `StepNav` (+ optional form-owned action)                                      |
 | `index.ts`                             | public barrel                                                                                               |
 | `server/db/study-state-query.ts`       | `rawStudyStateForStudy` — the single fetch                                                                  |
@@ -559,6 +730,7 @@ re-architecting — exactly as the design intended.
 | `_screens/render-screen.tsx`           | `renderStudyScreen` — shared `/view` + `/review` dispatch                                                   |
 | `_screens/reviewer-*-screen.tsx`       | six reviewer adapters over existing reviewer views                                                          |
 | `review/reviewer-page-guard.tsx`       | shared reviewer access preamble                                                                             |
+| `researcher-page-guard.tsx`            | shared researcher persona check (OTTER-768)                                                                 |
 | `lib/review-decision.ts`               | status/`CODE-*` → `ReviewDecision` fallback maps                                                            |
 
 Tests sit next to each module; `state.shuffle.test.ts` and `consistency.test.ts` enforce the

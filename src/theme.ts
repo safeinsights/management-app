@@ -1,18 +1,30 @@
 import {
+    Accordion,
     Badge,
+    type BadgeProps,
     type ButtonProps,
     type ButtonVariant,
     Checkbox,
+    Collapse,
     createTheme,
     CSSVariablesResolver,
     defaultVariantColorsResolver,
     DefaultMantineColor,
     DefaultMantineSize,
+    Divider,
     Input,
     type InputProps,
     MantineColorsTuple,
+    Modal,
     Notification,
+    PinInput,
     Radio,
+    rem,
+    Scroller,
+    Table,
+    Tabs,
+    Typography,
+    v8CssVariablesResolver,
     type VariantColorsResolver,
 } from '@mantine/core'
 import { buttonSizeVars, uiThemeComponents } from './components/ui/theme-components'
@@ -151,6 +163,7 @@ type ExtendedCustomColors =
     | DefaultMantineColor
 
 type ExtendedCustomSpacing = 'xxs' | 'xxl' | DefaultMantineSize
+type ExtendedCustomShadow = 'toast' | DefaultMantineSize
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
@@ -159,6 +172,7 @@ declare module '@mantine/core' {
 
     export interface MantineThemeSizesOverride {
         spacing: Record<ExtendedCustomSpacing, string>
+        shadows: Record<ExtendedCustomShadow, string>
     }
 
     export interface ButtonProps {
@@ -210,13 +224,21 @@ export const buttonVars = (_theme: unknown, props: ButtonProps): { root: Record<
         ...DISABLED_VARS,
         ...buttonSizeVars(props.size),
         ...(LIGHT_HOVER_VARIANTS.some((variant) => variant === props.variant) ? { '--button-hover': navy[0] } : {}),
+        // A text-only button keeps no tile when disabled, as with ActionIcon.
+        ...(props.variant === 'transparent' ? { '--mantine-color-disabled': 'transparent' } : {}),
     },
 })
 
 // Only the default variant takes the focus border: unstyled inputs, which Mantine also uses inside
 // its own components, are meant to show none.
-export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record<string, string> } => ({
+// Figma puts the error row Spacing/xs below the input (OTTER-952); Mantine's offset is half that.
+export const inputVars = (
+    _theme: unknown,
+    props: InputProps,
+    ctx?: { offsetBottom?: boolean },
+): { wrapper: Record<string, string> } => ({
     wrapper: {
+        ...(ctx?.offsetBottom ? { '--input-margin-bottom': 'var(--mantine-spacing-xs)' } : {}),
         '--input-disabled-bg': semanticColor('surface.disabled.medium'),
         '--input-disabled-color': semanticColor('text.disabled'),
         ...(!props.variant || props.variant === 'default'
@@ -228,6 +250,9 @@ export const inputVars = (_theme: unknown, props: InputProps): { wrapper: Record
 export const theme = createTheme({
     fontFamily: fontFamilySans,
     fontFamilyMonospace: fontFamilyMono,
+    // Mantine 9 moved `medium` to 600; kept at the 8.x value so the upgrade changes no rendering.
+    // Figma has no 500 weight, so a follow-up can drop this once design has reviewed the 600 look.
+    fontWeights: { medium: '500' },
     headings: {
         fontFamily: fontFamilySans,
         // Figma collection `font-weight`: regular 400, semibold 600, bold 700. There is no 500.
@@ -236,9 +261,9 @@ export const theme = createTheme({
         // (1.2/1.35/1.5), so there is no composed heading style to transcribe. See OTTER-661.
         fontWeight: '700',
     },
-    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Five of those line up
-    // with Mantine's xs-xl scale, which is what existing call sites pass; the rest reach components
-    // as --si-font-size-* rather than being bolted onto Mantine keys design never named.
+    // Figma collection `font-size` supplies 10 12 14 16 18 20 22 26 34 40. Mantine's xs-xl and h3-h1
+    // (its default 22/26/34, which `headings` leaves unset) cover all but 10 and 40, and `fz` must use
+    // them; those two reach components as --si-font-size-* rather than as keys design never named.
     fontSizes: {
         xs: '0.75rem',
         sm: '0.875rem',
@@ -264,10 +289,17 @@ export const theme = createTheme({
         ...uiThemeComponents,
         // No SI badge design uses Mantine's uppercase, bold default. Outline keeps its border colour but
         // takes text/Sub-labels, since a border shade like grey/5 is too faint for text. Badges never
-        // truncate: Mantine's ellipsis cut dashboard status labels to "Pro…" in narrow columns.
+        // truncate: Mantine's ellipsis cut dashboard status labels to "Pro…" in narrow columns. Mantine's
+        // cursor: default would also land on badges that act as links or buttons.
         Badge: Badge.extend({
             defaultProps: { tt: 'none', fw: fontWeight.semibold },
-            styles: { root: { minWidth: 'max-content' } },
+            // Badge is polymorphic, so its props type omits what an `a` or click handler brings.
+            styles: (_theme, props: BadgeProps & { onClick?: unknown; href?: unknown }) => ({
+                root: {
+                    minWidth: 'max-content',
+                    ...(props.onClick || props.href ? { cursor: 'pointer' } : {}),
+                },
+            }),
             vars: (_theme, { variant }) => ({
                 root: variant === 'outline' ? { '--badge-color': semanticColor('text.secondary') } : {},
             }),
@@ -275,8 +307,19 @@ export const theme = createTheme({
         // Figma status/error/text-icon, on the asterisk alone: --mantine-color-error also paints
         // error messages and invalid-input borders. Reaches every Input.Wrapper asterisk, and
         // Radio.Group's, because Input.Label registers its styles under the InputWrapper name.
+        // Input.Error does too, so the 14px error size (Figma, OTTER-880) also reaches standalone errors.
+        // Every label is semibold with an xxs gap: Figma has no 500 weight.
         InputWrapper: Input.Wrapper.extend({
-            styles: { required: { color: red[7] } },
+            styles: {
+                required: { color: semanticColor('error.text') },
+                label: { fontWeight: fontWeight.semibold, marginBottom: 'var(--mantine-spacing-xxs)' },
+            },
+            vars: () => ({
+                label: {},
+                description: {},
+                error: { '--input-error-size': 'var(--mantine-font-size-sm)' },
+                success: {},
+            }),
         }),
         // Mantine fades disabled inputs to 0.6 opacity, which would wash the disabled tokens out.
         Input: Input.extend({
@@ -291,13 +334,39 @@ export const theme = createTheme({
         Radio: Radio.extend({
             defaultProps: { color: semanticColor('surface.selected') },
         }),
-        Table: {
-            styles: () => ({
-                th: {
-                    backgroundColor: semanticColor('surface.tableheader'),
-                },
+        // Mantine's digit boxes have a fixed width and never wrap, so a six-digit code overflows a phone-width
+        // card. A flex basis instead of a width lets them shrink.
+        PinInput: PinInput.extend({
+            styles: { pinInput: { flex: '0 1 var(--pin-input-size)', width: 'auto', minWidth: 0 } },
+        }),
+        // Mantine paints the line from its own stock gray.3, which the lint rule cannot see.
+        Divider: Divider.extend({
+            defaultProps: { color: semanticColor('border.default') },
+        }),
+        // In activity mode Collapse changes its element tree once reduced motion resolves after
+        // hydration, which remounts its children and drops their state, such as a selected code file.
+        Collapse: Collapse.extend({ defaultProps: { keepMountedMode: 'display-none' } }),
+        // Legal documents wrap long URLs and words instead of widening their box. Unlike `break-word`,
+        // `anywhere` also shrinks the min-content width the autosized scroll area sizes to.
+        Typography: Typography.extend({
+            styles: (_theme, props) => (props.variant === 'legal' ? { root: { overflowWrap: 'anywhere' } } : {}),
+        }),
+        // The header tint is 50% alpha, so a pinned header lays it over white; the clip hides the gap band
+        // (globals.css) at rest.
+        Table: Table.extend({
+            defaultProps: {
+                stickyHeaderOffset: 'calc(var(--app-shell-header-offset, 0rem) + var(--mantine-spacing-xl))',
+            },
+            styles: (_theme, props) => ({
+                table: props.stickyHeader ? { overflow: 'clip' } : {},
+                th: props.stickyHeader
+                    ? {
+                          backgroundColor: semanticColor('surface.raised'),
+                          backgroundImage: `linear-gradient(${semanticColor('surface.tableheader')}, ${semanticColor('surface.tableheader')})`,
+                      }
+                    : { backgroundColor: semanticColor('surface.tableheader') },
             }),
-        },
+        }),
         ActionIcon: {
             vars: actionIconVars,
         },
@@ -309,6 +378,59 @@ export const theme = createTheme({
             },
             vars: buttonVars,
         },
+        // Header keeps its own inline padding so `padding={0}` can flush just the body, e.g. a file preview.
+        Modal: Modal.extend({
+            defaultProps: { padding: 'xxl' },
+            styles: {
+                header: {
+                    paddingBlock: 'var(--mantine-spacing-md)',
+                    paddingInline: 'var(--mantine-spacing-xxl)',
+                    gap: 'var(--mantine-spacing-md)',
+                    backgroundColor: semanticColor('surface.sunken'),
+                },
+                body: { padding: 'var(--mb-padding)' },
+                close: {
+                    backgroundColor: semanticColor('icon.light'),
+                    color: semanticColor('text.white'),
+                    borderRadius: '100%',
+                    height: rem(16),
+                    width: rem(16),
+                    minHeight: rem(16),
+                    minWidth: rem(16),
+                },
+                // Mantine's line-height 1 crams a title that wraps in a narrow modal.
+                title: {
+                    fontSize: 'var(--mantine-font-size-xl)',
+                    fontWeight: fontWeight.semibold,
+                    lineHeight: 'var(--si-line-height-heading)',
+                },
+            },
+        }),
+        // Figma pads accordion content 24/16; Mantine's content box is only reachable through styles.
+        Accordion: Accordion.extend({
+            styles: { content: { padding: 'var(--mantine-spacing-lg) var(--mantine-spacing-md)' } },
+        }),
+        // Figma puts 32px between a tab strip and its panel's card.
+        TabsPanel: Tabs.Panel.extend({ defaultProps: { pt: 'xl' } }),
+        // Figma "Tabs solid- pills": the tabs sit flush on one sunken strip.
+        Tabs: Tabs.extend({
+            styles: (_theme, props) =>
+                props.variant === 'pills' ? { list: { gap: 0, backgroundColor: semanticColor('surface.sunken') } } : {},
+        }),
+        // Figma draws scroll controls as solid squares the height of a tab, not Mantine's gradient fade.
+        Scroller: Scroller.extend({
+            defaultProps: { controlSize: rem(40) },
+            styles: {
+                control: {
+                    justifyContent: 'center',
+                    background: semanticColor('surface.sunken'),
+                    color: semanticColor('icon.dark'),
+                    borderRadius: 'var(--mantine-radius-xs)',
+                },
+                // Keeps an item scrolled into view by keyboard focus clear of the control overlaying the edge.
+                container: { scrollPaddingInline: 'var(--scroller-control-size)' },
+            },
+        }),
         Notification: Notification.extend({
             // Mantine's CloseButton ships no accessible name and its icon has no <title>, so every
             // toast would otherwise present an unlabelled dismiss control. Matches how the modals in
@@ -316,22 +438,31 @@ export const theme = createTheme({
             defaultProps: { closeButtonProps: { 'aria-label': 'Close' } },
             styles: {
                 root: {
-                    borderRadius: 4,
-                    padding: '12px 16px',
-                    gap: 16,
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    padding: 'var(--mantine-spacing-sm) var(--mantine-spacing-md)',
+                    gap: 'var(--mantine-spacing-md)',
                     backgroundColor: semanticColor('surface.popover'),
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+                    boxShadow: 'var(--mantine-shadow-toast)',
                 },
-                title: { color: semanticColor('text.primary'), fontWeight: 700 },
-                description: { color: semanticColor('text.secondary') },
+                // Figma draws the glyph itself at 32px with only the row gap around it; Mantine's slot
+                // adds a 28px disc and its own margins, as does the body.
+                icon: { width: rem(32), height: rem(32), marginInlineEnd: 0, backgroundColor: 'transparent' },
+                body: { marginInlineEnd: 0 },
+                title: { color: semanticColor('text.primary'), fontWeight: fontWeight.bold },
+                // pre-line keeps reportError's break before "Reference:"; anywhere wraps a long id
+                // instead of Mantine's ellipsis cutting it off.
+                description: {
+                    color: semanticColor('text.secondary'),
+                    whiteSpace: 'pre-line',
+                    overflowWrap: 'anywhere',
+                },
                 closeButton: { color: semanticColor('icon.dark') },
             },
         }),
-        // The toast container. Mantine renders oldest first, so column-reverse puts the newest on top;
-        // the margin reset stops Mantine's sibling margin-top compounding with the gap.
+        // The toast container. Order and gap live in globals.css, on the wrapper div Mantine adds; the
+        // margin reset stops Mantine's sibling margin-top adding to that gap.
         Notifications: {
             styles: {
-                root: { display: 'flex', flexDirection: 'column-reverse', gap: 8 },
                 notification: { marginTop: 0 },
             },
         },
@@ -341,6 +472,8 @@ export const theme = createTheme({
     primaryShade: 5,
     respectReducedMotion: true,
     primaryColor: 'navy',
+    // Mantine 9 defaults to md (8px); icon-only buttons and other radius-less components were 4px.
+    defaultRadius: 'sm',
     // Figma collection `Brand` > Spacing and Corner-radius.
     spacing: {
         xxs: '0.25rem',
@@ -367,6 +500,8 @@ export const theme = createTheme({
         md: '0 4px 6px rgba(0, 0, 0, 0.1)',
         lg: '0 10px 15px rgba(0, 0, 0, 0.15)',
         xl: '0 20px 25px rgba(0, 0, 0, 0.2)',
+        // OTTER-746's toast elevation, which none of the steps above matches.
+        toast: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
     },
 })
 
@@ -374,9 +509,12 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => {
     // Every --si-* variable comes from src/theme/tokens.ts, which is also what components read
     // through semanticColor(). One definition, two consumers.
     const overrides = mantineColorOverrides(theme)
+    // Mantine 9 resolves every ramp's `light` variant from shades 1/2/9; the 8.x resolver keeps the
+    // primary-shade alpha and text colour the subtle buttons and badges were designed against.
+    const v8 = v8CssVariablesResolver(theme)
     return {
-        variables: { ...semanticCssVariables(theme), ...typographyCssVariables },
-        light: overrides,
-        dark: overrides,
+        variables: { ...v8.variables, ...semanticCssVariables(theme), ...typographyCssVariables },
+        light: { ...v8.light, ...overrides },
+        dark: { ...v8.dark, ...overrides },
     }
 }

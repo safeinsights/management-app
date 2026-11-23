@@ -77,7 +77,7 @@ export function LinkHoverCard({
     return (
         <Stack gap="sm">
             <LinkHoverCardTitle preview={preview} />
-            <Divider color={semanticColor('border.default')} />
+            <Divider />
             <Group gap="md">
                 <CopyLinkAction href={preview.href} actionRef={firstActionRef} />
                 <LinkCardAction
@@ -118,7 +118,7 @@ function UrlTitle({ href }: { href: string }) {
             target="_blank"
             rel="noopener noreferrer"
             underline="hover"
-            fz={14}
+            fz="sm"
             fw={fontWeight.semibold}
             c={semanticColor('link.default')}
             className={classes.url}
@@ -136,14 +136,14 @@ function InternalTitle({ preview }: { preview: Extract<LinkPreview, { kind: 'int
                 target="_blank"
                 rel="noopener noreferrer"
                 underline="hover"
-                fz={14}
+                fz="sm"
                 fw={fontWeight.semibold}
                 c={semanticColor('text.primary')}
                 className={classes.url}
             >
                 {preview.title}
             </Anchor>
-            <Text fz={12} c={semanticColor('text.secondary')}>
+            <Text fz="xs" c={semanticColor('text.secondary')}>
                 {formatCategoryLine(preview.category)}
             </Text>
         </Stack>
@@ -158,12 +158,12 @@ function LoadingTitle() {
     return (
         <Stack gap="xxs">
             <Skeleton width="70%">
-                <Text fz={14} fw={fontWeight.semibold}>
+                <Text fz="sm" fw={fontWeight.semibold}>
                     &nbsp;
                 </Text>
             </Skeleton>
             <Skeleton width="40%">
-                <Text fz={12}>&nbsp;</Text>
+                <Text fz="xs">&nbsp;</Text>
             </Skeleton>
             <VisuallyHidden>{LOADING_LINK_TITLE}</VisuallyHidden>
         </Stack>
@@ -173,10 +173,10 @@ function LoadingTitle() {
 function UnavailableTitle() {
     return (
         <Stack gap="xxs">
-            <Text fz={14} fw={fontWeight.semibold} c={semanticColor('text.primary')}>
+            <Text fz="sm" fw={fontWeight.semibold} c={semanticColor('text.primary')}>
                 {UNAVAILABLE_LINK_TITLE}
             </Text>
-            <Text fz={12} c={semanticColor('text.secondary')}>
+            <Text fz="xs" c={semanticColor('text.secondary')}>
                 {UNAVAILABLE_LINK_BODY}
             </Text>
         </Stack>
@@ -187,7 +187,7 @@ function CopyLinkAction({ href, actionRef }: { href: string; actionRef?: Ref<HTM
     const clipboard = useClipboard({ timeout: COPIED_RESET_MS })
     const tooltip = clipboard.copied ? LINK_CARD_LABELS.copied : LINK_CARD_LABELS.copy
     const icon = clipboard.copied ? (
-        <CheckIcon size={ICON_SIZE} color="var(--mantine-color-green-9)" />
+        <CheckIcon size={ICON_SIZE} color={semanticColor('success.text')} />
     ) : (
         <CopyIcon size={ICON_SIZE} />
     )
@@ -240,7 +240,7 @@ function LinkCardAction({ isVisible = true, label, ariaLabel, icon, actionRef, o
                 ref={actionRef}
                 className={classes.action}
                 variant="subtle"
-                color="charcoal.7"
+                color={semanticColor('icon.dark')}
                 size={28}
                 radius="sm"
                 aria-label={ariaLabel ?? label}

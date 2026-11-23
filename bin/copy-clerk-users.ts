@@ -139,7 +139,7 @@ async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, con
     const existingEmails = config.skipExisting ? await getExistingUserEmails(targetClerk) : new Set<string>()
     console.log(`  Found ${existingEmails.size} existing users in target`)
 
-    const protectedTestEmails = getProtectedTestEmails()
+    const protectedTestEmails = getProtectedTestEmails(process.env)
     console.log(`  Skipping test users (except ${protectedTestEmails.size} protected seeded accounts)\n`)
 
     const pageSize = 100

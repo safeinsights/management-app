@@ -7,7 +7,7 @@ import {
     initialResubmitNoteValue,
     resubmitNoteSchema,
     type ResubmitNoteValue,
-} from '@/app/[orgSlug]/study/[studyId]/edit-and-resubmit/schema'
+} from '@/schema/resubmission-note'
 import { ResubmissionNoteSection } from './resubmission-note-section'
 import type { ResubmissionNoteAutosaveStatus } from './resubmission-note-card'
 import { overCharacterLimitError } from '@/lib/field-limits'

@@ -397,7 +397,7 @@ function ResearchDetailsEditForm({
 
                 <div>
                     <FormFieldLabel label="Detailed publications URL" required inputId="detailedPublicationsUrl" />
-                    <Text size="sm" mb={6}>
+                    <Text size="sm" mb="xs">
                         Provide a digital link where your complete and most recent publications are listed (e.g., Google
                         Scholar, LinkedIn, personal website, or resume).
                     </Text>
@@ -410,7 +410,7 @@ function ResearchDetailsEditForm({
 
                 <div>
                     <FormFieldLabel label="Featured publications URLs" inputId="featured0" />
-                    <Text size="sm" mb={6}>
+                    <Text size="sm" mb="xs">
                         Share the URL for two of your most relevant publications, if available. If you do not have any
                         publications yet, please share publications from your current research lab that closely
                         represent the work you want to do.
@@ -455,7 +455,7 @@ function ResearchDetailsDisplay({ defaults }: { defaults: ResearchDetailsValues 
     return (
         <Stack gap="md">
             <DisplayField label="Research interests">
-                <Group gap="xs" mt={6}>
+                <Group gap="xs" mt="xs">
                     {interestPills}
                 </Group>
             </DisplayField>

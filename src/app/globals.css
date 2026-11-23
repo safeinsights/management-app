@@ -4,6 +4,12 @@
     outline: none;
 }
 
+/* Next's announcer reads the title before the router commits it and falls back to the H1;
+   RouteAnnouncer speaks instead (OTTER-823). */
+next-route-announcer {
+    display: none;
+}
+
 .pi-symbol {
     position: fixed;
     bottom: 0px;
@@ -33,7 +39,95 @@
     display: block;
 }
 
-/* EditableText (Lexical) formatting classes */
+/* Shared rules Mantine's style props cannot express. Reach for these before adding a CSS module. */
+.pre-wrap {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.clip {
+    overflow: hidden;
+}
+
+.invisible {
+    visibility: hidden;
+}
+
+/* Off screen until something inside takes keyboard focus: the keyboard route to an action that mouse
+   users reach another way. */
+.visually-hidden-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Mantine only fades a Scroller control out, which leaves screen readers announcing a dead button. */
+.mantine-Scroller-control[data-hidden] {
+    visibility: hidden;
+}
+
+/* Mantine wraps all toasts in one unclassed transition div, which a theme style on the Notifications
+   root cannot reach. Toasts are in raise order, so reversing puts the newest on top (OTTER-840). */
+.mantine-Notifications-root > div {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--mantine-spacing-xs);
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+/* A layer over interactive content: presses fall through to whatever sits underneath. */
+.click-through {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Hides rows scrolling through the gap above a pinned table header; the table's overflow clip hides it at
+   rest. On each th, not thead: a box in thead becomes an anonymous first row that sets fixed-layout widths. */
+thead[data-sticky] > tr > th::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: calc(var(--table-sticky-header-offset) - var(--app-shell-header-offset, 0rem));
+    background-color: var(--si-color-surface-raised);
+}
+
+/* A quarter-turn anticlockwise while data-rotated is set, or clockwise when it is 'down', e.g. a disclosure chevron. */
+.rotatable {
+    transition: transform 200ms ease;
+}
+
+.rotatable[data-rotated] {
+    transform: rotate(-90deg);
+}
+
+.rotatable[data-rotated='down'] {
+    transform: rotate(90deg);
+}
+
+/* Figma icon/light-default, darkening to icon/light-hover. */
+.icon-light {
+    color: var(--si-color-icon-light);
+}
+
+.icon-light:hover {
+    color: var(--si-color-icon-light-hover);
+}
+
+/* Lexical formatting classes, named by lexicalTheme in editable-text/config.ts */
 .editable-text-paragraph {
     margin: 0;
 }
@@ -106,39 +200,39 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* Collaborative editor focus border */
+/* Rich-text editor frame around EditorSurface */
 .collaborative-editor-container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid var(--mantine-color-gray-4);
     transition: border-color 0.15s;
     border-radius: var(--mantine-radius-sm);
+}
+
+.collaborative-editor-container[data-resizable] {
+    resize: vertical;
 }
 
 .collaborative-editor-container:focus-within {
     border-color: var(--mantine-color-blue-filled);
 }
 
-/* Yjs collaboration cursor styles */
-.yjs-cursor {
-    position: relative;
-    border-left: 2px solid;
-    margin-left: -1px;
-    margin-right: -1px;
-    pointer-events: none;
-    word-break: normal;
+/* After :focus-within, so an invalid field keeps its error border while focused. */
+.collaborative-editor-container[data-error] {
+    border-color: var(--mantine-color-error);
 }
 
-.yjs-cursor > div {
-    position: absolute;
-    top: -1.2em;
-    left: -1px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    line-height: 1;
-    padding: 2px 4px;
-    border-radius: 3px 3px 3px 0;
-    white-space: nowrap;
-    color: var(--si-color-text-white);
-    pointer-events: none;
+/* Absorbs the slack when the frame is dragged taller, so the measured content stays its own size. */
+.editable-text-scroll {
+    position: relative;
+    flex: 1;
+    overflow: auto;
+}
+
+/* The frame shows focus on its border instead. */
+.editable-text-content {
+    outline: none;
 }
 
 /* Stop scroll-into-view clear of the fixed header and of the focused screens' fixed footer, so
@@ -147,4 +241,9 @@ button:disabled {
 html {
     scroll-padding-top: var(--app-shell-header-offset, 0px);
     scroll-padding-bottom: var(--app-shell-footer-height, 0px);
+}
+
+/* Legal documents: a code block wraps instead of widening its box (OTTER-836). */
+.mantine-Typography-root[data-variant='legal'] pre {
+    white-space: pre-wrap;
 }

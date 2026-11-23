@@ -3,7 +3,8 @@
 import { listStudyFiles } from '@/server/workspace-files'
 import { getMicrovmConfig } from '@/server/microvm/config'
 import { ensureMicrovm, getMicrovmLaunchStatus } from '@/server/microvm/workspaces'
-import { Action, z } from './action'
+import { Action, ActionFailure, z } from './action'
+import { withStudySubject } from './study-subject'
 import {
     copyStarterCodeIntoWorkspace,
     createUserAndWorkspace,
@@ -12,12 +13,12 @@ import {
 } from '../coder'
 import { CODER_DISABLED } from '@/server/config'
 import {
-    getInfoForStudyId,
     latestActivityPerWorkspaceFile,
     latestCodeSubmissionAt,
+    latestJobQuery,
     latestSubmittedJobForStudy,
 } from '@/server/db/queries'
-import { ensureRoundJobForLaunch, getOrCreateCurrentRoundJob } from '@/server/db/mutations'
+import { ensureRoundJobForLaunch, markStudyOpened } from '@/server/db/mutations'
 import { copyStarterCodeIntoDevWorkspace, initializeDevWorkspaceFiles } from '@/server/dev'
 import type { WorkspaceFileActivitySummary, WorkspaceFileInfo } from '@/hooks/use-workspace-files'
 import { type DBExecutor } from '@/database'
@@ -42,7 +43,7 @@ async function workspaceFileActivityEntries(studyId: string, before?: Date) {
 // workspace. Bounded by the job's submission so it describes the files the table shows.
 export const listWorkspaceFileActivityAction = new Action('listWorkspaceFileActivityAction', {})
     .params(z.object({ studyId: z.string(), jobId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId, jobId } }) => {
         const submittedAt = await latestCodeSubmissionAt(studyId, jobId)
@@ -52,7 +53,7 @@ export const listWorkspaceFileActivityAction = new Action('listWorkspaceFileActi
 
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
         const activityByFile = new Map(await workspaceFileActivityEntries(studyId))
@@ -82,7 +83,7 @@ const requireIdeOwner = async (db: DBExecutor, studyId: string, userId: string) 
         .where('id', '=', studyId)
         .executeTakeFirstOrThrow()
 
-    if (ideOwnerId !== userId) throw new Error('The IDE for this study is locked to another researcher')
+    if (ideOwnerId !== userId) throw new ActionFailure('The IDE for this study is locked to another researcher')
 }
 
 // Kept out of the polled status action: the baseline reset and build POST must run once per
@@ -93,7 +94,7 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
             studyId: z.string().nonempty(),
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     // A middleware, not an in-handler check: the claim below is irreversible, so a closed round has
     // to be refused before ideOwnerId is written.
@@ -126,7 +127,9 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
         await requireIdeOwner(db, studyId, session.user.id)
 
         const hasWorkspaceFiles = await studyHasWorkspaceFiles(studyId)
-        await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+        const roundJob = await ensureRoundJobForLaunch(db, studyId, { hasWorkspaceFiles })
+        // Only opening a round moves the badges; a relaunch from the table pencil must not clear what others changed.
+        if (roundJob.created) await markStudyOpened(db, { studyId, userId: session.user.id })
         if (CODER_DISABLED) {
             return {
                 success: true,
@@ -137,27 +140,20 @@ export const ensureWorkspaceAction = new Action('ensureWorkspaceAction', { perfo
     })
 
 /**
- * OTTER-693: puts the Data Partner's template in the workspace before anyone launches an IDE, so
- * the Submit code page opens on a starred Main.{x} row rather than the empty state.
- *
- * Copies only into an empty workspace, which is what keeps it from resurrecting a template the
- * researcher replaced — and they cannot empty it by deleting the template, since a main file cannot
- * be deleted. The round job is ensured either way: the Template badge and the submit gate both
- * compare file mtimes against that baseline.
+ * OTTER-693: copies the Data Partner's template into an empty workspace and stars it, so /code
+ * opens on Main.{x}. Empty-only, so a replaced template never comes back. Opens no round job: a job
+ * reads as "Code draft", which only a launch or upload may start (OTTER-698).
  */
 export const ensureStarterCodePreloadAction = new Action('ensureStarterCodePreloadAction', {
     performsMutations: true,
 })
     .params(z.object({ studyId: z.string().nonempty() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
-        // Skipped rather than refused: the page calls this on every load, and getOrCreateCurrentRoundJob
-        // would otherwise mint a round job for a closed round as a side effect of merely looking.
+        // Skipped, not refused: the page calls this on every load, view-only visits included.
         const state = await studyCodeStateFor(db, studyId)
         if (!state || !canResearcherChangeCodeFiles(state)) return { preloaded: false }
-
-        await getOrCreateCurrentRoundJob(db, studyId)
 
         const templateName = CODER_DISABLED
             ? await copyStarterCodeIntoDevWorkspace(studyId, db)
@@ -191,7 +187,7 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
             cursors: cursorsSchema,
         }),
     )
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId, cursors }, session }): Promise<WorkspaceLaunchStatus> => {
         if (!session) throw new Error('Unauthorized')
@@ -220,6 +216,7 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
                 ready: true,
                 failed: false,
                 reason: 'dev workspace ready',
+                failureMessage: null,
                 cursors: { build: null, agent: null },
                 url: `https://coder.dev.example.com/workspace/${studyId}`,
             }
@@ -229,11 +226,11 @@ export const getWorkspaceLaunchStatusAction = new Action('getWorkspaceLaunchStat
 
 export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
-    .handler(async ({ params: { studyId } }) => {
-        const { fetchLatestCodeEnvForStudyId } = await import('@/server/db/queries')
-        const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
+    .handler(async ({ params: { studyId }, db }) => {
+        const { fetchCodeEnvForStudyId } = await import('@/server/db/queries')
+        const codeEnv = await fetchCodeEnvForStudyId(studyId, db)
         const fileNames = codeEnv.starterCodeFileNames ?? []
         if (fileNames.length === 0) return { starterFiles: [], templateFileName: null }
 
@@ -258,7 +255,7 @@ export const getStarterCodeInfoAction = new Action('getStarterCodeInfoAction', {
 
 export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId } }) => {
         // Anchored on the last submission, not the round job's createdAt: a reused job's createdAt
@@ -277,12 +274,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
             }
         }
 
-        const studyJob = await db
-            .selectFrom('studyJob')
-            .select(['createdAt'])
-            .where('studyId', '=', studyId)
-            .orderBy('id', 'desc')
-            .executeTakeFirst()
+        const studyJob = await latestJobQuery(db, studyId).select('studyJob.createdAt').executeTakeFirst()
 
         if (!studyJob) return null
 
@@ -300,7 +292,7 @@ export const getLastSubmissionInfoAction = new Action('getLastSubmissionInfoActi
  */
 export const getIdeOwnerAction = new Action('getIdeOwnerAction', {})
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .middleware(withStudySubject)
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ db, params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')

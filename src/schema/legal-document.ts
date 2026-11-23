@@ -15,16 +15,6 @@ export const legalDocumentTypeLabels: Record<LegalDocumentType, string> = {
     ROPA: 'Research Organization Participation Agreement',
 }
 
-// Tabs, panel headings and empty states name a collection of documents; the modals and the admin
-// screens name one. The three agreement types pluralise with a bare 's'; tos/pn are already collective.
-export const legalDocumentCollectionLabels: Record<LegalDocumentType, string> = {
-    TOS: legalDocumentTypeLabels.TOS,
-    PN: legalDocumentTypeLabels.PN,
-    SLA: `${legalDocumentTypeLabels.SLA}s`,
-    DOPA: `${legalDocumentTypeLabels.DOPA}s`,
-    ROPA: `${legalDocumentTypeLabels.ROPA}s`,
-}
-
 export const enforcedLegalDocumentTypes = ['TOS', 'PN', 'ROPA', 'DOPA'] as const
 export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[number]
 
@@ -32,6 +22,9 @@ export type EnforcedLegalDocumentType = (typeof enforcedLegalDocumentTypes)[numb
 // because they are less gated/more visible permissions wise.
 export const globalLegalDocumentTypes = ['TOS', 'PN'] as const
 export type GlobalLegalDocumentType = (typeof globalLegalDocumentTypes)[number]
+
+export const isGlobalLegalDocumentType = (type: LegalDocumentType): type is GlobalLegalDocumentType =>
+    (globalLegalDocumentTypes as readonly LegalDocumentType[]).includes(type)
 
 // How a resolved document renders: markdown is inlined, a pdf is a signed-url link. A tagged union,
 // not two optional fields, so exactly one payload is representable.
@@ -55,6 +48,16 @@ export type PendingLegalDocument = ResolvedLegalDocument & {
     /** The org an org-scoped ropa/dopa binds, for the copy to name; null for global tos/pn. */
     orgName: string | null
 }
+
+// tos/pn at the app-wide gate link to /legal instead of being shown, so no body is read for them.
+export type PendingGlobalAcknowledgement = {
+    type: GlobalLegalDocumentType
+    versionId: string
+    isUpdate: boolean
+}
+
+// One gate prompt's worth: outstanding tos/pn together, or a single ropa/dopa with its body.
+export type PendingAcknowledgement = PendingGlobalAcknowledgement | PendingLegalDocument
 
 const legalDocumentFormatValues = ['markdown', 'pdf'] as const satisfies readonly LegalDocumentFormat[]
 
@@ -114,7 +117,11 @@ const refineScope = ({ type, orgId, studyId }: z.infer<typeof scopeSchema>, ctx:
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} must belong to an organization` })
     }
     if (requiresStudy && !studyId) {
-        ctx.addIssue({ code: 'custom', path: ['studyId'], message: 'study agreement must belong to a study' })
+        ctx.addIssue({
+            code: 'custom',
+            path: ['studyId'],
+            message: `${legalDocumentTypeLabels.SLA} must belong to a study`,
+        })
     }
     if (!requiresOrg && orgId) {
         ctx.addIssue({ code: 'custom', path: ['orgId'], message: `${type} cannot be scoped to an organization` })
@@ -176,12 +183,12 @@ export const publishLegalDocumentVersionSchema = z.object({
 export const legalDocumentVersionParams = z.object({
     // A uuid because scopeFromVersionId queries on it before any handler runs, so a malformed id
     // would 500 there rather than failing closed.
-    versionId: z.string().uuid(),
+    versionId: z.uuid(),
 })
 
 export const studyAgreementStatusSchema = z.object({
     // As above: scopeFromStudyId queries on this before the handler runs.
-    studyId: z.string().uuid(),
+    studyId: z.uuid(),
 })
 
 // One shape for both the blocking modal and the "being prepared" notice, so they cannot disagree.
@@ -228,23 +235,17 @@ const sortDirection = z.enum(['asc', 'desc'])
 // One enum per table rather than a shared union: an accessor a query does not select would
 // otherwise reach its ORDER BY and throw.
 export const orgStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle']),
     direction: sortDirection,
 })
 
 export const userStudyAgreementSort = z.object({
-    columnAccessor: z.enum(['studyId', 'studyTitle', 'signedAt', 'ackedAt']),
-    direction: sortDirection,
-})
-
-export const userParticipationAgreementSort = z.object({
-    columnAccessor: z.enum(['orgName', 'signedAt', 'ackedAt']),
+    columnAccessor: z.enum(['studyId', 'studyTitle']),
     direction: sortDirection,
 })
 
 export type OrgStudyAgreementSort = z.infer<typeof orgStudyAgreementSort>
 export type UserStudyAgreementSort = z.infer<typeof userStudyAgreementSort>
-export type UserParticipationAgreementSort = z.infer<typeof userParticipationAgreementSort>
 
 export const orgStudyAgreementParams = orgLegalParams.extend({ sort: orgStudyAgreementSort })
 export const userStudyAgreementParams = z.object({ sort: userStudyAgreementSort })
@@ -255,10 +256,6 @@ export const inviteParams = z.object({
 
 export const participationAgreementTypeParams = z.object({
     type: participationAgreementTypeSchema,
-})
-
-export const userParticipationAgreementParams = participationAgreementTypeParams.extend({
-    sort: userParticipationAgreementSort,
 })
 
 export const globalDocumentTypeParams = z.object({
@@ -307,12 +304,11 @@ export const legalDocumentQueryKeys = {
     orgParticipationAgreement: (orgSlug: string) => ['orgParticipationAgreement', orgSlug] as const,
     userStudyAgreements: (sort: UserStudyAgreementSort) =>
         ['userStudyAgreements', sort.columnAccessor, sort.direction] as const,
-    userParticipationAgreements: (type: ParticipationAgreementType, sort: UserParticipationAgreementSort) =>
-        ['userParticipationAgreements', type, sort.columnAccessor, sort.direction] as const,
+    userParticipationAgreements: (type: ParticipationAgreementType) => ['userParticipationAgreements', type] as const,
     userGlobalDocument: (type: GlobalLegalDocumentType) => ['userGlobalDocument', type] as const,
 }
 
-// Prefixes rather than whole keys: each of these tables carries its sort in the key, and an
+// Prefixes rather than whole keys: the study tables carry their sort in the key, and an
 // acknowledgement changes what every sort of it shows. React Query matches a key by prefix, so one
 // entry per table covers them all.
 export const agreementTableQueryKeyPrefixes = [

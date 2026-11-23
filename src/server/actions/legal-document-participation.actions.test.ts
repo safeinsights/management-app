@@ -9,12 +9,11 @@ import {
     resetLegalDocuments,
     testUploadFile,
 } from '@/tests/unit.helpers'
+import { createLegalDocumentDraftAction, publishLegalDocumentVersionAction } from './legal-document.actions'
 import {
-    createLegalDocumentDraftAction,
     fetchParticipationAgreementsAction,
     fetchParticipationSignatoriesAction,
-    publishLegalDocumentVersionAction,
-} from './legal-document.actions'
+} from './participation-agreement.actions'
 import type { ParticipationAgreementType } from '@/schema/legal-document'
 
 vi.mock('@/server/aws', async (importOriginal) => {

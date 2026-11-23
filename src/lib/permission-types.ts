@@ -63,7 +63,12 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     // Its own subject rather than `update Org`: designating a test lab exempts that lab's future
     // studies from study agreements, and must not ride along with renaming the org.
-    | Ability<'TestLab', 'view' | 'designate', { orgType?: 'enclave' | 'lab'; orgId?: UUID; orgSlug?: string }>
+    // No rule grants 'undesignate': only SI admins reach it, through `manage all`.
+    | Ability<
+          'TestLab',
+          'view' | 'designate' | 'undesignate',
+          { orgType?: 'enclave' | 'lab'; orgId?: UUID; orgSlug?: string }
+      >
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
     // orgId/studyId carry the DOCUMENT's scope. isGlobal and audienceOrgIds are derived per

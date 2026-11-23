@@ -8,7 +8,7 @@ import {
     legalDocumentTypeLabels,
     type ParticipationAgreementType,
 } from '@/schema/legal-document'
-import { fetchOrgParticipationAgreementAction } from '@/server/actions/legal-document.actions'
+import { fetchOrgParticipationAgreementAction } from '@/server/actions/org-legal.actions'
 import { ErrorAlert } from '@/components/errors'
 import { LegalPanel } from '@/components/legal/legal-panel'
 import { LegalDocumentPdfLink } from '@/components/legal/pdf-link'
