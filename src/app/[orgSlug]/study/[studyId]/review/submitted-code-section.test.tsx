@@ -315,7 +315,7 @@ describe('SubmittedCodeSection — AI summary', () => {
         ['adds no tab stop when the summary fits', 0, null],
     ])('%s', async (_label, scrollHeight, tabIndex) => {
         vi.stubGlobal('ResizeObserver', ImmediateResizeObserver)
-        const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
+        vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
         try {
             await renderSection(fixture)
             await userEvent.setup().click(screen.getByTestId('ai-summary-toggle'))
@@ -326,7 +326,7 @@ describe('SubmittedCodeSection — AI summary', () => {
             expect(viewport).toContainElement(screen.getByTestId('ai-summary-body'))
             await waitFor(() => expect(viewport.getAttribute('tabindex')).toBe(tabIndex))
         } finally {
-            scrollHeightSpy.mockRestore()
+            // mockReset does not undo a stubbed global, and the rest of the file expects happy-dom's observer.
             vi.unstubAllGlobals()
         }
     })
