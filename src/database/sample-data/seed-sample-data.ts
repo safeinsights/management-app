@@ -3,12 +3,14 @@ import type { DB } from '@/database/types'
 import { openStudyJob, writeJobStatus } from '../job-status-writer'
 import { buildStudyRows, type BuildContext, type EncryptedArtifact, type StudyRows } from './build-rows'
 import { encryptFiles, orgRecipients, type Recipient } from './encrypt'
-import { personIds, seedExtras } from './extras'
+import { personIds, seedCodeEnvScans, seedExtras } from './extras'
 import { resolveRefs, resolveTargetRefs } from './refs'
 import { deleteSampleStudy } from './reset'
+import { studyPath } from './paths'
 import type { Upload, Uploader } from './s3'
 import type { StudySpec } from './spec'
 import { SAMPLE_STUDIES } from './studies'
+import { studyId } from './ids'
 
 // rowsOnly: write studies that have files even with no uploader. Unit tests have no bucket.
 // fixtureFallback: with no Mars U org, seed the fixed-id openstax test orgs instead. Only where
@@ -155,10 +157,29 @@ async function partyUserIds(db: Kysely<DB>, orgIds: string[]) {
     return rows.map((row) => row.userId)
 }
 
+// After the commit, so a study that fails to rebuild keeps the files its last rows point to.
+async function pruneStudyFolder(
+    uploader: Uploader,
+    orgSlug: string,
+    spec: StudySpec,
+    uploads: Upload[],
+    log: (line: string) => void,
+) {
+    const folder = studyPath({ orgSlug, studyId: studyId(spec.n) })
+    try {
+        await uploader.prune(
+            folder,
+            uploads.map((upload) => upload.path),
+        )
+    } catch (error) {
+        log(`sample-data: #${spec.n} "${spec.title}" written, but ${folder} not cleared: ${String(error)}`)
+    }
+}
+
 async function resolveSeedRefs(db: Kysely<DB>, fixtureFallback: boolean) {
     const target = await resolveTargetRefs(db)
-    if ('refs' in target || !fixtureFallback) return target
-    return await resolveRefs(db)
+    if ('refs' in target || !fixtureFallback) return { ...target, fixture: false }
+    return { ...(await resolveRefs(db)), fixture: true }
 }
 
 // Re-entrant: each run puts every sample study back to its spec, dated from now. Anything done
@@ -175,6 +196,8 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
     const { refs } = resolved
 
     await seedExtras(db, refs)
+    // The scans match code envs by the openstax slug. Where Mars U is the target, openstax is a real Data Partner.
+    if (resolved.fixture) await seedCodeEnvScans(db)
 
     const ctx: BuildContext = {
         now: options.now ?? new Date(),
@@ -203,6 +226,7 @@ export async function seedSampleData(db: Kysely<DB>, options: SeedOptions): Prom
             // eslint-disable-next-line no-restricted-syntax -- runs in the migrator, outside any request context
             await db.transaction().execute((trx) => replaceStudy(trx, rows, encrypted))
             summary.written++
+            if (options.uploader) await pruneStudyFolder(options.uploader, refs.enclave.slug, spec, uploads, log)
         } catch (error) {
             summary.failed++
             log(`sample-data: #${spec.n} "${spec.title}" not written: ${String(error)}`)

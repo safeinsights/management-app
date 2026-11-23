@@ -1,7 +1,7 @@
 import { actionResult, beforeAll, db, describe, expect, it, mockClerkSession } from '@/tests/unit.helpers'
 import { fetchStudiesForOrgAction } from '@/server/actions/study-dashboard.actions'
 import { isStudyUnread, rowStudyState } from '@/lib/study-screen/dashboard-raw-state'
-import { TEST_USERS } from '../seeds/1743608138837_test_users'
+import { TEST_CODE_ENVS, TEST_USERS } from '../seeds/1743608138837_test_users'
 import type { StudyRow } from '@/lib/study-screen/dashboard-row.types'
 import { resolvePillId } from '@/lib/study-screen'
 import { DEFAULT_REF_IDS, SAMPLE_TARGET } from './refs'
@@ -15,6 +15,37 @@ const quiet = () => {}
 const SPECS = SAMPLE_STUDIES.map((s) => ({ ...s, n: s.n + 100 }))
 
 const testUserId = (key: string) => TEST_USERS.find((u) => u.key === key)!.id
+
+const insertMarsU = () =>
+    db
+        .insertInto('org')
+        .values([
+            { slug: SAMPLE_TARGET.enclaveSlug, name: 'Mars University', email: 'mars@example.com', type: 'enclave' },
+            { slug: SAMPLE_TARGET.labSlug, name: 'Mars University Lab', email: 'mars@example.com', type: 'lab' },
+        ])
+        .returning('id')
+        .execute()
+
+// Leaves the openstax code envs of the test-users seed unscanned, and returns their ids.
+const unscanOpenstaxEnvs = async () => {
+    const envs = await db
+        .selectFrom('orgCodeEnv')
+        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
+        .select('orgCodeEnv.id')
+        .where('org.slug', '=', 'openstax')
+        .where(
+            'orgCodeEnv.name',
+            'in',
+            TEST_CODE_ENVS.map((env) => env.name),
+        )
+        .execute()
+    const ids = envs.map((env) => env.id)
+    await db.deleteFrom('codeScan').where('codeEnvId', 'in', ids).execute()
+    return ids
+}
+
+const scansFor = (codeEnvIds: string[]) =>
+    db.selectFrom('codeScan').select('codeEnvId').where('codeEnvId', 'in', codeEnvIds).execute()
 
 const dashboardRows = async (
     role: 'researcher' | 'reviewer',
@@ -111,6 +142,7 @@ describe('seedSampleData', () => {
             put: async () => {
                 throw new Error('S3 is having a day')
             },
+            prune: async () => {},
         }
         const summary = await seedSampleData(db, {
             uploader: failing,
@@ -164,6 +196,7 @@ describe('seedSampleData', () => {
             put: async () => {
                 throw new Error('S3 is having a day')
             },
+            prune: async () => {},
         }
         const summary = await seedSampleData(db, {
             uploader: failing,
@@ -176,6 +209,52 @@ describe('seedSampleData', () => {
         expect(
             await db.selectFrom('study').select('id').where('id', '=', studyId(250)).executeTakeFirst(),
         ).toBeUndefined()
+    })
+
+    it('clears the files QA added to a study folder, after its rows are written', async () => {
+        const spec = { ...SAMPLE_STUDIES[11], n: 252, title: 'Prune probe' }
+        const put: string[] = []
+        const pruned: { folder: string; keep: string[] }[] = []
+        const recording = {
+            put: async ({ path }: { path: string }) => {
+                put.push(path)
+            },
+            prune: async (folder: string, keep: string[]) => {
+                pruned.push({ folder, keep })
+            },
+        }
+
+        const summary = await seedSampleData(db, {
+            uploader: recording,
+            fixtureFallback: true,
+            specs: [spec],
+            log: quiet,
+        })
+
+        expect(summary).toMatchObject({ written: 1, failed: 0 })
+        expect(put.length).toBeGreaterThan(0)
+        expect(pruned).toEqual([{ folder: `studies/openstax/${studyId(252)}`, keep: put }])
+    })
+
+    it('counts a study as written when only clearing its folder fails', async () => {
+        const spec = { ...SAMPLE_STUDIES[11], n: 253, title: 'Prune failure probe' }
+        const lines: string[] = []
+        const pruneFails = {
+            put: async () => {},
+            prune: async () => {
+                throw new Error('AccessDenied')
+            },
+        }
+
+        const summary = await seedSampleData(db, {
+            uploader: pruneFails,
+            fixtureFallback: true,
+            specs: [spec],
+            log: (line) => lines.push(line),
+        })
+
+        expect(summary).toMatchObject({ written: 1, failed: 0 })
+        expect(lines.some((line) => line.includes('not cleared') && line.includes('AccessDenied'))).toBe(true)
     })
 })
 
@@ -193,19 +272,7 @@ describe('seedSampleData target', () => {
     })
 
     it('writes to Mars U when it exists, even with the openstax fixtures allowed', async () => {
-        const [enclave, lab] = await db
-            .insertInto('org')
-            .values([
-                {
-                    slug: SAMPLE_TARGET.enclaveSlug,
-                    name: 'Mars University',
-                    email: 'mars@example.com',
-                    type: 'enclave',
-                },
-                { slug: SAMPLE_TARGET.labSlug, name: 'Mars University Lab', email: 'mars@example.com', type: 'lab' },
-            ])
-            .returning('id')
-            .execute()
+        const [enclave, lab] = await insertMarsU()
 
         const summary = await seedSampleData(db, {
             uploader: null,
@@ -226,5 +293,23 @@ describe('seedSampleData target', () => {
             submittedByOrgId: lab.id,
             researcherId: testUserId('qa-researcher'),
         })
+    })
+
+    it('does not mark the openstax code envs scanned when Mars U is the target', async () => {
+        const envIds = await unscanOpenstaxEnvs()
+        await insertMarsU()
+
+        await seedSampleData(db, { uploader: null, rowsOnly: true, fixtureFallback: true, specs: [spec], log: quiet })
+
+        expect(envIds.length).toBeGreaterThan(0)
+        expect(await scansFor(envIds)).toEqual([])
+    })
+
+    it('marks the openstax code envs scanned when it falls back to the openstax fixtures', async () => {
+        const envIds = await unscanOpenstaxEnvs()
+
+        await seedSampleData(db, { uploader: null, rowsOnly: true, fixtureFallback: true, specs: [spec], log: quiet })
+
+        expect(await scansFor(envIds)).toHaveLength(envIds.length)
     })
 })
