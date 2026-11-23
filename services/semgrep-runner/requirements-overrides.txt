@@ -1,2 +1,11 @@
-# Semgrep pins mcp==1.29.0 (CVE-2026-115563, fixed in 1.30.0). Remove once a Semgrep release moves its pin.
+# Semgrep pins these below their fixed versions. Remove each once a Semgrep release moves its pin.
+# mcp: CVE-2026-115563, CVE-2026-59951, CVE-2026-116684, CVE-2026-116685, CVE-2026-116686
 mcp==1.30.0
+# opentelemetry-api: CVE-2026-114603, CVE-2026-126360. The OpenTelemetry packages move together.
+opentelemetry-api==1.45.2
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp-proto-http==1.45.2
+opentelemetry-instrumentation-requests==0.66b2
+opentelemetry-instrumentation-threading==0.66b2
+# wcmatch: CVE-2026-132276
+wcmatch==11.2
