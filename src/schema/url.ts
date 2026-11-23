@@ -9,7 +9,8 @@ export const httpUrl = (label: string) =>
         .string()
         .trim()
         .min(1, `${label} is a required field.`)
-        .url(`Please enter a valid URL (e.g., must start with http:// or https://).`)
+        // A check, not a bare `z.url()`, so the trim and the required test still run first.
+        .check(z.url(`Please enter a valid URL (e.g., must start with http:// or https://).`))
         .refine(isHttpUrl, {
             error: `Please enter a valid URL (e.g., must start with http:// or https://).`,
         })

@@ -16,9 +16,9 @@ export const PROGRAMMING_LANGUAGE_REQUIRED_ERROR = 'Select a programming languag
 export const studyTitleField = (blankError: string) =>
     z.string().superRefine((val, ctx) => {
         if (val.trim().length === 0) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: blankError })
+            ctx.addIssue({ code: 'custom', message: blankError })
         } else if (isTitleOverLimit(val)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: STUDY_TITLE_OVER_LIMIT_ERROR })
+            ctx.addIssue({ code: 'custom', message: STUDY_TITLE_OVER_LIMIT_ERROR })
         }
     })
 
@@ -35,7 +35,7 @@ export const step1FieldsSchema = step1FieldsObject.superRefine((values, ctx) => 
     // unconditional rule would flag a field that is not on the page (OTTER-647).
     if (values.orgSlug && values.language === null) {
         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             path: ['language'],
             message: PROGRAMMING_LANGUAGE_REQUIRED_ERROR,
         })

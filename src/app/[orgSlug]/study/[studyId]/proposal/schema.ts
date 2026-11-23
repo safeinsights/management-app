@@ -32,12 +32,12 @@ export const proposalOverLimitError = (fieldTitle: string, maxCharacters: number
 const lexicalField = (fieldTitle: string, requiredError: string | null, maxCharacters: number) =>
     z.string().superRefine((val, ctx) => {
         if (requiredError && !hasLexicalContent(val)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: requiredError })
+            ctx.addIssue({ code: 'custom', message: requiredError })
             return
         }
         if (isLexicalOverLimit(val, maxCharacters)) {
             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: 'custom',
                 message: proposalOverLimitError(fieldTitle, maxCharacters),
             })
         }
@@ -51,7 +51,7 @@ export const isLinkedPiUserId = (piUserId: string | undefined) => z.uuid().safeP
 // attaches to piName because that is the path the Select displays.
 const validateLinkedPi = (data: { piName: string; piUserId: string }, ctx: z.RefinementCtx) => {
     if (data.piName && !isLinkedPiUserId(data.piUserId)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: PI_UNLINKED_ERROR, path: ['piName'] })
+        ctx.addIssue({ code: 'custom', message: PI_UNLINKED_ERROR, path: ['piName'] })
     }
 }
 
