@@ -42,6 +42,8 @@ export type LegalDocumentFormat = 'markdown' | 'pdf'
 
 export type LegalDocumentType = 'DOPA' | 'PN' | 'ROPA' | 'SLA' | 'TOS'
 
+export type MicrovmImageStatus = 'IMAGE-FAILED' | 'IMAGE-PENDING' | 'IMAGE-READY' | 'IMAGE-RUNNING'
+
 export type OrgType = 'enclave' | 'lab'
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS-CLARIFICATION' | 'REJECT'
@@ -157,6 +159,19 @@ export interface LegalDocumentVersion {
     publishedBy: string | null
     signedAt: string | null
     versionNumber: number | null
+}
+
+export interface MicrovmImage {
+    attemptedLayerHash: string | null
+    createdAt: Generated<Timestamp>
+    error: string | null
+    id: Generated<string>
+    imageArn: string | null
+    imageVersion: string | null
+    layerHash: string | null
+    status: MicrovmImageStatus
+    updatedAt: Generated<Timestamp>
+    url: string
 }
 
 export interface Org {
@@ -423,6 +438,7 @@ export interface DB {
     legalDocument: LegalDocument
     legalDocumentAcknowledgement: LegalDocumentAcknowledgement
     legalDocumentVersion: LegalDocumentVersion
+    microvmImage: MicrovmImage
     org: Org
     orgCodeEnv: OrgCodeEnv
     orgDataSource: OrgDataSource
