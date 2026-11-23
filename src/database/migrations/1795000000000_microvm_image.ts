@@ -7,7 +7,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 
     // One row for each code environment url, not for each code environment: environments and orgs
-    // with the same url share one research IDE image.
+    // with the same url share one run environment image.
     await db.schema
         .createTable('microvm_image')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))

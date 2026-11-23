@@ -230,7 +230,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
             )
         }
 
-        // The research IDE runs on an image built from this url; see src/server/microvm/images.ts.
+        // The study runner, where its code runs in the IDE, starts from an image built from this url; see src/server/microvm/images.ts.
         await requestImageBuild(db, newCodeEnv.url)
 
         return newCodeEnv

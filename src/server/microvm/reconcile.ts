@@ -32,19 +32,24 @@ export async function urlsInUse(db: DBExecutor): Promise<string[]> {
     return [...new Set(urls)]
 }
 
-async function deleteImage(config: MicrovmConfig, url: string): Promise<void> {
-    try {
-        await new LambdaMicrovmsClient().send(
-            new DeleteMicrovmImageCommand({ imageIdentifier: `${config.imageNamePrefix}${urlHash(url)}` }),
-        )
-    } catch (e) {
-        if (!(e instanceof ResourceNotFoundException)) throw e
+type UnusedImage = { url: string; imageArn: string | null; layerHash: string | null }
+
+async function deleteImage(config: MicrovmConfig, image: UnusedImage): Promise<void> {
+    if (image.imageArn) {
+        try {
+            // By ARN: the image API refuses a name.
+            await new LambdaMicrovmsClient().send(new DeleteMicrovmImageCommand({ imageIdentifier: image.imageArn }))
+        } catch (e) {
+            if (!(e instanceof ResourceNotFoundException)) throw e
+        }
     }
-    // A tag that is not there is reported in the response, not thrown.
+    // The copy of the org's image, and the same with the run agent on top. A tag that is not there
+    // is reported in the response, not thrown.
+    const hash = urlHash(image.url)
     await new ECRClient().send(
         new BatchDeleteImageCommand({
             repositoryName: config.baseRepositoryName,
-            imageIds: [{ imageTag: urlHash(url) }],
+            imageIds: [{ imageTag: hash }, ...(image.layerHash ? [{ imageTag: `${hash}-${image.layerHash}` }] : [])],
         }),
     )
 }
@@ -68,7 +73,10 @@ export async function reconcileImages(db: DBExecutor) {
     result.timedOut = stale.length
 
     const inUse = await urlsInUse(db)
-    const rows = await db.selectFrom('microvmImage').select(['url', 'status', 'attemptedLayerHash']).execute()
+    const rows = await db
+        .selectFrom('microvmImage')
+        .select(['url', 'status', 'attemptedLayerHash', 'imageArn', 'layerHash'])
+        .execute()
     const byUrl = new Map(rows.map((row) => [row.url, row]))
 
     let inProgress = rows.filter((row) => IN_PROGRESS_STATUSES.includes(row.status)).length
@@ -86,7 +94,7 @@ export async function reconcileImages(db: DBExecutor) {
     for (const row of rows) {
         if (used.has(row.url) || IN_PROGRESS_STATUSES.includes(row.status)) continue
         try {
-            await deleteImage(config, row.url)
+            await deleteImage(config, row)
             await db.deleteFrom('microvmImage').where('url', '=', row.url).execute()
             result.deleted++
         } catch (err) {

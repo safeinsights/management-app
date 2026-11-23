@@ -7,17 +7,17 @@ describe('ImageStatusBadge', () => {
     // No row means the IDE does not run on MicroVMs here, or no build was asked for yet.
     it('shows nothing when the url has no image row', () => {
         renderWithProviders(<ImageStatusBadge status={null} error={null} />)
-        expect(screen.queryByText(/IDE Image/)).toBeNull()
+        expect(screen.queryByText(/Run Environment/)).toBeNull()
     })
 
     it('shows that a build is in progress', () => {
         renderWithProviders(<ImageStatusBadge status="IMAGE-RUNNING" error={null} />)
-        expect(screen.getByText('Building IDE Image...')).toBeDefined()
+        expect(screen.getByText('Building Run Environment...')).toBeDefined()
     })
 
     it('shows a failed build with what the admin can do about it', () => {
         renderWithProviders(<ImageStatusBadge status="IMAGE-FAILED" error="BASE_IMAGE_UNAVAILABLE" />)
-        const badge = screen.getByText('IDE Image Failed')
+        const badge = screen.getByText('Run Environment Failed')
         expect(badge.closest('[title]')?.getAttribute('title')).toBe(imageErrorText('BASE_IMAGE_UNAVAILABLE'))
     })
 })

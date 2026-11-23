@@ -62,12 +62,13 @@ export const ScanStatusBadge: React.FC<{ name: string; status: string | null; on
     )
 }
 
-// The research IDE image built from the code environment's url. Environments with one url share it.
+// The run environment built from the code environment's url: the image a study's code runs on in
+// the IDE. Environments with one url share it.
 const IMAGE_BADGE_CONFIG: Record<MicrovmImageStatus, { color: string; label: string }> = {
-    'IMAGE-PENDING': { color: 'grey', label: 'IDE Image Pending' },
-    'IMAGE-RUNNING': { color: 'blue', label: 'Building IDE Image...' },
-    'IMAGE-READY': { color: 'green', label: 'IDE Image Ready' },
-    'IMAGE-FAILED': { color: 'red', label: 'IDE Image Failed' },
+    'IMAGE-PENDING': { color: 'grey', label: 'Run Environment Pending' },
+    'IMAGE-RUNNING': { color: 'blue', label: 'Building Run Environment...' },
+    'IMAGE-READY': { color: 'green', label: 'Run Environment Ready' },
+    'IMAGE-FAILED': { color: 'red', label: 'Run Environment Failed' },
 }
 
 // The build job sends a code and nothing else, so every sentence an admin reads is written here.
@@ -77,9 +78,9 @@ export function imageErrorText(error: string | null): string {
         return 'The image could not be read from the registry. Make sure that the URL is correct and that the image exists.'
     }
     if (code === 'UNSUPPORTED_PLATFORM') {
-        return `The image is for ${detail}. The research IDE needs a linux/amd64 image.`
+        return `The image is for ${detail}. The run environment needs a linux/amd64 image.`
     }
-    return 'The IDE image could not be built. Contact SafeInsights support.'
+    return 'The run environment could not be built. Contact SafeInsights support.'
 }
 
 export const ImageStatusBadge: React.FC<{ status: string | null; error: string | null }> = ({ status, error }) => {

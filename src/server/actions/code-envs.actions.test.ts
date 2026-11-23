@@ -1473,7 +1473,7 @@ describe('a refused caller gets no code env content (OTTER-891)', () => {
     })
 })
 
-describe('research IDE image', () => {
+describe('run environment image', () => {
     const fields = {
         name: 'Image Test',
         identifier: 'image_test',

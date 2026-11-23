@@ -174,23 +174,36 @@ describe('reconcileImages', () => {
         expect(triggerMicrovmImageBuild).not.toHaveBeenCalled()
     })
 
-    it('deletes the image, the copy of the org image and the row of a url nothing uses', async () => {
+    // The image API refuses a name ("Invalid ARN format"), so the ARN the build reported is used.
+    it('deletes the image by its ARN, both copies in ECR, and the row of a url nothing uses', async () => {
         const unused = newUrl()
+        const arn = 'arn:aws:lambda:us-east-1:123456789012:microvm-image:runner-test-0123456789abcdef'
         await db
             .insertInto('microvmImage')
-            .values({ url: unused, status: 'IMAGE-READY', imageVersion: '1.0' })
+            .values({ url: unused, status: 'IMAGE-READY', imageArn: arn, imageVersion: '1.0', layerHash: 'layer-1' })
             .execute()
 
         expect((await reconcileImages(db)).deleted).toBe(1)
 
-        expect(microvms.commandCalls(DeleteMicrovmImageCommand)[0].args[0].input).toEqual({
-            imageIdentifier: `ide-test-${urlHash(unused)}`,
-        })
+        expect(microvms.commandCalls(DeleteMicrovmImageCommand)[0].args[0].input).toEqual({ imageIdentifier: arn })
         expect(ecr.commandCalls(BatchDeleteImageCommand)[0].args[0].input).toEqual({
             repositoryName: 'si/microvm-base-test',
-            imageIds: [{ imageTag: urlHash(unused) }],
+            imageIds: [{ imageTag: urlHash(unused) }, { imageTag: `${urlHash(unused)}-layer-1` }],
         })
         expect(await rowFor(unused)).toBeUndefined()
+    })
+
+    // A url whose first build never finished has no image to delete, only the copy and the row.
+    it('deletes the copy and the row of an unused url that never got an image', async () => {
+        const unused = newUrl()
+        await db.insertInto('microvmImage').values({ url: unused, status: 'IMAGE-FAILED' }).execute()
+
+        expect((await reconcileImages(db)).deleted).toBe(1)
+
+        expect(microvms.commandCalls(DeleteMicrovmImageCommand)).toHaveLength(0)
+        expect(ecr.commandCalls(BatchDeleteImageCommand)[0].args[0].input.imageIds).toEqual([
+            { imageTag: urlHash(unused) },
+        ])
     })
 
     it('keeps the image of a url that only a study still holds', async () => {
@@ -215,7 +228,7 @@ describe('reconcileImages', () => {
         const unused = newUrl()
         await db
             .insertInto('microvmImage')
-            .values({ url: unused, status: 'IMAGE-READY', imageVersion: '1.0' })
+            .values({ url: unused, status: 'IMAGE-READY', imageArn: 'arn:image', imageVersion: '1.0' })
             .execute()
         const { url } = await envWithUrl()
         microvms.on(DeleteMicrovmImageCommand).rejects(new Error('in use'))
