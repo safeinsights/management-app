@@ -50,6 +50,12 @@ describe('SubmitConfirmationModal', () => {
         })
     })
 
+    it('styles the confirm button as destructive for the error variant', () => {
+        renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting={false} variant="error" />)
+
+        expect(confirmButton('Submit proposal')).toHaveAttribute('data-variant', 'error')
+    })
+
     it("keeps Mantine's default loading treatment when no loading label is given", () => {
         renderWithProviders(<SubmitConfirmationModal {...props} isSubmitting />)
 

@@ -2,6 +2,8 @@ import { type FC, type ReactNode } from 'react'
 import { Button, Group, Loader, Stack, Text } from '@mantine/core'
 import { AppModal } from '@/components/modals/app-modal'
 
+export type ConfirmVariant = 'default' | 'error'
+
 interface SubmitConfirmationModalProps {
     isOpen: boolean
     onClose: () => void
@@ -12,6 +14,7 @@ interface SubmitConfirmationModalProps {
     confirmLabel: string
     /** Omit to keep Mantine's default treatment, which covers the label with a loader overlay. */
     confirmLoadingLabel?: string
+    variant?: ConfirmVariant
 }
 
 // With a loading label the busy state uses `disabled` plus a `leftSection` spinner rather than
@@ -21,10 +24,13 @@ const ConfirmButton: FC<{
     isSubmitting: boolean
     confirmLabel: string
     confirmLoadingLabel?: string
-}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel }) => {
+    variant: ConfirmVariant
+}> = ({ onConfirm, isSubmitting, confirmLabel, confirmLoadingLabel, variant }) => {
+    const buttonVariant = variant === 'error' ? 'error' : 'filled'
+
     if (!confirmLoadingLabel) {
         return (
-            <Button onClick={onConfirm} loading={isSubmitting}>
+            <Button variant={buttonVariant} onClick={onConfirm} loading={isSubmitting}>
                 {confirmLabel}
             </Button>
         )
@@ -32,6 +38,7 @@ const ConfirmButton: FC<{
 
     return (
         <Button
+            variant={buttonVariant}
             onClick={onConfirm}
             disabled={isSubmitting}
             // No explicit color, so the loader greys out in step with the label.
@@ -51,6 +58,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
     body,
     confirmLabel,
     confirmLoadingLabel,
+    variant = 'default',
 }) => (
     // X, Escape and outside-click close with Cancel too: left live while Cancel is disabled they
     // would dismiss a running submission with no sign of whether it was cancelled.
@@ -76,6 +84,7 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
                     isSubmitting={isSubmitting}
                     confirmLabel={confirmLabel}
                     confirmLoadingLabel={confirmLoadingLabel}
+                    variant={variant}
                 />
             </Group>
         </Stack>
