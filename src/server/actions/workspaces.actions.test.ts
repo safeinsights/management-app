@@ -178,6 +178,7 @@ describe('Workspace Actions', () => {
             const expectedKey = pathForStarterCode({ orgSlug: org.slug, codeEnvId: codeEnv.id, fileName: 'main.R' })
             expect(result.starterFiles).toHaveLength(1)
             expect(result.starterFiles[0].name).toBe('main.R')
+            expect(result.templateFileName).toBe('main.R')
             expect(result.starterFiles[0].url).toContain(expectedKey)
             // the original bug signed the bare name as the key, which resolves to the bucket root
             expect(result.starterFiles[0].url).not.toBe('https://signed.example/main.R')
