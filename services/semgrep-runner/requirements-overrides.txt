@@ -1,0 +1,2 @@
+# Semgrep pins mcp==1.29.0 (CVE-2026-115563, fixed in 1.30.0). Remove once a Semgrep release moves its pin.
+mcp==1.30.0
