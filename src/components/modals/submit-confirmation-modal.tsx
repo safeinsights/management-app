@@ -73,9 +73,9 @@ export const SubmitConfirmationModal: FC<SubmitConfirmationModalProps> = ({
         closeOnEscape={!isSubmitting}
         closeOnClickOutside={!isSubmitting}
     >
-        <Stack gap="xl">
-            <Text size="md">{body}</Text>
-            <Group>
+        <Stack gap="md">
+            <Text size="sm">{body}</Text>
+            <Group gap="sm">
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </Button>
