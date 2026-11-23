@@ -1,11 +1,11 @@
 'use client'
 
-import { ActionIcon, Button, Group, Stack, Text } from '@mantine/core'
+import { ActionIcon } from '@mantine/core'
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import { AppModal } from '@/components/modals/app-modal'
+import { SubmitConfirmationModal } from '@/components/modals/submit-confirmation-modal'
 import { showToast } from '@/components/toast-notifications'
 import { softDeleteStudyAction } from '@/server/actions/study.actions'
 import { StudyRow } from './types'
@@ -58,22 +58,16 @@ export function DeleteDraftButton({ study }: { study: StudyRow }) {
             >
                 <TrashIcon />
             </ActionIcon>
-            <AppModal isOpen={isOpen} onClose={close} title="Confirm proposal draft deletion?">
-                <Stack>
-                    <Text size="md">
-                        Please confirm that you are wanting to delete this proposal draft. Once this draft is deleted
-                        you will not be able to recover it. This action cannot be undone.
-                    </Text>
-                    <Group>
-                        <Button variant="outline" onClick={close} disabled={isPending}>
-                            Cancel
-                        </Button>
-                        <Button variant="error" onClick={confirm} loading={isPending}>
-                            Yes, delete proposal draft
-                        </Button>
-                    </Group>
-                </Stack>
-            </AppModal>
+            <SubmitConfirmationModal
+                isOpen={isOpen}
+                onClose={close}
+                onConfirm={confirm}
+                isSubmitting={isPending}
+                title="Confirm proposal draft deletion?"
+                body="Please confirm that you are wanting to delete this proposal draft. Once this draft is deleted you will not be able to recover it. This action cannot be undone."
+                confirmLabel="Yes, delete proposal draft"
+                variant="error"
+            />
         </>
     )
 }
