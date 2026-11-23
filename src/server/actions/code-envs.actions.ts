@@ -26,6 +26,7 @@ import {
     toPgDbName,
 } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
+import { requestImageBuild } from '@/server/microvm/images'
 import { sanitizeFileName } from '@/lib/utils'
 import { dockerImageRefSchema, identifierRegex } from '@/schema/code-env'
 import { DATA_SOURCE_TYPES, type DataSourceType } from '@/lib/types'
@@ -229,6 +230,9 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
             )
         }
 
+        // The research IDE runs on an image built from this url; see src/server/microvm/images.ts.
+        await requestImageBuild(db, newCodeEnv.url)
+
         return newCodeEnv
     })
 
@@ -406,6 +410,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                         }),
                     )
                 }
+                await requestImageBuild(db, updatedCodeEnv.url)
             }
 
             return updatedCodeEnv
